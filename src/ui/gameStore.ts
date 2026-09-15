@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 import { assignIdleWorker, assignWorker, withdrawWorker } from '../sim/assign'
 import { cloneSave } from '../sim/clone'
 import { createSave } from '../sim/createSave'
@@ -12,7 +12,7 @@ import type { ActionResult, ItemId, Save, StationId } from '../sim/types'
 import { loadSave, persistSave } from './saveGame'
 
 export const useGameStore = defineStore('game', () => {
-  const save = ref<Save>(createSave())
+  const save = shallowRef<Save>(createSave())
   const notice = ref('')
   const offlineSeconds = ref(0)
   let timer = 0
