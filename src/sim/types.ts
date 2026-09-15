@@ -1,85 +1,45 @@
-export type ClassId = 'warrior' | 'ranger' | 'sorcerer'
+export type StationId =
+  | 'woodcutting'
+  | 'mining'
+  | 'alchemy'
+  | 'fishing'
+  | 'cooking'
+  | 'forging'
 
-export type CombatSkillId =
-  | 'slash'
-  | 'guard'
-  | 'aimedShot'
-  | 'snare'
-  | 'firebolt'
-  | 'frostShield'
+export type ItemId = 'wood' | 'ore' | 'slag' | 'fish' | 'meal' | 'potion' | 'weapon' | 'blueprint'
 
-export type LifeId = 'mining' | 'woodcutting' | 'alchemy'
+export type ClassId = 'laborer' | 'artisan' | 'wanderer'
 
-export type ItemId = 'log' | 'oakLog' | 'herb' | 'minorPotion' | 'copperOre'
-
-export type TreeId = 'normalTree' | 'oakTree'
-
-export type MineNodeId = 'copperNode'
-
-export type AlchemyRecipeId = 'brewMinor'
+export type StallReason = 'emptyInput' | 'fullOutput'
 
 export type ActionResult = { ok: true } | { ok: false; reason: string }
-
-export type LifeTrack = {
-  lifeLevel: number
-  lifeXp: number
-}
-
-export type WoodcuttingAssignment = {
-  type: 'life'
-  lifeId: 'woodcutting'
-  treeId: TreeId
-  progressS: number
-}
-
-export type AlchemyAssignment = {
-  type: 'life'
-  lifeId: 'alchemy'
-  recipeId: AlchemyRecipeId
-  batchQty: number
-  batchRemainS: number
-}
-
-export type MiningAssignment = {
-  type: 'life'
-  lifeId: 'mining'
-  nodeId: MineNodeId
-  progressS: number
-}
-
-export type CombatAssignment = {
-  type: 'combat'
-  target: 'dummy'
-  progressS: number
-}
-
-export type Assignment =
-  | WoodcuttingAssignment
-  | AlchemyAssignment
-  | MiningAssignment
-  | CombatAssignment
-  | null
 
 export type Worker = {
   id: string
   name?: string
-  classId: ClassId
-  combatLevel: number
-  combatXp: number
-  knownCombatSkills: CombatSkillId[]
-  assignment: Assignment
+  /** 占位。第一期不当战斗成长用。 */
+  classId?: ClassId
+  assignment: StationId | null
+}
+
+export type StationState = {
+  progress: number
+  stallReason: StallReason | null
+  completed: number
+  resonanceStreak: number
 }
 
 export type Save = {
   gold: number
   bank: Partial<Record<ItemId, number>>
   workers: Worker[]
-  life: {
-    woodcutting: LifeTrack
-    alchemy: LifeTrack
-    mining: LifeTrack
-  }
+  stations: Record<StationId, StationState>
   lastTick: number
   elapsedS: number
   nextWorkerId: number
+}
+
+export type Hint = {
+  kind: 'bottleneck' | 'resonance'
+  text: string
 }

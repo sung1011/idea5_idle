@@ -1,5 +1,6 @@
 import { createSave } from '../sim/createSave'
-import type { Save } from '../sim/types'
+import { STATION_IDS } from '../sim/tables'
+import type { Save, StationState } from '../sim/types'
 
 export const SAVE_KEY = 'idea5Idle'
 
@@ -14,8 +15,31 @@ function looksLikeSave(value: unknown): value is Save {
     typeof s.lastTick === 'number' &&
     typeof s.elapsedS === 'number' &&
     typeof s.gold === 'number' &&
-    Array.isArray(s.workers)
+    Array.isArray(s.workers) &&
+    !!s.stations &&
+    typeof s.stations === 'object'
   )
+}
+
+function blankStations(): Save['stations'] {
+  return createSave().stations
+}
+
+function mergeStations(raw: Save['stations'] | undefined): Save['stations'] {
+  const blank = blankStations()
+  const next = { ...blank }
+  if (!raw) return next
+  for (const id of STATION_IDS) {
+    const incoming = raw[id] as StationState | undefined
+    if (!incoming) continue
+    next[id] = {
+      progress: incoming.progress ?? 0,
+      stallReason: incoming.stallReason ?? null,
+      completed: incoming.completed ?? 0,
+      resonanceStreak: incoming.resonanceStreak ?? 0,
+    }
+  }
+  return next
 }
 
 export function loadSave(): Save | null {
@@ -31,11 +55,7 @@ export function loadSave(): Save | null {
       ...parsed,
       bank: parsed.bank ?? {},
       workers: parsed.workers ?? [],
-      life: {
-        woodcutting: { ...blank.life.woodcutting, ...parsed.life?.woodcutting },
-        alchemy: { ...blank.life.alchemy, ...parsed.life?.alchemy },
-        mining: { ...blank.life.mining, ...parsed.life?.mining },
-      },
+      stations: mergeStations(parsed.stations),
     }
   } catch {
     return null

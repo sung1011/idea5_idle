@@ -1,6 +1,8 @@
-# 双线闲置 · 主体
+# 车间闲置 · 主体
 
-纯前端挂机。气质接近 Melvor Idle：战斗一条线，生活一条线，各自升级、各自挂机。工程对齐同作者 idea3_hospital：Vue3 + TypeScript + Vite + Pinia + Vitest，`src/sim` 纯逻辑，`src/ui` 薄门面，在线与离线都走同一个 `applyTick`。不复制医院的房间 / 污染 / 病人。
+纯前端挂机。定位：**抽工人、排流水线、同站堆人加速**。第一期纯生活，不做战斗。
+
+工程对齐同作者 idea3_hospital：Vue3 + TypeScript + Vite + Pinia + Vitest，`src/sim` 纯逻辑，`src/ui` 薄门面，在线与离线都走同一个 `applyTick`。不复制医院的房间 / 污染 / 病人。
 
 另见：[分阶段落地](todo.md)
 
@@ -8,150 +10,119 @@
 
 ## 1. 定位
 
-一存档是一个账号，下面有多名 **worker**。账号共用银行和金币；每个 worker 自带职业、战斗进度和当前派遣。
+一存档是一个账号：共用银行（站间缓冲）、工人名册、统一时钟。金币只服务生活（抽人消耗 / 卖货），不接战斗。
 
-两套进度：
+- **Worker**：抽取获得。可保留 `classId` 占位，第一期不当战斗成长用。
+- **生活站点**：伐木、采矿、炼金、钓鱼、烹饪、锻造（武器）。各站独立玩法 + 挂机，经银行连成流水线。
+- 武器是制品：收藏或卖钱，不武装战斗。
 
-- 战斗：创建 worker 时选职业 → 该 worker 战斗等级升级 → 扣账号金币，把战斗技能写入该 worker 的 `knownCombatSkills`。
-- 生活：伐木、采矿、炼金等各自独立玩法、独立挂机。派遣某个 worker 去做，不花金币学，也不叫「技能」。
+三条主轴：
 
-可同时派遣：例如 worker A 采矿（生活挂机），worker B 战斗。只要分属不同 worker，生活 idle 与战斗 idle 在同一次 `applyTick` 里并行结算。
-
-两条线只在银行 / 金币汇合：生活产货进账号 `bank` → 卖出变成账号 `gold` → 拿金币给某个 worker 买战斗技能。生活玩法自己转。
-
-本阶段是脚手架：目录、表、学战斗技能规则、worker roster、伐木/炼金挂机骨架、采矿目录占位、存档键、最小页。可玩闭环留给后续阶段。
-
----
-
-## 2. 两套系统（术语勿混）
-
-### 2.1 「技能」= 战斗技能
-
-只属于某个 worker 的已选职业。解锁看 **该 worker 的战斗等级**，花费是 **账号金币**。
-
-流程：创建 worker 时选职业（战士 / 游侠 / 术士）→ 该 worker 战斗等级升级 → 用账号金币学习该职业的战斗技能，写入 `knownCombatSkills`。
-
-表：
-
-- `src/sim/tables/classDef.ts`
-- `src/sim/tables/combatSkillDef.ts`（`unlockLevel` + `goldCost`）
-- `src/sim/tables/combatLevelDef.ts`
-
-规则在 `src/sim/combat/learnSkill.ts`：职业匹配、该 worker 战斗等级够、账号金币够、该 worker 尚未拥有。失败不扣金。
-
-### 2.2 伐木 / 采矿 / 炼金 = 生活技能
-
-各自一张表、一套 idle、一条账号级生活等级。**不走「金币学技能」**，也 **不和战斗技能共用一张万能表**。
-
-生活表禁止出现指向 `combatLevel` 的 `goldCost` / `unlockLevel`。门槛字段必须写明是哪条生活线（如 `needWoodcutLevel`、`needAlchemyLevel`、`needMineLevel`）。
-
-当前骨架：
-
-- 伐木：`src/sim/life/woodcutting/` — 连续砍。派遣 worker 后，每 `chopS` 出 1 件进账号银行，进度清零后继续砍。
-- 炼金：`src/sim/life/alchemy/` — 批次釜。派遣 worker 后一次投料，整批倒计时，到期一次出货。用来证明和伐木不是同一套循环。
-- 采矿：`src/sim/life/mining/` 表 + idle 骨架已占位，完整玩法后做。
-
-生活等级 / XP 记在账号 `save.life`，不跟某个 worker 绑定。worker 只带着当前 `assignment`。
-
-### 2.3 汇合点
-
-只有账号银行和金币：
-
-1. 被派遣的 worker 把货推进 `save.bank`
-2. `sellFromBank` 把货变成 `save.gold`
-3. `learnSkill(save, workerId, skillId)` 扣 `save.gold`，写入该 worker 的 `knownCombatSkills`
-
-生活 XP、生活等级、各 worker 的战斗 XP / 战斗等级互不读写。
+1. **跨站流水线**：采矿 → 矿石缓冲 → 锻造 → 武器入库；钓鱼 → 鱼缓冲 → 烹饪；伐木弱接炼金；炼金渣滓可回流锻造。
+2. **同站堆人加速（迅雷手感）**：同一站点可派多个 worker，人越多该站进度 / 吞吐越快。
+3. **车间共振**：相邻站同时有人 → 下游少空转、额外产出 / 图纸。
+4. **堵点可见**：缓冲见底 / 堆满提示。
 
 ---
 
-## 3. Worker 与派遣
+## 2. 对象
 
-主术语是 **worker / Worker**，不要写成 character / 角色。
+### 2.1 账号
 
-- 一存档多个 worker；每个 worker 可有不同 `classId`。
-- 创建 worker 时必须选职业。
-- 默认：账号级共用 `bank` + `gold`；worker 级各自 `combatLevel` / `combatXp` / `knownCombatSkills` / 当前 `assignment`。
-- 派遣 worker 去生活挂机或战斗。同一 worker 同时只能有一份 `assignment`。
-- `applyTick` 按 roster 并行结算每个 worker 的 assignment。
+| 字段 | 含义 |
+| --- | --- |
+| `gold` | 金币。抽工人扣金，卖货加金。不学战斗技能。 |
+| `bank` | 站间缓冲。矿石、鱼、木头、渣滓、武器等堆叠，带容量。 |
+| `workers` | 工人名册。 |
+| `stations` | 各站进度 / 空转原因 / 完成次数。进度在站点上，不在工人身上。 |
+| `lastTick` | 上次 tick 墙钟，离线追赶用。 |
+| `elapsedS` | 累计游戏秒。 |
 
-`assignment` 形状：
+### 2.2 Worker
 
 ```ts
-{ type: 'life', lifeId: 'mining' | 'woodcutting' | 'alchemy', ... }
-| { type: 'combat', target: 'dummy', ... }
-| null
-```
-
-空闲 worker 的 `assignment` 为 `null`。
-
----
-
-## 4. 日循环
-
-- 1 tick = 1 秒。
-- 1 游戏日 = 1440 秒（24 分钟现实时间；1 秒 ≈ 1 游戏分钟）。
-- 游戏日与「今日已过」只做显示和日后日计刷新。不改战斗公式，也不改生活公式。
-- 在线每秒 `applyTick` 一次；离线按秒数连跑同一个 `applyTick`。各 worker 的派遣一起走。
-
----
-
-## 5. 存档字段概要
-
-`localStorage` 键名：`idea5Idle`。整份 `Save` JSON。
-
-```ts
-Save = {
-  gold,
-  bank,
-  workers: Worker[],
-  life: { woodcutting, alchemy, mining },
-  lastTick,
-  elapsedS,
-  nextWorkerId,
-}
-
 Worker = {
   id,
   name?,
-  classId,
-  combatLevel,
-  combatXp,
-  knownCombatSkills,
-  assignment,
+  classId?,          // 占位，第一期不读成长
+  assignment: stationId | null,
 }
 ```
 
-| 字段 | 层级 | 含义 |
-| --- | --- | --- |
-| `gold` | 账号 | 金币。学战斗技能、卖货的交汇处 |
-| `bank` | 账号 | 物品堆叠 |
-| `life.*` | 账号 | 各生活线等级 / XP |
-| `workers` | 账号 | worker 花名册 |
-| `Worker.classId` | worker | 创建时选定：战士 / 游侠 / 术士 |
-| `Worker.combatLevel` / `combatXp` | worker | 该 worker 的战斗等级 |
-| `Worker.knownCombatSkills` | worker | 该 worker 已学会的战斗技能 |
-| `Worker.assignment` | worker | 当前派遣；空闲为 `null` |
-| `lastTick` | 账号 | 上次 tick 的墙钟，离线追赶用 |
-| `elapsedS` | 账号 | 累计游戏秒，日循环用 |
+同一 worker 同时只能派一个站。多个 worker 可以派到同一站。
+
+### 2.3 站点
+
+| 站点 | 循环 | 消耗 | 产出 | 相邻（共振） |
+| --- | --- | --- | --- | --- |
+| 采矿 | 5s | — | 矿石 | 锻造 |
+| 锻造 | 8s | 矿石；没有矿则扣渣滓 | 武器 | 采矿、炼金 |
+| 钓鱼 | 6s | — | 鱼 | 烹饪 |
+| 烹饪 | 7s | 鱼 | 熟食 | 钓鱼 |
+| 伐木 | 5s | — | 木头 | 炼金 |
+| 炼金 | 10s | 木头 | 药剂 + 渣滓 | 锻造、伐木 |
+
+本阶段 UI 主玩采矿 / 锻造。钓鱼、烹饪、伐木、炼金是表 + 同一套 tick 骨架，可派但不当主界面。
 
 ---
 
-## 6. 离线上限建议
+## 3. 同站堆人加速
 
-建议离线追 tick 上限 **8 小时**（`OFFLINE_CAP_S = 28800`）。超过的部分丢掉，不把离线做成无上限印钞。
+进度记在站点。每秒：
 
-骨架已按这个上限切秒数并连跑 `applyTick`。离线摘要 UI、木桩离线 XP、生活离线产量展示留给阶段 4。
+```
+stackFactor(n) = n
+speed = (1 / cycleS) * stackFactor(n) * (共振 ? 1.2 : 1)
+progress += speed
+progress >= 1 → 完成一次吞吐，progress -= 1
+```
+
+例：采矿 `cycleS = 5`
+
+- 1 人：`speed = 0.2/s`，5 秒出 1 矿
+- 3 人：`speed = 0.6/s`，同等时间 3 倍吞吐（约 1.67 秒出 1 矿）
+
+没人的站不推进。原料见底或产物堆满时进度冻结，并写 `stallReason`。
 
 ---
 
-## 7. 明确不做
+## 4. 流水线与共振
 
-- 不把伐木 / 采矿 / 炼金叫做「技能」，也不用金币学习它们。
-- 不把战斗技能和生活技能塞进一张万能表。
-- 生活表不出现指向战斗等级的 `goldCost` / `unlockLevel`。
-- 不用 `characters` / `Character` 当主术语；花名册是 `workers` / `Worker`。
+主轴：采矿把矿石推进银行 → 锻造扣矿出武器。
+
+共振：`STATION_DEF.neighbors` 两端同时有人。
+
+- 双方速度 × 1.2（下游少空转）
+- 共振期间每完成 4 次吞吐，主产物额外 +1；锻造额外再掉 1 张图纸
+
+堵点：
+
+- 矿石见底 → 锻造空转
+- 矿石堆满（容量 20）→ 采矿停工
+- 鱼 / 木头同理
+
+---
+
+## 5. 抽人
+
+表驱动。扣 `RECRUIT_COST`（15）金币，按 `WORKER_NAME_POOL` / `CLASS_PLACEHOLDERS` 轮转写花名册。金币不够失败，不写工人。
+
+---
+
+## 6. 日循环与离线
+
+- 1 tick = 1 秒。
+- 1 游戏日 = 1440 秒（24 分钟现实时间）。只做显示，不改公式。
+- 在线每秒 `applyTick` 一次；离线按秒数连跑同一个 `applyTick`。
+- 离线上限 **8 小时**（`OFFLINE_CAP_S = 28800`）。超过的部分丢掉。
+
+`localStorage` 键名：`idea5Idle`。整份 `Save` JSON。
+
+---
+
+## 7. 明确不做（第一期）
+
+- 战斗、战斗成长、金币学战斗技能、木桩。
+- 后端、登录账号。「账号」只指一份本地存档。
 - 不复制 idea3_hospital 的房间、污染、病人、员工、地块技能。
-- 本阶段不做可玩闭环：创建 worker UI、木桩、卖货按钮、伐木/炼金操作台都留给后续阶段。
-- 采矿完整玩法、战斗真正出招、装备、多敌人，后做。
-- 不做后端、不做登录账号。这里的「账号」只指一份本地存档。
+- 不把 `classId` 当战斗职业树用。

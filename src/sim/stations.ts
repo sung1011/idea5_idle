@@ -1,0 +1,73 @@
+import { addToBank, takeFromBank } from './bank'
+import { assignedCount, canConsume, canProduce, pickConsume, stationResonating } from './query'
+import { RESONANCE_BONUS_EVERY, STATION_DEF, stationSpeed } from './tables'
+import type { Save, StationId } from './types'
+
+function consumeInputs(save: Save, stationId: StationId): boolean {
+  const pick = pickConsume(save, stationId)
+  if (!pick) return false
+  const def = STATION_DEF[stationId]
+  const rules = pick.kind === 'alt' ? (def.altInputs ?? []) : def.inputs
+  for (const io of rules) {
+    const took = takeFromBank(save, io.itemId, io.qty)
+    if (!took.ok) return false
+  }
+  return true
+}
+
+function emitOutputs(save: Save, stationId: StationId, extra: boolean): boolean {
+  const def = STATION_DEF[stationId]
+  const bonus = extra ? 1 : 0
+  for (const io of def.outputs) {
+    const added = addToBank(save, io.itemId, io.qty + (io === def.outputs[0] ? bonus : 0))
+    if (!added.ok) return false
+  }
+  if (extra && stationId === 'forging') {
+    addToBank(save, 'blueprint', 1)
+  }
+  return true
+}
+
+/** 完成一次吞吐：扣原料、写入银行。共振满 streak 时额外产出。 */
+export function completeCycle(save: Save, stationId: StationId): boolean {
+  if (!canConsume(save, stationId) || !canProduce(save, stationId)) return false
+  if (!consumeInputs(save, stationId)) return false
+  const station = save.stations[stationId]
+  const resonating = stationResonating(save, stationId)
+  if (resonating) station.resonanceStreak += 1
+  else station.resonanceStreak = 0
+  const extra = resonating && station.resonanceStreak % RESONANCE_BONUS_EVERY === 0
+  if (!emitOutputs(save, stationId, extra)) return false
+  station.completed += 1
+  return true
+}
+
+export function stepStation(save: Save, stationId: StationId): void {
+  const station = save.stations[stationId]
+  const n = assignedCount(save, stationId)
+  if (n <= 0) {
+    station.stallReason = null
+    return
+  }
+  if (!canConsume(save, stationId)) {
+    station.stallReason = 'emptyInput'
+    return
+  }
+  if (!canProduce(save, stationId)) {
+    station.stallReason = 'fullOutput'
+    return
+  }
+
+  station.stallReason = null
+  const speed = stationSpeed(n, STATION_DEF[stationId].cycleS, stationResonating(save, stationId))
+  station.progress += speed
+
+  while (station.progress >= 1) {
+    if (!canConsume(save, stationId) || !canProduce(save, stationId)) {
+      station.stallReason = !canConsume(save, stationId) ? 'emptyInput' : 'fullOutput'
+      break
+    }
+    if (!completeCycle(save, stationId)) break
+    station.progress -= 1
+  }
+}

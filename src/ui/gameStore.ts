@@ -1,23 +1,46 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { assignIdleWorker, assignWorker, withdrawWorker } from '../sim/assign'
+import { cloneSave } from '../sim/clone'
 import { createSave } from '../sim/createSave'
 import { settleOffline } from '../sim/offline'
+import { collectHints } from '../sim/query'
+import { recruitWorker } from '../sim/recruit'
+import { sellFromBank } from '../sim/bank'
 import { tick } from '../sim/tick'
-import type { Save } from '../sim/types'
+import type { ActionResult, ItemId, Save, StationId } from '../sim/types'
 import { loadSave, persistSave } from './saveGame'
 
 export const useGameStore = defineStore('game', () => {
   const save = ref<Save>(createSave())
+  const notice = ref('')
+  const offlineSeconds = ref(0)
   let timer = 0
   let booted = false
+
+  const hints = computed(() => collectHints(save.value))
 
   function persist() {
     persistSave(save.value)
   }
 
+  function apply(fn: (s: Save) => ActionResult): ActionResult {
+    const next = cloneSave(save.value)
+    const result = fn(next)
+    if (result.ok) {
+      save.value = next
+      persist()
+      notice.value = ''
+    } else {
+      notice.value = result.reason
+    }
+    return result
+  }
+
   function catchUp() {
     const result = settleOffline(save.value)
     save.value = result.save
+    if (result.summary.seconds > 0) offlineSeconds.value = result.summary.seconds
     persist()
   }
 
@@ -46,6 +69,7 @@ export const useGameStore = defineStore('game', () => {
     if (loaded) {
       const result = settleOffline(loaded)
       save.value = result.save
+      if (result.summary.seconds > 0) offlineSeconds.value = result.summary.seconds
     }
     persist()
   }
@@ -74,8 +98,15 @@ export const useGameStore = defineStore('game', () => {
 
   return {
     save,
-    boot,
+    notice,
+    hints,
+    offlineSeconds,
     startClock,
     stopClock,
+    recruit: () => apply(recruitWorker),
+    assignIdle: (stationId: StationId) => apply((s) => assignIdleWorker(s, stationId)),
+    withdraw: (stationId: StationId) => apply((s) => withdrawWorker(s, stationId)),
+    assign: (workerId: string, stationId: StationId | null) => apply((s) => assignWorker(s, workerId, stationId)),
+    sell: (itemId: ItemId, qty = 1) => apply((s) => sellFromBank(s, itemId, qty)),
   }
 })

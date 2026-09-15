@@ -1,5 +1,5 @@
 import { cloneSave } from './clone'
-import { OFFLINE_CAP_S } from './tables/clock'
+import { OFFLINE_CAP_S } from './tables'
 import { applyTick } from './tick'
 import type { Save } from './types'
 
@@ -17,7 +17,7 @@ export function offlineSeconds(lastTick: number, now = Date.now(), cap = OFFLINE
   return Math.max(0, Math.min(cap, Math.floor((now - lastTick) / 1000)))
 }
 
-/** 骨架：按离线秒数连跑 applyTick。各 worker 的派遣一起追。 */
+/** 骨架：按离线秒数连跑 applyTick，上限 8 小时。 */
 export function settleOffline(save: Save, now = Date.now()): OfflineResult {
   const seconds = offlineSeconds(save.lastTick, now)
   if (seconds <= 0) return { save, summary: { seconds: 0 } }

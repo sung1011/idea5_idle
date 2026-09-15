@@ -1,11 +1,14 @@
 :root {
-  --soil: #1c1812;
-  --soil-deep: #100e0a;
-  --bark: #c9b48a;
-  --moss: #6f8f5a;
-  --ember: #d48a3a;
+  --iron: #1a1612;
+  --iron-deep: #0e0c0a;
+  --plate: #241e18;
+  --seam: #3d3428;
+  --copper: #c9844a;
+  --ember: #e09a3a;
+  --moss: #7a9a5a;
+  --paper: #efe4d2;
   --muted: #8a8070;
-  --paper: #efe6d4;
+  --danger: #d45a3a;
   --font-display: 'Songti SC', 'Noto Serif SC', serif;
   --font-body: 'PingFang SC', 'Noto Sans SC', sans-serif;
   --font-mono: ui-monospace, 'SFMono-Regular', monospace;
@@ -25,8 +28,19 @@ body,
 }
 
 body {
-  background: var(--soil-deep);
+  background: var(--iron-deep);
   color: var(--paper);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
