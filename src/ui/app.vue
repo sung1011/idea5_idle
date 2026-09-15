@@ -17,6 +17,7 @@ import {
 } from '../sim/tables'
 import type { StationId } from '../sim/types'
 import { useGameStore } from './gameStore'
+import OfflineBanner from './offlineBanner.vue'
 import StationCard from './stationCard.vue'
 
 const game = useGameStore()
@@ -28,6 +29,7 @@ const ore = computed(() => bankQty(game.save, 'ore'))
 const weapon = computed(() => bankQty(game.save, 'weapon'))
 const fish = computed(() => bankQty(game.save, 'fish'))
 const meal = computed(() => bankQty(game.save, 'meal'))
+const wood = computed(() => bankQty(game.save, 'wood'))
 const idle = computed(() => idleCount(game.save))
 const canSellGoods = computed(() => SELLABLE_GOODS.some((id) => bankQty(game.save, id) > 0))
 
@@ -78,17 +80,23 @@ onUnmounted(() => {
         · 熟食 <strong>{{ meal }}</strong> / {{ ITEM_DEF.meal.cap }}
         <button type="button" :disabled="meal === 0" @click="game.sell('meal')">卖 1</button>
       </p>
+      <p class="nums">
+        木头 <strong>{{ wood }}</strong> / {{ ITEM_DEF.wood.cap }}
+        <button type="button" :disabled="wood === 0" @click="game.sell('wood')">卖 1</button>
+      </p>
       <div class="row">
         <button type="button" :disabled="!canSellGoods" @click="game.sellGoods()">卖货（武器/熟食 → 金）</button>
       </div>
     </section>
+
+    <OfflineBanner />
 
     <p v-if="game.notice" class="notice">{{ game.notice }}</p>
     <ul v-if="game.hints.length" class="hints">
       <li v-for="(h, i) in game.hints" :key="i" :class="h.kind">{{ h.text }}</li>
     </ul>
     <p v-else class="hint">
-      抽工人，把人堆到同一站加速。采矿出矿、锻造出武器；钓鱼出鱼、烹饪出熟食。相邻站同时有人会共振。
+      抽工人，把人堆到同一站加速。采矿出矿、锻造出武器；钓鱼出鱼、烹饪出熟食；伐木出木头可卖。相邻站同时有人会共振。
     </p>
 
     <section v-for="ids in PLAYABLE_CHAINS" :key="chainTitle(ids)" class="chain">
@@ -119,8 +127,10 @@ onUnmounted(() => {
     </section>
 
     <details class="panel more">
-      <summary>其它站点骨架（伐木 / 炼金）</summary>
-      <p class="hint">伐木弱接炼金；炼金渣滓可回流锻造。同站堆人规则一样，本档不当主玩。</p>
+      <summary>其它站点骨架（炼金）</summary>
+      <p class="hint">
+        伐木弱接锻造辅料 / 炼金后做，避免改现有锻造数值。炼金渣滓可回流锻造。同站堆人规则一样，本档不当主玩。
+      </p>
       <div class="grid">
         <StationCard v-for="id in SKELETON_STATION_IDS" :key="id" :station-id="id" skeleton />
       </div>
@@ -128,7 +138,8 @@ onUnmounted(() => {
 
     <p class="hint">
       采矿 {{ assignedCount(game.save, 'mining') }} 人 / 锻造 {{ assignedCount(game.save, 'forging') }} 人 · 钓鱼
-      {{ assignedCount(game.save, 'fishing') }} 人 / 烹饪 {{ assignedCount(game.save, 'cooking') }} 人。存档键 idea5Idle。
+      {{ assignedCount(game.save, 'fishing') }} 人 / 烹饪 {{ assignedCount(game.save, 'cooking') }} 人 · 伐木
+      {{ assignedCount(game.save, 'woodcutting') }} 人。存档键 idea5Idle。
     </p>
   </div>
 </template>

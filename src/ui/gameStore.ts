@@ -3,7 +3,7 @@ import { computed, ref, shallowRef } from 'vue'
 import { assignIdleWorker, assignWorker, withdrawWorker } from '../sim/assign'
 import { cloneSave } from '../sim/clone'
 import { createSave } from '../sim/createSave'
-import { settleOffline } from '../sim/offline'
+import { settleOffline, type OfflineSummary } from '../sim/offline'
 import { collectHints } from '../sim/query'
 import { recruitWorker } from '../sim/recruit'
 import { sellAllGoods, sellFromBank } from '../sim/bank'
@@ -15,7 +15,8 @@ export const useGameStore = defineStore('game', () => {
   // 整份 Save 替换，不用深层响应式，避免 structuredClone 撞上 Proxy。
   const save = shallowRef<Save>(createSave())
   const notice = ref('')
-  const offlineSeconds = ref(0)
+  const offlineSummary = ref<OfflineSummary | null>(null)
+  const offlineSeconds = computed(() => offlineSummary.value?.seconds ?? 0)
   let timer = 0
   let booted = false
 
@@ -38,11 +39,20 @@ export const useGameStore = defineStore('game', () => {
     return result
   }
 
-  function catchUp() {
-    const result = settleOffline(save.value)
+  function applyCatchUp(from: Save) {
+    const result = settleOffline(from)
     save.value = result.save
-    if (result.summary.seconds > 0) offlineSeconds.value = result.summary.seconds
+    if (result.summary.seconds > 0) offlineSummary.value = result.summary
     persist()
+    return result
+  }
+
+  function catchUp() {
+    applyCatchUp(save.value)
+  }
+
+  function dismissOffline() {
+    offlineSummary.value = null
   }
 
   function onVis() {
@@ -67,12 +77,8 @@ export const useGameStore = defineStore('game', () => {
     if (booted) return
     booted = true
     const loaded = loadSave()
-    if (loaded) {
-      const result = settleOffline(loaded)
-      save.value = result.save
-      if (result.summary.seconds > 0) offlineSeconds.value = result.summary.seconds
-    }
-    persist()
+    if (loaded) applyCatchUp(loaded)
+    else persist()
   }
 
   function startClock() {
@@ -101,9 +107,11 @@ export const useGameStore = defineStore('game', () => {
     save,
     notice,
     hints,
+    offlineSummary,
     offlineSeconds,
     startClock,
     stopClock,
+    dismissOffline,
     recruit: () => apply(recruitWorker),
     assignIdle: (stationId: StationId) => apply((s) => assignIdleWorker(s, stationId)),
     withdraw: (stationId: StationId) => apply((s) => withdrawWorker(s, stationId)),

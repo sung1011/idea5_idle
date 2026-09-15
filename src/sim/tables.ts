@@ -102,13 +102,14 @@ export const STATION_DEF: Record<StationId, StationDef> = {
 
 export const STATION_IDS = Object.keys(STATION_DEF) as StationId[]
 
-/** 主界面两条生活链：采矿→锻造、钓鱼→烹饪。倍率共用 RESONANCE_*。 */
+/** 主界面：采矿→锻造、钓鱼→烹饪、伐木（产木可卖）。炼金仍骨架。 */
 export const PLAYABLE_CHAINS: StationId[][] = [
   ['mining', 'forging'],
   ['fishing', 'cooking'],
+  ['woodcutting'],
 ]
 export const PLAYABLE_STATION_IDS: StationId[] = PLAYABLE_CHAINS.flat()
-export const SKELETON_STATION_IDS: StationId[] = ['woodcutting', 'alchemy']
+export const SKELETON_STATION_IDS: StationId[] = ['alchemy']
 export const SELLABLE_GOODS: ItemId[] = ['weapon', 'meal']
 
 export const WORKER_NAME_POOL = [

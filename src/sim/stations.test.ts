@@ -50,6 +50,30 @@ describe('mining → bank', () => {
   })
 })
 
+describe('woodcutting → bank', () => {
+  it('one woodcutter deposits wood after one cycle', () => {
+    const save = roster(1)
+    assignWorker(save, save.workers[0].id, 'woodcutting')
+    const next = ticks(save, 5)
+    expect(bankQty(next, 'wood')).toBe(1)
+    expect(next.stations.woodcutting.completed).toBe(1)
+    expect(next.stations.woodcutting.progress).toBeCloseTo(0)
+  })
+
+  it('three woodcutters produce 3x wood in the same time', () => {
+    const one = roster(1)
+    assignWorker(one, one.workers[0].id, 'woodcutting')
+    const three = roster(3)
+    for (const w of three.workers) assignWorker(three, w.id, 'woodcutting')
+
+    const a = ticks(one, 5)
+    const b = ticks(three, 5)
+    expect(bankQty(a, 'wood')).toBe(1)
+    expect(bankQty(b, 'wood')).toBe(3)
+    expect(b.stations.woodcutting.completed).toBe(3)
+  })
+})
+
 describe('fishing → bank', () => {
   it('one fisher deposits fish after one cycle', () => {
     const save = roster(1)
