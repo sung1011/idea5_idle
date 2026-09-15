@@ -3,6 +3,9 @@ import { assignedCount, canConsume, canProduce, pickConsume, stationResonating }
 import { RESONANCE_BONUS_EVERY, STATION_DEF, stationSpeed } from './tables'
 import type { Save, StationId } from './types'
 
+/** 1/6、1/7 这类 cycle 累加会卡在 0.999…，差一丁点到 1。 */
+const CYCLE_EPS = 1e-9
+
 function consumeInputs(save: Save, stationId: StationId): boolean {
   const pick = pickConsume(save, stationId)
   if (!pick) return false
@@ -62,12 +65,13 @@ export function stepStation(save: Save, stationId: StationId): void {
   const speed = stationSpeed(n, STATION_DEF[stationId].cycleS, stationResonating(save, stationId))
   station.progress += speed
 
-  while (station.progress >= 1) {
+  while (station.progress + CYCLE_EPS >= 1) {
     if (!canConsume(save, stationId) || !canProduce(save, stationId)) {
       station.stallReason = !canConsume(save, stationId) ? 'emptyInput' : 'fullOutput'
       break
     }
     if (!completeCycle(save, stationId)) break
     station.progress -= 1
+    if (Math.abs(station.progress) < CYCLE_EPS) station.progress = 0
   }
 }

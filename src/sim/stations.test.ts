@@ -50,6 +50,55 @@ describe('mining → bank', () => {
   })
 })
 
+describe('fishing → bank', () => {
+  it('one fisher deposits fish after one cycle', () => {
+    const save = roster(1)
+    assignWorker(save, save.workers[0].id, 'fishing')
+    const next = ticks(save, 6)
+    expect(bankQty(next, 'fish')).toBe(1)
+    expect(next.stations.fishing.completed).toBe(1)
+    expect(next.stations.fishing.progress).toBeCloseTo(0)
+  })
+
+  it('three fishers produce 3x fish in the same time', () => {
+    const one = roster(1)
+    assignWorker(one, one.workers[0].id, 'fishing')
+    const three = roster(3)
+    for (const w of three.workers) assignWorker(three, w.id, 'fishing')
+
+    const a = ticks(one, 6)
+    const b = ticks(three, 6)
+    expect(bankQty(a, 'fish')).toBe(1)
+    expect(bankQty(b, 'fish')).toBe(3)
+    expect(b.stations.fishing.completed).toBe(3)
+  })
+})
+
+describe('cooking pipeline', () => {
+  it('consumes fish and deposits a meal', () => {
+    const save = roster(1)
+    save.bank.fish = 1
+    assignWorker(save, save.workers[0].id, 'cooking')
+    const next = ticks(save, 7)
+    expect(bankQty(next, 'fish')).toBe(0)
+    expect(bankQty(next, 'meal')).toBe(1)
+    expect(next.stations.cooking.completed).toBe(1)
+    expect(next.stations.cooking.stallReason).toBeNull()
+  })
+
+  it('idles with a hint when there is no fish', () => {
+    const save = roster(1)
+    assignWorker(save, save.workers[0].id, 'cooking')
+    const next = ticks(save, 7)
+    expect(bankQty(next, 'meal')).toBe(0)
+    expect(next.stations.cooking.completed).toBe(0)
+    expect(next.stations.cooking.progress).toBe(0)
+    expect(next.stations.cooking.stallReason).toBe('emptyInput')
+    const hints = collectHints(next)
+    expect(hints.some((h) => h.kind === 'bottleneck' && h.text.includes('见底'))).toBe(true)
+  })
+})
+
 describe('forging pipeline', () => {
   it('consumes ore and deposits a weapon', () => {
     const save = roster(1)
@@ -83,5 +132,29 @@ describe('resonance', () => {
     assignWorker(save, save.workers[1].id, 'forging')
     expect(isResonating(save, 'mining', 'forging')).toBe(true)
     expect(collectHints(save).some((h) => h.kind === 'resonance')).toBe(true)
+  })
+
+  it('detects fishing + cooking when both have workers', () => {
+    const save = roster(2)
+    assignWorker(save, save.workers[0].id, 'fishing')
+    expect(isResonating(save, 'fishing', 'cooking')).toBe(false)
+    assignWorker(save, save.workers[1].id, 'cooking')
+    expect(isResonating(save, 'fishing', 'cooking')).toBe(true)
+    expect(collectHints(save).some((h) => h.kind === 'resonance' && h.text.includes('钓鱼'))).toBe(true)
+  })
+
+  it('speeds fishing when cooking also has a worker', () => {
+    const alone = roster(1)
+    assignWorker(alone, alone.workers[0].id, 'fishing')
+    const pair = roster(2)
+    assignWorker(pair, pair.workers[0].id, 'fishing')
+    assignWorker(pair, pair.workers[1].id, 'cooking')
+
+    const a = ticks(alone, 5)
+    const b = ticks(pair, 5)
+    expect(a.stations.fishing.completed).toBe(0)
+    expect(a.stations.fishing.progress).toBeCloseTo(5 / 6)
+    expect(bankQty(b, 'fish')).toBe(1)
+    expect(b.stations.fishing.completed).toBe(1)
   })
 })

@@ -6,7 +6,7 @@ import { createSave } from '../sim/createSave'
 import { settleOffline } from '../sim/offline'
 import { collectHints } from '../sim/query'
 import { recruitWorker } from '../sim/recruit'
-import { sellFromBank } from '../sim/bank'
+import { sellAllGoods, sellFromBank } from '../sim/bank'
 import { tick } from '../sim/tick'
 import type { ActionResult, ItemId, Save, StationId } from '../sim/types'
 import { loadSave, persistSave } from './saveGame'
@@ -109,5 +109,6 @@ export const useGameStore = defineStore('game', () => {
     withdraw: (stationId: StationId) => apply((s) => withdrawWorker(s, stationId)),
     assign: (workerId: string, stationId: StationId | null) => apply((s) => assignWorker(s, workerId, stationId)),
     sell: (itemId: ItemId, qty = 1) => apply((s) => sellFromBank(s, itemId, qty)),
+    sellGoods: () => apply(sellAllGoods),
   }
 })

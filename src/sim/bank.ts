@@ -1,4 +1,4 @@
-import { ITEM_DEF } from './tables'
+import { ITEM_DEF, SELLABLE_GOODS } from './tables'
 import type { ActionResult, ItemId, Save } from './types'
 
 export function bankQty(save: Save, itemId: ItemId): number {
@@ -40,5 +40,19 @@ export function sellFromBank(save: Save, itemId: ItemId, qty: number): ActionRes
   const took = takeFromBank(save, itemId, qty)
   if (!took.ok) return took
   save.gold += def.sellGold * qty
+  return { ok: true }
+}
+
+/** 把武器和熟食整批换成金币。 */
+export function sellAllGoods(save: Save): ActionResult {
+  let sold = 0
+  for (const itemId of SELLABLE_GOODS) {
+    const qty = bankQty(save, itemId)
+    if (qty <= 0) continue
+    const result = sellFromBank(save, itemId, qty)
+    if (!result.ok) return result
+    sold += qty
+  }
+  if (sold <= 0) return { ok: false, reason: '没有可卖的武器或熟食' }
   return { ok: true }
 }
