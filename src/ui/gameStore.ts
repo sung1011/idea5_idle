@@ -12,6 +12,7 @@ import type { ActionResult, ItemId, Save, StationId } from '../sim/types'
 import { loadSave, persistSave } from './saveGame'
 
 export const useGameStore = defineStore('game', () => {
+  // 整份 Save 替换，不用深层响应式，避免 structuredClone 撞上 Proxy。
   const save = shallowRef<Save>(createSave())
   const notice = ref('')
   const offlineSeconds = ref(0)
