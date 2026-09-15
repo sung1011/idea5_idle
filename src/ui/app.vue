@@ -57,6 +57,8 @@ onUnmounted(() => {
       <h1>车间闲置</h1>
     </header>
 
+    <OfflineBanner />
+
     <section class="panel top">
       <p>游戏日 {{ day }} · 今日 {{ today }}</p>
       <p class="clock">已运行 {{ clock }}</p>
@@ -88,8 +90,6 @@ onUnmounted(() => {
         <button type="button" :disabled="!canSellGoods" @click="game.sellGoods()">卖货（武器/熟食 → 金）</button>
       </div>
     </section>
-
-    <OfflineBanner />
 
     <p v-if="game.notice" class="notice">{{ game.notice }}</p>
     <ul v-if="game.hints.length" class="hints">

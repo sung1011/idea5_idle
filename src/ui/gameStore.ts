@@ -81,6 +81,8 @@ export const useGameStore = defineStore('game', () => {
     else persist()
   }
 
+  boot()
+
   function startClock() {
     stopClock()
     boot()
