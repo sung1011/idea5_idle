@@ -5,6 +5,7 @@ import { useGameStore } from './gameStore'
 import BankPanel from './bankPanel.vue'
 import OfflineBanner from './offlineBanner.vue'
 import EncounterPanel from './encounterPanel.vue'
+import GmPanel from './gmPanel.vue'
 import WorkersPanel from './workersPanel.vue'
 import WorkshopPanel from './workshopPanel.vue'
 
@@ -19,6 +20,7 @@ type TabId = (typeof TABS)[number]['id']
 
 const game = useGameStore()
 const tab = ref<TabId>('workshop')
+const gmOpen = ref(false)
 
 const day = computed(() => gameDay(game.save.elapsedS))
 const clock = computed(() => formatClock(game.save.elapsedS))
@@ -36,8 +38,11 @@ onUnmounted(() => {
 <template>
   <div class="shell">
     <header class="mast">
-      <p class="shift">第一期 · 纯生活流水线 · 偶遇一键出发</p>
-      <h1>车间闲置</h1>
+      <div>
+        <p class="shift">第一期 · 纯生活流水线 · 偶遇一键出发</p>
+        <h1>车间闲置</h1>
+      </div>
+      <button type="button" class="gm-open" @click="gmOpen = true">GM</button>
     </header>
 
     <OfflineBanner />
@@ -87,6 +92,7 @@ onUnmounted(() => {
     <EncounterPanel v-else />
 
     <p class="hint">存档键 idea5Idle。</p>
+    <GmPanel v-if="gmOpen" @close="gmOpen = false" />
   </div>
 </template>
 
@@ -103,8 +109,25 @@ onUnmounted(() => {
 
 .mast {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mast > div {
+  display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.gm-open {
+  min-height: 28px;
+  padding: 2px 8px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  opacity: 0.42;
+  box-shadow: none;
 }
 
 .shift {

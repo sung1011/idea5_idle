@@ -54,3 +54,12 @@ export function persistSave(save: Save): void {
     // quota / private mode
   }
 }
+
+export function clearSave(): void {
+  if (!canUseStorage()) return
+  try {
+    localStorage.removeItem(SAVE_KEY)
+  } catch {
+    // private mode
+  }
+}

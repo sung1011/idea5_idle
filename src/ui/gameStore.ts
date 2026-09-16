@@ -3,6 +3,14 @@ import { computed, ref, shallowRef } from 'vue'
 import { assignIdleWorker, assignWorker, withdrawWorker } from '../sim/assign'
 import { cloneSave } from '../sim/clone'
 import { createSave } from '../sim/createSave'
+import {
+  gmAddDiamonds,
+  gmAddGold,
+  gmAddWorkers,
+  gmFillBankBasics,
+  gmMaxStations,
+  gmResetSave,
+} from '../sim/gm'
 import { settleOffline, type OfflineSummary } from '../sim/offline'
 import { recruitWorker } from '../sim/recruit'
 import { selectStationCategory } from '../sim/stationProgress'
@@ -17,7 +25,7 @@ import {
 } from '../sim/encounters'
 import { tick } from '../sim/tick'
 import type { ActionResult, CategoryId, ItemId, Save, StationId } from '../sim/types'
-import { loadSave, persistSave } from './saveGame'
+import { clearSave, loadSave, persistSave } from './saveGame'
 
 export const useGameStore = defineStore('game', () => {
   // 整份 Save 替换，不用深层响应式，避免 structuredClone 撞上 Proxy。
@@ -137,5 +145,18 @@ export const useGameStore = defineStore('game', () => {
     barter: (index: number) => apply((s) => barterMerchant(s, index)),
     buyMerchant: (index: number) => apply((s) => buyMerchant(s, index)),
     pawn: (index: number) => apply((s) => pawnMerchant(s, index)),
+    gmReset: () => {
+      clearSave()
+      save.value = gmResetSave()
+      persist()
+      offlineSummary.value = null
+      notice.value = '已初始化'
+      noticeKind.value = 'ok'
+    },
+    gmAddGold: () => apply(gmAddGold),
+    gmAddDiamonds: () => apply(gmAddDiamonds),
+    gmAddWorkers: () => apply(gmAddWorkers),
+    gmMaxStations: () => apply(gmMaxStations),
+    gmFillBankBasics: () => apply(gmFillBankBasics),
   }
 })
