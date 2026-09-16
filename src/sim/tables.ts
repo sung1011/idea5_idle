@@ -89,7 +89,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
     id: 'woodcutting',
     label: '伐木',
     neighbors: ['alchemy'],
-    categories: singleCategory('木头', 5, [], [{ itemId: 'wood', qty: 1 }]),
+    categories: singleCategory('木头', 20, [], [{ itemId: 'wood', qty: 1 }]),
   },
   mining: {
     id: 'mining',
@@ -99,7 +99,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
       {
         id: 'copper',
         label: '铜矿',
-        cycleS: 5,
+        cycleS: 20,
         costs: [],
         outputs: [{ itemId: 'ore', qty: 1 }],
         xpPerCycle: 1,
@@ -108,7 +108,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
       {
         id: 'iron',
         label: '铁矿',
-        cycleS: 6,
+        cycleS: 24,
         costs: [],
         outputs: [{ itemId: 'ironOre', qty: 1 }],
         xpPerCycle: 2,
@@ -117,7 +117,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
       {
         id: 'mithril',
         label: '秘银矿',
-        cycleS: 7,
+        cycleS: 28,
         costs: [],
         outputs: [{ itemId: 'mithrilOre', qty: 1 }],
         xpPerCycle: 3,
@@ -131,7 +131,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
     neighbors: ['forging', 'woodcutting'],
     categories: singleCategory(
       '药剂',
-      10,
+      40,
       [{ itemId: 'wood', qty: 1 }],
       [
         { itemId: 'potion', qty: 1 },
@@ -143,13 +143,13 @@ export const STATION_DEF: Record<StationId, StationDef> = {
     id: 'fishing',
     label: '钓鱼',
     neighbors: ['cooking'],
-    categories: singleCategory('鱼', 6, [], [{ itemId: 'fish', qty: 1 }]),
+    categories: singleCategory('鱼', 24, [], [{ itemId: 'fish', qty: 1 }]),
   },
   cooking: {
     id: 'cooking',
     label: '烹饪',
     neighbors: ['fishing'],
-    categories: singleCategory('熟食', 7, [{ itemId: 'fish', qty: 1 }], [{ itemId: 'meal', qty: 1 }]),
+    categories: singleCategory('熟食', 28, [{ itemId: 'fish', qty: 1 }], [{ itemId: 'meal', qty: 1 }]),
   },
   forging: {
     id: 'forging',
@@ -159,7 +159,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
       {
         id: 'copper',
         label: '铜器',
-        cycleS: 8,
+        cycleS: 32,
         costs: [{ itemId: 'ore', qty: 1 }],
         altCosts: [{ itemId: 'slag', qty: 1 }],
         outputs: [{ itemId: 'weapon', qty: 1 }],
@@ -169,7 +169,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
       {
         id: 'iron',
         label: '铁器',
-        cycleS: 9,
+        cycleS: 36,
         costs: [
           { itemId: 'ironOre', qty: 1 },
           { itemId: 'wood', qty: 1 },
@@ -181,7 +181,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
       {
         id: 'mithril',
         label: '秘银器',
-        cycleS: 10,
+        cycleS: 40,
         costs: [
           { itemId: 'mithrilOre', qty: 1 },
           { itemId: 'wood', qty: 2 },
@@ -196,16 +196,24 @@ export const STATION_DEF: Record<StationId, StationDef> = {
 
 export const STATION_IDS = Object.keys(STATION_DEF) as StationId[]
 
-/** 升到下一等级所需 XP：round(100 * 1.45^(L-1))，L>=1。 */
+/**
+ * 升到下一等级所需 XP。
+ * 周期 ×4（且不少于 20s）后，再乘 0.175，让前期升到 Lv5 的墙钟比旧周期+旧 XP 大约快 30%。
+ * 旧式：round(100 * 1.45^(L-1))；现式再乘 XP_TO_NEXT_SCALE。
+ */
 export const XP_TO_NEXT_BASE = 100
 export const XP_TO_NEXT_GROWTH = 1.45
+export const XP_TO_NEXT_SCALE = 0.175
 
 export function xpToNextLevel(level: number): number {
   const safe = Math.max(1, Math.floor(level))
-  return Math.round(XP_TO_NEXT_BASE * Math.pow(XP_TO_NEXT_GROWTH, safe - 1))
+  return Math.max(
+    1,
+    Math.round(XP_TO_NEXT_BASE * Math.pow(XP_TO_NEXT_GROWTH, safe - 1) * XP_TO_NEXT_SCALE),
+  )
 }
 
-/** 从 Lv1 升到 target 的累计 XP（不含当前等级内进度）。Lv5 = 760。 */
+/** 从 Lv1 升到 target 的累计 XP（不含当前等级内进度）。Lv5 = 133。 */
 export function xpToReachLevel(level: number): number {
   const target = Math.max(1, Math.floor(level))
   let total = 0
@@ -303,8 +311,8 @@ export function stackFactor(n: number): number {
 /**
  * 站点每秒进度。
  * speed = (1 / cycleS) * n * (共振 ? RESONANCE_SPEED_MUL : 1)
- * 1 人采矿 cycleS=5 → 0.2/s，5 秒出 1 矿
- * 3 人采矿 → 0.6/s，同等时间 3 倍吞吐
+ * 1 人采矿 cycleS=20 → 0.05/s，20 秒出 1 矿
+ * 3 人采矿 → 0.15/s，同等时间 3 倍吞吐
  */
 export function stationSpeed(n: number, cycleS: number, resonating = false): number {
   if (n <= 0 || cycleS <= 0) return 0

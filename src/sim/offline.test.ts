@@ -52,14 +52,14 @@ describe('settleOffline', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'mining')
     save.lastTick = 0
-    const result = settleOffline(save, 20_000)
-    expect(result.summary.seconds).toBe(20)
+    const result = settleOffline(save, 80_000)
+    expect(result.summary.seconds).toBe(80)
     expect(result.summary.capped).toBe(false)
     expect(bankQty(result.save, 'ore')).toBe(4)
     expect(result.summary.stations.some((s) => s.stationId === 'mining' && s.completed === 4)).toBe(true)
     expect(result.summary.bank.some((b) => b.itemId === 'ore' && b.delta === 4)).toBe(true)
     expect(result.summary.goldDelta).toBe(0)
-    expect(result.summary.lines[0]).toBe('离线 20 秒')
+    expect(result.summary.lines[0]).toBe('离线 1 分钟 20 秒')
     expect(result.summary.lines.some((l) => l.includes('采矿') && l.includes('完成 4 次'))).toBe(true)
     expect(result.summary.lines.some((l) => l.includes('铜矿 +4'))).toBe(true)
     expect(result.save.messages[0]?.title).toBe('离线收益')
@@ -72,8 +72,8 @@ describe('settleOffline', () => {
     save.bank.ore = 3
     assignWorker(save, save.workers[0].id, 'forging')
     save.lastTick = 0
-    const result = settleOffline(save, 32_000)
-    expect(result.summary.seconds).toBe(32)
+    const result = settleOffline(save, 100_000)
+    expect(result.summary.seconds).toBe(100)
     expect(bankQty(result.save, 'ore')).toBe(0)
     expect(bankQty(result.save, 'weapon')).toBe(3)
     const forging = result.summary.stations.find((s) => s.stationId === 'forging')
@@ -88,7 +88,7 @@ describe('settleOffline', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'woodcutting')
     save.lastTick = 0
-    const result = settleOffline(save, 20_000)
+    const result = settleOffline(save, 80_000)
     expect(bankQty(result.save, 'wood')).toBe(4)
     expect(result.summary.stations.some((s) => s.stationId === 'woodcutting' && s.completed === 4)).toBe(true)
     expect(result.summary.lines.some((l) => l.includes('木头 +4'))).toBe(true)

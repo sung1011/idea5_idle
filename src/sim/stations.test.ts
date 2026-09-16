@@ -20,9 +20,9 @@ function roster(n: number): Save {
 
 describe('stackFactor / stationSpeed', () => {
   it('3 workers are 3x as fast as 1 worker', () => {
-    expect(stationSpeed(1, 5)).toBeCloseTo(0.2)
-    expect(stationSpeed(3, 5)).toBeCloseTo(0.6)
-    expect(stationSpeed(3, 5)).toBeCloseTo(stationSpeed(1, 5) * 3)
+    expect(stationSpeed(1, 20)).toBeCloseTo(0.05)
+    expect(stationSpeed(3, 20)).toBeCloseTo(0.15)
+    expect(stationSpeed(3, 20)).toBeCloseTo(stationSpeed(1, 20) * 3)
   })
 })
 
@@ -30,7 +30,7 @@ describe('mining → bank', () => {
   it('one miner deposits ore after one cycle', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'mining')
-    const next = ticks(save, 5)
+    const next = ticks(save, 20)
     expect(bankQty(next, 'ore')).toBe(1)
     expect(next.stations.mining.completed).toBe(1)
     expect(next.stations.mining.progress).toBeCloseTo(0)
@@ -42,8 +42,8 @@ describe('mining → bank', () => {
     const three = roster(3)
     for (const w of three.workers) assignWorker(three, w.id, 'mining')
 
-    const a = ticks(one, 5)
-    const b = ticks(three, 5)
+    const a = ticks(one, 20)
+    const b = ticks(three, 20)
     expect(bankQty(a, 'ore')).toBe(1)
     expect(bankQty(b, 'ore')).toBe(3)
     expect(b.stations.mining.completed).toBe(3)
@@ -54,7 +54,7 @@ describe('woodcutting → bank', () => {
   it('one woodcutter deposits wood after one cycle', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'woodcutting')
-    const next = ticks(save, 5)
+    const next = ticks(save, 20)
     expect(bankQty(next, 'wood')).toBe(1)
     expect(next.stations.woodcutting.completed).toBe(1)
     expect(next.stations.woodcutting.progress).toBeCloseTo(0)
@@ -66,8 +66,8 @@ describe('woodcutting → bank', () => {
     const three = roster(3)
     for (const w of three.workers) assignWorker(three, w.id, 'woodcutting')
 
-    const a = ticks(one, 5)
-    const b = ticks(three, 5)
+    const a = ticks(one, 20)
+    const b = ticks(three, 20)
     expect(bankQty(a, 'wood')).toBe(1)
     expect(bankQty(b, 'wood')).toBe(3)
     expect(b.stations.woodcutting.completed).toBe(3)
@@ -78,7 +78,7 @@ describe('fishing → bank', () => {
   it('one fisher deposits fish after one cycle', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'fishing')
-    const next = ticks(save, 6)
+    const next = ticks(save, 24)
     expect(bankQty(next, 'fish')).toBe(1)
     expect(next.stations.fishing.completed).toBe(1)
     expect(next.stations.fishing.progress).toBeCloseTo(0)
@@ -90,8 +90,8 @@ describe('fishing → bank', () => {
     const three = roster(3)
     for (const w of three.workers) assignWorker(three, w.id, 'fishing')
 
-    const a = ticks(one, 6)
-    const b = ticks(three, 6)
+    const a = ticks(one, 24)
+    const b = ticks(three, 24)
     expect(bankQty(a, 'fish')).toBe(1)
     expect(bankQty(b, 'fish')).toBe(3)
     expect(b.stations.fishing.completed).toBe(3)
@@ -103,7 +103,7 @@ describe('cooking pipeline', () => {
     const save = roster(1)
     save.bank.fish = 1
     assignWorker(save, save.workers[0].id, 'cooking')
-    const next = ticks(save, 7)
+    const next = ticks(save, 28)
     expect(bankQty(next, 'fish')).toBe(0)
     expect(bankQty(next, 'meal')).toBe(1)
     expect(next.stations.cooking.completed).toBe(1)
@@ -113,7 +113,7 @@ describe('cooking pipeline', () => {
   it('idles with a hint when there is no fish', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'cooking')
-    const next = ticks(save, 7)
+    const next = ticks(save, 28)
     expect(bankQty(next, 'meal')).toBe(0)
     expect(next.stations.cooking.completed).toBe(0)
     expect(next.stations.cooking.progress).toBe(0)
@@ -128,7 +128,7 @@ describe('forging pipeline', () => {
     const save = roster(1)
     save.bank.ore = 1
     assignWorker(save, save.workers[0].id, 'forging')
-    const next = ticks(save, 8)
+    const next = ticks(save, 32)
     expect(bankQty(next, 'ore')).toBe(0)
     expect(bankQty(next, 'weapon')).toBe(1)
     expect(next.stations.forging.completed).toBe(1)
@@ -138,7 +138,7 @@ describe('forging pipeline', () => {
   it('idles with a hint when there is no ore', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'forging')
-    const next = ticks(save, 8)
+    const next = ticks(save, 32)
     expect(bankQty(next, 'weapon')).toBe(0)
     expect(next.stations.forging.completed).toBe(0)
     expect(next.stations.forging.progress).toBe(0)
@@ -174,10 +174,10 @@ describe('resonance', () => {
     assignWorker(pair, pair.workers[0].id, 'fishing')
     assignWorker(pair, pair.workers[1].id, 'cooking')
 
-    const a = ticks(alone, 5)
-    const b = ticks(pair, 5)
+    const a = ticks(alone, 20)
+    const b = ticks(pair, 20)
     expect(a.stations.fishing.completed).toBe(0)
-    expect(a.stations.fishing.progress).toBeCloseTo(5 / 6)
+    expect(a.stations.fishing.progress).toBeCloseTo(20 / 24)
     expect(bankQty(b, 'fish')).toBe(1)
     expect(b.stations.fishing.completed).toBe(1)
   })

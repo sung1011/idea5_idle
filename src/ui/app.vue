@@ -7,6 +7,7 @@ import MessagePanel from './messagePanel.vue'
 import SettingsPanel from './settingsPanel.vue'
 import WorkersPanel from './workersPanel.vue'
 import WorkshopPanel from './workshopPanel.vue'
+import FloatTips from './floatTips.vue'
 
 const TABS = [
   { id: 'workshop', label: '工坊' },
@@ -81,8 +82,6 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <p v-if="game.notice" class="notice" :class="game.noticeKind">{{ game.notice }}</p>
-
     <main class="page">
       <WorkshopPanel v-if="tab === 'workshop'" />
       <BankPanel v-else-if="tab === 'bank'" />
@@ -107,6 +106,7 @@ onUnmounted(() => {
 
     <MessagePanel v-if="mailOpen" @close="mailOpen = false" />
     <SettingsPanel v-if="settingsOpen" @close="settingsOpen = false" />
+    <FloatTips />
   </div>
 </template>
 
@@ -175,11 +175,6 @@ h1 {
   padding: 10px 12px;
 }
 
-.notice {
-  margin: 0;
-  line-height: 1.5;
-}
-
 .resources {
   display: flex;
   flex-wrap: wrap;
@@ -224,12 +219,4 @@ h1 {
   filter: none;
 }
 
-.notice,
-.notice.err {
-  color: var(--danger);
-}
-
-.notice.ok {
-  color: var(--moss);
-}
 </style>

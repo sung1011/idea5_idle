@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref, shallowRef } from 'vue'
+import { computed, shallowRef } from 'vue'
 import { assignIdleWorker, assignWorker, withdrawWorker } from '../sim/assign'
 import { cloneSave } from '../sim/clone'
 import { createSave } from '../sim/createSave'
@@ -28,13 +28,12 @@ import {
 } from '../sim/encounters'
 import { tick } from '../sim/tick'
 import type { ActionResult, CategoryId, ItemId, Save, StationId } from '../sim/types'
+import { pushFloatTip } from './floatTips'
 import { clearSave, loadSave, persistSave } from './saveGame'
 
 export const useGameStore = defineStore('game', () => {
   // 整份 Save 替换，不用深层响应式，避免 structuredClone 撞上 Proxy。
   const save = shallowRef<Save>(createSave())
-  const notice = ref('')
-  const noticeKind = ref<'ok' | 'err'>('err')
   const unread = computed(() => hasUnread(save.value))
   const inbox = computed(() => listedMessages(save.value))
   let timer = 0
@@ -50,11 +49,9 @@ export const useGameStore = defineStore('game', () => {
     if (result.ok) {
       save.value = next
       persist()
-      notice.value = result.message ?? ''
-      noticeKind.value = 'ok'
+      if (result.message) pushFloatTip(result.message, 'ok')
     } else {
-      notice.value = result.reason
-      noticeKind.value = 'err'
+      pushFloatTip(result.reason, 'err')
     }
     return result
   }
@@ -122,8 +119,6 @@ export const useGameStore = defineStore('game', () => {
 
   return {
     save,
-    notice,
-    noticeKind,
     unread,
     inbox,
     startClock,
@@ -148,8 +143,7 @@ export const useGameStore = defineStore('game', () => {
       clearSave()
       save.value = gmResetSave()
       persist()
-      notice.value = '已初始化'
-      noticeKind.value = 'ok'
+      pushFloatTip('已初始化', 'ok')
     },
     gmAddGold: () => apply(gmAddGold),
     gmAddDiamonds: () => apply(gmAddDiamonds),

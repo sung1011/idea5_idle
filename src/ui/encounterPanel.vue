@@ -139,7 +139,7 @@ function pawnGold(enc: PawnEncounter) {
       </button>
     </div>
     <p v-if="!readyToExplore && exploreWhy" class="short">{{ exploreWhy }}</p>
-    <p v-else class="hint">工坊看板 5 格。当前金币 {{ game.save.gold }}</p>
+    <p v-else class="hint">工坊看板 6 格。当前金币 {{ game.save.gold }}</p>
     <p v-if="buffOn" class="buff">{{ buffLabel }}</p>
 
     <div class="board">
@@ -341,6 +341,12 @@ function pawnGold(enc: PawnEncounter) {
 @media (min-width: 560px) {
   .board {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 900px) {
+  .board {
+    grid-template-columns: 1fr 1fr 1fr;
   }
 }
 

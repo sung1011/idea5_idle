@@ -69,7 +69,7 @@ export type Save = {
   lastTick: number
   elapsedS: number
   nextWorkerId: number
-  /** 偶遇板，固定 5 格。 */
+  /** 偶遇板，固定 6 格。 */
   encounters: Encounter[]
   /** 工匠委托留下的工坊产量加成；到期后不算。 */
   workshopBuff: WorkshopBuff | null

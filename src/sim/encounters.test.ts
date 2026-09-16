@@ -170,7 +170,7 @@ function needSnapshot(save: Save, map: EncounterNeedMap): Record<ItemId, number>
 }
 
 describe('encounter board', () => {
-  it('always has 5 slots and can roll all 6 kinds without gray', () => {
+  it('always has 6 slots and can roll all 6 kinds without gray', () => {
     const save = createSave()
     expect(save.encounters).toHaveLength(ENCOUNTER_SLOT_COUNT)
     expect(save.workshopBuff).toBeNull()
@@ -179,7 +179,7 @@ describe('encounter board', () => {
     const seenQualities = new Set<string>()
     for (let seed = 0; seed < 80; seed++) {
       const board = generateEncounterBoard(seed)
-      expect(board).toHaveLength(5)
+      expect(board).toHaveLength(6)
       for (const enc of board) {
         seenKinds.add(enc.kind)
         seenQualities.add(enc.quality)
@@ -217,7 +217,7 @@ describe('encounter board', () => {
 })
 
 describe('exploreBoard', () => {
-  it('deducts gold and replaces refreshable slots on the 5-slot board', () => {
+  it('deducts gold and replaces refreshable slots on the 6-slot board', () => {
     const save = createSave()
     const beforeGold = save.gold
     const beforeCost = exploreCost(save)
@@ -229,7 +229,7 @@ describe('exploreBoard', () => {
     if (result.ok) expect(result.message).toContain('探索完成')
     expect(save.gold).toBe(beforeGold - beforeCost)
     expect(save.exploreCount).toBe(1)
-    expect(save.encounters).toHaveLength(5)
+    expect(save.encounters).toHaveLength(6)
     expect(boardSignature(save.encounters)).not.toBe(beforeSig)
   })
 
@@ -268,11 +268,13 @@ describe('exploreBoard', () => {
       lootClaimed: true,
     })
     const passerby = testPasserby({ id: 'swap-passerby' })
+    const sixth = testEnemy({ id: 'swap-sixth' })
     put(save, 0, marching)
     put(save, 1, lootReady)
     put(save, 2, idle)
     put(save, 3, claimed)
     put(save, 4, passerby)
+    put(save, 5, sixth)
 
     expect(shouldKeepOnExplore(marching, now)).toBe(true)
     expect(shouldKeepOnExplore(lootReady, now)).toBe(true)
@@ -282,12 +284,13 @@ describe('exploreBoard', () => {
 
     const result = exploreBoard(save, now)
     expect(result.ok).toBe(true)
-    expect(save.encounters).toHaveLength(5)
+    expect(save.encounters).toHaveLength(6)
     expect(save.encounters[0].id).toBe('keep-march')
     expect(save.encounters[1].id).toBe('keep-loot')
     expect(save.encounters[2].id).not.toBe('swap-idle')
     expect(save.encounters[3].id).not.toBe('swap-claimed')
     expect(save.encounters[4].id).not.toBe('swap-passerby')
+    expect(save.encounters[5].id).not.toBe('swap-sixth')
   })
 })
 
@@ -523,7 +526,7 @@ describe('merchant kinds', () => {
 })
 
 describe('hydrateEncounterFields', () => {
-  it('builds a 5-slot board and migrates a legacy order into the first enemy', () => {
+  it('builds a 6-slot board and migrates a legacy order into the first enemy', () => {
     const save = createSave() as Save & {
       currentOrderId?: string
       orderIndex?: number
@@ -535,7 +538,7 @@ describe('hydrateEncounterFields', () => {
     save.orderIndex = 2
     save.orderSubmitted = true
     hydrateEncounterFields(save)
-    expect(save.encounters).toHaveLength(5)
+    expect(save.encounters).toHaveLength(6)
     expect(save.encounters[0].kind).toBe('enemy')
     if (save.encounters[0].kind !== 'enemy') return
     expect(save.encounters[0].id).toBe('campKitchen')
@@ -610,11 +613,11 @@ describe('hydrateEncounterFields', () => {
     }
   })
 
-  it('trims a leftover 6-slot board down to 5 without losing the first marching enemy', () => {
+  it('pads a leftover 5-slot board to 6 without losing the first marching enemy', () => {
     const save = createSave()
     const now = 2_200_000_000_000
     const marching = testEnemy({
-      id: 'keep-six-trim',
+      id: 'keep-five-pad',
       departed: true,
       marchEndsAt: now + 60_000,
     })
@@ -624,11 +627,10 @@ describe('hydrateEncounterFields', () => {
       testBlackMerchant({ id: 'b1' }),
       testPawn({ id: 'w1' }),
       testArtisan({ id: 'a1' }),
-      testBulk({ id: 'x1' }),
     ] as unknown as Save['encounters']
     hydrateEncounterFields(save)
-    expect(save.encounters).toHaveLength(5)
-    expect(save.encounters[0].id).toBe('keep-six-trim')
+    expect(save.encounters).toHaveLength(6)
+    expect(save.encounters[0].id).toBe('keep-five-pad')
   })
 })
 
@@ -687,7 +689,7 @@ describe('artisan and bulk buy', () => {
     const plain = currentSpeed(save, 'mining')
     save.workshopBuff = { mul: 1.15, endsAt: Date.now() + 60_000 }
     expect(currentSpeed(save, 'mining')).toBeCloseTo(plain * 1.15)
-    const next = ticks(save, 5)
+    const next = ticks(save, 20)
     expect(next.stations.mining.completed).toBeGreaterThanOrEqual(1)
   })
 

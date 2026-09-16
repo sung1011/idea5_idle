@@ -109,7 +109,7 @@ describe('forging costs table', () => {
     save.bank.ironOre = 2
     save.bank.wood = 0
     assignWorker(save, save.workers[0].id, 'forging')
-    const next = ticks(save, 9)
+    const next = ticks(save, 36)
     expect(bankQty(next, 'ironOre')).toBe(2)
     expect(bankQty(next, 'wood')).toBe(0)
     expect(bankQty(next, 'ironWeapon')).toBe(0)
@@ -126,7 +126,7 @@ describe('forging costs table', () => {
     save.bank.wood = 2
     save.bank.ore = 4
     assignWorker(save, save.workers[0].id, 'forging')
-    const next = ticks(save, 9)
+    const next = ticks(save, 36)
     expect(bankQty(next, 'ironOre')).toBe(0)
     expect(bankQty(next, 'wood')).toBe(1)
     expect(bankQty(next, 'ore')).toBe(4)

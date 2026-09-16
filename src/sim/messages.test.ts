@@ -12,13 +12,13 @@ describe('messages', () => {
     expect(recruitWorker(save).ok).toBe(true)
     assignWorker(save, save.workers[0].id, 'mining')
     save.lastTick = 0
-    const result = settleOffline(save, 20_000)
+    const result = settleOffline(save, 80_000)
     expect(hasUnread(result.save)).toBe(true)
     expect(unreadCount(result.save)).toBe(1)
     const first = listedMessages(result.save)[0]
     expect(first.title).toBe('离线收益')
     expect(first.read).toBe(false)
-    expect(first.body).toContain('离线 20 秒')
+    expect(first.body).toContain('离线 1 分钟 20 秒')
     expect(first.body).toContain('铜矿 +4')
   })
 

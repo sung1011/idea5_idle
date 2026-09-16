@@ -31,12 +31,12 @@ function unlockTo(save: Save, stationId: 'mining' | 'forging', level: number) {
 }
 
 describe('station XP curve', () => {
-  it('uses round(100 * 1.45^(L-1)) and 760 XP to reach Lv5', () => {
-    expect(xpToNextLevel(1)).toBe(100)
-    expect(xpToNextLevel(2)).toBe(145)
-    expect(xpToNextLevel(3)).toBe(210)
-    expect(xpToNextLevel(4)).toBe(305)
-    expect(xpToReachLevel(5)).toBe(760)
+  it('uses scaled XP curve and 133 XP to reach Lv5', () => {
+    expect(xpToNextLevel(1)).toBe(18)
+    expect(xpToNextLevel(2)).toBe(25)
+    expect(xpToNextLevel(3)).toBe(37)
+    expect(xpToNextLevel(4)).toBe(53)
+    expect(xpToReachLevel(5)).toBe(133)
     expect(STATION_DEF.mining.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
     expect(STATION_DEF.forging.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
     expect(STATION_DEF.fishing.categories[0].xpPerCycle).toBe(1)
@@ -50,7 +50,7 @@ describe('station XP / level', () => {
   it('gives XP on a finished cycle and levels when XP is full', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'mining')
-    const next = ticks(save, 5)
+    const next = ticks(save, 20)
     expect(next.stations.mining.completed).toBe(1)
     expect(next.stations.mining.stationXp).toBe(1)
     expect(next.stations.mining.stationLevel).toBe(1)
@@ -62,7 +62,7 @@ describe('station XP / level', () => {
     expect(collectHints(next).some((h) => h.kind === 'progress' && h.text.includes('采矿'))).toBe(true)
   })
 
-  it('reaches Lv5 after 760 copper-cycle XP', () => {
+  it('reaches Lv5 after 133 copper-cycle XP', () => {
     const save = createSave()
     grantStationXp(save, 'mining', xpToReachLevel(5))
     expect(save.stations.mining.stationLevel).toBe(5)
@@ -117,8 +117,8 @@ describe('stack current category', () => {
     expect(selectStationCategory(three, 'mining', 'iron').ok).toBe(true)
     for (const w of three.workers) assignWorker(three, w.id, 'mining')
 
-    const a = ticks(one, 6)
-    const b = ticks(three, 6)
+    const a = ticks(one, 24)
+    const b = ticks(three, 24)
     expect(bankQty(a, 'ironOre')).toBe(1)
     expect(bankQty(a, 'ore')).toBe(0)
     expect(bankQty(b, 'ironOre')).toBe(3)
@@ -135,7 +135,7 @@ describe('forging matching ore', () => {
     save.bank.wood = 1
     save.bank.ore = 2
     assignWorker(save, save.workers[0].id, 'forging')
-    const next = ticks(save, 9)
+    const next = ticks(save, 36)
     expect(bankQty(next, 'ironOre')).toBe(0)
     expect(bankQty(next, 'ore')).toBe(2)
     expect(bankQty(next, 'ironWeapon')).toBe(1)
@@ -149,7 +149,7 @@ describe('forging matching ore', () => {
     expect(selectStationCategory(save, 'forging', 'iron').ok).toBe(true)
     save.bank.ore = 4
     assignWorker(save, save.workers[0].id, 'forging')
-    const next = ticks(save, 9)
+    const next = ticks(save, 36)
     expect(bankQty(next, 'ironWeapon')).toBe(0)
     expect(bankQty(next, 'weapon')).toBe(0)
     expect(next.stations.forging.completed).toBe(0)

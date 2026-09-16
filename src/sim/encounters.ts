@@ -23,7 +23,7 @@ import type {
   WorkshopBuff,
 } from './types'
 
-export const ENCOUNTER_SLOT_COUNT = 5
+export const ENCOUNTER_SLOT_COUNT = 6
 
 /** 探索费用。随探索次数略涨，超出表长后钉在末档。 */
 export const EXPLORE_COST_TABLE: readonly number[] = [8, 10, 12, 14, 16]
@@ -1045,7 +1045,7 @@ export function shouldKeepOnExplore(enc: Encounter, now = Date.now()): boolean {
   return isMarching(enc, now) || isLootReady(enc, now)
 }
 
-/** 探索：扣金币，只替换可刷新格，保留格占位，板子仍满 5 格。 */
+/** 探索：扣金币，只替换可刷新格，保留格占位，板子仍满 6 格。 */
 export function exploreBoard(save: Save, now = Date.now()): ActionResult {
   const blocked = exploreBlockReason(save)
   if (blocked) return { ok: false, reason: blocked }
@@ -1279,9 +1279,14 @@ export function hydrateEncounterFields(save: Save): Save {
 
   if (Array.isArray(raw.encounters)) {
     raw.encounters = raw.encounters.map((slot) => migrateEncounterSlot(slot) as Encounter)
-    // 短暂出现过 6 格板：只留前 5，行军中的敌人若在前 5 格仍保留。
-    if (raw.encounters.length > ENCOUNTER_SLOT_COUNT) {
-      raw.encounters = raw.encounters.slice(0, ENCOUNTER_SLOT_COUNT)
+    if (raw.encounters.length > 0 && raw.encounters.every(isEncounter)) {
+      if (raw.encounters.length !== ENCOUNTER_SLOT_COUNT) {
+        const fresh = generateEncounterBoard(raw.exploreCount)
+        raw.encounters = Array.from(
+          { length: ENCOUNTER_SLOT_COUNT },
+          (_, slot) => raw.encounters[slot] ?? fresh[slot],
+        )
+      }
     }
   }
 
