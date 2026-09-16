@@ -4,7 +4,7 @@ import { bankQty } from './bank'
 import { createSave } from './createSave'
 import { collectHints, isResonating } from './query'
 import { recruitWorker } from './recruit'
-import { stationSpeed } from './tables'
+import { PLAYABLE_STATION_IDS, STATION_DEF, STATION_IDS, stationSpeed } from './tables'
 import { ticks } from './tick'
 import type { Save } from './types'
 
@@ -61,27 +61,47 @@ describe('mining → bank', () => {
   })
 })
 
-describe('woodcutting → bank', () => {
-  it('one woodcutter deposits wood after one cycle', () => {
-    const save = roster(1)
-    assignWorker(save, save.workers[0].id, 'woodcutting')
-    const next = ticks(save, 20)
-    expect(bankQty(next, 'wood')).toBe(1)
-    expect(next.stations.woodcutting.completed).toBe(1)
-    expect(next.stations.woodcutting.progress).toBeCloseTo(0)
+describe('woodcutting hidden', () => {
+  it('is not a playable or ticking station', () => {
+    expect((STATION_DEF as Record<string, unknown>).woodcutting).toBeUndefined()
+    expect(STATION_IDS.includes('woodcutting' as never)).toBe(false)
+    expect(PLAYABLE_STATION_IDS.includes('woodcutting' as never)).toBe(false)
   })
 
-  it('three woodcutters produce 3x wood in the same time', () => {
-    const one = roster(1)
-    assignWorker(one, one.workers[0].id, 'woodcutting')
-    const three = roster(3)
-    for (const w of three.workers) assignWorker(three, w.id, 'woodcutting')
+  it('rejects assigning to the deprecated station', () => {
+    const save = roster(1)
+    const result = assignWorker(save, save.workers[0].id, 'woodcutting' as never)
+    expect(result.ok).toBe(false)
+    expect(save.workers[0].assignment).toBeNull()
+    expect(bankQty(ticks(save, 20), 'wood')).toBe(0)
+  })
+})
 
-    const a = ticks(one, 20)
-    const b = ticks(three, 20)
-    expect(bankQty(a, 'wood')).toBe(1)
-    expect(bankQty(b, 'wood')).toBe(3)
-    expect(b.stations.woodcutting.completed).toBe(3)
+describe('hunting / herbalism skeleton', () => {
+  it('one hunter deposits meat after one cycle', () => {
+    const save = roster(1)
+    assignWorker(save, save.workers[0].id, 'hunting')
+    const next = ticks(save, 24)
+    expect(bankQty(next, 'meat')).toBe(1)
+    expect(next.stations.hunting.completed).toBe(1)
+  })
+
+  it('one herbalist deposits herb after one cycle', () => {
+    const save = roster(1)
+    assignWorker(save, save.workers[0].id, 'herbalism')
+    const next = ticks(save, 20)
+    expect(bankQty(next, 'herb')).toBe(1)
+    expect(next.stations.herbalism.completed).toBe(1)
+  })
+
+  it('alchemy consumes herb and deposits a potion placeholder', () => {
+    const save = roster(1)
+    save.bank.herb = 1
+    assignWorker(save, save.workers[0].id, 'alchemy')
+    const next = ticks(save, 40)
+    expect(bankQty(next, 'herb')).toBe(0)
+    expect(bankQty(next, 'potion')).toBe(1)
+    expect(next.stations.alchemy.completed).toBe(1)
   })
 })
 
@@ -135,13 +155,14 @@ describe('cooking pipeline', () => {
 })
 
 describe('forging pipeline', () => {
-  it('consumes ore and deposits a weapon', () => {
+  it('consumes ore and deposits a tool', () => {
     const save = roster(1)
     save.bank.ore = 1
     assignWorker(save, save.workers[0].id, 'forging')
     const next = ticks(save, 32)
     expect(bankQty(next, 'ore')).toBe(0)
-    expect(bankQty(next, 'weapon')).toBe(1)
+    expect(bankQty(next, 'tool')).toBe(1)
+    expect(bankQty(next, 'weapon')).toBe(0)
     expect(next.stations.forging.completed).toBe(1)
     expect(next.stations.forging.stallReason).toBeNull()
   })
@@ -150,6 +171,7 @@ describe('forging pipeline', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'forging')
     const next = ticks(save, 32)
+    expect(bankQty(next, 'tool')).toBe(0)
     expect(bankQty(next, 'weapon')).toBe(0)
     expect(next.stations.forging.completed).toBe(0)
     expect(next.stations.forging.progress).toBe(0)
@@ -167,6 +189,22 @@ describe('resonance', () => {
     assignWorker(save, save.workers[1].id, 'forging')
     expect(isResonating(save, 'mining', 'forging')).toBe(true)
     expect(collectHints(save).some((h) => h.kind === 'resonance')).toBe(true)
+  })
+
+  it('detects hunting + cooking when both have workers', () => {
+    const save = roster(2)
+    assignWorker(save, save.workers[0].id, 'hunting')
+    expect(isResonating(save, 'hunting', 'cooking')).toBe(false)
+    assignWorker(save, save.workers[1].id, 'cooking')
+    expect(isResonating(save, 'hunting', 'cooking')).toBe(true)
+    expect(collectHints(save).some((h) => h.kind === 'resonance' && h.text.includes('狩猎'))).toBe(true)
+  })
+
+  it('detects herbalism + alchemy when both have workers', () => {
+    const save = roster(2)
+    assignWorker(save, save.workers[0].id, 'herbalism')
+    assignWorker(save, save.workers[1].id, 'alchemy')
+    expect(isResonating(save, 'herbalism', 'alchemy')).toBe(true)
   })
 
   it('detects fishing + cooking when both have workers', () => {

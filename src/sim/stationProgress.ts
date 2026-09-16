@@ -1,5 +1,48 @@
-import { defaultCategory, findCategory, stationCategories, STATION_DEF, xpToNextLevel } from './tables'
-import type { ActionResult, CategoryId, Save, StationId, StationState } from './types'
+import {
+  defaultCategory,
+  findCategory,
+  miningNodeDef,
+  stationCategories,
+  STATION_DEF,
+  xpToNextLevel,
+} from './tables'
+import type { ActionResult, CategoryId, MiningNodeState, Save, StationId, StationState } from './types'
+
+export function blankMiningNode(categoryId: CategoryId = 'copper'): MiningNodeState {
+  const def = miningNodeDef(categoryId)
+  return {
+    categoryId: def.categoryId,
+    nodeHp: def.nodeHpMax,
+    nodeHpMax: def.nodeHpMax,
+    recoverAt: null,
+  }
+}
+
+function hydrateMiningNode(incoming: unknown, categoryId: CategoryId): MiningNodeState {
+  const fallback = blankMiningNode(categoryId)
+  if (!incoming || typeof incoming !== 'object') return fallback
+  const raw = incoming as Partial<MiningNodeState>
+  const nodeHpMax =
+    typeof raw.nodeHpMax === 'number' && Number.isFinite(raw.nodeHpMax) && raw.nodeHpMax > 0
+      ? Math.floor(raw.nodeHpMax)
+      : fallback.nodeHpMax
+  const nodeHp =
+    typeof raw.nodeHp === 'number' && Number.isFinite(raw.nodeHp)
+      ? Math.max(0, Math.min(nodeHpMax, Math.floor(raw.nodeHp)))
+      : nodeHpMax
+  const recoverAt =
+    typeof raw.recoverAt === 'number' && Number.isFinite(raw.recoverAt) && raw.recoverAt > 0
+      ? raw.recoverAt
+      : null
+  return {
+    categoryId: raw.categoryId === 'iron' || raw.categoryId === 'mithril' || raw.categoryId === 'copper'
+      ? raw.categoryId
+      : fallback.categoryId,
+    nodeHp,
+    nodeHpMax,
+    recoverAt,
+  }
+}
 
 export function unlockedCategoriesAt(stationId: StationId, level: number): CategoryId[] {
   return stationCategories(stationId)
@@ -68,6 +111,7 @@ export function blankStation(stationId: StationId): StationState {
     selectedCategory: first.id,
     unlockedCategories: unlockedCategoriesAt(stationId, 1),
     progressNotice: null,
+    miningNode: stationId === 'mining' ? blankMiningNode(first.id) : undefined,
   }
 }
 
@@ -91,6 +135,7 @@ export function hydrateStationState(stationId: StationId, incoming?: Partial<Sta
       ? incoming.unlockedCategories.filter((id): id is CategoryId => Boolean(findCategory(stationId, id)))
       : [],
     progressNotice: incoming.progressNotice ?? null,
+    miningNode: stationId === 'mining' ? hydrateMiningNode(incoming.miningNode, incoming.selectedCategory ?? blank.selectedCategory) : undefined,
   }
   syncUnlockedCategories(station, stationId)
   return station

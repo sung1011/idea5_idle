@@ -3,6 +3,7 @@ import { createSave, normalizeDiamonds } from '../sim/createSave'
 import { hydrateEncounterFields } from '../sim/encounters'
 import { hydrateMessages } from '../sim/messages'
 import { hydrateStations } from '../sim/stationProgress'
+import { hydrateWorkers } from '../sim/recruit'
 import type { Save } from '../sim/types'
 
 export const SAVE_KEY = 'idea5Idle'
@@ -48,7 +49,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
     ...blank,
     ...rest,
     bank: { ...hydrateBank(items), ...hydrateBank(bank) },
-    workers: parsed.workers ?? [],
+    workers: hydrateWorkers(parsed.workers),
     stations: hydrateStations(parsed.stations),
     diamonds: normalizeDiamonds((parsed as { diamonds?: unknown }).diamonds),
     messages: mail.messages,

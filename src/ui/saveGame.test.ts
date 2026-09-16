@@ -64,4 +64,33 @@ describe('save migration', () => {
     const loaded = loadSave(store)
     expect(loaded?.bank.ore).toBe(333)
   })
+
+  it('fills missing worker slots and rests woodcutters', () => {
+    const raw = {
+      ...createSave(),
+      workers: [
+        { id: 'w-1', name: '旧木', assignment: 'woodcutting' },
+        { id: 'w-2', assignment: 'smithing', toolId: 'tool', foodItemId: 'meal', foodCount: 2, prodBuff: { effectId: 'prodSpeed', mul: 1.2, durationS: 60 } },
+      ],
+      stations: {
+        mining: { progress: 0.2, stallReason: null, completed: 1, resonanceStreak: 0 },
+        woodcutting: { progress: 0.8, stallReason: null, completed: 9, resonanceStreak: 0 },
+      },
+    }
+    const save = hydrateLoadedSave(raw)
+    expect(save?.workers).toHaveLength(2)
+    expect(save?.workers[0].assignment).toBeNull()
+    expect(save?.workers[0].toolSlot).toBeNull()
+    expect(save?.workers[0].foodSlot).toBeNull()
+    expect(save?.workers[1].assignment).toBe('forging')
+    expect(save?.workers[1].toolSlot?.itemId).toBe('tool')
+    expect(save?.workers[1].toolSlot?.matchStationId).toBe('mining')
+    expect(save?.workers[1].foodSlot?.itemId).toBe('meal')
+    expect(save?.workers[1].foodSlot?.buff.mul).toBe(1.2)
+    expect(save?.stations.hunting).toBeTruthy()
+    expect(save?.stations.herbalism).toBeTruthy()
+    expect(save?.stations.alchemy).toBeTruthy()
+    expect((save?.stations as { woodcutting?: unknown } | undefined)?.woodcutting).toBeUndefined()
+    expect(save?.stations.mining.miningNode?.nodeHp).toBe(20)
+  })
 })

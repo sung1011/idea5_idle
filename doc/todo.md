@@ -21,21 +21,22 @@
 
 ---
 
-## 1. 数据骨架（后做，本期不实现）
+## 1. 数据骨架（第 1 期）
 
-- [ ] `StationId` 纳入 `hunting` `herbalism`；`woodcutting` 标废弃
-- [ ] `ItemId` 按 production 第 9 节补：`meat` `blood` `tooth` `eye` `herb` `spice` `junk` `tool` `ironTool` `mithrilTool`（`meal` `ore` `fish` `potion` 沿用）
-- [ ] `STATION_DEF.kind = 'gather' | 'craft'`；共振邻接改为挖矿↔锻造、钓鱼/狩猎↔烹饪、采药↔炼金
-- [ ] Worker 存档加 `toolSlot` / `foodSlot`（可先空）；hydrate 缺字段补 `null`
-- [ ] 伐木迁移（与七站对齐）：
-  - [ ] 移出 `PLAYABLE_CHAINS` / 工人派站按钮（藏入口）
-  - [ ] 旧档已派 `woodcutting` 的工人 hydrate 撤到休息
-  - [ ] `wood` 保留数量、可卖，不再产出
-  - [ ] 炼金不再耗木；锻造耗木随武器线搁置
-  - [ ] 单测改到七站骨架，伐木测例改成「藏入口 / 撤派」
-- [ ] 偶遇补给表：新单改食物 / 工具 / 矿；武器不当新主需求（工具未产出前可先矿+食）
+- [x] `StationId` 纳入 `hunting` `herbalism`；`woodcutting` 标废弃
+- [x] `ItemId` 按 production 第 9 节补：`meat` `blood` `tooth` `eye` `herb` `spice` `junk` `tool` `ironTool` `mithrilTool`（`meal` `ore` `fish` `potion` 沿用）
+- [x] `STATION_DEF.kind = 'gather' | 'craft'`；共振邻接改为挖矿↔锻造、钓鱼/狩猎↔烹饪、采药↔炼金
+- [x] Worker 存档加 `toolSlot` / `foodSlot`（可先空）；hydrate 缺字段补 `null`；旧别名 `toolId` / `foodItemId` / `prodBuff` 可迁
+- [x] 伐木迁移（与七站对齐）：
+  - [x] 移出 `PLAYABLE_CHAINS` / 工人派站按钮（藏入口）
+  - [x] 旧档已派 `woodcutting` 的工人 hydrate 撤到休息
+  - [x] `wood` 保留数量、可卖，不再产出
+  - [x] 炼金不再耗木；锻造耗木随武器线搁置，主产物改工具表
+  - [x] 单测改到七站骨架，伐木测例改成「藏入口 / 撤派」
+- [x] 偶遇补给表：新单改食物 / 工具 / 矿；武器不当新主需求
+- [x] 表占位：矿节点 HP/恢复、渔场×品阶掉落（含空杆）、猎物遇险率、食物 Buff、工具词条 `effectId`；炼金无效果逻辑
 
-过关：新档七站可派（规则仍可先走旧周期）；旧档不炸、伐木看不见；字段名与 production 一致。
+过关：新档七站可派（规则仍走旧周期骨架）；旧档不炸、伐木看不见；字段名与 production 一致。挖空 / 空杆结算 / 遇险 / 软失败 / 双槽生效留给第 2～4 期。
 
 ---
 

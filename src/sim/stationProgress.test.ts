@@ -42,7 +42,8 @@ describe('station XP curve', () => {
     expect(STATION_DEF.forging.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
     expect(STATION_DEF.fishing.categories[0].xpPerCycle).toBe(1)
     expect(STATION_DEF.cooking.categories[0].xpPerCycle).toBe(1)
-    expect(STATION_DEF.woodcutting.categories[0].xpPerCycle).toBe(1)
+    expect(STATION_DEF.hunting.categories[0].xpPerCycle).toBe(1)
+    expect(STATION_DEF.herbalism.categories[0].xpPerCycle).toBe(1)
     expect(STATION_DEF.alchemy.categories[0].xpPerCycle).toBe(1)
   })
 })
@@ -129,8 +130,8 @@ describe('categoryPickOptions', () => {
 
   it('hides the picker list for single-category stations', () => {
     const save = createSave()
-    expect(categoryPickOptions(save, 'woodcutting')).toEqual([
-      { id: 'default', label: '木头', unlocked: true, unlockLevel: 1 },
+    expect(categoryPickOptions(save, 'herbalism')).toEqual([
+      { id: 'default', label: '草', unlocked: true, unlockLevel: 1 },
     ])
   })
 })
@@ -157,7 +158,7 @@ describe('stack current category', () => {
 })
 
 describe('forging matching ore', () => {
-  it('iron forging consumes ironOre and deposits ironWeapon', () => {
+  it('iron forging consumes ironOre and deposits ironTool', () => {
     const save = roster(1)
     unlockTo(save, 'forging', 5)
     expect(selectStationCategory(save, 'forging', 'iron').ok).toBe(true)
@@ -167,8 +168,10 @@ describe('forging matching ore', () => {
     assignWorker(save, save.workers[0].id, 'forging')
     const next = ticks(save, 36)
     expect(bankQty(next, 'ironOre')).toBe(0)
+    expect(bankQty(next, 'wood')).toBe(1)
     expect(bankQty(next, 'ore')).toBe(2)
-    expect(bankQty(next, 'ironWeapon')).toBe(1)
+    expect(bankQty(next, 'ironTool')).toBe(1)
+    expect(bankQty(next, 'ironWeapon')).toBe(0)
     expect(bankQty(next, 'weapon')).toBe(0)
     expect(next.stations.forging.completed).toBe(1)
   })
@@ -180,6 +183,7 @@ describe('forging matching ore', () => {
     save.bank.ore = 4
     assignWorker(save, save.workers[0].id, 'forging')
     const next = ticks(save, 36)
+    expect(bankQty(next, 'ironTool')).toBe(0)
     expect(bankQty(next, 'ironWeapon')).toBe(0)
     expect(bankQty(next, 'weapon')).toBe(0)
     expect(next.stations.forging.completed).toBe(0)
@@ -202,6 +206,8 @@ describe('hydrate old station save', () => {
     expect(station.unlockedCategories).toEqual(['copper'])
     expect(station.completed).toBe(3)
     expect(station.progress).toBeCloseTo(0.4)
+    expect(station.miningNode?.nodeHpMax).toBe(20)
+    expect(station.miningNode?.recoverAt).toBeNull()
   })
 
   it('repairs a selected category that is no longer unlocked', () => {

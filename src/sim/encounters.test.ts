@@ -211,7 +211,7 @@ describe('encounter board', () => {
     const nearStrong = enemyNeedsFor('near', 'strong')
     expect(farWeak.meal ?? 0).toBeGreaterThan(nearWeak.meal ?? 0)
     expect(farWeak.fish ?? 0).toBeGreaterThan(nearWeak.fish ?? 0)
-    expect(nearStrong.weapon ?? 0).toBeGreaterThan(nearWeak.weapon ?? 0)
+    expect(nearStrong.weapon ?? 0).toBe(0)
     expect(nearStrong.ore ?? 0).toBeGreaterThan(nearWeak.ore ?? 0)
   })
 })

@@ -1,12 +1,14 @@
 import { findWorker } from './recruit'
-import { STATION_DEF } from './tables'
+import { isDeprecatedStationId, isStationId } from './tables'
 import type { ActionResult, Save, StationId } from './types'
 
-/** 派工人到站点。允许多工人同站。同一 worker 同时只有一份 assignment。 */
+/** 派工人到站点。允许多工人同站。同一 worker 同时只有一份 assignment。伐木等废弃站不可派。 */
 export function assignWorker(save: Save, workerId: string, stationId: StationId | null): ActionResult {
   const worker = findWorker(save, workerId)
   if (!worker) return { ok: false, reason: '没有这个 worker' }
-  if (stationId !== null && !STATION_DEF[stationId]) return { ok: false, reason: '没有这个站点' }
+  if (stationId !== null && (isDeprecatedStationId(stationId) || !isStationId(stationId))) {
+    return { ok: false, reason: '没有这个站点' }
+  }
   worker.assignment = stationId
   return { ok: true }
 }

@@ -1,12 +1,21 @@
+export type StationKind = 'gather' | 'craft'
+
 export type StationId =
-  | 'woodcutting'
   | 'mining'
+  | 'forging'
+  | 'hunting'
+  | 'cooking'
+  | 'herbalism'
   | 'alchemy'
   | 'fishing'
-  | 'cooking'
-  | 'forging'
 
-/** 站内品类。采矿 / 锻造第一期多档；其它站单一品类兼容。 */
+/** 旧站。仍可能出现在旧档，不当七站之一。 */
+export type DeprecatedStationId = 'woodcutting'
+
+/** 锻造别称，只作文案 / 旧档映射，不是 id。 */
+export type StationAlias = 'smithing'
+
+/** 站内品类。采矿 / 锻造多档；其它站单一品类兼容。 */
 export type CategoryId = 'copper' | 'iron' | 'mithril' | 'default'
 
 export type ItemId =
@@ -16,12 +25,22 @@ export type ItemId =
   | 'mithrilOre'
   | 'slag'
   | 'fish'
+  | 'junk'
   | 'meal'
   | 'potion'
   | 'weapon'
   | 'ironWeapon'
   | 'mithrilWeapon'
   | 'blueprint'
+  | 'meat'
+  | 'blood'
+  | 'tooth'
+  | 'eye'
+  | 'herb'
+  | 'spice'
+  | 'tool'
+  | 'ironTool'
+  | 'mithrilTool'
 
 export type ClassId = 'laborer' | 'artisan' | 'wanderer'
 
@@ -29,12 +48,60 @@ export type StallReason = 'emptyInput'
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; reason: string }
 
+export type EffectSource = 'tool' | 'food'
+export type EffectId = string
+
+export type EffectInstance = {
+  effectId: EffectId
+  value: number
+  source: EffectSource
+}
+
+export type Affix = {
+  affixId: string
+  effectId: EffectId
+  value: number
+}
+
+export type ToolSlot = {
+  itemId: ItemId
+  /** 匹配此站才吃满增效 / 高阶词条 */
+  matchStationId: StationId
+  affixes: Affix[]
+  effects: EffectInstance[]
+}
+
+export type ProductionBuff = {
+  effectId: EffectId
+  mul: number
+  durationS: number
+}
+
+export type FoodSlot = {
+  itemId: ItemId
+  /** 同时仅 1 个生产 Buff */
+  buff: ProductionBuff
+  /** 到期墙钟；到期自动从 bank 扣 1 份同 itemId 刷新 */
+  expiresAt: number
+  effects: EffectInstance[]
+}
+
 export type Worker = {
   id: string
   name?: string
-  /** 占位。第一期不当战斗成长用。 */
+  /** 占位。不当战斗成长用。 */
   classId?: ClassId
   assignment: StationId | null
+  toolSlot: ToolSlot | null
+  foodSlot: FoodSlot | null
+}
+
+export type MiningNodeState = {
+  categoryId: CategoryId
+  nodeHp: number
+  nodeHpMax: number
+  /** 挖空后恢复完成的墙钟；未空为 null */
+  recoverAt: number | null
 }
 
 export type StationState = {
@@ -48,6 +115,27 @@ export type StationState = {
   unlockedCategories: CategoryId[]
   /** 最近一次升级 / 解锁文案，query 当 progress 提示。 */
   progressNotice: string | null
+  /** 挖矿节点占位。第 2 期才结算挖空；其它站不写。 */
+  miningNode?: MiningNodeState | null
+}
+
+export type FisheryTier = 'beginner' | 'mid' | 'high'
+export type FishingCatchOutcome = 'empty' | 'fish' | 'junk'
+export type FishingCatch = {
+  outcome: FishingCatchOutcome
+  /** 有货时不超过当前渔场品阶 */
+  catchTier?: FisheryTier
+}
+
+export type SoftFailRoll = {
+  chance: number
+  outcome: 'ok' | 'softFail'
+}
+
+export type HazardRoll = {
+  /** 表驱动失败率 */
+  chance: number
+  outcome: 'ok' | 'hazard'
 }
 
 export type GameMessage = {

@@ -75,23 +75,24 @@ describe('settleOffline', () => {
     const result = settleOffline(save, 100_000)
     expect(result.summary.seconds).toBe(100)
     expect(bankQty(result.save, 'ore')).toBe(0)
-    expect(bankQty(result.save, 'weapon')).toBe(3)
+    expect(bankQty(result.save, 'tool')).toBe(3)
+    expect(bankQty(result.save, 'weapon')).toBe(0)
     const forging = result.summary.stations.find((s) => s.stationId === 'forging')
     expect(forging?.completed).toBe(3)
     expect(forging?.stallReason).toBe('emptyInput')
     expect(result.summary.bank.some((b) => b.itemId === 'ore' && b.delta === -3)).toBe(true)
-    expect(result.summary.bank.some((b) => b.itemId === 'weapon' && b.delta === 3)).toBe(true)
+    expect(result.summary.bank.some((b) => b.itemId === 'tool' && b.delta === 3)).toBe(true)
     expect(result.summary.lines.some((l) => l.includes('锻造') && l.includes('原料见底'))).toBe(true)
   })
 
-  it('summarizes woodcutting into the bank', () => {
+  it('summarizes herbalism into the bank', () => {
     const save = roster(1)
-    assignWorker(save, save.workers[0].id, 'woodcutting')
+    assignWorker(save, save.workers[0].id, 'herbalism')
     save.lastTick = 0
     const result = settleOffline(save, 80_000)
-    expect(bankQty(result.save, 'wood')).toBe(4)
-    expect(result.summary.stations.some((s) => s.stationId === 'woodcutting' && s.completed === 4)).toBe(true)
-    expect(result.summary.lines.some((l) => l.includes('木头 +4'))).toBe(true)
+    expect(bankQty(result.save, 'herb')).toBe(4)
+    expect(result.summary.stations.some((s) => s.stationId === 'herbalism' && s.completed === 4)).toBe(true)
+    expect(result.summary.lines.some((l) => l.includes('草 +4'))).toBe(true)
   })
 
   it('marks the 8h cap in the summary', () => {

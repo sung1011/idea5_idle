@@ -40,7 +40,7 @@ function chainTitle(ids: StationId[]): string {
       </div>
     </section>
 
-    <details class="panel more">
+    <details v-if="SKELETON_STATION_IDS.length" class="panel more">
       <summary>炼金</summary>
       <div class="grid">
         <StationCard v-for="id in SKELETON_STATION_IDS" :key="id" :station-id="id" skeleton />

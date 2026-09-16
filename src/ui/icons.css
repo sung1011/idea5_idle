@@ -48,7 +48,7 @@
   background-position: 100% 100%;
 }
 
-/* 采矿 锻造 钓鱼 烹饪 / 伐木 · 锯 · 苗 · 炼金 · 2×4（锯、苗未用） */
+/* 采矿 锻造 钓鱼 烹饪 / 狩猎(旧锯) · 采药(苗) · 炼金 · 2×4 */
 .sprite-station {
   width: 64px;
   height: 72px;
@@ -72,8 +72,13 @@
   background-position: 100% 0%;
 }
 
-.sprite-station.woodcutting {
+.sprite-station.woodcutting,
+.sprite-station.hunting {
   background-position: 0% 100%;
+}
+
+.sprite-station.herbalism {
+  background-position: 33.333% 100%;
 }
 
 .sprite-station.alchemy {
