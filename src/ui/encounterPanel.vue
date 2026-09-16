@@ -12,7 +12,6 @@ import {
   canDepartEncounter,
   canExplore,
   canPawn,
-  canSubmitSupply,
   claimLootBlockReason,
   departBlockReason,
   exploreBlockReason,
@@ -27,7 +26,6 @@ import {
   pawnBlockReason,
   pawnGoldForMap,
   pawnQuoteLines,
-  submitSupplyBlockReason,
 } from '../sim/encounters'
 import type { Encounter, EnemyEncounter, MerchantKind } from '../sim/types'
 import { useGameStore } from './gameStore'
@@ -56,10 +54,6 @@ function pawnLines(enc: Encounter) {
 
 function merchantTitle(kind: MerchantKind) {
   return MERCHANT_KIND_LABEL[kind]
-}
-
-function submitWhy(index: number) {
-  return submitSupplyBlockReason(game.save, index)
 }
 
 function departWhy(index: number) {
@@ -99,7 +93,7 @@ function marchLabel(enc: EnemyEncounter) {
   <section class="panel encounter">
     <p>偶遇</p>
     <p class="hint">
-      板上固定 5 格。探索花金币重抽可刷新格；行军中或可领奖的敌人会留在原位。敌人交补给后出发进入行军，到期只领金币。黑心商人只买、路人只换货、当铺只典当。
+      板上固定 5 格。探索花金币重抽可刷新格；行军中或可领奖的敌人会留在原位。敌人货够则一键出发进入行军，到期只领金币。黑心商人只买、路人只换货、当铺只典当。
     </p>
     <div class="row">
       <button type="button" :disabled="!readyToExplore" @click="game.explore()">
@@ -129,12 +123,8 @@ function marchLabel(enc: EnemyEncounter) {
           <p v-if="enc.lootClaimed" class="ready">战利品已领取</p>
           <p v-else-if="lootReady(enc)" class="ready">行军结束，可以领取战利品</p>
           <p v-else-if="marching(enc)" class="ready">{{ marchLabel(enc) }}</p>
-          <p v-else-if="enc.submitted" class="ready">补给已提交，可以出发</p>
-          <p v-else-if="submitWhy(i)" class="short">{{ submitWhy(i) }}</p>
+          <p v-else-if="departWhy(i)" class="short">{{ departWhy(i) }}</p>
           <div v-if="!enc.departed" class="row">
-            <button type="button" :disabled="!canSubmitSupply(game.save, i)" @click="game.submitSupply(i)">
-              提交补给
-            </button>
             <button type="button" :disabled="!canDepartEncounter(game.save, i)" @click="game.departEncounter(i)">
               出发
             </button>
@@ -150,7 +140,6 @@ function marchLabel(enc: EnemyEncounter) {
               战利品
             </button>
           </div>
-          <p v-if="!enc.departed && !enc.submitted && departWhy(i)" class="hint">{{ departWhy(i) }}</p>
           <p v-if="enc.departed && !enc.lootClaimed && lootWhy(i) && !lootReady(enc)" class="hint">
             {{ lootWhy(i) }}
           </p>

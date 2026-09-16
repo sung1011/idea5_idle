@@ -14,7 +14,6 @@ import {
   departEncounter,
   exploreBoard,
   pawnMerchant,
-  submitSupply,
 } from '../sim/encounters'
 import { tick } from '../sim/tick'
 import type { ActionResult, CategoryId, ItemId, Save, StationId } from '../sim/types'
@@ -133,7 +132,6 @@ export const useGameStore = defineStore('game', () => {
     sell: (itemId: ItemId, qty = 1) => apply((s) => sellFromBank(s, itemId, qty)),
     sellGoods: () => apply(sellAllGoods),
     explore: () => apply(exploreBoard),
-    submitSupply: (index: number) => apply((s) => submitSupply(s, index)),
     departEncounter: (index: number) => apply((s) => departEncounter(s, index)),
     claimLoot: (index: number) => apply((s) => claimLoot(s, index)),
     barter: (index: number) => apply((s) => barterMerchant(s, index)),

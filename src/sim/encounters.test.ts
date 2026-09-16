@@ -29,8 +29,6 @@ import {
   pawnGoldForMap,
   pawnMerchant,
   shouldKeepOnExplore,
-  submitSupply,
-  submitSupplyBlockReason,
 } from './encounters'
 import { settleOffline } from './offline'
 import { pawnUnitGold } from './tables'
@@ -67,7 +65,6 @@ function testEnemy(overrides: Partial<EnemyEncounter> = {}): EnemyEncounter {
     power: 'weak',
     needs: { weapon: 1, meal: 1 },
     lootGold: enemyLootGoldFor('near', 'weak'),
-    submitted: false,
     departed: false,
     marchEndsAt: null,
     lootClaimed: false,
@@ -189,20 +186,17 @@ describe('exploreBoard', () => {
     const marching = testEnemy({
       id: 'keep-march',
       departed: true,
-      submitted: true,
       marchEndsAt: now + 10 * 60 * 1000,
     })
     const lootReady = testEnemy({
       id: 'keep-loot',
       departed: true,
-      submitted: true,
       marchEndsAt: now - 1000,
     })
-    const idle = testEnemy({ id: 'swap-idle', submitted: true })
+    const idle = testEnemy({ id: 'swap-idle' })
     const claimed = testEnemy({
       id: 'swap-claimed',
       departed: true,
-      submitted: true,
       marchEndsAt: now - 1000,
       lootClaimed: true,
     })
@@ -231,7 +225,7 @@ describe('exploreBoard', () => {
 })
 
 describe('enemy march and loot', () => {
-  it('blocks depart when the bank is short and does not take goods', () => {
+  it('one-click depart fails when short and does not take goods or start a march', () => {
     const save = createSave()
     const index = firstOf(save, 'enemy')
     const enemy = save.encounters[index]
@@ -240,17 +234,21 @@ describe('enemy march and loot', () => {
 
     save.bank.weapon = 0
     save.bank.meal = 0
-    expect(submitSupplyBlockReason(save, index)).toContain('货不够')
-    expect(submitSupply(save, index).ok).toBe(false)
+    const bankBefore = { ...save.bank }
     expect(canDepartEncounter(save, index)).toBe(false)
-    expect(departBlockReason(save, index)).toBe('先提交补给')
-    expect(departEncounter(save, index).ok).toBe(false)
-    expect(bankQty(save, 'weapon')).toBe(0)
+    expect(departBlockReason(save, index)).toContain('货不够')
+    const result = departEncounter(save, index)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.reason).toContain('货不够')
+    expect(save.bank).toEqual(bankBefore)
     expect(save.departCount).toBe(0)
+    expect(save.lastDepartAt).toBeNull()
     expect(enemy.departed).toBe(false)
+    expect(enemy.marchEndsAt).toBeNull()
+    expect(enemy.submitted).toBeUndefined()
   })
 
-  it('submits then departs into a march without paying gold', () => {
+  it('one click takes all supplies and starts the march without paying gold', () => {
     const save = createSave()
     save.gold = 10
     const index = firstOf(save, 'enemy')
@@ -259,29 +257,50 @@ describe('enemy march and loot', () => {
     if (enemy.kind !== 'enemy') return
 
     stock(save, { weapon: 4, meal: 4, fish: 4, ore: 4, wood: 4 })
-    expect(submitSupply(save, index).ok).toBe(true)
-    expect(enemy.submitted).toBe(true)
-
     const now = 1_700_000_000_000
-    const bankBefore = { ...save.bank }
+    const bankBefore = needSnapshot(save, enemy.needs)
+    expect(canDepartEncounter(save, index)).toBe(true)
     const result = departEncounter(save, index, now)
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.message).toContain('已出发，行军')
     expect(save.gold).toBe(10)
-    expect(save.bank).toEqual(bankBefore)
+    for (const [itemId, qty] of Object.entries(enemy.needs) as Array<[ItemId, number]>) {
+      expect(bankQty(save, itemId)).toBe(bankBefore[itemId] - qty)
+    }
     expect(save.departCount).toBe(1)
     expect(save.lastDepartAt).toBe(now)
     expect(enemy.departed).toBe(true)
+    expect(enemy.submitted).toBeUndefined()
     expect(enemy.lootClaimed).toBe(false)
     expect(enemy.marchEndsAt).toBe(now + marchDurationS(enemy.distance, enemy.power) * 1000)
     expect(canClaimLoot(save, index, now)).toBe(false)
     expect(claimLootBlockReason(save, index, now)).toBe('行军尚未结束')
+    expect(departEncounter(save, index, now + 1000).ok).toBe(false)
+  })
+
+  it('lets a leftover submitted save depart without taking goods again', () => {
+    const save = createSave()
+    save.gold = 6
+    save.bank = { weapon: 1, meal: 1 }
+    const enemy = testEnemy({
+      needs: { weapon: 2, meal: 2 },
+      submitted: true,
+    })
+    put(save, 0, enemy)
+    const now = 1_710_000_000_000
+    const result = departEncounter(save, 0, now)
+    expect(result.ok).toBe(true)
+    expect(save.bank).toEqual({ weapon: 1, meal: 1 })
+    expect(save.gold).toBe(6)
+    expect(enemy.departed).toBe(true)
+    expect(enemy.submitted).toBeUndefined()
+    expect(enemy.marchEndsAt).toBe(now + marchDurationS(enemy.distance, enemy.power) * 1000)
   })
 
   it('cannot claim loot before the march ends', () => {
     const save = createSave()
     const now = 1_800_000_000_000
-    put(save, 0, testEnemy({ submitted: true, departed: true, marchEndsAt: now + 60_000 }))
+    put(save, 0, testEnemy({ departed: true, marchEndsAt: now + 60_000 }))
     const gold = save.gold
     const result = claimLoot(save, 0, now)
     expect(result.ok).toBe(false)
@@ -295,7 +314,6 @@ describe('enemy march and loot', () => {
     save.gold = 10
     save.bank = { wood: 2, meal: 1 }
     const enemy = testEnemy({
-      submitted: true,
       departed: true,
       marchEndsAt: 1_000,
       lootGold: 14,
@@ -320,7 +338,6 @@ describe('enemy march and loot', () => {
       save,
       0,
       testEnemy({
-        submitted: true,
         departed: true,
         marchEndsAt: now + durationS * 1000,
         lootGold: 8,
@@ -455,6 +472,7 @@ describe('hydrateEncounterFields', () => {
     expect(save.encounters[0].id).toBe('campKitchen')
     expect(save.encounters[0].label).toBe('营地开伙')
     expect(save.encounters[0].submitted).toBe(true)
+    expect(save.encounters[0].departed).toBe(false)
     expect(save.encounters[0].lootGold).toBe(10)
     expect(save.encounters[0].marchEndsAt).toBeNull()
     expect(save.encounters[0].lootClaimed).toBe(false)

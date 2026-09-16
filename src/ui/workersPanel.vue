@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { assignedCount, idleCount } from '../sim/query'
 import { CLASS_LABEL, PLAYABLE_STATION_IDS, RECRUIT_COST, STATION_DEF } from '../sim/tables'
-import type { StationId } from '../sim/types'
+import type { StationId, Worker } from '../sim/types'
 import { useGameStore } from './gameStore'
 
 const game = useGameStore()
 
-function stationLabel(id: StationId | null): string {
-  return id ? STATION_DEF[id].label : '空闲'
+function atStation(w: Worker, id: StationId) {
+  return w.assignment === id
+}
+
+function resting(w: Worker) {
+  return w.assignment === null
 }
 </script>
 
@@ -20,21 +24,32 @@ function stationLabel(id: StationId | null): string {
     <div class="row">
       <button type="button" @click="game.recruit()">抽工人（{{ RECRUIT_COST }} 金）</button>
     </div>
-    <p v-if="!game.save.workers.length" class="hint">先抽人，再派到站点。同一站可以堆多人加速。</p>
+    <p v-if="!game.save.workers.length" class="hint">先抽人，再点站点按钮派人。同一站可以堆多人加速。</p>
     <ul v-else>
-      <li v-for="w in game.save.workers" :key="w.id">
-        <span>{{ w.name ?? w.id }} · {{ w.classId ? CLASS_LABEL[w.classId] : '未标' }} · {{ stationLabel(w.assignment) }}</span>
-        <span class="row">
+      <li v-for="w in game.save.workers" :key="w.id" class="card">
+        <p class="name">{{ w.name ?? w.id }} · {{ w.classId ? CLASS_LABEL[w.classId] : '未标' }}</p>
+        <div class="row">
           <button
             v-for="id in PLAYABLE_STATION_IDS"
             :key="id"
             type="button"
+            :class="{ on: atStation(w, id) }"
+            :disabled="atStation(w, id)"
+            :aria-pressed="atStation(w, id)"
             @click="game.assign(w.id, id)"
           >
             {{ STATION_DEF[id].label }}
           </button>
-          <button type="button" :disabled="!w.assignment" @click="game.assign(w.id, null)">休息</button>
-        </span>
+          <button
+            type="button"
+            :class="{ on: resting(w) }"
+            :disabled="resting(w)"
+            :aria-pressed="resting(w)"
+            @click="game.assign(w.id, null)"
+          >
+            休息
+          </button>
+        </div>
       </li>
     </ul>
     <p class="hint">
@@ -56,7 +71,8 @@ function stationLabel(id: StationId | null): string {
 }
 
 .panel p,
-.hint {
+.hint,
+.name {
   margin: 0;
   line-height: 1.5;
 }
@@ -74,6 +90,12 @@ button {
   background: #18140f;
 }
 
+button.on {
+  border-color: var(--copper);
+  color: var(--ember);
+  opacity: 1;
+}
+
 ul {
   margin: 0;
   padding: 0;
@@ -83,12 +105,18 @@ ul {
   gap: 8px;
 }
 
-li {
+.card {
   display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--seam);
+  background: #18140f;
+}
+
+.name {
+  font-family: var(--font-mono);
+  color: var(--copper);
 }
 
 .hint {

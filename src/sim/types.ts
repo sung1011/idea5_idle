@@ -83,7 +83,8 @@ export type EnemyEncounter = {
   needs: EncounterNeedMap
   /** 行军结束后点「战利品」只发这笔金币，不进银行物资。 */
   lootGold: number
-  submitted: boolean
+  /** 旧两步流程残留。新档不写；仅 hydrate 用来让「已扣货未出发」免再扣。 */
+  submitted?: boolean
   departed: boolean
   /** 行军结束墙钟；未出发为 null。 */
   marchEndsAt: number | null

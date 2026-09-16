@@ -307,7 +307,6 @@ function makeEnemy(seed: number, slot: number): EnemyEncounter {
     power,
     needs: enemyNeedsFor(distance, power),
     lootGold: enemyLootGoldFor(distance, power),
-    submitted: false,
     departed: false,
     marchEndsAt: null,
     lootClaimed: false,
@@ -378,7 +377,7 @@ function isEnemyEncounter(value: unknown): value is EnemyEncounter {
     (enc.power === 'weak' || enc.power === 'strong') &&
     isNeedMap(enc.needs) &&
     typeof enc.lootGold === 'number' &&
-    typeof enc.submitted === 'boolean' &&
+    (enc.submitted === undefined || typeof enc.submitted === 'boolean') &&
     typeof enc.departed === 'boolean' &&
     (enc.marchEndsAt === null || typeof enc.marchEndsAt === 'number') &&
     typeof enc.lootClaimed === 'boolean'
@@ -489,54 +488,40 @@ function enemyStatusReason(enc: EnemyEncounter): string | null {
   return null
 }
 
-export function submitSupplyBlockReason(save: Save, index: number): string | null {
-  const enc = enemyAt(save, index)
-  if (!enc) return '不是敌人偶遇'
-  const status = enemyStatusReason(enc)
-  if (status) return status
-  if (enc.submitted) return '补给已提交，可以出发'
-  const missing = missingLabels(save, enc.needs)
-  if (missing.length) return `货不够：${missing.join('、')}`
-  return null
+function suppliesAlreadyTaken(enc: EnemyEncounter): boolean {
+  return enc.submitted === true
 }
 
+/** 一键出发：货不够则失败；货够（或旧档已扣过补给）则扣货并进入行军。 */
 export function departBlockReason(save: Save, index: number): string | null {
   const enc = enemyAt(save, index)
   if (!enc) return '不是敌人偶遇'
   const status = enemyStatusReason(enc)
   if (status) return status
-  if (!enc.submitted) return '先提交补给'
+  if (suppliesAlreadyTaken(enc)) return null
+  const missing = missingLabels(save, enc.needs)
+  if (missing.length) return `货不够：${missing.join('、')}`
   return null
-}
-
-export function canSubmitSupply(save: Save, index: number): boolean {
-  return submitSupplyBlockReason(save, index) === null
 }
 
 export function canDepartEncounter(save: Save, index: number): boolean {
   return departBlockReason(save, index) === null
 }
 
-export function submitSupply(save: Save, index: number): ActionResult {
-  const blocked = submitSupplyBlockReason(save, index)
-  if (blocked) return { ok: false, reason: blocked }
-  const enc = enemyAt(save, index)
-  if (!enc) return { ok: false, reason: '不是敌人偶遇' }
-  const took = takeCosts(save, needMapToRules(enc.needs))
-  if (!took.ok) return took
-  enc.submitted = true
-  return { ok: true }
-}
-
-/** 出发进入行军，不发金币、不做战斗。 */
+/** 一次点击扣光补给并进入行军。不发金币、不做战斗。 */
 export function departEncounter(save: Save, index: number, now = Date.now()): ActionResult {
   const blocked = departBlockReason(save, index)
   if (blocked) return { ok: false, reason: blocked }
   const enc = enemyAt(save, index)
   if (!enc) return { ok: false, reason: '不是敌人偶遇' }
+  if (!suppliesAlreadyTaken(enc)) {
+    const took = takeCosts(save, needMapToRules(enc.needs))
+    if (!took.ok) return took
+  }
   const durationS = marchDurationS(enc.distance, enc.power)
   save.departCount += 1
   save.lastDepartAt = now
+  delete enc.submitted
   enc.departed = true
   enc.marchEndsAt = now + durationS * 1000
   enc.lootClaimed = false
@@ -694,10 +679,10 @@ function migrateLegacyOrder(save: LegacyOrderSave): void {
     power: 'weak',
     needs: { ...old.needs },
     lootGold: old.lootGold,
-    submitted: save.orderSubmitted === true,
     departed: false,
     marchEndsAt: null,
     lootClaimed: false,
+    ...(save.orderSubmitted === true ? { submitted: true } : {}),
   }
 }
 
@@ -761,10 +746,10 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
     power: raw.power,
     needs: { ...raw.needs },
     lootGold,
-    submitted: raw.submitted === true,
     departed,
     marchEndsAt: hasMarch ? raw.marchEndsAt : null,
     lootClaimed,
+    ...(raw.submitted === true && !departed ? { submitted: true } : {}),
   }
 }
 
