@@ -45,6 +45,12 @@ export function loadSave(): Save | null {
       diamonds: normalizeDiamonds((parsed as { diamonds?: unknown }).diamonds),
       messages: mail.messages,
       nextMessageId: mail.nextMessageId,
+      offlineCount:
+        typeof (parsed as { offlineCount?: unknown }).offlineCount === 'number' &&
+        Number.isFinite((parsed as { offlineCount?: number }).offlineCount) &&
+        (parsed as { offlineCount: number }).offlineCount > 0
+          ? Math.floor((parsed as { offlineCount: number }).offlineCount)
+          : 0,
     }
     if (!Array.isArray(parsedEncounters)) merged.encounters = []
     return hydrateEncounterFields(merged)

@@ -78,6 +78,8 @@ export type Save = {
   /** 消息箱。离线收益等写入这里，不再强弹顶栏。 */
   messages: GameMessage[]
   nextMessageId: number
+  /** 成功离线追赶次数（seconds > 0）。 */
+  offlineCount: number
 }
 
 export type MerchantKind = 'shady' | 'passerby' | 'pawnshop'

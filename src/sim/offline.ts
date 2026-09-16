@@ -175,6 +175,7 @@ export function settleOffline(save: Save, now = Date.now()): OfflineResult {
   const next = cloneSave(save)
   for (let i = 0; i < seconds; i++) applyTick(next, { now })
   next.lastTick = now
+  next.offlineCount = (Number.isFinite(next.offlineCount) ? Math.max(0, Math.floor(next.offlineCount)) : 0) + 1
   const summary = buildOfflineSummary(before, next, seconds, capped)
   pushOfflineMessage(next, summary, now)
   return { save: next, summary }

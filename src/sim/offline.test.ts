@@ -64,6 +64,7 @@ describe('settleOffline', () => {
     expect(result.summary.lines.some((l) => l.includes('铜矿 +4'))).toBe(true)
     expect(result.save.messages[0]?.title).toBe('离线收益')
     expect(result.save.messages[0]?.read).toBe(false)
+    expect(result.save.offlineCount).toBe(1)
   })
 
   it('summarizes forging consume and produce', () => {
@@ -113,6 +114,7 @@ describe('settleOffline', () => {
     expect(result.summary.seconds).toBe(0)
     expect(result.summary.lines).toEqual([])
     expect(result.save).toBe(save)
+    expect(result.save.offlineCount).toBe(0)
   })
 
   it('omits gold line when gold does not change', () => {

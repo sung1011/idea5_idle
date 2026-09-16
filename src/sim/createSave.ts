@@ -27,5 +27,6 @@ export function createSave(): Save {
     lastDepartAt: null,
     messages: [],
     nextMessageId: 1,
+    offlineCount: 0,
   }
 }

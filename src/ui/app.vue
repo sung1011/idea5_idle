@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { formatClock, gameDay, timeOfDayS } from '../sim/tables'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useGameStore } from './gameStore'
 import BankPanel from './bankPanel.vue'
 import EncounterPanel from './encounterPanel.vue'
-import GmPanel from './gmPanel.vue'
 import MessagePanel from './messagePanel.vue'
+import SettingsPanel from './settingsPanel.vue'
 import WorkersPanel from './workersPanel.vue'
 import WorkshopPanel from './workshopPanel.vue'
 
@@ -20,12 +19,8 @@ type TabId = (typeof TABS)[number]['id']
 
 const game = useGameStore()
 const tab = ref<TabId>('workshop')
-const gmOpen = ref(false)
 const mailOpen = ref(false)
-
-const day = computed(() => gameDay(game.save.elapsedS))
-const clock = computed(() => formatClock(game.save.elapsedS))
-const today = computed(() => formatClock(timeOfDayS(game.save.elapsedS)))
+const settingsOpen = ref(false)
 
 onMounted(() => {
   game.startClock()
@@ -39,18 +34,16 @@ onUnmounted(() => {
 <template>
   <div class="shell">
     <header class="mast">
-      <div>
-        <h1>骑士工坊</h1>
-      </div>
+      <h1>骑士工坊</h1>
       <div class="mast-actions">
         <button
           type="button"
-          class="mail-open"
+          class="icon-btn"
           :class="{ unread: game.unread }"
           aria-label="消息"
           @click="mailOpen = true"
         >
-          <svg class="envelope" viewBox="0 0 24 24" aria-hidden="true">
+          <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">
             <path
               fill="currentColor"
               d="M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5v-11Zm1.7.5 6.7 4.3c.37.24.83.24 1.2 0L19.3 7H4.7Zm14.8 1.3-6.4 4.1a2.7 2.7 0 0 1-2.8 0L4.5 8.8V17h15V8.8Z"
@@ -59,14 +52,20 @@ onUnmounted(() => {
           消息
           <i v-if="game.unread" class="dot" />
         </button>
-        <button type="button" class="gm-open" @click="gmOpen = true">GM</button>
+        <button type="button" class="icon-btn" aria-label="设置" @click="settingsOpen = true">
+          <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M19.1 12.7a7.4 7.4 0 0 0 .1-1.4 7.4 7.4 0 0 0-.1-1.4l2-1.6a.5.5 0 0 0 .1-.6l-1.9-3.3a.5.5 0 0 0-.6-.2l-2.4 1a7 7 0 0 0-2.4-1.4l-.4-2.5a.5.5 0 0 0-.5-.4h-3.8a.5.5 0 0 0-.5.4l-.4 2.5a7 7 0 0 0-2.4 1.4l-2.4-1a.5.5 0 0 0-.6.2L2.7 7.7a.5.5 0 0 0 .1.6l2 1.6a7.4 7.4 0 0 0-.1 1.4 7.4 7.4 0 0 0 .1 1.4l-2 1.6a.5.5 0 0 0-.1.6l1.9 3.3a.5.5 0 0 0 .6.2l2.4-1a7 7 0 0 0 2.4 1.4l.4 2.5a.5.5 0 0 0 .5.4h3.8a.5.5 0 0 0 .5-.4l.4-2.5a7 7 0 0 0 2.4-1.4l2.4 1a.5.5 0 0 0 .6-.2l1.9-3.3a.5.5 0 0 0-.1-.6Zm-7.1 2.1A2.8 2.8 0 1 1 14.8 12 2.8 2.8 0 0 1 12 14.8Z"
+            />
+          </svg>
+          设置
+        </button>
       </div>
     </header>
 
-    <section class="panel top">
-      <p>游戏日 {{ day }} · 今日 {{ today }}</p>
-      <p class="clock">已运行 {{ clock }}</p>
-      <div class="resources" aria-label="资源">
+    <section class="panel top" aria-label="资源">
+      <div class="resources">
         <div class="chip">
           <i class="sprite sprite-res gold" aria-hidden="true" />
           <span>{{ game.save.gold }}</span>
@@ -84,7 +83,14 @@ onUnmounted(() => {
 
     <p v-if="game.notice" class="notice" :class="game.noticeKind">{{ game.notice }}</p>
 
-    <nav class="tabs" role="tablist" aria-label="主界面页签">
+    <main class="page">
+      <WorkshopPanel v-if="tab === 'workshop'" />
+      <BankPanel v-else-if="tab === 'bank'" />
+      <WorkersPanel v-else-if="tab === 'workers'" />
+      <EncounterPanel v-else />
+    </main>
+
+    <nav class="dock" role="tablist" aria-label="主界面页签">
       <button
         v-for="t in TABS"
         :key="t.id"
@@ -99,13 +105,8 @@ onUnmounted(() => {
       </button>
     </nav>
 
-    <WorkshopPanel v-if="tab === 'workshop'" />
-    <BankPanel v-else-if="tab === 'bank'" />
-    <WorkersPanel v-else-if="tab === 'workers'" />
-    <EncounterPanel v-else />
-
     <MessagePanel v-if="mailOpen" @close="mailOpen = false" />
-    <GmPanel v-if="gmOpen" @close="gmOpen = false" />
+    <SettingsPanel v-if="settingsOpen" @close="settingsOpen = false" />
   </div>
 </template>
 
@@ -113,24 +114,18 @@ onUnmounted(() => {
 .shell {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   width: min(720px, 100%);
   min-height: 100dvh;
   margin: 0 auto;
-  padding: 28px 20px 36px;
+  padding: 16px 16px calc(80px + env(safe-area-inset-bottom));
 }
 
 .mast {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-}
-
-.mast > div {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
 
 .mast-actions {
@@ -139,16 +134,16 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-.mail-open {
+.icon-btn {
   position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
-  min-height: 36px;
+  min-height: 40px;
   padding: 4px 10px;
 }
 
-.envelope {
+.glyph {
   width: 18px;
   height: 18px;
 }
@@ -164,20 +159,10 @@ onUnmounted(() => {
   box-shadow: 0 0 0 2px var(--plate);
 }
 
-.gm-open {
-  min-height: 28px;
-  padding: 2px 8px;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  color: var(--muted);
-  opacity: 0.42;
-  box-shadow: none;
-}
-
 h1 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
   letter-spacing: 0.1em;
   color: var(--ink);
@@ -187,18 +172,12 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 14px 16px;
+  padding: 10px 12px;
 }
 
-.panel p,
 .notice {
   margin: 0;
   line-height: 1.5;
-}
-
-.clock {
-  font-family: var(--font-mono);
-  color: var(--copper);
 }
 
 .resources {
@@ -207,29 +186,37 @@ h1 {
   gap: 8px;
 }
 
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  padding: 8px 0;
-  background: var(--paper);
+.page {
+  flex: 1 1 auto;
 }
 
-.tabs button {
+.dock {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  gap: 8px;
+  width: min(720px, 100%);
+  transform: translateX(-50%);
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  background: var(--paper);
+  border-top: 3px solid var(--gold);
+  box-shadow: 0 -2px 0 var(--gold-deep);
+}
+
+.dock button {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  flex: 1 1 72px;
-  min-width: 64px;
-  min-height: 40px;
-  padding: 8px 10px;
+  flex: 1 1 64px;
+  min-width: 56px;
+  min-height: 48px;
+  padding: 8px 8px;
 }
 
-.tabs button.on {
+.dock button.on {
   color: var(--ink);
   background: linear-gradient(#ffe27a, #f0b83a);
   box-shadow: 0 3px 0 var(--shadow);
