@@ -609,6 +609,27 @@ describe('hydrateEncounterFields', () => {
       expect(save.encounters[1].pawnWants).toEqual({ weapon: 1 })
     }
   })
+
+  it('trims a leftover 6-slot board down to 5 without losing the first marching enemy', () => {
+    const save = createSave()
+    const now = 2_200_000_000_000
+    const marching = testEnemy({
+      id: 'keep-six-trim',
+      departed: true,
+      marchEndsAt: now + 60_000,
+    })
+    save.encounters = [
+      marching,
+      testPasserby({ id: 'p1' }),
+      testBlackMerchant({ id: 'b1' }),
+      testPawn({ id: 'w1' }),
+      testArtisan({ id: 'a1' }),
+      testBulk({ id: 'x1' }),
+    ] as unknown as Save['encounters']
+    hydrateEncounterFields(save)
+    expect(save.encounters).toHaveLength(5)
+    expect(save.encounters[0].id).toBe('keep-six-trim')
+  })
 })
 
 describe('encounter quality', () => {
