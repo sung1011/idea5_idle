@@ -62,7 +62,7 @@ export const MERCHANT_DEFS: readonly MerchantDef[] = [
   { id: 'rationBuyer', label: '干粮商', wants: { meal: 1 }, offers: { wood: 3 }, buyGold: 5 },
 ]
 
-/** 旧单订单存档迁进偶遇敌人用。 */
+/** 旧单格出发存档迁进偶遇敌人用。 */
 const LEGACY_ORDER_DEFS: ReadonlyArray<{
   id: string
   label: string
@@ -418,7 +418,7 @@ function migrateLegacyOrder(save: LegacyOrderSave): void {
   }
 }
 
-/** 旧存档补偶遇板；单订单字段迁进第 0 格敌人。 */
+/** 旧存档补偶遇板；单格出发字段迁进第 0 格敌人。 */
 export function hydrateEncounterFields(save: Save): Save {
   const raw = save as LegacyOrderSave
   raw.exploreCount =
