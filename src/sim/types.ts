@@ -69,7 +69,7 @@ export type Save = {
   lastTick: number
   elapsedS: number
   nextWorkerId: number
-  /** 偶遇板，固定 5 格。 */
+  /** 偶遇板，固定 6 格。 */
   encounters: Encounter[]
   /** 成功探索次数，驱动探索费用与下一板种子。 */
   exploreCount: number
@@ -86,6 +86,8 @@ export type MerchantKind = 'shady' | 'passerby' | 'pawnshop'
 export type EncounterKind = 'enemy' | MerchantKind
 export type EncounterDistance = 'near' | 'far'
 export type EncounterPower = 'weak' | 'strong'
+/** 货单品质。探索不刷 gray。 */
+export type EncounterQuality = 'gray' | 'green' | 'blue' | 'purple' | 'orange'
 
 export type EncounterNeedMap = Partial<Record<ItemId, number>>
 
@@ -93,6 +95,7 @@ export type EnemyEncounter = {
   kind: 'enemy'
   id: string
   label: string
+  quality: EncounterQuality
   distance: EncounterDistance
   power: EncounterPower
   needs: EncounterNeedMap
@@ -110,6 +113,7 @@ export type ShadyEncounter = {
   kind: 'shady'
   id: string
   label: string
+  quality: EncounterQuality
   buyGold: number
   buyOffers: EncounterNeedMap
   completed: boolean
@@ -119,6 +123,7 @@ export type PasserbyEncounter = {
   kind: 'passerby'
   id: string
   label: string
+  quality: EncounterQuality
   wants: EncounterNeedMap
   offers: EncounterNeedMap
   completed: boolean
@@ -128,6 +133,7 @@ export type PawnshopEncounter = {
   kind: 'pawnshop'
   id: string
   label: string
+  quality: EncounterQuality
   /** 可典当：玩家交出的银行物品。 */
   pawnWants: EncounterNeedMap
   completed: boolean

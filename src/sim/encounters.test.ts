@@ -6,6 +6,7 @@ import {
   EXPLORE_COST_TABLE,
   PAWNSHOP_DEFS,
   PASSERBY_DEFS,
+  QUALITY_DEF,
   SHADY_DEFS,
   barterMerchant,
   boardSignature,
@@ -17,6 +18,7 @@ import {
   claimLootBlockReason,
   departBlockReason,
   departEncounter,
+  encounterStampLabel,
   enemyLootGoldFor,
   enemyNeedsFor,
   exploreBlockReason,
@@ -24,16 +26,22 @@ import {
   exploreCost,
   generateEncounterBoard,
   hydrateEncounterFields,
+  isEncounterSettled,
   isMerchantKind,
   marchDurationS,
+  needMapQtySum,
+  pawnGoldForEncounter,
   pawnGoldForMap,
   pawnMerchant,
+  pickEncounterQuality,
+  qualityRewardMul,
   shouldKeepOnExplore,
 } from './encounters'
 import { settleOffline } from './offline'
 import { pawnUnitGold } from './tables'
 import type {
   EncounterNeedMap,
+  EncounterQuality,
   EnemyEncounter,
   ItemId,
   PasserbyEncounter,
@@ -61,6 +69,7 @@ function testEnemy(overrides: Partial<EnemyEncounter> = {}): EnemyEncounter {
     kind: 'enemy',
     id: 'test-enemy',
     label: '试敌',
+    quality: 'green',
     distance: 'near',
     power: 'weak',
     needs: { weapon: 1, meal: 1 },
@@ -77,6 +86,7 @@ function testShady(overrides: Partial<ShadyEncounter> = {}): ShadyEncounter {
     kind: 'shady',
     id: 'merchantBuy-test',
     label: '木货贩',
+    quality: 'green',
     buyGold: 8,
     buyOffers: { meal: 1 },
     completed: false,
@@ -89,6 +99,7 @@ function testPasserby(overrides: Partial<PasserbyEncounter> = {}): PasserbyEncou
     kind: 'passerby',
     id: 'merchantBarter-test',
     label: '换货路人',
+    quality: 'green',
     wants: { wood: 4 },
     offers: { meal: 1 },
     completed: false,
@@ -101,6 +112,7 @@ function testPawn(overrides: Partial<PawnshopEncounter> = {}): PawnshopEncounter
     kind: 'pawnshop',
     id: 'merchantPawn-test',
     label: '兵器当',
+    quality: 'green',
     pawnWants: { weapon: 1 },
     completed: false,
     ...overrides,
@@ -116,8 +128,9 @@ function needSnapshot(save: Save, map: EncounterNeedMap): Record<ItemId, number>
 }
 
 describe('encounter board', () => {
-  it('always has 5 slots mixing enemies and merchant kinds', () => {
+  it('always has 6 slots mixing enemies and merchant kinds', () => {
     const save = createSave()
+    expect(ENCOUNTER_SLOT_COUNT).toBe(6)
     expect(save.encounters).toHaveLength(ENCOUNTER_SLOT_COUNT)
     expect(save.encounters.some((enc) => enc.kind === 'enemy')).toBe(true)
     expect(save.encounters.some((enc) => isMerchantKind(enc.kind))).toBe(true)
@@ -125,7 +138,7 @@ describe('encounter board', () => {
     const seen = new Set<string>()
     for (let seed = 0; seed < 24; seed++) {
       const board = generateEncounterBoard(seed)
-      expect(board).toHaveLength(5)
+      expect(board).toHaveLength(6)
       expect(board.some((enc) => enc.kind === 'enemy')).toBe(true)
       expect(board.some((enc) => isMerchantKind(enc.kind))).toBe(true)
       for (const enc of board) seen.add(enc.kind)
@@ -150,7 +163,7 @@ describe('encounter board', () => {
 })
 
 describe('exploreBoard', () => {
-  it('deducts gold and replaces refreshable slots on the 5-slot board', () => {
+  it('deducts gold and replaces refreshable slots on the 6-slot board', () => {
     const save = createSave()
     const beforeGold = save.gold
     const beforeCost = exploreCost(save)
@@ -162,7 +175,7 @@ describe('exploreBoard', () => {
     if (result.ok) expect(result.message).toContain('探索完成')
     expect(save.gold).toBe(beforeGold - beforeCost)
     expect(save.exploreCount).toBe(1)
-    expect(save.encounters).toHaveLength(5)
+    expect(save.encounters).toHaveLength(6)
     expect(boardSignature(save.encounters)).not.toBe(beforeSig)
   })
 
@@ -201,11 +214,13 @@ describe('exploreBoard', () => {
       lootClaimed: true,
     })
     const passerby = testPasserby({ id: 'swap-passerby' })
+    const sixth = testEnemy({ id: 'swap-sixth' })
     put(save, 0, marching)
     put(save, 1, lootReady)
     put(save, 2, idle)
     put(save, 3, claimed)
     put(save, 4, passerby)
+    put(save, 5, sixth)
 
     expect(shouldKeepOnExplore(marching, now)).toBe(true)
     expect(shouldKeepOnExplore(lootReady, now)).toBe(true)
@@ -215,12 +230,13 @@ describe('exploreBoard', () => {
 
     const result = exploreBoard(save, now)
     expect(result.ok).toBe(true)
-    expect(save.encounters).toHaveLength(5)
+    expect(save.encounters).toHaveLength(6)
     expect(save.encounters[0].id).toBe('keep-march')
     expect(save.encounters[1].id).toBe('keep-loot')
     expect(save.encounters[2].id).not.toBe('swap-idle')
     expect(save.encounters[3].id).not.toBe('swap-claimed')
     expect(save.encounters[4].id).not.toBe('swap-passerby')
+    expect(save.encounters[5].id).not.toBe('swap-sixth')
   })
 })
 
@@ -453,8 +469,93 @@ describe('merchant kinds', () => {
   })
 })
 
+describe('encounter quality', () => {
+  const ranked: EncounterQuality[] = ['green', 'blue', 'purple', 'orange']
+
+  it('keeps green as baseline and raises demand, payout and value ratio', () => {
+    expect(QUALITY_DEF.gray.exploreWeight).toBe(0)
+    expect(QUALITY_DEF.green.exploreWeight).toBeGreaterThan(QUALITY_DEF.blue.exploreWeight)
+    expect(QUALITY_DEF.blue.exploreWeight).toBeGreaterThan(QUALITY_DEF.purple.exploreWeight)
+    expect(QUALITY_DEF.purple.exploreWeight).toBeGreaterThan(QUALITY_DEF.orange.exploreWeight)
+
+    let prevDemand = 0
+    let prevReward = 0
+    let prevValue = 0
+    for (const quality of ranked) {
+      const def = QUALITY_DEF[quality]
+      const rewardMul = qualityRewardMul(quality)
+      expect(def.demandMul).toBeGreaterThanOrEqual(prevDemand)
+      expect(rewardMul).toBeGreaterThan(prevReward)
+      expect(def.valueMul).toBeGreaterThan(prevValue)
+      prevDemand = def.demandMul
+      prevReward = rewardMul
+      prevValue = def.valueMul
+    }
+    expect(QUALITY_DEF.gray.valueMul).toBeLessThan(QUALITY_DEF.green.valueMul)
+  })
+
+  it('never rolls gray when generating explore boards', () => {
+    const seen = new Set<EncounterQuality>()
+    for (let seed = 0; seed < 80; seed++) {
+      expect(pickEncounterQuality(seed, seed % 6)).not.toBe('gray')
+      const board = generateEncounterBoard(seed)
+      expect(board).toHaveLength(6)
+      for (const enc of board) {
+        expect(enc.quality).not.toBe('gray')
+        seen.add(enc.quality)
+      }
+    }
+    expect(seen.has('green')).toBe(true)
+    expect(seen.has('blue')).toBe(true)
+    expect(seen.has('purple')).toBe(true)
+    expect(seen.has('orange')).toBe(true)
+  })
+
+  it('gives higher quality enemies more supplies, more gold and better loot per item', () => {
+    let prevDemand = 0
+    let prevLoot = 0
+    let prevRoi = 0
+    for (const quality of ranked) {
+      const needs = enemyNeedsFor('far', 'strong', quality)
+      const demand = needMapQtySum(needs)
+      const loot = enemyLootGoldFor('far', 'strong', quality)
+      const roi = loot / demand
+      expect(demand).toBeGreaterThanOrEqual(prevDemand)
+      expect(loot).toBeGreaterThan(prevLoot)
+      expect(roi).toBeGreaterThan(prevRoi)
+      prevDemand = demand
+      prevLoot = loot
+      prevRoi = roi
+    }
+  })
+
+  it('pays more pawn gold per item on higher quality slips', () => {
+    const green = testPawn({ quality: 'green', pawnWants: { weapon: 1, wood: 2 } })
+    const orange = testPawn({ quality: 'orange', pawnWants: { weapon: 2, wood: 4 } })
+    const greenGold = pawnGoldForEncounter(green)
+    const orangeGold = pawnGoldForEncounter(orange)
+    expect(greenGold).toBe(pawnGoldForMap(green.pawnWants))
+    expect(orangeGold / needMapQtySum(orange.pawnWants)).toBeGreaterThan(
+      greenGold / needMapQtySum(green.pawnWants),
+    )
+  })
+
+  it('stamps settled trades and claimed loot', () => {
+    const idle = testEnemy()
+    const claimed = testEnemy({ lootClaimed: true, departed: true, marchEndsAt: 1 })
+    const open = testPasserby()
+    const done = testPasserby({ completed: true })
+    expect(isEncounterSettled(idle)).toBe(false)
+    expect(isEncounterSettled(claimed)).toBe(true)
+    expect(encounterStampLabel(claimed)).toBe('已领')
+    expect(isEncounterSettled(open)).toBe(false)
+    expect(isEncounterSettled(done)).toBe(true)
+    expect(encounterStampLabel(done)).toBe('成交')
+  })
+})
+
 describe('hydrateEncounterFields', () => {
-  it('builds a 5-slot board and migrates a legacy order into the first enemy', () => {
+  it('builds a 6-slot board and migrates a legacy order into the first enemy', () => {
     const save = createSave() as Save & {
       currentOrderId?: string
       orderIndex?: number
@@ -466,7 +567,7 @@ describe('hydrateEncounterFields', () => {
     save.orderIndex = 2
     save.orderSubmitted = true
     hydrateEncounterFields(save)
-    expect(save.encounters).toHaveLength(5)
+    expect(save.encounters).toHaveLength(6)
     expect(save.encounters[0].kind).toBe('enemy')
     if (save.encounters[0].kind !== 'enemy') return
     expect(save.encounters[0].id).toBe('campKitchen')
@@ -476,6 +577,7 @@ describe('hydrateEncounterFields', () => {
     expect(save.encounters[0].lootGold).toBe(10)
     expect(save.encounters[0].marchEndsAt).toBeNull()
     expect(save.encounters[0].lootClaimed).toBe(false)
+    expect(save.encounters[0].quality).toBe('green')
     expect(save.currentOrderId).toBeUndefined()
     expect(save.orderIndex).toBeUndefined()
     expect(save.orderSubmitted).toBeUndefined()
@@ -495,10 +597,34 @@ describe('hydrateEncounterFields', () => {
     }
     save.encounters = [legacy, testEnemy({ id: 'e1' }), testEnemy({ id: 'e2' }), testEnemy({ id: 'e3' }), testEnemy({ id: 'e4' })] as unknown as Save['encounters']
     hydrateEncounterFields(save)
+    expect(save.encounters).toHaveLength(6)
     expect(save.encounters[0].kind).toBe('passerby')
     if (save.encounters[0].kind !== 'passerby') return
     expect(save.encounters[0].id).toContain('merchantBarter')
     expect(save.encounters[0].wants).toEqual({ wood: 4 })
     expect(save.encounters[0].offers).toEqual({ meal: 1 })
+    expect(save.encounters[0].quality).toBe('green')
+  })
+
+  it('pads a 5-slot board to 6 and fills missing quality as green', () => {
+    const save = createSave()
+    const marching = testEnemy({
+      id: 'keep-old-march',
+      departed: true,
+      marchEndsAt: Date.now() + 60_000,
+    })
+    delete (marching as { quality?: EncounterQuality }).quality
+    save.encounters = [
+      marching,
+      testEnemy({ id: 'e1' }),
+      testPasserby({ id: 'p1' }),
+      testShady({ id: 's1' }),
+      testPawn({ id: 'w1' }),
+    ]
+    hydrateEncounterFields(save)
+    expect(save.encounters).toHaveLength(6)
+    expect(save.encounters[0].id).toBe('keep-old-march')
+    expect(save.encounters.every((enc) => enc.quality != null)).toBe(true)
+    expect(save.encounters[0].quality).toBe('green')
   })
 })

@@ -7,6 +7,7 @@ import type {
   EncounterDistance,
   EncounterNeedMap,
   EncounterPower,
+  EncounterQuality,
   EnemyEncounter,
   ItemId,
   MerchantEncounter,
@@ -17,7 +18,7 @@ import type {
   ShadyEncounter,
 } from './types'
 
-export const ENCOUNTER_SLOT_COUNT = 5
+export const ENCOUNTER_SLOT_COUNT = 6
 
 /** 探索费用。随探索次数略涨，超出表长后钉在末档。 */
 export const EXPLORE_COST_TABLE: readonly number[] = [8, 10, 12, 14, 16]
@@ -46,6 +47,51 @@ export const MERCHANT_KIND_WEIGHTS: Readonly<Record<MerchantKind, number>> = {
 }
 
 export const MERCHANT_KINDS: readonly MerchantKind[] = ['shady', 'passerby', 'pawnshop']
+
+export const ENCOUNTER_QUALITIES: readonly EncounterQuality[] = ['gray', 'green', 'blue', 'purple', 'orange']
+
+export const QUALITY_LABEL: Record<EncounterQuality, string> = {
+  gray: '灰',
+  green: '绿',
+  blue: '蓝',
+  purple: '紫',
+  orange: '橙',
+}
+
+/**
+ * 货单品质倍率。绿为基准。
+ * `demandMul` 抬需求，`valueMul` 是性价比（产出÷投入）相对绿的倍数。
+ * 产出倍率 = demandMul × valueMul，故产出增速快于需求。
+ * 探索权重：绿 > 蓝 > 紫 > 橙，灰为 0（永不刷出）。
+ */
+export type QualityDef = {
+  demandMul: number
+  valueMul: number
+  exploreWeight: number
+}
+
+export const QUALITY_DEF: Readonly<Record<EncounterQuality, QualityDef>> = {
+  gray: { demandMul: 0.8, valueMul: 0.9, exploreWeight: 0 },
+  green: { demandMul: 1, valueMul: 1, exploreWeight: 50 },
+  blue: { demandMul: 1.25, valueMul: 1.12, exploreWeight: 28 },
+  purple: { demandMul: 1.6, valueMul: 1.25, exploreWeight: 16 },
+  orange: { demandMul: 2, valueMul: 1.4, exploreWeight: 6 },
+}
+
+export function isEncounterQuality(value: unknown): value is EncounterQuality {
+  return (
+    value === 'gray' ||
+    value === 'green' ||
+    value === 'blue' ||
+    value === 'purple' ||
+    value === 'orange'
+  )
+}
+
+export function qualityRewardMul(quality: EncounterQuality): number {
+  const def = QUALITY_DEF[quality]
+  return def.demandMul * def.valueMul
+}
 
 /** 行军时长（秒）。远 / 强更久，夹在 10～30 分钟。 */
 export const MARCH_DURATION_S: Readonly<Record<EncounterDistance, Record<EncounterPower, number>>> = {
@@ -156,7 +202,8 @@ type LegacyMerchant = {
   completed?: boolean
 }
 
-type LegacyEnemy = EnemyEncounter & {
+type LegacyEnemy = Omit<EnemyEncounter, 'quality'> & {
+  quality?: EncounterQuality
   departGold?: number
 }
 
@@ -178,8 +225,83 @@ export function mergeNeedMaps(...maps: EncounterNeedMap[]): EncounterNeedMap {
   return out
 }
 
-/** 远 → 更高食物/干粮；强 → 更高矿物与武器。 */
-export function enemyNeedsFor(distance: EncounterDistance, power: EncounterPower): EncounterNeedMap {
+export function needMapQtySum(map: EncounterNeedMap): number {
+  return needEntries(map).reduce((sum, [, qty]) => sum + qty, 0)
+}
+
+export function scaleDemandQty(qty: number, quality: EncounterQuality): number {
+  if (qty <= 0) return 0
+  const mul = QUALITY_DEF[quality].demandMul
+  const scaled = Math.max(1, Math.round(qty * mul))
+  if (mul > 1 && scaled <= qty) return qty + 1
+  if (mul < 1 && scaled >= qty && qty > 1) return qty - 1
+  return scaled
+}
+
+export function scaleDemandGold(gold: number, quality: EncounterQuality): number {
+  return scaleDemandQty(gold, quality)
+}
+
+export function scaleDemandMap(map: EncounterNeedMap, quality: EncounterQuality): EncounterNeedMap {
+  const out: EncounterNeedMap = {}
+  for (const [itemId, qty] of needEntries(map)) {
+    out[itemId] = scaleDemandQty(qty, quality)
+  }
+  return out
+}
+
+export function scaleRewardGold(
+  baseGold: number,
+  baseInput: number,
+  actualInput: number,
+  quality: EncounterQuality,
+): number {
+  const valueMul = QUALITY_DEF[quality].valueMul
+  if (baseGold <= 0) return 0
+  if (baseInput <= 0) return Math.max(1, Math.round(baseGold * qualityRewardMul(quality)))
+  return Math.max(1, Math.round(actualInput * (baseGold / baseInput) * valueMul))
+}
+
+function scaleRewardQty(qty: number, ratio: number): number {
+  if (qty <= 0) return 0
+  const scaled = Math.ceil(qty * ratio - 1e-9)
+  if (ratio > 1 && scaled <= qty) return qty + 1
+  if (ratio < 1 && scaled >= qty && qty > 1) return qty - 1
+  return Math.max(1, scaled)
+}
+
+export function scaleRewardMap(
+  map: EncounterNeedMap,
+  baseInput: number,
+  actualInput: number,
+  quality: EncounterQuality,
+): EncounterNeedMap {
+  const valueMul = QUALITY_DEF[quality].valueMul
+  const ratio = baseInput <= 0 ? qualityRewardMul(quality) : (actualInput / baseInput) * valueMul
+  const out: EncounterNeedMap = {}
+  for (const [itemId, qty] of needEntries(map)) {
+    out[itemId] = scaleRewardQty(qty, ratio)
+  }
+  return out
+}
+
+function qualityExploreBag(): EncounterQuality[] {
+  const bag: EncounterQuality[] = []
+  for (const quality of ENCOUNTER_QUALITIES) {
+    const weight = QUALITY_DEF[quality].exploreWeight
+    for (let i = 0; i < weight; i++) bag.push(quality)
+  }
+  return bag
+}
+
+const QUALITY_EXPLORE_BAG = qualityExploreBag()
+
+export function pickEncounterQuality(seed: number, slot: number): EncounterQuality {
+  if (!QUALITY_EXPLORE_BAG.length) return 'green'
+  return QUALITY_EXPLORE_BAG[Math.abs(seed * 7 + slot * 11) % QUALITY_EXPLORE_BAG.length]
+}
+
+function baseEnemyNeeds(distance: EncounterDistance, power: EncounterPower): EncounterNeedMap {
   return mergeNeedMaps(
     BASE_FOOD,
     distance === 'far' ? FAR_FOOD_EXTRA : {},
@@ -188,16 +310,37 @@ export function enemyNeedsFor(distance: EncounterDistance, power: EncounterPower
   )
 }
 
+/** 远 → 更高食物/干粮；强 → 更高矿物与武器。品质再叠需求倍率。 */
+export function enemyNeedsFor(
+  distance: EncounterDistance,
+  power: EncounterPower,
+  quality: EncounterQuality = 'green',
+): EncounterNeedMap {
+  return scaleDemandMap(baseEnemyNeeds(distance, power), quality)
+}
+
 export function marchDurationS(distance: EncounterDistance, power: EncounterPower): number {
   return MARCH_DURATION_S[distance][power]
 }
 
-export function enemyLootGoldFor(distance: EncounterDistance, power: EncounterPower): number {
-  return LOOT_GOLD_TABLE[distance][power]
+export function enemyLootGoldFor(
+  distance: EncounterDistance,
+  power: EncounterPower,
+  quality: EncounterQuality = 'green',
+): number {
+  const base = LOOT_GOLD_TABLE[distance][power]
+  const baseNeeds = baseEnemyNeeds(distance, power)
+  const needs = enemyNeedsFor(distance, power, quality)
+  return scaleRewardGold(base, needMapQtySum(baseNeeds), needMapQtySum(needs), quality)
 }
 
 export function pawnGoldForMap(map: EncounterNeedMap): number {
   return needEntries(map).reduce((sum, [itemId, qty]) => sum + pawnUnitGold(itemId) * qty, 0)
+}
+
+/** 当铺实发金币：先按已缩放需求报价，再乘品质性价比。 */
+export function pawnGoldForEncounter(enc: PawnshopEncounter): number {
+  return Math.max(1, Math.round(pawnGoldForMap(enc.pawnWants) * QUALITY_DEF[enc.quality].valueMul))
 }
 
 export function needLines(save: Save, map: EncounterNeedMap): EncounterLine[] {
@@ -213,10 +356,15 @@ export function needLines(save: Save, map: EncounterNeedMap): EncounterLine[] {
   })
 }
 
-export function pawnQuoteLines(save: Save, map: EncounterNeedMap): EncounterLine[] {
+export function pawnQuoteLines(
+  save: Save,
+  map: EncounterNeedMap,
+  quality: EncounterQuality = 'green',
+): EncounterLine[] {
+  const valueMul = QUALITY_DEF[quality].valueMul
   return needLines(save, map).map((line) => ({
     ...line,
-    gold: pawnUnitGold(line.itemId) * line.need,
+    gold: Math.max(1, Math.round(pawnUnitGold(line.itemId) * line.need * valueMul)),
   }))
 }
 
@@ -244,6 +392,17 @@ export function isMarching(enc: EnemyEncounter, now = Date.now()): boolean {
 
 export function isLootReady(enc: EnemyEncounter, now = Date.now()): boolean {
   return enc.departed && !enc.lootClaimed && enc.marchEndsAt != null && now >= enc.marchEndsAt
+}
+
+/** 已成交或敌人已领奖，格子盖章、主操作不可再点。 */
+export function isEncounterSettled(enc: Encounter): boolean {
+  return enc.kind === 'enemy' ? enc.lootClaimed : enc.completed
+}
+
+export function encounterStampLabel(enc: Encounter): string | null {
+  if (enc.kind === 'enemy' && enc.lootClaimed) return '已领'
+  if (enc.kind !== 'enemy' && enc.completed) return '成交'
+  return null
 }
 
 export function boardSignature(encounters: readonly Encounter[]): string {
@@ -297,16 +456,18 @@ export function pickMerchantKind(seed: number, slot: number): MerchantKind {
 
 function makeEnemy(seed: number, slot: number): EnemyEncounter {
   const name = ENEMY_NAME_DEFS[(seed + slot) % ENEMY_NAME_DEFS.length]
+  const quality = pickEncounterQuality(seed, slot)
   const distance: EncounterDistance = (seed + slot) % 2 === 0 ? 'near' : 'far'
   const power: EncounterPower = (seed + slot * 3) % 4 < 2 ? 'weak' : 'strong'
   return {
     kind: 'enemy',
     id: `${name.id}-${seed}-${slot}`,
     label: name.label,
+    quality,
     distance,
     power,
-    needs: enemyNeedsFor(distance, power),
-    lootGold: enemyLootGoldFor(distance, power),
+    needs: enemyNeedsFor(distance, power, quality),
+    lootGold: enemyLootGoldFor(distance, power, quality),
     departed: false,
     marchEndsAt: null,
     lootClaimed: false,
@@ -315,35 +476,43 @@ function makeEnemy(seed: number, slot: number): EnemyEncounter {
 
 function makeShady(seed: number, slot: number): ShadyEncounter {
   const def = SHADY_DEFS[(seed + slot) % SHADY_DEFS.length]
+  const quality = pickEncounterQuality(seed, slot)
+  const buyGold = scaleDemandGold(def.buyGold, quality)
   return {
     kind: 'shady',
     id: `${def.id}-${seed}-${slot}`,
     label: def.label,
-    buyGold: def.buyGold,
-    buyOffers: { ...def.buyOffers },
+    quality,
+    buyGold,
+    buyOffers: scaleRewardMap(def.buyOffers, def.buyGold, buyGold, quality),
     completed: false,
   }
 }
 
 function makePasserby(seed: number, slot: number): PasserbyEncounter {
   const def = PASSERBY_DEFS[(seed + slot) % PASSERBY_DEFS.length]
+  const quality = pickEncounterQuality(seed, slot)
+  const wants = scaleDemandMap(def.wants, quality)
   return {
     kind: 'passerby',
     id: `${def.id}-${seed}-${slot}`,
     label: def.label,
-    wants: { ...def.wants },
-    offers: { ...def.offers },
+    quality,
+    wants,
+    offers: scaleRewardMap(def.offers, needMapQtySum(def.wants), needMapQtySum(wants), quality),
     completed: false,
   }
 }
 
 function makePawnshop(seed: number, slot: number): PawnshopEncounter {
   const def = PAWNSHOP_DEFS[(seed + slot) % PAWNSHOP_DEFS.length]
+  const quality = pickEncounterQuality(seed, slot)
   return {
     kind: 'pawnshop',
     id: `${def.id}-${seed}-${slot}`,
     label: def.label,
-    pawnWants: { ...def.pawnWants },
+    quality,
+    pawnWants: scaleDemandMap(def.pawnWants, quality),
     completed: false,
   }
 }
@@ -373,6 +542,7 @@ function isEnemyEncounter(value: unknown): value is EnemyEncounter {
     enc.kind === 'enemy' &&
     typeof enc.id === 'string' &&
     typeof enc.label === 'string' &&
+    isEncounterQuality(enc.quality) &&
     (enc.distance === 'near' || enc.distance === 'far') &&
     (enc.power === 'weak' || enc.power === 'strong') &&
     isNeedMap(enc.needs) &&
@@ -391,6 +561,7 @@ function isShadyEncounter(value: unknown): value is ShadyEncounter {
     enc.kind === 'shady' &&
     typeof enc.id === 'string' &&
     typeof enc.label === 'string' &&
+    isEncounterQuality(enc.quality) &&
     typeof enc.buyGold === 'number' &&
     isNeedMap(enc.buyOffers) &&
     typeof enc.completed === 'boolean'
@@ -404,6 +575,7 @@ function isPasserbyEncounter(value: unknown): value is PasserbyEncounter {
     enc.kind === 'passerby' &&
     typeof enc.id === 'string' &&
     typeof enc.label === 'string' &&
+    isEncounterQuality(enc.quality) &&
     isNeedMap(enc.wants) &&
     isNeedMap(enc.offers) &&
     typeof enc.completed === 'boolean'
@@ -417,6 +589,7 @@ function isPawnshopEncounter(value: unknown): value is PawnshopEncounter {
     enc.kind === 'pawnshop' &&
     typeof enc.id === 'string' &&
     typeof enc.label === 'string' &&
+    isEncounterQuality(enc.quality) &&
     isNeedMap(enc.pawnWants) &&
     typeof enc.completed === 'boolean'
   )
@@ -631,7 +804,7 @@ export function pawnMerchant(save: Save, index: number): ActionResult {
   if (blocked) return { ok: false, reason: blocked }
   const enc = pawnshopAt(save, index)
   if (!enc) return { ok: false, reason: '不是当铺偶遇' }
-  const gold = pawnGoldForMap(enc.pawnWants)
+  const gold = pawnGoldForEncounter(enc)
   const took = takeCosts(save, needMapToRules(enc.pawnWants))
   if (!took.ok) return took
   save.gold += gold
@@ -645,12 +818,15 @@ export function shouldKeepOnExplore(enc: Encounter, now = Date.now()): boolean {
   return isMarching(enc, now) || isLootReady(enc, now)
 }
 
-/** 探索：扣金币，只替换可刷新格，保留格占位，板子仍满 5 格。 */
+/** 探索：扣金币，只替换可刷新格，保留格占位，板子仍满 6 格。 */
 export function exploreBoard(save: Save, now = Date.now()): ActionResult {
   const blocked = exploreBlockReason(save)
   if (blocked) return { ok: false, reason: blocked }
   const cost = exploreCost(save)
-  const kept = save.encounters.map((enc) => (shouldKeepOnExplore(enc, now) ? enc : null))
+  const kept = Array.from({ length: ENCOUNTER_SLOT_COUNT }, (_, slot) => {
+    const enc = save.encounters[slot]
+    return enc && shouldKeepOnExplore(enc, now) ? enc : null
+  })
   save.gold -= cost
   save.exploreCount += 1
   const next = generateEncounterBoard(save.exploreCount)
@@ -675,6 +851,7 @@ function migrateLegacyOrder(save: LegacyOrderSave): void {
     kind: 'enemy',
     id: old.id,
     label: old.label,
+    quality: 'green',
     distance: 'near',
     power: 'weak',
     needs: { ...old.needs },
@@ -694,15 +871,21 @@ function inferMerchantKind(raw: LegacyMerchant): MerchantKind {
   return 'passerby'
 }
 
+function defaultQuality(value: unknown): EncounterQuality {
+  return isEncounterQuality(value) ? value : 'green'
+}
+
 function migrateLegacyMerchant(raw: LegacyMerchant): MerchantEncounter {
   const kind = inferMerchantKind(raw)
   const completed = raw.completed === true
   const label = typeof raw.label === 'string' ? raw.label : MERCHANT_KIND_LABEL[kind]
+  const quality = defaultQuality((raw as { quality?: unknown }).quality)
   if (kind === 'shady') {
     return {
       kind: 'shady',
       id: raw.id.startsWith('merchantBuy') ? raw.id : `merchantBuy-${raw.id}`,
       label,
+      quality,
       buyGold: typeof raw.buyGold === 'number' ? raw.buyGold : 8,
       buyOffers: isNeedMap(raw.buyOffers) ? { ...raw.buyOffers } : { meal: 1 },
       completed,
@@ -713,6 +896,7 @@ function migrateLegacyMerchant(raw: LegacyMerchant): MerchantEncounter {
       kind: 'pawnshop',
       id: raw.id.startsWith('merchantPawn') ? raw.id : `merchantPawn-${raw.id}`,
       label,
+      quality,
       pawnWants: isNeedMap(raw.wants) && needEntries(raw.wants).length ? { ...raw.wants } : { wood: 2 },
       completed,
     }
@@ -721,6 +905,7 @@ function migrateLegacyMerchant(raw: LegacyMerchant): MerchantEncounter {
     kind: 'passerby',
     id: raw.id.startsWith('merchantBarter') ? raw.id : `merchantBarter-${raw.id}`,
     label,
+    quality,
     wants: isNeedMap(raw.wants) ? { ...raw.wants } : {},
     offers: isNeedMap(raw.offers) ? { ...raw.offers } : {},
     completed,
@@ -742,6 +927,7 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
     kind: 'enemy',
     id: raw.id,
     label: raw.label,
+    quality: defaultQuality(raw.quality),
     distance: raw.distance,
     power: raw.power,
     needs: { ...raw.needs },
@@ -753,13 +939,25 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
   }
 }
 
+function withDefaultQuality(enc: Encounter): Encounter {
+  return isEncounterQuality(enc.quality) ? enc : { ...enc, quality: 'green' }
+}
+
 function migrateEncounterSlot(value: unknown): Encounter | unknown {
   if (!value || typeof value !== 'object') return value
   const raw = value as { kind?: string }
   if (raw.kind === 'enemy') return migrateEnemy(raw as LegacyEnemy)
   if (raw.kind === 'merchant') return migrateLegacyMerchant(raw as LegacyMerchant)
-  if (raw.kind === 'shady' || raw.kind === 'passerby' || raw.kind === 'pawnshop') return value
+  if (raw.kind === 'shady' || raw.kind === 'passerby' || raw.kind === 'pawnshop') {
+    return withDefaultQuality(value as Encounter)
+  }
   return value
+}
+
+function padEncounterBoard(encounters: Encounter[], seed: number): Encounter[] {
+  if (encounters.length >= ENCOUNTER_SLOT_COUNT) return encounters.slice(0, ENCOUNTER_SLOT_COUNT)
+  const fresh = generateEncounterBoard(seed)
+  return Array.from({ length: ENCOUNTER_SLOT_COUNT }, (_, slot) => encounters[slot] ?? fresh[slot])
 }
 
 /** 旧存档补偶遇板；单格出发字段迁进第 0 格敌人；通用商人拆成三者之一。 */
@@ -778,8 +976,12 @@ export function hydrateEncounterFields(save: Save): Save {
 
   const hadBoard = isValidEncounterBoard(raw.encounters)
   if (!hadBoard) {
-    raw.encounters = generateEncounterBoard(raw.exploreCount)
-    migrateLegacyOrder(raw)
+    if (Array.isArray(raw.encounters) && raw.encounters.length > 0 && raw.encounters.every(isEncounter)) {
+      raw.encounters = padEncounterBoard(raw.encounters, raw.exploreCount)
+    } else {
+      raw.encounters = generateEncounterBoard(raw.exploreCount)
+      migrateLegacyOrder(raw)
+    }
   }
 
   delete raw.currentOrderId

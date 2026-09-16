@@ -4,6 +4,7 @@ import {
   DISTANCE_LABEL,
   MERCHANT_KIND_LABEL,
   POWER_LABEL,
+  QUALITY_LABEL,
   barterBlockReason,
   buyMerchantBlockReason,
   canBarter,
@@ -14,20 +15,22 @@ import {
   canPawn,
   claimLootBlockReason,
   departBlockReason,
+  encounterStampLabel,
   exploreBlockReason,
   exploreCost,
   formatMarchClock,
   formatNeedMap,
+  isEncounterSettled,
   isLootReady,
   isMarching,
   isMerchantKind,
   marchRemainS,
   needLines,
   pawnBlockReason,
-  pawnGoldForMap,
+  pawnGoldForEncounter,
   pawnQuoteLines,
 } from '../sim/encounters'
-import type { Encounter, EnemyEncounter, MerchantKind } from '../sim/types'
+import type { Encounter, EnemyEncounter, MerchantKind, PawnshopEncounter } from '../sim/types'
 import { useGameStore } from './gameStore'
 
 const game = useGameStore()
@@ -49,7 +52,19 @@ function wantLines(enc: Encounter) {
 }
 
 function pawnLines(enc: Encounter) {
-  return enc.kind === 'pawnshop' ? pawnQuoteLines(game.save, enc.pawnWants) : []
+  return enc.kind === 'pawnshop' ? pawnQuoteLines(game.save, enc.pawnWants, enc.quality) : []
+}
+
+function pawnGold(enc: PawnshopEncounter) {
+  return pawnGoldForEncounter(enc)
+}
+
+function cardClass(enc: Encounter) {
+  return ['card', `q-${enc.quality}`, { done: isEncounterSettled(enc) }]
+}
+
+function stampText(enc: Encounter) {
+  return encounterStampLabel(enc)
 }
 
 function merchantTitle(kind: MerchantKind) {
@@ -101,13 +116,15 @@ function marchLabel(enc: EnemyEncounter) {
     <p v-else class="hint">当前金币 {{ game.save.gold }}</p>
 
     <div class="board">
-      <article v-for="(enc, i) in game.save.encounters" :key="enc.id" class="card">
+      <article v-for="(enc, i) in game.save.encounters" :key="enc.id" :class="cardClass(enc)">
+        <i v-if="stampText(enc)" class="stamp">{{ stampText(enc) }}</i>
         <template v-if="enc.kind === 'enemy'">
           <header>
             <i class="sprite sprite-encounter enemy" aria-hidden="true" />
             <div class="titles">
               <span class="kind">敌人</span>
               <span class="tags">
+                <i class="q-badge" :class="'q-' + enc.quality">{{ QUALITY_LABEL[enc.quality] }}</i>
                 <i>{{ DISTANCE_LABEL[enc.distance] }}</i>
                 <i>{{ POWER_LABEL[enc.power] }}</i>
               </span>
@@ -124,7 +141,7 @@ function marchLabel(enc: EnemyEncounter) {
           <p v-else-if="lootReady(enc)" class="ready">行军结束，可以领取战利品</p>
           <p v-else-if="marching(enc)" class="ready">{{ marchLabel(enc) }}</p>
           <p v-else-if="departWhy(i)" class="short">{{ departWhy(i) }}</p>
-          <div v-if="!enc.departed" class="row">
+          <div v-if="!enc.departed && !enc.lootClaimed" class="row">
             <button type="button" :disabled="!canDepartEncounter(game.save, i)" @click="game.departEncounter(i)">
               出发
             </button>
@@ -150,6 +167,9 @@ function marchLabel(enc: EnemyEncounter) {
             <i class="sprite sprite-encounter" :class="enc.kind" aria-hidden="true" />
             <div class="titles">
               <span class="kind">{{ merchantTitle(enc.kind) }}</span>
+              <span class="tags">
+                <i class="q-badge" :class="'q-' + enc.quality">{{ QUALITY_LABEL[enc.quality] }}</i>
+              </span>
             </div>
           </header>
           <p class="label">{{ enc.label }}</p>
@@ -182,7 +202,7 @@ function marchLabel(enc: EnemyEncounter) {
           </template>
 
           <template v-else>
-            <p>典当 {{ formatNeedMap(enc.pawnWants) }} → {{ pawnGoldForMap(enc.pawnWants) }} 金</p>
+            <p>典当 {{ formatNeedMap(enc.pawnWants) }} → {{ pawnGold(enc) }} 金</p>
             <ul>
               <li v-for="line in pawnLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
                 {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}
@@ -236,11 +256,104 @@ function marchLabel(enc: EnemyEncounter) {
   }
 }
 
+@media (min-width: 900px) {
+  .board {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 12px;
+  overflow: hidden;
+}
+
+.card.q-gray {
+  border-color: #8d8d8d;
+  box-shadow: 0 3px 0 #6a6a6a, inset 0 0 0 2px #f3f0ea;
+}
+
+.card.q-green {
+  border-color: #3e9a2a;
+  box-shadow: 0 3px 0 #2d7a1c, inset 0 0 0 2px #e8f8dc;
+}
+
+.card.q-blue {
+  border-color: #3a7bd5;
+  box-shadow: 0 3px 0 #2658a0, inset 0 0 0 2px #e0ecff;
+}
+
+.card.q-purple {
+  border-color: #8a4adf;
+  box-shadow: 0 3px 0 #5c2e9a, inset 0 0 0 2px #f0e4ff;
+}
+
+.card.q-orange {
+  border-color: #e07a14;
+  box-shadow: 0 3px 0 #b45c0c, inset 0 0 0 2px #ffe8cc;
+}
+
+.card.done {
+  background: #e7efd4;
+  box-shadow: 0 3px 0 #7a8a4a, inset 0 0 0 2px #f4f7e6;
+}
+
+.card.done .row button {
+  pointer-events: none;
+}
+
+.tags i.q-badge,
+.q-badge {
+  min-width: 28px;
+  padding: 1px 8px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  font-size: 12px;
+  font-style: normal;
+  letter-spacing: 0.12em;
+  text-align: center;
+  background: var(--slot);
+}
+
+.q-badge.q-gray {
+  color: #6a6a6a;
+}
+
+.q-badge.q-green {
+  color: #2d7a1c;
+}
+
+.q-badge.q-blue {
+  color: #2658a0;
+}
+
+.q-badge.q-purple {
+  color: #5c2e9a;
+}
+
+.q-badge.q-orange {
+  color: #b45c0c;
+}
+
+.stamp {
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  z-index: 2;
+  transform: translate(-50%, -50%) rotate(-18deg);
+  padding: 4px 14px;
+  border: 3px solid #9a2f24;
+  border-radius: 8px;
+  color: #9a2f24;
+  background: rgba(255, 244, 230, 0.72);
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-style: normal;
+  letter-spacing: 0.28em;
+  pointer-events: none;
 }
 
 .card header {
