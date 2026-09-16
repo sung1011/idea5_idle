@@ -51,6 +51,7 @@ export type StationState = {
 }
 
 export type Save = {
+  /** 抽人 / 探索 / 商人购买扣金；卖货 / 出发补给金加金。 */
   gold: number
   bank: Partial<Record<ItemId, number>>
   workers: Worker[]
@@ -58,15 +59,47 @@ export type Save = {
   lastTick: number
   elapsedS: number
   nextWorkerId: number
-  /** 当前出发订单。表驱动，不接战斗状态机。 */
-  currentOrderId: string
-  /** 接单计数，用来轮换订单（可复现）。 */
-  orderIndex: number
-  /** 当前单已提交，才能出发。 */
-  orderSubmitted: boolean
+  /** 偶遇板，固定 5 格。 */
+  encounters: Encounter[]
+  /** 成功探索次数，驱动探索费用与下一板种子。 */
+  exploreCount: number
   departCount: number
   lastDepartAt: number | null
 }
+
+export type EncounterKind = 'enemy' | 'merchant'
+export type EncounterDistance = 'near' | 'far'
+export type EncounterPower = 'weak' | 'strong'
+
+export type EncounterNeedMap = Partial<Record<ItemId, number>>
+
+export type EnemyEncounter = {
+  kind: 'enemy'
+  id: string
+  label: string
+  distance: EncounterDistance
+  power: EncounterPower
+  needs: EncounterNeedMap
+  departGold: number
+  submitted: boolean
+  departed: boolean
+}
+
+export type MerchantEncounter = {
+  kind: 'merchant'
+  id: string
+  label: string
+  /** 收购：玩家付出的银行物品。 */
+  wants: EncounterNeedMap
+  /** 以物易物换得。 */
+  offers: EncounterNeedMap
+  buyGold: number
+  /** 金币购买换得。 */
+  buyOffers: EncounterNeedMap
+  completed: boolean
+}
+
+export type Encounter = EnemyEncounter | MerchantEncounter
 
 export type Hint = {
   kind: 'bottleneck' | 'resonance' | 'progress'

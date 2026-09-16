@@ -1,5 +1,5 @@
 import { createSave } from '../sim/createSave'
-import { hydrateOrderFields } from '../sim/orders'
+import { hydrateEncounterFields } from '../sim/encounters'
 import { hydrateStations } from '../sim/stationProgress'
 import type { Save } from '../sim/types'
 
@@ -30,13 +30,16 @@ export function loadSave(): Save | null {
     const parsed = JSON.parse(raw) as Save
     if (!looksLikeSave(parsed)) return null
     const blank = createSave()
-    return hydrateOrderFields({
+    const parsedEncounters = (parsed as { encounters?: unknown }).encounters
+    const merged: Save = {
       ...blank,
       ...parsed,
       bank: parsed.bank ?? {},
       workers: parsed.workers ?? [],
       stations: hydrateStations(parsed.stations),
-    })
+    }
+    if (!Array.isArray(parsedEncounters)) merged.encounters = []
+    return hydrateEncounterFields(merged)
   } catch {
     return null
   }

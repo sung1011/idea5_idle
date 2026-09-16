@@ -226,7 +226,7 @@ export const PLAYABLE_CHAINS: StationId[][] = [
 ]
 export const PLAYABLE_STATION_IDS: StationId[] = PLAYABLE_CHAINS.flat()
 export const SKELETON_STATION_IDS: StationId[] = ['alchemy']
-/** 卖货整批换金。含高阶兵器；出发订单第一期仍只收基础 weapon。 */
+/** 卖货整批换金。含高阶兵器；偶遇敌人第一期仍收基础 weapon / 熟食。 */
 export const SELLABLE_GOODS: ItemId[] = ['weapon', 'ironWeapon', 'mithrilWeapon', 'meal']
 
 export const BANK_ROWS: ItemId[][] = [

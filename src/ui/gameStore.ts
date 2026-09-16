@@ -8,7 +8,13 @@ import { collectHints } from '../sim/query'
 import { recruitWorker } from '../sim/recruit'
 import { selectStationCategory } from '../sim/stationProgress'
 import { sellAllGoods, sellFromBank } from '../sim/bank'
-import { depart, submitOrder } from '../sim/orders'
+import {
+  barterMerchant,
+  buyMerchant,
+  departEncounter,
+  exploreBoard,
+  submitSupply,
+} from '../sim/encounters'
 import { tick } from '../sim/tick'
 import type { ActionResult, CategoryId, ItemId, Save, StationId } from '../sim/types'
 import { loadSave, persistSave } from './saveGame'
@@ -128,7 +134,10 @@ export const useGameStore = defineStore('game', () => {
       apply((s) => selectStationCategory(s, stationId, categoryId)),
     sell: (itemId: ItemId, qty = 1) => apply((s) => sellFromBank(s, itemId, qty)),
     sellGoods: () => apply(sellAllGoods),
-    submitOrder: () => apply(submitOrder),
-    depart: () => apply((s) => depart(s)),
+    explore: () => apply(exploreBoard),
+    submitSupply: (index: number) => apply((s) => submitSupply(s, index)),
+    departEncounter: (index: number) => apply((s) => departEncounter(s, index)),
+    barter: (index: number) => apply((s) => barterMerchant(s, index)),
+    buyMerchant: (index: number) => apply((s) => buyMerchant(s, index)),
   }
 })

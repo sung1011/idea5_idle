@@ -5,7 +5,7 @@ import { formatClock, gameDay, timeOfDayS } from '../sim/tables'
 import { useGameStore } from './gameStore'
 import BankPanel from './bankPanel.vue'
 import OfflineBanner from './offlineBanner.vue'
-import OrderPanel from './orderPanel.vue'
+import EncounterPanel from './encounterPanel.vue'
 import WorkersPanel from './workersPanel.vue'
 import WorkshopPanel from './workshopPanel.vue'
 
@@ -13,7 +13,7 @@ const TABS = [
   { id: 'workshop', label: '车间' },
   { id: 'bank', label: '银行' },
   { id: 'workers', label: '工人' },
-  { id: 'orders', label: '订单' },
+  { id: 'encounters', label: '偶遇' },
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
@@ -38,7 +38,7 @@ onUnmounted(() => {
 <template>
   <div class="shell">
     <header class="mast">
-      <p class="shift">第一期 · 纯生活流水线 · 出发先交单</p>
+      <p class="shift">第一期 · 纯生活流水线 · 偶遇先交补给</p>
       <h1>车间闲置</h1>
     </header>
 
@@ -55,7 +55,7 @@ onUnmounted(() => {
       <li v-for="(h, i) in game.hints" :key="i" :class="h.kind">{{ h.text }}</li>
     </ul>
     <p v-else class="hint">
-      抽工人，把人堆到同一站加速当前品类。采矿 / 锻造可升等级解锁铁矿、铁器等。钓鱼出鱼、烹饪出熟食；伐木出木头可卖。基础铜器 / 熟食交给出发订单，交单后才能出发。相邻站同时有人会共振。
+      抽工人，把人堆到同一站加速当前品类。采矿 / 锻造可升等级解锁铁矿、铁器等。钓鱼出鱼、烹饪出熟食；伐木出木头可卖。偶遇板上的敌人备齐补给后出发；商人可换货或买货。探索花金币重抽整板。相邻站同时有人会共振。
     </p>
 
     <nav class="tabs" role="tablist" aria-label="主界面页签">
@@ -75,7 +75,7 @@ onUnmounted(() => {
     <WorkshopPanel v-if="tab === 'workshop'" />
     <BankPanel v-else-if="tab === 'bank'" />
     <WorkersPanel v-else-if="tab === 'workers'" />
-    <OrderPanel v-else />
+    <EncounterPanel v-else />
 
     <p class="hint">存档键 idea5Idle。</p>
   </div>

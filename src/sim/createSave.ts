@@ -1,4 +1,4 @@
-import { firstOrderId } from './orders'
+import { generateEncounterBoard } from './encounters'
 import { hydrateStations } from './stationProgress'
 import { START_GOLD } from './tables'
 import type { Save } from './types'
@@ -14,9 +14,8 @@ export function createSave(): Save {
     lastTick: Date.now(),
     elapsedS: 0,
     nextWorkerId: 1,
-    currentOrderId: firstOrderId(),
-    orderIndex: 0,
-    orderSubmitted: false,
+    encounters: generateEncounterBoard(0),
+    exploreCount: 0,
     departCount: 0,
     lastDepartAt: null,
   }
