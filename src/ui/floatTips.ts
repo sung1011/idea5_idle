@@ -47,7 +47,8 @@ export function pushFloatTip(text: string, kind: FloatTipKind = 'err') {
   const at = tipPoint()
   const stack = tips.value.length
   tips.value = [...tips.value, { id, text: msg, kind, x: at.x, y: at.y - stack * 28 }]
-  window.setTimeout(() => {
+  const later = typeof window !== 'undefined' ? window.setTimeout.bind(window) : setTimeout
+  later(() => {
     tips.value = tips.value.filter((tip) => tip.id !== id)
   }, LIFE_MS)
 }

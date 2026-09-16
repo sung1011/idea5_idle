@@ -76,7 +76,6 @@ function pick(id: CategoryId) {
         type="button"
         class="cat"
         :class="{ on: station.selectedCategory === c.id }"
-        :disabled="!unlocked(c.id)"
         @click="pick(c.id)"
       >
         {{ c.label }}
@@ -85,7 +84,7 @@ function pick(id: CategoryId) {
     </div>
     <div class="row">
       <button type="button" @click="game.assignIdle(stationId)">派入</button>
-      <button type="button" :disabled="count === 0" @click="game.withdraw(stationId)">撤出</button>
+      <button type="button" @click="game.withdraw(stationId)">撤出</button>
     </div>
   </article>
 </template>

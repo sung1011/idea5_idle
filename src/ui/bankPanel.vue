@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { bankCap, bankFillPct, bankFillTone, bankQty } from '../sim/bank'
-import { BANK_ROWS, ITEM_DEF, SELLABLE_GOODS } from '../sim/tables'
+import { BANK_ROWS, ITEM_DEF } from '../sim/tables'
 import type { ItemId } from '../sim/types'
 import { useGameStore } from './gameStore'
 
 const game = useGameStore()
-const canSellGoods = computed(() => SELLABLE_GOODS.some((id) => bankQty(game.save, id) > 0))
 
 function qty(id: ItemId): number {
   return bankQty(game.save, id)
@@ -39,11 +37,11 @@ function tone(id: ItemId): 'ok' | 'warn' | 'full' {
         </div>
         <p v-if="tone(id) === 'full'" class="mark">满仓</p>
         <p v-else-if="tone(id) === 'warn'" class="mark">快满</p>
-        <button type="button" :disabled="qty(id) === 0" @click="game.sell(id)">卖 1</button>
+        <button type="button" @click="game.sell(id)">卖 1</button>
       </article>
     </div>
     <div class="row">
-      <button type="button" :disabled="!canSellGoods" @click="game.sellGoods()">卖货（兵器/熟食 → 金）</button>
+      <button type="button" @click="game.sellGoods()">卖货（兵器/熟食 → 金）</button>
     </div>
   </section>
 </template>
