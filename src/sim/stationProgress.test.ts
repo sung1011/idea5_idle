@@ -5,6 +5,7 @@ import { createSave } from './createSave'
 import { collectHints } from './query'
 import { recruitWorker } from './recruit'
 import {
+  categoryPickOptions,
   grantStationXp,
   hydrateStationState,
   hydrateStations,
@@ -102,6 +103,35 @@ describe('selectStationCategory', () => {
     const result = selectStationCategory(save, 'mining', 'iron')
     expect(result.ok).toBe(true)
     expect(save.stations.mining.selectedCategory).toBe('iron')
+  })
+})
+
+describe('categoryPickOptions', () => {
+  it('lists unlocked plus only the next locked category', () => {
+    const save = createSave()
+    const lv1 = categoryPickOptions(save, 'mining')
+    expect(lv1.map((c) => c.id)).toEqual(['copper', 'iron'])
+    expect(lv1.find((c) => c.id === 'copper')?.unlocked).toBe(true)
+    expect(lv1.find((c) => c.id === 'iron')?.unlocked).toBe(false)
+    expect(lv1.some((c) => c.id === 'mithril')).toBe(false)
+
+    unlockTo(save, 'mining', 5)
+    const lv5 = categoryPickOptions(save, 'mining')
+    expect(lv5.map((c) => c.id)).toEqual(['copper', 'iron', 'mithril'])
+    expect(lv5.filter((c) => c.unlocked).map((c) => c.id)).toEqual(['copper', 'iron'])
+    expect(lv5.find((c) => c.id === 'mithril')?.unlocked).toBe(false)
+
+    unlockTo(save, 'mining', 10)
+    const lv10 = categoryPickOptions(save, 'mining')
+    expect(lv10.map((c) => c.id)).toEqual(['copper', 'iron', 'mithril'])
+    expect(lv10.every((c) => c.unlocked)).toBe(true)
+  })
+
+  it('hides the picker list for single-category stations', () => {
+    const save = createSave()
+    expect(categoryPickOptions(save, 'woodcutting')).toEqual([
+      { id: 'default', label: '木头', unlocked: true, unlockLevel: 1 },
+    ])
   })
 })
 

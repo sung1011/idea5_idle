@@ -20,6 +20,31 @@ export function categoryUnlockNeed(stationId: StationId, categoryId: CategoryId)
   return findCategory(stationId, categoryId)?.unlockLevel ?? 1
 }
 
+export type CategoryPickOption = {
+  id: CategoryId
+  label: string
+  unlocked: boolean
+  unlockLevel: number
+}
+
+/** 下拉：全部已解锁 + 最多 1 个「下一档」未解锁（置灰）。 */
+export function categoryPickOptions(save: Save, stationId: StationId): CategoryPickOption[] {
+  const unlocked = new Set(save.stations[stationId].unlockedCategories)
+  const open: CategoryPickOption[] = []
+  let nextLocked: CategoryPickOption | null = null
+  for (const cat of stationCategories(stationId)) {
+    const row: CategoryPickOption = {
+      id: cat.id,
+      label: cat.label,
+      unlocked: unlocked.has(cat.id),
+      unlockLevel: cat.unlockLevel,
+    }
+    if (row.unlocked) open.push(row)
+    else if (!nextLocked) nextLocked = row
+  }
+  return nextLocked ? [...open, nextLocked] : open
+}
+
 export function syncUnlockedCategories(station: StationState, stationId: StationId): CategoryId[] {
   const fromLevel = unlockedCategoriesAt(stationId, station.stationLevel)
   const added = fromLevel.filter((id) => !station.unlockedCategories.includes(id))

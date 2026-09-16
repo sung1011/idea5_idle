@@ -2,8 +2,8 @@
 import { computed } from 'vue'
 import { formatCosts } from '../sim/costs'
 import { assignedCount, currentSpeed, stationResonating } from '../sim/query'
-import { selectedCategoryDef } from '../sim/stationProgress'
-import { STATION_DEF, stationCategories, xpToNextLevel } from '../sim/tables'
+import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
+import { STATION_DEF, xpToNextLevel } from '../sim/tables'
 import type { CategoryId, StationId } from '../sim/types'
 import { useGameStore } from './gameStore'
 import { useVisualProgress } from './visualProgress'
@@ -32,7 +32,7 @@ const pct = computed(() => Math.min(100, visual.value * 100))
 const pctLabel = computed(() => Math.round(pct.value))
 const xpNeed = computed(() => xpToNextLevel(station.value.stationLevel))
 const xpPct = computed(() => Math.min(100, Math.round((station.value.stationXp / xpNeed.value) * 100)))
-const categories = computed(() => stationCategories(props.stationId))
+const pickOptions = computed(() => categoryPickOptions(game.save, props.stationId))
 const costText = computed(() => {
   const main = formatCosts(cat.value.costs)
   if (!cat.value.altCosts?.length) return main
@@ -40,12 +40,15 @@ const costText = computed(() => {
 })
 const hasCosts = computed(() => cat.value.costs.length > 0 || (cat.value.altCosts?.length ?? 0) > 0)
 
-function unlocked(id: CategoryId): boolean {
-  return station.value.unlockedCategories.includes(id)
-}
-
 function pick(id: CategoryId) {
   game.selectCategory(props.stationId, id)
+}
+
+function onPick(ev: Event) {
+  const value = (ev.target as HTMLSelectElement).value as CategoryId
+  const opt = pickOptions.value.find((c) => c.id === value)
+  if (!opt?.unlocked) return
+  pick(value)
 }
 </script>
 
@@ -69,19 +72,14 @@ function pick(id: CategoryId) {
     </div>
     <p class="stat">进度 {{ pctLabel }}% · XP {{ station.stationXp }}/{{ xpNeed }} · 速度 {{ speed.toFixed(2) }}/s</p>
     <p v-if="hasCosts" class="stat">消耗 {{ costText }}</p>
-    <div v-if="categories.length > 1" class="cats">
-      <button
-        v-for="c in categories"
-        :key="c.id"
-        type="button"
-        class="cat"
-        :class="{ on: station.selectedCategory === c.id }"
-        @click="pick(c.id)"
-      >
-        {{ c.label }}
-        <span v-if="!unlocked(c.id)"> Lv{{ c.unlockLevel }}</span>
-      </button>
-    </div>
+    <label v-if="pickOptions.length > 1" class="cats">
+      <span class="sr">品类</span>
+      <select class="cat-select" :value="station.selectedCategory" @change="onPick">
+        <option v-for="c in pickOptions" :key="c.id" :value="c.id" :disabled="!c.unlocked">
+          {{ c.unlocked ? c.label : `${c.label}（Lv${c.unlockLevel}）` }}
+        </option>
+      </select>
+    </label>
     <div class="row">
       <button type="button" @click="game.assignIdle(stationId)">派入</button>
       <button type="button" @click="game.withdraw(stationId)">撤出</button>
@@ -133,16 +131,29 @@ h2 {
 
 .cats,
 .row {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.cat.on {
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.cat-select {
+  font: inherit;
   color: var(--ink);
-  background: linear-gradient(#ffe27a, #f0b83a);
+  min-height: 36px;
+  min-width: 140px;
+  padding: 6px 12px;
+  border: 3px solid var(--gold-deep);
+  border-radius: 12px;
+  background: linear-gradient(#fffbeb, var(--btn));
   box-shadow: 0 3px 0 var(--shadow);
-  opacity: 1;
-  filter: none;
 }
 </style>
