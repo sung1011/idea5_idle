@@ -123,7 +123,10 @@ button.on:disabled {
   display: block;
   height: 100%;
   background: linear-gradient(90deg, #8fd94a, var(--moss-deep));
-  transition: width 0.35s linear;
+}
+
+.bar.live i {
+  transition: none;
 }
 
 .bar.xp {
@@ -132,6 +135,7 @@ button.on:disabled {
 
 .bar.xp i {
   background: linear-gradient(90deg, #f0c14a, var(--gold-deep));
+  transition: width 0.8s linear;
 }
 
 .item.warn .bar i {

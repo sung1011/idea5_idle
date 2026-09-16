@@ -6,6 +6,7 @@ import { selectedCategoryDef } from '../sim/stationProgress'
 import { STATION_DEF, stationCategories, xpToNextLevel } from '../sim/tables'
 import type { CategoryId, StationId } from '../sim/types'
 import { useGameStore } from './gameStore'
+import { useVisualProgress } from './visualProgress'
 
 const props = defineProps<{
   stationId: StationId
@@ -17,12 +18,20 @@ const def = computed(() => STATION_DEF[props.stationId])
 const count = computed(() => assignedCount(game.save, props.stationId))
 const station = computed(() => game.save.stations[props.stationId])
 const cat = computed(() => selectedCategoryDef(game.save, props.stationId))
-const pct = computed(() => Math.min(100, Math.round(station.value.progress * 100)))
-const xpNeed = computed(() => xpToNextLevel(station.value.stationLevel))
-const xpPct = computed(() => Math.min(100, Math.round((station.value.stationXp / xpNeed.value) * 100)))
 const speed = computed(() => currentSpeed(game.save, props.stationId))
 const resonating = computed(() => stationResonating(game.save, props.stationId))
 const stall = computed(() => station.value.stallReason)
+const visual = useVisualProgress(() => ({
+  progress: station.value.progress,
+  speed: speed.value,
+  stalled: !!stall.value,
+  assigned: count.value,
+  lastTick: game.save.lastTick,
+}))
+const pct = computed(() => Math.min(100, visual.value * 100))
+const pctLabel = computed(() => Math.round(pct.value))
+const xpNeed = computed(() => xpToNextLevel(station.value.stationLevel))
+const xpPct = computed(() => Math.min(100, Math.round((station.value.stationXp / xpNeed.value) * 100)))
 const categories = computed(() => stationCategories(props.stationId))
 const costText = computed(() => {
   const main = formatCosts(cat.value.costs)
@@ -52,13 +61,13 @@ function pick(id: CategoryId) {
         <p class="meta">{{ count }} 人 · {{ cat.label }} {{ cat.cycleS }}s/次</p>
       </div>
     </header>
-    <div class="bar" :aria-valuenow="pct">
-      <i :style="{ width: pct + '%' }" />
+    <div class="bar live" :aria-valuenow="pctLabel">
+      <i :style="{ width: pct.toFixed(2) + '%' }" />
     </div>
     <div class="bar xp" :aria-valuenow="xpPct">
       <i :style="{ width: xpPct + '%' }" />
     </div>
-    <p class="stat">进度 {{ pct }}% · XP {{ station.stationXp }}/{{ xpNeed }} · 速度 {{ speed.toFixed(2) }}/s</p>
+    <p class="stat">进度 {{ pctLabel }}% · XP {{ station.stationXp }}/{{ xpNeed }} · 速度 {{ speed.toFixed(2) }}/s</p>
     <p v-if="hasCosts" class="stat">消耗 {{ costText }}</p>
     <div v-if="categories.length > 1" class="cats">
       <button
