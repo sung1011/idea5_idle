@@ -10,7 +10,7 @@ import WorkersPanel from './workersPanel.vue'
 import WorkshopPanel from './workshopPanel.vue'
 
 const TABS = [
-  { id: 'workshop', label: '车间' },
+  { id: 'workshop', label: '工坊' },
   { id: 'bank', label: '银行' },
   { id: 'workers', label: '工人' },
   { id: 'encounters', label: '偶遇' },
@@ -40,8 +40,7 @@ onUnmounted(() => {
   <div class="shell">
     <header class="mast">
       <div>
-        <p class="shift">第一期 · 纯生活流水线 · 偶遇一键出发</p>
-        <h1>车间闲置</h1>
+        <h1>骑士工坊</h1>
       </div>
       <div class="mast-actions">
         <button
@@ -84,9 +83,6 @@ onUnmounted(() => {
     </section>
 
     <p v-if="game.notice" class="notice" :class="game.noticeKind">{{ game.notice }}</p>
-    <p class="hint">
-      抽工人，把人堆到同一站加速当前品类。采矿 / 锻造可升等级解锁铁矿、铁器等。钓鱼出鱼、烹饪出熟食；伐木出木头可卖。偶遇敌人货够则一键出发行军，到期只领金币。黑心商人只买、路人只换货、当铺只典当。探索重抽可刷新格。停产看站点红框，共振标在对应卡片上。工人页看按钮选中态就知道人在哪。钻石是高级代币占位，本轮没有获得途径。
-    </p>
 
     <nav class="tabs" role="tablist" aria-label="主界面页签">
       <button
@@ -108,7 +104,6 @@ onUnmounted(() => {
     <WorkersPanel v-else-if="tab === 'workers'" />
     <EncounterPanel v-else />
 
-    <p class="hint">存档键 idea5Idle。</p>
     <MessagePanel v-if="mailOpen" @close="mailOpen = false" />
     <GmPanel v-if="gmOpen" @close="gmOpen = false" />
   </div>
@@ -179,13 +174,6 @@ onUnmounted(() => {
   box-shadow: none;
 }
 
-.shift {
-  margin: 0;
-  color: var(--muted);
-  font-size: 12px;
-  letter-spacing: 0.18em;
-}
-
 h1 {
   margin: 0;
   font-family: var(--font-display);
@@ -203,7 +191,6 @@ h1 {
 }
 
 .panel p,
-.hint,
 .notice {
   margin: 0;
   line-height: 1.5;
@@ -248,11 +235,6 @@ h1 {
   box-shadow: 0 3px 0 var(--shadow);
   opacity: 1;
   filter: none;
-}
-
-.hint {
-  color: var(--muted);
-  font-size: 14px;
 }
 
 .notice,

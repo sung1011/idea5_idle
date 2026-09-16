@@ -92,9 +92,6 @@ function marchLabel(enc: EnemyEncounter) {
 <template>
   <section class="panel encounter">
     <p>偶遇</p>
-    <p class="hint">
-      板上固定 5 格。探索花金币重抽可刷新格；行军中或可领奖的敌人会留在原位。敌人货够则一键出发进入行军，到期只领金币。黑心商人只买、路人只换货、当铺只典当。
-    </p>
     <div class="row">
       <button type="button" :disabled="!readyToExplore" @click="game.explore()">
         探索（{{ cost }} 金）
@@ -203,8 +200,7 @@ function marchLabel(enc: EnemyEncounter) {
       </article>
     </div>
 
-    <p v-if="departedTotal > 0" class="hint">已出发 {{ departedTotal }} 次（行军门闩，不做战斗）</p>
-    <p class="hint">第一期敌人收基础铜器 / 熟食 / 矿与干粮。真战斗后做。</p>
+    <p v-if="departedTotal > 0" class="hint">已出发 {{ departedTotal }} 次</p>
   </section>
 </template>
 

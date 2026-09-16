@@ -27,8 +27,7 @@ function tone(id: ItemId): 'ok' | 'warn' | 'full' {
 
 <template>
   <section class="panel bank">
-    <p>银行缓冲</p>
-    <p class="hint">每格相对该物品容量。满到 80% 变警告色，100% 满仓；堆满会卡住上游站点。</p>
+    <p>银行</p>
     <div v-for="(row, i) in BANK_ROWS" :key="i" class="grid">
       <article v-for="id in row" :key="id" class="item" :class="tone(id)">
         <header>
@@ -57,15 +56,9 @@ function tone(id: ItemId): 'ok' | 'warn' | 'full' {
   padding: 14px 16px;
 }
 
-.panel p,
-.hint {
+.panel p {
   margin: 0;
   line-height: 1.5;
-}
-
-.hint {
-  color: var(--muted);
-  font-size: 14px;
 }
 
 .grid {

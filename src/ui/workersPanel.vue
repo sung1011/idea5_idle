@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { assignedCount, idleCount } from '../sim/query'
+import { idleCount } from '../sim/query'
 import { CLASS_LABEL, PLAYABLE_STATION_IDS, RECRUIT_COST, STATION_DEF } from '../sim/tables'
 import type { StationId, Worker } from '../sim/types'
 import { useGameStore } from './gameStore'
@@ -24,8 +24,7 @@ function resting(w: Worker) {
     <div class="row">
       <button type="button" @click="game.recruit()">抽工人（{{ RECRUIT_COST }} 金）</button>
     </div>
-    <p v-if="!game.save.workers.length" class="hint">先抽人，再点站点按钮派人。同一站可以堆多人加速。</p>
-    <ul v-else>
+    <ul v-if="game.save.workers.length">
       <li v-for="w in game.save.workers" :key="w.id" class="card">
         <p class="name">{{ w.name ?? w.id }} · {{ w.classId ? CLASS_LABEL[w.classId] : '未标' }}</p>
         <div class="row">
@@ -52,11 +51,6 @@ function resting(w: Worker) {
         </div>
       </li>
     </ul>
-    <p class="hint">
-      采矿 {{ assignedCount(game.save, 'mining') }} / 锻造 {{ assignedCount(game.save, 'forging') }} · 钓鱼
-      {{ assignedCount(game.save, 'fishing') }} / 烹饪 {{ assignedCount(game.save, 'cooking') }} · 伐木
-      {{ assignedCount(game.save, 'woodcutting') }}
-    </p>
   </section>
 </template>
 

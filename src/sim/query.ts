@@ -92,7 +92,7 @@ export function collectHints(save: Save): Hint[] {
   for (const pair of resonancePairs(save)) {
     hints.push({
       kind: 'resonance',
-      text: `${STATION_DEF[pair.a].label} + ${STATION_DEF[pair.b].label} 车间共振`,
+      text: `${STATION_DEF[pair.a].label} + ${STATION_DEF[pair.b].label} 工坊共振`,
     })
   }
   return hints
