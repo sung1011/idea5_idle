@@ -77,7 +77,7 @@ function singleCategory(
       cycleS,
       costs,
       outputs,
-      xpPerCycle: 8,
+      xpPerCycle: 1,
       unlockLevel: 1,
       ...extras,
     },
@@ -102,7 +102,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
         cycleS: 5,
         costs: [],
         outputs: [{ itemId: 'ore', qty: 1 }],
-        xpPerCycle: 10,
+        xpPerCycle: 1,
         unlockLevel: 1,
       },
       {
@@ -111,7 +111,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
         cycleS: 6,
         costs: [],
         outputs: [{ itemId: 'ironOre', qty: 1 }],
-        xpPerCycle: 12,
+        xpPerCycle: 2,
         unlockLevel: 5,
       },
       {
@@ -120,7 +120,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
         cycleS: 7,
         costs: [],
         outputs: [{ itemId: 'mithrilOre', qty: 1 }],
-        xpPerCycle: 15,
+        xpPerCycle: 3,
         unlockLevel: 10,
       },
     ],
@@ -163,7 +163,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
         costs: [{ itemId: 'ore', qty: 1 }],
         altCosts: [{ itemId: 'slag', qty: 1 }],
         outputs: [{ itemId: 'weapon', qty: 1 }],
-        xpPerCycle: 10,
+        xpPerCycle: 1,
         unlockLevel: 1,
       },
       {
@@ -175,7 +175,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
           { itemId: 'wood', qty: 1 },
         ],
         outputs: [{ itemId: 'ironWeapon', qty: 1 }],
-        xpPerCycle: 12,
+        xpPerCycle: 2,
         unlockLevel: 5,
       },
       {
@@ -187,7 +187,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
           { itemId: 'wood', qty: 2 },
         ],
         outputs: [{ itemId: 'mithrilWeapon', qty: 1 }],
-        xpPerCycle: 15,
+        xpPerCycle: 3,
         unlockLevel: 10,
       },
     ],
@@ -196,16 +196,21 @@ export const STATION_DEF: Record<StationId, StationDef> = {
 
 export const STATION_IDS = Object.keys(STATION_DEF) as StationId[]
 
-/** 升到下一等级所需 XP。下标 = 当前等级。缺档时按末档递推。 */
-export const STATION_LEVEL_XP: readonly number[] = [
-  0, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200,
-]
+/** 升到下一等级所需 XP：round(100 * 1.45^(L-1))，L>=1。 */
+export const XP_TO_NEXT_BASE = 100
+export const XP_TO_NEXT_GROWTH = 1.45
 
 export function xpToNextLevel(level: number): number {
   const safe = Math.max(1, Math.floor(level))
-  if (safe < STATION_LEVEL_XP.length) return STATION_LEVEL_XP[safe]
-  const last = STATION_LEVEL_XP[STATION_LEVEL_XP.length - 1]
-  return last + (safe - (STATION_LEVEL_XP.length - 1)) * 20
+  return Math.round(XP_TO_NEXT_BASE * Math.pow(XP_TO_NEXT_GROWTH, safe - 1))
+}
+
+/** 从 Lv1 升到 target 的累计 XP（不含当前等级内进度）。Lv5 = 760。 */
+export function xpToReachLevel(level: number): number {
+  const target = Math.max(1, Math.floor(level))
+  let total = 0
+  for (let current = 1; current < target; current++) total += xpToNextLevel(current)
+  return total
 }
 
 export function stationCategories(stationId: StationId): StationCategoryDef[] {

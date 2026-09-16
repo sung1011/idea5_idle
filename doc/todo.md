@@ -45,7 +45,7 @@
 - [x] 每站独立等级 + XP；完成周期给 XP，满则升级
 - [x] 采矿 / 锻造各至少 3 品类：默认铜 / Lv5 铁 / Lv10 秘银；高阶新 itemId
 - [x] 存档：stationXp / stationLevel / unlocked / selectedCategory；旧存档迁移
-- [x] 表驱动品类 cycleS / 产出 / XP / unlockLevel + 升级曲线
+- [x] 表驱动品类 cycleS / 产出 / XP / unlockLevel + 升级曲线（`round(100 * 1.45^(L-1))`，铜/铁/秘银 1/2/3 XP）
 - [x] tick 按当前品类结算；升级与解锁进 query progress 提示
 - [x] 锻造耗对应矿；无对应矿空转提示
 - [x] 银行 / 卖货支持新物品；偶遇敌人第一期仍收基础 weapon / food

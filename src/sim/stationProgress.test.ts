@@ -10,7 +10,7 @@ import {
   hydrateStations,
   selectStationCategory,
 } from './stationProgress'
-import { xpToNextLevel } from './tables'
+import { STATION_DEF, xpToNextLevel, xpToReachLevel } from './tables'
 import { ticks } from './tick'
 import type { Save } from './types'
 
@@ -30,13 +30,29 @@ function unlockTo(save: Save, stationId: 'mining' | 'forging', level: number) {
   }
 }
 
+describe('station XP curve', () => {
+  it('uses round(100 * 1.45^(L-1)) and 760 XP to reach Lv5', () => {
+    expect(xpToNextLevel(1)).toBe(100)
+    expect(xpToNextLevel(2)).toBe(145)
+    expect(xpToNextLevel(3)).toBe(210)
+    expect(xpToNextLevel(4)).toBe(305)
+    expect(xpToReachLevel(5)).toBe(760)
+    expect(STATION_DEF.mining.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
+    expect(STATION_DEF.forging.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
+    expect(STATION_DEF.fishing.categories[0].xpPerCycle).toBe(1)
+    expect(STATION_DEF.cooking.categories[0].xpPerCycle).toBe(1)
+    expect(STATION_DEF.woodcutting.categories[0].xpPerCycle).toBe(1)
+    expect(STATION_DEF.alchemy.categories[0].xpPerCycle).toBe(1)
+  })
+})
+
 describe('station XP / level', () => {
   it('gives XP on a finished cycle and levels when XP is full', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'mining')
     const next = ticks(save, 5)
     expect(next.stations.mining.completed).toBe(1)
-    expect(next.stations.mining.stationXp).toBe(10)
+    expect(next.stations.mining.stationXp).toBe(1)
     expect(next.stations.mining.stationLevel).toBe(1)
 
     grantStationXp(next, 'mining', xpToNextLevel(1) - next.stations.mining.stationXp)
@@ -44,6 +60,14 @@ describe('station XP / level', () => {
     expect(next.stations.mining.stationXp).toBe(0)
     expect(next.stations.mining.progressNotice).toContain('升到 Lv2')
     expect(collectHints(next).some((h) => h.kind === 'progress' && h.text.includes('采矿'))).toBe(true)
+  })
+
+  it('reaches Lv5 after 760 copper-cycle XP', () => {
+    const save = createSave()
+    grantStationXp(save, 'mining', xpToReachLevel(5))
+    expect(save.stations.mining.stationLevel).toBe(5)
+    expect(save.stations.mining.stationXp).toBe(0)
+    expect(save.stations.mining.unlockedCategories).toEqual(['copper', 'iron'])
   })
 
   it('unlocks the second mining category at Lv5', () => {
