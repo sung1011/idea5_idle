@@ -92,5 +92,8 @@ describe('save migration', () => {
     expect(save?.stations.alchemy).toBeTruthy()
     expect((save?.stations as { woodcutting?: unknown } | undefined)?.woodcutting).toBeUndefined()
     expect(save?.stations.mining.miningNode?.nodeHp).toBe(20)
+    expect(save?.rngState).toBe(1)
+    expect(save?.stations.fishing.selectedCategory).toBe('copper')
+    expect(save?.stations.hunting.selectedCategory).toBe('copper')
   })
 })

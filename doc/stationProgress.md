@@ -2,7 +2,7 @@
 
 对照 [main.md](main.md)。七站定稿见 [production.md](production.md)。本文只记**已上线**的等级 / 品类公式；伐木 `woodcutting` 已废弃 / 藏入口。
 
-第 1 期只把 **采矿**、**锻造** 做成多品类；钓鱼 / 烹饪 / 狩猎 / 采药 / 炼金仍单一品类兼容。
+第 2 期起 **采矿**、**锻造**、**钓鱼**、**狩猎** 做成多品类；烹饪 / 采药 / 炼金仍单一品类兼容。
 
 ---
 
@@ -14,7 +14,7 @@
 - 每 5 级解锁 1 个新品类：Lv5 第 2 类，Lv10 第 3 类。
 - 高阶产出用新 `itemId`（`ironOre`、`ironTool`、`mithrilOre`、`mithrilTool`），不是同一个 `ore` / `tool` 换皮。旧武器 id 仍可卖。
 - 整站共用一个 `selectedCategory`；同站堆人只加速当前品类。迅雷公式与共振不变。
-- 第一期采矿 + 锻造各 3 个品类（默认 / Lv5 / Lv10）。
+- 采矿 / 锻造 / 钓鱼 / 狩猎各 3 个品类（默认 / Lv5 / Lv10）。采药无限稳采，不设节点。
 
 ---
 
@@ -29,6 +29,9 @@
 | `selectedCategory` | 当前生产品类 |
 | `unlockedCategories` | 已解锁品类 |
 | `progressNotice` | 最近一次升级 / 解锁文案，存档字段；UI 不展示 |
+| `miningNode` / `miningNodes` | 挖矿当前 / 各品类节点（`nodeHp` `recoverAt`） |
+| `gatherNotice` | 最近一次采集文案（空杆 / 遇险 / 挖空） |
+| `gatherPauseUntil` | 狩猎遇险停手结束的 `elapsedS` |
 
 旧存档缺这些字段时，按新档默认补：Lv1、XP 0、只解锁第 1 档、选中第 1 档。非法 `selectedCategory` 回落到已解锁的第一档。
 
@@ -58,7 +61,7 @@ xpToNext(L) = Math.round(100 * Math.pow(1.45, L - 1) * 0.175)  // L >= 1
 | 8 | 236 | 721 |
 | 9 | 342 | 1063（到 Lv10） |
 
-品类每次 XP：铜 / 第 1 档 = 1，铁 / 第 2 档 = 2，秘银 / 第 3 档 = 3；钓鱼 / 烹饪 / 狩猎 / 采药 / 炼金单品类 = 1。
+品类每次 XP：铜 / 第 1 档 = 1，铁 / 第 2 档 = 2，秘银 / 第 3 档 = 3；烹饪 / 采药 / 炼金单品类 = 1。
 
 | 站点 | 品类 | 解锁 | 周期 | 消耗 | 产出 | 每次 XP |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -68,10 +71,14 @@ xpToNext(L) = Math.round(100 * Math.pow(1.45, L - 1) * 0.175)  // L >= 1
 | 锻造 | 初级工具 `copper` | 1 | 32s | `[{ ore, 1 }]`；没有则 `altCosts` 渣滓 | `tool` | 1 |
 | 锻造 | 中阶工具 `iron` | 5 | 36s | `[{ ironOre, 1 }]` | `ironTool` | 2 |
 | 锻造 | 高阶工具 `mithril` | 10 | 40s | `[{ mithrilOre, 1 }]` | `mithrilTool` | 3 |
-| 钓鱼 | `default` | 1 | 24s | — | `fish` | 1 |
-| 狩猎 | `default` | 1 | 24s | — | `meat` | 1 |
+| 钓鱼 | 初级渔场 `copper` | 1 | 28s | — | 掉落表：空杆 / 鱼 / 杂物（墙：只出初级） | 1 |
+| 钓鱼 | 中级渔场 `iron` | 5 | 32s | — | 掉落表：初级～中级 | 2 |
+| 钓鱼 | 高级渔场 `mithril` | 10 | 36s | — | 掉落表：初级～高级 | 3 |
+| 狩猎 | 野猪 `copper` | 1 | 24s | — | `meat`（遇险则无） | 1 |
+| 狩猎 | 狼 `iron` | 5 | 24s | — | `meat` `tooth` | 2 |
+| 狩猎 | 鹿 `mithril` | 10 | 24s | — | `meat` `blood` `eye` | 3 |
 | 烹饪 | `default` | 1 | 28s | `[{ fish, 1 }]` | `meal` | 1 |
-| 采药 | `default` | 1 | 20s | — | `herb` | 1 |
+| 采药 | `default` | 1 | 20s | — | 权重：草 / 香料（必出） | 1 |
 | 炼金 | `default` | 1 | 40s | `[{ herb, 1 }]` | `potion` | 1 |
 
 ### 验算手感
@@ -98,7 +105,9 @@ speed = (1 / 当前品类 cycleS) * n * (共振 ? 1.2 : 1)
 
 完成周期后 `grantStationXp`。升级时把 `unlockLevel <= 新等级` 的品类写入 `unlockedCategories`，并写 `progressNotice`（如「采矿升到 Lv5，解锁铁矿」）。UI 不展示该升级文案；停产只靠卡片红框，共振在对应卡片标「共振」。
 
-`selectStationCategory`：未解锁返回失败（文案含 Lv 需求），不改选中。切换成功则进度清零。
+`selectStationCategory`：未解锁返回失败（文案含 Lv 需求），不改选中。切换成功则进度清零。挖矿切换会换 `miningNode`，其它矿的恢复倒计时留在 `miningNodes`。
+
+采集结算（第 2 期）：挖矿每次吞吐扣 1 `nodeHp`，挖空后按 `recoverS` 冻结该矿；钓鱼按 `FISHING_DROP_TABLE` 掷骰，空杆也给 XP；采药按 `HERBALISM_DROP_TABLE` 必出货；狩猎先 `hazard` 检定，遇险掉本周期产出并短暂停手。
 
 ---
 

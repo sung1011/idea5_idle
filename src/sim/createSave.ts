@@ -29,5 +29,6 @@ export function createSave(): Save {
     messages: [],
     nextMessageId: 1,
     offlineCount: 0,
+    rngState: 1,
   }
 }

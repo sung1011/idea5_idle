@@ -90,9 +90,10 @@ describe('settleOffline', () => {
     assignWorker(save, save.workers[0].id, 'herbalism')
     save.lastTick = 0
     const result = settleOffline(save, 80_000)
-    expect(bankQty(result.save, 'herb')).toBe(4)
+    expect(result.save.stations.herbalism.completed).toBe(4)
+    expect(bankQty(result.save, 'herb') + bankQty(result.save, 'spice')).toBe(4)
     expect(result.summary.stations.some((s) => s.stationId === 'herbalism' && s.completed === 4)).toBe(true)
-    expect(result.summary.lines.some((l) => l.includes('草 +4'))).toBe(true)
+    expect(result.summary.lines.some((l) => l.includes('草') || l.includes('香料'))).toBe(true)
   })
 
   it('marks the 8h cap in the summary', () => {
@@ -104,11 +105,11 @@ describe('settleOffline', () => {
     expect(result.summary.seconds).toBe(OFFLINE_CAP_S)
     expect(result.summary.capped).toBe(true)
     expect(result.summary.lines[0]).toContain('已达 8 小时上限')
-    expect(bankQty(result.save, 'ore')).toBe(OFFLINE_CAP_S / 20)
+    expect(bankQty(result.save, 'ore')).toBe(result.save.stations.mining.completed)
+    expect(result.save.stations.mining.completed).toBeLessThan(OFFLINE_CAP_S / 20)
+    expect(result.save.stations.mining.completed).toBeGreaterThan(1200)
     expect(result.save.stations.mining.stallReason).toBeNull()
-    expect(result.summary.stations.some((s) => s.stationId === 'mining' && s.completed === OFFLINE_CAP_S / 20)).toBe(
-      true,
-    )
+    expect(result.summary.stations.some((s) => s.stationId === 'mining' && s.completed > 0)).toBe(true)
   })
 
   it('returns an empty summary when already caught up', () => {

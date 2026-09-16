@@ -1,7 +1,8 @@
 import { canAffordCosts, missingCostLabels } from './costs'
 import { workshopBuffMul } from './encounters'
+import { isGatherFrozen, isMiningNodeRecovering } from './gather'
 import { selectedCategoryDef } from './stationProgress'
-import { STATION_DEF, STATION_IDS, stationSpeed } from './tables'
+import { ITEM_DEF, miningNodeDef, STATION_DEF, STATION_IDS, stationSpeed } from './tables'
 import type { Hint, Save, StationId } from './types'
 
 export function assignedCount(save: Save, stationId: StationId): number {
@@ -23,6 +24,7 @@ export function stationResonating(save: Save, stationId: StationId): boolean {
 }
 
 export function currentSpeed(save: Save, stationId: StationId, now = Date.now()): number {
+  if (isGatherFrozen(save, stationId)) return 0
   const cat = selectedCategoryDef(save, stationId)
   const base = stationSpeed(assignedCount(save, stationId), cat.cycleS, stationResonating(save, stationId))
   return base * workshopBuffMul(save, now)
@@ -79,6 +81,12 @@ export function collectHints(save: Save): Hint[] {
     const stall = station.stallReason
     if (stall === 'emptyInput') {
       hints.push({ kind: 'bottleneck', text: `${needLabel(save, id)}见底：${STATION_DEF[id].label}空转` })
+    } else if (id === 'mining' && isMiningNodeRecovering(station.miningNode, save.elapsedS)) {
+      const oreId = miningNodeDef(station.selectedCategory).categoryId
+      const label = oreId === 'iron' ? ITEM_DEF.ironOre.label : oreId === 'mithril' ? ITEM_DEF.mithrilOre.label : ITEM_DEF.ore.label
+      hints.push({ kind: 'bottleneck', text: `${label}恢复中：可换其它已解锁矿` })
+    } else if (id === 'hunting' && isGatherFrozen(save, id)) {
+      hints.push({ kind: 'bottleneck', text: '狩猎遇险：短暂停手' })
     }
   }
   for (const pair of resonancePairs(save)) {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { formatCosts } from '../sim/costs'
+import { gatherStatusText, isGatherFrozen } from '../sim/gather'
 import { assignedCount, currentSpeed, stationResonating } from '../sim/query'
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
 import { STATION_DEF, xpToNextLevel } from '../sim/tables'
@@ -21,10 +22,18 @@ const cat = computed(() => selectedCategoryDef(game.save, props.stationId))
 const speed = computed(() => currentSpeed(game.save, props.stationId))
 const resonating = computed(() => stationResonating(game.save, props.stationId))
 const stall = computed(() => station.value.stallReason)
+const frozen = computed(() => isGatherFrozen(game.save, props.stationId))
+const gatherLine = computed(() => gatherStatusText(game.save, props.stationId))
+const pickCaption = computed(() => {
+  if (props.stationId === 'fishing') return '渔场'
+  if (props.stationId === 'hunting') return '猎物'
+  if (props.stationId === 'mining') return '矿脉'
+  return '品类'
+})
 const visual = useVisualProgress(() => ({
   progress: station.value.progress,
   speed: speed.value,
-  stalled: !!stall.value,
+  stalled: !!stall.value || frozen.value,
   assigned: count.value,
   lastTick: game.save.lastTick,
 }))
@@ -53,7 +62,7 @@ function onPick(ev: Event) {
 </script>
 
 <template>
-  <article class="card" :class="{ skeleton, stall: !!stall, hot: resonating }">
+  <article class="card" :class="{ skeleton, stall: !!stall, wait: frozen && !stall, hot: resonating }">
     <header>
       <i class="sprite sprite-station" :class="stationId" aria-hidden="true" />
       <div class="titles">
@@ -71,9 +80,10 @@ function onPick(ev: Event) {
       <i :style="{ width: xpPct + '%' }" />
     </div>
     <p class="stat">进度 {{ pctLabel }}% · XP {{ station.stationXp }}/{{ xpNeed }} · 速度 {{ speed.toFixed(2) }}/s</p>
+    <p v-if="gatherLine" class="stat gather">{{ gatherLine }}</p>
     <p v-if="hasCosts" class="stat">消耗 {{ costText }}</p>
     <label v-if="pickOptions.length > 1" class="cats">
-      <span class="sr">品类</span>
+      <span class="sr">{{ pickCaption }}</span>
       <select class="cat-select" :value="station.selectedCategory" @change="onPick">
         <option v-for="c in pickOptions" :key="c.id" :value="c.id" :disabled="!c.unlocked">
           {{ c.unlocked ? c.label : `${c.label}（Lv${c.unlockLevel}）` }}
@@ -127,6 +137,14 @@ h2 {
 .stat {
   color: var(--muted);
   font-size: 13px;
+}
+
+.gather {
+  color: var(--copper);
+}
+
+.card.wait {
+  box-shadow: inset 0 0 0 3px #d4a017;
 }
 
 .cats,

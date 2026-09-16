@@ -100,7 +100,7 @@ export type MiningNodeState = {
   categoryId: CategoryId
   nodeHp: number
   nodeHpMax: number
-  /** 挖空后恢复完成的墙钟；未空为 null */
+  /** 挖空后恢复完成的 elapsedS；未空为 null */
   recoverAt: number | null
 }
 
@@ -115,8 +115,14 @@ export type StationState = {
   unlockedCategories: CategoryId[]
   /** 最近一次升级 / 解锁文案，query 当 progress 提示。 */
   progressNotice: string | null
-  /** 挖矿节点占位。第 2 期才结算挖空；其它站不写。 */
+  /** 当前选中矿的节点。其它品类存在 miningNodes。 */
   miningNode?: MiningNodeState | null
+  /** 各矿品类节点，切换渔场式换矿时保留恢复倒计时。 */
+  miningNodes?: Partial<Record<Extract<CategoryId, 'copper' | 'iron' | 'mithril'>, MiningNodeState>>
+  /** 最近一次采集结算文案（空杆 / 遇险 / 挖空）。 */
+  gatherNotice?: string | null
+  /** 狩猎遇险短暂停手：恢复推进的 elapsedS；未暂停为 null。 */
+  gatherPauseUntil?: number | null
 }
 
 export type FisheryTier = 'beginner' | 'mid' | 'high'
@@ -171,6 +177,8 @@ export type Save = {
   nextMessageId: number
   /** 成功离线追赶次数（seconds > 0）。 */
   offlineCount: number
+  /** 采集掷骰种子。缺字段 hydrate 为 1。 */
+  rngState: number
 }
 
 export type EncounterQuality = 'gray' | 'green' | 'blue' | 'purple' | 'orange'

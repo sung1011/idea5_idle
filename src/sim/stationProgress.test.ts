@@ -24,7 +24,7 @@ function roster(n: number): Save {
   return save
 }
 
-function unlockTo(save: Save, stationId: 'mining' | 'forging', level: number) {
+function unlockTo(save: Save, stationId: 'mining' | 'forging' | 'fishing' | 'hunting', level: number) {
   const station = save.stations[stationId]
   while (station.stationLevel < level) {
     grantStationXp(save, stationId, xpToNextLevel(station.stationLevel))
@@ -40,9 +40,9 @@ describe('station XP curve', () => {
     expect(xpToReachLevel(5)).toBe(133)
     expect(STATION_DEF.mining.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
     expect(STATION_DEF.forging.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
-    expect(STATION_DEF.fishing.categories[0].xpPerCycle).toBe(1)
+    expect(STATION_DEF.fishing.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
     expect(STATION_DEF.cooking.categories[0].xpPerCycle).toBe(1)
-    expect(STATION_DEF.hunting.categories[0].xpPerCycle).toBe(1)
+    expect(STATION_DEF.hunting.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
     expect(STATION_DEF.herbalism.categories[0].xpPerCycle).toBe(1)
     expect(STATION_DEF.alchemy.categories[0].xpPerCycle).toBe(1)
   })
@@ -132,6 +132,22 @@ describe('categoryPickOptions', () => {
     const save = createSave()
     expect(categoryPickOptions(save, 'herbalism')).toEqual([
       { id: 'default', label: '草', unlocked: true, unlockLevel: 1 },
+    ])
+  })
+
+  it('lists fishing grounds and hunting prey like mining categories', () => {
+    const save = createSave()
+    expect(categoryPickOptions(save, 'fishing').map((c) => c.label)).toEqual(['初级渔场', '中级渔场'])
+    expect(categoryPickOptions(save, 'hunting').map((c) => c.label)).toEqual(['野猪', '狼'])
+    unlockTo(save, 'fishing', 5)
+    unlockTo(save, 'hunting', 5)
+    expect(categoryPickOptions(save, 'fishing').filter((c) => c.unlocked).map((c) => c.id)).toEqual([
+      'copper',
+      'iron',
+    ])
+    expect(categoryPickOptions(save, 'hunting').filter((c) => c.unlocked).map((c) => c.id)).toEqual([
+      'copper',
+      'iron',
     ])
   })
 })

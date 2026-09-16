@@ -183,7 +183,42 @@ export const STATION_DEF: Record<StationId, StationDef> = {
     label: '狩猎',
     kind: 'gather',
     neighbors: ['cooking'],
-    categories: singleCategory('肉', 24, [], [{ itemId: 'meat', qty: 1 }]),
+    categories: [
+      {
+        id: 'copper',
+        label: '野猪',
+        cycleS: 24,
+        costs: [],
+        outputs: [{ itemId: 'meat', qty: 1 }],
+        xpPerCycle: 1,
+        unlockLevel: 1,
+      },
+      {
+        id: 'iron',
+        label: '狼',
+        cycleS: 24,
+        costs: [],
+        outputs: [
+          { itemId: 'meat', qty: 1 },
+          { itemId: 'tooth', qty: 1 },
+        ],
+        xpPerCycle: 2,
+        unlockLevel: 5,
+      },
+      {
+        id: 'mithril',
+        label: '鹿',
+        cycleS: 24,
+        costs: [],
+        outputs: [
+          { itemId: 'meat', qty: 1 },
+          { itemId: 'blood', qty: 1 },
+          { itemId: 'eye', qty: 1 },
+        ],
+        xpPerCycle: 3,
+        unlockLevel: 10,
+      },
+    ],
   },
   cooking: {
     id: 'cooking',
@@ -211,7 +246,35 @@ export const STATION_DEF: Record<StationId, StationDef> = {
     label: '钓鱼',
     kind: 'gather',
     neighbors: ['cooking'],
-    categories: singleCategory('鱼', 24, [], [{ itemId: 'fish', qty: 1 }]),
+    categories: [
+      {
+        id: 'copper',
+        label: '初级渔场',
+        cycleS: 28,
+        costs: [],
+        outputs: [{ itemId: 'fish', qty: 1 }],
+        xpPerCycle: 1,
+        unlockLevel: 1,
+      },
+      {
+        id: 'iron',
+        label: '中级渔场',
+        cycleS: 32,
+        costs: [],
+        outputs: [{ itemId: 'fish', qty: 1 }],
+        xpPerCycle: 2,
+        unlockLevel: 5,
+      },
+      {
+        id: 'mithril',
+        label: '高级渔场',
+        cycleS: 36,
+        costs: [],
+        outputs: [{ itemId: 'fish', qty: 1 }],
+        xpPerCycle: 3,
+        unlockLevel: 10,
+      },
+    ],
   },
 }
 
@@ -250,8 +313,18 @@ export type MiningNodeDef = {
   recoverS: number
 }
 
-/** 矿节点 HP / 恢复占位。第 2 期才结算挖空。 */
-export const MINING_NODE_DEF: Record<'copper' | 'iron' | 'mithril', MiningNodeDef> = {
+export type MiningCategoryId = 'copper' | 'iron' | 'mithril'
+
+export function isMiningCategoryId(id: CategoryId): id is MiningCategoryId {
+  return id === 'copper' || id === 'iron' || id === 'mithril'
+}
+
+export function asMiningCategoryId(id: CategoryId): MiningCategoryId {
+  return isMiningCategoryId(id) ? id : 'copper'
+}
+
+/** 矿节点 HP / 恢复。挖空后按 recoverS 游戏秒恢复。 */
+export const MINING_NODE_DEF: Record<MiningCategoryId, MiningNodeDef> = {
   copper: { categoryId: 'copper', nodeHpMax: 20, recoverS: 60 },
   iron: { categoryId: 'iron', nodeHpMax: 24, recoverS: 90 },
   mithril: { categoryId: 'mithril', nodeHpMax: 28, recoverS: 120 },
@@ -269,7 +342,19 @@ export type FishingDropWeight = {
   itemId?: ItemId
 }
 
-/** 渔场 × 品阶掉落（含空杆权重）。第 2 期才按权重结算。 */
+export const FISHERY_TIER_RANK: Record<FisheryTier, number> = {
+  beginner: 1,
+  mid: 2,
+  high: 3,
+}
+
+export function categoryToFisheryTier(categoryId: CategoryId): FisheryTier {
+  if (categoryId === 'iron') return 'mid'
+  if (categoryId === 'mithril') return 'high'
+  return 'beginner'
+}
+
+/** 渔场 × 品阶掉落（含空杆）。结算时再按 fisheryTier 墙过滤。 */
 export const FISHING_DROP_TABLE: Record<FisheryTier, FishingDropWeight[]> = {
   beginner: [
     { outcome: 'empty', weight: 40 },
@@ -298,7 +383,7 @@ export type HuntingPreyDef = {
   outputs: IoRule[]
 }
 
-/** 猎物遇险率占位。第 2 期才做检定。 */
+/** 猎物遇险率。周期结束掷骰，遇险非战斗。 */
 export const HUNTING_PREY_TABLE: HuntingPreyDef[] = [
   { id: 'boar', label: '野猪', hazardChance: 0.12, outputs: [{ itemId: 'meat', qty: 1 }] },
   {
@@ -317,16 +402,33 @@ export const HUNTING_PREY_TABLE: HuntingPreyDef[] = [
     outputs: [
       { itemId: 'meat', qty: 1 },
       { itemId: 'blood', qty: 1 },
+      { itemId: 'eye', qty: 1 },
     ],
   },
 ]
+
+export const HUNTING_CATEGORY_PREY: Record<CategoryId, string> = {
+  copper: 'boar',
+  iron: 'wolf',
+  mithril: 'stag',
+  default: 'boar',
+}
+
+/** 遇险：掉本周期产出 + 短暂停手；有熟食则再耗 1 份。无战斗。 */
+export const HUNTING_HAZARD_PAUSE_S = 8
+export const HUNTING_HAZARD_CONSUME: IoRule = { itemId: 'meal', qty: 1 }
+
+export function huntingPreyByCategory(categoryId: CategoryId): HuntingPreyDef {
+  const id = HUNTING_CATEGORY_PREY[categoryId] ?? 'boar'
+  return HUNTING_PREY_TABLE.find((row) => row.id === id) ?? HUNTING_PREY_TABLE[0]
+}
 
 export type HerbalismDropWeight = {
   itemId: ItemId
   weight: number
 }
 
-/** 采药权重占位：不允许空采。第 2 期才按权重抽。 */
+/** 采药权重：不允许空采。 */
 export const HERBALISM_DROP_TABLE: HerbalismDropWeight[] = [
   { itemId: 'herb', weight: 70 },
   { itemId: 'spice', weight: 30 },

@@ -1,10 +1,13 @@
 import {
+  asMiningCategoryId,
   defaultCategory,
   findCategory,
   miningNodeDef,
+  MINING_NODE_DEF,
   stationCategories,
   STATION_DEF,
   xpToNextLevel,
+  type MiningCategoryId,
 } from './tables'
 import type { ActionResult, CategoryId, MiningNodeState, Save, StationId, StationState } from './types'
 
@@ -35,13 +38,44 @@ function hydrateMiningNode(incoming: unknown, categoryId: CategoryId): MiningNod
       ? raw.recoverAt
       : null
   return {
-    categoryId: raw.categoryId === 'iron' || raw.categoryId === 'mithril' || raw.categoryId === 'copper'
-      ? raw.categoryId
-      : fallback.categoryId,
+    categoryId:
+      raw.categoryId === 'iron' || raw.categoryId === 'mithril' || raw.categoryId === 'copper'
+        ? raw.categoryId
+        : fallback.categoryId,
     nodeHp,
     nodeHpMax,
     recoverAt,
   }
+}
+
+function hydrateMiningNodes(
+  incoming: Partial<StationState> | undefined,
+  selected: CategoryId,
+): { miningNode: MiningNodeState; miningNodes: NonNullable<StationState['miningNodes']> } {
+  const selectedId = asMiningCategoryId(selected)
+  const nodes: NonNullable<StationState['miningNodes']> = {}
+  const rawMap = incoming?.miningNodes
+  if (rawMap && typeof rawMap === 'object') {
+    for (const id of Object.keys(MINING_NODE_DEF) as MiningCategoryId[]) {
+      if (rawMap[id]) nodes[id] = hydrateMiningNode(rawMap[id], id)
+    }
+  }
+  if (incoming?.miningNode) {
+    const node = hydrateMiningNode(incoming.miningNode, incoming.miningNode.categoryId ?? selectedId)
+    nodes[asMiningCategoryId(node.categoryId)] = node
+  }
+  if (!nodes[selectedId]) nodes[selectedId] = blankMiningNode(selectedId)
+  return { miningNode: nodes[selectedId]!, miningNodes: nodes }
+}
+
+export function attachMiningCategory(station: StationState, categoryId: CategoryId): void {
+  const nextId = asMiningCategoryId(categoryId)
+  if (!station.miningNodes) station.miningNodes = {}
+  if (station.miningNode) {
+    station.miningNodes[asMiningCategoryId(station.miningNode.categoryId)] = station.miningNode
+  }
+  station.miningNode = station.miningNodes[nextId] ?? blankMiningNode(nextId)
+  station.miningNodes[nextId] = station.miningNode
 }
 
 export function unlockedCategoriesAt(stationId: StationId, level: number): CategoryId[] {
@@ -111,7 +145,14 @@ export function blankStation(stationId: StationId): StationState {
     selectedCategory: first.id,
     unlockedCategories: unlockedCategoriesAt(stationId, 1),
     progressNotice: null,
-    miningNode: stationId === 'mining' ? blankMiningNode(first.id) : undefined,
+    gatherNotice: null,
+    gatherPauseUntil: null,
+    ...(stationId === 'mining'
+      ? (() => {
+          const bundle = hydrateMiningNodes(undefined, first.id)
+          return { miningNode: bundle.miningNode, miningNodes: bundle.miningNodes }
+        })()
+      : {}),
   }
 }
 
@@ -135,9 +176,17 @@ export function hydrateStationState(stationId: StationId, incoming?: Partial<Sta
       ? incoming.unlockedCategories.filter((id): id is CategoryId => Boolean(findCategory(stationId, id)))
       : [],
     progressNotice: incoming.progressNotice ?? null,
-    miningNode: stationId === 'mining' ? hydrateMiningNode(incoming.miningNode, incoming.selectedCategory ?? blank.selectedCategory) : undefined,
+    gatherNotice: typeof incoming.gatherNotice === 'string' ? incoming.gatherNotice : null,
+    gatherPauseUntil:
+      typeof incoming.gatherPauseUntil === 'number' && Number.isFinite(incoming.gatherPauseUntil)
+        ? incoming.gatherPauseUntil
+        : null,
+    ...(stationId === 'mining'
+      ? hydrateMiningNodes(incoming, incoming.selectedCategory ?? blank.selectedCategory)
+      : {}),
   }
   syncUnlockedCategories(station, stationId)
+  if (stationId === 'mining') attachMiningCategory(station, station.selectedCategory)
   return station
 }
 
@@ -183,6 +232,7 @@ export function selectStationCategory(
   }
   const station = save.stations[stationId]
   if (station.selectedCategory === categoryId) return { ok: true }
+  if (stationId === 'mining') attachMiningCategory(station, categoryId)
   station.selectedCategory = categoryId
   station.progress = 0
   station.stallReason = null

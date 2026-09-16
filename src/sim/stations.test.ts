@@ -1,12 +1,17 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
 import { collectHints, isResonating } from './query'
 import { recruitWorker } from './recruit'
+import { setRollOverride } from './rng'
 import { PLAYABLE_STATION_IDS, STATION_DEF, STATION_IDS, stationSpeed } from './tables'
 import { ticks } from './tick'
 import type { Save } from './types'
+
+afterEach(() => {
+  setRollOverride(null)
+})
 
 function roster(n: number): Save {
   const save = createSave()
@@ -79,6 +84,7 @@ describe('woodcutting hidden', () => {
 
 describe('hunting / herbalism skeleton', () => {
   it('one hunter deposits meat after one cycle', () => {
+    setRollOverride(() => 0.9)
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'hunting')
     const next = ticks(save, 24)
@@ -87,6 +93,7 @@ describe('hunting / herbalism skeleton', () => {
   })
 
   it('one herbalist deposits herb after one cycle', () => {
+    setRollOverride(() => 0.1)
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'herbalism')
     const next = ticks(save, 20)
@@ -107,22 +114,24 @@ describe('hunting / herbalism skeleton', () => {
 
 describe('fishing → bank', () => {
   it('one fisher deposits fish after one cycle', () => {
+    setRollOverride(() => 0.5)
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'fishing')
-    const next = ticks(save, 24)
+    const next = ticks(save, 28)
     expect(bankQty(next, 'fish')).toBe(1)
     expect(next.stations.fishing.completed).toBe(1)
     expect(next.stations.fishing.progress).toBeCloseTo(0)
   })
 
   it('three fishers produce 3x fish in the same time', () => {
+    setRollOverride(() => 0.5)
     const one = roster(1)
     assignWorker(one, one.workers[0].id, 'fishing')
     const three = roster(3)
     for (const w of three.workers) assignWorker(three, w.id, 'fishing')
 
-    const a = ticks(one, 24)
-    const b = ticks(three, 24)
+    const a = ticks(one, 28)
+    const b = ticks(three, 28)
     expect(bankQty(a, 'fish')).toBe(1)
     expect(bankQty(b, 'fish')).toBe(3)
     expect(b.stations.fishing.completed).toBe(3)
@@ -217,16 +226,17 @@ describe('resonance', () => {
   })
 
   it('speeds fishing when cooking also has a worker', () => {
+    setRollOverride(() => 0.5)
     const alone = roster(1)
     assignWorker(alone, alone.workers[0].id, 'fishing')
     const pair = roster(2)
     assignWorker(pair, pair.workers[0].id, 'fishing')
     assignWorker(pair, pair.workers[1].id, 'cooking')
 
-    const a = ticks(alone, 20)
-    const b = ticks(pair, 20)
+    const a = ticks(alone, 24)
+    const b = ticks(pair, 24)
     expect(a.stations.fishing.completed).toBe(0)
-    expect(a.stations.fishing.progress).toBeCloseTo(20 / 24)
+    expect(a.stations.fishing.progress).toBeCloseTo(24 / 28)
     expect(bankQty(b, 'fish')).toBe(1)
     expect(b.stations.fishing.completed).toBe(1)
   })

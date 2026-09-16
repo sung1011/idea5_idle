@@ -50,14 +50,14 @@ UI 主列七站。`woodcutting` 废弃或藏入口，见第 7 节。
 
 ### 2.1 挖矿 `mining`（采集）
 
-节点有生命。每次成功吞吐扣 `nodeHp`；`nodeHp <= 0` 后写入 `recoverAt`，恢复完成前该节点不产矿（进度冻结或空转，文案后补）。恢复满后 `nodeHp = nodeHpMax`，`recoverAt = null`。
+节点有生命。每次成功吞吐扣 `nodeHp`；`nodeHp <= 0` 后写入 `recoverAt`（恢复完成时的 `elapsedS`），恢复完成前该节点不产矿（进度冻结，可换其它已解锁矿）。恢复满后 `nodeHp = nodeHpMax`，`recoverAt = null`。各矿品类节点存在 `miningNodes`，当前档镜像为 `miningNode`。
 
 ```ts
 type MiningNodeState = {
   categoryId: CategoryId
   nodeHp: number
   nodeHpMax: number
-  /** 挖空后恢复完成的墙钟；未空为 null */
+  /** 挖空后恢复完成的 elapsedS；未空为 null */
   recoverAt: number | null
 }
 ```
@@ -89,7 +89,7 @@ type SoftFailRoll = {
 
 ### 2.3 狩猎 `hunting`（采集）
 
-周期结束做 **遇险检定**，不是战斗：无伤害、无回合、无死亡、不接 `classId` 成长。失败惩罚（短空转 / 掉本周期产出 / 轻伤后补）第 2 期定；成功出货。
+周期结束做 **遇险检定**，不是战斗：无伤害、无回合、无死亡、不接 `classId` 成长。遇险：掉本周期产出、短暂停手 `HUNTING_HAZARD_PAUSE_S`（8s），库存有熟食则再耗 1 份；仍给站 XP。成功出货。猎物按品类：野猪 / 狼 / 鹿（Lv1 / Lv5 / Lv10）。
 
 ```ts
 type HazardRoll = {
@@ -136,12 +136,12 @@ type HazardRoll = {
 四条同时成立：
 
 1. **可空杆**：周期仍走完、给站 XP，但本次 `outputs` 可以为空。
-2. **期望更慢**：长期期望出货（非空杆次数 × 单次量）低于另外三采集（挖矿 / 狩猎 / 采药）。用更长 `cycleS` 和 / 或空杆率实现，第 2 期填表。
-3. **随机**：出鱼 / 空杆 / 杂物走权重，不写死每次 1 鱼。
+2. **期望更慢**：长期期望出货（非空杆次数 × 单次量）低于另外三采集（挖矿 / 狩猎 / 采药）。用更长 `cycleS`（初级 28s / 中级 32s / 高级 36s）加空杆率实现。
+3. **随机**：出鱼 / 空杆 / 杂物走权重，不写死每次 1 鱼。空杆仍走完周期并给站 XP。
 4. **渔场品阶墙**：`catchTier <= fisheryTier`。初级渔场只出初级，不出更高级。
 
 ```ts
-type FisheryTier = 'beginner' | 'mid' | 'high' // 档名第 2 期可与 CategoryId 对齐
+type FisheryTier = 'beginner' | 'mid' | 'high' // 与 CategoryId copper / iron / mithril 对齐
 type FishingCatch = {
   outcome: 'empty' | 'fish' | 'junk'
   /** 有货时不超过当前渔场品阶 */
@@ -337,12 +337,13 @@ type ProductionBuff = {
 
 ## 10. 与现码差距（第 1 期后）
 
-| 现码（第 1 期） | 定稿仍待 2～4 期 |
+| 现码（第 2 期后） | 定稿仍待 3～5 期 |
 | --- | --- |
 | 七站已入表；伐木藏入口 / 撤派 | — |
-| 矿节点 `nodeHp` 字段已占位 | 挖空等恢复 |
-| 渔场掉落表含空杆权重 | 空杆结算 + 更慢期望 + 品阶墙 |
-| 猎物遇险率表已占位 | 遇险检定 |
+| 挖矿挖空等恢复；可换其它已解锁矿 | — |
+| 钓鱼空杆 / 更慢期望 / 渔场品阶墙 | — |
+| 狩猎遇险检定（停手 / 减产 / 可耗熟食） | — |
+| 采药无限稳采，必出草 / 香料 | — |
 | 锻造出工具；软失败权重占位 | 软失败掷骰；工具槽生效 |
 | 烹饪仍只耗鱼出 `meal` | `meal` 进 `foodSlot` 给生产 Buff |
 | Worker 有 `toolSlot` / `foodSlot`（默认空） | 装槽 / 续期 / 取最强 |

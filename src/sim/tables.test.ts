@@ -62,4 +62,12 @@ describe('production phase-1 tables', () => {
     expect(TOOL_DEF.tool.effects[0].effectId).toBe('prodSpeed')
     expect(FOOD_BUFF_DEF.meal?.effectId).toBe('prodSpeed')
   })
+
+  it('exposes fishing grounds, hunting prey and alchemy-facing herbal drops', () => {
+    expect(STATION_DEF.fishing.categories.map((c) => c.label)).toEqual(['初级渔场', '中级渔场', '高级渔场'])
+    expect(STATION_DEF.hunting.categories.map((c) => c.label)).toEqual(['野猪', '狼', '鹿'])
+    expect(HUNTING_PREY_TABLE.some((row) => row.outputs.some((io) => io.itemId === 'eye'))).toBe(true)
+    expect(HERBALISM_DROP_TABLE.map((row) => row.itemId).sort()).toEqual(['herb', 'spice'])
+    expect(FISHING_DROP_TABLE.beginner.some((row) => row.outcome === 'empty')).toBe(true)
+  })
 })

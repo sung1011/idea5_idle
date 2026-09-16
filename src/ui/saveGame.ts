@@ -2,6 +2,7 @@ import { hydrateBank } from '../sim/bank'
 import { createSave, normalizeDiamonds } from '../sim/createSave'
 import { hydrateEncounterFields } from '../sim/encounters'
 import { hydrateMessages } from '../sim/messages'
+import { normalizeRngState } from '../sim/rng'
 import { hydrateStations } from '../sim/stationProgress'
 import { hydrateWorkers } from '../sim/recruit'
 import type { Save } from '../sim/types'
@@ -60,6 +61,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
       (parsed as { offlineCount: number }).offlineCount > 0
         ? Math.floor((parsed as { offlineCount: number }).offlineCount)
         : 0,
+    rngState: normalizeRngState((parsed as { rngState?: unknown }).rngState),
   }
   if (!Array.isArray(parsed.encounters)) merged.encounters = []
   return hydrateEncounterFields(merged)

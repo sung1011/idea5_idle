@@ -1,5 +1,6 @@
 import { addToBank } from './bank'
 import { takeCosts } from './costs'
+import { applyGatherOutputs, applyHuntingPauseTick, applyMiningRecovery, isGatherFrozen, isGatherStation } from './gather'
 import { assignedCount, canConsume, currentSpeed, pickConsume, stationResonating } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
 import { RESONANCE_BONUS_EVERY } from './tables'
@@ -38,16 +39,27 @@ export function completeCycle(save: Save, stationId: StationId): boolean {
   if (resonating) station.resonanceStreak += 1
   else station.resonanceStreak = 0
   const extra = resonating && station.resonanceStreak % RESONANCE_BONUS_EVERY === 0
-  if (!emitOutputs(save, stationId, extra)) return false
+  if (isGatherStation(stationId)) {
+    if (!applyGatherOutputs(save, stationId, extra)) return false
+  } else if (!emitOutputs(save, stationId, extra)) {
+    return false
+  }
   station.completed += 1
   grantStationXp(save, stationId, selectedCategoryDef(save, stationId).xpPerCycle)
   return true
 }
 
 export function stepStation(save: Save, stationId: StationId): void {
+  if (stationId === 'mining') applyMiningRecovery(save)
+  if (stationId === 'hunting') applyHuntingPauseTick(save)
+
   const station = save.stations[stationId]
   const n = assignedCount(save, stationId)
   if (n <= 0) {
+    station.stallReason = null
+    return
+  }
+  if (isGatherFrozen(save, stationId)) {
     station.stallReason = null
     return
   }
