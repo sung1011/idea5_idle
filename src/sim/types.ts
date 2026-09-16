@@ -6,7 +6,22 @@ export type StationId =
   | 'cooking'
   | 'forging'
 
-export type ItemId = 'wood' | 'ore' | 'slag' | 'fish' | 'meal' | 'potion' | 'weapon' | 'blueprint'
+/** 站内品类。采矿 / 锻造第一期多档；其它站单一品类兼容。 */
+export type CategoryId = 'copper' | 'iron' | 'mithril' | 'default'
+
+export type ItemId =
+  | 'wood'
+  | 'ore'
+  | 'ironOre'
+  | 'mithrilOre'
+  | 'slag'
+  | 'fish'
+  | 'meal'
+  | 'potion'
+  | 'weapon'
+  | 'ironWeapon'
+  | 'mithrilWeapon'
+  | 'blueprint'
 
 export type ClassId = 'laborer' | 'artisan' | 'wanderer'
 
@@ -27,6 +42,12 @@ export type StationState = {
   stallReason: StallReason | null
   completed: number
   resonanceStreak: number
+  stationXp: number
+  stationLevel: number
+  selectedCategory: CategoryId
+  unlockedCategories: CategoryId[]
+  /** 最近一次升级 / 解锁文案，query 当 progress 提示。 */
+  progressNotice: string | null
 }
 
 export type Save = {
@@ -48,6 +69,6 @@ export type Save = {
 }
 
 export type Hint = {
-  kind: 'bottleneck' | 'resonance'
+  kind: 'bottleneck' | 'resonance' | 'progress'
   text: string
 }

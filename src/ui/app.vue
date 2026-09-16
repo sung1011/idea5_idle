@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted } from 'vue'
 import { bankQty } from '../sim/bank'
 import { assignedCount, idleCount } from '../sim/query'
 import {
+  BANK_ROWS,
   CLASS_LABEL,
   ITEM_DEF,
   PLAYABLE_CHAINS,
@@ -15,7 +16,7 @@ import {
   gameDay,
   timeOfDayS,
 } from '../sim/tables'
-import type { StationId } from '../sim/types'
+import type { ItemId, StationId } from '../sim/types'
 import { useGameStore } from './gameStore'
 import OfflineBanner from './offlineBanner.vue'
 import OrderPanel from './orderPanel.vue'
@@ -26,13 +27,12 @@ const game = useGameStore()
 const day = computed(() => gameDay(game.save.elapsedS))
 const clock = computed(() => formatClock(game.save.elapsedS))
 const today = computed(() => formatClock(timeOfDayS(game.save.elapsedS)))
-const ore = computed(() => bankQty(game.save, 'ore'))
-const weapon = computed(() => bankQty(game.save, 'weapon'))
-const fish = computed(() => bankQty(game.save, 'fish'))
-const meal = computed(() => bankQty(game.save, 'meal'))
-const wood = computed(() => bankQty(game.save, 'wood'))
 const idle = computed(() => idleCount(game.save))
 const canSellGoods = computed(() => SELLABLE_GOODS.some((id) => bankQty(game.save, id) > 0))
+
+function qty(id: ItemId): number {
+  return bankQty(game.save, id)
+}
 
 function stationLabel(id: StationId | null): string {
   return id ? STATION_DEF[id].label : '空闲'
@@ -71,24 +71,15 @@ onUnmounted(() => {
 
     <section class="panel bank">
       <p>银行缓冲</p>
-      <p class="nums">
-        矿石 <strong>{{ ore }}</strong> / {{ ITEM_DEF.ore.cap }}
-        <button type="button" :disabled="ore === 0" @click="game.sell('ore')">卖 1</button>
-        · 武器 <strong>{{ weapon }}</strong> / {{ ITEM_DEF.weapon.cap }}
-        <button type="button" :disabled="weapon === 0" @click="game.sell('weapon')">卖 1</button>
-      </p>
-      <p class="nums">
-        鱼 <strong>{{ fish }}</strong> / {{ ITEM_DEF.fish.cap }}
-        <button type="button" :disabled="fish === 0" @click="game.sell('fish')">卖 1</button>
-        · 熟食 <strong>{{ meal }}</strong> / {{ ITEM_DEF.meal.cap }}
-        <button type="button" :disabled="meal === 0" @click="game.sell('meal')">卖 1</button>
-      </p>
-      <p class="nums">
-        木头 <strong>{{ wood }}</strong> / {{ ITEM_DEF.wood.cap }}
-        <button type="button" :disabled="wood === 0" @click="game.sell('wood')">卖 1</button>
+      <p v-for="(row, i) in BANK_ROWS" :key="i" class="nums">
+        <template v-for="(id, j) in row" :key="id">
+          <span v-if="j > 0"> · </span>
+          {{ ITEM_DEF[id].label }} <strong>{{ qty(id) }}</strong> / {{ ITEM_DEF[id].cap }}
+          <button type="button" :disabled="qty(id) === 0" @click="game.sell(id)">卖 1</button>
+        </template>
       </p>
       <div class="row">
-        <button type="button" :disabled="!canSellGoods" @click="game.sellGoods()">卖货（武器/熟食 → 金）</button>
+        <button type="button" :disabled="!canSellGoods" @click="game.sellGoods()">卖货（兵器/熟食 → 金）</button>
       </div>
     </section>
 
@@ -99,7 +90,7 @@ onUnmounted(() => {
       <li v-for="(h, i) in game.hints" :key="i" :class="h.kind">{{ h.text }}</li>
     </ul>
     <p v-else class="hint">
-      抽工人，把人堆到同一站加速。采矿出矿、锻造出武器；钓鱼出鱼、烹饪出熟食；伐木出木头可卖。产物交给出发订单，交单后才能出发。相邻站同时有人会共振。
+      抽工人，把人堆到同一站加速当前品类。采矿 / 锻造可升等级解锁铁矿、铁器等。钓鱼出鱼、烹饪出熟食；伐木出木头可卖。基础铜器 / 熟食交给出发订单，交单后才能出发。相邻站同时有人会共振。
     </p>
 
     <section v-for="ids in PLAYABLE_CHAINS" :key="chainTitle(ids)" class="chain">
@@ -270,6 +261,10 @@ button {
 
 .hints .resonance {
   color: var(--ember);
+}
+
+.hints .progress {
+  color: var(--moss);
 }
 
 summary {

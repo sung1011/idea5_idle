@@ -1,4 +1,4 @@
-import type { ClassId, ItemId, StationId } from './types'
+import type { CategoryId, ClassId, ItemId, StationId } from './types'
 
 export const DAY_LENGTH_S = 24 * 60
 export const OFFLINE_CAP_S = 8 * 60 * 60
@@ -12,6 +12,9 @@ export const RESONANCE_SPEED_MUL = 1.2
 /** 共振期间每完成这么多次吞吐，额外 +1 主产物（下游少空转 / 额外产出） */
 export const RESONANCE_BONUS_EVERY = 4
 
+/** 每 5 级解锁 1 个新品类：Lv5 第 2 类，Lv10 第 3 类。 */
+export const CATEGORY_UNLOCK_EVERY = 5
+
 export type ItemDef = {
   id: ItemId
   label: string
@@ -21,12 +24,16 @@ export type ItemDef = {
 
 export const ITEM_DEF: Record<ItemId, ItemDef> = {
   wood: { id: 'wood', label: '木头', sellGold: 2, cap: 30 },
-  ore: { id: 'ore', label: '矿石', sellGold: 3, cap: 20 },
+  ore: { id: 'ore', label: '铜矿', sellGold: 3, cap: 20 },
+  ironOre: { id: 'ironOre', label: '铁矿', sellGold: 5, cap: 20 },
+  mithrilOre: { id: 'mithrilOre', label: '秘银矿', sellGold: 8, cap: 16 },
   slag: { id: 'slag', label: '渣滓', sellGold: 1, cap: 20 },
   fish: { id: 'fish', label: '鱼', sellGold: 3, cap: 20 },
   meal: { id: 'meal', label: '熟食', sellGold: 8, cap: 40 },
   potion: { id: 'potion', label: '药剂', sellGold: 10, cap: 40 },
-  weapon: { id: 'weapon', label: '武器', sellGold: 12, cap: 50 },
+  weapon: { id: 'weapon', label: '铜器', sellGold: 12, cap: 50 },
+  ironWeapon: { id: 'ironWeapon', label: '铁器', sellGold: 18, cap: 40 },
+  mithrilWeapon: { id: 'mithrilWeapon', label: '秘银器', sellGold: 28, cap: 30 },
   blueprint: { id: 'blueprint', label: '图纸', sellGold: 20, cap: 20 },
 }
 
@@ -34,73 +41,174 @@ export const ITEM_IDS = Object.keys(ITEM_DEF) as ItemId[]
 
 export type IoRule = { itemId: ItemId; qty: number }
 
-export type StationDef = {
-  id: StationId
+export type StationCategoryDef = {
+  id: CategoryId
   label: string
   cycleS: number
-  /** 消耗：锻造优先扣矿，没有矿再扣渣滓（炼金回流）。 */
   inputs: IoRule[]
   altInputs?: IoRule[]
   outputs: IoRule[]
+  xpPerCycle: number
+  unlockLevel: number
+}
+
+export type StationDef = {
+  id: StationId
+  label: string
   neighbors: StationId[]
+  categories: StationCategoryDef[]
+}
+
+function singleCategory(
+  label: string,
+  cycleS: number,
+  inputs: IoRule[],
+  outputs: IoRule[],
+  extras: Partial<StationCategoryDef> = {},
+): StationCategoryDef[] {
+  return [
+    {
+      id: 'default',
+      label,
+      cycleS,
+      inputs,
+      outputs,
+      xpPerCycle: 8,
+      unlockLevel: 1,
+      ...extras,
+    },
+  ]
 }
 
 export const STATION_DEF: Record<StationId, StationDef> = {
   woodcutting: {
     id: 'woodcutting',
     label: '伐木',
-    cycleS: 5,
-    inputs: [],
-    outputs: [{ itemId: 'wood', qty: 1 }],
     neighbors: ['alchemy'],
+    categories: singleCategory('木头', 5, [], [{ itemId: 'wood', qty: 1 }]),
   },
   mining: {
     id: 'mining',
     label: '采矿',
-    cycleS: 5,
-    inputs: [],
-    outputs: [{ itemId: 'ore', qty: 1 }],
     neighbors: ['forging'],
+    categories: [
+      {
+        id: 'copper',
+        label: '铜矿',
+        cycleS: 5,
+        inputs: [],
+        outputs: [{ itemId: 'ore', qty: 1 }],
+        xpPerCycle: 10,
+        unlockLevel: 1,
+      },
+      {
+        id: 'iron',
+        label: '铁矿',
+        cycleS: 6,
+        inputs: [],
+        outputs: [{ itemId: 'ironOre', qty: 1 }],
+        xpPerCycle: 12,
+        unlockLevel: 5,
+      },
+      {
+        id: 'mithril',
+        label: '秘银矿',
+        cycleS: 7,
+        inputs: [],
+        outputs: [{ itemId: 'mithrilOre', qty: 1 }],
+        xpPerCycle: 15,
+        unlockLevel: 10,
+      },
+    ],
   },
   alchemy: {
     id: 'alchemy',
     label: '炼金',
-    cycleS: 10,
-    inputs: [{ itemId: 'wood', qty: 1 }],
-    outputs: [
-      { itemId: 'potion', qty: 1 },
-      { itemId: 'slag', qty: 1 },
-    ],
     neighbors: ['forging', 'woodcutting'],
+    categories: singleCategory(
+      '药剂',
+      10,
+      [{ itemId: 'wood', qty: 1 }],
+      [
+        { itemId: 'potion', qty: 1 },
+        { itemId: 'slag', qty: 1 },
+      ],
+    ),
   },
   fishing: {
     id: 'fishing',
     label: '钓鱼',
-    cycleS: 6,
-    inputs: [],
-    outputs: [{ itemId: 'fish', qty: 1 }],
     neighbors: ['cooking'],
+    categories: singleCategory('鱼', 6, [], [{ itemId: 'fish', qty: 1 }]),
   },
   cooking: {
     id: 'cooking',
     label: '烹饪',
-    cycleS: 7,
-    inputs: [{ itemId: 'fish', qty: 1 }],
-    outputs: [{ itemId: 'meal', qty: 1 }],
     neighbors: ['fishing'],
+    categories: singleCategory('熟食', 7, [{ itemId: 'fish', qty: 1 }], [{ itemId: 'meal', qty: 1 }]),
   },
   forging: {
     id: 'forging',
     label: '锻造',
-    cycleS: 8,
-    inputs: [{ itemId: 'ore', qty: 1 }],
-    altInputs: [{ itemId: 'slag', qty: 1 }],
-    outputs: [{ itemId: 'weapon', qty: 1 }],
     neighbors: ['mining', 'alchemy'],
+    categories: [
+      {
+        id: 'copper',
+        label: '铜器',
+        cycleS: 8,
+        inputs: [{ itemId: 'ore', qty: 1 }],
+        altInputs: [{ itemId: 'slag', qty: 1 }],
+        outputs: [{ itemId: 'weapon', qty: 1 }],
+        xpPerCycle: 10,
+        unlockLevel: 1,
+      },
+      {
+        id: 'iron',
+        label: '铁器',
+        cycleS: 9,
+        inputs: [{ itemId: 'ironOre', qty: 1 }],
+        outputs: [{ itemId: 'ironWeapon', qty: 1 }],
+        xpPerCycle: 12,
+        unlockLevel: 5,
+      },
+      {
+        id: 'mithril',
+        label: '秘银器',
+        cycleS: 10,
+        inputs: [{ itemId: 'mithrilOre', qty: 1 }],
+        outputs: [{ itemId: 'mithrilWeapon', qty: 1 }],
+        xpPerCycle: 15,
+        unlockLevel: 10,
+      },
+    ],
   },
 }
 
 export const STATION_IDS = Object.keys(STATION_DEF) as StationId[]
+
+/** 升到下一等级所需 XP。下标 = 当前等级。缺档时按末档递推。 */
+export const STATION_LEVEL_XP: readonly number[] = [
+  0, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200,
+]
+
+export function xpToNextLevel(level: number): number {
+  const safe = Math.max(1, Math.floor(level))
+  if (safe < STATION_LEVEL_XP.length) return STATION_LEVEL_XP[safe]
+  const last = STATION_LEVEL_XP[STATION_LEVEL_XP.length - 1]
+  return last + (safe - (STATION_LEVEL_XP.length - 1)) * 20
+}
+
+export function stationCategories(stationId: StationId): StationCategoryDef[] {
+  return STATION_DEF[stationId].categories
+}
+
+export function defaultCategory(stationId: StationId): StationCategoryDef {
+  return STATION_DEF[stationId].categories[0]
+}
+
+export function findCategory(stationId: StationId, categoryId: CategoryId): StationCategoryDef | undefined {
+  return STATION_DEF[stationId].categories.find((c) => c.id === categoryId)
+}
 
 /** 主界面：采矿→锻造、钓鱼→烹饪、伐木（产木可卖）。炼金仍骨架。 */
 export const PLAYABLE_CHAINS: StationId[][] = [
@@ -110,7 +218,15 @@ export const PLAYABLE_CHAINS: StationId[][] = [
 ]
 export const PLAYABLE_STATION_IDS: StationId[] = PLAYABLE_CHAINS.flat()
 export const SKELETON_STATION_IDS: StationId[] = ['alchemy']
-export const SELLABLE_GOODS: ItemId[] = ['weapon', 'meal']
+/** 卖货整批换金。含高阶兵器；出发订单第一期仍只收基础 weapon。 */
+export const SELLABLE_GOODS: ItemId[] = ['weapon', 'ironWeapon', 'mithrilWeapon', 'meal']
+
+export const BANK_ROWS: ItemId[][] = [
+  ['ore', 'ironOre', 'mithrilOre'],
+  ['weapon', 'ironWeapon', 'mithrilWeapon'],
+  ['fish', 'meal'],
+  ['wood'],
+]
 
 export const WORKER_NAME_POOL = [
   '阿木',

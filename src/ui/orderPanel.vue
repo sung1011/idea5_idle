@@ -39,7 +39,7 @@ const readyToDepart = computed(() => canDepart(game.save))
     <p v-if="game.save.departCount > 0" class="hint">
       已出发 {{ game.save.departCount }} 次（战斗稍后）
     </p>
-    <p class="hint">武器、熟食等交给订单才能出发。真战斗后做。</p>
+    <p class="hint">第一期订单收基础铜器 / 熟食等。高阶铁器订单后做。真战斗后做。</p>
   </section>
 </template>
 

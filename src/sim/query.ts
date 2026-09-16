@@ -1,4 +1,5 @@
 import { bankQty, bankRoom } from './bank'
+import { selectedCategoryDef } from './stationProgress'
 import { ITEM_DEF, STATION_DEF, STATION_IDS, stationSpeed } from './tables'
 import type { Hint, Save, StationId } from './types'
 
@@ -21,7 +22,8 @@ export function stationResonating(save: Save, stationId: StationId): boolean {
 }
 
 export function currentSpeed(save: Save, stationId: StationId): number {
-  return stationSpeed(assignedCount(save, stationId), STATION_DEF[stationId].cycleS, stationResonating(save, stationId))
+  const cat = selectedCategoryDef(save, stationId)
+  return stationSpeed(assignedCount(save, stationId), cat.cycleS, stationResonating(save, stationId))
 }
 
 export function resonancePairs(save: Save): Array<{ a: StationId; b: StationId }> {
@@ -41,7 +43,7 @@ export function resonancePairs(save: Save): Array<{ a: StationId; b: StationId }
 export type ConsumePick = { kind: 'none' | 'primary' | 'alt' }
 
 export function pickConsume(save: Save, stationId: StationId): ConsumePick | null {
-  const def = STATION_DEF[stationId]
+  const def = selectedCategoryDef(save, stationId)
   if (def.inputs.length === 0) return { kind: 'none' }
   if (def.inputs.every((io) => bankQty(save, io.itemId) >= io.qty)) return { kind: 'primary' }
   if (def.altInputs && def.altInputs.every((io) => bankQty(save, io.itemId) >= io.qty)) {
@@ -50,8 +52,8 @@ export function pickConsume(save: Save, stationId: StationId): ConsumePick | nul
   return null
 }
 
-function needLabel(stationId: StationId): string {
-  const def = STATION_DEF[stationId]
+function needLabel(save: Save, stationId: StationId): string {
+  const def = selectedCategoryDef(save, stationId)
   const first = def.inputs[0] ?? def.altInputs?.[0]
   return first ? ITEM_DEF[first.itemId].label : '原料'
 }
@@ -61,20 +63,24 @@ export function canConsume(save: Save, stationId: StationId): boolean {
 }
 
 export function canProduce(save: Save, stationId: StationId): boolean {
-  return STATION_DEF[stationId].outputs.every((io) => bankRoom(save, io.itemId) >= io.qty)
+  return selectedCategoryDef(save, stationId).outputs.every((io) => bankRoom(save, io.itemId) >= io.qty)
 }
 
 export function collectHints(save: Save): Hint[] {
   const hints: Hint[] = []
   for (const id of STATION_IDS) {
+    const station = save.stations[id]
+    if (station.progressNotice) {
+      hints.push({ kind: 'progress', text: station.progressNotice })
+    }
     const n = assignedCount(save, id)
     if (n <= 0) continue
-    const stall = save.stations[id].stallReason
+    const stall = station.stallReason
     if (stall === 'emptyInput') {
-      hints.push({ kind: 'bottleneck', text: `${needLabel(id)}见底：${STATION_DEF[id].label}空转` })
+      hints.push({ kind: 'bottleneck', text: `${needLabel(save, id)}见底：${STATION_DEF[id].label}空转` })
     }
     if (stall === 'fullOutput') {
-      const out = STATION_DEF[id].outputs[0]
+      const out = selectedCategoryDef(save, id).outputs[0]
       const label = out ? ITEM_DEF[out.itemId].label : '产物'
       hints.push({ kind: 'bottleneck', text: `${label}堆满：${STATION_DEF[id].label}停工` })
     }

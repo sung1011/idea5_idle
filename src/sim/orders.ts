@@ -19,7 +19,11 @@ export type OrderLine = {
   missing: number
 }
 
-/** 出发订单池。武器 / 熟食等组合轮换，流水线产物有去处。 */
+/**
+ * 出发订单池。武器 / 熟食等组合轮换，流水线产物有去处。
+ * 第一期仍收基础 copper 档：weapon / meal（及木头、鱼）。
+ * 高阶铁器 / 秘银器订单后做，避免开局卡在未解锁品类。
+ */
 export const ORDER_DEFS: readonly OrderDef[] = [
   { id: 'scoutRation', label: '斥候干粮', needs: { weapon: 1, meal: 2 }, departGold: 8 },
   { id: 'caravanGuard', label: '商队护卫', needs: { weapon: 2, meal: 1, wood: 2 }, departGold: 12 },

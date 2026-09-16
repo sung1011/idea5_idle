@@ -6,10 +6,11 @@ import { createSave } from '../sim/createSave'
 import { settleOffline, type OfflineSummary } from '../sim/offline'
 import { collectHints } from '../sim/query'
 import { recruitWorker } from '../sim/recruit'
+import { selectStationCategory } from '../sim/stationProgress'
 import { sellAllGoods, sellFromBank } from '../sim/bank'
 import { depart, submitOrder } from '../sim/orders'
 import { tick } from '../sim/tick'
-import type { ActionResult, ItemId, Save, StationId } from '../sim/types'
+import type { ActionResult, CategoryId, ItemId, Save, StationId } from '../sim/types'
 import { loadSave, persistSave } from './saveGame'
 
 export const useGameStore = defineStore('game', () => {
@@ -123,6 +124,8 @@ export const useGameStore = defineStore('game', () => {
     assignIdle: (stationId: StationId) => apply((s) => assignIdleWorker(s, stationId)),
     withdraw: (stationId: StationId) => apply((s) => withdrawWorker(s, stationId)),
     assign: (workerId: string, stationId: StationId | null) => apply((s) => assignWorker(s, workerId, stationId)),
+    selectCategory: (stationId: StationId, categoryId: CategoryId) =>
+      apply((s) => selectStationCategory(s, stationId, categoryId)),
     sell: (itemId: ItemId, qty = 1) => apply((s) => sellFromBank(s, itemId, qty)),
     sellGoods: () => apply(sellAllGoods),
     submitOrder: () => apply(submitOrder),

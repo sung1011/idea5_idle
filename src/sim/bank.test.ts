@@ -22,6 +22,23 @@ describe('sell goods', () => {
     expect(save.gold).toBe(10)
   })
 
+  it('sells a single ironWeapon for its table price', () => {
+    const save = createSave()
+    save.gold = 0
+    save.bank.ironWeapon = 1
+    expect(sellFromBank(save, 'ironWeapon', 1).ok).toBe(true)
+    expect(save.gold).toBe(18)
+  })
+
+  it('batch-sells higher-tier weapons with the goods pile', () => {
+    const save = createSave()
+    save.gold = 0
+    save.bank.ironWeapon = 1
+    save.bank.mithrilWeapon = 1
+    expect(sellAllGoods(save).ok).toBe(true)
+    expect(save.gold).toBe(18 + 28)
+  })
+
   it('sells a single ore for its table price', () => {
     const save = createSave()
     save.gold = 0

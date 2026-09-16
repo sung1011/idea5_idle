@@ -61,7 +61,7 @@ describe('settleOffline', () => {
     expect(result.summary.goldDelta).toBe(0)
     expect(result.summary.lines[0]).toBe('离线 20 秒')
     expect(result.summary.lines.some((l) => l.includes('采矿') && l.includes('完成 4 次'))).toBe(true)
-    expect(result.summary.lines.some((l) => l.includes('矿石 +4'))).toBe(true)
+    expect(result.summary.lines.some((l) => l.includes('铜矿 +4'))).toBe(true)
   })
 
   it('summarizes forging consume and produce', () => {

@@ -1,6 +1,7 @@
 import { addToBank, takeFromBank } from './bank'
 import { assignedCount, canConsume, canProduce, pickConsume, stationResonating } from './query'
-import { RESONANCE_BONUS_EVERY, STATION_DEF, stationSpeed } from './tables'
+import { grantStationXp, selectedCategoryDef } from './stationProgress'
+import { RESONANCE_BONUS_EVERY, stationSpeed } from './tables'
 import type { Save, StationId } from './types'
 
 /** 1/6、1/7 这类 cycle 累加会卡在 0.999…，差一丁点到 1。 */
@@ -9,7 +10,7 @@ const CYCLE_EPS = 1e-9
 function consumeInputs(save: Save, stationId: StationId): boolean {
   const pick = pickConsume(save, stationId)
   if (!pick) return false
-  const def = STATION_DEF[stationId]
+  const def = selectedCategoryDef(save, stationId)
   const rules = pick.kind === 'alt' ? (def.altInputs ?? []) : def.inputs
   for (const io of rules) {
     const took = takeFromBank(save, io.itemId, io.qty)
@@ -19,7 +20,7 @@ function consumeInputs(save: Save, stationId: StationId): boolean {
 }
 
 function emitOutputs(save: Save, stationId: StationId, extra: boolean): boolean {
-  const def = STATION_DEF[stationId]
+  const def = selectedCategoryDef(save, stationId)
   const bonus = extra ? 1 : 0
   for (const io of def.outputs) {
     const added = addToBank(save, io.itemId, io.qty + (io === def.outputs[0] ? bonus : 0))
@@ -31,7 +32,7 @@ function emitOutputs(save: Save, stationId: StationId, extra: boolean): boolean 
   return true
 }
 
-/** 完成一次吞吐：扣原料、写入银行。共振满 streak 时额外产出。 */
+/** 完成一次吞吐：按当前品类扣原料、写入银行，并给站 XP。共振满 streak 时额外产出。 */
 export function completeCycle(save: Save, stationId: StationId): boolean {
   if (!canConsume(save, stationId) || !canProduce(save, stationId)) return false
   if (!consumeInputs(save, stationId)) return false
@@ -42,6 +43,7 @@ export function completeCycle(save: Save, stationId: StationId): boolean {
   const extra = resonating && station.resonanceStreak % RESONANCE_BONUS_EVERY === 0
   if (!emitOutputs(save, stationId, extra)) return false
   station.completed += 1
+  grantStationXp(save, stationId, selectedCategoryDef(save, stationId).xpPerCycle)
   return true
 }
 
@@ -62,7 +64,8 @@ export function stepStation(save: Save, stationId: StationId): void {
   }
 
   station.stallReason = null
-  const speed = stationSpeed(n, STATION_DEF[stationId].cycleS, stationResonating(save, stationId))
+  const cat = selectedCategoryDef(save, stationId)
+  const speed = stationSpeed(n, cat.cycleS, stationResonating(save, stationId))
   station.progress += speed
 
   while (station.progress + CYCLE_EPS >= 1) {
