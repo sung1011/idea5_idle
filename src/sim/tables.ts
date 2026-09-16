@@ -23,18 +23,18 @@ export type ItemDef = {
 }
 
 export const ITEM_DEF: Record<ItemId, ItemDef> = {
-  wood: { id: 'wood', label: '木头', sellGold: 2, cap: 30 },
-  ore: { id: 'ore', label: '铜矿', sellGold: 3, cap: 20 },
-  ironOre: { id: 'ironOre', label: '铁矿', sellGold: 5, cap: 20 },
-  mithrilOre: { id: 'mithrilOre', label: '秘银矿', sellGold: 8, cap: 16 },
-  slag: { id: 'slag', label: '渣滓', sellGold: 1, cap: 20 },
-  fish: { id: 'fish', label: '鱼', sellGold: 3, cap: 20 },
-  meal: { id: 'meal', label: '熟食', sellGold: 8, cap: 40 },
-  potion: { id: 'potion', label: '药剂', sellGold: 10, cap: 40 },
-  weapon: { id: 'weapon', label: '铜器', sellGold: 12, cap: 50 },
-  ironWeapon: { id: 'ironWeapon', label: '铁器', sellGold: 18, cap: 40 },
-  mithrilWeapon: { id: 'mithrilWeapon', label: '秘银器', sellGold: 28, cap: 30 },
-  blueprint: { id: 'blueprint', label: '图纸', sellGold: 20, cap: 20 },
+  wood: { id: 'wood', label: '木头', sellGold: 2, cap: 300 },
+  ore: { id: 'ore', label: '铜矿', sellGold: 3, cap: 200 },
+  ironOre: { id: 'ironOre', label: '铁矿', sellGold: 5, cap: 200 },
+  mithrilOre: { id: 'mithrilOre', label: '秘银矿', sellGold: 8, cap: 160 },
+  slag: { id: 'slag', label: '渣滓', sellGold: 1, cap: 200 },
+  fish: { id: 'fish', label: '鱼', sellGold: 3, cap: 200 },
+  meal: { id: 'meal', label: '熟食', sellGold: 8, cap: 400 },
+  potion: { id: 'potion', label: '药剂', sellGold: 10, cap: 400 },
+  weapon: { id: 'weapon', label: '铜器', sellGold: 12, cap: 500 },
+  ironWeapon: { id: 'ironWeapon', label: '铁器', sellGold: 18, cap: 400 },
+  mithrilWeapon: { id: 'mithrilWeapon', label: '秘银器', sellGold: 28, cap: 300 },
+  blueprint: { id: 'blueprint', label: '图纸', sellGold: 20, cap: 200 },
 }
 
 export const ITEM_IDS = Object.keys(ITEM_DEF) as ItemId[]

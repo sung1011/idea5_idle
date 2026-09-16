@@ -50,6 +50,21 @@ describe('sell goods', () => {
 })
 
 describe('bank fill bars', () => {
+  it('uses 10x the original per-item caps', () => {
+    expect(ITEM_DEF.wood.cap).toBe(300)
+    expect(ITEM_DEF.ore.cap).toBe(200)
+    expect(ITEM_DEF.ironOre.cap).toBe(200)
+    expect(ITEM_DEF.mithrilOre.cap).toBe(160)
+    expect(ITEM_DEF.slag.cap).toBe(200)
+    expect(ITEM_DEF.fish.cap).toBe(200)
+    expect(ITEM_DEF.meal.cap).toBe(400)
+    expect(ITEM_DEF.potion.cap).toBe(400)
+    expect(ITEM_DEF.weapon.cap).toBe(500)
+    expect(ITEM_DEF.ironWeapon.cap).toBe(400)
+    expect(ITEM_DEF.mithrilWeapon.cap).toBe(300)
+    expect(ITEM_DEF.blueprint.cap).toBe(200)
+  })
+
   it('uses the per-item cap and flags warn / full', () => {
     const save = createSave()
     const cap = bankCap('ore')
@@ -60,8 +75,9 @@ describe('bank fill bars', () => {
     expect(bankFillTone(save, 'ore')).toBe('ok')
     expect(bankFillPct(save, 'ore')).toBe(0)
 
+    expect(cap).toBe(200)
     save.bank.ore = Math.ceil(cap * BANK_WARN_RATIO)
-    expect(save.bank.ore).toBe(16)
+    expect(save.bank.ore).toBe(160)
     expect(bankFillTone(save, 'ore')).toBe('warn')
     expect(bankFillPct(save, 'ore')).toBe(80)
 
