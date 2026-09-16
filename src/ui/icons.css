@@ -1,8 +1,9 @@
-/* Sprite 切图：512×288 webp，用 background-position 取格。 */
+/* Sprite 切图：640×360 真透明 webp（角 alpha=0），用 background-position 取格。 */
 
 .sprite {
   display: inline-block;
   flex: 0 0 auto;
+  background-color: transparent;
   background-repeat: no-repeat;
   vertical-align: middle;
 }
@@ -51,12 +52,12 @@
   background-position: 100% 100%;
 }
 
-/* 采矿 锻造 钓鱼 / 烹饪 伐木 炼金 · 2×3 */
+/* 采矿 锻造 钓鱼 烹饪 / 伐木 · 锯 · 苗 · 炼金 · 2×4（锯、苗未用） */
 .sprite-station {
-  width: 72px;
-  height: 60px;
+  width: 64px;
+  height: 72px;
   background-image: url('../assets/icons/stations.webp');
-  background-size: 300% 200%;
+  background-size: 400% 200%;
 }
 
 .sprite-station.mining {
@@ -64,19 +65,19 @@
 }
 
 .sprite-station.forging {
-  background-position: 50% 0%;
+  background-position: 33.333% 0%;
 }
 
 .sprite-station.fishing {
-  background-position: 100% 0%;
+  background-position: 66.667% 0%;
 }
 
 .sprite-station.cooking {
-  background-position: 0% 100%;
+  background-position: 100% 0%;
 }
 
 .sprite-station.woodcutting {
-  background-position: 50% 100%;
+  background-position: 0% 100%;
 }
 
 .sprite-station.alchemy {
