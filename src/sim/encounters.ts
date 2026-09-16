@@ -1279,6 +1279,10 @@ export function hydrateEncounterFields(save: Save): Save {
 
   if (Array.isArray(raw.encounters)) {
     raw.encounters = raw.encounters.map((slot) => migrateEncounterSlot(slot) as Encounter)
+    // 短暂出现过 6 格板：只留前 5，行军中的敌人若在前 5 格仍保留。
+    if (raw.encounters.length > ENCOUNTER_SLOT_COUNT) {
+      raw.encounters = raw.encounters.slice(0, ENCOUNTER_SLOT_COUNT)
+    }
   }
 
   const hadBoard = isValidEncounterBoard(raw.encounters)
