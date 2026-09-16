@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
 import {
+  ARTISAN_DEFS,
+  BLACK_MERCHANT_DEFS,
+  BULK_BUY_DEFS,
   ENCOUNTER_SLOT_COUNT,
   EXPLORE_COST_TABLE,
-  PAWNSHOP_DEFS,
+  PAWN_DEFS,
   PASSERBY_DEFS,
-  QUALITY_DEF,
-  SHADY_DEFS,
+  QUALITY_IDS,
+  QUALITY_TABLE,
   barterMerchant,
   boardSignature,
   buyMerchant,
@@ -18,7 +21,6 @@ import {
   claimLootBlockReason,
   departBlockReason,
   departEncounter,
-  encounterStampLabel,
   enemyLootGoldFor,
   enemyNeedsFor,
   exploreBlockReason,
@@ -26,28 +28,40 @@ import {
   exploreCost,
   generateEncounterBoard,
   hydrateEncounterFields,
-  isEncounterSettled,
+  isEncounterDone,
   isMerchantKind,
+  isTradeKind,
+  isWorkshopBuffActive,
   marchDurationS,
-  needMapQtySum,
-  pawnGoldForEncounter,
   pawnGoldForMap,
   pawnMerchant,
-  pickEncounterQuality,
-  qualityRewardMul,
+  pawnRewardGold,
+  qualityValueRatio,
+  scaleGold,
+  scaleNeedMap,
+  sellBulk,
   shouldKeepOnExplore,
+  stampLabel,
+  submitArtisan,
+  workshopBuffMul,
 } from './encounters'
 import { settleOffline } from './offline'
-import { pawnUnitGold } from './tables'
+import { assignWorker } from './assign'
+import { currentSpeed } from './query'
+import { recruitWorker } from './recruit'
+import { bulkUnitGold, pawnUnitGold } from './tables'
+import { ticks } from './tick'
 import type {
+  ArtisanEncounter,
+  BlackMerchantEncounter,
+  BulkBuyEncounter,
   EncounterNeedMap,
   EncounterQuality,
   EnemyEncounter,
   ItemId,
   PasserbyEncounter,
-  PawnshopEncounter,
+  PawnEncounter,
   Save,
-  ShadyEncounter,
 } from './types'
 
 function stock(save: Save, needs: EncounterNeedMap) {
@@ -81,9 +95,9 @@ function testEnemy(overrides: Partial<EnemyEncounter> = {}): EnemyEncounter {
   }
 }
 
-function testShady(overrides: Partial<ShadyEncounter> = {}): ShadyEncounter {
+function testBlackMerchant(overrides: Partial<BlackMerchantEncounter> = {}): BlackMerchantEncounter {
   return {
-    kind: 'shady',
+    kind: 'blackMerchant',
     id: 'merchantBuy-test',
     label: '木货贩',
     quality: 'green',
@@ -107,13 +121,41 @@ function testPasserby(overrides: Partial<PasserbyEncounter> = {}): PasserbyEncou
   }
 }
 
-function testPawn(overrides: Partial<PawnshopEncounter> = {}): PawnshopEncounter {
+function testPawn(overrides: Partial<PawnEncounter> = {}): PawnEncounter {
   return {
-    kind: 'pawnshop',
+    kind: 'pawn',
     id: 'merchantPawn-test',
     label: '兵器当',
     quality: 'green',
     pawnWants: { weapon: 1 },
+    completed: false,
+    ...overrides,
+  }
+}
+
+function testArtisan(overrides: Partial<ArtisanEncounter> = {}): ArtisanEncounter {
+  return {
+    kind: 'artisan',
+    id: 'artisanBlade-test',
+    label: '修刃委托',
+    quality: 'green',
+    wants: { weapon: 1 },
+    rewardGold: 10,
+    buffMul: 1.15,
+    buffDurationS: 180,
+    completed: false,
+    ...overrides,
+  }
+}
+
+function testBulk(overrides: Partial<BulkBuyEncounter> = {}): BulkBuyEncounter {
+  return {
+    kind: 'bulkBuy',
+    id: 'bulkBlade-test',
+    label: '兵器收购',
+    quality: 'green',
+    wants: { weapon: 1 },
+    rewardGold: bulkUnitGold('weapon'),
     completed: false,
     ...overrides,
   }
@@ -128,27 +170,39 @@ function needSnapshot(save: Save, map: EncounterNeedMap): Record<ItemId, number>
 }
 
 describe('encounter board', () => {
-  it('always has 6 slots mixing enemies and merchant kinds', () => {
+  it('always has 5 slots and can roll all 6 kinds without gray', () => {
     const save = createSave()
-    expect(ENCOUNTER_SLOT_COUNT).toBe(6)
     expect(save.encounters).toHaveLength(ENCOUNTER_SLOT_COUNT)
-    expect(save.encounters.some((enc) => enc.kind === 'enemy')).toBe(true)
-    expect(save.encounters.some((enc) => isMerchantKind(enc.kind))).toBe(true)
+    expect(save.workshopBuff).toBeNull()
 
-    const seen = new Set<string>()
-    for (let seed = 0; seed < 24; seed++) {
+    const seenKinds = new Set<string>()
+    const seenQualities = new Set<string>()
+    for (let seed = 0; seed < 80; seed++) {
       const board = generateEncounterBoard(seed)
-      expect(board).toHaveLength(6)
-      expect(board.some((enc) => enc.kind === 'enemy')).toBe(true)
-      expect(board.some((enc) => isMerchantKind(enc.kind))).toBe(true)
-      for (const enc of board) seen.add(enc.kind)
+      expect(board).toHaveLength(5)
+      for (const enc of board) {
+        seenKinds.add(enc.kind)
+        seenQualities.add(enc.quality)
+        expect(enc.quality).not.toBe('gray')
+        expect(QUALITY_TABLE[enc.quality].weight).toBeGreaterThan(0)
+      }
     }
-    expect(seen.has('shady')).toBe(true)
-    expect(seen.has('passerby')).toBe(true)
-    expect(seen.has('pawnshop')).toBe(true)
-    expect(SHADY_DEFS.length).toBeGreaterThan(0)
+    expect(seenKinds.has('enemy')).toBe(true)
+    expect(seenKinds.has('blackMerchant')).toBe(true)
+    expect(seenKinds.has('passerby')).toBe(true)
+    expect(seenKinds.has('pawn')).toBe(true)
+    expect(seenKinds.has('artisan')).toBe(true)
+    expect(seenKinds.has('bulkBuy')).toBe(true)
+    expect(seenQualities.has('gray')).toBe(false)
+    expect(seenQualities.has('green')).toBe(true)
+    expect(BLACK_MERCHANT_DEFS.length).toBeGreaterThan(0)
     expect(PASSERBY_DEFS.length).toBeGreaterThan(0)
-    expect(PAWNSHOP_DEFS.length).toBeGreaterThan(0)
+    expect(PAWN_DEFS.length).toBeGreaterThan(0)
+    expect(ARTISAN_DEFS.length).toBeGreaterThan(0)
+    expect(BULK_BUY_DEFS.length).toBeGreaterThan(0)
+    expect(isMerchantKind('blackMerchant')).toBe(true)
+    expect(isTradeKind('artisan')).toBe(true)
+    expect(isTradeKind('bulkBuy')).toBe(true)
   })
 
   it('gives far encounters more food and strong encounters more ore/weapons', () => {
@@ -163,7 +217,7 @@ describe('encounter board', () => {
 })
 
 describe('exploreBoard', () => {
-  it('deducts gold and replaces refreshable slots on the 6-slot board', () => {
+  it('deducts gold and replaces refreshable slots on the 5-slot board', () => {
     const save = createSave()
     const beforeGold = save.gold
     const beforeCost = exploreCost(save)
@@ -175,7 +229,7 @@ describe('exploreBoard', () => {
     if (result.ok) expect(result.message).toContain('探索完成')
     expect(save.gold).toBe(beforeGold - beforeCost)
     expect(save.exploreCount).toBe(1)
-    expect(save.encounters).toHaveLength(6)
+    expect(save.encounters).toHaveLength(5)
     expect(boardSignature(save.encounters)).not.toBe(beforeSig)
   })
 
@@ -214,13 +268,11 @@ describe('exploreBoard', () => {
       lootClaimed: true,
     })
     const passerby = testPasserby({ id: 'swap-passerby' })
-    const sixth = testEnemy({ id: 'swap-sixth' })
     put(save, 0, marching)
     put(save, 1, lootReady)
     put(save, 2, idle)
     put(save, 3, claimed)
     put(save, 4, passerby)
-    put(save, 5, sixth)
 
     expect(shouldKeepOnExplore(marching, now)).toBe(true)
     expect(shouldKeepOnExplore(lootReady, now)).toBe(true)
@@ -230,13 +282,12 @@ describe('exploreBoard', () => {
 
     const result = exploreBoard(save, now)
     expect(result.ok).toBe(true)
-    expect(save.encounters).toHaveLength(6)
+    expect(save.encounters).toHaveLength(5)
     expect(save.encounters[0].id).toBe('keep-march')
     expect(save.encounters[1].id).toBe('keep-loot')
     expect(save.encounters[2].id).not.toBe('swap-idle')
     expect(save.encounters[3].id).not.toBe('swap-claimed')
     expect(save.encounters[4].id).not.toBe('swap-passerby')
-    expect(save.encounters[5].id).not.toBe('swap-sixth')
   })
 })
 
@@ -379,15 +430,15 @@ describe('enemy march and loot', () => {
 })
 
 describe('merchant kinds', () => {
-  it('lets a shady merchant sell goods for gold', () => {
+  it('lets a black merchant sell goods for gold', () => {
     const save = createSave()
-    put(save, 0, testShady())
+    put(save, 0, testBlackMerchant())
     save.gold = 20
     save.bank = {}
     expect(buyMerchant(save, 0).ok).toBe(true)
     expect(save.gold).toBe(12)
     expect(bankQty(save, 'meal')).toBe(1)
-    expect(save.encounters[0].kind === 'shady' && save.encounters[0].completed).toBe(true)
+    expect(save.encounters[0].kind === 'blackMerchant' && save.encounters[0].completed).toBe(true)
   })
 
   it('lets a passerby barter wants for offers', () => {
@@ -421,11 +472,13 @@ describe('merchant kinds', () => {
     expect(bankQty(save, 'wood')).toBe(3)
     expect(bankQty(save, 'meal')).toBe(3)
     expect(pawn.completed).toBe(true)
+    expect(stampLabel(pawn)).toBe('成交')
+    expect(isEncounterDone(pawn)).toBe(true)
   })
 
-  it('does not let a shady merchant barter', () => {
+  it('does not let a black merchant barter', () => {
     const save = createSave()
-    put(save, 0, testShady())
+    put(save, 0, testBlackMerchant())
     stock(save, { wood: 8, meal: 2 })
     const gold = save.gold
     const result = barterMerchant(save, 0)
@@ -469,93 +522,8 @@ describe('merchant kinds', () => {
   })
 })
 
-describe('encounter quality', () => {
-  const ranked: EncounterQuality[] = ['green', 'blue', 'purple', 'orange']
-
-  it('keeps green as baseline and raises demand, payout and value ratio', () => {
-    expect(QUALITY_DEF.gray.exploreWeight).toBe(0)
-    expect(QUALITY_DEF.green.exploreWeight).toBeGreaterThan(QUALITY_DEF.blue.exploreWeight)
-    expect(QUALITY_DEF.blue.exploreWeight).toBeGreaterThan(QUALITY_DEF.purple.exploreWeight)
-    expect(QUALITY_DEF.purple.exploreWeight).toBeGreaterThan(QUALITY_DEF.orange.exploreWeight)
-
-    let prevDemand = 0
-    let prevReward = 0
-    let prevValue = 0
-    for (const quality of ranked) {
-      const def = QUALITY_DEF[quality]
-      const rewardMul = qualityRewardMul(quality)
-      expect(def.demandMul).toBeGreaterThanOrEqual(prevDemand)
-      expect(rewardMul).toBeGreaterThan(prevReward)
-      expect(def.valueMul).toBeGreaterThan(prevValue)
-      prevDemand = def.demandMul
-      prevReward = rewardMul
-      prevValue = def.valueMul
-    }
-    expect(QUALITY_DEF.gray.valueMul).toBeLessThan(QUALITY_DEF.green.valueMul)
-  })
-
-  it('never rolls gray when generating explore boards', () => {
-    const seen = new Set<EncounterQuality>()
-    for (let seed = 0; seed < 80; seed++) {
-      expect(pickEncounterQuality(seed, seed % 6)).not.toBe('gray')
-      const board = generateEncounterBoard(seed)
-      expect(board).toHaveLength(6)
-      for (const enc of board) {
-        expect(enc.quality).not.toBe('gray')
-        seen.add(enc.quality)
-      }
-    }
-    expect(seen.has('green')).toBe(true)
-    expect(seen.has('blue')).toBe(true)
-    expect(seen.has('purple')).toBe(true)
-    expect(seen.has('orange')).toBe(true)
-  })
-
-  it('gives higher quality enemies more supplies, more gold and better loot per item', () => {
-    let prevDemand = 0
-    let prevLoot = 0
-    let prevRoi = 0
-    for (const quality of ranked) {
-      const needs = enemyNeedsFor('far', 'strong', quality)
-      const demand = needMapQtySum(needs)
-      const loot = enemyLootGoldFor('far', 'strong', quality)
-      const roi = loot / demand
-      expect(demand).toBeGreaterThanOrEqual(prevDemand)
-      expect(loot).toBeGreaterThan(prevLoot)
-      expect(roi).toBeGreaterThan(prevRoi)
-      prevDemand = demand
-      prevLoot = loot
-      prevRoi = roi
-    }
-  })
-
-  it('pays more pawn gold per item on higher quality slips', () => {
-    const green = testPawn({ quality: 'green', pawnWants: { weapon: 1, wood: 2 } })
-    const orange = testPawn({ quality: 'orange', pawnWants: { weapon: 2, wood: 4 } })
-    const greenGold = pawnGoldForEncounter(green)
-    const orangeGold = pawnGoldForEncounter(orange)
-    expect(greenGold).toBe(pawnGoldForMap(green.pawnWants))
-    expect(orangeGold / needMapQtySum(orange.pawnWants)).toBeGreaterThan(
-      greenGold / needMapQtySum(green.pawnWants),
-    )
-  })
-
-  it('stamps settled trades and claimed loot', () => {
-    const idle = testEnemy()
-    const claimed = testEnemy({ lootClaimed: true, departed: true, marchEndsAt: 1 })
-    const open = testPasserby()
-    const done = testPasserby({ completed: true })
-    expect(isEncounterSettled(idle)).toBe(false)
-    expect(isEncounterSettled(claimed)).toBe(true)
-    expect(encounterStampLabel(claimed)).toBe('已领')
-    expect(isEncounterSettled(open)).toBe(false)
-    expect(isEncounterSettled(done)).toBe(true)
-    expect(encounterStampLabel(done)).toBe('成交')
-  })
-})
-
 describe('hydrateEncounterFields', () => {
-  it('builds a 6-slot board and migrates a legacy order into the first enemy', () => {
+  it('builds a 5-slot board and migrates a legacy order into the first enemy', () => {
     const save = createSave() as Save & {
       currentOrderId?: string
       orderIndex?: number
@@ -567,7 +535,7 @@ describe('hydrateEncounterFields', () => {
     save.orderIndex = 2
     save.orderSubmitted = true
     hydrateEncounterFields(save)
-    expect(save.encounters).toHaveLength(6)
+    expect(save.encounters).toHaveLength(5)
     expect(save.encounters[0].kind).toBe('enemy')
     if (save.encounters[0].kind !== 'enemy') return
     expect(save.encounters[0].id).toBe('campKitchen')
@@ -575,9 +543,9 @@ describe('hydrateEncounterFields', () => {
     expect(save.encounters[0].submitted).toBe(true)
     expect(save.encounters[0].departed).toBe(false)
     expect(save.encounters[0].lootGold).toBe(10)
+    expect(save.encounters[0].quality).toBe('green')
     expect(save.encounters[0].marchEndsAt).toBeNull()
     expect(save.encounters[0].lootClaimed).toBe(false)
-    expect(save.encounters[0].quality).toBe('green')
     expect(save.currentOrderId).toBeUndefined()
     expect(save.orderIndex).toBeUndefined()
     expect(save.orderSubmitted).toBeUndefined()
@@ -597,7 +565,6 @@ describe('hydrateEncounterFields', () => {
     }
     save.encounters = [legacy, testEnemy({ id: 'e1' }), testEnemy({ id: 'e2' }), testEnemy({ id: 'e3' }), testEnemy({ id: 'e4' })] as unknown as Save['encounters']
     hydrateEncounterFields(save)
-    expect(save.encounters).toHaveLength(6)
     expect(save.encounters[0].kind).toBe('passerby')
     if (save.encounters[0].kind !== 'passerby') return
     expect(save.encounters[0].id).toContain('merchantBarter')
@@ -606,25 +573,150 @@ describe('hydrateEncounterFields', () => {
     expect(save.encounters[0].quality).toBe('green')
   })
 
-  it('pads a 5-slot board to 6 and fills missing quality as green', () => {
+  it('migrates shady and pawnshop kinds plus missing workshop buff', () => {
     const save = createSave()
-    const marching = testEnemy({
-      id: 'keep-old-march',
-      departed: true,
-      marchEndsAt: Date.now() + 60_000,
-    })
-    delete (marching as { quality?: EncounterQuality }).quality
+    delete (save as { workshopBuff?: unknown }).workshopBuff
     save.encounters = [
-      marching,
+      {
+        kind: 'shady',
+        id: 'merchantBuy-old',
+        label: '木货贩',
+        buyGold: 8,
+        buyOffers: { meal: 1 },
+        completed: true,
+      },
+      {
+        kind: 'pawnshop',
+        id: 'merchantPawn-old',
+        label: '兵器当',
+        pawnWants: { weapon: 1 },
+        completed: false,
+      },
       testEnemy({ id: 'e1' }),
-      testPasserby({ id: 'p1' }),
-      testShady({ id: 's1' }),
-      testPawn({ id: 'w1' }),
-    ]
+      testEnemy({ id: 'e2' }),
+      testEnemy({ id: 'e3' }),
+    ] as unknown as Save['encounters']
     hydrateEncounterFields(save)
-    expect(save.encounters).toHaveLength(6)
-    expect(save.encounters[0].id).toBe('keep-old-march')
-    expect(save.encounters.every((enc) => enc.quality != null)).toBe(true)
-    expect(save.encounters[0].quality).toBe('green')
+    expect(save.workshopBuff).toBeNull()
+    expect(save.encounters[0].kind).toBe('blackMerchant')
+    if (save.encounters[0].kind === 'blackMerchant') {
+      expect(save.encounters[0].quality).toBe('green')
+      expect(save.encounters[0].completed).toBe(true)
+    }
+    expect(save.encounters[1].kind).toBe('pawn')
+    if (save.encounters[1].kind === 'pawn') {
+      expect(save.encounters[1].quality).toBe('green')
+      expect(save.encounters[1].pawnWants).toEqual({ weapon: 1 })
+    }
+  })
+})
+
+describe('encounter quality', () => {
+  it('keeps gray in the table but never rolls it, and value ratio rises with quality', () => {
+    expect(QUALITY_TABLE.gray.weight).toBe(0)
+    expect(QUALITY_IDS).toEqual(['gray', 'green', 'blue', 'purple', 'orange'])
+    const ratios = (['green', 'blue', 'purple', 'orange'] as EncounterQuality[]).map(qualityValueRatio)
+    expect(ratios[0]).toBeCloseTo(1)
+    expect(ratios[1]).toBeCloseTo(1.4 / 1.25)
+    expect(ratios[2]).toBeCloseTo(2 / 1.6)
+    expect(ratios[3]).toBeCloseTo(3 / 2.2)
+    expect(ratios[1]).toBeGreaterThan(ratios[0])
+    expect(ratios[2]).toBeGreaterThan(ratios[1])
+    expect(ratios[3]).toBeGreaterThan(ratios[2])
+  })
+
+  it('makes higher quality deals demand more, pay more, and earn a better ratio', () => {
+    const baseWants = { weapon: 2, meal: 2 }
+    const baseGold = pawnGoldForMap(baseWants)
+    const greenNeed = scaleNeedMap(baseWants, QUALITY_TABLE.green.demandMul)
+    const orangeNeed = scaleNeedMap(baseWants, QUALITY_TABLE.orange.demandMul)
+    const greenGold = scaleGold(baseGold, QUALITY_TABLE.green.outputMul)
+    const orangeGold = scaleGold(baseGold, QUALITY_TABLE.orange.outputMul)
+    expect(orangeNeed.weapon ?? 0).toBeGreaterThan(greenNeed.weapon ?? 0)
+    expect(orangeGold).toBeGreaterThan(greenGold)
+    const greenNeedSum = Object.values(greenNeed).reduce((a, b) => a + (b ?? 0), 0)
+    const orangeNeedSum = Object.values(orangeNeed).reduce((a, b) => a + (b ?? 0), 0)
+    expect(orangeGold / orangeNeedSum).toBeGreaterThan(greenGold / greenNeedSum)
+  })
+})
+
+describe('artisan and bulk buy', () => {
+  it('lets an artisan take finished goods for gold plus a workshop yield buff', () => {
+    const save = createSave()
+    save.gold = 20
+    put(save, 0, testArtisan())
+    stock(save, { weapon: 2 })
+    const now = 3_000_000_000_000
+    const result = submitArtisan(save, 0, now)
+    expect(result.ok).toBe(true)
+    expect(save.gold).toBe(30)
+    expect(bankQty(save, 'weapon')).toBe(1)
+    expect(save.encounters[0].kind === 'artisan' && save.encounters[0].completed).toBe(true)
+    expect(stampLabel(save.encounters[0])).toBe('完成')
+    expect(isWorkshopBuffActive(save, now)).toBe(true)
+    expect(workshopBuffMul(save, now)).toBeCloseTo(1.15)
+    expect(workshopBuffMul(save, now + 181_000)).toBe(1)
+    expect(submitArtisan(save, 0, now).ok).toBe(false)
+  })
+
+  it('speeds the workshop while the artisan buff is active', () => {
+    const save = createSave()
+    expect(recruitWorker(save).ok).toBe(true)
+    assignWorker(save, save.workers[0].id, 'mining')
+    const plain = currentSpeed(save, 'mining')
+    save.workshopBuff = { mul: 1.15, endsAt: Date.now() + 60_000 }
+    expect(currentSpeed(save, 'mining')).toBeCloseTo(plain * 1.15)
+    const next = ticks(save, 5)
+    expect(next.stations.mining.completed).toBeGreaterThanOrEqual(1)
+  })
+
+  it('pays more than the pawnshop for the same finished goods', () => {
+    const save = createSave()
+    const wants = { weapon: 1 }
+    const pawn = testPawn({ pawnWants: wants })
+    const bulk = testBulk({ wants, rewardGold: bulkUnitGold('weapon') })
+    put(save, 0, pawn)
+    put(save, 1, bulk)
+    save.gold = 0
+    stock(save, { weapon: 2 })
+    expect(pawnRewardGold(pawn)).toBe(pawnUnitGold('weapon'))
+    expect(bulk.rewardGold).toBeGreaterThan(pawnRewardGold(pawn))
+    expect(sellBulk(save, 1).ok).toBe(true)
+    expect(save.gold).toBe(bulk.rewardGold)
+    expect(bankQty(save, 'weapon')).toBe(1)
+    expect(bulk.completed).toBe(true)
+    expect(stampLabel(bulk)).toBe('成交')
+  })
+
+  it('refreshes completed trades and claimed loot but keeps marching or loot-ready enemies', () => {
+    const save = createSave()
+    const now = 2_100_000_000_000
+    const marching = testEnemy({
+      id: 'keep-march',
+      departed: true,
+      marchEndsAt: now + 10 * 60 * 1000,
+    })
+    const claimed = testEnemy({
+      id: 'swap-claimed',
+      departed: true,
+      marchEndsAt: now - 1000,
+      lootClaimed: true,
+    })
+    const doneArtisan = testArtisan({ id: 'swap-artisan', completed: true })
+    const doneBulk = testBulk({ id: 'swap-bulk', completed: true })
+    const idle = testPasserby({ id: 'swap-idle' })
+    put(save, 0, marching)
+    put(save, 1, claimed)
+    put(save, 2, doneArtisan)
+    put(save, 3, doneBulk)
+    put(save, 4, idle)
+    expect(shouldKeepOnExplore(claimed, now)).toBe(false)
+    expect(shouldKeepOnExplore(doneArtisan, now)).toBe(false)
+    expect(exploreBoard(save, now).ok).toBe(true)
+    expect(save.encounters[0].id).toBe('keep-march')
+    expect(save.encounters[1].id).not.toBe('swap-claimed')
+    expect(save.encounters[2].id).not.toBe('swap-artisan')
+    expect(save.encounters[3].id).not.toBe('swap-bulk')
+    expect(save.encounters[4].id).not.toBe('swap-idle')
   })
 })

@@ -1,5 +1,6 @@
 import { bankRoom } from './bank'
 import { canAffordCosts, missingCostLabels } from './costs'
+import { workshopBuffMul } from './encounters'
 import { selectedCategoryDef } from './stationProgress'
 import { ITEM_DEF, STATION_DEF, STATION_IDS, stationSpeed } from './tables'
 import type { Hint, Save, StationId } from './types'
@@ -22,9 +23,10 @@ export function stationResonating(save: Save, stationId: StationId): boolean {
   return STATION_DEF[stationId].neighbors.some((n) => isResonating(save, stationId, n))
 }
 
-export function currentSpeed(save: Save, stationId: StationId): number {
+export function currentSpeed(save: Save, stationId: StationId, now = Date.now()): number {
   const cat = selectedCategoryDef(save, stationId)
-  return stationSpeed(assignedCount(save, stationId), cat.cycleS, stationResonating(save, stationId))
+  const base = stationSpeed(assignedCount(save, stationId), cat.cycleS, stationResonating(save, stationId))
+  return base * workshopBuffMul(save, now)
 }
 
 export function resonancePairs(save: Save): Array<{ a: StationId; b: StationId }> {

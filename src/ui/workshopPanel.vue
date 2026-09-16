@@ -1,7 +1,27 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import {
+  formatMarchClock,
+  isWorkshopBuffActive,
+  workshopBuffMul,
+  workshopBuffRemainS,
+} from '../sim/encounters'
 import { PLAYABLE_CHAINS, SKELETON_STATION_IDS, STATION_DEF } from '../sim/tables'
 import type { StationId } from '../sim/types'
+import { useGameStore } from './gameStore'
 import StationCard from './stationCard.vue'
+
+const game = useGameStore()
+const now = computed(() => {
+  void game.save.elapsedS
+  return Date.now()
+})
+const buffOn = computed(() => isWorkshopBuffActive(game.save, now.value))
+const buffLabel = computed(() => {
+  if (!buffOn.value) return ''
+  const pct = Math.round((workshopBuffMul(game.save, now.value) - 1) * 100)
+  return `工匠加持：产量 +${pct}% · 剩余 ${formatMarchClock(workshopBuffRemainS(game.save, now.value))}`
+})
 
 function chainTitle(ids: StationId[]): string {
   return ids.map((id) => STATION_DEF[id].label).join(' → ')
@@ -10,6 +30,7 @@ function chainTitle(ids: StationId[]): string {
 
 <template>
   <div class="wrap">
+    <p v-if="buffOn" class="buff">{{ buffLabel }}</p>
     <section v-for="ids in PLAYABLE_CHAINS" :key="chainTitle(ids)" class="chain">
       <p class="chain-title">{{ chainTitle(ids) }}</p>
       <div class="grid">
@@ -39,11 +60,24 @@ function chainTitle(ids: StationId[]): string {
   padding: 14px 16px;
 }
 
-.chain-title {
+.chain-title,
+.buff {
   margin: 0;
   line-height: 1.5;
-  color: var(--copper);
   letter-spacing: 0.08em;
+}
+
+.chain-title {
+  color: var(--copper);
+}
+
+.buff {
+  padding: 8px 12px;
+  border: 2px solid var(--moss-deep);
+  border-radius: 10px;
+  background: #e7f8d8;
+  color: var(--moss-deep);
+  font-weight: 700;
 }
 
 .grid {

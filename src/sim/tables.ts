@@ -238,9 +238,15 @@ export const SELLABLE_GOODS: ItemId[] = ['weapon', 'ironWeapon', 'mithrilWeapon'
 
 /** 当铺报价相对卖货价。略低，至少 1 金。 */
 export const PAWN_RATE = 0.75
+/** 收购单价相对卖货价。高于当铺，略高于银行单卖。 */
+export const BULK_BUY_RATE = 1.15
 
 export function pawnUnitGold(itemId: ItemId): number {
   return Math.max(1, Math.floor(ITEM_DEF[itemId].sellGold * PAWN_RATE))
+}
+
+export function bulkUnitGold(itemId: ItemId): number {
+  return Math.max(pawnUnitGold(itemId) + 1, Math.round(ITEM_DEF[itemId].sellGold * BULK_BUY_RATE))
 }
 
 export const BANK_ROWS: ItemId[][] = [

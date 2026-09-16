@@ -23,6 +23,8 @@ import {
   departEncounter,
   exploreBoard,
   pawnMerchant,
+  sellBulk,
+  submitArtisan,
 } from '../sim/encounters'
 import { tick } from '../sim/tick'
 import type { ActionResult, CategoryId, ItemId, Save, StationId } from '../sim/types'
@@ -140,6 +142,8 @@ export const useGameStore = defineStore('game', () => {
     barter: (index: number) => apply((s) => barterMerchant(s, index)),
     buyMerchant: (index: number) => apply((s) => buyMerchant(s, index)),
     pawn: (index: number) => apply((s) => pawnMerchant(s, index)),
+    submitArtisan: (index: number) => apply((s) => submitArtisan(s, index)),
+    sellBulk: (index: number) => apply((s) => sellBulk(s, index)),
     gmReset: () => {
       clearSave()
       save.value = gmResetSave()

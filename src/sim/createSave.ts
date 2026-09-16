@@ -22,6 +22,7 @@ export function createSave(): Save {
     elapsedS: 0,
     nextWorkerId: 1,
     encounters: generateEncounterBoard(0),
+    workshopBuff: null,
     exploreCount: 0,
     departCount: 0,
     lastDepartAt: null,

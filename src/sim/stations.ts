@@ -1,8 +1,8 @@
 import { addToBank } from './bank'
 import { takeCosts } from './costs'
-import { assignedCount, canConsume, canProduce, pickConsume, stationResonating } from './query'
+import { assignedCount, canConsume, canProduce, currentSpeed, pickConsume, stationResonating } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
-import { RESONANCE_BONUS_EVERY, stationSpeed } from './tables'
+import { RESONANCE_BONUS_EVERY } from './tables'
 import type { Save, StationId } from './types'
 
 /** 1/6、1/7 这类 cycle 累加会卡在 0.999…，差一丁点到 1。 */
@@ -61,8 +61,7 @@ export function stepStation(save: Save, stationId: StationId): void {
   }
 
   station.stallReason = null
-  const cat = selectedCategoryDef(save, stationId)
-  const speed = stationSpeed(n, cat.cycleS, stationResonating(save, stationId))
+  const speed = currentSpeed(save, stationId)
   station.progress += speed
 
   while (station.progress + CYCLE_EPS >= 1) {

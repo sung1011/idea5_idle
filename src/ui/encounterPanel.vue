@@ -2,35 +2,41 @@
 import { computed } from 'vue'
 import {
   DISTANCE_LABEL,
-  MERCHANT_KIND_LABEL,
+  ENCOUNTER_KIND_LABEL,
   POWER_LABEL,
   QUALITY_LABEL,
+  artisanBlockReason,
   barterBlockReason,
+  bulkBuyBlockReason,
   buyMerchantBlockReason,
   canBarter,
+  canBulkBuy,
   canBuyMerchant,
   canClaimLoot,
   canDepartEncounter,
   canExplore,
   canPawn,
+  canSubmitArtisan,
   claimLootBlockReason,
   departBlockReason,
-  encounterStampLabel,
   exploreBlockReason,
   exploreCost,
   formatMarchClock,
   formatNeedMap,
-  isEncounterSettled,
+  isEncounterDone,
   isLootReady,
   isMarching,
-  isMerchantKind,
+  isWorkshopBuffActive,
   marchRemainS,
   needLines,
   pawnBlockReason,
-  pawnGoldForEncounter,
   pawnQuoteLines,
+  pawnRewardGold,
+  stampLabel,
+  workshopBuffMul,
+  workshopBuffRemainS,
 } from '../sim/encounters'
-import type { Encounter, EnemyEncounter, MerchantKind, PawnshopEncounter } from '../sim/types'
+import type { Encounter, EncounterKind, EnemyEncounter, PawnEncounter } from '../sim/types'
 import { useGameStore } from './gameStore'
 
 const game = useGameStore()
@@ -42,33 +48,41 @@ const now = computed(() => {
   void game.save.elapsedS
   return Date.now()
 })
+const buffOn = computed(() => isWorkshopBuffActive(game.save, now.value))
+const buffLabel = computed(() => {
+  if (!buffOn.value) return ''
+  const pct = Math.round((workshopBuffMul(game.save, now.value) - 1) * 100)
+  return `工匠加持：工坊产量 +${pct}% · 剩余 ${formatMarchClock(workshopBuffRemainS(game.save, now.value))}`
+})
 
 function enemyLines(enc: Encounter) {
   return enc.kind === 'enemy' ? needLines(game.save, enc.needs) : []
 }
 
 function wantLines(enc: Encounter) {
-  return enc.kind === 'passerby' ? needLines(game.save, enc.wants) : []
+  if (enc.kind === 'passerby' || enc.kind === 'artisan' || enc.kind === 'bulkBuy') {
+    return needLines(game.save, enc.wants)
+  }
+  return []
 }
 
 function pawnLines(enc: Encounter) {
-  return enc.kind === 'pawnshop' ? pawnQuoteLines(game.save, enc.pawnWants, enc.quality) : []
+  return enc.kind === 'pawn' ? pawnQuoteLines(game.save, enc.pawnWants) : []
 }
 
-function pawnGold(enc: PawnshopEncounter) {
-  return pawnGoldForEncounter(enc)
+function kindTitle(kind: EncounterKind) {
+  return ENCOUNTER_KIND_LABEL[kind]
+}
+
+function spriteKind(kind: EncounterKind) {
+  return kind
 }
 
 function cardClass(enc: Encounter) {
-  return ['card', `q-${enc.quality}`, { done: isEncounterSettled(enc) }]
-}
-
-function stampText(enc: Encounter) {
-  return encounterStampLabel(enc)
-}
-
-function merchantTitle(kind: MerchantKind) {
-  return MERCHANT_KIND_LABEL[kind]
+  return {
+    [`q-${enc.quality}`]: true,
+    done: isEncounterDone(enc, now.value),
+  }
 }
 
 function departWhy(index: number) {
@@ -91,6 +105,14 @@ function pawnWhy(index: number) {
   return pawnBlockReason(game.save, index)
 }
 
+function artisanWhy(index: number) {
+  return artisanBlockReason(game.save, index)
+}
+
+function bulkWhy(index: number) {
+  return bulkBuyBlockReason(game.save, index)
+}
+
 function marching(enc: EnemyEncounter) {
   return isMarching(enc, now.value)
 }
@@ -101,6 +123,10 @@ function lootReady(enc: EnemyEncounter) {
 
 function marchLabel(enc: EnemyEncounter) {
   return `行军中 ${formatMarchClock(marchRemainS(enc, now.value))}`
+}
+
+function pawnGold(enc: PawnEncounter) {
+  return pawnRewardGold(enc)
 }
 </script>
 
@@ -113,18 +139,20 @@ function marchLabel(enc: EnemyEncounter) {
       </button>
     </div>
     <p v-if="!readyToExplore && exploreWhy" class="short">{{ exploreWhy }}</p>
-    <p v-else class="hint">当前金币 {{ game.save.gold }}</p>
+    <p v-else class="hint">工坊看板 5 格。当前金币 {{ game.save.gold }}</p>
+    <p v-if="buffOn" class="buff">{{ buffLabel }}</p>
 
     <div class="board">
-      <article v-for="(enc, i) in game.save.encounters" :key="enc.id" :class="cardClass(enc)">
-        <i v-if="stampText(enc)" class="stamp">{{ stampText(enc) }}</i>
+      <article v-for="(enc, i) in game.save.encounters" :key="enc.id" class="card" :class="cardClass(enc)">
+        <i v-if="isEncounterDone(enc, now)" class="stamp" aria-hidden="true">{{ stampLabel(enc) }}</i>
+        <b class="qmark">{{ QUALITY_LABEL[enc.quality] }}</b>
+
         <template v-if="enc.kind === 'enemy'">
           <header>
-            <i class="sprite sprite-encounter enemy" aria-hidden="true" />
+            <i class="sprite sprite-encounter" :class="spriteKind(enc.kind)" aria-hidden="true" />
             <div class="titles">
-              <span class="kind">敌人</span>
+              <span class="kind">{{ kindTitle(enc.kind) }}</span>
               <span class="tags">
-                <i class="q-badge" :class="'q-' + enc.quality">{{ QUALITY_LABEL[enc.quality] }}</i>
                 <i>{{ DISTANCE_LABEL[enc.distance] }}</i>
                 <i>{{ POWER_LABEL[enc.power] }}</i>
               </span>
@@ -141,13 +169,23 @@ function marchLabel(enc: EnemyEncounter) {
           <p v-else-if="lootReady(enc)" class="ready">行军结束，可以领取战利品</p>
           <p v-else-if="marching(enc)" class="ready">{{ marchLabel(enc) }}</p>
           <p v-else-if="departWhy(i)" class="short">{{ departWhy(i) }}</p>
-          <div v-if="!enc.departed && !enc.lootClaimed" class="row">
-            <button type="button" :disabled="!canDepartEncounter(game.save, i)" @click="game.departEncounter(i)">
+          <div class="row">
+            <button
+              v-if="enc.lootClaimed"
+              type="button"
+              disabled
+            >
+              已领
+            </button>
+            <button
+              v-else-if="!enc.departed"
+              type="button"
+              :disabled="!canDepartEncounter(game.save, i)"
+              @click="game.departEncounter(i)"
+            >
               出发
             </button>
-          </div>
-          <div v-else-if="!enc.lootClaimed" class="row">
-            <button v-if="marching(enc)" type="button" disabled>{{ marchLabel(enc) }}</button>
+            <button v-else-if="marching(enc)" type="button" disabled>{{ marchLabel(enc) }}</button>
             <button
               v-else
               type="button"
@@ -162,31 +200,32 @@ function marchLabel(enc: EnemyEncounter) {
           </p>
         </template>
 
-        <template v-else-if="isMerchantKind(enc.kind)">
+        <template v-else>
           <header>
-            <i class="sprite sprite-encounter" :class="enc.kind" aria-hidden="true" />
+            <i class="sprite sprite-encounter" :class="spriteKind(enc.kind)" aria-hidden="true" />
             <div class="titles">
-              <span class="kind">{{ merchantTitle(enc.kind) }}</span>
-              <span class="tags">
-                <i class="q-badge" :class="'q-' + enc.quality">{{ QUALITY_LABEL[enc.quality] }}</i>
-              </span>
+              <span class="kind">{{ kindTitle(enc.kind) }}</span>
             </div>
           </header>
           <p class="label">{{ enc.label }}</p>
 
-          <template v-if="enc.kind === 'shady'">
-            <p>金币购买 {{ enc.buyGold }} 金 → {{ formatNeedMap(enc.buyOffers) }}</p>
-            <p v-if="enc.completed" class="ready">这笔买卖已完成</p>
-            <div v-else class="row">
-              <button type="button" :disabled="!canBuyMerchant(game.save, i)" @click="game.buyMerchant(i)">
-                金币购买
+          <template v-if="enc.kind === 'blackMerchant'">
+            <p>花金币买工坊货：{{ enc.buyGold }} 金 → {{ formatNeedMap(enc.buyOffers) }}</p>
+            <p v-if="enc.completed" class="ready">这笔买卖已成交</p>
+            <div class="row">
+              <button
+                type="button"
+                :disabled="enc.completed || !canBuyMerchant(game.save, i)"
+                @click="game.buyMerchant(i)"
+              >
+                {{ enc.completed ? '成交' : '金币购买' }}
               </button>
             </div>
             <p v-if="!enc.completed && buyWhy(i)" class="hint">{{ buyWhy(i) }}</p>
           </template>
 
           <template v-else-if="enc.kind === 'passerby'">
-            <p>交出 {{ formatNeedMap(enc.wants) }}</p>
+            <p>工坊换货：交出 {{ formatNeedMap(enc.wants) }}</p>
             <p>换得 {{ formatNeedMap(enc.offers) }}</p>
             <ul>
               <li v-for="line in wantLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
@@ -194,15 +233,17 @@ function marchLabel(enc: EnemyEncounter) {
                 <span v-if="line.missing > 0"> · 差 {{ line.missing }}</span>
               </li>
             </ul>
-            <p v-if="enc.completed" class="ready">这笔买卖已完成</p>
-            <div v-else class="row">
-              <button type="button" :disabled="!canBarter(game.save, i)" @click="game.barter(i)">以物易物</button>
+            <p v-if="enc.completed" class="ready">这笔买卖已成交</p>
+            <div class="row">
+              <button type="button" :disabled="enc.completed || !canBarter(game.save, i)" @click="game.barter(i)">
+                {{ enc.completed ? '成交' : '以物易物' }}
+              </button>
             </div>
             <p v-if="!enc.completed && barterWhy(i)" class="hint">{{ barterWhy(i) }}</p>
           </template>
 
-          <template v-else>
-            <p>典当 {{ formatNeedMap(enc.pawnWants) }} → {{ pawnGold(enc) }} 金</p>
+          <template v-else-if="enc.kind === 'pawn'">
+            <p>工坊典当：{{ formatNeedMap(enc.pawnWants) }} → {{ pawnGold(enc) }} 金</p>
             <ul>
               <li v-for="line in pawnLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
                 {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}
@@ -210,11 +251,52 @@ function marchLabel(enc: EnemyEncounter) {
                 <span v-if="line.missing > 0"> · 差 {{ line.missing }}</span>
               </li>
             </ul>
-            <p v-if="enc.completed" class="ready">这笔买卖已完成</p>
-            <div v-else class="row">
-              <button type="button" :disabled="!canPawn(game.save, i)" @click="game.pawn(i)">以物换钱</button>
+            <p v-if="enc.completed" class="ready">这笔买卖已成交</p>
+            <div class="row">
+              <button type="button" :disabled="enc.completed || !canPawn(game.save, i)" @click="game.pawn(i)">
+                {{ enc.completed ? '成交' : '以物换钱' }}
+              </button>
             </div>
             <p v-if="!enc.completed && pawnWhy(i)" class="hint">{{ pawnWhy(i) }}</p>
+          </template>
+
+          <template v-else-if="enc.kind === 'artisan'">
+            <p>交成品：{{ formatNeedMap(enc.wants) }}</p>
+            <p>工坊回礼：{{ enc.rewardGold }} 金 + 产量 +{{ Math.round((enc.buffMul - 1) * 100) }}% · {{ formatMarchClock(enc.buffDurationS) }}</p>
+            <ul>
+              <li v-for="line in wantLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
+                {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}
+                <span v-if="line.missing > 0"> · 差 {{ line.missing }}</span>
+              </li>
+            </ul>
+            <p v-if="enc.completed" class="ready">委托已完成</p>
+            <div class="row">
+              <button
+                type="button"
+                :disabled="enc.completed || !canSubmitArtisan(game.save, i)"
+                @click="game.submitArtisan(i)"
+              >
+                {{ enc.completed ? '完成' : '交付成品' }}
+              </button>
+            </div>
+            <p v-if="!enc.completed && artisanWhy(i)" class="hint">{{ artisanWhy(i) }}</p>
+          </template>
+
+          <template v-else-if="enc.kind === 'bulkBuy'">
+            <p>高价收成品：交出 {{ formatNeedMap(enc.wants) }} → {{ enc.rewardGold }} 金</p>
+            <ul>
+              <li v-for="line in wantLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
+                {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}
+                <span v-if="line.missing > 0"> · 差 {{ line.missing }}</span>
+              </li>
+            </ul>
+            <p v-if="enc.completed" class="ready">这笔收购已成交</p>
+            <div class="row">
+              <button type="button" :disabled="enc.completed || !canBulkBuy(game.save, i)" @click="game.sellBulk(i)">
+                {{ enc.completed ? '成交' : '高价出售' }}
+              </button>
+            </div>
+            <p v-if="!enc.completed && bulkWhy(i)" class="hint">{{ bulkWhy(i) }}</p>
           </template>
         </template>
       </article>
@@ -234,7 +316,8 @@ function marchLabel(enc: EnemyEncounter) {
 
 .panel p,
 .hint,
-.label {
+.label,
+.buff {
   margin: 0;
   line-height: 1.5;
 }
@@ -242,6 +325,11 @@ function marchLabel(enc: EnemyEncounter) {
 .label {
   font-family: var(--font-mono);
   color: var(--copper);
+}
+
+.buff {
+  color: var(--moss-deep);
+  font-weight: 700;
 }
 
 .board {
@@ -256,12 +344,6 @@ function marchLabel(enc: EnemyEncounter) {
   }
 }
 
-@media (min-width: 900px) {
-  .board {
-    grid-template-columns: 1fr 1fr 1fr;
-  }
-}
-
 .card {
   position: relative;
   display: flex;
@@ -269,91 +351,6 @@ function marchLabel(enc: EnemyEncounter) {
   gap: 8px;
   padding: 12px;
   overflow: hidden;
-}
-
-.card.q-gray {
-  border-color: #8d8d8d;
-  box-shadow: 0 3px 0 #6a6a6a, inset 0 0 0 2px #f3f0ea;
-}
-
-.card.q-green {
-  border-color: #3e9a2a;
-  box-shadow: 0 3px 0 #2d7a1c, inset 0 0 0 2px #e8f8dc;
-}
-
-.card.q-blue {
-  border-color: #3a7bd5;
-  box-shadow: 0 3px 0 #2658a0, inset 0 0 0 2px #e0ecff;
-}
-
-.card.q-purple {
-  border-color: #8a4adf;
-  box-shadow: 0 3px 0 #5c2e9a, inset 0 0 0 2px #f0e4ff;
-}
-
-.card.q-orange {
-  border-color: #e07a14;
-  box-shadow: 0 3px 0 #b45c0c, inset 0 0 0 2px #ffe8cc;
-}
-
-.card.done {
-  background: #e7efd4;
-  box-shadow: 0 3px 0 #7a8a4a, inset 0 0 0 2px #f4f7e6;
-}
-
-.card.done .row button {
-  pointer-events: none;
-}
-
-.tags i.q-badge,
-.q-badge {
-  min-width: 28px;
-  padding: 1px 8px;
-  border: 2px solid currentColor;
-  border-radius: 999px;
-  font-size: 12px;
-  font-style: normal;
-  letter-spacing: 0.12em;
-  text-align: center;
-  background: var(--slot);
-}
-
-.q-badge.q-gray {
-  color: #6a6a6a;
-}
-
-.q-badge.q-green {
-  color: #2d7a1c;
-}
-
-.q-badge.q-blue {
-  color: #2658a0;
-}
-
-.q-badge.q-purple {
-  color: #5c2e9a;
-}
-
-.q-badge.q-orange {
-  color: #b45c0c;
-}
-
-.stamp {
-  position: absolute;
-  top: 46%;
-  left: 50%;
-  z-index: 2;
-  transform: translate(-50%, -50%) rotate(-18deg);
-  padding: 4px 14px;
-  border: 3px solid #9a2f24;
-  border-radius: 8px;
-  color: #9a2f24;
-  background: rgba(255, 244, 230, 0.72);
-  font-family: var(--font-display);
-  font-size: 28px;
-  font-style: normal;
-  letter-spacing: 0.28em;
-  pointer-events: none;
 }
 
 .card header {
@@ -388,6 +385,107 @@ function marchLabel(enc: EnemyEncounter) {
   background: var(--slot);
   color: var(--ink);
   font-size: 12px;
+}
+
+.qmark {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  min-width: 22px;
+  padding: 1px 7px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  background: var(--plate);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.card.q-gray {
+  border-color: #9a8f7a;
+}
+
+.card.q-gray .qmark {
+  color: #7a715f;
+}
+
+.card.q-green {
+  border-color: #3e9a2a;
+}
+
+.card.q-green .qmark {
+  color: #2f7a20;
+  background: #e7f8d8;
+}
+
+.card.q-blue {
+  border-color: #3a7ad9;
+}
+
+.card.q-blue .qmark {
+  color: #1f56b0;
+  background: #dcebff;
+}
+
+.card.q-purple {
+  border-color: #8a4ecf;
+}
+
+.card.q-purple .qmark {
+  color: #6b2fb0;
+  background: #f0e2ff;
+}
+
+.card.q-orange {
+  border-color: #e67a12;
+}
+
+.card.q-orange .qmark {
+  color: #b85a08;
+  background: #ffe7c8;
+}
+
+.card.done {
+  background: linear-gradient(#efe6c8, #e4d3a4);
+  box-shadow: 0 3px 0 #c4a24a, inset 0 0 0 2px #fff4d0;
+}
+
+.card.done.q-green {
+  background: linear-gradient(#e8f3d4, #d7e6b4);
+}
+
+.card.done.q-blue {
+  background: linear-gradient(#dce8f8, #c5d6ee);
+}
+
+.card.done.q-purple {
+  background: linear-gradient(#eadcf6, #d8c4ea);
+}
+
+.card.done.q-orange {
+  background: linear-gradient(#f8e4c4, #efd09a);
+}
+
+.stamp {
+  position: absolute;
+  top: 42%;
+  right: 18px;
+  z-index: 2;
+  padding: 6px 14px;
+  border: 3px solid #c0392b;
+  border-radius: 8px;
+  color: #c0392b;
+  background: rgba(255, 248, 238, 0.72);
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  pointer-events: none;
+  transform: rotate(-18deg);
+  box-shadow: inset 0 0 0 2px rgba(192, 57, 43, 0.35);
 }
 
 ul {

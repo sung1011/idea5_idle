@@ -69,8 +69,10 @@ export type Save = {
   lastTick: number
   elapsedS: number
   nextWorkerId: number
-  /** 偶遇板，固定 6 格。 */
+  /** 偶遇板，固定 5 格。 */
   encounters: Encounter[]
+  /** 工匠委托留下的工坊产量加成；到期后不算。 */
+  workshopBuff: WorkshopBuff | null
   /** 成功探索次数，驱动探索费用与下一板种子。 */
   exploreCount: number
   departCount: number
@@ -82,20 +84,30 @@ export type Save = {
   offlineCount: number
 }
 
-export type MerchantKind = 'shady' | 'passerby' | 'pawnshop'
-export type EncounterKind = 'enemy' | MerchantKind
+export type EncounterQuality = 'gray' | 'green' | 'blue' | 'purple' | 'orange'
+
+/** 工匠委托给整座工坊的临时产量加成。 */
+export type WorkshopBuff = {
+  mul: number
+  endsAt: number
+}
+
+export type EncounterKind = 'enemy' | 'blackMerchant' | 'passerby' | 'pawn' | 'artisan' | 'bulkBuy'
+/** @deprecated 旧名，等同 blackMerchant / passerby / pawn */
+export type MerchantKind = 'blackMerchant' | 'passerby' | 'pawn'
 export type EncounterDistance = 'near' | 'far'
 export type EncounterPower = 'weak' | 'strong'
-/** 货单品质。探索不刷 gray。 */
-export type EncounterQuality = 'gray' | 'green' | 'blue' | 'purple' | 'orange'
 
 export type EncounterNeedMap = Partial<Record<ItemId, number>>
 
-export type EnemyEncounter = {
-  kind: 'enemy'
+type EncounterBase = {
   id: string
   label: string
   quality: EncounterQuality
+}
+
+export type EnemyEncounter = EncounterBase & {
+  kind: 'enemy'
   distance: EncounterDistance
   power: EncounterPower
   needs: EncounterNeedMap
@@ -109,39 +121,61 @@ export type EnemyEncounter = {
   lootClaimed: boolean
 }
 
-export type ShadyEncounter = {
-  kind: 'shady'
-  id: string
-  label: string
-  quality: EncounterQuality
+export type BlackMerchantEncounter = EncounterBase & {
+  kind: 'blackMerchant'
   buyGold: number
   buyOffers: EncounterNeedMap
   completed: boolean
 }
 
-export type PasserbyEncounter = {
+/** 旧存档 kind。hydrate 会迁成 blackMerchant。 */
+export type ShadyEncounter = BlackMerchantEncounter
+
+export type PasserbyEncounter = EncounterBase & {
   kind: 'passerby'
-  id: string
-  label: string
-  quality: EncounterQuality
   wants: EncounterNeedMap
   offers: EncounterNeedMap
   completed: boolean
 }
 
-export type PawnshopEncounter = {
-  kind: 'pawnshop'
-  id: string
-  label: string
-  quality: EncounterQuality
+export type PawnEncounter = EncounterBase & {
+  kind: 'pawn'
   /** 可典当：玩家交出的银行物品。 */
   pawnWants: EncounterNeedMap
+  /** 品质加成后的成交金。缺省则按当铺价表现算。 */
+  rewardGold?: number
   completed: boolean
 }
 
-export type MerchantEncounter = ShadyEncounter | PasserbyEncounter | PawnshopEncounter
+/** 旧存档 kind。hydrate 会迁成 pawn。 */
+export type PawnshopEncounter = PawnEncounter
 
-export type Encounter = EnemyEncounter | MerchantEncounter
+export type ArtisanEncounter = EncounterBase & {
+  kind: 'artisan'
+  wants: EncounterNeedMap
+  rewardGold: number
+  buffMul: number
+  buffDurationS: number
+  completed: boolean
+}
+
+export type BulkBuyEncounter = EncounterBase & {
+  kind: 'bulkBuy'
+  wants: EncounterNeedMap
+  rewardGold: number
+  completed: boolean
+}
+
+export type TradeEncounter =
+  | BlackMerchantEncounter
+  | PasserbyEncounter
+  | PawnEncounter
+  | ArtisanEncounter
+  | BulkBuyEncounter
+
+export type MerchantEncounter = BlackMerchantEncounter | PasserbyEncounter | PawnEncounter
+
+export type Encounter = EnemyEncounter | TradeEncounter
 
 export type Hint = {
   kind: 'bottleneck' | 'resonance' | 'progress'

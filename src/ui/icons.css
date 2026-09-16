@@ -96,14 +96,18 @@
   background-position: 0% 50%;
 }
 
-.sprite-encounter.shady {
+.sprite-encounter.shady,
+.sprite-encounter.blackMerchant {
   background-position: 33.333% 50%;
 }
 
-.sprite-encounter.passerby {
+.sprite-encounter.passerby,
+.sprite-encounter.artisan {
   background-position: 66.667% 50%;
 }
 
-.sprite-encounter.pawnshop {
+.sprite-encounter.pawnshop,
+.sprite-encounter.pawn,
+.sprite-encounter.bulkBuy {
   background-position: 100% 50%;
 }
