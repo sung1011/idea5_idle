@@ -50,8 +50,6 @@ function chainTitle(ids: StationId[]): string {
 
 .more {
   padding: 14px 16px;
-  border: 1px solid var(--seam);
-  background: var(--plate);
 }
 
 .chain-title,

@@ -22,8 +22,7 @@ const game = useGameStore()
   flex-direction: column;
   gap: 8px;
   padding: 14px 16px;
-  border: 1px solid var(--ember);
-  background: var(--plate);
+  border-color: var(--ember);
 }
 
 .panel p,
@@ -47,11 +46,5 @@ ul {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-button {
-  padding: 6px 10px;
-  border: 1px solid var(--seam);
-  background: #18140f;
 }
 </style>

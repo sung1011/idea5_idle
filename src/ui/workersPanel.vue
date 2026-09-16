@@ -66,8 +66,6 @@ function resting(w: Worker) {
   flex-direction: column;
   gap: 8px;
   padding: 14px 16px;
-  border: 1px solid var(--seam);
-  background: var(--plate);
 }
 
 .panel p,
@@ -84,16 +82,7 @@ function resting(w: Worker) {
 }
 
 button {
-  padding: 6px 10px;
   min-height: 36px;
-  border: 1px solid var(--seam);
-  background: #18140f;
-}
-
-button.on {
-  border-color: var(--copper);
-  color: var(--ember);
-  opacity: 1;
 }
 
 ul {
@@ -110,8 +99,6 @@ ul {
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  border: 1px solid var(--seam);
-  background: #18140f;
 }
 
 .name {

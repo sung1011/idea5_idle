@@ -55,8 +55,6 @@ function tone(id: ItemId): 'ok' | 'warn' | 'full' {
   flex-direction: column;
   gap: 10px;
   padding: 14px 16px;
-  border: 1px solid var(--seam);
-  background: var(--plate);
 }
 
 .panel p,
@@ -81,16 +79,6 @@ function tone(id: ItemId): 'ok' | 'warn' | 'full' {
   flex-direction: column;
   gap: 8px;
   padding: 10px;
-  border: 1px solid var(--seam);
-  background: #18140f;
-}
-
-.item.warn {
-  border-color: var(--ember);
-}
-
-.item.full {
-  border-color: var(--danger);
 }
 
 header {
@@ -99,26 +87,6 @@ header {
   gap: 8px;
   align-items: baseline;
   font-family: var(--font-mono);
-}
-
-.bar {
-  height: 10px;
-  background: #120f0c;
-  border: 1px solid var(--seam);
-}
-
-.bar i {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, var(--copper), var(--ember));
-}
-
-.item.warn .bar i {
-  background: linear-gradient(90deg, var(--ember), var(--danger));
-}
-
-.item.full .bar i {
-  background: var(--danger);
 }
 
 .mark {
@@ -130,11 +98,5 @@ header {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-button {
-  padding: 6px 10px;
-  border: 1px solid var(--seam);
-  background: #18140f;
 }
 </style>

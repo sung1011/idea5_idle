@@ -87,9 +87,6 @@ onUnmounted(() => {
   min-height: 100dvh;
   margin: 0 auto;
   padding: 28px 20px 36px;
-  background:
-    radial-gradient(ellipse at 50% -8%, #3a2818 0%, transparent 55%),
-    var(--iron);
 }
 
 .mast {
@@ -111,6 +108,7 @@ h1 {
   font-size: 28px;
   font-weight: 700;
   letter-spacing: 0.1em;
+  color: var(--ink);
 }
 
 .panel {
@@ -118,8 +116,6 @@ h1 {
   flex-direction: column;
   gap: 8px;
   padding: 14px 16px;
-  border: 1px solid var(--seam);
-  background: var(--plate);
 }
 
 .panel p,
@@ -142,7 +138,7 @@ h1 {
   top: 0;
   z-index: 2;
   padding: 8px 0;
-  background: var(--iron);
+  background: var(--paper);
 }
 
 .tabs button {
@@ -150,13 +146,14 @@ h1 {
   min-width: 64px;
   min-height: 40px;
   padding: 8px 10px;
-  border: 1px solid var(--seam);
-  background: #18140f;
 }
 
 .tabs button.on {
-  border-color: var(--copper);
-  color: var(--ember);
+  color: var(--ink);
+  background: linear-gradient(#ffe27a, #f0b83a);
+  box-shadow: 0 3px 0 var(--shadow);
+  opacity: 1;
+  filter: none;
 }
 
 .hint {

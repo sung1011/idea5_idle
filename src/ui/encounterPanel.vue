@@ -208,8 +208,6 @@ function marchLabel(enc: EnemyEncounter) {
   flex-direction: column;
   gap: 10px;
   padding: 14px 16px;
-  border: 1px solid var(--seam);
-  background: var(--plate);
 }
 
 .panel p,
@@ -241,8 +239,6 @@ function marchLabel(enc: EnemyEncounter) {
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  border: 1px solid var(--seam);
-  background: #18140f;
 }
 
 .card header {
@@ -264,8 +260,10 @@ function marchLabel(enc: EnemyEncounter) {
 .tags i {
   font-style: normal;
   padding: 1px 8px;
-  border: 1px solid var(--copper);
-  color: var(--ember);
+  border: 2px solid var(--gold-deep);
+  border-radius: 999px;
+  background: var(--slot);
+  color: var(--ink);
   font-size: 12px;
 }
 
@@ -283,12 +281,6 @@ ul {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-button {
-  padding: 6px 10px;
-  border: 1px solid var(--seam);
-  background: #18140f;
 }
 
 .hint {

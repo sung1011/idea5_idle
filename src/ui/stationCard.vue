@@ -84,16 +84,6 @@ function pick(id: CategoryId) {
   flex-direction: column;
   gap: 10px;
   padding: 14px;
-  border: 1px solid var(--seam);
-  background: var(--plate);
-}
-
-.card.hot {
-  border-color: var(--copper);
-}
-
-.card.stall {
-  border-color: var(--danger);
 }
 
 .card.skeleton {
@@ -124,26 +114,6 @@ h2 {
   font-size: 13px;
 }
 
-.bar {
-  height: 10px;
-  background: #120f0c;
-  border: 1px solid var(--seam);
-}
-
-.bar i {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, var(--copper), var(--ember));
-}
-
-.bar.xp {
-  height: 6px;
-}
-
-.bar.xp i {
-  background: linear-gradient(90deg, var(--moss), var(--copper));
-}
-
 .cats,
 .row {
   display: flex;
@@ -151,14 +121,11 @@ h2 {
   gap: 8px;
 }
 
-button {
-  padding: 6px 10px;
-  border: 1px solid var(--seam);
-  background: #18140f;
-}
-
 .cat.on {
-  border-color: var(--copper);
-  color: var(--ember);
+  color: var(--ink);
+  background: linear-gradient(#ffe27a, #f0b83a);
+  box-shadow: 0 3px 0 var(--shadow);
+  opacity: 1;
+  filter: none;
 }
 </style>
