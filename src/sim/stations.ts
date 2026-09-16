@@ -1,4 +1,5 @@
-import { addToBank, takeFromBank } from './bank'
+import { addToBank } from './bank'
+import { takeCosts } from './costs'
 import { assignedCount, canConsume, canProduce, pickConsume, stationResonating } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
 import { RESONANCE_BONUS_EVERY, stationSpeed } from './tables'
@@ -11,12 +12,8 @@ function consumeInputs(save: Save, stationId: StationId): boolean {
   const pick = pickConsume(save, stationId)
   if (!pick) return false
   const def = selectedCategoryDef(save, stationId)
-  const rules = pick.kind === 'alt' ? (def.altInputs ?? []) : def.inputs
-  for (const io of rules) {
-    const took = takeFromBank(save, io.itemId, io.qty)
-    if (!took.ok) return false
-  }
-  return true
+  const rules = pick.kind === 'alt' ? (def.altCosts ?? []) : def.costs
+  return takeCosts(save, rules).ok
 }
 
 function emitOutputs(save: Save, stationId: StationId, extra: boolean): boolean {

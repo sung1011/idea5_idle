@@ -34,7 +34,7 @@
 
 ## 表
 
-品类：`cycleS`、消耗、产出、`xpPerCycle`、`unlockLevel`。
+品类：`cycleS`、`costs` / 可选 `altCosts`、产出、`xpPerCycle`、`unlockLevel`。`costs` 是 `[{ itemId, qty }, …]`，单料、n 个同料、多料同一套 `takeCosts`。
 
 升级曲线：`STATION_LEVEL_XP`（下标 = 当前等级所需 XP）。超出表长按末档递推。
 
@@ -43,13 +43,13 @@
 | 采矿 | 铜矿 `copper` | 1 | 5s | — | `ore` 铜矿 | 10 |
 | 采矿 | 铁矿 `iron` | 5 | 6s | — | `ironOre` | 12 |
 | 采矿 | 秘银矿 `mithril` | 10 | 7s | — | `mithrilOre` | 15 |
-| 锻造 | 铜器 `copper` | 1 | 8s | `ore`；没有则扣渣滓 | `weapon` 铜器 | 10 |
-| 锻造 | 铁器 `iron` | 5 | 9s | `ironOre` | `ironWeapon` | 12 |
-| 锻造 | 秘银器 `mithril` | 10 | 10s | `mithrilOre` | `mithrilWeapon` | 15 |
+| 锻造 | 铜器 `copper` | 1 | 8s | `[{ ore, 1 }]`；没有则 `altCosts` 渣滓 | `weapon` 铜器 | 10 |
+| 锻造 | 铁器 `iron` | 5 | 9s | `[{ ironOre, 1 }, { wood, 1 }]` | `ironWeapon` | 12 |
+| 锻造 | 秘银器 `mithril` | 10 | 10s | `[{ mithrilOre, 1 }, { wood, 2 }]` | `mithrilWeapon` | 15 |
 
 钓鱼 / 烹饪 / 伐木 / 炼金：单一 `default` 品类，数值与改前一致。
 
-锻造高阶档 **只吃对应矿**。选了铁器但银行只有铜矿 → 空转，提示「铁矿见底」。
+锻造高阶档吃对应矿 + 木头辅料。选了铁器但银行只有铜矿 → 空转，提示缺「铁矿」（木头也缺则一并列出）。缺木不扣已有铁矿。铜器基础链不耗木。
 
 ---
 
@@ -77,4 +77,4 @@ speed = (1 / 当前品类 cycleS) * n * (共振 ? 1.2 : 1)
 
 ## UI
 
-站点卡：等级、生产进度条、XP 条、品类按钮。未解锁按钮禁用并标 `LvN`。银行列出铜 / 铁 / 秘银矿与对应兵器。
+站点卡：等级、生产进度条、XP 条、当前 `costs`、品类按钮。未解锁按钮禁用并标 `LvN`。银行页每个物品有相对 cap 的进度条（≥80% 警告，100% 满仓）。主界面页签：车间 / 银行 / 工人 / 订单。

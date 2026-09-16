@@ -1,4 +1,5 @@
-import { bankQty, bankRoom } from './bank'
+import { bankRoom } from './bank'
+import { canAffordCosts, missingCostLabels } from './costs'
 import { selectedCategoryDef } from './stationProgress'
 import { ITEM_DEF, STATION_DEF, STATION_IDS, stationSpeed } from './tables'
 import type { Hint, Save, StationId } from './types'
@@ -44,18 +45,21 @@ export type ConsumePick = { kind: 'none' | 'primary' | 'alt' }
 
 export function pickConsume(save: Save, stationId: StationId): ConsumePick | null {
   const def = selectedCategoryDef(save, stationId)
-  if (def.inputs.length === 0) return { kind: 'none' }
-  if (def.inputs.every((io) => bankQty(save, io.itemId) >= io.qty)) return { kind: 'primary' }
-  if (def.altInputs && def.altInputs.every((io) => bankQty(save, io.itemId) >= io.qty)) {
-    return { kind: 'alt' }
-  }
+  if (def.costs.length === 0) return { kind: 'none' }
+  if (canAffordCosts(save, def.costs)) return { kind: 'primary' }
+  if (def.altCosts && canAffordCosts(save, def.altCosts)) return { kind: 'alt' }
   return null
 }
 
 function needLabel(save: Save, stationId: StationId): string {
   const def = selectedCategoryDef(save, stationId)
-  const first = def.inputs[0] ?? def.altInputs?.[0]
-  return first ? ITEM_DEF[first.itemId].label : '原料'
+  const primary = missingCostLabels(save, def.costs)
+  if (primary.length) return primary.join('、')
+  if (def.altCosts) {
+    const alt = missingCostLabels(save, def.altCosts)
+    if (alt.length) return alt.join('、')
+  }
+  return '原料'
 }
 
 export function canConsume(save: Save, stationId: StationId): boolean {

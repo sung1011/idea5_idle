@@ -45,8 +45,10 @@ export type StationCategoryDef = {
   id: CategoryId
   label: string
   cycleS: number
-  inputs: IoRule[]
-  altInputs?: IoRule[]
+  /** 一次吞吐要一次扣光的原料。单料 / n 个 / 多料都用同一数组。 */
+  costs: IoRule[]
+  /** 主 costs 不够时的替代配方（铜器可用渣滓）。 */
+  altCosts?: IoRule[]
   outputs: IoRule[]
   xpPerCycle: number
   unlockLevel: number
@@ -62,7 +64,7 @@ export type StationDef = {
 function singleCategory(
   label: string,
   cycleS: number,
-  inputs: IoRule[],
+  costs: IoRule[],
   outputs: IoRule[],
   extras: Partial<StationCategoryDef> = {},
 ): StationCategoryDef[] {
@@ -71,7 +73,7 @@ function singleCategory(
       id: 'default',
       label,
       cycleS,
-      inputs,
+      costs,
       outputs,
       xpPerCycle: 8,
       unlockLevel: 1,
@@ -96,7 +98,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
         id: 'copper',
         label: '铜矿',
         cycleS: 5,
-        inputs: [],
+        costs: [],
         outputs: [{ itemId: 'ore', qty: 1 }],
         xpPerCycle: 10,
         unlockLevel: 1,
@@ -105,7 +107,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
         id: 'iron',
         label: '铁矿',
         cycleS: 6,
-        inputs: [],
+        costs: [],
         outputs: [{ itemId: 'ironOre', qty: 1 }],
         xpPerCycle: 12,
         unlockLevel: 5,
@@ -114,7 +116,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
         id: 'mithril',
         label: '秘银矿',
         cycleS: 7,
-        inputs: [],
+        costs: [],
         outputs: [{ itemId: 'mithrilOre', qty: 1 }],
         xpPerCycle: 15,
         unlockLevel: 10,
@@ -156,8 +158,8 @@ export const STATION_DEF: Record<StationId, StationDef> = {
         id: 'copper',
         label: '铜器',
         cycleS: 8,
-        inputs: [{ itemId: 'ore', qty: 1 }],
-        altInputs: [{ itemId: 'slag', qty: 1 }],
+        costs: [{ itemId: 'ore', qty: 1 }],
+        altCosts: [{ itemId: 'slag', qty: 1 }],
         outputs: [{ itemId: 'weapon', qty: 1 }],
         xpPerCycle: 10,
         unlockLevel: 1,
@@ -166,7 +168,10 @@ export const STATION_DEF: Record<StationId, StationDef> = {
         id: 'iron',
         label: '铁器',
         cycleS: 9,
-        inputs: [{ itemId: 'ironOre', qty: 1 }],
+        costs: [
+          { itemId: 'ironOre', qty: 1 },
+          { itemId: 'wood', qty: 1 },
+        ],
         outputs: [{ itemId: 'ironWeapon', qty: 1 }],
         xpPerCycle: 12,
         unlockLevel: 5,
@@ -175,7 +180,10 @@ export const STATION_DEF: Record<StationId, StationDef> = {
         id: 'mithril',
         label: '秘银器',
         cycleS: 10,
-        inputs: [{ itemId: 'mithrilOre', qty: 1 }],
+        costs: [
+          { itemId: 'mithrilOre', qty: 1 },
+          { itemId: 'wood', qty: 2 },
+        ],
         outputs: [{ itemId: 'mithrilWeapon', qty: 1 }],
         xpPerCycle: 15,
         unlockLevel: 10,
@@ -225,7 +233,7 @@ export const BANK_ROWS: ItemId[][] = [
   ['ore', 'ironOre', 'mithrilOre'],
   ['weapon', 'ironWeapon', 'mithrilWeapon'],
   ['fish', 'meal'],
-  ['wood'],
+  ['wood', 'slag', 'potion', 'blueprint'],
 ]
 
 export const WORKER_NAME_POOL = [

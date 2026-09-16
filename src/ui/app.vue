@@ -1,46 +1,30 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
-import { bankQty } from '../sim/bank'
-import { assignedCount, idleCount } from '../sim/query'
-import {
-  BANK_ROWS,
-  CLASS_LABEL,
-  ITEM_DEF,
-  PLAYABLE_CHAINS,
-  PLAYABLE_STATION_IDS,
-  RECRUIT_COST,
-  SELLABLE_GOODS,
-  SKELETON_STATION_IDS,
-  STATION_DEF,
-  formatClock,
-  gameDay,
-  timeOfDayS,
-} from '../sim/tables'
-import type { ItemId, StationId } from '../sim/types'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { idleCount } from '../sim/query'
+import { formatClock, gameDay, timeOfDayS } from '../sim/tables'
 import { useGameStore } from './gameStore'
+import BankPanel from './bankPanel.vue'
 import OfflineBanner from './offlineBanner.vue'
 import OrderPanel from './orderPanel.vue'
-import StationCard from './stationCard.vue'
+import WorkersPanel from './workersPanel.vue'
+import WorkshopPanel from './workshopPanel.vue'
+
+const TABS = [
+  { id: 'workshop', label: '车间' },
+  { id: 'bank', label: '银行' },
+  { id: 'workers', label: '工人' },
+  { id: 'orders', label: '订单' },
+] as const
+
+type TabId = (typeof TABS)[number]['id']
 
 const game = useGameStore()
+const tab = ref<TabId>('workshop')
 
 const day = computed(() => gameDay(game.save.elapsedS))
 const clock = computed(() => formatClock(game.save.elapsedS))
 const today = computed(() => formatClock(timeOfDayS(game.save.elapsedS)))
 const idle = computed(() => idleCount(game.save))
-const canSellGoods = computed(() => SELLABLE_GOODS.some((id) => bankQty(game.save, id) > 0))
-
-function qty(id: ItemId): number {
-  return bankQty(game.save, id)
-}
-
-function stationLabel(id: StationId | null): string {
-  return id ? STATION_DEF[id].label : '空闲'
-}
-
-function chainTitle(ids: StationId[]): string {
-  return ids.map((id) => STATION_DEF[id].label).join(' → ')
-}
 
 onMounted(() => {
   game.startClock()
@@ -64,26 +48,7 @@ onUnmounted(() => {
       <p>游戏日 {{ day }} · 今日 {{ today }}</p>
       <p class="clock">已运行 {{ clock }}</p>
       <p>金币 {{ game.save.gold }} · 工人 {{ game.save.workers.length }} · 空闲 {{ idle }}</p>
-      <div class="row">
-        <button type="button" @click="game.recruit()">抽工人（{{ RECRUIT_COST }} 金）</button>
-      </div>
     </section>
-
-    <section class="panel bank">
-      <p>银行缓冲</p>
-      <p v-for="(row, i) in BANK_ROWS" :key="i" class="nums">
-        <template v-for="(id, j) in row" :key="id">
-          <span v-if="j > 0"> · </span>
-          {{ ITEM_DEF[id].label }} <strong>{{ qty(id) }}</strong> / {{ ITEM_DEF[id].cap }}
-          <button type="button" :disabled="qty(id) === 0" @click="game.sell(id)">卖 1</button>
-        </template>
-      </p>
-      <div class="row">
-        <button type="button" :disabled="!canSellGoods" @click="game.sellGoods()">卖货（兵器/熟食 → 金）</button>
-      </div>
-    </section>
-
-    <OrderPanel />
 
     <p v-if="game.notice" class="notice" :class="game.noticeKind">{{ game.notice }}</p>
     <ul v-if="game.hints.length" class="hints">
@@ -93,48 +58,26 @@ onUnmounted(() => {
       抽工人，把人堆到同一站加速当前品类。采矿 / 锻造可升等级解锁铁矿、铁器等。钓鱼出鱼、烹饪出熟食；伐木出木头可卖。基础铜器 / 熟食交给出发订单，交单后才能出发。相邻站同时有人会共振。
     </p>
 
-    <section v-for="ids in PLAYABLE_CHAINS" :key="chainTitle(ids)" class="chain">
-      <p class="chain-title">{{ chainTitle(ids) }}</p>
-      <div class="grid">
-        <StationCard v-for="id in ids" :key="id" :station-id="id" />
-      </div>
-    </section>
+    <nav class="tabs" role="tablist" aria-label="主界面页签">
+      <button
+        v-for="t in TABS"
+        :key="t.id"
+        type="button"
+        role="tab"
+        :aria-selected="tab === t.id"
+        :class="{ on: tab === t.id }"
+        @click="tab = t.id"
+      >
+        {{ t.label }}
+      </button>
+    </nav>
 
-    <section v-if="game.save.workers.length" class="panel roster">
-      <p>工人名册</p>
-      <ul>
-        <li v-for="w in game.save.workers" :key="w.id">
-          <span>{{ w.name ?? w.id }} · {{ w.classId ? CLASS_LABEL[w.classId] : '未标' }} · {{ stationLabel(w.assignment) }}</span>
-          <span class="row">
-            <button
-              v-for="id in PLAYABLE_STATION_IDS"
-              :key="id"
-              type="button"
-              @click="game.assign(w.id, id)"
-            >
-              {{ STATION_DEF[id].label }}
-            </button>
-            <button type="button" :disabled="!w.assignment" @click="game.assign(w.id, null)">休息</button>
-          </span>
-        </li>
-      </ul>
-    </section>
+    <WorkshopPanel v-if="tab === 'workshop'" />
+    <BankPanel v-else-if="tab === 'bank'" />
+    <WorkersPanel v-else-if="tab === 'workers'" />
+    <OrderPanel v-else />
 
-    <details class="panel more">
-      <summary>其它站点骨架（炼金）</summary>
-      <p class="hint">
-        伐木弱接锻造辅料 / 炼金后做，避免改现有锻造数值。炼金渣滓可回流锻造。同站堆人规则一样，本档不当主玩。
-      </p>
-      <div class="grid">
-        <StationCard v-for="id in SKELETON_STATION_IDS" :key="id" :station-id="id" skeleton />
-      </div>
-    </details>
-
-    <p class="hint">
-      采矿 {{ assignedCount(game.save, 'mining') }} 人 / 锻造 {{ assignedCount(game.save, 'forging') }} 人 · 钓鱼
-      {{ assignedCount(game.save, 'fishing') }} 人 / 烹饪 {{ assignedCount(game.save, 'cooking') }} 人 · 伐木
-      {{ assignedCount(game.save, 'woodcutting') }} 人。存档键 idea5Idle。
-    </p>
+    <p class="hint">存档键 idea5Idle。</p>
   </div>
 </template>
 
@@ -173,16 +116,10 @@ h1 {
   letter-spacing: 0.1em;
 }
 
-.panel,
-.more,
-.chain {
+.panel {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.panel,
-.more {
   padding: 14px 16px;
   border: 1px solid var(--seam);
   background: var(--plate);
@@ -190,43 +127,41 @@ h1 {
 
 .panel p,
 .hint,
-.notice,
-.more p,
-.chain-title {
+.notice {
   margin: 0;
   line-height: 1.5;
 }
 
-.chain-title {
-  color: var(--copper);
-  letter-spacing: 0.08em;
-}
-
-.clock,
-.nums {
+.clock {
   font-family: var(--font-mono);
   color: var(--copper);
 }
 
-.row {
+.tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 8px 0;
+  background: var(--iron);
 }
 
-button {
-  padding: 6px 10px;
+.tabs button {
+  flex: 1 1 72px;
+  min-width: 64px;
+  min-height: 40px;
+  padding: 8px 10px;
   border: 1px solid var(--seam);
   background: #18140f;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px;
+.tabs button.on {
+  border-color: var(--copper);
+  color: var(--ember);
 }
 
-.roster ul,
 .hints {
   margin: 0;
   padding: 0;
@@ -234,14 +169,6 @@ button {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.roster li {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
 }
 
 .hint {
@@ -265,10 +192,5 @@ button {
 
 .hints .progress {
   color: var(--moss);
-}
-
-summary {
-  cursor: pointer;
-  color: var(--copper);
 }
 </style>

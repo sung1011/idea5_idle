@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { formatCosts } from '../sim/costs'
 import { assignedCount, currentSpeed, stationResonating } from '../sim/query'
 import { selectedCategoryDef } from '../sim/stationProgress'
 import { STATION_DEF, stationCategories, xpToNextLevel } from '../sim/tables'
@@ -23,6 +24,12 @@ const speed = computed(() => currentSpeed(game.save, props.stationId))
 const resonating = computed(() => stationResonating(game.save, props.stationId))
 const stall = computed(() => station.value.stallReason)
 const categories = computed(() => stationCategories(props.stationId))
+const costText = computed(() => {
+  const main = formatCosts(cat.value.costs)
+  if (!cat.value.altCosts?.length) return main
+  return `${main}（或 ${formatCosts(cat.value.altCosts)}）`
+})
+const hasCosts = computed(() => cat.value.costs.length > 0 || (cat.value.altCosts?.length ?? 0) > 0)
 
 function unlocked(id: CategoryId): boolean {
   return station.value.unlockedCategories.includes(id)
@@ -51,6 +58,7 @@ function pick(id: CategoryId) {
       <span v-if="stall === 'emptyInput'"> · 原料见底</span>
       <span v-if="stall === 'fullOutput'"> · 产物堆满</span>
     </p>
+    <p v-if="hasCosts" class="stat">消耗 {{ costText }}</p>
     <div v-if="categories.length > 1" class="cats">
       <button
         v-for="c in categories"

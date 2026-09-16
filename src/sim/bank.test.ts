@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { sellAllGoods, sellFromBank } from './bank'
+import { BANK_WARN_RATIO, bankCap, bankFillPct, bankFillTone, sellAllGoods, sellFromBank } from './bank'
 import { createSave } from './createSave'
+import { ITEM_DEF } from './tables'
 
 describe('sell goods', () => {
   it('turns weapons and meals into gold', () => {
@@ -45,5 +46,27 @@ describe('sell goods', () => {
     save.bank.ore = 1
     expect(sellFromBank(save, 'ore', 1).ok).toBe(true)
     expect(save.gold).toBe(3)
+  })
+})
+
+describe('bank fill bars', () => {
+  it('uses the per-item cap and flags warn / full', () => {
+    const save = createSave()
+    const cap = bankCap('ore')
+    expect(cap).toBe(ITEM_DEF.ore.cap)
+    expect(BANK_WARN_RATIO).toBe(0.8)
+
+    save.bank.ore = 0
+    expect(bankFillTone(save, 'ore')).toBe('ok')
+    expect(bankFillPct(save, 'ore')).toBe(0)
+
+    save.bank.ore = Math.ceil(cap * BANK_WARN_RATIO)
+    expect(save.bank.ore).toBe(16)
+    expect(bankFillTone(save, 'ore')).toBe('warn')
+    expect(bankFillPct(save, 'ore')).toBe(80)
+
+    save.bank.ore = cap
+    expect(bankFillTone(save, 'ore')).toBe('full')
+    expect(bankFillPct(save, 'ore')).toBe(100)
   })
 })

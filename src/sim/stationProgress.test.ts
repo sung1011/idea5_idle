@@ -108,6 +108,7 @@ describe('forging matching ore', () => {
     unlockTo(save, 'forging', 5)
     expect(selectStationCategory(save, 'forging', 'iron').ok).toBe(true)
     save.bank.ironOre = 1
+    save.bank.wood = 1
     save.bank.ore = 2
     assignWorker(save, save.workers[0].id, 'forging')
     const next = ticks(save, 9)

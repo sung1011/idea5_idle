@@ -1,12 +1,36 @@
 import { ITEM_DEF, SELLABLE_GOODS } from './tables'
 import type { ActionResult, ItemId, Save } from './types'
 
+/** 相对该物品 cap ≥ 此比例视为快满，进度条用警告色。 */
+export const BANK_WARN_RATIO = 0.8
+
+export type BankFillTone = 'ok' | 'warn' | 'full'
+
 export function bankQty(save: Save, itemId: ItemId): number {
   return save.bank[itemId] ?? 0
 }
 
 export function bankCap(itemId: ItemId): number {
   return ITEM_DEF[itemId].cap
+}
+
+export function bankFillRatio(save: Save, itemId: ItemId): number {
+  const cap = bankCap(itemId)
+  if (cap <= 0) return 0
+  return Math.min(1, bankQty(save, itemId) / cap)
+}
+
+export function bankFillPct(save: Save, itemId: ItemId): number {
+  return Math.round(bankFillRatio(save, itemId) * 100)
+}
+
+export function bankFillTone(save: Save, itemId: ItemId): BankFillTone {
+  const qty = bankQty(save, itemId)
+  const cap = bankCap(itemId)
+  if (cap <= 0) return 'ok'
+  if (qty >= cap) return 'full'
+  if (qty / cap >= BANK_WARN_RATIO) return 'warn'
+  return 'ok'
 }
 
 export function bankRoom(save: Save, itemId: ItemId): number {
