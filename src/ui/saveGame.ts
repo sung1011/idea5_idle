@@ -5,6 +5,7 @@ import { hydrateMessages } from '../sim/messages'
 import { normalizeRngState } from '../sim/rng'
 import { hydrateStations } from '../sim/stationProgress'
 import { hydrateWorkers } from '../sim/recruit'
+import { hydrateForgedTools } from '../sim/tools'
 import type { Save } from '../sim/types'
 
 export const SAVE_KEY = 'idea5Idle'
@@ -62,6 +63,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
         ? Math.floor((parsed as { offlineCount: number }).offlineCount)
         : 0,
     rngState: normalizeRngState((parsed as { rngState?: unknown }).rngState),
+    forgedTools: hydrateForgedTools((parsed as { forgedTools?: unknown }).forgedTools),
   }
   if (!Array.isArray(parsed.encounters)) merged.encounters = []
   return hydrateEncounterFields(merged)

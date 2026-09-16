@@ -14,6 +14,7 @@ import {
 import { hasUnread, listedMessages, markAllRead } from '../sim/messages'
 import { settleOffline } from '../sim/offline'
 import { recruitWorker } from '../sim/recruit'
+import { equipTool, selectForgingToolType, unequipTool } from '../sim/tools'
 import { selectStationCategory } from '../sim/stationProgress'
 import { sellAllGoods, sellFromBank } from '../sim/bank'
 import {
@@ -27,7 +28,7 @@ import {
   submitArtisan,
 } from '../sim/encounters'
 import { tick } from '../sim/tick'
-import type { ActionResult, CategoryId, ItemId, Save, StationId } from '../sim/types'
+import type { ActionResult, CategoryId, ItemId, Save, StationId, ToolTypeId } from '../sim/types'
 import { pushFloatTip } from './floatTips'
 import { clearSave, loadSave, persistSave } from './saveGame'
 
@@ -127,6 +128,15 @@ export const useGameStore = defineStore('game', () => {
     assignIdle: (stationId: StationId) => apply((s) => assignIdleWorker(s, stationId)),
     withdraw: (stationId: StationId) => apply((s) => withdrawWorker(s, stationId)),
     assign: (workerId: string, stationId: StationId | null) => apply((s) => assignWorker(s, workerId, stationId)),
+    equipTool: (workerId: string, itemId: ItemId, matchStationId: StationId) =>
+      apply((s) => {
+        if (itemId !== 'tool' && itemId !== 'ironTool' && itemId !== 'mithrilTool') {
+          return { ok: false, reason: '不是生产工具' }
+        }
+        return equipTool(s, workerId, itemId, matchStationId)
+      }),
+    unequipTool: (workerId: string) => apply((s) => unequipTool(s, workerId)),
+    selectToolType: (toolTypeId: ToolTypeId) => apply((s) => selectForgingToolType(s, toolTypeId)),
     selectCategory: (stationId: StationId, categoryId: CategoryId) =>
       apply((s) => selectStationCategory(s, stationId, categoryId)),
     sell: (itemId: ItemId, qty = 1) => apply((s) => sellFromBank(s, itemId, qty)),

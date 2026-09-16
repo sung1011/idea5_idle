@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
@@ -10,8 +10,13 @@ import {
   settleOffline,
 } from './offline'
 import { recruitWorker } from './recruit'
+import { setRollOverride } from './rng'
 import { OFFLINE_CAP_S } from './tables'
 import type { Save } from './types'
+
+afterEach(() => {
+  setRollOverride(null)
+})
 
 function roster(n: number): Save {
   const save = createSave()
@@ -68,6 +73,7 @@ describe('settleOffline', () => {
   })
 
   it('summarizes forging consume and produce', () => {
+    setRollOverride(() => 0.99)
     const save = roster(1)
     save.bank.ore = 3
     assignWorker(save, save.workers[0].id, 'forging')

@@ -3,6 +3,7 @@ import { workshopBuffMul } from './encounters'
 import { isGatherFrozen, isMiningNodeRecovering } from './gather'
 import { selectedCategoryDef } from './stationProgress'
 import { ITEM_DEF, miningNodeDef, STATION_DEF, STATION_IDS, stationSpeed } from './tables'
+import { assignedToolWeight } from './tools'
 import type { Hint, Save, StationId } from './types'
 
 export function assignedCount(save: Save, stationId: StationId): number {
@@ -26,7 +27,8 @@ export function stationResonating(save: Save, stationId: StationId): boolean {
 export function currentSpeed(save: Save, stationId: StationId, now = Date.now()): number {
   if (isGatherFrozen(save, stationId)) return 0
   const cat = selectedCategoryDef(save, stationId)
-  const base = stationSpeed(assignedCount(save, stationId), cat.cycleS, stationResonating(save, stationId))
+  const weight = assignedToolWeight(save, stationId)
+  const base = stationSpeed(weight, cat.cycleS, stationResonating(save, stationId))
   return base * workshopBuffMul(save, now)
 }
 

@@ -2,6 +2,7 @@ import {
   asMiningCategoryId,
   defaultCategory,
   findCategory,
+  isToolTypeId,
   miningNodeDef,
   MINING_NODE_DEF,
   stationCategories,
@@ -147,6 +148,8 @@ export function blankStation(stationId: StationId): StationState {
     progressNotice: null,
     gatherNotice: null,
     gatherPauseUntil: null,
+    selectedToolType: stationId === 'forging' ? 'pick' : null,
+    craftNotice: null,
     ...(stationId === 'mining'
       ? (() => {
           const bundle = hydrateMiningNodes(undefined, first.id)
@@ -181,6 +184,13 @@ export function hydrateStationState(stationId: StationId, incoming?: Partial<Sta
       typeof incoming.gatherPauseUntil === 'number' && Number.isFinite(incoming.gatherPauseUntil)
         ? incoming.gatherPauseUntil
         : null,
+    selectedToolType:
+      stationId === 'forging'
+        ? isToolTypeId(incoming.selectedToolType)
+          ? incoming.selectedToolType
+          : 'pick'
+        : null,
+    craftNotice: typeof incoming.craftNotice === 'string' ? incoming.craftNotice : null,
     ...(stationId === 'mining'
       ? hydrateMiningNodes(incoming, incoming.selectedCategory ?? blank.selectedCategory)
       : {}),

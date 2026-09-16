@@ -30,5 +30,6 @@ export function createSave(): Save {
     nextMessageId: 1,
     offlineCount: 0,
     rngState: 1,
+    forgedTools: [],
   }
 }

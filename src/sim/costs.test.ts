@@ -1,15 +1,20 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { canAffordCosts, missingCostLabels, takeCosts } from './costs'
 import { createSave } from './createSave'
 import { collectHints } from './query'
 import { recruitWorker } from './recruit'
+import { setRollOverride } from './rng'
 import { grantStationXp, selectStationCategory } from './stationProgress'
 import { completeCycle } from './stations'
 import { xpToNextLevel } from './tables'
 import { ticks } from './tick'
 import type { Save } from './types'
+
+afterEach(() => {
+  setRollOverride(null)
+})
 
 function roster(n: number): Save {
   const save = createSave()
@@ -94,6 +99,7 @@ describe('takeCosts', () => {
 
 describe('forging costs table', () => {
   it('copper forging still spends 1 ore', () => {
+    setRollOverride(() => 0.99)
     const save = roster(1)
     save.bank.ore = 1
     assignWorker(save, save.workers[0].id, 'forging')
@@ -120,6 +126,7 @@ describe('forging costs table', () => {
   })
 
   it('iron forging deducts ore and ignores leftover wood', () => {
+    setRollOverride(() => 0.99)
     const save = roster(1)
     unlockTo(save, 'forging', 5)
     expect(selectStationCategory(save, 'forging', 'iron').ok).toBe(true)
@@ -136,6 +143,7 @@ describe('forging costs table', () => {
   })
 
   it('mithril forging spends 1 mithrilOre and no wood', () => {
+    setRollOverride(() => 0.99)
     const save = roster(1)
     unlockTo(save, 'forging', 10)
     expect(selectStationCategory(save, 'forging', 'mithril').ok).toBe(true)

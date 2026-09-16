@@ -2,7 +2,7 @@ import type { Save } from './types'
 
 let rollOverride: (() => number) | null = null
 
-/** 测试用：固定采集掷骰。测完必须 `setRollOverride(null)`。 */
+/** 测试用：固定采集 / 锻造掷骰。测完必须 `setRollOverride(null)`。 */
 export function setRollOverride(fn: (() => number) | null): void {
   rollOverride = fn
 }

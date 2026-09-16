@@ -51,6 +51,15 @@ export type ActionResult = { ok: true; message?: string } | { ok: false; reason:
 export type EffectSource = 'tool' | 'food'
 export type EffectId = string
 
+/** 工具类型。按表匹配工坊：镐/锤/猎具/锅/镰/瓶架/竿。 */
+export type ToolTypeId = 'pick' | 'hammer' | 'spear' | 'pot' | 'sickle' | 'rack' | 'rod'
+
+/** 锻造产出队列：进物资的同时记下 matchStationId，装备时默认按此匹配。 */
+export type ForgedTool = {
+  itemId: ItemId
+  matchStationId: StationId
+}
+
 export type EffectInstance = {
   effectId: EffectId
   value: number
@@ -123,6 +132,10 @@ export type StationState = {
   gatherNotice?: string | null
   /** 狩猎遇险短暂停手：恢复推进的 elapsedS；未暂停为 null。 */
   gatherPauseUntil?: number | null
+  /** 锻造当前工具类型（镐/锅/瓶架等）。其它站忽略。 */
+  selectedToolType?: ToolTypeId | null
+  /** 最近一次制造结算文案（软失败 / 锻成）。 */
+  craftNotice?: string | null
 }
 
 export type FisheryTier = 'beginner' | 'mid' | 'high'
@@ -177,8 +190,10 @@ export type Save = {
   nextMessageId: number
   /** 成功离线追赶次数（seconds > 0）。 */
   offlineCount: number
-  /** 采集掷骰种子。缺字段 hydrate 为 1。 */
+  /** 采集 / 锻造掷骰种子。缺字段 hydrate 为 1。 */
   rngState: number
+  /** 未装备的锻造成品类型队列，与 bank 工具数量对齐。 */
+  forgedTools: ForgedTool[]
 }
 
 export type EncounterQuality = 'gray' | 'green' | 'blue' | 'purple' | 'orange'

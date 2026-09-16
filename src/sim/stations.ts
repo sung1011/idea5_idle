@@ -1,9 +1,11 @@
 import { addToBank } from './bank'
 import { takeCosts } from './costs'
+import { completeForgingCycle } from './forging'
 import { applyGatherOutputs, applyHuntingPauseTick, applyMiningRecovery, isGatherFrozen, isGatherStation } from './gather'
 import { assignedCount, canConsume, currentSpeed, pickConsume, stationResonating } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
 import { RESONANCE_BONUS_EVERY } from './tables'
+import { cycleOutputBonus } from './tools'
 import type { Save, StationId } from './types'
 
 /** 1/6、1/7 这类 cycle 累加会卡在 0.999…，差一丁点到 1。 */
@@ -19,7 +21,7 @@ function consumeInputs(save: Save, stationId: StationId): boolean {
 
 function emitOutputs(save: Save, stationId: StationId, extra: boolean): boolean {
   const def = selectedCategoryDef(save, stationId)
-  const bonus = extra ? 1 : 0
+  const bonus = cycleOutputBonus(save, stationId, extra)
   for (const io of def.outputs) {
     const added = addToBank(save, io.itemId, io.qty + (io === def.outputs[0] ? bonus : 0))
     if (!added.ok) return false
@@ -33,6 +35,7 @@ function emitOutputs(save: Save, stationId: StationId, extra: boolean): boolean 
 /** 完成一次吞吐：按当前品类扣原料、写入物资，并给站 XP。共振满 streak 时额外产出。 */
 export function completeCycle(save: Save, stationId: StationId): boolean {
   if (!canConsume(save, stationId)) return false
+  if (stationId === 'forging') return completeForgingCycle(save)
   if (!consumeInputs(save, stationId)) return false
   const station = save.stations[stationId]
   const resonating = stationResonating(save, stationId)

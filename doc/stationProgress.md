@@ -68,7 +68,7 @@ xpToNext(L) = Math.round(100 * Math.pow(1.45, L - 1) * 0.175)  // L >= 1
 | 采矿 | 铜矿 `copper` | 1 | 20s | — | `ore` 铜矿 | 1 |
 | 采矿 | 铁矿 `iron` | 5 | 24s | — | `ironOre` | 2 |
 | 采矿 | 秘银矿 `mithril` | 10 | 28s | — | `mithrilOre` | 3 |
-| 锻造 | 初级工具 `copper` | 1 | 32s | `[{ ore, 1 }]`；没有则 `altCosts` 渣滓 | `tool` | 1 |
+| 锻造 | 初级工具 `copper` | 1 | 32s | `[{ ore, 1 }]`；没有则 `altCosts` 渣滓；软失败扣部分矿、无成品、少量 XP | `tool` | 1 |
 | 锻造 | 中阶工具 `iron` | 5 | 36s | `[{ ironOre, 1 }]` | `ironTool` | 2 |
 | 锻造 | 高阶工具 `mithril` | 10 | 40s | `[{ mithrilOre, 1 }]` | `mithrilTool` | 3 |
 | 钓鱼 | 初级渔场 `copper` | 1 | 28s | — | 掉落表：空杆 / 鱼 / 杂物（墙：只出初级） | 1 |

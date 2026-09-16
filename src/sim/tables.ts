@@ -10,6 +10,7 @@ import type {
   ProductionBuff,
   StationId,
   StationKind,
+  ToolTypeId,
 } from './types'
 
 export const DAY_LENGTH_S = 24 * 60
@@ -434,7 +435,7 @@ export const HERBALISM_DROP_TABLE: HerbalismDropWeight[] = [
   { itemId: 'spice', weight: 30 },
 ]
 
-/** 锻造软失败权重占位。第 3 期才掷骰。 */
+/** 锻造软失败率。周期走完后掷骰。 */
 export const FORGING_SOFT_FAIL_CHANCE: Record<CategoryId, number> = {
   copper: 0.1,
   iron: 0.15,
@@ -442,38 +443,98 @@ export const FORGING_SOFT_FAIL_CHANCE: Record<CategoryId, number> = {
   default: 0,
 }
 
+/** 软失败扣料比例；不足 1 按 1。铜档 1 矿失败也扣 1。 */
+export const FORGING_SOFT_FAIL_TAKE_RATIO = 0.5
+/** 软失败 XP 相对本档 xpPerCycle；至少 1。 */
+export const FORGING_SOFT_FAIL_XP_MUL = 0.5
+
 export const EFFECT_ID = {
   prodSpeed: 'prodSpeed',
+  extraOutput: 'extraOutput',
+  cycleShorten: 'cycleShorten',
 } as const
 
 export type ToolItemId = 'tool' | 'ironTool' | 'mithrilTool'
 
+export type ToolTypeDef = {
+  id: ToolTypeId
+  label: string
+  matchStationId: StationId
+}
+
+/** 锅 / 瓶架等按表匹配制造站；采集站也各有对应类型。 */
+export const TOOL_TYPE_DEF: Record<ToolTypeId, ToolTypeDef> = {
+  pick: { id: 'pick', label: '镐', matchStationId: 'mining' },
+  hammer: { id: 'hammer', label: '锤', matchStationId: 'forging' },
+  spear: { id: 'spear', label: '猎具', matchStationId: 'hunting' },
+  pot: { id: 'pot', label: '锅', matchStationId: 'cooking' },
+  sickle: { id: 'sickle', label: '镰', matchStationId: 'herbalism' },
+  rack: { id: 'rack', label: '瓶架', matchStationId: 'alchemy' },
+  rod: { id: 'rod', label: '竿', matchStationId: 'fishing' },
+}
+
+export const TOOL_TYPE_IDS = Object.keys(TOOL_TYPE_DEF) as ToolTypeId[]
+
+export function isToolTypeId(id: unknown): id is ToolTypeId {
+  return typeof id === 'string' && Object.prototype.hasOwnProperty.call(TOOL_TYPE_DEF, id)
+}
+
+export function toolTypeByStation(stationId: StationId): ToolTypeId {
+  const found = TOOL_TYPE_IDS.find((id) => TOOL_TYPE_DEF[id].matchStationId === stationId)
+  return found ?? 'pick'
+}
+
 export type ToolDef = {
   itemId: ToolItemId
+  /** hydrate / 旧档缺 match 时的回落，不表示只能装这一站。 */
   matchStationId: StationId
   affixes: Affix[]
   effects: EffectInstance[]
+  /** T1 无词条只加速度；T2+ 至少 2 种 effectId。 */
+  prodSpeed: number
 }
 
-/** 工具词条 effectId 占位。第 3 期才装槽生效。 */
+function toolEffects(prodSpeed: number, affixes: Affix[]): EffectInstance[] {
+  return [
+    { effectId: EFFECT_ID.prodSpeed, value: prodSpeed, source: 'tool' },
+    ...affixes.map((affix) => ({ effectId: affix.effectId, value: affix.value, source: 'tool' as const })),
+  ]
+}
+
+/** T1 只加速度；T2+ 额外产出 + 缩短时间，常驻被动，不占食物 Buff 栏。 */
 export const TOOL_DEF: Record<ToolItemId, ToolDef> = {
   tool: {
     itemId: 'tool',
     matchStationId: 'mining',
+    prodSpeed: 1.25,
     affixes: [],
-    effects: [{ effectId: EFFECT_ID.prodSpeed, value: 1.1, source: 'tool' }],
+    effects: toolEffects(1.25, []),
   },
   ironTool: {
     itemId: 'ironTool',
     matchStationId: 'hunting',
-    affixes: [{ affixId: 'keen', effectId: EFFECT_ID.prodSpeed, value: 1.2 }],
-    effects: [{ effectId: EFFECT_ID.prodSpeed, value: 1.2, source: 'tool' }],
+    prodSpeed: 1.2,
+    affixes: [
+      { affixId: 'yield', effectId: EFFECT_ID.extraOutput, value: 1 },
+      { affixId: 'haste', effectId: EFFECT_ID.cycleShorten, value: 0.2 },
+    ],
+    effects: toolEffects(1.2, [
+      { affixId: 'yield', effectId: EFFECT_ID.extraOutput, value: 1 },
+      { affixId: 'haste', effectId: EFFECT_ID.cycleShorten, value: 0.2 },
+    ]),
   },
   mithrilTool: {
     itemId: 'mithrilTool',
     matchStationId: 'fishing',
-    affixes: [{ affixId: 'tide', effectId: EFFECT_ID.prodSpeed, value: 1.3 }],
-    effects: [{ effectId: EFFECT_ID.prodSpeed, value: 1.3, source: 'tool' }],
+    prodSpeed: 1.3,
+    affixes: [
+      { affixId: 'bounty', effectId: EFFECT_ID.extraOutput, value: 1 },
+      { affixId: 'swift', effectId: EFFECT_ID.cycleShorten, value: 0.3 },
+    ],
+    effects: toolEffects(1.3, [
+      { affixId: 'bounty', effectId: EFFECT_ID.extraOutput, value: 1 },
+      { affixId: 'swift', effectId: EFFECT_ID.cycleShorten, value: 0.3 },
+    ]),
   },
 }
 

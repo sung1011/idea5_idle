@@ -66,7 +66,7 @@ type MiningNodeState = {
 
 ### 2.2 锻造 `forging`（制造）
 
-表驱动 `costs`（及可选 `altCosts`）+ **软失败**：周期走完、原料按现规则扣光后做一次失败检定；失败不产出工具（残次物是否入库后补），不炸炉、不停站、不额外扣工人。成功率 / 软失败权重第 3 期再填。
+表驱动 `costs`（及可选 `altCosts`）+ **软失败**：周期走完后做一次失败检定。成功按现规则扣光并出工具。失败扣部分原料（`FORGING_SOFT_FAIL_TAKE_RATIO` 0.5，不足 1 按 1；铜档 1 矿失败也扣 1），无成品，给少量 XP（`xpPerCycle * 0.5`，至少 1）。不炸炉、不停站、不额外扣工人。成功率见 `FORGING_SOFT_FAIL_CHANCE`。
 
 产出是**生产工具**，进物资后再装进工人 `toolSlot`。武器线（`weapon` / `ironWeapon` / `mithrilWeapon`）搁置，本阶段不当锻造主产物。
 
@@ -85,7 +85,7 @@ type SoftFailRoll = {
 | `ironTool` | 中阶 |
 | `mithrilTool` | 高阶 |
 
-每件工具带 `matchStationId`：派在匹配工坊才吃满增效与词条；空槽或不匹配 = 裸效率，仍可派。
+每件工具带 `matchStationId`：派在匹配工坊才吃满增效与词条；空槽或不匹配 = 裸效率，仍可派。锻造站可选 `selectedToolType`（镐/锤/猎具/锅/镰/瓶架/竿），成品写入 `forgedTools` 队列并进物资；装备时按类型表匹配工坊。T1 可无词条只加速度；T2+ 至少接 `extraOutput`（额外产出）与 `cycleShorten`（缩短时间），常驻被动，不占食物 Buff 栏。
 
 ### 2.3 狩猎 `hunting`（采集）
 
@@ -328,8 +328,10 @@ type ProductionBuff = {
 | 渔场墙 | `fisheryTier` `catchTier` 空杆 `empty` |
 | 工人槽 | `toolSlot` `foodSlot` |
 | 工具匹配 | `matchStationId` |
+| 工具类型 | `pick` `hammer` `spear` `pot` `sickle` `rack` `rod` |
+| 锻造队列 | `forgedTools` `selectedToolType` `craftNotice` |
 | 词条 | `affixes[]` `affixId` |
-| 特效 | `effectId` `value` `source` |
+| 特效 | `effectId` `value` `source`；`prodSpeed` `extraOutput` `cycleShorten` |
 | 食物 Buff | `buff` `expiresAt` `durationS` `mul` |
 | 停产 | 只留 `emptyInput`；无满仓 |
 
@@ -344,8 +346,8 @@ type ProductionBuff = {
 | 钓鱼空杆 / 更慢期望 / 渔场品阶墙 | — |
 | 狩猎遇险检定（停手 / 减产 / 可耗熟食） | — |
 | 采药无限稳采，必出草 / 香料 | — |
-| 锻造出工具；软失败权重占位 | 软失败掷骰；工具槽生效 |
+| 锻造出工具；软失败掷骰；工具槽匹配才加速 | — |
 | 烹饪仍只耗鱼出 `meal` | `meal` 进 `foodSlot` 给生产 Buff |
-| Worker 有 `toolSlot` / `foodSlot`（默认空） | 装槽 / 续期 / 取最强 |
+| Worker `toolSlot` 可装卸；`foodSlot` 仍空 | 续期 / 取最强（第 4 期） |
 | 炼金耗草出 `potion` 占位 | 效果解析 |
 | 偶遇新单改食物 / 工具 / 矿 | 随工具产量再调货单 |

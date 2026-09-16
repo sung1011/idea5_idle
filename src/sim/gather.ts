@@ -18,6 +18,7 @@ import {
   type IoRule,
   type MiningCategoryId,
 } from './tables'
+import { cycleOutputBonus } from './tools'
 import type {
   CategoryId,
   FishingCatch,
@@ -151,10 +152,10 @@ function miningOutputItem(categoryId: CategoryId): ItemId {
   return 'ore'
 }
 
-function emitRules(save: Save, rules: IoRule[], extraMain: boolean): boolean {
+function emitRules(save: Save, stationId: StationId, rules: IoRule[], extraMain: boolean): boolean {
+  const bonus = cycleOutputBonus(save, stationId, extraMain)
   for (const io of rules) {
-    const bonus = extraMain && io === rules[0] ? 1 : 0
-    const added = addToBank(save, io.itemId, io.qty + bonus)
+    const added = addToBank(save, io.itemId, io.qty + (io === rules[0] ? bonus : 0))
     if (!added.ok) return false
   }
   return true
@@ -202,7 +203,7 @@ function completeMiningCycle(save: Save, extra: boolean): boolean {
   const node = station.miningNode
   if (!node || isMiningNodeRecovering(node, save.elapsedS)) return false
   const cat = selectedCategoryDef(save, 'mining')
-  if (!emitRules(save, cat.outputs, extra)) return false
+  if (!emitRules(save, 'mining', cat.outputs, extra)) return false
   node.nodeHp = Math.max(0, node.nodeHp - 1)
   const key = asMiningCategoryId(node.categoryId)
   if (node.nodeHp <= 0) {
@@ -226,14 +227,14 @@ function completeFishingCycle(save: Save, extra: boolean): boolean {
     save.stations.fishing.gatherNotice = '空杆'
     return true
   }
-  if (!emitRules(save, [{ itemId, qty: 1 }], extra)) return false
+  if (!emitRules(save, 'fishing', [{ itemId, qty: 1 }], extra)) return false
   save.stations.fishing.gatherNotice = itemId === 'junk' ? '钓到杂物' : `钓到${ITEM_DEF.fish.label}`
   return true
 }
 
 function completeHerbalismCycle(save: Save, extra: boolean): boolean {
   const itemId = resolveHerbalismDrop(roll01(save))
-  if (!emitRules(save, [{ itemId, qty: 1 }], extra)) return false
+  if (!emitRules(save, 'herbalism', [{ itemId, qty: 1 }], extra)) return false
   save.stations.herbalism.gatherNotice = `采到${ITEM_DEF[itemId].label}`
   return true
 }
@@ -252,7 +253,7 @@ function completeHuntingCycle(save: Save, extra: boolean): boolean {
     }
     return true
   }
-  if (!emitRules(save, prey.outputs, extra)) return false
+  if (!emitRules(save, 'hunting', prey.outputs, extra)) return false
   save.stations.hunting.gatherNotice = `安全捕获 · ${prey.label}`
   return true
 }

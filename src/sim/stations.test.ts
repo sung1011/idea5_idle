@@ -165,6 +165,7 @@ describe('cooking pipeline', () => {
 
 describe('forging pipeline', () => {
   it('consumes ore and deposits a tool', () => {
+    setRollOverride(() => 0.99)
     const save = roster(1)
     save.bank.ore = 1
     assignWorker(save, save.workers[0].id, 'forging')

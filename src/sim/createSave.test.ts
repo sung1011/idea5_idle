@@ -31,6 +31,8 @@ describe('createSave seven stations', () => {
     expect(save.stations.mining.miningNode?.nodeHp).toBe(20)
     expect(save.stations.mining.miningNode?.recoverAt).toBeNull()
     expect(save.rngState).toBe(1)
+    expect(save.forgedTools).toEqual([])
+    expect(save.stations.forging.selectedToolType).toBe('pick')
     expect(save.stations.fishing.selectedCategory).toBe('copper')
     expect(save.stations.hunting.selectedCategory).toBe('copper')
     const worker = spawnWorker(save)

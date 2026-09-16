@@ -4,8 +4,8 @@ import { formatCosts } from '../sim/costs'
 import { gatherStatusText, isGatherFrozen } from '../sim/gather'
 import { assignedCount, currentSpeed, stationResonating } from '../sim/query'
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
-import { STATION_DEF, xpToNextLevel } from '../sim/tables'
-import type { CategoryId, StationId } from '../sim/types'
+import { STATION_DEF, TOOL_TYPE_DEF, TOOL_TYPE_IDS, xpToNextLevel } from '../sim/tables'
+import type { CategoryId, StationId, ToolTypeId } from '../sim/types'
 import { useGameStore } from './gameStore'
 import { useVisualProgress } from './visualProgress'
 
@@ -59,6 +59,11 @@ function onPick(ev: Event) {
   if (!opt?.unlocked) return
   pick(value)
 }
+
+function onToolType(ev: Event) {
+  const value = (ev.target as HTMLSelectElement).value as ToolTypeId
+  game.selectToolType(value)
+}
 </script>
 
 <template>
@@ -81,7 +86,16 @@ function onPick(ev: Event) {
     </div>
     <p class="stat">进度 {{ pctLabel }}% · XP {{ station.stationXp }}/{{ xpNeed }} · 速度 {{ speed.toFixed(2) }}/s</p>
     <p v-if="gatherLine" class="stat gather">{{ gatherLine }}</p>
+    <p v-if="station.craftNotice" class="stat gather">{{ station.craftNotice }}</p>
     <p v-if="hasCosts" class="stat">消耗 {{ costText }}</p>
+    <label v-if="stationId === 'forging'" class="cats">
+      <span class="sr">工具类型</span>
+      <select class="cat-select" :value="station.selectedToolType ?? 'pick'" @change="onToolType">
+        <option v-for="id in TOOL_TYPE_IDS" :key="id" :value="id">
+          {{ TOOL_TYPE_DEF[id].label }}（{{ STATION_DEF[TOOL_TYPE_DEF[id].matchStationId].label }}）
+        </option>
+      </select>
+    </label>
     <label v-if="pickOptions.length > 1" class="cats">
       <span class="sr">{{ pickCaption }}</span>
       <select class="cat-select" :value="station.selectedCategory" @change="onPick">

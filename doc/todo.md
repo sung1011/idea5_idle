@@ -52,13 +52,14 @@
 
 ---
 
-## 3. 锻造工具 + 工具槽（后做，本期不实现）
+## 3. 锻造工具 + 工具槽（本期）
 
-- [ ] 锻造主产物改 `tool` / `ironTool` / `mithrilTool`；武器线搁置
-- [ ] 配方 + 软失败（失败不产出、不停站）
-- [ ] `toolSlot`：常驻增效；高阶 `affixes`；`matchStationId` 匹配才吃满；空/不匹配=裸效率可派
-- [ ] 特效：`effectId` + `value` + `source: 'tool'`
-- [ ] 偶遇补给可开始收工具
+- [x] 锻造主产物改 `tool` / `ironTool` / `mithrilTool`；武器线搁置
+- [x] 配方 + 软失败（失败扣部分矿、无成品、少量 XP、不停站）
+- [x] `toolSlot`：常驻增效；高阶 `affixes`；`matchStationId` 匹配才吃满；空/不匹配=裸效率可派
+- [x] 特效：`effectId` + `value` + `source: 'tool'`（T1 只加速度；T2+ `extraOutput` / `cycleShorten`）
+- [x] 工具类型表：镐/锤/猎具/锅/镰/瓶架/竿，烹饪/炼金也能匹配
+- [x] 偶遇补给可开始收工具
 
 过关：能锻工具、能装槽、错站不吃满仍可派；不再新出武器。
 

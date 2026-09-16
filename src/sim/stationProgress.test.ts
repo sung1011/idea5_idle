@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
 import { collectHints } from './query'
 import { recruitWorker } from './recruit'
+import { setRollOverride } from './rng'
 import {
   categoryPickOptions,
   grantStationXp,
@@ -30,6 +31,10 @@ function unlockTo(save: Save, stationId: 'mining' | 'forging' | 'fishing' | 'hun
     grantStationXp(save, stationId, xpToNextLevel(station.stationLevel))
   }
 }
+
+afterEach(() => {
+  setRollOverride(null)
+})
 
 describe('station XP curve', () => {
   it('uses scaled XP curve and 133 XP to reach Lv5', () => {
@@ -175,6 +180,7 @@ describe('stack current category', () => {
 
 describe('forging matching ore', () => {
   it('iron forging consumes ironOre and deposits ironTool', () => {
+    setRollOverride(() => 0.99)
     const save = roster(1)
     unlockTo(save, 'forging', 5)
     expect(selectStationCategory(save, 'forging', 'iron').ok).toBe(true)

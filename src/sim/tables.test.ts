@@ -10,6 +10,7 @@ import {
   resolveStationId,
   STATION_DEF,
   TOOL_DEF,
+  TOOL_TYPE_DEF,
 } from './tables'
 
 describe('production phase-1 tables', () => {
@@ -60,6 +61,11 @@ describe('production phase-1 tables', () => {
     expect(HERBALISM_DROP_TABLE.every((row) => row.weight > 0)).toBe(true)
     expect(FORGING_SOFT_FAIL_CHANCE.copper).toBeGreaterThan(0)
     expect(TOOL_DEF.tool.effects[0].effectId).toBe('prodSpeed')
+    expect(TOOL_DEF.ironTool.affixes.map((a) => a.effectId)).toEqual(
+      expect.arrayContaining(['extraOutput', 'cycleShorten']),
+    )
+    expect(TOOL_TYPE_DEF.pot.matchStationId).toBe('cooking')
+    expect(TOOL_TYPE_DEF.rack.matchStationId).toBe('alchemy')
     expect(FOOD_BUFF_DEF.meal?.effectId).toBe('prodSpeed')
   })
 

@@ -1,5 +1,18 @@
-import { ITEM_DEF, ITEM_IDS, SELLABLE_GOODS } from './tables'
+import { isToolItemId, ITEM_DEF, ITEM_IDS, SELLABLE_GOODS } from './tables'
 import type { ActionResult, ItemId, Save } from './types'
+
+export function discardForgedTools(save: Save, itemId: ItemId, qty: number): void {
+  if (!isToolItemId(itemId) || !save.forgedTools?.length) return
+  let left = Math.max(0, Math.floor(qty))
+  if (left <= 0) return
+  save.forgedTools = save.forgedTools.filter((row) => {
+    if (left > 0 && row.itemId === itemId) {
+      left -= 1
+      return false
+    }
+    return true
+  })
+}
 
 /** 仅防 Number 溢出，玩法与 UI 不表现「满」。 */
 export const ITEM_QTY_SOFT_CAP = Number.MAX_SAFE_INTEGER
@@ -37,6 +50,7 @@ export function takeFromBank(save: Save, itemId: ItemId, qty: number): ActionRes
   const next = itemQty(save, itemId) - qty
   if (next <= 0) delete save.bank[itemId]
   else save.bank[itemId] = next
+  discardForgedTools(save, itemId, qty)
   return { ok: true }
 }
 
