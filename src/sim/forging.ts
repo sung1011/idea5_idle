@@ -41,7 +41,7 @@ export function completeForgingCycle(save: Save, now = Date.now()): boolean {
   const pick = pickConsume(save, 'forging')
   if (!pick) return false
   const def = selectedCategoryDef(save, 'forging')
-  const rules = pick.kind === 'alt' ? (def.altCosts ?? []) : def.costs
+  const rules = pick.rules
   const fail = resolveSoftFail(forgingSoftFailChance(def.id), roll01(save))
   const station = save.stations.forging
   const resonating = stationResonating(save, 'forging')

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ALCHEMY_COST_OPTIONS,
   FISHING_DROP_TABLE,
   FOOD_BUFF_DEF,
   FORGING_SOFT_FAIL_CHANCE,
@@ -7,6 +8,8 @@ import {
   HUNTING_PREY_TABLE,
   MINING_NODE_DEF,
   PLAYABLE_STATION_IDS,
+  SELLABLE_GOODS,
+  SKELETON_STATION_IDS,
   resolveStationId,
   STATION_DEF,
   TOOL_DEF,
@@ -49,6 +52,14 @@ describe('production phase-1 tables', () => {
       'mithrilTool',
     ])
     expect(STATION_DEF.alchemy.categories[0].costs).toEqual([{ itemId: 'herb', qty: 1 }])
+    expect(ALCHEMY_COST_OPTIONS).toEqual([
+      [{ itemId: 'herb', qty: 1 }],
+      [{ itemId: 'blood', qty: 1 }],
+      [{ itemId: 'tooth', qty: 1 }],
+      [{ itemId: 'eye', qty: 1 }],
+    ])
+    expect(SKELETON_STATION_IDS).toEqual([])
+    expect(SELLABLE_GOODS).toEqual(['tool', 'ironTool', 'mithrilTool', 'meal', 'roast', 'stew'])
     expect(STATION_DEF.cooking.categories.map((c) => c.outputs[0].itemId)).toEqual(['meal', 'roast', 'stew'])
     expect(STATION_DEF.cooking.categories[1].costs).toEqual([{ itemId: 'meat', qty: 1 }])
   })

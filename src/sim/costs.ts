@@ -40,6 +40,12 @@ export function formatCosts(rules: IoRule[]): string {
   return collapsed.map((io) => `${ITEM_DEF[io.itemId].label}×${io.qty}`).join(' + ')
 }
 
+/** 多组配方：草×1 / 血×1。空组跳过。 */
+export function formatCostOptions(sets: IoRule[][]): string {
+  const parts = sets.map(formatCosts).filter((text) => text !== '—')
+  return parts.length ? parts.join(' / ') : '—'
+}
+
 /**
  * 一次扣光 costs。任一原料不够则整单不扣。
  * 空数组视为无消耗，成功。

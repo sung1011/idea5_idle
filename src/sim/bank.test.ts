@@ -3,26 +3,32 @@ import { addToBank, hydrateBank, itemQty, sellAllGoods, sellFromBank } from './b
 import { createSave } from './createSave'
 
 describe('sell goods', () => {
-  it('turns weapons and meals into gold', () => {
+  it('batch-sells tools and cooked food, not old weapons', () => {
     const save = createSave()
     save.gold = 0
     save.bank.weapon = 2
+    save.bank.tool = 1
     save.bank.meal = 1
+    save.bank.roast = 1
     const result = sellAllGoods(save)
     expect(result.ok).toBe(true)
-    expect(save.bank.weapon ?? 0).toBe(0)
+    expect(save.bank.weapon).toBe(2)
+    expect(save.bank.tool ?? 0).toBe(0)
     expect(save.bank.meal ?? 0).toBe(0)
-    expect(save.gold).toBe(12 * 2 + 8)
+    expect(save.bank.roast ?? 0).toBe(0)
+    expect(save.gold).toBe(12 + 8 + 10)
   })
 
   it('fails when there is nothing to sell', () => {
     const save = createSave()
     save.gold = 10
+    save.bank.weapon = 2
     expect(sellAllGoods(save).ok).toBe(false)
     expect(save.gold).toBe(10)
+    expect(save.bank.weapon).toBe(2)
   })
 
-  it('sells a single ironWeapon for its table price', () => {
+  it('still sells a single ironWeapon from the item row', () => {
     const save = createSave()
     save.gold = 0
     save.bank.ironWeapon = 1
@@ -30,13 +36,13 @@ describe('sell goods', () => {
     expect(save.gold).toBe(18)
   })
 
-  it('batch-sells higher-tier weapons with the goods pile', () => {
+  it('batch-sells stew with the food pile', () => {
     const save = createSave()
     save.gold = 0
-    save.bank.ironWeapon = 1
-    save.bank.mithrilWeapon = 1
+    save.bank.stew = 1
+    save.bank.ironTool = 1
     expect(sellAllGoods(save).ok).toBe(true)
-    expect(save.gold).toBe(18 + 28)
+    expect(save.gold).toBe(14 + 18)
   })
 
   it('sells a single ore for its table price', () => {

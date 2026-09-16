@@ -1,10 +1,11 @@
+import { alchemyCostLabel } from './alchemy'
 import { addToBank } from './bank'
 import { takeCosts } from './costs'
 import { completeForgingCycle } from './forging'
 import { applyGatherOutputs, applyHuntingPauseTick, applyMiningRecovery, isGatherFrozen, isGatherStation } from './gather'
 import { assignedCount, canConsume, currentSpeed, pickConsume, stationResonating } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
-import { RESONANCE_BONUS_EVERY } from './tables'
+import { ITEM_DEF, RESONANCE_BONUS_EVERY, isPotionItemId } from './tables'
 import { cycleOutputBonus } from './tools'
 import type { Save, StationId } from './types'
 
@@ -14,9 +15,30 @@ const CYCLE_EPS = 1e-9
 function consumeInputs(save: Save, stationId: StationId): boolean {
   const pick = pickConsume(save, stationId)
   if (!pick) return false
-  const def = selectedCategoryDef(save, stationId)
-  const rules = pick.kind === 'alt' ? (def.altCosts ?? []) : def.costs
-  return takeCosts(save, rules).ok
+  return takeCosts(save, pick.rules).ok
+}
+
+function completeAlchemyCycle(save: Save, now: number): boolean {
+  const pick = pickConsume(save, 'alchemy')
+  if (!pick) return false
+  if (!takeCosts(save, pick.rules).ok) return false
+  const station = save.stations.alchemy
+  const def = selectedCategoryDef(save, 'alchemy')
+  const resonating = stationResonating(save, 'alchemy')
+  if (resonating) station.resonanceStreak += 1
+  else station.resonanceStreak = 0
+  const extra = resonating && station.resonanceStreak % RESONANCE_BONUS_EVERY === 0
+  const bonus = cycleOutputBonus(save, 'alchemy', extra, now)
+  for (const io of def.outputs) {
+    const qty = io.qty + (io === def.outputs[0] ? bonus : 0)
+    if (!addToBank(save, io.itemId, qty).ok) return false
+  }
+  station.completed += 1
+  grantStationXp(save, 'alchemy', def.xpPerCycle)
+  const out = def.outputs[0]
+  const made = out && isPotionItemId(out.itemId) ? '药剂' : out ? ITEM_DEF[out.itemId].label : '成品'
+  station.craftNotice = `炼成${made}（耗${alchemyCostLabel(pick.rules)}）`
+  return true
 }
 
 function emitOutputs(save: Save, stationId: StationId, extra: boolean, now: number): boolean {
@@ -36,6 +58,7 @@ function emitOutputs(save: Save, stationId: StationId, extra: boolean, now: numb
 export function completeCycle(save: Save, stationId: StationId, now = Date.now()): boolean {
   if (!canConsume(save, stationId)) return false
   if (stationId === 'forging') return completeForgingCycle(save, now)
+  if (stationId === 'alchemy') return completeAlchemyCycle(save, now)
   if (!consumeInputs(save, stationId)) return false
   const station = save.stations[stationId]
   const resonating = stationResonating(save, stationId)

@@ -82,7 +82,7 @@ describe('woodcutting hidden', () => {
   })
 })
 
-describe('hunting / herbalism skeleton', () => {
+describe('hunting / herbalism / alchemy', () => {
   it('one hunter deposits meat after one cycle', () => {
     setRollOverride(() => 0.9)
     const save = roster(1)
@@ -109,6 +109,7 @@ describe('hunting / herbalism skeleton', () => {
     expect(bankQty(next, 'herb')).toBe(0)
     expect(bankQty(next, 'potion')).toBe(1)
     expect(next.stations.alchemy.completed).toBe(1)
+    expect(next.stations.alchemy.craftNotice).toContain('草')
   })
 })
 

@@ -18,6 +18,9 @@ export const GM_BASIC_ITEMS: ItemId[] = [
   'meat',
   'herb',
   'spice',
+  'blood',
+  'tooth',
+  'eye',
   'meal',
   'roast',
 ]

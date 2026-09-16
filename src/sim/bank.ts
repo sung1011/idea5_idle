@@ -64,7 +64,7 @@ export function sellFromBank(save: Save, itemId: ItemId, qty: number): ActionRes
   return { ok: true }
 }
 
-/** 把武器和熟食整批换成金币。 */
+/** 把工具和烹饪食物整批换成金币。旧兵器不进这批。 */
 export function sellAllGoods(save: Save): ActionResult {
   let sold = 0
   for (const itemId of SELLABLE_GOODS) {
@@ -74,6 +74,6 @@ export function sellAllGoods(save: Save): ActionResult {
     if (!result.ok) return result
     sold += qty
   }
-  if (sold <= 0) return { ok: false, reason: '没有可卖的武器或熟食' }
+  if (sold <= 0) return { ok: false, reason: '没有可卖的工具或食物' }
   return { ok: true }
 }

@@ -2,7 +2,15 @@ import { canAffordCosts, missingCostLabels } from './costs'
 import { workshopBuffMul } from './encounters'
 import { isGatherFrozen, isMiningNodeRecovering } from './gather'
 import { selectedCategoryDef } from './stationProgress'
-import { ITEM_DEF, miningNodeDef, STATION_DEF, STATION_IDS, stationSpeed } from './tables'
+import {
+  ALCHEMY_COST_OPTIONS,
+  ITEM_DEF,
+  miningNodeDef,
+  STATION_DEF,
+  STATION_IDS,
+  stationSpeed,
+  type IoRule,
+} from './tables'
 import { assignedToolWeight } from './tools'
 import type { Hint, Save, StationId } from './types'
 
@@ -46,25 +54,50 @@ export function resonancePairs(save: Save): Array<{ a: StationId; b: StationId }
   return pairs
 }
 
-export type ConsumePick = { kind: 'none' | 'primary' | 'alt' }
+export type ConsumePick = { kind: 'none' | 'primary' | 'alt'; rules: IoRule[] }
+
+/** 当前站可扣的配方组。炼金走草 / 猎副产表，其它站 costs + 可选 altCosts。 */
+export function consumeRuleSets(save: Save, stationId: StationId): IoRule[][] {
+  if (stationId === 'alchemy') return ALCHEMY_COST_OPTIONS
+  const def = selectedCategoryDef(save, stationId)
+  const sets: IoRule[][] = [def.costs]
+  if (def.altCosts?.length) sets.push(def.altCosts)
+  return sets
+}
 
 export function pickConsume(save: Save, stationId: StationId): ConsumePick | null {
-  const def = selectedCategoryDef(save, stationId)
-  if (def.costs.length === 0) return { kind: 'none' }
-  if (canAffordCosts(save, def.costs)) return { kind: 'primary' }
-  if (def.altCosts && canAffordCosts(save, def.altCosts)) return { kind: 'alt' }
+  const sets = consumeRuleSets(save, stationId)
+  if (sets.length === 1 && sets[0].length === 0) return { kind: 'none', rules: [] }
+  for (let i = 0; i < sets.length; i++) {
+    const rules = sets[i]
+    if (rules.length === 0) return { kind: 'none', rules }
+    if (canAffordCosts(save, rules)) return { kind: i === 0 ? 'primary' : 'alt', rules }
+  }
   return null
 }
 
-function needLabel(save: Save, stationId: StationId): string {
-  const def = selectedCategoryDef(save, stationId)
-  const primary = missingCostLabels(save, def.costs)
-  if (primary.length) return primary.join('、')
-  if (def.altCosts) {
-    const alt = missingCostLabels(save, def.altCosts)
-    if (alt.length) return alt.join('、')
+export function needLabel(save: Save, stationId: StationId): string {
+  const labels = new Set<string>()
+  for (const rules of consumeRuleSets(save, stationId)) {
+    for (const label of missingCostLabels(save, rules)) labels.add(label)
   }
+  if (labels.size) return [...labels].join(' / ')
   return '原料'
+}
+
+export function stationBottleneckText(save: Save, stationId: StationId): string | null {
+  const station = save.stations[stationId]
+  if (station.stallReason === 'emptyInput') {
+    return `${needLabel(save, stationId)}见底：${STATION_DEF[stationId].label}空转`
+  }
+  if (stationId === 'mining' && isMiningNodeRecovering(station.miningNode, save.elapsedS)) {
+    const oreId = miningNodeDef(station.selectedCategory).categoryId
+    const label =
+      oreId === 'iron' ? ITEM_DEF.ironOre.label : oreId === 'mithril' ? ITEM_DEF.mithrilOre.label : ITEM_DEF.ore.label
+    return `${label}恢复中：可换其它已解锁矿`
+  }
+  if (stationId === 'hunting' && isGatherFrozen(save, stationId)) return '狩猎遇险：短暂停手'
+  return null
 }
 
 export function canConsume(save: Save, stationId: StationId): boolean {
@@ -80,16 +113,8 @@ export function collectHints(save: Save): Hint[] {
     }
     const n = assignedCount(save, id)
     if (n <= 0) continue
-    const stall = station.stallReason
-    if (stall === 'emptyInput') {
-      hints.push({ kind: 'bottleneck', text: `${needLabel(save, id)}见底：${STATION_DEF[id].label}空转` })
-    } else if (id === 'mining' && isMiningNodeRecovering(station.miningNode, save.elapsedS)) {
-      const oreId = miningNodeDef(station.selectedCategory).categoryId
-      const label = oreId === 'iron' ? ITEM_DEF.ironOre.label : oreId === 'mithril' ? ITEM_DEF.mithrilOre.label : ITEM_DEF.ore.label
-      hints.push({ kind: 'bottleneck', text: `${label}恢复中：可换其它已解锁矿` })
-    } else if (id === 'hunting' && isGatherFrozen(save, id)) {
-      hints.push({ kind: 'bottleneck', text: '狩猎遇险：短暂停手' })
-    }
+    const stallText = stationBottleneckText(save, id)
+    if (stallText) hints.push({ kind: 'bottleneck', text: stallText })
   }
   for (const pair of resonancePairs(save)) {
     hints.push({

@@ -17,7 +17,7 @@ function qty(id: ItemId): number {
   <section class="panel supplies">
     <header class="head">
       <p>物资</p>
-      <button type="button" :disabled="!canSellGoods" @click="game.sellGoods()">卖货（兵器/熟食 → 金）</button>
+      <button type="button" :disabled="!canSellGoods" @click="game.sellGoods()">卖货（工具/食物 → 金）</button>
     </header>
     <div v-for="(row, i) in SUPPLY_ROWS" :key="i" class="grid">
       <article v-for="id in row" :key="id" class="item">

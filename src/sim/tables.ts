@@ -472,6 +472,24 @@ export const HERBALISM_DROP_TABLE: HerbalismDropWeight[] = [
   { itemId: 'spice', weight: 30 },
 ]
 
+/** 炼金一次扣光其中一组：草或猎副产。产物仍是占位 `potion`。 */
+export const ALCHEMY_COST_OPTIONS: IoRule[][] = [
+  [{ itemId: 'herb', qty: 1 }],
+  [{ itemId: 'blood', qty: 1 }],
+  [{ itemId: 'tooth', qty: 1 }],
+  [{ itemId: 'eye', qty: 1 }],
+]
+
+export type AlchemyInputId = 'herb' | 'blood' | 'tooth' | 'eye'
+
+export function isAlchemyInputId(id: unknown): id is AlchemyInputId {
+  return id === 'herb' || id === 'blood' || id === 'tooth' || id === 'eye'
+}
+
+export function isPotionItemId(id: unknown): id is 'potion' {
+  return id === 'potion'
+}
+
 /** 锻造软失败率。周期走完后掷骰。 */
 export const FORGING_SOFT_FAIL_CHANCE: Record<CategoryId, number> = {
   copper: 0.1,
@@ -644,12 +662,10 @@ export const PLAYABLE_CHAINS: StationId[][] = [
   ['herbalism', 'alchemy'],
 ]
 export const PLAYABLE_STATION_IDS: StationId[] = PLAYABLE_CHAINS.flat()
+/** 七站已全部上主列。保留空表以免旧 UI 引用炸掉。 */
 export const SKELETON_STATION_IDS: StationId[] = []
-/** 卖货整批换金。旧武器仍可出清；新主产物是工具 / 熟食。 */
+/** 卖货整批换金。去武器，只收工具 / 烹饪食物。旧兵器仍可单件卖。 */
 export const SELLABLE_GOODS: ItemId[] = [
-  'weapon',
-  'ironWeapon',
-  'mithrilWeapon',
   'tool',
   'ironTool',
   'mithrilTool',

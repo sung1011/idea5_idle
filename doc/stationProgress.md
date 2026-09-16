@@ -81,7 +81,7 @@ xpToNext(L) = Math.round(100 * Math.pow(1.45, L - 1) * 0.175)  // L >= 1
 | 烹饪 | 烤肉 `iron` | 1 | 28s | `[{ meat, 1 }]` | `roast` | 1 |
 | 烹饪 | 香料炖 `mithril` | 5 | 32s | `[{ meat, 1 }, { spice, 1 }]`（或鱼+香料） | `stew` | 2 |
 | 采药 | `default` | 1 | 20s | — | 权重：草 / 香料（必出） | 1 |
-| 炼金 | `default` | 1 | 40s | `[{ herb, 1 }]` | `potion` | 1 |
+| 炼金 | `default` | 1 | 40s | `ALCHEMY_COST_OPTIONS`：草 / 血 / 牙 / 眼任一 | `potion`（效果不填） | 1 |
 
 ### 验算手感
 
@@ -111,11 +111,13 @@ speed = (1 / 当前品类 cycleS) * n * (共振 ? 1.2 : 1)
 
 采集结算（第 2 期）：挖矿每次吞吐扣 1 `nodeHp`，挖空后按 `recoverS` 冻结该矿；钓鱼按 `FISHING_DROP_TABLE` 掷骰，空杆也给 XP；采药按 `HERBALISM_DROP_TABLE` 必出货；狩猎先 `hazard` 检定，遇险掉本周期产出并短暂停手。
 
+炼金结算（第 5 期）：按 `ALCHEMY_COST_OPTIONS` 先草后猎副产扣 1，出 `potion`。`potionEffects` 为空，不能生效。缺四料则 `stallReason: emptyInput`，卡面写堵点句。
+
 ---
 
 ## 物资 / 偶遇
 
-新物品进 `ITEM_DEF`，工坊物资区可单件卖出；「卖货」整批收旧兵器 / 工具 / 熟食 / 烤肉 / 香料炖。没有容量上限，也不因「满」停产。
+新物品进 `ITEM_DEF`，工坊物资区可单件卖出；「卖货」整批只收工具 / 熟食 / 烤肉 / 香料炖。旧兵器仍可单件卖，不进整批。没有容量上限，也不因「满」停产。不做制皮。
 
 偶遇敌人新单改收食物 / 工具 / 矿。旧档武器需求仍可成交。偶遇板 6 格，每格灰绿蓝紫橙品质（探索不刷灰），高品质需求与产出更高且更赚。
 

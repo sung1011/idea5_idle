@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { formatCosts } from '../sim/costs'
+import { formatCostOptions } from '../sim/costs'
 import { gatherStatusText, isGatherFrozen } from '../sim/gather'
-import { assignedCount, currentSpeed, stationResonating } from '../sim/query'
+import { assignedCount, consumeRuleSets, currentSpeed, stationBottleneckText, stationResonating } from '../sim/query'
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
 import { STATION_DEF, TOOL_TYPE_DEF, TOOL_TYPE_IDS, xpToNextLevel } from '../sim/tables'
 import type { CategoryId, StationId, ToolTypeId } from '../sim/types'
@@ -11,7 +11,6 @@ import { useVisualProgress } from './visualProgress'
 
 const props = defineProps<{
   stationId: StationId
-  skeleton?: boolean
 }>()
 
 const game = useGameStore()
@@ -43,12 +42,9 @@ const pctLabel = computed(() => Math.round(pct.value))
 const xpNeed = computed(() => xpToNextLevel(station.value.stationLevel))
 const xpPct = computed(() => Math.min(100, Math.round((station.value.stationXp / xpNeed.value) * 100)))
 const pickOptions = computed(() => categoryPickOptions(game.save, props.stationId))
-const costText = computed(() => {
-  const main = formatCosts(cat.value.costs)
-  if (!cat.value.altCosts?.length) return main
-  return `${main}（或 ${formatCosts(cat.value.altCosts)}）`
-})
-const hasCosts = computed(() => cat.value.costs.length > 0 || (cat.value.altCosts?.length ?? 0) > 0)
+const costText = computed(() => formatCostOptions(consumeRuleSets(game.save, props.stationId)))
+const hasCosts = computed(() => costText.value !== '—')
+const stallLine = computed(() => stationBottleneckText(game.save, props.stationId))
 
 function pick(id: CategoryId) {
   game.selectCategory(props.stationId, id)
@@ -68,7 +64,7 @@ function onToolType(ev: Event) {
 </script>
 
 <template>
-  <article class="card" :class="{ skeleton, stall: !!stall, wait: frozen && !stall, hot: resonating }">
+  <article class="card" :class="{ stall: !!stall, wait: frozen && !stall, hot: resonating }">
     <header>
       <i class="sprite sprite-station" :class="stationId" aria-hidden="true" />
       <div class="titles">
@@ -88,6 +84,7 @@ function onToolType(ev: Event) {
     <p class="stat">进度 {{ pctLabel }}% · XP {{ station.stationXp }}/{{ xpNeed }} · 速度 {{ speed.toFixed(2) }}/s</p>
     <p v-if="gatherLine" class="stat gather">{{ gatherLine }}</p>
     <p v-if="station.craftNotice" class="stat gather">{{ station.craftNotice }}</p>
+    <p v-if="stallLine" class="stat jam">{{ stallLine }}</p>
     <p v-if="hasCosts" class="stat">消耗 {{ costText }}</p>
     <label v-if="stationId === 'forging'" class="cats">
       <span class="sr">工具类型</span>
@@ -120,8 +117,8 @@ function onToolType(ev: Event) {
   padding: 14px;
 }
 
-.card.skeleton {
-  opacity: 0.78;
+.jam {
+  color: var(--danger);
 }
 
 header {

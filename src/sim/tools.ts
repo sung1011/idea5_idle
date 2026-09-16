@@ -1,3 +1,4 @@
+import { potionEffectValue } from './alchemy'
 import { addToBank, bankQty, takeFromBank } from './bank'
 import { foodEffectValue } from './food'
 import { findWorker } from './recruit'
@@ -40,11 +41,12 @@ export function makeToolSlot(itemId: ToolItemId, matchStationId: StationId): Too
   }
 }
 
-/** 工具词条与食物 Buff 同 effectId 取最强；食物不看工坊匹配。 */
+/** 工具词条与食物 Buff 同 effectId 取最强；炼金解析口本阶段为 0。 */
 export function workerEffectValue(worker: Worker, stationId: StationId, effectId: EffectId, now = Date.now()): number {
   const fromTool = isToolMatched(worker.toolSlot, stationId) ? toolEffectValue(worker.toolSlot, effectId) : 0
   const fromFood = foodEffectValue(worker.foodSlot, effectId, now)
-  return Math.max(fromTool, fromFood)
+  const fromPotion = potionEffectValue(null, effectId)
+  return Math.max(fromTool, fromFood, fromPotion)
 }
 
 /** 匹配才吃常驻增效；空槽或不匹配 = 1（裸效率）。食物 Buff 始终可加成。 */
