@@ -9,7 +9,18 @@ export const GM_DIAMOND_GRANT = 10000
 export const GM_WORKER_GRANT = 5
 export const GM_MAX_STATION_LEVEL = 10
 export const GM_BASIC_ITEM_QTY = 999
-export const GM_BASIC_ITEMS: ItemId[] = ['wood', 'ore', 'ironOre', 'mithrilOre', 'fish', 'meat', 'herb']
+export const GM_BASIC_ITEMS: ItemId[] = [
+  'wood',
+  'ore',
+  'ironOre',
+  'mithrilOre',
+  'fish',
+  'meat',
+  'herb',
+  'spice',
+  'meal',
+  'roast',
+]
 
 /** 按 createSave 重开。调用方替换整份存档并写回 localStorage。 */
 export function gmResetSave(): Save {

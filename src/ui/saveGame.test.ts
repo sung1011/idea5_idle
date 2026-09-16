@@ -87,6 +87,7 @@ describe('save migration', () => {
     expect(save?.workers[1].toolSlot?.matchStationId).toBe('mining')
     expect(save?.workers[1].foodSlot?.itemId).toBe('meal')
     expect(save?.workers[1].foodSlot?.buff.mul).toBe(1.2)
+    expect(save?.workers[1].foodSlot?.qty).toBe(2)
     expect(save?.stations.hunting).toBeTruthy()
     expect(save?.stations.herbalism).toBeTruthy()
     expect(save?.stations.alchemy).toBeTruthy()

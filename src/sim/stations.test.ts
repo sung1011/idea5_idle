@@ -150,6 +150,17 @@ describe('cooking pipeline', () => {
     expect(next.stations.cooking.stallReason).toBeNull()
   })
 
+  it('consumes meat and deposits roast', () => {
+    const save = roster(1)
+    save.stations.cooking.selectedCategory = 'iron'
+    save.bank.meat = 1
+    assignWorker(save, save.workers[0].id, 'cooking')
+    const next = ticks(save, 28)
+    expect(bankQty(next, 'meat')).toBe(0)
+    expect(bankQty(next, 'roast')).toBe(1)
+    expect(next.stations.cooking.completed).toBe(1)
+  })
+
   it('idles with a hint when there is no fish', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'cooking')

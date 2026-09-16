@@ -37,7 +37,7 @@ export function forgingSoftFailChance(categoryId: CategoryId): number {
 }
 
 /** 完成一次锻造：成功出工具；软失败扣部分矿、无成品、少量 XP。不停站。 */
-export function completeForgingCycle(save: Save): boolean {
+export function completeForgingCycle(save: Save, now = Date.now()): boolean {
   const pick = pickConsume(save, 'forging')
   if (!pick) return false
   const def = selectedCategoryDef(save, 'forging')
@@ -58,7 +58,7 @@ export function completeForgingCycle(save: Save): boolean {
 
   if (!takeCosts(save, rules).ok) return false
   const extra = resonating && station.resonanceStreak % RESONANCE_BONUS_EVERY === 0
-  const bonus = cycleOutputBonus(save, 'forging', extra)
+  const bonus = cycleOutputBonus(save, 'forging', extra, now)
   for (const io of def.outputs) {
     const qty = io.qty + (io === def.outputs[0] ? bonus : 0)
     if (!addToBank(save, io.itemId, qty).ok) return false

@@ -35,6 +35,8 @@ describe('createSave seven stations', () => {
     expect(save.stations.forging.selectedToolType).toBe('pick')
     expect(save.stations.fishing.selectedCategory).toBe('copper')
     expect(save.stations.hunting.selectedCategory).toBe('copper')
+    expect(save.stations.cooking.selectedCategory).toBe('copper')
+    expect(save.stations.cooking.unlockedCategories).toEqual(['copper', 'iron'])
     const worker = spawnWorker(save)
     expect(worker.toolSlot).toBeNull()
     expect(worker.foodSlot).toBeNull()

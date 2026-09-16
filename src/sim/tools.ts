@@ -1,4 +1,5 @@
 import { addToBank, bankQty, takeFromBank } from './bank'
+import { foodEffectValue } from './food'
 import { findWorker } from './recruit'
 import {
   EFFECT_ID,
@@ -39,35 +40,47 @@ export function makeToolSlot(itemId: ToolItemId, matchStationId: StationId): Too
   }
 }
 
-/** 匹配才吃常驻增效；空槽或不匹配 = 1（裸效率）。 */
-export function workerToolSpeedMul(worker: Worker, stationId: StationId): number {
-  if (!isToolMatched(worker.toolSlot, stationId)) return 1
-  const speed = toolEffectValue(worker.toolSlot, EFFECT_ID.prodSpeed)
-  const shorten = toolEffectValue(worker.toolSlot, EFFECT_ID.cycleShorten)
+/** 工具词条与食物 Buff 同 effectId 取最强；食物不看工坊匹配。 */
+export function workerEffectValue(worker: Worker, stationId: StationId, effectId: EffectId, now = Date.now()): number {
+  const fromTool = isToolMatched(worker.toolSlot, stationId) ? toolEffectValue(worker.toolSlot, effectId) : 0
+  const fromFood = foodEffectValue(worker.foodSlot, effectId, now)
+  return Math.max(fromTool, fromFood)
+}
+
+/** 匹配才吃常驻增效；空槽或不匹配 = 1（裸效率）。食物 Buff 始终可加成。 */
+export function workerToolSpeedMul(worker: Worker, stationId: StationId, now = Date.now()): number {
+  const speed = workerEffectValue(worker, stationId, EFFECT_ID.prodSpeed, now)
+  const shorten = workerEffectValue(worker, stationId, EFFECT_ID.cycleShorten, now)
   const speedMul = speed > 0 ? speed : 1
   const cut = Math.min(0.8, Math.max(0, shorten))
   return speedMul / (1 - cut)
 }
 
-export function assignedToolWeight(save: Save, stationId: StationId): number {
+export function assignedToolWeight(save: Save, stationId: StationId, now = Date.now()): number {
   return save.workers.reduce(
-    (sum, worker) => (worker.assignment === stationId ? sum + workerToolSpeedMul(worker, stationId) : sum),
+    (sum, worker) =>
+      worker.assignment === stationId ? sum + workerToolSpeedMul(worker, stationId, now) : sum,
     0,
   )
 }
 
-export function matchingToolEffectMax(save: Save, stationId: StationId, effectId: EffectId): number {
+export function matchingToolEffectMax(
+  save: Save,
+  stationId: StationId,
+  effectId: EffectId,
+  now = Date.now(),
+): number {
   let best = 0
   for (const worker of save.workers) {
-    if (worker.assignment !== stationId || !isToolMatched(worker.toolSlot, stationId)) continue
-    const value = toolEffectValue(worker.toolSlot, effectId)
+    if (worker.assignment !== stationId) continue
+    const value = workerEffectValue(worker, stationId, effectId, now)
     if (value > best) best = value
   }
   return best
 }
 
-export function cycleOutputBonus(save: Save, stationId: StationId, resonanceExtra: boolean): number {
-  return (resonanceExtra ? 1 : 0) + Math.floor(matchingToolEffectMax(save, stationId, EFFECT_ID.extraOutput))
+export function cycleOutputBonus(save: Save, stationId: StationId, resonanceExtra: boolean, now = Date.now()): number {
+  return (resonanceExtra ? 1 : 0) + Math.floor(matchingToolEffectMax(save, stationId, EFFECT_ID.extraOutput, now))
 }
 
 export function hydrateForgedTools(raw: unknown): ForgedTool[] {

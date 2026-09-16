@@ -27,6 +27,8 @@ export type ItemId =
   | 'fish'
   | 'junk'
   | 'meal'
+  | 'roast'
+  | 'stew'
   | 'potion'
   | 'weapon'
   | 'ironWeapon'
@@ -88,9 +90,11 @@ export type ProductionBuff = {
 
 export type FoodSlot = {
   itemId: ItemId
+  /** 槽内未吃完的份数（不含当前正在生效的那一份） */
+  qty: number
   /** 同时仅 1 个生产 Buff */
   buff: ProductionBuff
-  /** 到期墙钟；到期自动从 bank 扣 1 份同 itemId 刷新 */
+  /** 到期墙钟；到期若 qty>=1 则吃 1 份刷新，否则清空 */
   expiresAt: number
   effects: EffectInstance[]
 }

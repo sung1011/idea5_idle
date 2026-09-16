@@ -45,6 +45,8 @@ export const ITEM_DEF: Record<ItemId, ItemDef> = {
   fish: { id: 'fish', label: '鱼', sellGold: 3 },
   junk: { id: 'junk', label: '杂物', sellGold: 1 },
   meal: { id: 'meal', label: '熟食', sellGold: 8 },
+  roast: { id: 'roast', label: '烤肉', sellGold: 10 },
+  stew: { id: 'stew', label: '香料炖', sellGold: 14 },
   potion: { id: 'potion', label: '药剂', sellGold: 10 },
   weapon: { id: 'weapon', label: '铜器', sellGold: 12 },
   ironWeapon: { id: 'ironWeapon', label: '铁器', sellGold: 18 },
@@ -226,7 +228,42 @@ export const STATION_DEF: Record<StationId, StationDef> = {
     label: '烹饪',
     kind: 'craft',
     neighbors: ['fishing', 'hunting'],
-    categories: singleCategory('熟食', 28, [{ itemId: 'fish', qty: 1 }], [{ itemId: 'meal', qty: 1 }]),
+    categories: [
+      {
+        id: 'copper',
+        label: '烤鱼',
+        cycleS: 28,
+        costs: [{ itemId: 'fish', qty: 1 }],
+        outputs: [{ itemId: 'meal', qty: 1 }],
+        xpPerCycle: 1,
+        unlockLevel: 1,
+      },
+      {
+        id: 'iron',
+        label: '烤肉',
+        cycleS: 28,
+        costs: [{ itemId: 'meat', qty: 1 }],
+        outputs: [{ itemId: 'roast', qty: 1 }],
+        xpPerCycle: 1,
+        unlockLevel: 1,
+      },
+      {
+        id: 'mithril',
+        label: '香料炖',
+        cycleS: 32,
+        costs: [
+          { itemId: 'meat', qty: 1 },
+          { itemId: 'spice', qty: 1 },
+        ],
+        altCosts: [
+          { itemId: 'fish', qty: 1 },
+          { itemId: 'spice', qty: 1 },
+        ],
+        outputs: [{ itemId: 'stew', qty: 1 }],
+        xpPerCycle: 2,
+        unlockLevel: 5,
+      },
+    ],
   },
   herbalism: {
     id: 'herbalism',
@@ -544,13 +581,23 @@ export function isToolItemId(id: unknown): id is ToolItemId {
   return id === 'tool' || id === 'ironTool' || id === 'mithrilTool'
 }
 
-/** 食物 → 生产 Buff。第 4 期才装槽 / 续期。 */
-export const FOOD_BUFF_DEF: Partial<Record<ItemId, ProductionBuff>> = {
+export type FoodItemId = 'meal' | 'roast' | 'stew'
+
+/** 食物 → 生产 Buff。装槽后续期 / 换食覆盖。 */
+export const FOOD_BUFF_DEF: Record<FoodItemId, ProductionBuff> = {
   meal: { effectId: EFFECT_ID.prodSpeed, mul: 1.15, durationS: 180 },
+  roast: { effectId: EFFECT_ID.extraOutput, mul: 1, durationS: 180 },
+  stew: { effectId: EFFECT_ID.prodSpeed, mul: 1.35, durationS: 240 },
+}
+
+export const FOOD_ITEM_IDS = Object.keys(FOOD_BUFF_DEF) as FoodItemId[]
+
+export function isFoodItemId(id: unknown): id is FoodItemId {
+  return id === 'meal' || id === 'roast' || id === 'stew'
 }
 
 export function foodBuffDef(itemId: ItemId): ProductionBuff | undefined {
-  return FOOD_BUFF_DEF[itemId]
+  return isFoodItemId(itemId) ? FOOD_BUFF_DEF[itemId] : undefined
 }
 
 /**
@@ -607,6 +654,8 @@ export const SELLABLE_GOODS: ItemId[] = [
   'ironTool',
   'mithrilTool',
   'meal',
+  'roast',
+  'stew',
 ]
 
 /** 当铺报价相对卖货价。略低，至少 1 金。 */
@@ -626,7 +675,7 @@ export const SUPPLY_ROWS: ItemId[][] = [
   ['ore', 'ironOre', 'mithrilOre'],
   ['tool', 'ironTool', 'mithrilTool'],
   ['weapon', 'ironWeapon', 'mithrilWeapon'],
-  ['fish', 'junk', 'meal', 'meat'],
+  ['fish', 'junk', 'meal', 'roast', 'stew', 'meat'],
   ['herb', 'spice', 'blood', 'tooth', 'eye'],
   ['wood', 'slag', 'potion', 'blueprint'],
 ]

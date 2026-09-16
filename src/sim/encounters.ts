@@ -195,6 +195,7 @@ export const BLACK_MERCHANT_DEFS: readonly BlackMerchantDef[] = [
   { id: 'merchantBuyOre', label: '矿石掮客', buyGold: 6, buyOffers: { ore: 2 } },
   { id: 'merchantBuyBlade', label: '工具贩', buyGold: 12, buyOffers: { tool: 1 } },
   { id: 'merchantBuyCook', label: '行脚厨子', buyGold: 14, buyOffers: { meal: 2 } },
+  { id: 'merchantBuyRoast', label: '烤肉贩', buyGold: 16, buyOffers: { roast: 1 } },
 ]
 
 export const SHADY_DEFS = BLACK_MERCHANT_DEFS
@@ -204,11 +205,13 @@ export const PASSERBY_DEFS: readonly PasserbyDef[] = [
   { id: 'merchantBarterOre', label: '矿换路人', wants: { fish: 3 }, offers: { ore: 2 } },
   { id: 'merchantBarterBlade', label: '工具路人', wants: { ore: 3 }, offers: { tool: 1 } },
   { id: 'merchantBarterCook', label: '干粮路人', wants: { meal: 1 }, offers: { ore: 2 } },
+  { id: 'merchantBarterStew', label: '香料炖路人', wants: { stew: 1 }, offers: { spice: 2 } },
 ]
 
 export const PAWN_DEFS: readonly PawnDef[] = [
   { id: 'merchantPawn', label: '工具当', pawnWants: { tool: 1 } },
   { id: 'merchantPawnMeal', label: '干粮当', pawnWants: { meal: 1 } },
+  { id: 'merchantPawnRoast', label: '烤肉当', pawnWants: { roast: 1 } },
   { id: 'merchantPawnWood', label: '矿料当', pawnWants: { ore: 3 } },
   { id: 'merchantPawnOre', label: '矿石当', pawnWants: { ore: 2, fish: 2 } },
 ]
@@ -218,12 +221,14 @@ export const PAWNSHOP_DEFS = PAWN_DEFS
 export const ARTISAN_DEFS: readonly ArtisanDef[] = [
   { id: 'artisanBlade', label: '修工具委托', wants: { tool: 1 }, rewardGold: 10, buffMul: 1.15, buffDurationS: 180 },
   { id: 'artisanMeal', label: '灶头加餐', wants: { meal: 2 }, rewardGold: 12, buffMul: 1.12, buffDurationS: 150 },
+  { id: 'artisanStew', label: '炖锅加餐', wants: { stew: 1 }, rewardGold: 16, buffMul: 1.16, buffDurationS: 180 },
   { id: 'artisanPotion', label: '药剂试制', wants: { potion: 1 }, rewardGold: 14, buffMul: 1.18, buffDurationS: 210 },
 ]
 
 export const BULK_BUY_DEFS: readonly BulkBuyDef[] = [
   { id: 'bulkBlade', label: '工具收购', wants: { tool: 1 } },
   { id: 'bulkMeal', label: '熟食收购', wants: { meal: 2 } },
+  { id: 'bulkRoast', label: '烤肉收购', wants: { roast: 2 } },
   { id: 'bulkPotion', label: '药剂收购', wants: { potion: 1 } },
   { id: 'bulkCooked', label: '干粮收购', wants: { meal: 1, fish: 2 } },
 ]
@@ -237,14 +242,14 @@ const LEGACY_ORDER_DEFS: ReadonlyArray<{
 }> = [
   { id: 'scoutRation', label: '斥候干粮', needs: { meal: 2, ore: 1 }, lootGold: 8 },
   { id: 'caravanGuard', label: '商队护卫', needs: { meal: 1, ore: 2, fish: 2 }, lootGold: 12 },
-  { id: 'campKitchen', label: '营地开伙', needs: { meal: 3, fish: 2 }, lootGold: 10 },
+  { id: 'campKitchen', label: '营地开伙', needs: { meal: 3, roast: 1, fish: 2 }, lootGold: 10 },
   { id: 'bladeTrial', label: '备工具出征', needs: { tool: 2, ore: 1 }, lootGold: 14 },
   { id: 'riverWatch', label: '河岸巡守', needs: { meal: 1, fish: 2, ore: 1 }, lootGold: 9 },
   { id: 'timberPost', label: '矿营补给', needs: { ore: 3, meal: 1 }, lootGold: 7 },
 ]
 
 const BASE_FOOD: EncounterNeedMap = { meal: 1 }
-const FAR_FOOD_EXTRA: EncounterNeedMap = { meal: 2, fish: 2 }
+const FAR_FOOD_EXTRA: EncounterNeedMap = { meal: 2, fish: 2, roast: 1 }
 const BASE_ARMS: EncounterNeedMap = { ore: 1 }
 const STRONG_ARMS_EXTRA: EncounterNeedMap = { ore: 2 }
 

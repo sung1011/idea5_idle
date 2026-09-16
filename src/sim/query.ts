@@ -27,7 +27,7 @@ export function stationResonating(save: Save, stationId: StationId): boolean {
 export function currentSpeed(save: Save, stationId: StationId, now = Date.now()): number {
   if (isGatherFrozen(save, stationId)) return 0
   const cat = selectedCategoryDef(save, stationId)
-  const weight = assignedToolWeight(save, stationId)
+  const weight = assignedToolWeight(save, stationId, now)
   const base = stationSpeed(weight, cat.cycleS, stationResonating(save, stationId))
   return base * workshopBuffMul(save, now)
 }

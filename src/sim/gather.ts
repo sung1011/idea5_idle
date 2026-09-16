@@ -152,8 +152,8 @@ function miningOutputItem(categoryId: CategoryId): ItemId {
   return 'ore'
 }
 
-function emitRules(save: Save, stationId: StationId, rules: IoRule[], extraMain: boolean): boolean {
-  const bonus = cycleOutputBonus(save, stationId, extraMain)
+function emitRules(save: Save, stationId: StationId, rules: IoRule[], extraMain: boolean, now: number): boolean {
+  const bonus = cycleOutputBonus(save, stationId, extraMain, now)
   for (const io of rules) {
     const added = addToBank(save, io.itemId, io.qty + (io === rules[0] ? bonus : 0))
     if (!added.ok) return false
@@ -189,21 +189,21 @@ export function applyHuntingPauseTick(save: Save): void {
 }
 
 /** 写出采集产物 / 挖空 / 遇险。调用方再记 completed 与 XP。失败则整单作废。 */
-export function applyGatherOutputs(save: Save, stationId: StationId, extra: boolean): boolean {
-  if (stationId === 'mining') return completeMiningCycle(save, extra)
-  if (stationId === 'fishing') return completeFishingCycle(save, extra)
-  if (stationId === 'herbalism') return completeHerbalismCycle(save, extra)
-  if (stationId === 'hunting') return completeHuntingCycle(save, extra)
+export function applyGatherOutputs(save: Save, stationId: StationId, extra: boolean, now = Date.now()): boolean {
+  if (stationId === 'mining') return completeMiningCycle(save, extra, now)
+  if (stationId === 'fishing') return completeFishingCycle(save, extra, now)
+  if (stationId === 'herbalism') return completeHerbalismCycle(save, extra, now)
+  if (stationId === 'hunting') return completeHuntingCycle(save, extra, now)
   return false
 }
 
-function completeMiningCycle(save: Save, extra: boolean): boolean {
+function completeMiningCycle(save: Save, extra: boolean, now: number): boolean {
   applyMiningRecovery(save)
   const station = save.stations.mining
   const node = station.miningNode
   if (!node || isMiningNodeRecovering(node, save.elapsedS)) return false
   const cat = selectedCategoryDef(save, 'mining')
-  if (!emitRules(save, 'mining', cat.outputs, extra)) return false
+  if (!emitRules(save, 'mining', cat.outputs, extra, now)) return false
   node.nodeHp = Math.max(0, node.nodeHp - 1)
   const key = asMiningCategoryId(node.categoryId)
   if (node.nodeHp <= 0) {
@@ -219,7 +219,7 @@ function completeMiningCycle(save: Save, extra: boolean): boolean {
   return true
 }
 
-function completeFishingCycle(save: Save, extra: boolean): boolean {
+function completeFishingCycle(save: Save, extra: boolean, now: number): boolean {
   const tier = categoryToFisheryTier(save.stations.fishing.selectedCategory)
   const caught = resolveFishingCatch(tier, roll01(save))
   const itemId = fishingCatchItem(caught)
@@ -227,19 +227,19 @@ function completeFishingCycle(save: Save, extra: boolean): boolean {
     save.stations.fishing.gatherNotice = '空杆'
     return true
   }
-  if (!emitRules(save, 'fishing', [{ itemId, qty: 1 }], extra)) return false
+  if (!emitRules(save, 'fishing', [{ itemId, qty: 1 }], extra, now)) return false
   save.stations.fishing.gatherNotice = itemId === 'junk' ? '钓到杂物' : `钓到${ITEM_DEF.fish.label}`
   return true
 }
 
-function completeHerbalismCycle(save: Save, extra: boolean): boolean {
+function completeHerbalismCycle(save: Save, extra: boolean, now: number): boolean {
   const itemId = resolveHerbalismDrop(roll01(save))
-  if (!emitRules(save, 'herbalism', [{ itemId, qty: 1 }], extra)) return false
+  if (!emitRules(save, 'herbalism', [{ itemId, qty: 1 }], extra, now)) return false
   save.stations.herbalism.gatherNotice = `采到${ITEM_DEF[itemId].label}`
   return true
 }
 
-function completeHuntingCycle(save: Save, extra: boolean): boolean {
+function completeHuntingCycle(save: Save, extra: boolean, now: number): boolean {
   const prey = huntingPreyByCategory(save.stations.hunting.selectedCategory)
   const hazard = resolveHazard(prey.hazardChance, roll01(save))
   if (hazard.outcome === 'hazard') {
@@ -253,7 +253,7 @@ function completeHuntingCycle(save: Save, extra: boolean): boolean {
     }
     return true
   }
-  if (!emitRules(save, 'hunting', prey.outputs, extra)) return false
+  if (!emitRules(save, 'hunting', prey.outputs, extra, now)) return false
   save.stations.hunting.gatherNotice = `安全捕获 · ${prey.label}`
   return true
 }

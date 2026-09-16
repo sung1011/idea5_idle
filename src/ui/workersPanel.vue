@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { computed, reactive } from 'vue'
 import { bankQty } from '../sim/bank'
+import { formatMarchClock } from '../sim/encounters'
+import { foodBuffRemainS, isFoodBuffActive } from '../sim/food'
 import { idleCount } from '../sim/query'
 import { isToolMatched } from '../sim/tools'
 import {
   CLASS_LABEL,
+  FOOD_ITEM_IDS,
   ITEM_DEF,
   PLAYABLE_STATION_IDS,
   RECRUIT_COST,
@@ -13,13 +16,20 @@ import {
   TOOL_TYPE_DEF,
   TOOL_TYPE_IDS,
   toolTypeByStation,
+  type FoodItemId,
 } from '../sim/tables'
 import type { StationId, ToolTypeId, Worker } from '../sim/types'
 import { useGameStore } from './gameStore'
 
 const game = useGameStore()
+const now = computed(() => {
+  void game.save.elapsedS
+  return Date.now()
+})
 const pickItem = reactive<Record<string, (typeof TOOL_ITEM_IDS)[number]>>({})
 const pickType = reactive<Record<string, ToolTypeId>>({})
+const pickFood = reactive<Record<string, FoodItemId>>({})
+const pickFoodQty = reactive<Record<string, number>>({})
 
 function atStation(w: Worker, id: StationId) {
   return w.assignment === id
@@ -53,6 +63,39 @@ function onEquip(w: Worker) {
   if (!itemId) return
   const typeId = pickType[w.id] ?? queuedType(itemId)
   game.equipTool(w.id, itemId, TOOL_TYPE_DEF[typeId].matchStationId)
+}
+
+function availableFoods() {
+  return FOOD_ITEM_IDS.filter((id) => bankQty(game.save, id) > 0)
+}
+
+function foodLine(w: Worker) {
+  const slot = w.foodSlot
+  if (!slot) return '未装食物 · 裸生产'
+  const item = ITEM_DEF[slot.itemId]
+  if (!isFoodBuffActive(slot, now.value)) {
+    return `${item.label} ×${slot.qty} · Buff 已到期`
+  }
+  const remain = formatMarchClock(foodBuffRemainS(slot, now.value))
+  if (slot.buff.effectId === 'prodSpeed') {
+    const pct = Math.round((slot.buff.mul - 1) * 100)
+    return `${item.label} ×${slot.qty} · 加速 +${pct}% · 剩余 ${remain}`
+  }
+  if (slot.buff.effectId === 'extraOutput') {
+    return `${item.label} ×${slot.qty} · 额外产 +${slot.buff.mul} · 剩余 ${remain}`
+  }
+  return `${item.label} ×${slot.qty} · 剩余 ${remain}`
+}
+
+function foodQtyMax(id: FoodItemId) {
+  return Math.max(1, bankQty(game.save, id))
+}
+
+function onLoadFood(w: Worker) {
+  const itemId = pickFood[w.id] ?? availableFoods()[0]
+  if (!itemId) return
+  const qty = Math.max(1, Math.min(foodQtyMax(itemId), Math.floor(pickFoodQty[w.id] ?? 1)))
+  game.loadFood(w.id, itemId, qty)
 }
 </script>
 
@@ -95,6 +138,35 @@ function onEquip(w: Worker) {
             <button type="button" @click="onEquip(w)">装备</button>
           </template>
           <span v-else class="hint">物资里没有工具</span>
+        </div>
+        <p class="hint">{{ foodLine(w) }}</p>
+        <div class="row tool-row">
+          <template v-if="w.foodSlot">
+            <button type="button" @click="game.unloadFood(w.id)">卸下食物</button>
+          </template>
+          <template v-if="availableFoods().length">
+            <select
+              class="tool-select"
+              :value="pickFood[w.id] ?? availableFoods()[0]"
+              @change="pickFood[w.id] = ($event.target as HTMLSelectElement).value as FoodItemId"
+            >
+              <option v-for="id in availableFoods()" :key="id" :value="id">
+                {{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}
+              </option>
+            </select>
+            <input
+              class="qty-input"
+              type="number"
+              min="1"
+              :max="foodQtyMax(pickFood[w.id] ?? availableFoods()[0])"
+              :value="pickFoodQty[w.id] ?? 1"
+              @change="pickFoodQty[w.id] = Math.max(1, Math.floor(Number(($event.target as HTMLInputElement).value) || 1))"
+            />
+            <button type="button" @click="onLoadFood(w)">
+              {{ w.foodSlot ? '换食' : '装入' }}
+            </button>
+          </template>
+          <span v-else-if="!w.foodSlot" class="hint">物资里没有食物</span>
         </div>
         <div class="row">
           <button
@@ -178,7 +250,8 @@ ul {
   align-items: center;
 }
 
-.tool-select {
+.tool-select,
+.qty-input {
   font: inherit;
   color: var(--ink);
   min-height: 36px;
@@ -188,5 +261,10 @@ ul {
   border-radius: 12px;
   background: linear-gradient(#fffbeb, var(--btn));
   box-shadow: 0 3px 0 var(--shadow);
+}
+
+.qty-input {
+  min-width: 64px;
+  width: 72px;
 }
 </style>

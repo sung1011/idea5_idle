@@ -19,9 +19,9 @@ function consumeInputs(save: Save, stationId: StationId): boolean {
   return takeCosts(save, rules).ok
 }
 
-function emitOutputs(save: Save, stationId: StationId, extra: boolean): boolean {
+function emitOutputs(save: Save, stationId: StationId, extra: boolean, now: number): boolean {
   const def = selectedCategoryDef(save, stationId)
-  const bonus = cycleOutputBonus(save, stationId, extra)
+  const bonus = cycleOutputBonus(save, stationId, extra, now)
   for (const io of def.outputs) {
     const added = addToBank(save, io.itemId, io.qty + (io === def.outputs[0] ? bonus : 0))
     if (!added.ok) return false
@@ -33,9 +33,9 @@ function emitOutputs(save: Save, stationId: StationId, extra: boolean): boolean 
 }
 
 /** 完成一次吞吐：按当前品类扣原料、写入物资，并给站 XP。共振满 streak 时额外产出。 */
-export function completeCycle(save: Save, stationId: StationId): boolean {
+export function completeCycle(save: Save, stationId: StationId, now = Date.now()): boolean {
   if (!canConsume(save, stationId)) return false
-  if (stationId === 'forging') return completeForgingCycle(save)
+  if (stationId === 'forging') return completeForgingCycle(save, now)
   if (!consumeInputs(save, stationId)) return false
   const station = save.stations[stationId]
   const resonating = stationResonating(save, stationId)
@@ -43,8 +43,8 @@ export function completeCycle(save: Save, stationId: StationId): boolean {
   else station.resonanceStreak = 0
   const extra = resonating && station.resonanceStreak % RESONANCE_BONUS_EVERY === 0
   if (isGatherStation(stationId)) {
-    if (!applyGatherOutputs(save, stationId, extra)) return false
-  } else if (!emitOutputs(save, stationId, extra)) {
+    if (!applyGatherOutputs(save, stationId, extra, now)) return false
+  } else if (!emitOutputs(save, stationId, extra, now)) {
     return false
   }
   station.completed += 1
@@ -52,7 +52,7 @@ export function completeCycle(save: Save, stationId: StationId): boolean {
   return true
 }
 
-export function stepStation(save: Save, stationId: StationId): void {
+export function stepStation(save: Save, stationId: StationId, now = Date.now()): void {
   if (stationId === 'mining') applyMiningRecovery(save)
   if (stationId === 'hunting') applyHuntingPauseTick(save)
 
@@ -72,7 +72,7 @@ export function stepStation(save: Save, stationId: StationId): void {
   }
 
   station.stallReason = null
-  const speed = currentSpeed(save, stationId)
+  const speed = currentSpeed(save, stationId, now)
   station.progress += speed
 
   while (station.progress + CYCLE_EPS >= 1) {
@@ -80,7 +80,7 @@ export function stepStation(save: Save, stationId: StationId): void {
       station.stallReason = 'emptyInput'
       break
     }
-    if (!completeCycle(save, stationId)) break
+    if (!completeCycle(save, stationId, now)) break
     station.progress -= 1
     if (Math.abs(station.progress) < CYCLE_EPS) station.progress = 0
   }

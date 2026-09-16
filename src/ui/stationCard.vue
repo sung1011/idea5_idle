@@ -28,6 +28,7 @@ const pickCaption = computed(() => {
   if (props.stationId === 'fishing') return '渔场'
   if (props.stationId === 'hunting') return '猎物'
   if (props.stationId === 'mining') return '矿脉'
+  if (props.stationId === 'cooking') return '菜谱'
   return '品类'
 })
 const visual = useVisualProgress(() => ({

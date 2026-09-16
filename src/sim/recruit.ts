@@ -1,6 +1,8 @@
 import {
   CLASS_PLACEHOLDERS,
   FOOD_BUFF_DEF,
+  foodBuffDef,
+  isFoodItemId,
   isToolItemId,
   ITEM_IDS,
   RECRUIT_COST,
@@ -98,11 +100,16 @@ function hydrateToolSlot(rawSlot: unknown, rawWorker: Record<string, unknown>): 
   return null
 }
 
+function hydrateQty(raw: unknown): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return 0
+  return Math.floor(raw)
+}
+
 function hydrateFoodSlot(rawSlot: unknown, rawWorker: Record<string, unknown>): FoodSlot | null {
   if (rawSlot && typeof rawSlot === 'object') {
-    const slot = rawSlot as Partial<FoodSlot>
+    const slot = rawSlot as Partial<FoodSlot> & { foodCount?: unknown }
     if (isItemId(slot.itemId)) {
-      const fallback = FOOD_BUFF_DEF[slot.itemId]
+      const fallback = isFoodItemId(slot.itemId) ? foodBuffDef(slot.itemId) : FOOD_BUFF_DEF.meal
       const buff = hydrateProductionBuff(slot.buff, fallback)
       if (buff) {
         const expiresAt =
@@ -110,6 +117,7 @@ function hydrateFoodSlot(rawSlot: unknown, rawWorker: Record<string, unknown>): 
         const effects = hydrateEffects(slot.effects, 'food')
         return {
           itemId: slot.itemId,
+          qty: hydrateQty(slot.qty ?? slot.foodCount ?? rawWorker.foodCount),
           buff,
           expiresAt,
           effects: effects.length
@@ -120,11 +128,12 @@ function hydrateFoodSlot(rawSlot: unknown, rawWorker: Record<string, unknown>): 
     }
   }
   if (isItemId(rawWorker.foodItemId)) {
-    const fallback = FOOD_BUFF_DEF[rawWorker.foodItemId]
+    const fallback = isFoodItemId(rawWorker.foodItemId) ? foodBuffDef(rawWorker.foodItemId) : undefined
     const buff = hydrateProductionBuff(rawWorker.prodBuff, fallback)
     if (!buff) return null
     return {
       itemId: rawWorker.foodItemId,
+      qty: hydrateQty(rawWorker.foodCount),
       buff,
       expiresAt: 0,
       effects: [{ effectId: buff.effectId, value: buff.mul, source: 'food' }],

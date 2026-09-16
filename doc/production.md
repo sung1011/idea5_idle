@@ -114,7 +114,7 @@ type HazardRoll = {
 
 配方消耗鱼 / 肉 / 香料等，产出食物。食物主去向是工人 `foodSlot`，给**生产 Buff**（加速吞吐），不是战斗补给成品（偶遇补给另见第 8 节）。
 
-沿用 `meal` 作第 1 档食物 id；后续扩档用新 `itemId`，不换皮。
+第 1 档 `meal` 烤鱼（耗鱼）；第 2 档 `roast` 烤肉（耗肉，开局可做）；第 3 档 `stew` 香料炖（肉+香料，或鱼+香料，Lv5）。不换皮。
 
 ### 2.5 采药 `herbalism`（采集）
 
@@ -230,9 +230,11 @@ type Affix = {
 
 type FoodSlot = {
   itemId: ItemId
+  /** 槽内未吃完的份数（不含当前正在生效的那一份） */
+  qty: number
   /** 同时仅 1 个生产 Buff */
   buff: ProductionBuff
-  /** 到期墙钟；到期自动从 bank 扣 1 份同 itemId 刷新 */
+  /** 到期墙钟；到期若 qty>=1 则吃 1 份刷新，否则清空 */
   expiresAt: number
   effects: EffectInstance[]
 }
@@ -253,9 +255,10 @@ type ProductionBuff = {
 
 ### 5.2 食物槽
 
-- 只装烹饪产物。
-- 同时仅 1 个生产 Buff；换食立即覆盖（旧 Buff 丢掉，按新食物重计 `expiresAt`）。
-- 到期且 `bank[itemId] >= 1`：自动扣 1 份，刷新同一 Buff；库存不够则槽清空、Buff 消失，工人继续裸效率。
+- 只装烹饪产物。UI 选食物与数量，从 `bank` 扣进槽。
+- 同时仅 1 个生产 Buff；换食立即覆盖（未吃完的旧食退回 `bank`，按新食物重计 `expiresAt`）。
+- 装入时立刻吃 1 份开 Buff，`qty` 是槽内剩余份数。到期若 `qty >= 1`：再吃 1 份刷新同一 Buff；否则槽清空、Buff 消失，工人继续裸效率。
+- 同种食物再装是加 `qty`，不重计当前 Buff。
 
 ### 5.3 特效叠加
 
@@ -317,7 +320,7 @@ type ProductionBuff = {
 | 渔 | `fish` `junk` |
 | 猎 | `meat` `blood` `tooth` `eye` |
 | 药 | `herb` `spice` |
-| 食 | `meal`（第 1 档） |
+| 食 | `meal` `roast` `stew` |
 | 工具 | `tool` `ironTool` `mithrilTool` |
 | 炼金占位 | `potion` |
 | 搁置武器 | `weapon` `ironWeapon` `mithrilWeapon` |
@@ -332,7 +335,7 @@ type ProductionBuff = {
 | 锻造队列 | `forgedTools` `selectedToolType` `craftNotice` |
 | 词条 | `affixes[]` `affixId` |
 | 特效 | `effectId` `value` `source`；`prodSpeed` `extraOutput` `cycleShorten` |
-| 食物 Buff | `buff` `expiresAt` `durationS` `mul` |
+| 食物 Buff | `buff` `expiresAt` `durationS` `mul` `qty` |
 | 停产 | 只留 `emptyInput`；无满仓 |
 
 ---
@@ -347,7 +350,7 @@ type ProductionBuff = {
 | 狩猎遇险检定（停手 / 减产 / 可耗熟食） | — |
 | 采药无限稳采，必出草 / 香料 | — |
 | 锻造出工具；软失败掷骰；工具槽匹配才加速 | — |
-| 烹饪仍只耗鱼出 `meal` | `meal` 进 `foodSlot` 给生产 Buff |
-| Worker `toolSlot` 可装卸；`foodSlot` 仍空 | 续期 / 取最强（第 4 期） |
-| 炼金耗草出 `potion` 占位 | 效果解析 |
-| 偶遇新单改食物 / 工具 / 矿 | 随工具产量再调货单 |
+| 烹饪烤鱼 / 烤肉 / 香料炖；`foodSlot` 续期 / 换食覆盖 | — |
+| 工具词条与食物 Buff 同 `effectId` 取最强 | — |
+| 炼金耗草出 `potion` 占位 | 效果解析（第 5 期） |
+| 偶遇货单含烤肉 / 香料炖 | 炼金效果后再调 |

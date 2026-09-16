@@ -49,6 +49,8 @@ describe('production phase-1 tables', () => {
       'mithrilTool',
     ])
     expect(STATION_DEF.alchemy.categories[0].costs).toEqual([{ itemId: 'herb', qty: 1 }])
+    expect(STATION_DEF.cooking.categories.map((c) => c.outputs[0].itemId)).toEqual(['meal', 'roast', 'stew'])
+    expect(STATION_DEF.cooking.categories[1].costs).toEqual([{ itemId: 'meat', qty: 1 }])
   })
 
   it('keeps placeholder tables for later phases', () => {
@@ -66,7 +68,9 @@ describe('production phase-1 tables', () => {
     )
     expect(TOOL_TYPE_DEF.pot.matchStationId).toBe('cooking')
     expect(TOOL_TYPE_DEF.rack.matchStationId).toBe('alchemy')
-    expect(FOOD_BUFF_DEF.meal?.effectId).toBe('prodSpeed')
+    expect(FOOD_BUFF_DEF.meal.effectId).toBe('prodSpeed')
+    expect(FOOD_BUFF_DEF.roast.effectId).toBe('extraOutput')
+    expect(FOOD_BUFF_DEF.stew.mul).toBeGreaterThan(FOOD_BUFF_DEF.meal.mul)
   })
 
   it('exposes fishing grounds, hunting prey and alchemy-facing herbal drops', () => {

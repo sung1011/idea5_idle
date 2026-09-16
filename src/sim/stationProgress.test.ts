@@ -46,7 +46,7 @@ describe('station XP curve', () => {
     expect(STATION_DEF.mining.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
     expect(STATION_DEF.forging.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
     expect(STATION_DEF.fishing.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
-    expect(STATION_DEF.cooking.categories[0].xpPerCycle).toBe(1)
+    expect(STATION_DEF.cooking.categories.map((c) => c.xpPerCycle)).toEqual([1, 1, 2])
     expect(STATION_DEF.hunting.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
     expect(STATION_DEF.herbalism.categories[0].xpPerCycle).toBe(1)
     expect(STATION_DEF.alchemy.categories[0].xpPerCycle).toBe(1)
@@ -138,6 +138,20 @@ describe('categoryPickOptions', () => {
     expect(categoryPickOptions(save, 'herbalism')).toEqual([
       { id: 'default', label: '草', unlocked: true, unlockLevel: 1 },
     ])
+  })
+
+  it('lists cooking recipes: roast unlocked at start, stew locked until Lv5', () => {
+    const save = createSave()
+    const lv1 = categoryPickOptions(save, 'cooking')
+    expect(lv1.map((c) => c.label)).toEqual(['烤鱼', '烤肉', '香料炖'])
+    expect(lv1.filter((c) => c.unlocked).map((c) => c.id)).toEqual(['copper', 'iron'])
+    expect(lv1.find((c) => c.id === 'mithril')?.unlocked).toBe(false)
+
+    const station = save.stations.cooking
+    while (station.stationLevel < 5) {
+      grantStationXp(save, 'cooking', xpToNextLevel(station.stationLevel))
+    }
+    expect(categoryPickOptions(save, 'cooking').every((c) => c.unlocked)).toBe(true)
   })
 
   it('lists fishing grounds and hunting prey like mining categories', () => {
