@@ -107,11 +107,14 @@ function marchLabel(enc: EnemyEncounter) {
       <article v-for="(enc, i) in game.save.encounters" :key="enc.id" class="card">
         <template v-if="enc.kind === 'enemy'">
           <header>
-            <span class="kind">敌人</span>
-            <span class="tags">
-              <i>{{ DISTANCE_LABEL[enc.distance] }}</i>
-              <i>{{ POWER_LABEL[enc.power] }}</i>
-            </span>
+            <i class="sprite sprite-encounter enemy" aria-hidden="true" />
+            <div class="titles">
+              <span class="kind">敌人</span>
+              <span class="tags">
+                <i>{{ DISTANCE_LABEL[enc.distance] }}</i>
+                <i>{{ POWER_LABEL[enc.power] }}</i>
+              </span>
+            </div>
           </header>
           <p class="label">{{ enc.label }} · 战利品 {{ enc.lootGold }} 金</p>
           <ul>
@@ -147,7 +150,10 @@ function marchLabel(enc: EnemyEncounter) {
 
         <template v-else-if="isMerchantKind(enc.kind)">
           <header>
-            <span class="kind">{{ merchantTitle(enc.kind) }}</span>
+            <i class="sprite sprite-encounter" :class="enc.kind" aria-hidden="true" />
+            <div class="titles">
+              <span class="kind">{{ merchantTitle(enc.kind) }}</span>
+            </div>
           </header>
           <p class="label">{{ enc.label }}</p>
 
@@ -244,8 +250,16 @@ function marchLabel(enc: EnemyEncounter) {
 .card header {
   display: flex;
   align-items: center;
+  gap: 10px;
+}
+
+.titles {
+  display: flex;
+  flex: 1;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-width: 0;
 }
 
 .kind {

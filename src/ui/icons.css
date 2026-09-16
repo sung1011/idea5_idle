@@ -1,0 +1,108 @@
+/* Sprite 切图：512×288 webp，用 background-position 取格。 */
+
+.sprite {
+  display: inline-block;
+  flex: 0 0 auto;
+  background-repeat: no-repeat;
+  vertical-align: middle;
+}
+
+/* 金币 / 钻石 / 工人 · 1×3 */
+.sprite-res {
+  width: 32px;
+  height: 32px;
+  background-image: url('../assets/icons/resources.webp');
+  background-size: 300% auto;
+}
+
+.sprite-res.gold {
+  background-position: 0% 50%;
+}
+
+.sprite-res.diamonds {
+  background-position: 50% 50%;
+}
+
+.sprite-res.workers {
+  background-position: 100% 50%;
+}
+
+/* 车间 / 银行 / 工人 / 偶遇 · 2×2 */
+.sprite-tab {
+  width: 28px;
+  height: 28px;
+  background-image: url('../assets/icons/tabs.webp');
+  background-size: 200% 200%;
+}
+
+.sprite-tab.workshop {
+  background-position: 0% 0%;
+}
+
+.sprite-tab.bank {
+  background-position: 100% 0%;
+}
+
+.sprite-tab.workers {
+  background-position: 0% 100%;
+}
+
+.sprite-tab.encounters {
+  background-position: 100% 100%;
+}
+
+/* 采矿 锻造 钓鱼 / 烹饪 伐木 炼金 · 2×3 */
+.sprite-station {
+  width: 72px;
+  height: 60px;
+  background-image: url('../assets/icons/stations.webp');
+  background-size: 300% 200%;
+}
+
+.sprite-station.mining {
+  background-position: 0% 0%;
+}
+
+.sprite-station.forging {
+  background-position: 50% 0%;
+}
+
+.sprite-station.fishing {
+  background-position: 100% 0%;
+}
+
+.sprite-station.cooking {
+  background-position: 0% 100%;
+}
+
+.sprite-station.woodcutting {
+  background-position: 50% 100%;
+}
+
+.sprite-station.alchemy {
+  background-position: 100% 100%;
+}
+
+/* 敌人 / 黑心商人 / 路人 / 当铺 · 1×4 */
+.sprite-encounter {
+  width: 56px;
+  height: 80px;
+  background-image: url('../assets/icons/encounters.webp');
+  background-size: 400% auto;
+}
+
+.sprite-encounter.enemy {
+  background-position: 0% 50%;
+}
+
+.sprite-encounter.shady {
+  background-position: 33.333% 50%;
+}
+
+.sprite-encounter.passerby {
+  background-position: 66.667% 50%;
+}
+
+.sprite-encounter.pawnshop {
+  background-position: 100% 50%;
+}

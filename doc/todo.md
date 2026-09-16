@@ -14,7 +14,7 @@
 
 - [x] Vite + Vue 3 + TypeScript + Pinia + Vitest
 - [x] 目录：`src/sim/`、`src/ui/`
-- [x] Save = `{ gold, bank, workers, stations, lastTick, ... }`
+- [x] Save = `{ gold, diamonds, bank, workers, stations, lastTick, ... }`（钻石高级代币占位，默认 0）
 - [x] Worker = `{ id, name?, classId?, assignment: stationId | null }`
 - [x] 银行缓冲加减 + 容量
 - [x] 表驱动抽工人
@@ -53,6 +53,7 @@
 - [x] 单测：XP 升级、Lv5 解锁、未解锁不可选、堆人加速当前品类、锻造耗对应矿
 - [x] 主界面页签：车间 / 银行 / 工人 / 偶遇；顶栏只留摘要与离线，停产红框、卡片标共振
 - [x] UI 主题 R3 Q 版背包：羊皮纸浅底、金框卡片、厚描边页签/按钮
+- [x] 资源条金币 / 钻石 / 工人；钻石高级代币占位；webp sprite 页签 / 站点 / 偶遇
 - [x] 工人页：每人站点按钮 + 休息，当前站选中禁用，不写「正在采矿 / 空闲」
 - [x] 银行每物品 `数量/cap` 进度条：≥80% 警告，100% 满仓
 - [x] 各物品缓冲 cap 相对初版表 ×10（进度条分母与堆满阈值同步）

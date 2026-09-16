@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { idleCount } from '../sim/query'
 import { formatClock, gameDay, timeOfDayS } from '../sim/tables'
 import { useGameStore } from './gameStore'
 import BankPanel from './bankPanel.vue'
@@ -24,7 +23,6 @@ const tab = ref<TabId>('workshop')
 const day = computed(() => gameDay(game.save.elapsedS))
 const clock = computed(() => formatClock(game.save.elapsedS))
 const today = computed(() => formatClock(timeOfDayS(game.save.elapsedS)))
-const idle = computed(() => idleCount(game.save))
 
 onMounted(() => {
   game.startClock()
@@ -47,12 +45,25 @@ onUnmounted(() => {
     <section class="panel top">
       <p>游戏日 {{ day }} · 今日 {{ today }}</p>
       <p class="clock">已运行 {{ clock }}</p>
-      <p>金币 {{ game.save.gold }} · 工人 {{ game.save.workers.length }} · 空闲 {{ idle }}</p>
+      <div class="resources" aria-label="资源">
+        <div class="chip">
+          <i class="sprite sprite-res gold" aria-hidden="true" />
+          <span>{{ game.save.gold }}</span>
+        </div>
+        <div class="chip">
+          <i class="sprite sprite-res diamonds" aria-hidden="true" />
+          <span>{{ game.save.diamonds }}</span>
+        </div>
+        <div class="chip">
+          <i class="sprite sprite-res workers" aria-hidden="true" />
+          <span>{{ game.save.workers.length }}</span>
+        </div>
+      </div>
     </section>
 
     <p v-if="game.notice" class="notice" :class="game.noticeKind">{{ game.notice }}</p>
     <p class="hint">
-      抽工人，把人堆到同一站加速当前品类。采矿 / 锻造可升等级解锁铁矿、铁器等。钓鱼出鱼、烹饪出熟食；伐木出木头可卖。偶遇敌人货够则一键出发行军，到期只领金币。黑心商人只买、路人只换货、当铺只典当。探索重抽可刷新格。停产看站点红框，共振标在对应卡片上。工人页看按钮选中态就知道人在哪。
+      抽工人，把人堆到同一站加速当前品类。采矿 / 锻造可升等级解锁铁矿、铁器等。钓鱼出鱼、烹饪出熟食；伐木出木头可卖。偶遇敌人货够则一键出发行军，到期只领金币。黑心商人只买、路人只换货、当铺只典当。探索重抽可刷新格。停产看站点红框，共振标在对应卡片上。工人页看按钮选中态就知道人在哪。钻石是高级代币占位，本轮没有获得途径。
     </p>
 
     <nav class="tabs" role="tablist" aria-label="主界面页签">
@@ -65,6 +76,7 @@ onUnmounted(() => {
         :class="{ on: tab === t.id }"
         @click="tab = t.id"
       >
+        <i class="sprite sprite-tab" :class="t.id" aria-hidden="true" />
         {{ t.label }}
       </button>
     </nav>
@@ -130,6 +142,12 @@ h1 {
   color: var(--copper);
 }
 
+.resources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .tabs {
   display: flex;
   flex-wrap: wrap;
@@ -142,6 +160,10 @@ h1 {
 }
 
 .tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   flex: 1 1 72px;
   min-width: 64px;
   min-height: 40px;

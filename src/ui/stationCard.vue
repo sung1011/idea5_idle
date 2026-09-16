@@ -43,8 +43,14 @@ function pick(id: CategoryId) {
 <template>
   <article class="card" :class="{ skeleton, stall: !!stall, hot: resonating }">
     <header>
-      <h2>{{ def.label }} · Lv{{ station.stationLevel }}</h2>
-      <p class="meta">{{ count }} 人 · {{ cat.label }} {{ cat.cycleS }}s/次</p>
+      <i class="sprite sprite-station" :class="stationId" aria-hidden="true" />
+      <div class="titles">
+        <h2>
+          {{ def.label }} · Lv{{ station.stationLevel }}
+          <em v-if="resonating" class="reso">共振</em>
+        </h2>
+        <p class="meta">{{ count }} 人 · {{ cat.label }} {{ cat.cycleS }}s/次</p>
+      </div>
     </header>
     <div class="bar" :aria-valuenow="pct">
       <i :style="{ width: pct + '%' }" />
@@ -52,10 +58,7 @@ function pick(id: CategoryId) {
     <div class="bar xp" :aria-valuenow="xpPct">
       <i :style="{ width: xpPct + '%' }" />
     </div>
-    <p class="stat">
-      进度 {{ pct }}% · XP {{ station.stationXp }}/{{ xpNeed }} · 速度 {{ speed.toFixed(2) }}/s
-      <span v-if="resonating"> · 共振</span>
-    </p>
+    <p class="stat">进度 {{ pct }}% · XP {{ station.stationXp }}/{{ xpNeed }} · 速度 {{ speed.toFixed(2) }}/s</p>
     <p v-if="hasCosts" class="stat">消耗 {{ costText }}</p>
     <div v-if="categories.length > 1" class="cats">
       <button
@@ -92,9 +95,15 @@ function pick(id: CategoryId) {
 
 header {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  align-items: baseline;
+  align-items: center;
+  gap: 10px;
+}
+
+.titles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
 h2,

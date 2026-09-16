@@ -1,13 +1,20 @@
 import { generateEncounterBoard } from './encounters'
 import { hydrateStations } from './stationProgress'
-import { START_GOLD } from './tables'
+import { START_DIAMONDS, START_GOLD } from './tables'
 import type { Save } from './types'
 
 export { blankStation } from './stationProgress'
 
+/** 旧档缺字段或脏值时钉回 0。 */
+export function normalizeDiamonds(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return START_DIAMONDS
+  return Math.floor(value)
+}
+
 export function createSave(): Save {
   return {
     gold: START_GOLD,
+    diamonds: START_DIAMONDS,
     bank: {},
     workers: [],
     stations: hydrateStations(),

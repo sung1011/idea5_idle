@@ -1,4 +1,4 @@
-import { createSave } from '../sim/createSave'
+import { createSave, normalizeDiamonds } from '../sim/createSave'
 import { hydrateEncounterFields } from '../sim/encounters'
 import { hydrateStations } from '../sim/stationProgress'
 import type { Save } from '../sim/types'
@@ -37,6 +37,7 @@ export function loadSave(): Save | null {
       bank: parsed.bank ?? {},
       workers: parsed.workers ?? [],
       stations: hydrateStations(parsed.stations),
+      diamonds: normalizeDiamonds((parsed as { diamonds?: unknown }).diamonds),
     }
     if (!Array.isArray(parsedEncounters)) merged.encounters = []
     return hydrateEncounterFields(merged)

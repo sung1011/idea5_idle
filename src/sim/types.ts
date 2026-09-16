@@ -53,6 +53,8 @@ export type StationState = {
 export type Save = {
   /** 抽人 / 探索 / 黑心商人购买扣金；卖货 / 当铺典当 / 敌人战利品加金。不接战斗。 */
   gold: number
+  /** 高级代币占位。默认 0，本轮没有获得途径。 */
+  diamonds: number
   bank: Partial<Record<ItemId, number>>
   workers: Worker[]
   stations: Record<StationId, StationState>

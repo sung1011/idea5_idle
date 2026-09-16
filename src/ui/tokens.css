@@ -1,24 +1,24 @@
 :root {
-  --paper: #fff6e8;
-  --paper-deep: #f6e4c4;
-  --ink: #5c3a1a;
-  --muted: #8a6840;
-  --gold: #e0b44a;
-  --gold-deep: #c48a22;
+  --paper: #fff8ee;
+  --paper-deep: #ffe9c4;
+  --ink: #6a4218;
+  --muted: #9a7048;
+  --gold: #e8c35a;
+  --gold-deep: #d4a017;
   --copper: #c48a22;
-  --ember: #e8b23a;
-  --moss: #6fcf4a;
+  --ember: #f0c14a;
+  --moss: #7ad64e;
   --moss-deep: #3e9a2a;
   --danger: #e24a3a;
-  --plate: #fffbf2;
-  --slot: #fff1d0;
-  --seam: #d4a43a;
-  --iron: #fff6e8;
-  --iron-deep: #f3d9a8;
-  --btn: #fff4d2;
-  --btn-on: #e8e0d0;
-  --shadow: #c48a22;
-  --bar-track: #f3e0b8;
+  --plate: #fffdf8;
+  --slot: #fff6dc;
+  --seam: #e0b44a;
+  --iron: #fff8ee;
+  --iron-deep: #f8e2b4;
+  --btn: #fff7d8;
+  --btn-on: #efe4c8;
+  --shadow: #d4a017;
+  --bar-track: #f6e6bc;
   --font-display: 'Songti SC', 'Noto Serif SC', serif;
   --font-body: 'PingFang SC', 'Noto Sans SC', sans-serif;
   --font-mono: ui-monospace, 'SFMono-Regular', monospace;
@@ -39,7 +39,19 @@ body,
 
 body {
   background:
-    radial-gradient(ellipse at 50% -10%, #ffe9b8 0%, transparent 52%),
+    radial-gradient(ellipse at 50% -8%, #fff1c4 0%, transparent 50%),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 55px,
+      rgba(212, 160, 23, 0.06) 56px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 55px,
+      rgba(212, 160, 23, 0.05) 56px
+    ),
     var(--paper);
   color: var(--ink);
   font-family: var(--font-body);
@@ -54,7 +66,7 @@ button {
   min-height: 36px;
   border: 3px solid var(--gold-deep);
   border-radius: 12px;
-  background: linear-gradient(#fff8e4, var(--btn));
+  background: linear-gradient(#fffbeb, var(--btn));
   box-shadow: 0 3px 0 var(--shadow);
 }
 
@@ -71,7 +83,7 @@ button.on,
 button.on:disabled {
   color: var(--muted);
   background: var(--btn-on);
-  box-shadow: inset 0 2px 0 #c8b89a;
+  box-shadow: inset 0 2px 0 #d4c4a0;
   opacity: 0.78;
   filter: grayscale(0.28);
 }
@@ -127,4 +139,32 @@ button.on:disabled {
 
 .item.full .bar i {
   background: var(--danger);
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 12px 4px 6px;
+  border: 3px solid var(--gold);
+  border-radius: 999px;
+  background: linear-gradient(#fffef8, #fff3d4);
+  box-shadow: 0 2px 0 var(--gold-deep), inset 0 0 0 2px #fff8e0;
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.reso {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border: 2px solid var(--gold-deep);
+  border-radius: 999px;
+  background: linear-gradient(#ffe27a, #f0b83a);
+  color: var(--ink);
+  font-size: 12px;
+  font-style: normal;
+  letter-spacing: 0.08em;
+  vertical-align: middle;
 }
