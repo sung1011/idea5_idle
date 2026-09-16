@@ -3,9 +3,9 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { formatClock, gameDay, timeOfDayS } from '../sim/tables'
 import { useGameStore } from './gameStore'
 import BankPanel from './bankPanel.vue'
-import OfflineBanner from './offlineBanner.vue'
 import EncounterPanel from './encounterPanel.vue'
 import GmPanel from './gmPanel.vue'
+import MessagePanel from './messagePanel.vue'
 import WorkersPanel from './workersPanel.vue'
 import WorkshopPanel from './workshopPanel.vue'
 
@@ -21,6 +21,7 @@ type TabId = (typeof TABS)[number]['id']
 const game = useGameStore()
 const tab = ref<TabId>('workshop')
 const gmOpen = ref(false)
+const mailOpen = ref(false)
 
 const day = computed(() => gameDay(game.save.elapsedS))
 const clock = computed(() => formatClock(game.save.elapsedS))
@@ -42,10 +43,26 @@ onUnmounted(() => {
         <p class="shift">第一期 · 纯生活流水线 · 偶遇一键出发</p>
         <h1>车间闲置</h1>
       </div>
-      <button type="button" class="gm-open" @click="gmOpen = true">GM</button>
+      <div class="mast-actions">
+        <button
+          type="button"
+          class="mail-open"
+          :class="{ unread: game.unread }"
+          aria-label="消息"
+          @click="mailOpen = true"
+        >
+          <svg class="envelope" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5v-11Zm1.7.5 6.7 4.3c.37.24.83.24 1.2 0L19.3 7H4.7Zm14.8 1.3-6.4 4.1a2.7 2.7 0 0 1-2.8 0L4.5 8.8V17h15V8.8Z"
+            />
+          </svg>
+          消息
+          <i v-if="game.unread" class="dot" />
+        </button>
+        <button type="button" class="gm-open" @click="gmOpen = true">GM</button>
+      </div>
     </header>
-
-    <OfflineBanner />
 
     <section class="panel top">
       <p>游戏日 {{ day }} · 今日 {{ today }}</p>
@@ -92,6 +109,7 @@ onUnmounted(() => {
     <EncounterPanel v-else />
 
     <p class="hint">存档键 idea5Idle。</p>
+    <MessagePanel v-if="mailOpen" @close="mailOpen = false" />
     <GmPanel v-if="gmOpen" @close="gmOpen = false" />
   </div>
 </template>
@@ -118,6 +136,37 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.mast-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mail-open {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 10px;
+}
+
+.envelope {
+  width: 18px;
+  height: 18px;
+}
+
+.dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 2px var(--plate);
 }
 
 .gm-open {

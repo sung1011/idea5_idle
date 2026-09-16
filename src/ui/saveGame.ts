@@ -1,5 +1,6 @@
 import { createSave, normalizeDiamonds } from '../sim/createSave'
 import { hydrateEncounterFields } from '../sim/encounters'
+import { hydrateMessages } from '../sim/messages'
 import { hydrateStations } from '../sim/stationProgress'
 import type { Save } from '../sim/types'
 
@@ -31,6 +32,10 @@ export function loadSave(): Save | null {
     if (!looksLikeSave(parsed)) return null
     const blank = createSave()
     const parsedEncounters = (parsed as { encounters?: unknown }).encounters
+    const mail = hydrateMessages(
+      (parsed as { messages?: unknown }).messages,
+      (parsed as { nextMessageId?: unknown }).nextMessageId,
+    )
     const merged: Save = {
       ...blank,
       ...parsed,
@@ -38,6 +43,8 @@ export function loadSave(): Save | null {
       workers: parsed.workers ?? [],
       stations: hydrateStations(parsed.stations),
       diamonds: normalizeDiamonds((parsed as { diamonds?: unknown }).diamonds),
+      messages: mail.messages,
+      nextMessageId: mail.nextMessageId,
     }
     if (!Array.isArray(parsedEncounters)) merged.encounters = []
     return hydrateEncounterFields(merged)

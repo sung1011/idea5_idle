@@ -1,5 +1,6 @@
 import { bankQty } from './bank'
 import { cloneSave } from './clone'
+import { pushMessage } from './messages'
 import { ITEM_DEF, ITEM_IDS, OFFLINE_CAP_S, STATION_DEF, STATION_IDS } from './tables'
 import { applyTick } from './tick'
 import type { ItemId, Save, StallReason, StationId } from './types'
@@ -146,7 +147,24 @@ export function buildOfflineSummary(before: Save, after: Save, seconds: number, 
   return { ...draft, lines: buildLines(draft) }
 }
 
-/** 按离线秒数连跑 applyTick，上限 8 小时；摘要含各站吞吐、银行增减、金币变化。 */
+export function offlineSummaryHasChange(summary: OfflineSummary): boolean {
+  return (
+    summary.goldDelta !== 0 ||
+    summary.bank.length > 0 ||
+    summary.stations.some((st) => st.completed > 0)
+  )
+}
+
+export function pushOfflineMessage(save: Save, summary: OfflineSummary, now = Date.now()) {
+  if (summary.seconds <= 0 || !offlineSummaryHasChange(summary)) return null
+  return pushMessage(save, {
+    title: '离线收益',
+    body: summary.lines.join('\n'),
+    createdAt: now,
+  })
+}
+
+/** 按离线秒数连跑 applyTick，上限 8 小时；有变化则写入消息箱，不弹顶栏。 */
 export function settleOffline(save: Save, now = Date.now()): OfflineResult {
   const raw = rawOfflineSeconds(save.lastTick, now)
   const seconds = Math.min(OFFLINE_CAP_S, raw)
@@ -157,5 +175,7 @@ export function settleOffline(save: Save, now = Date.now()): OfflineResult {
   const next = cloneSave(save)
   for (let i = 0; i < seconds; i++) applyTick(next, { now })
   next.lastTick = now
-  return { save: next, summary: buildOfflineSummary(before, next, seconds, capped) }
+  const summary = buildOfflineSummary(before, next, seconds, capped)
+  pushOfflineMessage(next, summary, now)
+  return { save: next, summary }
 }

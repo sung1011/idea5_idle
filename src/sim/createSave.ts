@@ -25,5 +25,7 @@ export function createSave(): Save {
     exploreCount: 0,
     departCount: 0,
     lastDepartAt: null,
+    messages: [],
+    nextMessageId: 1,
   }
 }

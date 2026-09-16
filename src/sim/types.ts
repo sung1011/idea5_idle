@@ -50,6 +50,14 @@ export type StationState = {
   progressNotice: string | null
 }
 
+export type GameMessage = {
+  id: string
+  createdAt: number
+  title: string
+  body: string
+  read: boolean
+}
+
 export type Save = {
   /** 抽人 / 探索 / 黑心商人购买扣金；卖货 / 当铺典当 / 敌人战利品加金。不接战斗。 */
   gold: number
@@ -67,6 +75,9 @@ export type Save = {
   exploreCount: number
   departCount: number
   lastDepartAt: number | null
+  /** 消息箱。离线收益等写入这里，不再强弹顶栏。 */
+  messages: GameMessage[]
+  nextMessageId: number
 }
 
 export type MerchantKind = 'shady' | 'passerby' | 'pawnshop'

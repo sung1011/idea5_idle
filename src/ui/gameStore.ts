@@ -11,7 +11,8 @@ import {
   gmMaxStations,
   gmResetSave,
 } from '../sim/gm'
-import { settleOffline, type OfflineSummary } from '../sim/offline'
+import { hasUnread, listedMessages, markAllRead } from '../sim/messages'
+import { settleOffline } from '../sim/offline'
 import { recruitWorker } from '../sim/recruit'
 import { selectStationCategory } from '../sim/stationProgress'
 import { sellAllGoods, sellFromBank } from '../sim/bank'
@@ -32,8 +33,8 @@ export const useGameStore = defineStore('game', () => {
   const save = shallowRef<Save>(createSave())
   const notice = ref('')
   const noticeKind = ref<'ok' | 'err'>('err')
-  const offlineSummary = ref<OfflineSummary | null>(null)
-  const offlineSeconds = computed(() => offlineSummary.value?.seconds ?? 0)
+  const unread = computed(() => hasUnread(save.value))
+  const inbox = computed(() => listedMessages(save.value))
   let timer = 0
   let booted = false
 
@@ -59,17 +60,12 @@ export const useGameStore = defineStore('game', () => {
   function applyCatchUp(from: Save) {
     const result = settleOffline(from)
     save.value = result.save
-    if (result.summary.seconds > 0) offlineSummary.value = result.summary
     persist()
     return result
   }
 
   function catchUp() {
     applyCatchUp(save.value)
-  }
-
-  function dismissOffline() {
-    offlineSummary.value = null
   }
 
   function onVis() {
@@ -126,11 +122,10 @@ export const useGameStore = defineStore('game', () => {
     save,
     notice,
     noticeKind,
-    offlineSummary,
-    offlineSeconds,
+    unread,
+    inbox,
     startClock,
     stopClock,
-    dismissOffline,
     recruit: () => apply(recruitWorker),
     assignIdle: (stationId: StationId) => apply((s) => assignIdleWorker(s, stationId)),
     withdraw: (stationId: StationId) => apply((s) => withdrawWorker(s, stationId)),
@@ -149,7 +144,6 @@ export const useGameStore = defineStore('game', () => {
       clearSave()
       save.value = gmResetSave()
       persist()
-      offlineSummary.value = null
       notice.value = '已初始化'
       noticeKind.value = 'ok'
     },
@@ -158,5 +152,6 @@ export const useGameStore = defineStore('game', () => {
     gmAddWorkers: () => apply(gmAddWorkers),
     gmMaxStations: () => apply(gmMaxStations),
     gmFillBankBasics: () => apply(gmFillBankBasics),
+    markAllRead: () => apply(markAllRead),
   }
 })
