@@ -6,6 +6,12 @@
 
 玩法与字段见 [doc/main.md](doc/main.md)，分阶段见 [doc/todo.md](doc/todo.md)。
 
+## 在线预览（GitHub Pages）
+
+地址：https://sung1011.github.io/idea5_idle/
+
+推到 `main` 后，GitHub Actions 会自动构建并发布。
+
 ## 安装
 
 ```bash
@@ -20,7 +26,7 @@ npm run build
 npm test
 ```
 
-开发页默认 http://localhost:5173 。存档写在 `localStorage`，键名 **`idea5Idle`**。
+开发页默认 http://localhost:5173/idea5_idle/ 。存档写在 `localStorage`，键名 **`idea5Idle`**。
 
 测试也可以直接：
 

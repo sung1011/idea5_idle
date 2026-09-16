@@ -2,7 +2,7 @@
 
 纯前端挂机。定位：**抽工人、排流水线、同站堆人加速**。第一期纯生活；「出发」只做订单门闩，真战斗后做。
 
-工程对齐同作者 idea3_hospital：Vue3 + TypeScript + Vite + Pinia + Vitest，`src/sim` 纯逻辑，`src/ui` 薄门面，在线与离线都走同一个 `applyTick`。不复制医院的房间 / 污染 / 病人。
+工程对齐同作者 idea3_hospital：Vue3 + TypeScript + Vite + Pinia + Vitest，`src/sim` 纯逻辑，`src/ui` 薄门面，在线与离线都走同一个 `applyTick`。不复制医院的房间 / 污染 / 病人。GitHub Pages 为 project site，Vite `base` 为 `/idea5_idle/`，在线地址 https://sung1011.github.io/idea5_idle/ ，推 `main` 即部署。
 
 另见：[分阶段落地](todo.md)
 
