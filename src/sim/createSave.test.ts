@@ -40,5 +40,6 @@ describe('createSave seven stations', () => {
     const worker = spawnWorker(save)
     expect(worker.toolSlot).toBeNull()
     expect(worker.foodSlot).toBeNull()
+    expect(worker.qualityTier).toBe(1)
   })
 })

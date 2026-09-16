@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   ALCHEMY_COST_OPTIONS,
+  CLASS_PLACEHOLDERS,
+  classPoolForQuality,
+  QUALITY_TIERS,
+  WORKER_QUALITY_TABLE,
   FISHING_DROP_TABLE,
   FOOD_BUFF_DEF,
   FORGING_SOFT_FAIL_CHANCE,
@@ -76,6 +80,11 @@ describe('production phase-1 tables', () => {
     expect(HERBALISM_DROP_TABLE.every((row) => row.weight > 0)).toBe(true)
     expect(FORGING_SOFT_FAIL_CHANCE.copper).toBeGreaterThan(0)
     expect(TOOL_DEF.tool.effects[0].effectId).toBe('prodSpeed')
+    expect(QUALITY_TIERS).toHaveLength(10)
+    expect(WORKER_QUALITY_TABLE[1].label).toBe('灰')
+    expect(WORKER_QUALITY_TABLE[10].label).toBe('彩')
+    expect(classPoolForQuality(1)).toEqual(CLASS_PLACEHOLDERS)
+    expect(classPoolForQuality(10).length).toBeGreaterThan(classPoolForQuality(1).length)
     expect(TOOL_DEF.ironTool.affixes.map((a) => a.effectId)).toEqual(
       expect.arrayContaining(['extraOutput', 'cycleShorten']),
     )

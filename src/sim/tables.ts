@@ -3,6 +3,8 @@ import type {
   CategoryId,
   ClassId,
   DeprecatedStationId,
+  QualityTier,
+  WorkerQualityId,
   EffectInstance,
   FisheryTier,
   FishingCatchOutcome,
@@ -762,6 +764,90 @@ export const CLASS_LABEL: Record<ClassId, string> = {
   laborer: '力工',
   artisan: '匠人',
   wanderer: '游民',
+  miner: '矿工',
+  fisher: '渔夫',
+  hunter: '猎手',
+  cook: '厨子',
+  herbalist: '药农',
+  smith: '铁匠',
+  alchemist: '炼金师',
+  steward: '管事',
+  knight: '骑士',
+}
+
+export const CLASS_IDS = Object.keys(CLASS_LABEL) as ClassId[]
+
+/** 职业最低可用品质。合成后在「新档 minQuality≤档」的池里随机。 */
+export const CLASS_MIN_QUALITY: Record<ClassId, QualityTier> = {
+  laborer: 1,
+  artisan: 1,
+  wanderer: 1,
+  miner: 2,
+  fisher: 3,
+  hunter: 4,
+  cook: 5,
+  herbalist: 6,
+  smith: 7,
+  alchemist: 8,
+  steward: 9,
+  knight: 10,
+}
+
+export function isClassId(id: unknown): id is ClassId {
+  return typeof id === 'string' && Object.prototype.hasOwnProperty.call(CLASS_LABEL, id)
+}
+
+export const QUALITY_MIN = 1 as const
+export const QUALITY_MAX = 10 as const
+export const QUALITY_TIERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const satisfies readonly QualityTier[]
+
+export type WorkerQualityDef = {
+  tier: QualityTier
+  id: WorkerQualityId
+  label: string
+  color: string
+}
+
+/**
+ * 工人品质 10 档。色值扩自偶遇灰绿蓝紫橙，中间插入白/青，高档红/金/彩。
+ * 档 1 抽人默认；档 10 满档不能再合成。
+ */
+export const WORKER_QUALITY_TABLE: Record<QualityTier, WorkerQualityDef> = {
+  1: { tier: 1, id: 'gray', label: '灰', color: '#9a8f7a' },
+  2: { tier: 2, id: 'white', label: '白', color: '#c4bba8' },
+  3: { tier: 3, id: 'green', label: '绿', color: '#3e9a2a' },
+  4: { tier: 4, id: 'blue', label: '蓝', color: '#3a7ad9' },
+  5: { tier: 5, id: 'cyan', label: '青', color: '#1aa6a6' },
+  6: { tier: 6, id: 'purple', label: '紫', color: '#8a4ecf' },
+  7: { tier: 7, id: 'orange', label: '橙', color: '#e67a12' },
+  8: { tier: 8, id: 'red', label: '红', color: '#d43a3a' },
+  9: { tier: 9, id: 'gold', label: '金', color: '#d4a017' },
+  10: { tier: 10, id: 'rainbow', label: '彩', color: '#e83e8c' },
+}
+
+export function isQualityTier(value: unknown): value is QualityTier {
+  return typeof value === 'number' && Number.isInteger(value) && value >= QUALITY_MIN && value <= QUALITY_MAX
+}
+
+/** 缺字段 / 脏值补最低档。 */
+export function hydrateQualityTier(raw: unknown): QualityTier {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return QUALITY_MIN
+  const n = Math.floor(raw)
+  return isQualityTier(n) ? n : QUALITY_MIN
+}
+
+export function workerQualityDef(tier: QualityTier): WorkerQualityDef {
+  return WORKER_QUALITY_TABLE[tier]
+}
+
+export function classPoolForQuality(tier: QualityTier): ClassId[] {
+  return CLASS_IDS.filter((id) => CLASS_MIN_QUALITY[id] <= tier)
+}
+
+export function pickClassFromPool(pool: ClassId[], roll: number): ClassId {
+  if (!pool.length) return 'laborer'
+  const i = Math.min(pool.length - 1, Math.max(0, Math.floor(roll * pool.length)))
+  return pool[i]
 }
 
 export function gameDay(elapsedS: number): number {

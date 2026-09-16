@@ -2,9 +2,12 @@ import {
   CLASS_PLACEHOLDERS,
   FOOD_BUFF_DEF,
   foodBuffDef,
+  hydrateQualityTier,
+  isClassId,
   isFoodItemId,
   isToolItemId,
   ITEM_IDS,
+  QUALITY_MIN,
   RECRUIT_COST,
   resolveStationId,
   TOOL_DEF,
@@ -18,6 +21,8 @@ import type {
   FoodSlot,
   ItemId,
   ProductionBuff,
+  ClassId,
+  QualityTier,
   Save,
   ToolSlot,
   Worker,
@@ -148,10 +153,8 @@ export function hydrateWorker(raw: unknown, index = 0): Worker {
   return {
     id,
     name: typeof src.name === 'string' ? src.name : undefined,
-    classId:
-      src.classId === 'laborer' || src.classId === 'artisan' || src.classId === 'wanderer'
-        ? src.classId
-        : undefined,
+    classId: isClassId(src.classId) ? src.classId : undefined,
+    qualityTier: hydrateQualityTier(src.qualityTier),
     assignment: resolveStationId(src.assignment),
     toolSlot: hydrateToolSlot(src.toolSlot, src),
     foodSlot: hydrateFoodSlot(src.foodSlot, src),
@@ -164,13 +167,20 @@ export function hydrateWorkers(raw: unknown): Worker[] {
   return raw.map((row, index) => hydrateWorker(row, index))
 }
 
-/** 写入一名工人，不扣金币。GM 免费招人复用。 */
+/** 写入一名工人，不扣金币。GM 免费招人复用。新抽默认最低档。 */
 export function spawnWorker(save: Save): Worker {
+  const idx = save.nextWorkerId - 1
+  return spawnWorkerWith(save, QUALITY_MIN, CLASS_PLACEHOLDERS[idx % CLASS_PLACEHOLDERS.length])
+}
+
+/** 指定品质与职业写入花名册。名字仍按 nextWorkerId 轮转。 */
+export function spawnWorkerWith(save: Save, qualityTier: QualityTier, classId: ClassId): Worker {
   const idx = save.nextWorkerId - 1
   const worker: Worker = {
     id: `w-${save.nextWorkerId}`,
     name: WORKER_NAME_POOL[idx % WORKER_NAME_POOL.length],
-    classId: CLASS_PLACEHOLDERS[idx % CLASS_PLACEHOLDERS.length],
+    classId,
+    qualityTier,
     assignment: null,
     toolSlot: null,
     foodSlot: null,

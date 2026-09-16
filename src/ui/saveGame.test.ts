@@ -82,6 +82,8 @@ describe('save migration', () => {
     expect(save?.workers[0].assignment).toBeNull()
     expect(save?.workers[0].toolSlot).toBeNull()
     expect(save?.workers[0].foodSlot).toBeNull()
+    expect(save?.workers[0].qualityTier).toBe(1)
+    expect(save?.workers[1].qualityTier).toBe(1)
     expect(save?.workers[1].assignment).toBe('forging')
     expect(save?.workers[1].toolSlot?.itemId).toBe('tool')
     expect(save?.workers[1].toolSlot?.matchStationId).toBe('mining')

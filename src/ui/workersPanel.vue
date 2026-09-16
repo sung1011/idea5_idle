@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { bankQty } from '../sim/bank'
 import { formatMarchClock } from '../sim/encounters'
 import { foodBuffRemainS, isFoodBuffActive } from '../sim/food'
@@ -10,12 +10,14 @@ import {
   FOOD_ITEM_IDS,
   ITEM_DEF,
   PLAYABLE_STATION_IDS,
+  QUALITY_MAX,
   RECRUIT_COST,
   STATION_DEF,
   TOOL_ITEM_IDS,
   TOOL_TYPE_DEF,
   TOOL_TYPE_IDS,
   toolTypeByStation,
+  workerQualityDef,
   type FoodItemId,
 } from '../sim/tables'
 import type { StationId, ToolTypeId, Worker } from '../sim/types'
@@ -97,6 +99,32 @@ function onLoadFood(w: Worker) {
   const qty = Math.max(1, Math.min(foodQtyMax(itemId), Math.floor(pickFoodQty[w.id] ?? 1)))
   game.loadFood(w.id, itemId, qty)
 }
+
+const fusePick = ref<string[]>([])
+
+function qualityOf(w: Worker) {
+  return workerQualityDef(w.qualityTier)
+}
+
+function picked(id: string) {
+  return fusePick.value.includes(id)
+}
+
+function toggleFuse(id: string) {
+  const i = fusePick.value.indexOf(id)
+  if (i >= 0) {
+    fusePick.value = fusePick.value.filter((x) => x !== id)
+    return
+  }
+  if (fusePick.value.length >= 2) fusePick.value = [fusePick.value[1], id]
+  else fusePick.value = [...fusePick.value, id]
+}
+
+function onFuse() {
+  const [a, b] = fusePick.value
+  const result = game.fuse(a, b)
+  if (result.ok) fusePick.value = []
+}
 </script>
 
 <template>
@@ -105,12 +133,40 @@ function onLoadFood(w: Worker) {
     <p class="hint">
       金币 {{ game.save.gold }} · 名册 {{ game.save.workers.length }} · 空闲 {{ idleCount(game.save) }}
     </p>
+    <p class="hint">
+      同品质两人合成升一档，满档不可再升。新职业从该档池里随机，可能是两人已有的，也可能是池里其它职业。
+    </p>
     <div class="row">
       <button type="button" @click="game.recruit()">抽工人（{{ RECRUIT_COST }} 金）</button>
+      <button type="button" @click="onFuse">
+        合成{{ fusePick.length === 2 ? '（已选 2）' : fusePick.length === 1 ? '（再选 1）' : '' }}
+      </button>
     </div>
     <ul v-if="game.save.workers.length">
-      <li v-for="w in game.save.workers" :key="w.id" class="card">
-        <p class="name">{{ w.name ?? w.id }} · {{ w.classId ? CLASS_LABEL[w.classId] : '未标' }}</p>
+      <li
+        v-for="w in game.save.workers"
+        :key="w.id"
+        class="card"
+        :class="{ picked: picked(w.id), rainbow: qualityOf(w).id === 'rainbow' }"
+        :style="{ borderColor: qualityOf(w).color }"
+      >
+        <p class="name">
+          <b
+            class="qmark"
+            :style="{ color: qualityOf(w).color, borderColor: qualityOf(w).color }"
+          >{{ qualityOf(w).label }}</b>
+          {{ w.name ?? w.id }} · {{ w.classId ? CLASS_LABEL[w.classId] : '未标' }}
+        </p>
+        <div class="row">
+          <button
+            type="button"
+            :class="{ on: picked(w.id) }"
+            :aria-pressed="picked(w.id)"
+            @click="toggleFuse(w.id)"
+          >
+            {{ picked(w.id) ? '取消选入' : w.qualityTier >= QUALITY_MAX ? '满档' : '选入合成' }}
+          </button>
+        </div>
         <p class="hint">{{ toolLine(w) }}</p>
         <div class="row tool-row">
           <template v-if="w.toolSlot">
@@ -236,9 +292,33 @@ ul {
   padding: 12px;
 }
 
+.card.picked {
+  box-shadow: 0 3px 0 currentColor, inset 0 0 0 2px #fff8e0;
+}
+
+.card.rainbow {
+  background: linear-gradient(#fffdf8, #ffe8f4);
+}
+
 .name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   font-family: var(--font-mono);
   color: var(--copper);
+}
+
+.qmark {
+  min-width: 22px;
+  padding: 1px 7px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  background: var(--plate);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
 }
 
 .hint {

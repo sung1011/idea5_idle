@@ -1,0 +1,132 @@
+import { afterEach, describe, expect, it } from 'vitest'
+import { assignWorker } from './assign'
+import { bankQty } from './bank'
+import { createSave } from './createSave'
+import { loadFood } from './food'
+import { fuseWorkers } from './fuse'
+import { hydrateWorker, spawnWorker } from './recruit'
+import { setRollOverride } from './rng'
+import {
+  CLASS_MIN_QUALITY,
+  CLASS_PLACEHOLDERS,
+  classPoolForQuality,
+  QUALITY_MAX,
+  QUALITY_MIN,
+  QUALITY_TIERS,
+  WORKER_NAME_POOL,
+  WORKER_QUALITY_TABLE,
+} from './tables'
+import { equipTool } from './tools'
+
+afterEach(() => {
+  setRollOverride(null)
+})
+
+describe('worker quality table', () => {
+  it('has ten color tiers from gray to rainbow', () => {
+    expect(QUALITY_TIERS).toHaveLength(10)
+    expect(QUALITY_MIN).toBe(1)
+    expect(QUALITY_MAX).toBe(10)
+    expect(Object.keys(WORKER_QUALITY_TABLE).map(Number)).toEqual([...QUALITY_TIERS])
+    expect(WORKER_QUALITY_TABLE[1].id).toBe('gray')
+    expect(WORKER_QUALITY_TABLE[3].id).toBe('green')
+    expect(WORKER_QUALITY_TABLE[10].id).toBe('rainbow')
+    expect(new Set(QUALITY_TIERS.map((tier) => WORKER_QUALITY_TABLE[tier].color)).size).toBe(10)
+  })
+
+  it('grows the class pool as quality rises', () => {
+    expect(classPoolForQuality(1)).toEqual(CLASS_PLACEHOLDERS)
+    expect(classPoolForQuality(2)).toContain('miner')
+    expect(classPoolForQuality(2)).not.toContain('knight')
+    expect(classPoolForQuality(10)).toContain('knight')
+    expect(classPoolForQuality(10)).toHaveLength(Object.keys(CLASS_MIN_QUALITY).length)
+  })
+})
+
+describe('spawn / hydrate quality', () => {
+  it('recruits at the lowest tier', () => {
+    const save = createSave()
+    const worker = spawnWorker(save)
+    expect(worker.qualityTier).toBe(QUALITY_MIN)
+    expect(worker.classId).toBe('laborer')
+    expect(worker.name).toBe(WORKER_NAME_POOL[0])
+  })
+
+  it('hydrates missing or dirty quality to the lowest tier', () => {
+    expect(hydrateWorker({ id: 'w-old', assignment: null }).qualityTier).toBe(1)
+    expect(hydrateWorker({ id: 'w-bad', qualityTier: 0 }).qualityTier).toBe(1)
+    expect(hydrateWorker({ id: 'w-high', qualityTier: 99 }).qualityTier).toBe(1)
+    expect(hydrateWorker({ id: 'w-ok', qualityTier: 7, classId: 'smith' }).qualityTier).toBe(7)
+    expect(hydrateWorker({ id: 'w-ok', qualityTier: 7, classId: 'smith' }).classId).toBe('smith')
+    expect(hydrateWorker({ id: 'w-x', classId: 'not-a-job' }).classId).toBeUndefined()
+  })
+})
+
+describe('fuseWorkers', () => {
+  it('consumes two same-tier workers and yields one higher tier', () => {
+    const save = createSave()
+    const a = spawnWorker(save)
+    const b = spawnWorker(save)
+    const result = fuseWorkers(save, a.id, b.id)
+    expect(result.ok).toBe(true)
+    expect(save.workers).toHaveLength(1)
+    expect(save.workers[0].qualityTier).toBe(2)
+    expect(save.workers[0].assignment).toBeNull()
+    expect(save.workers[0].toolSlot).toBeNull()
+    expect(save.workers[0].foodSlot).toBeNull()
+    expect(save.workers[0].id).toBe('w-3')
+    expect(save.workers[0].name).toBe(WORKER_NAME_POOL[2])
+    expect(classPoolForQuality(2)).toContain(save.workers[0].classId)
+  })
+
+  it('can roll a class neither parent had', () => {
+    const save = createSave()
+    const a = spawnWorker(save)
+    const b = spawnWorker(save)
+    a.classId = 'laborer'
+    b.classId = 'laborer'
+    setRollOverride(() => 0.99)
+    expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
+    expect(save.workers[0].classId).toBe('miner')
+    expect(save.workers[0].classId).not.toBe('laborer')
+  })
+
+  it('returns tools and leftover food to the bank and clears assignment', () => {
+    const save = createSave()
+    const a = spawnWorker(save)
+    const b = spawnWorker(save)
+    save.bank.tool = 1
+    save.bank.meal = 2
+    save.forgedTools.push({ itemId: 'tool', matchStationId: 'mining' })
+    expect(equipTool(save, a.id, 'tool', 'mining').ok).toBe(true)
+    expect(loadFood(save, a.id, 'meal', 2).ok).toBe(true)
+    expect(assignWorker(save, a.id, 'mining').ok).toBe(true)
+    expect(assignWorker(save, b.id, 'forging').ok).toBe(true)
+    expect(bankQty(save, 'tool')).toBe(0)
+    expect(bankQty(save, 'meal')).toBe(0)
+
+    expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
+    expect(bankQty(save, 'tool')).toBe(1)
+    expect(bankQty(save, 'meal')).toBe(1)
+    expect(save.workers[0].assignment).toBeNull()
+    expect(save.workers.every((w) => w.assignment === null)).toBe(true)
+  })
+
+  it('rejects missing, same, mixed-tier, and max-tier pairs', () => {
+    const save = createSave()
+    const a = spawnWorker(save)
+    const b = spawnWorker(save)
+    expect(fuseWorkers(save, a.id, a.id)).toEqual({ ok: false, reason: '不能合成同一个人' })
+    expect(fuseWorkers(save, a.id, 'w-missing')).toEqual({ ok: false, reason: '没有这个工人' })
+    expect(fuseWorkers(save, '', b.id)).toEqual({ ok: false, reason: '请选两个同品质工人' })
+
+    b.qualityTier = 2
+    expect(fuseWorkers(save, a.id, b.id)).toEqual({ ok: false, reason: '品质不同，不能合成' })
+    expect(save.workers).toHaveLength(2)
+
+    a.qualityTier = QUALITY_MAX
+    b.qualityTier = QUALITY_MAX
+    expect(fuseWorkers(save, a.id, b.id)).toEqual({ ok: false, reason: '已是最高品质' })
+    expect(save.workers).toHaveLength(2)
+  })
+})

@@ -44,7 +44,34 @@ export type ItemId =
   | 'ironTool'
   | 'mithrilTool'
 
-export type ClassId = 'laborer' | 'artisan' | 'wanderer'
+export type ClassId =
+  | 'laborer'
+  | 'artisan'
+  | 'wanderer'
+  | 'miner'
+  | 'fisher'
+  | 'hunter'
+  | 'cook'
+  | 'herbalist'
+  | 'smith'
+  | 'alchemist'
+  | 'steward'
+  | 'knight'
+
+/** 工人品质档。1 最低（抽人默认），10 最高（不能再合成）。 */
+export type QualityTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10
+
+export type WorkerQualityId =
+  | 'gray'
+  | 'white'
+  | 'green'
+  | 'blue'
+  | 'cyan'
+  | 'purple'
+  | 'orange'
+  | 'red'
+  | 'gold'
+  | 'rainbow'
 
 export type StallReason = 'emptyInput'
 
@@ -104,6 +131,8 @@ export type Worker = {
   name?: string
   /** 占位。不当战斗成长用。 */
   classId?: ClassId
+  /** 1～10。抽人最低档；旧档缺字段 hydrate 补 1。 */
+  qualityTier: QualityTier
   assignment: StationId | null
   toolSlot: ToolSlot | null
   foodSlot: FoodSlot | null
