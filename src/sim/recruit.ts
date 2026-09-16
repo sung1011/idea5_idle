@@ -7,6 +7,8 @@ import {
   isFoodItemId,
   isToolItemId,
   ITEM_IDS,
+  migrateQualityTierFromGrayTable,
+  needsGrayQualityMigration,
   QUALITY_MIN,
   RECRUIT_COST,
   resolveStationId,
@@ -161,10 +163,19 @@ export function hydrateWorker(raw: unknown, index = 0): Worker {
   }
 }
 
-/** 旧档缺双槽补 null；已派伐木 / 未知站撤到休息；`smithing` 映到 forging。 */
-export function hydrateWorkers(raw: unknown): Worker[] {
+/**
+ * 旧档缺双槽补 null；已派伐木 / 未知站撤到休息；`smithing` 映到 forging。
+ * `qualityRev` 缺或小于当前色表版本时，按旧灰表迁一次 `qualityTier`。
+ */
+export function hydrateWorkers(raw: unknown, qualityRev?: unknown): Worker[] {
   if (!Array.isArray(raw)) return []
-  return raw.map((row, index) => hydrateWorker(row, index))
+  const workers = raw.map((row, index) => hydrateWorker(row, index))
+  if (needsGrayQualityMigration(qualityRev)) {
+    for (const worker of workers) {
+      worker.qualityTier = migrateQualityTierFromGrayTable(worker.qualityTier)
+    }
+  }
+  return workers
 }
 
 /** 写入一名工人，不扣金币。GM 免费招人复用。新抽默认最低档。 */

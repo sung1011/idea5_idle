@@ -1,6 +1,6 @@
 import { generateEncounterBoard } from './encounters'
 import { hydrateStations } from './stationProgress'
-import { START_DIAMONDS, START_GOLD } from './tables'
+import { START_DIAMONDS, START_GOLD, WORKER_QUALITY_REV } from './tables'
 import type { Save } from './types'
 
 export { blankStation } from './stationProgress'
@@ -31,5 +31,6 @@ export function createSave(): Save {
     offlineCount: 0,
     rngState: 1,
     forgedTools: [],
+    workerQualityRev: WORKER_QUALITY_REV,
   }
 }

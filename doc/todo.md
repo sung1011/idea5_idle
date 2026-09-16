@@ -91,7 +91,7 @@
 
 ## 6. 工人品质 + 合成（本期）
 
-- [x] Worker 加 `qualityTier` 1～10；表 `WORKER_QUALITY_TABLE`（灰白绿蓝青紫橙红金彩）
+- [x] Worker 加 `qualityTier` 1～10；表 `WORKER_QUALITY_TABLE`（白绿蓝青紫橙粉红金彩，无灰）
 - [x] 抽人 / GM 招人默认档 1；hydrate 缺字段 / 脏值补 1
 - [x] 同档两人合成：消耗两人，产出 1 个高一档；满档不可升；不同档不允许
 - [x] 合成后职业在该档池随机（可出两人已有，也可出池里其它）；名字仍按抽人轮转

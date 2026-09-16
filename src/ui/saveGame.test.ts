@@ -100,5 +100,41 @@ describe('save migration', () => {
     expect(save?.stations.forging.selectedToolType).toBe('pick')
     expect(save?.stations.fishing.selectedCategory).toBe('copper')
     expect(save?.stations.hunting.selectedCategory).toBe('copper')
+    expect(save?.workerQualityRev).toBe(2)
+  })
+
+  it('migrates old gray-table quality tiers once and stamps the new rev', () => {
+    const raw = {
+      ...createSave(),
+      workerQualityRev: undefined,
+      workers: [
+        { id: 'w-1', qualityTier: 1, assignment: null, toolSlot: null, foodSlot: null },
+        { id: 'w-2', qualityTier: 2, assignment: null, toolSlot: null, foodSlot: null },
+        { id: 'w-3', qualityTier: 7, assignment: null, toolSlot: null, foodSlot: null },
+        { id: 'w-4', qualityTier: 8, assignment: null, toolSlot: null, foodSlot: null },
+      ],
+    }
+    delete (raw as { workerQualityRev?: number }).workerQualityRev
+    const save = hydrateLoadedSave(raw)
+    expect(save?.workers.map((w) => w.qualityTier)).toEqual([1, 1, 6, 8])
+    expect(save?.workerQualityRev).toBe(2)
+
+    const again = hydrateLoadedSave(save)
+    expect(again?.workers.map((w) => w.qualityTier)).toEqual([1, 1, 6, 8])
+    expect(again?.workerQualityRev).toBe(2)
+  })
+
+  it('does not remap already-new quality tiers', () => {
+    const raw = {
+      ...createSave(),
+      workerQualityRev: 2,
+      workers: [
+        { id: 'w-1', qualityTier: 2, assignment: null, toolSlot: null, foodSlot: null },
+        { id: 'w-2', qualityTier: 7, assignment: null, toolSlot: null, foodSlot: null },
+      ],
+    }
+    const save = hydrateLoadedSave(raw)
+    expect(save?.workers.map((w) => w.qualityTier)).toEqual([2, 7])
+    expect(save?.workerQualityRev).toBe(2)
   })
 })

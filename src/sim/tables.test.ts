@@ -81,8 +81,10 @@ describe('production phase-1 tables', () => {
     expect(FORGING_SOFT_FAIL_CHANCE.copper).toBeGreaterThan(0)
     expect(TOOL_DEF.tool.effects[0].effectId).toBe('prodSpeed')
     expect(QUALITY_TIERS).toHaveLength(10)
-    expect(WORKER_QUALITY_TABLE[1].label).toBe('灰')
+    expect(WORKER_QUALITY_TABLE[1].label).toBe('白')
+    expect(WORKER_QUALITY_TABLE[7].label).toBe('粉')
     expect(WORKER_QUALITY_TABLE[10].label).toBe('彩')
+    expect(QUALITY_TIERS.map((tier) => WORKER_QUALITY_TABLE[tier].id)).not.toContain('gray')
     expect(classPoolForQuality(1)).toEqual(CLASS_PLACEHOLDERS)
     expect(classPoolForQuality(10).length).toBeGreaterThan(classPoolForQuality(1).length)
     expect(TOOL_DEF.ironTool.affixes.map((a) => a.effectId)).toEqual(

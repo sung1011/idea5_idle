@@ -247,7 +247,7 @@ type ProductionBuff = {
 }
 ```
 
-品质 `qualityTier` 1～10，色表 `WORKER_QUALITY_TABLE`。抽人默认 1；同档两人合成升一档（消耗两人产出 1 人），满档不可；不同档不允许。合成卸槽回物资、新人休息。职业按新档池随机。品质不改吞吐。
+品质 `qualityTier` 1～10，色表 `WORKER_QUALITY_TABLE`（白绿蓝青紫橙粉红金彩，无灰）。抽人默认白档 1；同档两人合成升一档（消耗两人产出 1 人），满档不可；不同档不允许。合成卸槽回物资、新人休息。职业按新档池随机。品质不改吞吐。旧灰表存档靠 `workerQualityRev` 迁一次。
 
 ### 5.1 工具槽
 
@@ -329,7 +329,7 @@ type ProductionBuff = {
 | 猎遇险 | `hazard` |
 | 渔场墙 | `fisheryTier` `catchTier` 空杆 `empty` |
 | 工人槽 | `toolSlot` `foodSlot` |
-| 工人品质 | `qualityTier` 1～10；表 `WORKER_QUALITY_TABLE` |
+| 工人品质 | `qualityTier` 1～10；表 `WORKER_QUALITY_TABLE`（白绿蓝青紫橙粉红金彩）；`workerQualityRev` |
 | 工人合成 | 同档两人 → 高一档 1 人；满档不可；职业按新档池随机 |
 | 工具匹配 | `matchStationId` |
 | 工具类型 | `pick` `hammer` `spear` `pot` `sickle` `rack` `rod` |

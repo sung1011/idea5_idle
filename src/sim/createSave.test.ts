@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createSave, normalizeDiamonds } from './createSave'
 import { spawnWorker } from './recruit'
-import { PLAYABLE_STATION_IDS, START_DIAMONDS, START_GOLD, STATION_IDS } from './tables'
+import { PLAYABLE_STATION_IDS, START_DIAMONDS, START_GOLD, STATION_IDS, WORKER_QUALITY_REV } from './tables'
 
 describe('createSave diamonds', () => {
   it('starts diamonds at 0 as a premium-token placeholder', () => {
@@ -41,5 +41,6 @@ describe('createSave seven stations', () => {
     expect(worker.toolSlot).toBeNull()
     expect(worker.foodSlot).toBeNull()
     expect(worker.qualityTier).toBe(1)
+    expect(save.workerQualityRev).toBe(WORKER_QUALITY_REV)
   })
 })

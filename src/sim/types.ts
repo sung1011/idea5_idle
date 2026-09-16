@@ -62,13 +62,13 @@ export type ClassId =
 export type QualityTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10
 
 export type WorkerQualityId =
-  | 'gray'
   | 'white'
   | 'green'
   | 'blue'
   | 'cyan'
   | 'purple'
   | 'orange'
+  | 'pink'
   | 'red'
   | 'gold'
   | 'rainbow'
@@ -131,7 +131,7 @@ export type Worker = {
   name?: string
   /** 占位。不当战斗成长用。 */
   classId?: ClassId
-  /** 1～10。抽人最低档；旧档缺字段 hydrate 补 1。 */
+  /** 1～10。抽人默认白档；旧档缺字段 hydrate 补 1。 */
   qualityTier: QualityTier
   assignment: StationId | null
   toolSlot: ToolSlot | null
@@ -227,6 +227,11 @@ export type Save = {
   rngState: number
   /** 未装备的锻造成品类型队列，与 bank 工具数量对齐。 */
   forgedTools: ForgedTool[]
+  /**
+   * 工人色表版本。2 = 白为首、无灰、粉在橙红之间。
+   * 缺字段或小于 2 视为旧灰表，hydrate 迁一次后盖成 2。
+   */
+  workerQualityRev: number
 }
 
 export type EncounterQuality = 'gray' | 'green' | 'blue' | 'purple' | 'orange'

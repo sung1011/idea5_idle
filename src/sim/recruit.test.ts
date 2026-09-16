@@ -4,16 +4,18 @@ import { bankQty } from './bank'
 import { createSave } from './createSave'
 import { loadFood } from './food'
 import { fuseWorkers } from './fuse'
-import { hydrateWorker, spawnWorker } from './recruit'
+import { hydrateWorker, hydrateWorkers, spawnWorker } from './recruit'
 import { setRollOverride } from './rng'
 import {
   CLASS_MIN_QUALITY,
   CLASS_PLACEHOLDERS,
   classPoolForQuality,
+  migrateQualityTierFromGrayTable,
   QUALITY_MAX,
   QUALITY_MIN,
   QUALITY_TIERS,
   WORKER_NAME_POOL,
+  WORKER_QUALITY_REV,
   WORKER_QUALITY_TABLE,
 } from './tables'
 import { equipTool } from './tools'
@@ -23,14 +25,26 @@ afterEach(() => {
 })
 
 describe('worker quality table', () => {
-  it('has ten color tiers from gray to rainbow', () => {
+  it('has ten color tiers from white to rainbow, with pink before red', () => {
     expect(QUALITY_TIERS).toHaveLength(10)
     expect(QUALITY_MIN).toBe(1)
     expect(QUALITY_MAX).toBe(10)
     expect(Object.keys(WORKER_QUALITY_TABLE).map(Number)).toEqual([...QUALITY_TIERS])
-    expect(WORKER_QUALITY_TABLE[1].id).toBe('gray')
-    expect(WORKER_QUALITY_TABLE[3].id).toBe('green')
-    expect(WORKER_QUALITY_TABLE[10].id).toBe('rainbow')
+    expect(QUALITY_TIERS.map((tier) => WORKER_QUALITY_TABLE[tier].id)).toEqual([
+      'white',
+      'green',
+      'blue',
+      'cyan',
+      'purple',
+      'orange',
+      'pink',
+      'red',
+      'gold',
+      'rainbow',
+    ])
+    expect(QUALITY_TIERS.map((tier) => WORKER_QUALITY_TABLE[tier].id)).not.toContain('gray')
+    expect(WORKER_QUALITY_TABLE[7].color).toBe('#ff7aad')
+    expect(WORKER_QUALITY_TABLE[7].color).not.toBe(WORKER_QUALITY_TABLE[10].color)
     expect(new Set(QUALITY_TIERS.map((tier) => WORKER_QUALITY_TABLE[tier].color)).size).toBe(10)
   })
 
@@ -59,6 +73,35 @@ describe('spawn / hydrate quality', () => {
     expect(hydrateWorker({ id: 'w-ok', qualityTier: 7, classId: 'smith' }).qualityTier).toBe(7)
     expect(hydrateWorker({ id: 'w-ok', qualityTier: 7, classId: 'smith' }).classId).toBe('smith')
     expect(hydrateWorker({ id: 'w-x', classId: 'not-a-job' }).classId).toBeUndefined()
+  })
+
+  it('maps the old gray table once, then leaves the new table alone', () => {
+    expect(QUALITY_TIERS.map(migrateQualityTierFromGrayTable)).toEqual([1, 1, 2, 3, 4, 5, 6, 8, 9, 10])
+    expect(QUALITY_TIERS.map(migrateQualityTierFromGrayTable)).not.toContain(7)
+
+    const oldBoard = hydrateWorkers(
+      [
+        { id: 'w-gray', qualityTier: 1 },
+        { id: 'w-white', qualityTier: 2 },
+        { id: 'w-green', qualityTier: 3 },
+        { id: 'w-orange', qualityTier: 7 },
+        { id: 'w-red', qualityTier: 8 },
+        { id: 'w-rainbow', qualityTier: 10 },
+      ],
+      1,
+    )
+    expect(oldBoard.map((w) => w.qualityTier)).toEqual([1, 1, 2, 6, 8, 10])
+
+    const alreadyNew = hydrateWorkers(
+      [
+        { id: 'w-white', qualityTier: 1 },
+        { id: 'w-green', qualityTier: 2 },
+        { id: 'w-pink', qualityTier: 7 },
+        { id: 'w-red', qualityTier: 8 },
+      ],
+      WORKER_QUALITY_REV,
+    )
+    expect(alreadyNew.map((w) => w.qualityTier)).toEqual([1, 2, 7, 8])
   })
 })
 

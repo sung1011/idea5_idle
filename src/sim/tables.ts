@@ -777,7 +777,7 @@ export const CLASS_LABEL: Record<ClassId, string> = {
 
 export const CLASS_IDS = Object.keys(CLASS_LABEL) as ClassId[]
 
-/** 职业最低可用品质。合成后在「新档 minQuality≤档」的池里随机。 */
+/** 职业最低可用品质，按新表 1～10。第 1 档仍是基础三职业。 */
 export const CLASS_MIN_QUALITY: Record<ClassId, QualityTier> = {
   laborer: 1,
   artisan: 1,
@@ -809,31 +809,60 @@ export type WorkerQualityDef = {
 }
 
 /**
- * 工人品质 10 档。色值扩自偶遇灰绿蓝紫橙，中间插入白/青，高档红/金/彩。
+ * 工人品质 10 档。白为首，粉插在橙后红前，无灰。
  * 档 1 抽人默认；档 10 满档不能再合成。
  */
 export const WORKER_QUALITY_TABLE: Record<QualityTier, WorkerQualityDef> = {
-  1: { tier: 1, id: 'gray', label: '灰', color: '#9a8f7a' },
-  2: { tier: 2, id: 'white', label: '白', color: '#c4bba8' },
-  3: { tier: 3, id: 'green', label: '绿', color: '#3e9a2a' },
-  4: { tier: 4, id: 'blue', label: '蓝', color: '#3a7ad9' },
-  5: { tier: 5, id: 'cyan', label: '青', color: '#1aa6a6' },
-  6: { tier: 6, id: 'purple', label: '紫', color: '#8a4ecf' },
-  7: { tier: 7, id: 'orange', label: '橙', color: '#e67a12' },
+  1: { tier: 1, id: 'white', label: '白', color: '#c4bba8' },
+  2: { tier: 2, id: 'green', label: '绿', color: '#3e9a2a' },
+  3: { tier: 3, id: 'blue', label: '蓝', color: '#3a7ad9' },
+  4: { tier: 4, id: 'cyan', label: '青', color: '#1aa6a6' },
+  5: { tier: 5, id: 'purple', label: '紫', color: '#8a4ecf' },
+  6: { tier: 6, id: 'orange', label: '橙', color: '#e67a12' },
+  7: { tier: 7, id: 'pink', label: '粉', color: '#ff7aad' },
   8: { tier: 8, id: 'red', label: '红', color: '#d43a3a' },
   9: { tier: 9, id: 'gold', label: '金', color: '#d4a017' },
   10: { tier: 10, id: 'rainbow', label: '彩', color: '#e83e8c' },
+}
+
+/** 当前工人色表版本。缺字段或小于此值视为旧灰表。 */
+export const WORKER_QUALITY_REV = 2
+
+/**
+ * 旧灰表 1灰 2白 3绿 4蓝 5青 6紫 7橙 8红 9金 10彩
+ * → 新表 1白 2绿 3蓝 4青 5紫 6橙 7粉 8红 9金 10彩。
+ * 旧灰/旧白都并到新白；红/金/彩数字不变；新粉无人自然拥有。
+ */
+const GRAY_TABLE_TO_CURRENT: Record<QualityTier, QualityTier> = {
+  1: 1,
+  2: 1,
+  3: 2,
+  4: 3,
+  5: 4,
+  6: 5,
+  7: 6,
+  8: 8,
+  9: 9,
+  10: 10,
 }
 
 export function isQualityTier(value: unknown): value is QualityTier {
   return typeof value === 'number' && Number.isInteger(value) && value >= QUALITY_MIN && value <= QUALITY_MAX
 }
 
-/** 缺字段 / 脏值补最低档。 */
+/** 缺字段 / 脏值补最低档（白）。不在这里迁旧灰表，避免已是新表的档位被再映射。 */
 export function hydrateQualityTier(raw: unknown): QualityTier {
   if (typeof raw !== 'number' || !Number.isFinite(raw)) return QUALITY_MIN
   const n = Math.floor(raw)
   return isQualityTier(n) ? n : QUALITY_MIN
+}
+
+export function needsGrayQualityMigration(rev: unknown): boolean {
+  return typeof rev !== 'number' || !Number.isInteger(rev) || rev < WORKER_QUALITY_REV
+}
+
+export function migrateQualityTierFromGrayTable(tier: QualityTier): QualityTier {
+  return GRAY_TABLE_TO_CURRENT[tier]
 }
 
 export function workerQualityDef(tier: QualityTier): WorkerQualityDef {

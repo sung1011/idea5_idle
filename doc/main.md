@@ -48,6 +48,7 @@
 | `messages` | 消息箱。`{ id, createdAt, title, body, read }[]`，最多 50 条，超出丢最旧。 |
 | `nextMessageId` | 下一条消息序号。 |
 | `offlineCount` | 成功离线追赶次数（`seconds > 0`）。 |
+| `workerQualityRev` | 工人色表版本。`2` 为白为首、无灰、含粉。缺或 `< 2` 按旧灰表迁一次。 |
 
 ### 2.2 Worker
 
@@ -58,27 +59,29 @@ Worker = {
   id,
   name?,
   classId?,          // 占位，不当战斗成长
-  qualityTier,       // 1～10；抽人默认 1；旧档缺字段 hydrate 补 1
+  qualityTier,       // 1～10；抽人默认白档 1；旧档缺字段 hydrate 补 1
   assignment: stationId | null,
   toolSlot: ToolSlot | null,   // 常驻增效；匹配工坊才吃满；空/不匹配=裸效率可派
   foodSlot: FoodSlot | null,   // 烹饪产物；同时仅 1 个生产 Buff；到期自动吃 1 份刷新；可立即换食覆盖
 }
 ```
 
-品质 10 档写在 `WORKER_QUALITY_TABLE`，UI 用档色一眼区分（扩自偶遇灰绿蓝紫橙）：
+品质 10 档写在 `WORKER_QUALITY_TABLE`，UI 用档色一眼区分。无灰；白为最低档；粉插在橙后、红前：
 
 | 档 | id | 名 | 色 |
 | --- | --- | --- | --- |
-| 1 | `gray` | 灰 | `#9a8f7a` |
-| 2 | `white` | 白 | `#c4bba8` |
-| 3 | `green` | 绿 | `#3e9a2a` |
-| 4 | `blue` | 蓝 | `#3a7ad9` |
-| 5 | `cyan` | 青 | `#1aa6a6` |
-| 6 | `purple` | 紫 | `#8a4ecf` |
-| 7 | `orange` | 橙 | `#e67a12` |
+| 1 | `white` | 白 | `#c4bba8` |
+| 2 | `green` | 绿 | `#3e9a2a` |
+| 3 | `blue` | 蓝 | `#3a7ad9` |
+| 4 | `cyan` | 青 | `#1aa6a6` |
+| 5 | `purple` | 紫 | `#8a4ecf` |
+| 6 | `orange` | 橙 | `#e67a12` |
+| 7 | `pink` | 粉 | `#ff7aad` |
 | 8 | `red` | 红 | `#d43a3a` |
 | 9 | `gold` | 金 | `#d4a017` |
 | 10 | `rainbow` | 彩 | `#e83e8c` |
+
+旧档只存 `qualityTier` 数字。存档用 `workerQualityRev` 标记色表：缺字段或 `< 2` 视为旧灰表（1灰 2白 3绿 4蓝 5青 6紫 7橙 8红 9金 10彩），hydrate 按 `1→1、2→1、3→2、4→3、5→4、6→5、7→6、8→8、9→9、10→10` 迁一次后盖成 `2`。已是新表的档不再映射，避免绿被再压成白、粉被压成橙。新 7 粉无人自然拥有。
 
 合成：只允许**同档**两人。消耗两人，产出 1 个高一档新人；满档（10）不能再升。不同档失败。工具槽 / 食物槽按现有卸下回物资（食物只退槽内剩余份），新人休息、空槽。职业在「新档可用池」里用 `rngState` 随机：`minQuality ≤ 新档` 的 `classId` 都能抽到，可能是两人已有的，也可能是池里其它职业。1 档池仍是力工 / 匠人 / 游民；更高档依次解锁矿工、渔夫、猎手、厨子、药农、铁匠、炼金师、管事、骑士。名字仍按 `WORKER_NAME_POOL` 与 `nextWorkerId` 轮转。本档品质只区分外观与职业池，不改吞吐公式。
 
@@ -160,7 +163,7 @@ progress >= 1 → 完成一次吞吐，progress -= 1
 
 ## 5. 抽人
 
-表驱动。扣 `RECRUIT_COST`（15）金币，按 `WORKER_NAME_POOL` / `CLASS_PLACEHOLDERS` 轮转写花名册，`qualityTier = 1`。金币不够失败，不写工人。
+表驱动。扣 `RECRUIT_COST`（15）金币，按 `WORKER_NAME_POOL` / `CLASS_PLACEHOLDERS` 轮转写花名册，`qualityTier = 1`（白）。金币不够失败，不写工人。
 
 同档两人可在工人页合成升档，见 2.2。
 

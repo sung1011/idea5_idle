@@ -106,10 +106,10 @@ function qualityOf(w: Worker) {
   return workerQualityDef(w.qualityTier)
 }
 
-/** 浅档用深字，其余角标白字，避免羊皮纸上灰/白看不清。 */
+/** 浅档用深字，其余角标白字，避免羊皮纸上白/粉/金看不清。 */
 function qualityInk(w: Worker) {
   const id = qualityOf(w).id
-  return id === 'white' || id === 'gold' || id === 'cyan' || id === 'gray' ? '#5a3a10' : '#fffdf8'
+  return id === 'white' || id === 'gold' || id === 'cyan' || id === 'pink' ? '#5a3a10' : '#fffdf8'
 }
 
 function cardStyle(w: Worker) {
@@ -169,7 +169,7 @@ function onFuse() {
         v-for="w in game.save.workers"
         :key="w.id"
         class="card"
-        :class="{ picked: picked(w.id), rainbow: qualityOf(w).id === 'rainbow' }"
+        :class="{ picked: picked(w.id), rainbow: qualityOf(w).id === 'rainbow', pink: qualityOf(w).id === 'pink' }"
         :style="cardStyle(w)"
       >
         <p class="name">
@@ -318,6 +318,10 @@ ul {
 
 .card.rainbow {
   background: linear-gradient(#fffdf8, #ffe8f4);
+}
+
+.card.pink {
+  background: linear-gradient(#fffdf8, #ffe4ef);
 }
 
 .name {

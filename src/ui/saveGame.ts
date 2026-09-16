@@ -6,6 +6,7 @@ import { normalizeRngState } from '../sim/rng'
 import { hydrateStations } from '../sim/stationProgress'
 import { hydrateWorkers } from '../sim/recruit'
 import { hydrateForgedTools } from '../sim/tools'
+import { WORKER_QUALITY_REV } from '../sim/tables'
 import type { Save } from '../sim/types'
 
 export const SAVE_KEY = 'idea5Idle'
@@ -51,7 +52,11 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
     ...blank,
     ...rest,
     bank: { ...hydrateBank(items), ...hydrateBank(bank) },
-    workers: hydrateWorkers(parsed.workers),
+    workers: hydrateWorkers(
+      parsed.workers,
+      (parsed as { workerQualityRev?: unknown }).workerQualityRev,
+    ),
+    workerQualityRev: WORKER_QUALITY_REV,
     stations: hydrateStations(parsed.stations),
     diamonds: normalizeDiamonds((parsed as { diamonds?: unknown }).diamonds),
     messages: mail.messages,
