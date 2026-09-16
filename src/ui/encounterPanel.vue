@@ -2,22 +2,34 @@
 import { computed } from 'vue'
 import {
   DISTANCE_LABEL,
+  MERCHANT_KIND_LABEL,
   POWER_LABEL,
   barterBlockReason,
   buyMerchantBlockReason,
   canBarter,
   canBuyMerchant,
+  canClaimLoot,
   canDepartEncounter,
   canExplore,
+  canPawn,
   canSubmitSupply,
+  claimLootBlockReason,
   departBlockReason,
   exploreBlockReason,
   exploreCost,
+  formatMarchClock,
   formatNeedMap,
+  isLootReady,
+  isMarching,
+  isMerchantKind,
+  marchRemainS,
   needLines,
+  pawnBlockReason,
+  pawnGoldForMap,
+  pawnQuoteLines,
   submitSupplyBlockReason,
 } from '../sim/encounters'
-import type { Encounter } from '../sim/types'
+import type { Encounter, EnemyEncounter, MerchantKind } from '../sim/types'
 import { useGameStore } from './gameStore'
 
 const game = useGameStore()
@@ -25,13 +37,25 @@ const cost = computed(() => exploreCost(game.save))
 const exploreWhy = computed(() => exploreBlockReason(game.save))
 const readyToExplore = computed(() => canExplore(game.save))
 const departedTotal = computed(() => game.save.departCount)
+const now = computed(() => {
+  void game.save.elapsedS
+  return Date.now()
+})
 
 function enemyLines(enc: Encounter) {
   return enc.kind === 'enemy' ? needLines(game.save, enc.needs) : []
 }
 
 function wantLines(enc: Encounter) {
-  return enc.kind === 'merchant' ? needLines(game.save, enc.wants) : []
+  return enc.kind === 'passerby' ? needLines(game.save, enc.wants) : []
+}
+
+function pawnLines(enc: Encounter) {
+  return enc.kind === 'pawnshop' ? pawnQuoteLines(game.save, enc.pawnWants) : []
+}
+
+function merchantTitle(kind: MerchantKind) {
+  return MERCHANT_KIND_LABEL[kind]
 }
 
 function submitWhy(index: number) {
@@ -42,6 +66,10 @@ function departWhy(index: number) {
   return departBlockReason(game.save, index)
 }
 
+function lootWhy(index: number) {
+  return claimLootBlockReason(game.save, index, now.value)
+}
+
 function barterWhy(index: number) {
   return barterBlockReason(game.save, index)
 }
@@ -49,12 +77,30 @@ function barterWhy(index: number) {
 function buyWhy(index: number) {
   return buyMerchantBlockReason(game.save, index)
 }
+
+function pawnWhy(index: number) {
+  return pawnBlockReason(game.save, index)
+}
+
+function marching(enc: EnemyEncounter) {
+  return isMarching(enc, now.value)
+}
+
+function lootReady(enc: EnemyEncounter) {
+  return isLootReady(enc, now.value)
+}
+
+function marchLabel(enc: EnemyEncounter) {
+  return `行军中 ${formatMarchClock(marchRemainS(enc, now.value))}`
+}
 </script>
 
 <template>
   <section class="panel encounter">
     <p>偶遇</p>
-    <p class="hint">板上固定 5 格。探索花费金币重抽整板；敌人交补给后出发（战斗稍后），商人可换货或买货。</p>
+    <p class="hint">
+      板上固定 5 格。探索花金币重抽可刷新格；行军中或可领奖的敌人会留在原位。敌人交补给后出发进入行军，到期只领金币。黑心商人只买、路人只换货、当铺只典当。
+    </p>
     <div class="row">
       <button type="button" :disabled="!readyToExplore" @click="game.explore()">
         探索（{{ cost }} 金）
@@ -73,14 +119,16 @@ function buyWhy(index: number) {
               <i>{{ POWER_LABEL[enc.power] }}</i>
             </span>
           </header>
-          <p class="label">{{ enc.label }} · 补给金 {{ enc.departGold }}</p>
+          <p class="label">{{ enc.label }} · 战利品 {{ enc.lootGold }} 金</p>
           <ul>
             <li v-for="line in enemyLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
               {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}
               <span v-if="line.missing > 0"> · 差 {{ line.missing }}</span>
             </li>
           </ul>
-          <p v-if="enc.departed" class="ready">已出发（战斗稍后）</p>
+          <p v-if="enc.lootClaimed" class="ready">战利品已领取</p>
+          <p v-else-if="lootReady(enc)" class="ready">行军结束，可以领取战利品</p>
+          <p v-else-if="marching(enc)" class="ready">{{ marchLabel(enc) }}</p>
           <p v-else-if="enc.submitted" class="ready">补给已提交，可以出发</p>
           <p v-else-if="submitWhy(i)" class="short">{{ submitWhy(i) }}</p>
           <div v-if="!enc.departed" class="row">
@@ -91,37 +139,76 @@ function buyWhy(index: number) {
               出发
             </button>
           </div>
-          <p v-if="!enc.departed && !enc.submitted && departWhy(i)" class="hint">{{ departWhy(i) }}</p>
-        </template>
-
-        <template v-else>
-          <header>
-            <span class="kind">商人</span>
-          </header>
-          <p class="label">{{ enc.label }}</p>
-          <p>收购 {{ formatNeedMap(enc.wants) }}</p>
-          <p>换得 {{ formatNeedMap(enc.offers) }}</p>
-          <p>金币购买 {{ enc.buyGold }} 金 → {{ formatNeedMap(enc.buyOffers) }}</p>
-          <ul>
-            <li v-for="line in wantLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
-              {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}
-              <span v-if="line.missing > 0"> · 差 {{ line.missing }}</span>
-            </li>
-          </ul>
-          <p v-if="enc.completed" class="ready">这笔买卖已完成</p>
-          <div v-else class="row">
-            <button type="button" :disabled="!canBarter(game.save, i)" @click="game.barter(i)">以物易物</button>
-            <button type="button" :disabled="!canBuyMerchant(game.save, i)" @click="game.buyMerchant(i)">
-              金币购买
+          <div v-else-if="!enc.lootClaimed" class="row">
+            <button v-if="marching(enc)" type="button" disabled>{{ marchLabel(enc) }}</button>
+            <button
+              v-else
+              type="button"
+              :disabled="!canClaimLoot(game.save, i, now)"
+              @click="game.claimLoot(i)"
+            >
+              战利品
             </button>
           </div>
-          <p v-if="!enc.completed && barterWhy(i)" class="hint">{{ barterWhy(i) }}</p>
-          <p v-if="!enc.completed && buyWhy(i)" class="hint">{{ buyWhy(i) }}</p>
+          <p v-if="!enc.departed && !enc.submitted && departWhy(i)" class="hint">{{ departWhy(i) }}</p>
+          <p v-if="enc.departed && !enc.lootClaimed && lootWhy(i) && !lootReady(enc)" class="hint">
+            {{ lootWhy(i) }}
+          </p>
+        </template>
+
+        <template v-else-if="isMerchantKind(enc.kind)">
+          <header>
+            <span class="kind">{{ merchantTitle(enc.kind) }}</span>
+          </header>
+          <p class="label">{{ enc.label }}</p>
+
+          <template v-if="enc.kind === 'shady'">
+            <p>金币购买 {{ enc.buyGold }} 金 → {{ formatNeedMap(enc.buyOffers) }}</p>
+            <p v-if="enc.completed" class="ready">这笔买卖已完成</p>
+            <div v-else class="row">
+              <button type="button" :disabled="!canBuyMerchant(game.save, i)" @click="game.buyMerchant(i)">
+                金币购买
+              </button>
+            </div>
+            <p v-if="!enc.completed && buyWhy(i)" class="hint">{{ buyWhy(i) }}</p>
+          </template>
+
+          <template v-else-if="enc.kind === 'passerby'">
+            <p>交出 {{ formatNeedMap(enc.wants) }}</p>
+            <p>换得 {{ formatNeedMap(enc.offers) }}</p>
+            <ul>
+              <li v-for="line in wantLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
+                {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}
+                <span v-if="line.missing > 0"> · 差 {{ line.missing }}</span>
+              </li>
+            </ul>
+            <p v-if="enc.completed" class="ready">这笔买卖已完成</p>
+            <div v-else class="row">
+              <button type="button" :disabled="!canBarter(game.save, i)" @click="game.barter(i)">以物易物</button>
+            </div>
+            <p v-if="!enc.completed && barterWhy(i)" class="hint">{{ barterWhy(i) }}</p>
+          </template>
+
+          <template v-else>
+            <p>典当 {{ formatNeedMap(enc.pawnWants) }} → {{ pawnGoldForMap(enc.pawnWants) }} 金</p>
+            <ul>
+              <li v-for="line in pawnLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
+                {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}
+                <span> · 报价 {{ line.gold }} 金</span>
+                <span v-if="line.missing > 0"> · 差 {{ line.missing }}</span>
+              </li>
+            </ul>
+            <p v-if="enc.completed" class="ready">这笔买卖已完成</p>
+            <div v-else class="row">
+              <button type="button" :disabled="!canPawn(game.save, i)" @click="game.pawn(i)">以物换钱</button>
+            </div>
+            <p v-if="!enc.completed && pawnWhy(i)" class="hint">{{ pawnWhy(i) }}</p>
+          </template>
         </template>
       </article>
     </div>
 
-    <p v-if="departedTotal > 0" class="hint">已出发 {{ departedTotal }} 次（战斗稍后）</p>
+    <p v-if="departedTotal > 0" class="hint">已出发 {{ departedTotal }} 次（行军门闩，不做战斗）</p>
     <p class="hint">第一期敌人收基础铜器 / 熟食 / 矿与干粮。真战斗后做。</p>
   </section>
 </template>

@@ -4,24 +4,45 @@ import { createSave } from './createSave'
 import {
   ENCOUNTER_SLOT_COUNT,
   EXPLORE_COST_TABLE,
-  MERCHANT_DEFS,
-  boardSignature,
+  PAWNSHOP_DEFS,
+  PASSERBY_DEFS,
+  SHADY_DEFS,
   barterMerchant,
+  boardSignature,
   buyMerchant,
+  canClaimLoot,
   canDepartEncounter,
   canExplore,
+  claimLoot,
+  claimLootBlockReason,
   departBlockReason,
   departEncounter,
+  enemyLootGoldFor,
   enemyNeedsFor,
   exploreBlockReason,
   exploreBoard,
   exploreCost,
   generateEncounterBoard,
   hydrateEncounterFields,
+  isMerchantKind,
+  marchDurationS,
+  pawnGoldForMap,
+  pawnMerchant,
+  shouldKeepOnExplore,
   submitSupply,
   submitSupplyBlockReason,
 } from './encounters'
-import type { EncounterNeedMap, ItemId, Save } from './types'
+import { settleOffline } from './offline'
+import { pawnUnitGold } from './tables'
+import type {
+  EncounterNeedMap,
+  EnemyEncounter,
+  ItemId,
+  PasserbyEncounter,
+  PawnshopEncounter,
+  Save,
+  ShadyEncounter,
+} from './types'
 
 function stock(save: Save, needs: EncounterNeedMap) {
   for (const [itemId, qty] of Object.entries(needs) as Array<[ItemId, number]>) {
@@ -29,27 +50,95 @@ function stock(save: Save, needs: EncounterNeedMap) {
   }
 }
 
-function firstEnemyIndex(save: Save): number {
-  return save.encounters.findIndex((enc) => enc.kind === 'enemy')
+function firstOf<K extends Save['encounters'][number]['kind']>(save: Save, kind: K): number {
+  return save.encounters.findIndex((enc) => enc.kind === kind)
 }
 
-function firstMerchantIndex(save: Save): number {
-  return save.encounters.findIndex((enc) => enc.kind === 'merchant')
+function put(save: Save, index: number, enc: Save['encounters'][number]) {
+  save.encounters[index] = enc
+}
+
+function testEnemy(overrides: Partial<EnemyEncounter> = {}): EnemyEncounter {
+  return {
+    kind: 'enemy',
+    id: 'test-enemy',
+    label: '试敌',
+    distance: 'near',
+    power: 'weak',
+    needs: { weapon: 1, meal: 1 },
+    lootGold: enemyLootGoldFor('near', 'weak'),
+    submitted: false,
+    departed: false,
+    marchEndsAt: null,
+    lootClaimed: false,
+    ...overrides,
+  }
+}
+
+function testShady(overrides: Partial<ShadyEncounter> = {}): ShadyEncounter {
+  return {
+    kind: 'shady',
+    id: 'merchantBuy-test',
+    label: '木货贩',
+    buyGold: 8,
+    buyOffers: { meal: 1 },
+    completed: false,
+    ...overrides,
+  }
+}
+
+function testPasserby(overrides: Partial<PasserbyEncounter> = {}): PasserbyEncounter {
+  return {
+    kind: 'passerby',
+    id: 'merchantBarter-test',
+    label: '换货路人',
+    wants: { wood: 4 },
+    offers: { meal: 1 },
+    completed: false,
+    ...overrides,
+  }
+}
+
+function testPawn(overrides: Partial<PawnshopEncounter> = {}): PawnshopEncounter {
+  return {
+    kind: 'pawnshop',
+    id: 'merchantPawn-test',
+    label: '兵器当',
+    pawnWants: { weapon: 1 },
+    completed: false,
+    ...overrides,
+  }
+}
+
+function needSnapshot(save: Save, map: EncounterNeedMap): Record<ItemId, number> {
+  const out = {} as Record<ItemId, number>
+  for (const itemId of Object.keys(map) as ItemId[]) {
+    out[itemId] = bankQty(save, itemId)
+  }
+  return out
 }
 
 describe('encounter board', () => {
-  it('always has 5 slots mixing enemies and merchants', () => {
+  it('always has 5 slots mixing enemies and merchant kinds', () => {
     const save = createSave()
     expect(save.encounters).toHaveLength(ENCOUNTER_SLOT_COUNT)
-    expect(save.encounters.filter((enc) => enc.kind === 'enemy').length).toBeGreaterThan(0)
-    expect(save.encounters.filter((enc) => enc.kind === 'merchant').length).toBeGreaterThan(0)
+    expect(save.encounters.some((enc) => enc.kind === 'enemy')).toBe(true)
+    expect(save.encounters.some((enc) => isMerchantKind(enc.kind))).toBe(true)
 
-    for (let seed = 0; seed < 8; seed++) {
+    const seen = new Set<string>()
+    for (let seed = 0; seed < 24; seed++) {
       const board = generateEncounterBoard(seed)
       expect(board).toHaveLength(5)
       expect(board.some((enc) => enc.kind === 'enemy')).toBe(true)
-      expect(board.some((enc) => enc.kind === 'merchant')).toBe(true)
+      expect(board.some((enc) => isMerchantKind(enc.kind))).toBe(true)
+      for (const enc of board) seen.add(enc.kind)
     }
+    expect(seen.has('shady')).toBe(true)
+    expect(seen.has('passerby')).toBe(true)
+    expect(seen.has('pawnshop')).toBe(true)
+    expect(SHADY_DEFS.length).toBeGreaterThan(0)
+    expect(PASSERBY_DEFS.length).toBeGreaterThan(0)
+    expect(PAWNSHOP_DEFS.length).toBeGreaterThan(0)
   })
 
   it('gives far encounters more food and strong encounters more ore/weapons', () => {
@@ -64,7 +153,7 @@ describe('encounter board', () => {
 })
 
 describe('exploreBoard', () => {
-  it('deducts gold and replaces the whole 5-slot board', () => {
+  it('deducts gold and replaces refreshable slots on the 5-slot board', () => {
     const save = createSave()
     const beforeGold = save.gold
     const beforeCost = exploreCost(save)
@@ -93,12 +182,58 @@ describe('exploreBoard', () => {
     expect(save.exploreCount).toBe(0)
     expect(boardSignature(save.encounters)).toBe(beforeSig)
   })
+
+  it('keeps marching or loot-ready enemies and replaces idle or claimed ones', () => {
+    const save = createSave()
+    const now = 2_000_000_000_000
+    const marching = testEnemy({
+      id: 'keep-march',
+      departed: true,
+      submitted: true,
+      marchEndsAt: now + 10 * 60 * 1000,
+    })
+    const lootReady = testEnemy({
+      id: 'keep-loot',
+      departed: true,
+      submitted: true,
+      marchEndsAt: now - 1000,
+    })
+    const idle = testEnemy({ id: 'swap-idle', submitted: true })
+    const claimed = testEnemy({
+      id: 'swap-claimed',
+      departed: true,
+      submitted: true,
+      marchEndsAt: now - 1000,
+      lootClaimed: true,
+    })
+    const passerby = testPasserby({ id: 'swap-passerby' })
+    put(save, 0, marching)
+    put(save, 1, lootReady)
+    put(save, 2, idle)
+    put(save, 3, claimed)
+    put(save, 4, passerby)
+
+    expect(shouldKeepOnExplore(marching, now)).toBe(true)
+    expect(shouldKeepOnExplore(lootReady, now)).toBe(true)
+    expect(shouldKeepOnExplore(idle, now)).toBe(false)
+    expect(shouldKeepOnExplore(claimed, now)).toBe(false)
+    expect(shouldKeepOnExplore(passerby, now)).toBe(false)
+
+    const result = exploreBoard(save, now)
+    expect(result.ok).toBe(true)
+    expect(save.encounters).toHaveLength(5)
+    expect(save.encounters[0].id).toBe('keep-march')
+    expect(save.encounters[1].id).toBe('keep-loot')
+    expect(save.encounters[2].id).not.toBe('swap-idle')
+    expect(save.encounters[3].id).not.toBe('swap-claimed')
+    expect(save.encounters[4].id).not.toBe('swap-passerby')
+  })
 })
 
-describe('enemy depart latch', () => {
+describe('enemy march and loot', () => {
   it('blocks depart when the bank is short and does not take goods', () => {
     const save = createSave()
-    const index = firstEnemyIndex(save)
+    const index = firstOf(save, 'enemy')
     const enemy = save.encounters[index]
     expect(enemy.kind).toBe('enemy')
     if (enemy.kind !== 'enemy') return
@@ -115,10 +250,10 @@ describe('enemy depart latch', () => {
     expect(enemy.departed).toBe(false)
   })
 
-  it('submits supplies then departs with table gold and departed copy', () => {
+  it('submits then departs into a march without paying gold', () => {
     const save = createSave()
     save.gold = 10
-    const index = firstEnemyIndex(save)
+    const index = firstOf(save, 'enemy')
     const enemy = save.encounters[index]
     expect(enemy.kind).toBe('enemy')
     if (enemy.kind !== 'enemy') return
@@ -126,74 +261,178 @@ describe('enemy depart latch', () => {
     stock(save, { weapon: 4, meal: 4, fish: 4, ore: 4, wood: 4 })
     expect(submitSupply(save, index).ok).toBe(true)
     expect(enemy.submitted).toBe(true)
-    for (const [itemId, qty] of Object.entries(enemy.needs) as Array<[ItemId, number]>) {
-      expect(bankQty(save, itemId)).toBe(4 - qty)
-    }
 
     const now = 1_700_000_000_000
+    const bankBefore = { ...save.bank }
     const result = departEncounter(save, index, now)
     expect(result.ok).toBe(true)
-    if (result.ok) expect(result.message).toContain('已出发（战斗稍后）')
-    expect(save.gold).toBe(10 + enemy.departGold)
+    if (result.ok) expect(result.message).toContain('已出发，行军')
+    expect(save.gold).toBe(10)
+    expect(save.bank).toEqual(bankBefore)
     expect(save.departCount).toBe(1)
     expect(save.lastDepartAt).toBe(now)
     expect(enemy.departed).toBe(true)
-    expect(save.encounters).toHaveLength(5)
+    expect(enemy.lootClaimed).toBe(false)
+    expect(enemy.marchEndsAt).toBe(now + marchDurationS(enemy.distance, enemy.power) * 1000)
+    expect(canClaimLoot(save, index, now)).toBe(false)
+    expect(claimLootBlockReason(save, index, now)).toBe('行军尚未结束')
+  })
+
+  it('cannot claim loot before the march ends', () => {
+    const save = createSave()
+    const now = 1_800_000_000_000
+    put(save, 0, testEnemy({ submitted: true, departed: true, marchEndsAt: now + 60_000 }))
+    const gold = save.gold
+    const result = claimLoot(save, 0, now)
+    expect(result.ok).toBe(false)
+    expect(claimLootBlockReason(save, 0, now)).toBe('行军尚未结束')
+    expect(save.gold).toBe(gold)
+    if (save.encounters[0].kind === 'enemy') expect(save.encounters[0].lootClaimed).toBe(false)
+  })
+
+  it('claims table gold only after the march ends and does not add bank items', () => {
+    const save = createSave()
+    save.gold = 10
+    save.bank = { wood: 2, meal: 1 }
+    const enemy = testEnemy({
+      submitted: true,
+      departed: true,
+      marchEndsAt: 1_000,
+      lootGold: 14,
+    })
+    put(save, 0, enemy)
+    const result = claimLoot(save, 0, 2_000)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.message).toContain('金币 +14')
+    expect(save.gold).toBe(24)
+    expect(save.bank).toEqual({ wood: 2, meal: 1 })
+    expect(enemy.lootClaimed).toBe(true)
+    expect(claimLoot(save, 0, 3_000).ok).toBe(false)
+  })
+
+  it('can claim loot after offline time crosses the march end', () => {
+    const save = createSave()
+    save.gold = 10
+    save.bank = { ore: 3 }
+    const now = 5_000_000
+    const durationS = marchDurationS('near', 'weak')
+    put(
+      save,
+      0,
+      testEnemy({
+        submitted: true,
+        departed: true,
+        marchEndsAt: now + durationS * 1000,
+        lootGold: 8,
+      }),
+    )
+    save.lastTick = now
+    const later = now + (durationS + 30) * 1000
+    const offline = settleOffline(save, later)
+    expect(offline.save.encounters[0].kind).toBe('enemy')
+    if (offline.save.encounters[0].kind !== 'enemy') return
+    expect(offline.save.encounters[0].lootClaimed).toBe(false)
+    expect(offline.save.gold).toBe(10)
+    expect(bankQty(offline.save, 'ore')).toBe(3)
+
+    const result = claimLoot(offline.save, 0, later)
+    expect(result.ok).toBe(true)
+    expect(offline.save.gold).toBe(18)
+    expect(bankQty(offline.save, 'ore')).toBe(3)
+    if (offline.save.encounters[0].kind === 'enemy') {
+      expect(offline.save.encounters[0].lootClaimed).toBe(true)
+    }
   })
 })
 
-describe('merchant trade', () => {
-  it('barters wants for offers and marks the slot done', () => {
+describe('merchant kinds', () => {
+  it('lets a shady merchant sell goods for gold', () => {
     const save = createSave()
-    const index = firstMerchantIndex(save)
-    const merchant = save.encounters[index]
-    expect(merchant.kind).toBe('merchant')
-    if (merchant.kind !== 'merchant') return
+    put(save, 0, testShady())
+    save.gold = 20
+    save.bank = {}
+    expect(buyMerchant(save, 0).ok).toBe(true)
+    expect(save.gold).toBe(12)
+    expect(bankQty(save, 'meal')).toBe(1)
+    expect(save.encounters[0].kind === 'shady' && save.encounters[0].completed).toBe(true)
+  })
 
-    stock(save, { wood: 8, fish: 8, ore: 8, meal: 8 })
-    const beforeWants = needSnapshot(save, merchant.wants)
-    const beforeOffers = needSnapshot(save, merchant.offers)
-    expect(barterMerchant(save, index).ok).toBe(true)
-    expect(merchant.completed).toBe(true)
-    for (const [itemId, qty] of Object.entries(merchant.wants) as Array<[ItemId, number]>) {
+  it('lets a passerby barter wants for offers', () => {
+    const save = createSave()
+    const passerby = testPasserby()
+    put(save, 0, passerby)
+    stock(save, { wood: 8, meal: 1 })
+    const beforeWants = needSnapshot(save, passerby.wants)
+    const beforeOffers = needSnapshot(save, passerby.offers)
+    expect(barterMerchant(save, 0).ok).toBe(true)
+    expect(passerby.completed).toBe(true)
+    for (const [itemId, qty] of Object.entries(passerby.wants) as Array<[ItemId, number]>) {
       expect(bankQty(save, itemId)).toBe(beforeWants[itemId] - qty)
     }
-    for (const [itemId, qty] of Object.entries(merchant.offers) as Array<[ItemId, number]>) {
+    for (const [itemId, qty] of Object.entries(passerby.offers) as Array<[ItemId, number]>) {
       expect(bankQty(save, itemId)).toBe(beforeOffers[itemId] + qty)
     }
   })
 
-  it('buys with gold and does not take barter items', () => {
+  it('lets a pawnshop trade listed goods for table gold', () => {
     const save = createSave()
-    const index = firstMerchantIndex(save)
-    const merchant = save.encounters[index]
-    expect(merchant.kind).toBe('merchant')
-    if (merchant.kind !== 'merchant') return
-
-    save.gold = 20
-    stock(save, merchant.wants)
-    const beforeWants = needSnapshot(save, merchant.wants)
-    expect(buyMerchant(save, index).ok).toBe(true)
-    expect(save.gold).toBe(20 - merchant.buyGold)
-    expect(merchant.completed).toBe(true)
-    for (const [itemId, qty] of Object.entries(merchant.wants) as Array<[ItemId, number]>) {
-      expect(bankQty(save, itemId)).toBe(beforeWants[itemId])
-      expect(qty).toBeGreaterThan(0)
-    }
-    for (const [itemId, qty] of Object.entries(merchant.buyOffers) as Array<[ItemId, number]>) {
-      expect(bankQty(save, itemId)).toBe(qty)
-    }
+    const pawn = testPawn({ pawnWants: { weapon: 1, wood: 2 } })
+    put(save, 0, pawn)
+    save.gold = 5
+    stock(save, { weapon: 2, wood: 5, meal: 3 })
+    const quote = pawnGoldForMap(pawn.pawnWants)
+    expect(quote).toBe(pawnUnitGold('weapon') * 1 + pawnUnitGold('wood') * 2)
+    expect(pawnMerchant(save, 0).ok).toBe(true)
+    expect(save.gold).toBe(5 + quote)
+    expect(bankQty(save, 'weapon')).toBe(1)
+    expect(bankQty(save, 'wood')).toBe(3)
+    expect(bankQty(save, 'meal')).toBe(3)
+    expect(pawn.completed).toBe(true)
   })
 
-  it('does not take goods when the merchant wants are short', () => {
+  it('does not let a shady merchant barter', () => {
     const save = createSave()
-    const index = firstMerchantIndex(save)
-    const merchant = save.encounters[index]
-    if (merchant.kind !== 'merchant') return
-    const result = barterMerchant(save, index)
+    put(save, 0, testShady())
+    stock(save, { wood: 8, meal: 2 })
+    const gold = save.gold
+    const result = barterMerchant(save, 0)
     expect(result.ok).toBe(false)
-    expect(merchant.completed).toBe(false)
-    expect(MERCHANT_DEFS.length).toBeGreaterThan(0)
+    if (!result.ok) expect(result.reason).toContain('黑心商人不能以物易物')
+    expect(save.gold).toBe(gold)
+    expect(bankQty(save, 'wood')).toBe(8)
+  })
+
+  it('does not let a passerby buy with gold', () => {
+    const save = createSave()
+    put(save, 0, testPasserby())
+    save.gold = 40
+    const result = buyMerchant(save, 0)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.reason).toContain('路人不能购买')
+    expect(save.gold).toBe(40)
+  })
+
+  it('does not let a pawnshop sell goods for gold', () => {
+    const save = createSave()
+    put(save, 0, testPawn())
+    save.gold = 40
+    const result = buyMerchant(save, 0)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.reason).toContain('当铺不能购买')
+    expect(save.gold).toBe(40)
+    expect(bankQty(save, 'weapon')).toBe(0)
+  })
+
+  it('does not take pawn goods when the bank is short', () => {
+    const save = createSave()
+    const pawn = testPawn({ pawnWants: { weapon: 1 } })
+    put(save, 0, pawn)
+    save.gold = 4
+    save.bank.weapon = 0
+    const result = pawnMerchant(save, 0)
+    expect(result.ok).toBe(false)
+    expect(pawn.completed).toBe(false)
+    expect(save.gold).toBe(4)
   })
 })
 
@@ -216,16 +455,32 @@ describe('hydrateEncounterFields', () => {
     expect(save.encounters[0].id).toBe('campKitchen')
     expect(save.encounters[0].label).toBe('营地开伙')
     expect(save.encounters[0].submitted).toBe(true)
+    expect(save.encounters[0].lootGold).toBe(10)
+    expect(save.encounters[0].marchEndsAt).toBeNull()
+    expect(save.encounters[0].lootClaimed).toBe(false)
     expect(save.currentOrderId).toBeUndefined()
     expect(save.orderIndex).toBeUndefined()
     expect(save.orderSubmitted).toBeUndefined()
   })
-})
 
-function needSnapshot(save: Save, map: EncounterNeedMap): Record<ItemId, number> {
-  const out = {} as Record<ItemId, number>
-  for (const itemId of Object.keys(map) as ItemId[]) {
-    out[itemId] = bankQty(save, itemId)
-  }
-  return out
-}
+  it('migrates a generic merchant into a passerby when it has barter fields', () => {
+    const save = createSave()
+    const legacy = {
+      kind: 'merchant',
+      id: 'woodPeddler-0-1',
+      label: '木货贩',
+      wants: { wood: 4 },
+      offers: { meal: 1 },
+      buyGold: 8,
+      buyOffers: { meal: 1 },
+      completed: false,
+    }
+    save.encounters = [legacy, testEnemy({ id: 'e1' }), testEnemy({ id: 'e2' }), testEnemy({ id: 'e3' }), testEnemy({ id: 'e4' })] as unknown as Save['encounters']
+    hydrateEncounterFields(save)
+    expect(save.encounters[0].kind).toBe('passerby')
+    if (save.encounters[0].kind !== 'passerby') return
+    expect(save.encounters[0].id).toContain('merchantBarter')
+    expect(save.encounters[0].wants).toEqual({ wood: 4 })
+    expect(save.encounters[0].offers).toEqual({ meal: 1 })
+  })
+})

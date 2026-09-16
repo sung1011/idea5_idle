@@ -229,6 +229,13 @@ export const SKELETON_STATION_IDS: StationId[] = ['alchemy']
 /** 卖货整批换金。含高阶兵器；偶遇敌人第一期仍收基础 weapon / 熟食。 */
 export const SELLABLE_GOODS: ItemId[] = ['weapon', 'ironWeapon', 'mithrilWeapon', 'meal']
 
+/** 当铺报价相对卖货价。略低，至少 1 金。 */
+export const PAWN_RATE = 0.75
+
+export function pawnUnitGold(itemId: ItemId): number {
+  return Math.max(1, Math.floor(ITEM_DEF[itemId].sellGold * PAWN_RATE))
+}
+
 export const BANK_ROWS: ItemId[][] = [
   ['ore', 'ironOre', 'mithrilOre'],
   ['weapon', 'ironWeapon', 'mithrilWeapon'],

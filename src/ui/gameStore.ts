@@ -11,8 +11,10 @@ import { sellAllGoods, sellFromBank } from '../sim/bank'
 import {
   barterMerchant,
   buyMerchant,
+  claimLoot,
   departEncounter,
   exploreBoard,
+  pawnMerchant,
   submitSupply,
 } from '../sim/encounters'
 import { tick } from '../sim/tick'
@@ -137,7 +139,9 @@ export const useGameStore = defineStore('game', () => {
     explore: () => apply(exploreBoard),
     submitSupply: (index: number) => apply((s) => submitSupply(s, index)),
     departEncounter: (index: number) => apply((s) => departEncounter(s, index)),
+    claimLoot: (index: number) => apply((s) => claimLoot(s, index)),
     barter: (index: number) => apply((s) => barterMerchant(s, index)),
     buyMerchant: (index: number) => apply((s) => buyMerchant(s, index)),
+    pawn: (index: number) => apply((s) => pawnMerchant(s, index)),
   }
 })

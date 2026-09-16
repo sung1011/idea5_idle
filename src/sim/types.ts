@@ -51,7 +51,7 @@ export type StationState = {
 }
 
 export type Save = {
-  /** 抽人 / 探索 / 商人购买扣金；卖货 / 出发补给金加金。 */
+  /** 抽人 / 探索 / 黑心商人购买扣金；卖货 / 当铺典当 / 敌人战利品加金。不接战斗。 */
   gold: number
   bank: Partial<Record<ItemId, number>>
   workers: Worker[]
@@ -67,7 +67,8 @@ export type Save = {
   lastDepartAt: number | null
 }
 
-export type EncounterKind = 'enemy' | 'merchant'
+export type MerchantKind = 'shady' | 'passerby' | 'pawnshop'
+export type EncounterKind = 'enemy' | MerchantKind
 export type EncounterDistance = 'near' | 'far'
 export type EncounterPower = 'weak' | 'strong'
 
@@ -80,24 +81,43 @@ export type EnemyEncounter = {
   distance: EncounterDistance
   power: EncounterPower
   needs: EncounterNeedMap
-  departGold: number
+  /** 行军结束后点「战利品」只发这笔金币，不进银行物资。 */
+  lootGold: number
   submitted: boolean
   departed: boolean
+  /** 行军结束墙钟；未出发为 null。 */
+  marchEndsAt: number | null
+  lootClaimed: boolean
 }
 
-export type MerchantEncounter = {
-  kind: 'merchant'
+export type ShadyEncounter = {
+  kind: 'shady'
   id: string
   label: string
-  /** 收购：玩家付出的银行物品。 */
-  wants: EncounterNeedMap
-  /** 以物易物换得。 */
-  offers: EncounterNeedMap
   buyGold: number
-  /** 金币购买换得。 */
   buyOffers: EncounterNeedMap
   completed: boolean
 }
+
+export type PasserbyEncounter = {
+  kind: 'passerby'
+  id: string
+  label: string
+  wants: EncounterNeedMap
+  offers: EncounterNeedMap
+  completed: boolean
+}
+
+export type PawnshopEncounter = {
+  kind: 'pawnshop'
+  id: string
+  label: string
+  /** 可典当：玩家交出的银行物品。 */
+  pawnWants: EncounterNeedMap
+  completed: boolean
+}
+
+export type MerchantEncounter = ShadyEncounter | PasserbyEncounter | PawnshopEncounter
 
 export type Encounter = EnemyEncounter | MerchantEncounter
 
