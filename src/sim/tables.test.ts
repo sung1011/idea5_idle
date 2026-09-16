@@ -7,10 +7,12 @@ import {
   HERBALISM_DROP_TABLE,
   HUNTING_PREY_TABLE,
   MINING_NODE_DEF,
+  leftoverStockItems,
   PLAYABLE_STATION_IDS,
   SELLABLE_GOODS,
   SKELETON_STATION_IDS,
   resolveStationId,
+  stationRelatedItems,
   STATION_DEF,
   TOOL_DEF,
   TOOL_TYPE_DEF,
@@ -90,5 +92,37 @@ describe('production phase-1 tables', () => {
     expect(HUNTING_PREY_TABLE.some((row) => row.outputs.some((io) => io.itemId === 'eye'))).toBe(true)
     expect(HERBALISM_DROP_TABLE.map((row) => row.itemId).sort()).toEqual(['herb', 'spice'])
     expect(FISHING_DROP_TABLE.beginner.some((row) => row.outcome === 'empty')).toBe(true)
+  })
+
+  it('lists each station\'s related costs and outputs for workshop stock', () => {
+    expect(stationRelatedItems('mining')).toEqual({
+      costs: [],
+      outputs: ['ore', 'ironOre', 'mithrilOre'],
+    })
+    expect(stationRelatedItems('forging')).toEqual({
+      costs: ['ore', 'slag', 'ironOre', 'mithrilOre'],
+      outputs: ['tool', 'ironTool', 'mithrilTool', 'blueprint'],
+    })
+    expect(stationRelatedItems('fishing')).toEqual({
+      costs: [],
+      outputs: ['fish', 'junk'],
+    })
+    expect(stationRelatedItems('hunting')).toEqual({
+      costs: [],
+      outputs: ['meat', 'tooth', 'blood', 'eye'],
+    })
+    expect(stationRelatedItems('cooking')).toEqual({
+      costs: ['fish', 'meat', 'spice'],
+      outputs: ['meal', 'roast', 'stew'],
+    })
+    expect(stationRelatedItems('herbalism')).toEqual({
+      costs: [],
+      outputs: ['herb', 'spice'],
+    })
+    expect(stationRelatedItems('alchemy')).toEqual({
+      costs: ['herb', 'blood', 'tooth', 'eye'],
+      outputs: ['potion'],
+    })
+    expect(leftoverStockItems()).toEqual(['wood', 'weapon', 'ironWeapon', 'mithrilWeapon'])
   })
 })

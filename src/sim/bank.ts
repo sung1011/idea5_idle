@@ -54,7 +54,7 @@ export function takeFromBank(save: Save, itemId: ItemId, qty: number): ActionRes
   return { ok: true }
 }
 
-/** 生活制品卖钱。金币只服务抽人和卖货。 */
+/** 生活制品换金。主界面已撤卖货；留给调试 / 单测。偶遇当铺与收购另走报价表。 */
 export function sellFromBank(save: Save, itemId: ItemId, qty: number): ActionResult {
   const def = ITEM_DEF[itemId]
   if (!def) return { ok: false, reason: '此物不能卖' }

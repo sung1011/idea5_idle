@@ -17,7 +17,6 @@ import { loadFood, unloadFood } from '../sim/food'
 import { recruitWorker } from '../sim/recruit'
 import { equipTool, selectForgingToolType, unequipTool } from '../sim/tools'
 import { selectStationCategory } from '../sim/stationProgress'
-import { sellAllGoods, sellFromBank } from '../sim/bank'
 import {
   barterMerchant,
   buyMerchant,
@@ -143,8 +142,6 @@ export const useGameStore = defineStore('game', () => {
     selectToolType: (toolTypeId: ToolTypeId) => apply((s) => selectForgingToolType(s, toolTypeId)),
     selectCategory: (stationId: StationId, categoryId: CategoryId) =>
       apply((s) => selectStationCategory(s, stationId, categoryId)),
-    sell: (itemId: ItemId, qty = 1) => apply((s) => sellFromBank(s, itemId, qty)),
-    sellGoods: () => apply(sellAllGoods),
     explore: () => apply(exploreBoard),
     departEncounter: (index: number) => apply((s) => departEncounter(s, index)),
     claimLoot: (index: number) => apply((s) => claimLoot(s, index)),

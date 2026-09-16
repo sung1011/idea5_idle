@@ -151,7 +151,7 @@ type FishingCatch = {
 type ItemId /* 钓鱼相关 */ = 'fish' | 'junk'
 ```
 
-杂物 `junk` 低权，进物资，可卖；不是烹饪主料。
+杂物 `junk` 低权，进物资，可在偶遇出手；不是烹饪主料。
 
 ---
 
@@ -166,7 +166,7 @@ type ItemId /* 钓鱼相关 */ = 'fish' | 'junk'
 采药 ──草────► 炼金（占位）
 采药 ──香料──► 烹饪
 钓鱼 ──鱼────► 烹饪
-钓鱼 ──杂物──► 物资（低权，可卖）
+钓鱼 ──杂物──► 物资（低权，可在偶遇出手）
 ```
 
 制造站缺料 → `stallReason: 'emptyInput'`，现规则不变：先看齐再扣，缺任一不扣。采集站不因库存数量停工。
@@ -288,7 +288,7 @@ type ProductionBuff = {
 
 `woodcutting` 已废弃：不在 `STATION_DEF` / `PLAYABLE_CHAINS`，工人派站按钮没有伐木。旧档已派伐木的工人 hydrate 撤到休息。
 
-- **`wood`**：旧档数量保留，可卖；不再产出。
+- **`wood`**：旧档数量保留，可在偶遇出手；不再产出。
 - **炼金**：耗草或猎副产，不再以木头为原料。
 - **制皮**：不做。无 `leatherworking`。
 - **银行容量**：不恢复。`hydrateBank` 忽略 `capacity`。
@@ -349,5 +349,5 @@ type ProductionBuff = {
 | 烹饪烤鱼 / 烤肉 / 香料炖；`foodSlot` 续期 / 换食覆盖 | — |
 | 工具词条与食物 Buff 同 `effectId` 取最强 | — |
 | 炼金耗草 / 猎副产出 `potion`；`potionEffectValue` 恒 0 | 药剂效果数值（饮用 / 涂装 / 工坊一次性） |
-| 卖货整批只收工具 / 食物；旧兵器单件仍可卖 | — |
+| 主界面不再卖货；数量改到各站卡片；`sellFromBank` / `sellAllGoods` 仅调试 / 单测 | — |
 | 偶遇货单含烤肉 / 香料炖 / 药剂 | 炼金效果后再调 |

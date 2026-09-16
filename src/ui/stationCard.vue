@@ -2,7 +2,14 @@
 import { computed } from 'vue'
 import { formatCostOptions } from '../sim/costs'
 import { gatherStatusText, isGatherFrozen } from '../sim/gather'
-import { assignedCount, consumeRuleSets, currentSpeed, stationBottleneckText, stationResonating } from '../sim/query'
+import {
+  assignedCount,
+  consumeRuleSets,
+  currentSpeed,
+  stationBottleneckText,
+  stationResonating,
+  stationStockRows,
+} from '../sim/query'
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
 import { STATION_DEF, TOOL_TYPE_DEF, TOOL_TYPE_IDS, xpToNextLevel } from '../sim/tables'
 import type { CategoryId, StationId, ToolTypeId } from '../sim/types'
@@ -45,6 +52,7 @@ const pickOptions = computed(() => categoryPickOptions(game.save, props.stationI
 const costText = computed(() => formatCostOptions(consumeRuleSets(game.save, props.stationId)))
 const hasCosts = computed(() => costText.value !== '—')
 const stallLine = computed(() => stationBottleneckText(game.save, props.stationId))
+const stock = computed(() => stationStockRows(game.save, props.stationId))
 
 function pick(id: CategoryId) {
   game.selectCategory(props.stationId, id)
@@ -86,6 +94,30 @@ function onToolType(ev: Event) {
     <p v-if="station.craftNotice" class="stat gather">{{ station.craftNotice }}</p>
     <p v-if="stallLine" class="stat jam">{{ stallLine }}</p>
     <p v-if="hasCosts" class="stat">消耗 {{ costText }}</p>
+    <div v-if="stock.costs.length || stock.outputs.length" class="stock">
+      <p v-if="stock.costs.length" class="stock-row">
+        <span class="stock-k">消耗库存</span>
+        <span
+          v-for="row in stock.costs"
+          :key="row.itemId"
+          class="stock-item"
+          :class="{ now: row.current, empty: row.qty === 0 }"
+        >
+          {{ row.label }} {{ row.qty }}
+        </span>
+      </p>
+      <p v-if="stock.outputs.length" class="stock-row">
+        <span class="stock-k">产出库存</span>
+        <span
+          v-for="row in stock.outputs"
+          :key="row.itemId"
+          class="stock-item"
+          :class="{ now: row.current, empty: row.qty === 0 }"
+        >
+          {{ row.label }} {{ row.qty }}
+        </span>
+      </p>
+    </div>
     <label v-if="stationId === 'forging'" class="cats">
       <span class="sr">工具类型</span>
       <select class="cat-select" :value="station.selectedToolType ?? 'pick'" @change="onToolType">
@@ -157,6 +189,46 @@ h2 {
 
 .card.wait {
   box-shadow: inset 0 0 0 3px #d4a017;
+}
+
+.stock,
+.stock-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.stock {
+  flex-direction: column;
+}
+
+.stock-row {
+  margin: 0;
+}
+
+.stock-k {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.stock-item {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 2px 8px;
+  border: 2px solid var(--seam);
+  border-radius: 8px;
+  background: var(--slot);
+}
+
+.stock-item.now {
+  border-color: var(--gold-deep);
+  color: var(--ink);
+}
+
+.stock-item.empty {
+  color: var(--danger);
 }
 
 .cats,

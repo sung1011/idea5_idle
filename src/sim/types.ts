@@ -170,7 +170,7 @@ export type GameMessage = {
 }
 
 export type Save = {
-  /** 抽人 / 探索 / 黑心商人购买扣金；卖货 / 当铺典当 / 敌人战利品加金。不接战斗。 */
+  /** 抽人 / 探索 / 黑心商人购买扣金；当铺典当 / 收购 / 敌人战利品加金。不接战斗。 */
   gold: number
   /** 高级代币占位。默认 0，本轮没有获得途径。 */
   diamonds: number

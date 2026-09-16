@@ -1,18 +1,24 @@
+import { itemQty } from './bank'
 import { canAffordCosts, missingCostLabels } from './costs'
 import { workshopBuffMul } from './encounters'
 import { isGatherFrozen, isMiningNodeRecovering } from './gather'
 import { selectedCategoryDef } from './stationProgress'
 import {
   ALCHEMY_COST_OPTIONS,
+  categoryToFisheryTier,
+  FISHING_DROP_TABLE,
+  HERBALISM_DROP_TABLE,
   ITEM_DEF,
   miningNodeDef,
+  leftoverStockItems,
   STATION_DEF,
   STATION_IDS,
+  stationRelatedItems,
   stationSpeed,
   type IoRule,
 } from './tables'
 import { assignedToolWeight } from './tools'
-import type { Hint, Save, StationId } from './types'
+import type { Hint, ItemId, Save, StationId } from './types'
 
 export function assignedCount(save: Save, stationId: StationId): number {
   return save.workers.filter((w) => w.assignment === stationId).length
@@ -102,6 +108,60 @@ export function stationBottleneckText(save: Save, stationId: StationId): string 
 
 export function canConsume(save: Save, stationId: StationId): boolean {
   return pickConsume(save, stationId) !== null
+}
+
+export type StationStockRow = {
+  itemId: ItemId
+  label: string
+  qty: number
+  role: 'cost' | 'output'
+  current: boolean
+}
+
+function currentRelatedItemIds(save: Save, stationId: StationId): Set<ItemId> {
+  const ids = new Set<ItemId>()
+  for (const rules of consumeRuleSets(save, stationId)) {
+    for (const io of rules) ids.add(io.itemId)
+  }
+  for (const io of selectedCategoryDef(save, stationId).outputs) ids.add(io.itemId)
+  if (stationId === 'fishing') {
+    const tier = categoryToFisheryTier(selectedCategoryDef(save, stationId).id)
+    for (const row of FISHING_DROP_TABLE[tier]) {
+      if (row.itemId) ids.add(row.itemId)
+    }
+  }
+  if (stationId === 'herbalism') {
+    for (const row of HERBALISM_DROP_TABLE) ids.add(row.itemId)
+  }
+  if (stationId === 'forging') ids.add('blueprint')
+  return ids
+}
+
+/** 工坊卡片就近展示：该站 costs / outputs 对应的 bank 数量。 */
+export function stationStockRows(save: Save, stationId: StationId): {
+  costs: StationStockRow[]
+  outputs: StationStockRow[]
+} {
+  const related = stationRelatedItems(stationId)
+  const current = currentRelatedItemIds(save, stationId)
+  const toRow = (itemId: ItemId, role: 'cost' | 'output'): StationStockRow => ({
+    itemId,
+    label: ITEM_DEF[itemId].label,
+    qty: itemQty(save, itemId),
+    role,
+    current: current.has(itemId),
+  })
+  return {
+    costs: related.costs.map((id) => toRow(id, 'cost')),
+    outputs: related.outputs.map((id) => toRow(id, 'output')),
+  }
+}
+
+/** 旧档木头 / 搁置武器等：只在有货时给工坊页脚看，不带卖货。 */
+export function leftoverStockRows(save: Save): Array<{ itemId: ItemId; label: string; qty: number }> {
+  return leftoverStockItems()
+    .map((itemId) => ({ itemId, label: ITEM_DEF[itemId].label, qty: itemQty(save, itemId) }))
+    .filter((row) => row.qty > 0)
 }
 
 export function collectHints(save: Save): Hint[] {

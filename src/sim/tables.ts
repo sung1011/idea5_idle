@@ -664,7 +664,63 @@ export const PLAYABLE_CHAINS: StationId[][] = [
 export const PLAYABLE_STATION_IDS: StationId[] = PLAYABLE_CHAINS.flat()
 /** 七站已全部上主列。保留空表以免旧 UI 引用炸掉。 */
 export const SKELETON_STATION_IDS: StationId[] = []
-/** 卖货整批换金。去武器，只收工具 / 烹饪食物。旧兵器仍可单件卖。 */
+
+function pushUniqueItem(list: ItemId[], itemId: ItemId | undefined): void {
+  if (!itemId || list.includes(itemId)) return
+  list.push(itemId)
+}
+
+export type StationRelatedItems = {
+  costs: ItemId[]
+  outputs: ItemId[]
+}
+
+/**
+ * 该站产出 / 消耗相关物品。只从表里的 `costs` / `altCosts` / `outputs`
+ * 以及掉落表、`ALCHEMY_COST_OPTIONS` 归并，不另起库存字段。
+ */
+export function stationRelatedItems(stationId: StationId): StationRelatedItems {
+  const costs: ItemId[] = []
+  const outputs: ItemId[] = []
+  for (const cat of STATION_DEF[stationId].categories) {
+    for (const io of cat.costs) pushUniqueItem(costs, io.itemId)
+    for (const io of cat.altCosts ?? []) pushUniqueItem(costs, io.itemId)
+    for (const io of cat.outputs) pushUniqueItem(outputs, io.itemId)
+  }
+  if (stationId === 'alchemy') {
+    for (const rules of ALCHEMY_COST_OPTIONS) {
+      for (const io of rules) pushUniqueItem(costs, io.itemId)
+    }
+  }
+  if (stationId === 'fishing') {
+    for (const rows of Object.values(FISHING_DROP_TABLE)) {
+      for (const row of rows) pushUniqueItem(outputs, row.itemId)
+    }
+  }
+  if (stationId === 'herbalism') {
+    for (const row of HERBALISM_DROP_TABLE) pushUniqueItem(outputs, row.itemId)
+  }
+  if (stationId === 'hunting') {
+    for (const prey of HUNTING_PREY_TABLE) {
+      for (const io of prey.outputs) pushUniqueItem(outputs, io.itemId)
+    }
+  }
+  if (stationId === 'forging') pushUniqueItem(outputs, 'blueprint')
+  return { costs, outputs }
+}
+
+/** 不挂在任一可玩站上的旧物（木头 / 搁置武器等）。有货时工坊页脚展示。 */
+export function leftoverStockItems(): ItemId[] {
+  const used = new Set<ItemId>()
+  for (const id of PLAYABLE_STATION_IDS) {
+    const related = stationRelatedItems(id)
+    for (const itemId of related.costs) used.add(itemId)
+    for (const itemId of related.outputs) used.add(itemId)
+  }
+  return ITEM_IDS.filter((id) => !used.has(id))
+}
+
+/** 整批换金（sim / 调试）。主界面已撤卖货；去武器，只收工具 / 烹饪食物。 */
 export const SELLABLE_GOODS: ItemId[] = [
   'tool',
   'ironTool',
@@ -674,9 +730,9 @@ export const SELLABLE_GOODS: ItemId[] = [
   'stew',
 ]
 
-/** 当铺报价相对卖货价。略低，至少 1 金。 */
+/** 当铺报价相对 `sellGold`。略低，至少 1 金。 */
 export const PAWN_RATE = 0.75
-/** 收购单价相对卖货价。高于当铺，略高于工坊单卖。 */
+/** 收购单价相对 `sellGold`。高于当铺。 */
 export const BULK_BUY_RATE = 1.15
 
 export function pawnUnitGold(itemId: ItemId): number {
@@ -686,15 +742,6 @@ export function pawnUnitGold(itemId: ItemId): number {
 export function bulkUnitGold(itemId: ItemId): number {
   return Math.max(pawnUnitGold(itemId) + 1, Math.round(ITEM_DEF[itemId].sellGold * BULK_BUY_RATE))
 }
-
-export const SUPPLY_ROWS: ItemId[][] = [
-  ['ore', 'ironOre', 'mithrilOre'],
-  ['tool', 'ironTool', 'mithrilTool'],
-  ['weapon', 'ironWeapon', 'mithrilWeapon'],
-  ['fish', 'junk', 'meal', 'roast', 'stew', 'meat'],
-  ['herb', 'spice', 'blood', 'tooth', 'eye'],
-  ['wood', 'slag', 'potion', 'blueprint'],
-]
 
 export const WORKER_NAME_POOL = [
   '阿木',
