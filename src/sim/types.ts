@@ -25,7 +25,7 @@ export type ItemId =
 
 export type ClassId = 'laborer' | 'artisan' | 'wanderer'
 
-export type StallReason = 'emptyInput' | 'fullOutput'
+export type StallReason = 'emptyInput'
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; reason: string }
 
@@ -63,6 +63,7 @@ export type Save = {
   gold: number
   /** 高级代币占位。默认 0，本轮没有获得途径。 */
   diamonds: number
+  /** 站间物资数量。旧档字段名仍叫 bank；无容量。 */
   bank: Partial<Record<ItemId, number>>
   workers: Worker[]
   stations: Record<StationId, StationState>
@@ -111,7 +112,7 @@ export type EnemyEncounter = EncounterBase & {
   distance: EncounterDistance
   power: EncounterPower
   needs: EncounterNeedMap
-  /** 行军结束后点「战利品」只发这笔金币，不进银行物资。 */
+  /** 行军结束后点「战利品」只发这笔金币，不加物资。 */
   lootGold: number
   /** 旧两步流程残留。新档不写；仅 hydrate 用来让「已扣货未出发」免再扣。 */
   submitted?: boolean
@@ -140,7 +141,7 @@ export type PasserbyEncounter = EncounterBase & {
 
 export type PawnEncounter = EncounterBase & {
   kind: 'pawn'
-  /** 可典当：玩家交出的银行物品。 */
+  /** 可典当：玩家交出的物资。 */
   pawnWants: EncounterNeedMap
   /** 品质加成后的成交金。缺省则按当铺价表现算。 */
   rewardGold?: number

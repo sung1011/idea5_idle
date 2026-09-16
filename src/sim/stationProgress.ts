@@ -54,7 +54,7 @@ export function hydrateStationState(stationId: StationId, incoming?: Partial<Sta
   const xpRaw = incoming.stationXp
   const station: StationState = {
     progress: Number.isFinite(incoming.progress) ? Number(incoming.progress) : 0,
-    stallReason: incoming.stallReason ?? null,
+    stallReason: incoming.stallReason === 'emptyInput' ? 'emptyInput' : null,
     completed: Number.isFinite(incoming.completed) ? Math.max(0, Math.floor(Number(incoming.completed))) : 0,
     resonanceStreak: Number.isFinite(incoming.resonanceStreak)
       ? Math.max(0, Math.floor(Number(incoming.resonanceStreak)))

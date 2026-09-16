@@ -1,6 +1,6 @@
 import { addToBank } from './bank'
 import { takeCosts } from './costs'
-import { assignedCount, canConsume, canProduce, currentSpeed, pickConsume, stationResonating } from './query'
+import { assignedCount, canConsume, currentSpeed, pickConsume, stationResonating } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
 import { RESONANCE_BONUS_EVERY } from './tables'
 import type { Save, StationId } from './types'
@@ -29,9 +29,9 @@ function emitOutputs(save: Save, stationId: StationId, extra: boolean): boolean 
   return true
 }
 
-/** 完成一次吞吐：按当前品类扣原料、写入银行，并给站 XP。共振满 streak 时额外产出。 */
+/** 完成一次吞吐：按当前品类扣原料、写入物资，并给站 XP。共振满 streak 时额外产出。 */
 export function completeCycle(save: Save, stationId: StationId): boolean {
-  if (!canConsume(save, stationId) || !canProduce(save, stationId)) return false
+  if (!canConsume(save, stationId)) return false
   if (!consumeInputs(save, stationId)) return false
   const station = save.stations[stationId]
   const resonating = stationResonating(save, stationId)
@@ -55,18 +55,14 @@ export function stepStation(save: Save, stationId: StationId): void {
     station.stallReason = 'emptyInput'
     return
   }
-  if (!canProduce(save, stationId)) {
-    station.stallReason = 'fullOutput'
-    return
-  }
 
   station.stallReason = null
   const speed = currentSpeed(save, stationId)
   station.progress += speed
 
   while (station.progress + CYCLE_EPS >= 1) {
-    if (!canConsume(save, stationId) || !canProduce(save, stationId)) {
-      station.stallReason = !canConsume(save, stationId) ? 'emptyInput' : 'fullOutput'
+    if (!canConsume(save, stationId)) {
+      station.stallReason = 'emptyInput'
       break
     }
     if (!completeCycle(save, stationId)) break

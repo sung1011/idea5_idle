@@ -1,57 +1,40 @@
-import { ITEM_DEF, SELLABLE_GOODS } from './tables'
+import { ITEM_DEF, ITEM_IDS, SELLABLE_GOODS } from './tables'
 import type { ActionResult, ItemId, Save } from './types'
 
-/** 相对该物品 cap ≥ 此比例视为快满，进度条用警告色。 */
-export const BANK_WARN_RATIO = 0.8
+/** 仅防 Number 溢出，玩法与 UI 不表现「满」。 */
+export const ITEM_QTY_SOFT_CAP = Number.MAX_SAFE_INTEGER
 
-export type BankFillTone = 'ok' | 'warn' | 'full'
-
-export function bankQty(save: Save, itemId: ItemId): number {
+export function itemQty(save: Save, itemId: ItemId): number {
   return save.bank[itemId] ?? 0
 }
 
-export function bankCap(itemId: ItemId): number {
-  return ITEM_DEF[itemId].cap
-}
+/** @deprecated 用 itemQty。旧调用点兼容。 */
+export const bankQty = itemQty
 
-export function bankFillRatio(save: Save, itemId: ItemId): number {
-  const cap = bankCap(itemId)
-  if (cap <= 0) return 0
-  return Math.min(1, bankQty(save, itemId) / cap)
-}
-
-export function bankFillPct(save: Save, itemId: ItemId): number {
-  return Math.round(bankFillRatio(save, itemId) * 100)
-}
-
-export function bankFillTone(save: Save, itemId: ItemId): BankFillTone {
-  const qty = bankQty(save, itemId)
-  const cap = bankCap(itemId)
-  if (cap <= 0) return 'ok'
-  if (qty >= cap) return 'full'
-  if (qty / cap >= BANK_WARN_RATIO) return 'warn'
-  return 'ok'
-}
-
-export function bankRoom(save: Save, itemId: ItemId): number {
-  return Math.max(0, bankCap(itemId) - bankQty(save, itemId))
-}
-
-export function canFit(save: Save, itemId: ItemId, qty: number): boolean {
-  return qty > 0 && bankRoom(save, itemId) >= qty
+/** 旧存档 `bank` / `items` 只收数量；忽略 capacity。 */
+export function hydrateBank(raw: unknown): Partial<Record<ItemId, number>> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const src = raw as Record<string, unknown>
+  const out: Partial<Record<ItemId, number>> = {}
+  for (const id of ITEM_IDS) {
+    const qty = src[id]
+    if (typeof qty !== 'number' || !Number.isFinite(qty) || qty <= 0) continue
+    out[id] = Math.min(ITEM_QTY_SOFT_CAP, Math.floor(qty))
+  }
+  return out
 }
 
 export function addToBank(save: Save, itemId: ItemId, qty: number): ActionResult {
   if (qty <= 0) return { ok: false, reason: '数量无效' }
-  if (!canFit(save, itemId, qty)) return { ok: false, reason: `${ITEM_DEF[itemId].label}堆满` }
-  save.bank[itemId] = bankQty(save, itemId) + qty
+  const next = itemQty(save, itemId) + qty
+  save.bank[itemId] = Math.min(ITEM_QTY_SOFT_CAP, next)
   return { ok: true }
 }
 
 export function takeFromBank(save: Save, itemId: ItemId, qty: number): ActionResult {
   if (qty <= 0) return { ok: false, reason: '数量无效' }
-  if (bankQty(save, itemId) < qty) return { ok: false, reason: `${ITEM_DEF[itemId].label}见底` }
-  const next = bankQty(save, itemId) - qty
+  if (itemQty(save, itemId) < qty) return { ok: false, reason: `${ITEM_DEF[itemId].label}见底` }
+  const next = itemQty(save, itemId) - qty
   if (next <= 0) delete save.bank[itemId]
   else save.bank[itemId] = next
   return { ok: true }
@@ -71,7 +54,7 @@ export function sellFromBank(save: Save, itemId: ItemId, qty: number): ActionRes
 export function sellAllGoods(save: Save): ActionResult {
   let sold = 0
   for (const itemId of SELLABLE_GOODS) {
-    const qty = bankQty(save, itemId)
+    const qty = itemQty(save, itemId)
     if (qty <= 0) continue
     const result = sellFromBank(save, itemId, qty)
     if (!result.ok) return result

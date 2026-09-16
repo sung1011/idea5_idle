@@ -1,8 +1,7 @@
-import { bankRoom } from './bank'
 import { canAffordCosts, missingCostLabels } from './costs'
 import { workshopBuffMul } from './encounters'
 import { selectedCategoryDef } from './stationProgress'
-import { ITEM_DEF, STATION_DEF, STATION_IDS, stationSpeed } from './tables'
+import { STATION_DEF, STATION_IDS, stationSpeed } from './tables'
 import type { Hint, Save, StationId } from './types'
 
 export function assignedCount(save: Save, stationId: StationId): number {
@@ -68,10 +67,6 @@ export function canConsume(save: Save, stationId: StationId): boolean {
   return pickConsume(save, stationId) !== null
 }
 
-export function canProduce(save: Save, stationId: StationId): boolean {
-  return selectedCategoryDef(save, stationId).outputs.every((io) => bankRoom(save, io.itemId) >= io.qty)
-}
-
 export function collectHints(save: Save): Hint[] {
   const hints: Hint[] = []
   for (const id of STATION_IDS) {
@@ -84,11 +79,6 @@ export function collectHints(save: Save): Hint[] {
     const stall = station.stallReason
     if (stall === 'emptyInput') {
       hints.push({ kind: 'bottleneck', text: `${needLabel(save, id)}见底：${STATION_DEF[id].label}空转` })
-    }
-    if (stall === 'fullOutput') {
-      const out = selectedCategoryDef(save, id).outputs[0]
-      const label = out ? ITEM_DEF[out.itemId].label : '产物'
-      hints.push({ kind: 'bottleneck', text: `${label}堆满：${STATION_DEF[id].label}停工` })
     }
   }
   for (const pair of resonancePairs(save)) {

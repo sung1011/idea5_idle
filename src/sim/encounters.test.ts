@@ -444,6 +444,23 @@ describe('merchant kinds', () => {
     expect(save.encounters[0].kind === 'blackMerchant' && save.encounters[0].completed).toBe(true)
   })
 
+  it('still buys and barters when stock already exceeds the old bank cap', () => {
+    const buy = createSave()
+    put(buy, 0, testBlackMerchant())
+    buy.gold = 20
+    buy.bank.meal = 400
+    expect(buyMerchant(buy, 0).ok).toBe(true)
+    expect(bankQty(buy, 'meal')).toBe(401)
+
+    const swap = createSave()
+    const passerby = testPasserby()
+    put(swap, 0, passerby)
+    stock(swap, { wood: 8, meal: 400 })
+    expect(barterMerchant(swap, 0).ok).toBe(true)
+    expect(bankQty(swap, 'meal')).toBe(401)
+    expect(bankQty(swap, 'wood')).toBe(4)
+  })
+
   it('lets a passerby barter wants for offers', () => {
     const save = createSave()
     const passerby = testPasserby()

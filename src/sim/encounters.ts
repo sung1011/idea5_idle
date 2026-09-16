@@ -1,4 +1,4 @@
-import { addToBank, bankQty, canFit } from './bank'
+import { addToBank, bankQty } from './bank'
 import { canAffordCosts, missingCostLabels, takeCosts } from './costs'
 import { ITEM_DEF, bulkUnitGold, pawnUnitGold, type IoRule } from './tables'
 import type {
@@ -736,10 +736,6 @@ function missingLabels(save: Save, map: EncounterNeedMap): string[] {
     .map((line) => `${line.label}差 ${line.missing}`)
 }
 
-function canFitNeedMap(save: Save, map: EncounterNeedMap): boolean {
-  return needEntries(map).every(([itemId, qty]) => canFit(save, itemId, qty))
-}
-
 function addNeedMap(save: Save, map: EncounterNeedMap): ActionResult {
   for (const [itemId, qty] of needEntries(map)) {
     const added = addToBank(save, itemId, qty)
@@ -850,7 +846,7 @@ export function canClaimLoot(save: Save, index: number, now = Date.now()): boole
   return claimLootBlockReason(save, index, now) === null
 }
 
-/** 行军到期后领金币。不加银行物品。 */
+/** 行军到期后领金币。不加物资。 */
 export function claimLoot(save: Save, index: number, now = Date.now()): ActionResult {
   const blocked = claimLootBlockReason(save, index, now)
   if (blocked) return { ok: false, reason: blocked }
@@ -873,7 +869,6 @@ export function barterBlockReason(save: Save, index: number): string | null {
   if (!canAffordCosts(save, needMapToRules(enc.wants))) {
     return `货不够：${missingCostLabels(save, needMapToRules(enc.wants)).join('、')}`
   }
-  if (!canFitNeedMap(save, enc.offers)) return '银行装不下换得的货物'
   return null
 }
 
@@ -887,7 +882,6 @@ export function buyMerchantBlockReason(save: Save, index: number): string | null
   if (enc.kind !== 'blackMerchant') return '不是黑心商人偶遇'
   if (enc.completed) return '这笔买卖已完成'
   if (save.gold < enc.buyGold) return `金币不够：购买要 ${enc.buyGold}`
-  if (!canFitNeedMap(save, enc.buyOffers)) return '银行装不下买到的货物'
   return null
 }
 

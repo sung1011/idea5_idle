@@ -10,6 +10,7 @@ import { PLAYABLE_CHAINS, SKELETON_STATION_IDS, STATION_DEF } from '../sim/table
 import type { StationId } from '../sim/types'
 import { useGameStore } from './gameStore'
 import StationCard from './stationCard.vue'
+import SuppliesPanel from './suppliesPanel.vue'
 
 const game = useGameStore()
 const now = computed(() => {
@@ -31,6 +32,7 @@ function chainTitle(ids: StationId[]): string {
 <template>
   <div class="wrap">
     <p v-if="buffOn" class="buff">{{ buffLabel }}</p>
+    <SuppliesPanel />
     <section v-for="ids in PLAYABLE_CHAINS" :key="chainTitle(ids)" class="chain">
       <p class="chain-title">{{ chainTitle(ids) }}</p>
       <div class="grid">

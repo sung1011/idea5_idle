@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { bankCap, bankQty } from './bank'
+import { bankQty } from './bank'
 import { createSave } from './createSave'
 import {
   GM_BASIC_ITEMS,
+  GM_BASIC_ITEM_QTY,
   GM_DIAMOND_GRANT,
   GM_GOLD_GRANT,
   GM_WORKER_GRANT,
@@ -69,10 +70,10 @@ describe('gm debug grants', () => {
     expect(save.stations.forging.unlockedCategories).toEqual(['copper', 'iron', 'mithril'])
   })
 
-  it('fills basic bank materials to cap', () => {
+  it('grants a generous pile of basic supplies', () => {
     const save = createSave()
     expect(gmFillBankBasics(save).ok).toBe(true)
-    for (const id of GM_BASIC_ITEMS) expect(bankQty(save, id)).toBe(bankCap(id))
+    for (const id of GM_BASIC_ITEMS) expect(bankQty(save, id)).toBe(GM_BASIC_ITEM_QTY)
     expect(bankQty(save, 'weapon')).toBe(0)
   })
 })

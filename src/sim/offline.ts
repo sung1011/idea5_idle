@@ -114,7 +114,6 @@ function buildLines(summary: Omit<OfflineSummary, 'lines'>): string[] {
     const bits = [st.label]
     if (st.completed > 0) bits.push(`完成 ${st.completed} 次`)
     if (st.stallReason === 'emptyInput') bits.push('原料见底')
-    if (st.stallReason === 'fullOutput') bits.push('产物堆满')
     if (bits.length > 1) lines.push(bits.join(' · '))
   }
 
@@ -123,7 +122,7 @@ function buildLines(summary: Omit<OfflineSummary, 'lines'>): string[] {
       const sign = b.delta > 0 ? '+' : ''
       return `${b.label} ${sign}${b.delta}`
     })
-    lines.push(`银行 ${parts.join(' · ')}`)
+    lines.push(`物资 ${parts.join(' · ')}`)
   }
 
   if (summary.goldDelta !== 0) {

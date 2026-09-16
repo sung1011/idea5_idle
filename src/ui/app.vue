@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useGameStore } from './gameStore'
-import BankPanel from './bankPanel.vue'
 import EncounterPanel from './encounterPanel.vue'
 import MessagePanel from './messagePanel.vue'
 import SettingsPanel from './settingsPanel.vue'
@@ -11,7 +10,6 @@ import FloatTips from './floatTips.vue'
 
 const TABS = [
   { id: 'workshop', label: '工坊' },
-  { id: 'bank', label: '银行' },
   { id: 'workers', label: '工人' },
   { id: 'encounters', label: '偶遇' },
 ] as const
@@ -84,7 +82,6 @@ onUnmounted(() => {
 
     <main class="page">
       <WorkshopPanel v-if="tab === 'workshop'" />
-      <BankPanel v-else-if="tab === 'bank'" />
       <WorkersPanel v-else-if="tab === 'workers'" />
       <EncounterPanel v-else />
     </main>

@@ -21,22 +21,21 @@ export type ItemDef = {
   id: ItemId
   label: string
   sellGold: number
-  cap: number
 }
 
 export const ITEM_DEF: Record<ItemId, ItemDef> = {
-  wood: { id: 'wood', label: '木头', sellGold: 2, cap: 300 },
-  ore: { id: 'ore', label: '铜矿', sellGold: 3, cap: 200 },
-  ironOre: { id: 'ironOre', label: '铁矿', sellGold: 5, cap: 200 },
-  mithrilOre: { id: 'mithrilOre', label: '秘银矿', sellGold: 8, cap: 160 },
-  slag: { id: 'slag', label: '渣滓', sellGold: 1, cap: 200 },
-  fish: { id: 'fish', label: '鱼', sellGold: 3, cap: 200 },
-  meal: { id: 'meal', label: '熟食', sellGold: 8, cap: 400 },
-  potion: { id: 'potion', label: '药剂', sellGold: 10, cap: 400 },
-  weapon: { id: 'weapon', label: '铜器', sellGold: 12, cap: 500 },
-  ironWeapon: { id: 'ironWeapon', label: '铁器', sellGold: 18, cap: 400 },
-  mithrilWeapon: { id: 'mithrilWeapon', label: '秘银器', sellGold: 28, cap: 300 },
-  blueprint: { id: 'blueprint', label: '图纸', sellGold: 20, cap: 200 },
+  wood: { id: 'wood', label: '木头', sellGold: 2 },
+  ore: { id: 'ore', label: '铜矿', sellGold: 3 },
+  ironOre: { id: 'ironOre', label: '铁矿', sellGold: 5 },
+  mithrilOre: { id: 'mithrilOre', label: '秘银矿', sellGold: 8 },
+  slag: { id: 'slag', label: '渣滓', sellGold: 1 },
+  fish: { id: 'fish', label: '鱼', sellGold: 3 },
+  meal: { id: 'meal', label: '熟食', sellGold: 8 },
+  potion: { id: 'potion', label: '药剂', sellGold: 10 },
+  weapon: { id: 'weapon', label: '铜器', sellGold: 12 },
+  ironWeapon: { id: 'ironWeapon', label: '铁器', sellGold: 18 },
+  mithrilWeapon: { id: 'mithrilWeapon', label: '秘银器', sellGold: 28 },
+  blueprint: { id: 'blueprint', label: '图纸', sellGold: 20 },
 }
 
 export const ITEM_IDS = Object.keys(ITEM_DEF) as ItemId[]
@@ -246,7 +245,7 @@ export const SELLABLE_GOODS: ItemId[] = ['weapon', 'ironWeapon', 'mithrilWeapon'
 
 /** 当铺报价相对卖货价。略低，至少 1 金。 */
 export const PAWN_RATE = 0.75
-/** 收购单价相对卖货价。高于当铺，略高于银行单卖。 */
+/** 收购单价相对卖货价。高于当铺，略高于工坊单卖。 */
 export const BULK_BUY_RATE = 1.15
 
 export function pawnUnitGold(itemId: ItemId): number {
@@ -257,7 +256,7 @@ export function bulkUnitGold(itemId: ItemId): number {
   return Math.max(pawnUnitGold(itemId) + 1, Math.round(ITEM_DEF[itemId].sellGold * BULK_BUY_RATE))
 }
 
-export const BANK_ROWS: ItemId[][] = [
+export const SUPPLY_ROWS: ItemId[][] = [
   ['ore', 'ironOre', 'mithrilOre'],
   ['weapon', 'ironWeapon', 'mithrilWeapon'],
   ['fish', 'meal'],

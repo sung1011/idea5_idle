@@ -48,6 +48,17 @@ describe('mining → bank', () => {
     expect(bankQty(b, 'ore')).toBe(3)
     expect(b.stations.mining.completed).toBe(3)
   })
+
+  it('keeps mining after stock exceeds the old bank cap', () => {
+    const save = roster(1)
+    save.bank.ore = 200
+    assignWorker(save, save.workers[0].id, 'mining')
+    const next = ticks(save, 20)
+    expect(bankQty(next, 'ore')).toBe(201)
+    expect(next.stations.mining.completed).toBe(1)
+    expect(next.stations.mining.stallReason).toBeNull()
+    expect(collectHints(next).some((h) => h.text.includes('堆满'))).toBe(false)
+  })
 })
 
 describe('woodcutting → bank', () => {

@@ -94,7 +94,7 @@ onUnmounted(() => {
           <button type="button" @click="game.gmAddDiamonds()">加钻石 1w</button>
           <button type="button" @click="game.gmAddWorkers()">加工人×5</button>
           <button type="button" @click="game.gmMaxStations()">站点全满级</button>
-          <button type="button" @click="game.gmFillBankBasics()">填满银行基础料</button>
+          <button type="button" @click="game.gmFillBankBasics()">加基础物资</button>
         </div>
       </div>
     </section>

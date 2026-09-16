@@ -10,7 +10,7 @@ import {
   settleOffline,
 } from './offline'
 import { recruitWorker } from './recruit'
-import { ITEM_DEF, OFFLINE_CAP_S } from './tables'
+import { OFFLINE_CAP_S } from './tables'
 import type { Save } from './types'
 
 function roster(n: number): Save {
@@ -103,8 +103,11 @@ describe('settleOffline', () => {
     expect(result.summary.seconds).toBe(OFFLINE_CAP_S)
     expect(result.summary.capped).toBe(true)
     expect(result.summary.lines[0]).toContain('已达 8 小时上限')
-    expect(bankQty(result.save, 'ore')).toBe(ITEM_DEF.ore.cap)
-    expect(result.summary.stations.some((s) => s.stationId === 'mining' && s.stallReason === 'fullOutput')).toBe(true)
+    expect(bankQty(result.save, 'ore')).toBe(OFFLINE_CAP_S / 20)
+    expect(result.save.stations.mining.stallReason).toBeNull()
+    expect(result.summary.stations.some((s) => s.stationId === 'mining' && s.completed === OFFLINE_CAP_S / 20)).toBe(
+      true,
+    )
   })
 
   it('returns an empty summary when already caught up', () => {

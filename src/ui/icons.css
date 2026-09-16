@@ -28,7 +28,7 @@
   background-position: 100% 50%;
 }
 
-/* 工坊 / 银行 / 工人 / 偶遇 · 2×2 */
+/* 工坊 / 工人 / 偶遇 · 原 2×2 切图仍用三角 */
 .sprite-tab {
   width: 28px;
   height: 28px;
@@ -38,10 +38,6 @@
 
 .sprite-tab.workshop {
   background-position: 0% 0%;
-}
-
-.sprite-tab.bank {
-  background-position: 100% 0%;
 }
 
 .sprite-tab.workers {

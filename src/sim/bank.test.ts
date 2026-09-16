@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { BANK_WARN_RATIO, bankCap, bankFillPct, bankFillTone, sellAllGoods, sellFromBank } from './bank'
+import { addToBank, hydrateBank, itemQty, sellAllGoods, sellFromBank } from './bank'
 import { createSave } from './createSave'
-import { ITEM_DEF } from './tables'
 
 describe('sell goods', () => {
   it('turns weapons and meals into gold', () => {
@@ -49,40 +48,17 @@ describe('sell goods', () => {
   })
 })
 
-describe('bank fill bars', () => {
-  it('uses 10x the original per-item caps', () => {
-    expect(ITEM_DEF.wood.cap).toBe(300)
-    expect(ITEM_DEF.ore.cap).toBe(200)
-    expect(ITEM_DEF.ironOre.cap).toBe(200)
-    expect(ITEM_DEF.mithrilOre.cap).toBe(160)
-    expect(ITEM_DEF.slag.cap).toBe(200)
-    expect(ITEM_DEF.fish.cap).toBe(200)
-    expect(ITEM_DEF.meal.cap).toBe(400)
-    expect(ITEM_DEF.potion.cap).toBe(400)
-    expect(ITEM_DEF.weapon.cap).toBe(500)
-    expect(ITEM_DEF.ironWeapon.cap).toBe(400)
-    expect(ITEM_DEF.mithrilWeapon.cap).toBe(300)
-    expect(ITEM_DEF.blueprint.cap).toBe(200)
+describe('item stock', () => {
+  it('adds past the old per-item caps without stalling', () => {
+    const save = createSave()
+    save.bank.ore = 200
+    expect(addToBank(save, 'ore', 50).ok).toBe(true)
+    expect(itemQty(save, 'ore')).toBe(250)
   })
 
-  it('uses the per-item cap and flags warn / full', () => {
-    const save = createSave()
-    const cap = bankCap('ore')
-    expect(cap).toBe(ITEM_DEF.ore.cap)
-    expect(BANK_WARN_RATIO).toBe(0.8)
-
-    save.bank.ore = 0
-    expect(bankFillTone(save, 'ore')).toBe('ok')
-    expect(bankFillPct(save, 'ore')).toBe(0)
-
-    expect(cap).toBe(200)
-    save.bank.ore = Math.ceil(cap * BANK_WARN_RATIO)
-    expect(save.bank.ore).toBe(160)
-    expect(bankFillTone(save, 'ore')).toBe('warn')
-    expect(bankFillPct(save, 'ore')).toBe(80)
-
-    save.bank.ore = cap
-    expect(bankFillTone(save, 'ore')).toBe('full')
-    expect(bankFillPct(save, 'ore')).toBe(100)
+  it('reads qty from bank or items and ignores capacity', () => {
+    expect(hydrateBank({ ore: 250, wood: 3, capacity: 200 })).toEqual({ ore: 250, wood: 3 })
+    expect(hydrateBank({ ore: -2, fish: 0, meal: 4.8 })).toEqual({ meal: 4 })
+    expect(hydrateBank(null)).toEqual({})
   })
 })
