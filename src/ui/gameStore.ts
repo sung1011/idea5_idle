@@ -7,6 +7,7 @@ import { settleOffline, type OfflineSummary } from '../sim/offline'
 import { collectHints } from '../sim/query'
 import { recruitWorker } from '../sim/recruit'
 import { sellAllGoods, sellFromBank } from '../sim/bank'
+import { depart, submitOrder } from '../sim/orders'
 import { tick } from '../sim/tick'
 import type { ActionResult, ItemId, Save, StationId } from '../sim/types'
 import { loadSave, persistSave } from './saveGame'
@@ -15,6 +16,7 @@ export const useGameStore = defineStore('game', () => {
   // 整份 Save 替换，不用深层响应式，避免 structuredClone 撞上 Proxy。
   const save = shallowRef<Save>(createSave())
   const notice = ref('')
+  const noticeKind = ref<'ok' | 'err'>('err')
   const offlineSummary = ref<OfflineSummary | null>(null)
   const offlineSeconds = computed(() => offlineSummary.value?.seconds ?? 0)
   let timer = 0
@@ -32,9 +34,11 @@ export const useGameStore = defineStore('game', () => {
     if (result.ok) {
       save.value = next
       persist()
-      notice.value = ''
+      notice.value = result.message ?? ''
+      noticeKind.value = 'ok'
     } else {
       notice.value = result.reason
+      noticeKind.value = 'err'
     }
     return result
   }
@@ -108,6 +112,7 @@ export const useGameStore = defineStore('game', () => {
   return {
     save,
     notice,
+    noticeKind,
     hints,
     offlineSummary,
     offlineSeconds,
@@ -120,5 +125,7 @@ export const useGameStore = defineStore('game', () => {
     assign: (workerId: string, stationId: StationId | null) => apply((s) => assignWorker(s, workerId, stationId)),
     sell: (itemId: ItemId, qty = 1) => apply((s) => sellFromBank(s, itemId, qty)),
     sellGoods: () => apply(sellAllGoods),
+    submitOrder: () => apply(submitOrder),
+    depart: () => apply((s) => depart(s)),
   }
 })

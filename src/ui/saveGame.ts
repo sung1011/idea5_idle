@@ -1,4 +1,5 @@
 import { createSave } from '../sim/createSave'
+import { hydrateOrderFields } from '../sim/orders'
 import { STATION_IDS } from '../sim/tables'
 import type { Save, StationState } from '../sim/types'
 
@@ -50,13 +51,13 @@ export function loadSave(): Save | null {
     const parsed = JSON.parse(raw) as Save
     if (!looksLikeSave(parsed)) return null
     const blank = createSave()
-    return {
+    return hydrateOrderFields({
       ...blank,
       ...parsed,
       bank: parsed.bank ?? {},
       workers: parsed.workers ?? [],
       stations: mergeStations(parsed.stations),
-    }
+    })
   } catch {
     return null
   }

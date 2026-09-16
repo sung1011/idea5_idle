@@ -18,6 +18,7 @@ import {
 import type { StationId } from '../sim/types'
 import { useGameStore } from './gameStore'
 import OfflineBanner from './offlineBanner.vue'
+import OrderPanel from './orderPanel.vue'
 import StationCard from './stationCard.vue'
 
 const game = useGameStore()
@@ -53,7 +54,7 @@ onUnmounted(() => {
 <template>
   <div class="shell">
     <header class="mast">
-      <p class="shift">第一期 · 纯生活流水线</p>
+      <p class="shift">第一期 · 纯生活流水线 · 出发先交单</p>
       <h1>车间闲置</h1>
     </header>
 
@@ -91,12 +92,14 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <p v-if="game.notice" class="notice">{{ game.notice }}</p>
+    <OrderPanel />
+
+    <p v-if="game.notice" class="notice" :class="game.noticeKind">{{ game.notice }}</p>
     <ul v-if="game.hints.length" class="hints">
       <li v-for="(h, i) in game.hints" :key="i" :class="h.kind">{{ h.text }}</li>
     </ul>
     <p v-else class="hint">
-      抽工人，把人堆到同一站加速。采矿出矿、锻造出武器；钓鱼出鱼、烹饪出熟食；伐木出木头可卖。相邻站同时有人会共振。
+      抽工人，把人堆到同一站加速。采矿出矿、锻造出武器；钓鱼出鱼、烹饪出熟食；伐木出木头可卖。产物交给出发订单，交单后才能出发。相邻站同时有人会共振。
     </p>
 
     <section v-for="ids in PLAYABLE_CHAINS" :key="chainTitle(ids)" class="chain">
@@ -256,8 +259,13 @@ button {
 }
 
 .notice,
+.notice.err,
 .hints .bottleneck {
   color: var(--danger);
+}
+
+.notice.ok {
+  color: var(--moss);
 }
 
 .hints .resonance {

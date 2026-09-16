@@ -12,7 +12,7 @@ export type ClassId = 'laborer' | 'artisan' | 'wanderer'
 
 export type StallReason = 'emptyInput' | 'fullOutput'
 
-export type ActionResult = { ok: true } | { ok: false; reason: string }
+export type ActionResult = { ok: true; message?: string } | { ok: false; reason: string }
 
 export type Worker = {
   id: string
@@ -37,6 +37,14 @@ export type Save = {
   lastTick: number
   elapsedS: number
   nextWorkerId: number
+  /** 当前出发订单。表驱动，不接战斗状态机。 */
+  currentOrderId: string
+  /** 接单计数，用来轮换订单（可复现）。 */
+  orderIndex: number
+  /** 当前单已提交，才能出发。 */
+  orderSubmitted: boolean
+  departCount: number
+  lastDepartAt: number | null
 }
 
 export type Hint = {

@@ -1,3 +1,4 @@
+import { firstOrderId } from './orders'
 import { START_GOLD, STATION_IDS } from './tables'
 import type { Save, StationState } from './types'
 
@@ -15,5 +16,10 @@ export function createSave(): Save {
     lastTick: Date.now(),
     elapsedS: 0,
     nextWorkerId: 1,
+    currentOrderId: firstOrderId(),
+    orderIndex: 0,
+    orderSubmitted: false,
+    departCount: 0,
+    lastDepartAt: null,
   }
 }
