@@ -51,11 +51,8 @@ onUnmounted(() => {
     </section>
 
     <p v-if="game.notice" class="notice" :class="game.noticeKind">{{ game.notice }}</p>
-    <ul v-if="game.hints.length" class="hints">
-      <li v-for="(h, i) in game.hints" :key="i" :class="h.kind">{{ h.text }}</li>
-    </ul>
-    <p v-else class="hint">
-      抽工人，把人堆到同一站加速当前品类。采矿 / 锻造可升等级解锁铁矿、铁器等。钓鱼出鱼、烹饪出熟食；伐木出木头可卖。偶遇敌人交补给后出发行军，到期只领金币。黑心商人只买、路人只换货、当铺只典当。探索重抽可刷新格。相邻站同时有人会共振。
+    <p class="hint">
+      抽工人，把人堆到同一站加速当前品类。采矿 / 锻造可升等级解锁铁矿、铁器等。钓鱼出鱼、烹饪出熟食；伐木出木头可卖。偶遇敌人交补给后出发行军，到期只领金币。黑心商人只买、路人只换货、当铺只典当。探索重抽可刷新格。停产看站点红框，共振标在对应卡片上。
     </p>
 
     <nav class="tabs" role="tablist" aria-label="主界面页签">
@@ -162,35 +159,17 @@ h1 {
   color: var(--ember);
 }
 
-.hints {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
 .hint {
   color: var(--muted);
   font-size: 14px;
 }
 
 .notice,
-.notice.err,
-.hints .bottleneck {
+.notice.err {
   color: var(--danger);
 }
 
 .notice.ok {
-  color: var(--moss);
-}
-
-.hints .resonance {
-  color: var(--ember);
-}
-
-.hints .progress {
   color: var(--moss);
 }
 </style>

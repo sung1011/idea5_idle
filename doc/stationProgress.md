@@ -26,7 +26,7 @@
 | `stationLevel` | 站点等级，开局 1 |
 | `selectedCategory` | 当前生产品类 |
 | `unlockedCategories` | 已解锁品类 |
-| `progressNotice` | 最近一次升级 / 解锁文案，给 query 当 progress 提示 |
+| `progressNotice` | 最近一次升级 / 解锁文案，存档字段；UI 不展示 |
 
 旧存档缺这些字段时，按新档默认补：Lv1、XP 0、只解锁第 1 档、选中第 1 档。非法 `selectedCategory` 回落到已解锁的第一档。
 
@@ -61,7 +61,7 @@
 speed = (1 / 当前品类 cycleS) * n * (共振 ? 1.2 : 1)
 ```
 
-完成周期后 `grantStationXp`。升级时把 `unlockLevel <= 新等级` 的品类写入 `unlockedCategories`，并写 `progressNotice`（如「采矿升到 Lv5，解锁铁矿」）。`collectHints` 带 `kind: 'progress'`。
+完成周期后 `grantStationXp`。升级时把 `unlockLevel <= 新等级` 的品类写入 `unlockedCategories`，并写 `progressNotice`（如「采矿升到 Lv5，解锁铁矿」）。UI 不展示该升级文案；停产只靠卡片红框，共振在对应卡片标「共振」。
 
 `selectStationCategory`：未解锁返回失败（文案含 Lv 需求），不改选中。切换成功则进度清零。
 

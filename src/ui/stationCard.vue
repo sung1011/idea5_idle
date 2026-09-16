@@ -55,8 +55,6 @@ function pick(id: CategoryId) {
     <p class="stat">
       进度 {{ pct }}% · XP {{ station.stationXp }}/{{ xpNeed }} · 速度 {{ speed.toFixed(2) }}/s
       <span v-if="resonating"> · 共振</span>
-      <span v-if="stall === 'emptyInput'"> · 原料见底</span>
-      <span v-if="stall === 'fullOutput'"> · 产物堆满</span>
     </p>
     <p v-if="hasCosts" class="stat">消耗 {{ costText }}</p>
     <div v-if="categories.length > 1" class="cats">

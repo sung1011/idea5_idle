@@ -4,7 +4,6 @@ import { assignIdleWorker, assignWorker, withdrawWorker } from '../sim/assign'
 import { cloneSave } from '../sim/clone'
 import { createSave } from '../sim/createSave'
 import { settleOffline, type OfflineSummary } from '../sim/offline'
-import { collectHints } from '../sim/query'
 import { recruitWorker } from '../sim/recruit'
 import { selectStationCategory } from '../sim/stationProgress'
 import { sellAllGoods, sellFromBank } from '../sim/bank'
@@ -30,8 +29,6 @@ export const useGameStore = defineStore('game', () => {
   const offlineSeconds = computed(() => offlineSummary.value?.seconds ?? 0)
   let timer = 0
   let booted = false
-
-  const hints = computed(() => collectHints(save.value))
 
   function persist() {
     persistSave(save.value)
@@ -122,7 +119,6 @@ export const useGameStore = defineStore('game', () => {
     save,
     notice,
     noticeKind,
-    hints,
     offlineSummary,
     offlineSeconds,
     startClock,
