@@ -112,8 +112,6 @@ function selectTab(id: StationId) {
 
 .rail button.on {
   color: var(--ink);
-  background: linear-gradient(#ffe27a, #f0b83a);
-  box-shadow: 0 3px 0 var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.55);
   opacity: 1;
   filter: none;
 }

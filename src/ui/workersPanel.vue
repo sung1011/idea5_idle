@@ -141,7 +141,7 @@ function onLoadFood(w: Worker) {
         <div class="row tool-row">
           <button type="button" :disabled="!canEat(w)" @click="game.eatFood(w.id)">吃 1</button>
           <template v-if="w.foodSlot">
-            <button type="button" @click="game.unloadFood(w.id)">卸下食物</button>
+            <button type="button" class="secondary" @click="game.unloadFood(w.id)">卸下食物</button>
           </template>
           <template v-if="availableFoods().length">
             <select
@@ -181,6 +181,7 @@ function onLoadFood(w: Worker) {
           </button>
           <button
             type="button"
+            class="secondary"
             :class="{ on: resting(w) }"
             :disabled="resting(w) || fighting(w)"
             :aria-pressed="resting(w)"
@@ -221,8 +222,10 @@ function onLoadFood(w: Worker) {
   gap: 8px;
 }
 
-button {
-  min-height: 36px;
+.tool-row button {
+  min-height: 44px;
+  padding: 8px 14px;
+  font-size: 15px;
 }
 
 ul {

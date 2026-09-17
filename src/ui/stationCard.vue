@@ -172,7 +172,7 @@ function onMerge() {
       <p class="stat">{{ toolLine }}</p>
       <div class="row tool-row">
         <template v-if="station.toolSlot">
-          <button type="button" @click="onUnequipTool">卸下工具</button>
+          <button type="button" class="secondary" @click="onUnequipTool">卸下工具</button>
         </template>
         <template v-if="availableTools.length">
           <select
@@ -191,7 +191,7 @@ function onMerge() {
     </div>
     <div class="actions">
       <button type="button" @click="game.assignIdle(stationId)">派入</button>
-      <button type="button" @click="game.withdraw(stationId)">撤出</button>
+      <button type="button" class="secondary" @click="game.withdraw(stationId)">撤出</button>
       <button v-if="canMerge" type="button" @click="onMerge">{{ mergeLabel }}</button>
     </div>
   </article>
@@ -363,7 +363,9 @@ h2 {
 }
 
 .tool-row button {
-  min-height: 36px;
+  min-height: 44px;
+  padding: 8px 14px;
+  font-size: 15px;
 }
 
 .hint {
@@ -381,9 +383,6 @@ h2 {
 
 .actions button {
   flex: 1 1 0;
-  min-height: 48px;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  min-height: 50px;
 }
 </style>
