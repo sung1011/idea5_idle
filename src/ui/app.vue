@@ -4,6 +4,7 @@ import { useGameStore } from './gameStore'
 import EncounterPanel from './encounterPanel.vue'
 import MessagePanel from './messagePanel.vue'
 import SettingsPanel from './settingsPanel.vue'
+import TechPanel from './techPanel.vue'
 import WorkersPanel from './workersPanel.vue'
 import WorkshopPanel from './workshopPanel.vue'
 import FloatTips from './floatTips.vue'
@@ -12,6 +13,7 @@ const TABS = [
   { id: 'workshop', label: '工坊' },
   { id: 'workers', label: '工人' },
   { id: 'encounters', label: '偶遇' },
+  { id: 'tech', label: '科技' },
 ] as const
 
 type TabId = (typeof TABS)[number]['id']
@@ -77,13 +79,17 @@ onUnmounted(() => {
           <i class="sprite sprite-res workers" aria-hidden="true" />
           <span>{{ game.save.workers.length }}</span>
         </div>
+        <div class="chip">
+          <span>科技 {{ game.save.techPoints }}</span>
+        </div>
       </div>
     </section>
 
     <main class="page">
       <WorkshopPanel v-if="tab === 'workshop'" />
       <WorkersPanel v-else-if="tab === 'workers'" />
-      <EncounterPanel v-else />
+      <EncounterPanel v-else-if="tab === 'encounters'" />
+      <TechPanel v-else />
     </main>
 
     <nav class="dock" role="tablist" aria-label="主界面页签">

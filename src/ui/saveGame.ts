@@ -7,6 +7,7 @@ import { hydrateStations } from '../sim/stationProgress'
 import { clampStationAssignments } from '../sim/assign'
 import { hydrateWorkers } from '../sim/recruit'
 import { hydrateForgedTools, migrateWorkerToolsToStations } from '../sim/tools'
+import { hydrateTechFields } from '../sim/tech'
 import { WORKER_QUALITY_REV } from '../sim/tables'
 import type { Save } from '../sim/types'
 
@@ -73,6 +74,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
   }
   migrateWorkerToolsToStations(merged, parsed.workers)
   clampStationAssignments(merged)
+  hydrateTechFields(merged)
   if (!Array.isArray(parsed.encounters)) merged.encounters = []
   return hydrateEncounterFields(merged)
 }

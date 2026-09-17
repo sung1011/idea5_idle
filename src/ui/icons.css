@@ -48,6 +48,10 @@
   background-position: 100% 100%;
 }
 
+.sprite-tab.tech {
+  background-position: 100% 0%;
+}
+
 /* 采矿 锻造 钓鱼 烹饪 / 旧斧闲置 · 狩猎(锯占位) · 采药(苗) · 炼金 · 2×4 */
 .sprite-station {
   width: 64px;

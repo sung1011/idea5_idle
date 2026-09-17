@@ -9,12 +9,12 @@ import {
   FOOD_ITEM_IDS,
   ITEM_DEF,
   PLAYABLE_STATION_IDS,
-  RECRUIT_COST,
   STATION_DEF,
   STATION_WORKER_CAP,
   workerQualityDef,
   type FoodItemId,
 } from '../sim/tables'
+import { recruitCost } from '../sim/tech'
 import type { StationId, Worker } from '../sim/types'
 import { useGameStore } from './gameStore'
 
@@ -105,7 +105,7 @@ function badgeStyle(w: Worker) {
       每站最多 {{ STATION_WORKER_CAP }} 人。同站满两人时，到工坊站卡合并升档；满档不可再升。新职业从该档池里随机。
     </p>
     <div class="row">
-      <button type="button" @click="game.recruit()">抽工人（{{ RECRUIT_COST }} 金）</button>
+      <button type="button" @click="game.recruit()">抽工人（{{ recruitCost(game.save) }} 金）</button>
     </div>
     <ul v-if="game.save.workers.length">
       <li

@@ -100,6 +100,8 @@ describe('save migration', () => {
     expect(save?.stations.fishing.selectedCategory).toBe('copper')
     expect(save?.stations.hunting.selectedCategory).toBe('copper')
     expect(save?.workerQualityRev).toBe(2)
+    expect(save?.techPoints).toBe(0)
+    expect(save?.unlockedTechIds).toEqual([])
   })
 
   it('migrates old gray-table quality tiers once and stamps the new rev', () => {
@@ -166,5 +168,31 @@ describe('save migration', () => {
     const loaded = loadSave(store)
     expect(loaded?.stations.cooking.toolSlot?.itemId).toBe('tool')
     expect(loaded?.stations.cooking.toolSlot?.matchStationId).toBe('cooking')
+  })
+
+  it('hydrates missing tech fields and keeps a linear prefix', () => {
+    const raw = {
+      ...createSave(),
+      techPoints: 7.8,
+      unlockedTechIds: ['workshopLedger', 'skipMe', 'recruitDeal'],
+    }
+    const save = hydrateLoadedSave(raw)
+    expect(save?.techPoints).toBe(7)
+    expect(save?.unlockedTechIds).toEqual(['workshopLedger', 'recruitDeal'])
+
+    const old = {
+      ...createSave(),
+    }
+    delete (old as { techPoints?: number }).techPoints
+    delete (old as { unlockedTechIds?: string[] }).unlockedTechIds
+    const hydrated = hydrateLoadedSave(old)
+    expect(hydrated?.techPoints).toBe(0)
+    expect(hydrated?.unlockedTechIds).toEqual([])
+
+    const skipped = hydrateLoadedSave({
+      ...createSave(),
+      unlockedTechIds: ['recruitDeal'],
+    })
+    expect(skipped?.unlockedTechIds).toEqual([])
   })
 })

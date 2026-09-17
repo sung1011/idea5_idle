@@ -43,5 +43,7 @@ describe('createSave seven stations', () => {
     expect(save.stations.forging.toolSlot).toBeNull()
     expect(worker.qualityTier).toBe(1)
     expect(save.workerQualityRev).toBe(WORKER_QUALITY_REV)
+    expect(save.techPoints).toBe(0)
+    expect(save.unlockedTechIds).toEqual([])
   })
 })

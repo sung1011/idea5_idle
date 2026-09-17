@@ -5,7 +5,8 @@ import { completeForgingCycle } from './forging'
 import { applyGatherOutputs, applyHuntingPauseTick, applyMiningRecovery, isGatherFrozen, isGatherStation } from './gather'
 import { assignedCount, canConsume, currentSpeed, pickConsume, stationResonating } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
-import { ITEM_DEF, RESONANCE_BONUS_EVERY, isPotionItemId } from './tables'
+import { ITEM_DEF, isPotionItemId } from './tables'
+import { grantCraftTechPoint, resonanceBonusEvery } from './tech'
 import { cycleOutputBonus } from './tools'
 import type { Save, StationId } from './types'
 
@@ -27,7 +28,7 @@ function completeAlchemyCycle(save: Save, now: number): boolean {
   const resonating = stationResonating(save, 'alchemy')
   if (resonating) station.resonanceStreak += 1
   else station.resonanceStreak = 0
-  const extra = resonating && station.resonanceStreak % RESONANCE_BONUS_EVERY === 0
+  const extra = resonating && station.resonanceStreak % resonanceBonusEvery(save) === 0
   const bonus = cycleOutputBonus(save, 'alchemy', extra, now)
   for (const io of def.outputs) {
     const qty = io.qty + (io === def.outputs[0] ? bonus : 0)
@@ -57,14 +58,22 @@ function emitOutputs(save: Save, stationId: StationId, extra: boolean, now: numb
 /** 完成一次吞吐：按当前品类扣原料、写入物资，并给站 XP。共振满 streak 时额外产出。 */
 export function completeCycle(save: Save, stationId: StationId, now = Date.now()): boolean {
   if (!canConsume(save, stationId)) return false
-  if (stationId === 'forging') return completeForgingCycle(save, now)
-  if (stationId === 'alchemy') return completeAlchemyCycle(save, now)
+  if (stationId === 'forging') {
+    const ok = completeForgingCycle(save, now)
+    if (ok) grantCraftTechPoint(save, 'forging')
+    return ok
+  }
+  if (stationId === 'alchemy') {
+    const ok = completeAlchemyCycle(save, now)
+    if (ok) grantCraftTechPoint(save, 'alchemy')
+    return ok
+  }
   if (!consumeInputs(save, stationId)) return false
   const station = save.stations[stationId]
   const resonating = stationResonating(save, stationId)
   if (resonating) station.resonanceStreak += 1
   else station.resonanceStreak = 0
-  const extra = resonating && station.resonanceStreak % RESONANCE_BONUS_EVERY === 0
+  const extra = resonating && station.resonanceStreak % resonanceBonusEvery(save) === 0
   if (isGatherStation(stationId)) {
     if (!applyGatherOutputs(save, stationId, extra, now)) return false
   } else if (!emitOutputs(save, stationId, extra, now)) {
@@ -72,6 +81,7 @@ export function completeCycle(save: Save, stationId: StationId, now = Date.now()
   }
   station.completed += 1
   grantStationXp(save, stationId, selectedCategoryDef(save, stationId).xpPerCycle)
+  grantCraftTechPoint(save, stationId)
   return true
 }
 

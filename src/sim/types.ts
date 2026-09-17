@@ -58,6 +58,19 @@ export type ClassId =
   | 'steward'
   | 'knight'
 
+/** 线性科技树节点。必须先解锁前一档。 */
+export type TechId =
+  | 'workshopLedger'
+  | 'recruitDeal'
+  | 'resonanceTune'
+  | 'exploreMap'
+  | 'craftRhythm'
+  | 'toolReady'
+  | 'mergeInsight'
+  | 'longWatch'
+  | 'deepResonance'
+  | 'masterPlan'
+
 /** 工人品质档。1 最低（抽人默认），10 最高（不能再合成）。 */
 export type QualityTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10
 
@@ -233,6 +246,10 @@ export type Save = {
    * 缺字段或小于 2 视为旧灰表，hydrate 迁一次后盖成 2。
    */
   workerQualityRev: number
+  /** 账号级科技点。制造站完成周期 +1；也可消耗图纸兑换。旧档缺字段 hydrate 为 0。 */
+  techPoints: number
+  /** 已按序解锁的科技。必须是树的前缀；旧档缺字段 hydrate 为 []。 */
+  unlockedTechIds: TechId[]
 }
 
 export type EncounterQuality = 'gray' | 'green' | 'blue' | 'purple' | 'orange'

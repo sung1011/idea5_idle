@@ -9,10 +9,10 @@ import {
   migrateQualityTierFromGrayTable,
   needsGrayQualityMigration,
   QUALITY_MIN,
-  RECRUIT_COST,
   resolveStationId,
   WORKER_NAME_POOL,
 } from './tables'
+import { recruitCost } from './tech'
 import type {
   ActionResult,
   EffectInstance,
@@ -155,10 +155,11 @@ export function spawnWorkerWith(save: Save, qualityTier: QualityTier, classId: C
   return worker
 }
 
-/** 表驱动抽工人。扣账号金币，写入花名册。 */
+/** 表驱动抽工人。扣账号金币，写入花名册。费用可被科技减免。 */
 export function recruitWorker(save: Save): ActionResult {
-  if (save.gold < RECRUIT_COST) return { ok: false, reason: '金币不足' }
-  save.gold -= RECRUIT_COST
+  const cost = recruitCost(save)
+  if (save.gold < cost) return { ok: false, reason: '金币不足' }
+  save.gold -= cost
   spawnWorker(save)
   return { ok: true }
 }

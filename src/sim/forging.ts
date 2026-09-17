@@ -9,9 +9,9 @@ import {
   FORGING_SOFT_FAIL_XP_MUL,
   isToolItemId,
   ITEM_DEF,
-  RESONANCE_BONUS_EVERY,
   type IoRule,
 } from './tables'
+import { resonanceBonusEvery } from './tech'
 import { cycleOutputBonus, forgingMatchStation, pushForgedTools } from './tools'
 import type { CategoryId, Save, SoftFailRoll } from './types'
 
@@ -57,7 +57,7 @@ export function completeForgingCycle(save: Save, now = Date.now()): boolean {
   }
 
   if (!takeCosts(save, rules).ok) return false
-  const extra = resonating && station.resonanceStreak % RESONANCE_BONUS_EVERY === 0
+  const extra = resonating && station.resonanceStreak % resonanceBonusEvery(save) === 0
   const bonus = cycleOutputBonus(save, 'forging', extra, now)
   for (const io of def.outputs) {
     const qty = io.qty + (io === def.outputs[0] ? bonus : 0)

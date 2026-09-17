@@ -32,5 +32,7 @@ export function createSave(): Save {
     rngState: 1,
     forgedTools: [],
     workerQualityRev: WORKER_QUALITY_REV,
+    techPoints: 0,
+    unlockedTechIds: [],
   }
 }

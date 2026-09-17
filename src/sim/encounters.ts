@@ -1,6 +1,7 @@
 import { addToBank, bankQty } from './bank'
 import { canAffordCosts, missingCostLabels, takeCosts } from './costs'
 import { ITEM_DEF, bulkUnitGold, pawnUnitGold, type IoRule } from './tables'
+import { exploreCostReduce } from './tech'
 import type {
   ActionResult,
   ArtisanEncounter,
@@ -437,7 +438,7 @@ export function boardSignature(encounters: readonly Encounter[]): string {
 export function exploreCost(save: Save): number {
   const count = Number.isFinite(save.exploreCount) && save.exploreCount > 0 ? Math.floor(save.exploreCount) : 0
   const index = Math.min(count, EXPLORE_COST_TABLE.length - 1)
-  return EXPLORE_COST_TABLE[index]
+  return Math.max(1, EXPLORE_COST_TABLE[index] - exploreCostReduce(save))
 }
 
 export function exploreBlockReason(save: Save): string | null {

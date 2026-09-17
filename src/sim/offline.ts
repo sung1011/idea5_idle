@@ -2,6 +2,7 @@ import { bankQty } from './bank'
 import { cloneSave } from './clone'
 import { pushMessage } from './messages'
 import { ITEM_DEF, ITEM_IDS, OFFLINE_CAP_S, STATION_DEF, STATION_IDS } from './tables'
+import { offlineCapHours, offlineCapS } from './tech'
 import { applyTick } from './tick'
 import type { ItemId, Save, StallReason, StationId } from './types'
 
@@ -104,10 +105,10 @@ function stationLines(before: Save, after: Save): OfflineStationLine[] {
   return lines
 }
 
-function buildLines(summary: Omit<OfflineSummary, 'lines'>): string[] {
+function buildLines(summary: Omit<OfflineSummary, 'lines'>, capHours = 8): string[] {
   const lines: string[] = []
   let time = `离线 ${formatOfflineDuration(summary.seconds)}`
-  if (summary.capped) time += '（已达 8 小时上限）'
+  if (summary.capped) time += `（已达 ${capHours} 小时上限）`
   lines.push(time)
 
   for (const st of summary.stations) {
@@ -133,7 +134,13 @@ function buildLines(summary: Omit<OfflineSummary, 'lines'>): string[] {
   return lines
 }
 
-export function buildOfflineSummary(before: Save, after: Save, seconds: number, capped: boolean): OfflineSummary {
+export function buildOfflineSummary(
+  before: Save,
+  after: Save,
+  seconds: number,
+  capped: boolean,
+  capHours = offlineCapHours(after),
+): OfflineSummary {
   const draft: Omit<OfflineSummary, 'lines'> = {
     seconds,
     capped,
@@ -143,7 +150,7 @@ export function buildOfflineSummary(before: Save, after: Save, seconds: number, 
     bank: bankDeltas(before, after),
     stations: stationLines(before, after),
   }
-  return { ...draft, lines: buildLines(draft) }
+  return { ...draft, lines: buildLines(draft, capHours) }
 }
 
 export function offlineSummaryHasChange(summary: OfflineSummary): boolean {
@@ -163,11 +170,12 @@ export function pushOfflineMessage(save: Save, summary: OfflineSummary, now = Da
   })
 }
 
-/** 按离线秒数连跑 applyTick，上限 8 小时；有变化则写入消息箱，不弹顶栏。 */
+/** 按离线秒数连跑 applyTick，上限随科技加长；有变化则写入消息箱，不弹顶栏。 */
 export function settleOffline(save: Save, now = Date.now()): OfflineResult {
   const raw = rawOfflineSeconds(save.lastTick, now)
-  const seconds = Math.min(OFFLINE_CAP_S, raw)
-  const capped = raw > OFFLINE_CAP_S
+  const cap = offlineCapS(save)
+  const seconds = Math.min(cap, raw)
+  const capped = raw > cap
   if (seconds <= 0) return { save, summary: emptySummary(save.gold) }
 
   const before = cloneSave(save)

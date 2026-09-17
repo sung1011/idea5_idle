@@ -910,8 +910,13 @@ export function stackFactor(n: number): number {
  * 1 人采矿 cycleS=20 → 0.05/s，20 秒出 1 矿
  * 3 人采矿 → 0.15/s，同等时间 3 倍吞吐
  */
-export function stationSpeed(n: number, cycleS: number, resonating = false): number {
+export function stationSpeed(
+  n: number,
+  cycleS: number,
+  resonating = false,
+  resonanceMul = RESONANCE_SPEED_MUL,
+): number {
   if (n <= 0 || cycleS <= 0) return 0
   const base = 1 / cycleS
-  return base * stackFactor(n) * (resonating ? RESONANCE_SPEED_MUL : 1)
+  return base * stackFactor(n) * (resonating ? resonanceMul : 1)
 }

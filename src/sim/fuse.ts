@@ -11,6 +11,7 @@ import {
   STATION_DEF,
   workerQualityDef,
 } from './tables'
+import { fuseStayAssigned } from './tech'
 import type { ActionResult, QualityTier, Save, StationId, Worker } from './types'
 
 function stripSlots(save: Save, worker: Worker): void {
@@ -37,8 +38,10 @@ export function fuseWorkers(save: Save, workerIdA: string, workerIdB: string): A
   const pool = classPoolForQuality(nextTier)
   const classId = pickClassFromPool(pool, roll01(save))
 
+  const stayAt = fuseStayAssigned(save) ? a.assignment : null
   save.workers = save.workers.filter((w) => w.id !== a.id && w.id !== b.id)
   const worker = spawnWorkerWith(save, nextTier, classId)
+  if (stayAt) worker.assignment = stayAt
   const quality = workerQualityDef(nextTier)
   const job = worker.classId ? CLASS_LABEL[worker.classId] : '未标'
   return { ok: true, message: `合成出${worker.name ?? worker.id}（${quality.label}·${job}）` }
