@@ -220,5 +220,18 @@ describe('save migration', () => {
     })
     expect(backfill?.knightLevel).toBe(3)
     expect(backfill?.techPoints).toBe(6)
+
+    const legacyPlayed = {
+      ...createSave(),
+      techPoints: 9,
+      stations: {
+        ...createSave().stations,
+        mining: { ...createSave().stations.mining, stationLevel: 5 },
+      },
+    }
+    delete (legacyPlayed as { knightLevel?: number }).knightLevel
+    const legacy = hydrateLoadedSave(legacyPlayed)
+    expect(legacy?.knightLevel).toBe(5)
+    expect(legacy?.techPoints).toBe(9)
   })
 })

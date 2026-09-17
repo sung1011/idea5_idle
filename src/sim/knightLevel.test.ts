@@ -42,6 +42,8 @@ describe('knight level grants inspiration', () => {
     expect(save.stations.mining.stationLevel).toBe(2)
     expect(save.knightLevel).toBe(2)
     expect(save.techPoints).toBe(2)
+    expect(save.messages[0]?.title).toBe('骑士升级')
+    expect(save.stations.mining.progressNotice).toContain('骑士升到 Lv2')
   })
 
   it('does not grant again when the snapshot already matches', () => {
@@ -82,5 +84,16 @@ describe('hydrate knight level', () => {
     hydrateTechFields(save as Save)
     expect(save.knightLevel).toBe(1)
     expect(save.techPoints).toBe(0)
+  })
+
+  it('does not dump inspiration when an old played save is missing knightLevel', () => {
+    const save = createSave()
+    delete (save as { knightLevel?: number }).knightLevel
+    save.stations.mining.stationLevel = 5
+    save.stations.fishing.stationLevel = 2
+    save.techPoints = 9
+    hydrateTechFields(save as Save)
+    expect(save.knightLevel).toBe(6)
+    expect(save.techPoints).toBe(9)
   })
 })

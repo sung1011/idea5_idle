@@ -1,4 +1,5 @@
 import { syncKnightLevel } from './knightLevel'
+import { pushMessage } from './messages'
 import {
   asMiningCategoryId,
   defaultCategory,
@@ -225,12 +226,20 @@ export function grantStationXp(save: Save, stationId: StationId, xp: number): vo
     unlockedNow.push(...syncUnlockedCategories(station, stationId))
   }
   if (!leveled) return
-  syncKnightLevel(save)
+  const knight = syncKnightLevel(save)
   const label = STATION_DEF[stationId].label
   const bits = [`${label}升到 Lv${station.stationLevel}`]
   if (unlockedNow.length) {
     const names = unlockedNow.map((id) => findCategory(stationId, id)?.label ?? id)
     bits.push(`解锁${names.join('、')}`)
+  }
+  if (knight.gained > 0) {
+    bits.push(`骑士升到 Lv${knight.to}`)
+    bits.push(`灵感 +${knight.gained}`)
+    pushMessage(save, {
+      title: '骑士升级',
+      body: `骑士等级升到 ${knight.to}，灵感 +${knight.gained}`,
+    })
   }
   station.progressNotice = bits.join('，')
 }
