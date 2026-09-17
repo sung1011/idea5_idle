@@ -711,6 +711,14 @@ export function stationRelatedItems(stationId: StationId): StationRelatedItems {
   return { costs, outputs }
 }
 
+/** 可生产物资的主产站。多站都能出时取 PLAYABLE_STATION_IDS 里第一个。金币 / 旧物等返回 null。 */
+export function itemProducerStation(itemId: ItemId): StationId | null {
+  for (const id of PLAYABLE_STATION_IDS) {
+    if (stationRelatedItems(id).outputs.includes(itemId)) return id
+  }
+  return null
+}
+
 /** 不挂在任一可玩站上的旧物（木头 / 搁置武器等）。有货时工坊页脚展示。 */
 export function leftoverStockItems(): ItemId[] {
   const used = new Set<ItemId>()

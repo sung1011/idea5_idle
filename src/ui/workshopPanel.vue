@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import {
   formatMarchClock,
   isWorkshopBuffActive,
@@ -13,10 +13,9 @@ import StationCard from './stationCard.vue'
 import UiIcon from './uiIcon.vue'
 import { useFrameNow } from './visualProgress'
 import { railProgressHalted, railVisualPct, railWorkerDotColors } from './workshopRail'
+import { selectWorkshopStation, syncWorkshopTab, workshopTab } from './appNav'
 import {
   WORKSHOP_TAB_IDS,
-  loadWorkshopTab,
-  saveWorkshopTab,
   workshopTabLabel,
 } from './workshopTabs'
 
@@ -33,7 +32,8 @@ const buffLabel = computed(() => {
   return `工匠加持：产量 +${pct}% · 剩余 ${formatMarchClock(workshopBuffRemainS(game.save, now.value))}`
 })
 
-const activeTab = ref<StationId>(loadWorkshopTab())
+const activeTab = workshopTab
+syncWorkshopTab()
 const leftover = computed(() => leftoverStockRows(game.save))
 const railById = computed(() => {
   const save = game.save
@@ -51,7 +51,7 @@ const railById = computed(() => {
 })
 
 function selectTab(id: StationId) {
-  activeTab.value = saveWorkshopTab(id)
+  selectWorkshopStation(id)
 }
 </script>
 

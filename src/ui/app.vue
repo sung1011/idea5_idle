@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
+import { APP_TABS, appTab, selectAppTab } from './appNav'
 import { formatHudQty } from './formatHud'
 import { useGameStore } from './gameStore'
 import EncounterPanel from './encounterPanel.vue'
@@ -11,17 +12,8 @@ import WorkshopPanel from './workshopPanel.vue'
 import FloatTips from './floatTips.vue'
 import UiIcon from './uiIcon.vue'
 
-const TABS = [
-  { id: 'workshop', label: '工坊' },
-  { id: 'workers', label: '工人' },
-  { id: 'encounters', label: '主线' },
-  { id: 'tech', label: '科技' },
-] as const
-
-type TabId = (typeof TABS)[number]['id']
-
 const game = useGameStore()
-const tab = ref<TabId>('workshop')
+const tab = appTab
 const mailOpen = ref(false)
 const settingsOpen = ref(false)
 
@@ -105,13 +97,13 @@ onUnmounted(() => {
 
     <nav class="dock" role="tablist" aria-label="主界面页签">
       <button
-        v-for="t in TABS"
+        v-for="t in APP_TABS"
         :key="t.id"
         type="button"
         role="tab"
         :aria-selected="tab === t.id"
         :class="{ on: tab === t.id }"
-        @click="tab = t.id"
+        @click="selectAppTab(t.id)"
       >
         <UiIcon :name="t.id" />
         <span>{{ t.label }}</span>

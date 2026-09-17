@@ -18,19 +18,18 @@ import {
   combatSupplyBlockReason,
   exploreCost,
   formatMarchClock,
-  formatNeedMap,
   isEncounterDone,
   isWorkshopBuffActive,
   needLines,
   pawnQuoteLines,
-  pawnRewardGold,
   stampLabel,
   workshopBuffMul,
   workshopBuffRemainS,
 } from '../sim/encounters'
 import { mainChapterTitle, mainLootClaimBarLabel, mainLootClaimFillPct } from '../sim/mainChapter'
 import { CLASS_LABEL } from '../sim/tables'
-import type { Encounter, EncounterKind, EnemyEncounter, PawnEncounter, Worker } from '../sim/types'
+import type { Encounter, EncounterKind, EnemyEncounter, Worker } from '../sim/types'
+import EncounterDealLines from './encounterDealLines.vue'
 import EncounterTips from './encounterTips.vue'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
@@ -145,9 +144,6 @@ function weaknessSlots(enc: EnemyEncounter) {
   return visibleWeaknessSlots(enc)
 }
 
-function pawnGold(enc: PawnEncounter) {
-  return pawnRewardGold(enc)
-}
 </script>
 
 <template>
@@ -192,7 +188,8 @@ function pawnGold(enc: PawnEncounter) {
               </span>
             </div>
           </header>
-          <p class="label">{{ enc.label }} · 战利品 {{ enc.lootGold }} 金</p>
+          <p class="label">{{ enc.label }}</p>
+          <EncounterDealLines :encounter="enc" />
           <p class="weak">
             弱点
             <CombatAttrIcon
@@ -263,9 +260,9 @@ function pawnGold(enc: PawnEncounter) {
             </div>
           </header>
           <p class="label">{{ enc.label }}</p>
+          <EncounterDealLines :encounter="enc" />
 
           <template v-if="enc.kind === 'blackMerchant'">
-            <p>花金币买工坊货：{{ enc.buyGold }} 金 → {{ formatNeedMap(enc.buyOffers) }}</p>
             <p v-if="enc.completed" class="ready">这笔买卖已成交</p>
             <div class="row">
               <button
@@ -279,8 +276,6 @@ function pawnGold(enc: PawnEncounter) {
           </template>
 
           <template v-else-if="enc.kind === 'passerby'">
-            <p>工坊换货：交出 {{ formatNeedMap(enc.wants) }}</p>
-            <p>换得 {{ formatNeedMap(enc.offers) }}</p>
             <ul>
               <li v-for="line in wantLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
                 {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}
@@ -296,7 +291,6 @@ function pawnGold(enc: PawnEncounter) {
           </template>
 
           <template v-else-if="enc.kind === 'pawn'">
-            <p>工坊典当：{{ formatNeedMap(enc.pawnWants) }} → {{ pawnGold(enc) }} 金</p>
             <ul>
               <li v-for="line in pawnLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
                 {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}
@@ -313,8 +307,6 @@ function pawnGold(enc: PawnEncounter) {
           </template>
 
           <template v-else-if="enc.kind === 'artisan'">
-            <p>交成品：{{ formatNeedMap(enc.wants) }}</p>
-            <p>工坊回礼：产量 +{{ Math.round((enc.buffMul - 1) * 100) }}% · {{ formatMarchClock(enc.buffDurationS) }}</p>
             <ul>
               <li v-for="line in wantLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
                 {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}
@@ -334,7 +326,6 @@ function pawnGold(enc: PawnEncounter) {
           </template>
 
           <template v-else-if="enc.kind === 'bulkBuy'">
-            <p>高价收成品：交出 {{ formatNeedMap(enc.wants) }} → {{ enc.rewardGold }} 金</p>
             <ul>
               <li v-for="line in wantLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
                 {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}

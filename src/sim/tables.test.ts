@@ -12,6 +12,7 @@ import {
   HUNTING_PREY_TABLE,
   MINING_NODE_DEF,
   leftoverStockItems,
+  itemProducerStation,
   PLAYABLE_STATION_IDS,
   SELLABLE_GOODS,
   SKELETON_STATION_IDS,
@@ -135,5 +136,24 @@ describe('production phase-1 tables', () => {
       outputs: ['potion'],
     })
     expect(leftoverStockItems()).toEqual(['wood', 'weapon', 'ironWeapon', 'mithrilWeapon'])
+  })
+
+  it('maps producible items to one primary station and leaves leftover goods unmapped', () => {
+    expect(itemProducerStation('ore')).toBe('mining')
+    expect(itemProducerStation('ironOre')).toBe('mining')
+    expect(itemProducerStation('tool')).toBe('forging')
+    expect(itemProducerStation('blueprint')).toBe('forging')
+    expect(itemProducerStation('fish')).toBe('fishing')
+    expect(itemProducerStation('junk')).toBe('fishing')
+    expect(itemProducerStation('meat')).toBe('hunting')
+    expect(itemProducerStation('eye')).toBe('hunting')
+    expect(itemProducerStation('meal')).toBe('cooking')
+    expect(itemProducerStation('stew')).toBe('cooking')
+    expect(itemProducerStation('herb')).toBe('herbalism')
+    expect(itemProducerStation('spice')).toBe('herbalism')
+    expect(itemProducerStation('potion')).toBe('alchemy')
+    expect(itemProducerStation('wood')).toBeNull()
+    expect(itemProducerStation('weapon')).toBeNull()
+    expect(itemProducerStation('slag')).toBeNull()
   })
 })
