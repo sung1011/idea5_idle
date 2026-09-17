@@ -15,6 +15,9 @@ import {
   hasLiveChapterBoss,
   hydrateMainChapterFields,
   mainChapterHeader,
+  mainChapterTitle,
+  mainLootClaimBarLabel,
+  mainLootClaimFillPct,
   mainlineEnemyRank,
   normalizeMainChapter,
   normalizeMainLootClaims,
@@ -71,6 +74,9 @@ describe('main chapter hydrate and header', () => {
     const save = createSave()
     expect(save.mainChapter).toBe(MAIN_CHAPTER_START)
     expect(save.mainLootClaims).toBe(0)
+    expect(mainChapterTitle(save)).toBe('第 1 章')
+    expect(mainLootClaimBarLabel(save)).toBe('本章战利品 0/10')
+    expect(mainLootClaimFillPct(save)).toBe(0)
     expect(mainChapterHeader(save)).toBe('第 1 章 · 本章战利品 0/10')
   })
 
@@ -107,10 +113,18 @@ describe('main chapter hydrate and header', () => {
     expect(dirty.mainLootClaims).toBe(0)
   })
 
-  it('shows chapter boss in the header once claims reach 10', () => {
+  it('shows loot-claim progress as a capped bar and switches label at 10', () => {
+    expect(mainChapterTitle({ mainChapter: 3 })).toBe('第 3 章')
+    expect(mainLootClaimBarLabel({ mainLootClaims: 3 })).toBe('本章战利品 3/10')
+    expect(mainLootClaimFillPct({ mainLootClaims: 3 })).toBe(30)
+    expect(mainLootClaimFillPct({ mainLootClaims: 9 })).toBe(90)
+    expect(mainLootClaimFillPct({ mainLootClaims: 10 })).toBe(100)
+    expect(mainLootClaimFillPct({ mainLootClaims: 12 })).toBe(100)
+    expect(mainLootClaimBarLabel({ mainLootClaims: 9 })).toBe('本章战利品 9/10')
+    expect(mainLootClaimBarLabel({ mainLootClaims: 10 })).toBe('战利品 10/10 · 下一条Boss')
+    expect(mainLootClaimBarLabel({ mainLootClaims: 12 })).toBe('战利品 10/10 · 下一条Boss')
     expect(mainChapterHeader({ mainChapter: 3, mainLootClaims: 9 })).toBe('第 3 章 · 本章战利品 9/10')
-    expect(mainChapterHeader({ mainChapter: 3, mainLootClaims: 10 })).toBe('第 3 章 · 本章 Boss')
-    expect(mainChapterHeader({ mainChapter: 3, mainLootClaims: 12 })).toBe('第 3 章 · 本章 Boss')
+    expect(mainChapterHeader({ mainChapter: 3, mainLootClaims: 10 })).toBe('第 3 章 · 战利品 10/10 · 下一条Boss')
   })
 })
 
@@ -228,6 +242,9 @@ describe('chapter advance on boss loot', () => {
     expect(save.encounters.some((enc) => enc.id === 'chapter-boss')).toBe(false)
     expect(save.encounters.some((enc) => enc.kind === 'artisan' && enc.id === 'keep-artisan')).toBe(true)
     expect(save.encounters.some((enc) => enc.kind === 'enemy' && enc.chapterBoss)).toBe(false)
+    expect(mainChapterTitle(save)).toBe('第 2 章')
+    expect(mainLootClaimBarLabel(save)).toBe('本章战利品 0/10')
+    expect(mainLootClaimFillPct(save)).toBe(0)
     expect(mainChapterHeader(save)).toBe('第 2 章 · 本章战利品 0/10')
   })
 

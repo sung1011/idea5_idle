@@ -32,7 +32,7 @@ import {
   workshopBuffMul,
   workshopBuffRemainS,
 } from '../sim/encounters'
-import { mainChapterHeader } from '../sim/mainChapter'
+import { mainChapterTitle, mainLootClaimBarLabel, mainLootClaimFillPct } from '../sim/mainChapter'
 import { CLASS_LABEL } from '../sim/tables'
 import type { Encounter, EncounterKind, EnemyEncounter, PawnEncounter, Worker } from '../sim/types'
 import { pushFloatTip } from './floatTips'
@@ -40,7 +40,10 @@ import { useGameStore } from './gameStore'
 
 const game = useGameStore()
 const cost = computed(() => exploreCost(game.save))
-const chapterTitle = computed(() => mainChapterHeader(game.save))
+const chapterTitle = computed(() => mainChapterTitle(game.save))
+const lootBarLabel = computed(() => mainLootClaimBarLabel(game.save))
+const lootBarPct = computed(() => mainLootClaimFillPct(game.save))
+const lootBarReady = computed(() => game.save.mainLootClaims >= 10)
 const departedTotal = computed(() => game.save.departCount)
 const now = computed(() => {
   void game.save.elapsedS
@@ -150,7 +153,21 @@ function pawnGold(enc: PawnEncounter) {
 <template>
   <section class="panel encounter">
     <p>主线</p>
-    <p class="chapter">{{ chapterTitle }}</p>
+    <div class="chapter-head">
+      <p class="chapter">{{ chapterTitle }}</p>
+      <div
+        class="loot-bar"
+        :class="{ ready: lootBarReady }"
+        role="progressbar"
+        :aria-valuenow="Math.min(game.save.mainLootClaims, 10)"
+        :aria-valuemin="0"
+        :aria-valuemax="10"
+        :aria-label="lootBarLabel"
+      >
+        <i class="fill" :style="{ width: lootBarPct + '%' }" />
+        <span>{{ lootBarLabel }}</span>
+      </div>
+    </div>
     <div class="row">
       <button type="button" @click="game.explore()">
         探索（{{ cost }} 金）
@@ -384,10 +401,50 @@ function pawnGold(enc: PawnEncounter) {
   line-height: 1.5;
 }
 
+.chapter-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .chapter {
   margin: 0;
   font-weight: 700;
   letter-spacing: 0.08em;
+}
+
+.loot-bar {
+  position: relative;
+  height: 22px;
+  overflow: hidden;
+  border: 2px solid var(--gold-deep);
+  border-radius: 8px;
+  background: var(--bar-track);
+  box-shadow: inset 0 0 0 1px #fff8e0;
+}
+
+.loot-bar .fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #f0c14a, var(--gold-deep));
+}
+
+.loot-bar.ready .fill {
+  background: linear-gradient(90deg, #e67a12, #c0392b);
+}
+
+.loot-bar span {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  text-shadow: 0 1px 0 #fff8e0;
 }
 
 .label {

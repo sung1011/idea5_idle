@@ -37,11 +37,26 @@ export function hydrateMainChapterFields(save: Save): Save {
   return save
 }
 
-export function mainChapterHeader(save: Pick<Save, 'mainChapter' | 'mainLootClaims'>): string {
-  const chapter = normalizeMainChapter(save.mainChapter)
+export function mainChapterTitle(save: Pick<Save, 'mainChapter'>): string {
+  return `第 ${normalizeMainChapter(save.mainChapter)} 章`
+}
+
+/** 进度条填充 0～100。claims≥10 时视觉封顶 100%。 */
+export function mainLootClaimFillPct(save: Pick<Save, 'mainLootClaims'>): number {
   const claims = normalizeMainLootClaims(save.mainLootClaims)
-  if (claims >= MAIN_LOOT_CLAIMS_GOAL) return `第 ${chapter} 章 · 本章 Boss`
-  return `第 ${chapter} 章 · 本章战利品 ${claims}/${MAIN_LOOT_CLAIMS_GOAL}`
+  if (MAIN_LOOT_CLAIMS_GOAL <= 0) return 0
+  return Math.max(0, Math.min(100, Math.round((claims / MAIN_LOOT_CLAIMS_GOAL) * 100)))
+}
+
+/** 进度条旁文案。未满 10 写「本章战利品 n/10」；满了写「战利品 10/10 · 下一条Boss」。 */
+export function mainLootClaimBarLabel(save: Pick<Save, 'mainLootClaims'>): string {
+  const claims = normalizeMainLootClaims(save.mainLootClaims)
+  if (claims >= MAIN_LOOT_CLAIMS_GOAL) return `战利品 ${MAIN_LOOT_CLAIMS_GOAL}/${MAIN_LOOT_CLAIMS_GOAL} · 下一条Boss`
+  return `本章战利品 ${claims}/${MAIN_LOOT_CLAIMS_GOAL}`
+}
+
+export function mainChapterHeader(save: Pick<Save, 'mainChapter' | 'mainLootClaims'>): string {
+  return `${mainChapterTitle(save)} · ${mainLootClaimBarLabel(save)}`
 }
 
 export function isChapterBoss(enc: Encounter): enc is EnemyEncounter {
