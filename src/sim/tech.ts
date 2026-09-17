@@ -21,7 +21,7 @@ export type TechNodeDef = {
   name: string
   desc: string
   cost: number
-  /** 多数占位。偶遇格大科技为 encounterSlot，其余结算仍不读。 */
+  /** 多数占位。偶遇格大科技为 encounterSlot；工坊规章 / 工匠密录走 stationConflictMul。 */
   effectId: string
   kind: TechKind
   stage: number
@@ -57,6 +57,13 @@ type StageSeed = {
 
 const LATER = '稍后开放。'
 
+/** 未研究时同站两人冲突倍率。 */
+export const STATION_CONFLICT_BASE_MUL = 0.5
+/** 解锁「工坊规章」后冲突倍率。 */
+export const STATION_CONFLICT_RULES_MUL = 0.75
+/** 解锁「工匠密录」后消除冲突。 */
+export const STATION_CONFLICT_CLEARED_MUL = 1
+
 const SLOT_MAJORS: readonly MajorSeed[] = [
   { id: 'pathOutpost', name: '探路哨岗', desc: '在工坊外立一座哨岗，偶遇格 1→2。', cost: 5, effectId: ENCOUNTER_SLOT_EFFECT },
   { id: 'marketLicense', name: '市集执照', desc: '拿到摆摊文书，偶遇格 2→3。', cost: 8, effectId: ENCOUNTER_SLOT_EFFECT },
@@ -72,9 +79,9 @@ const EARLY_MINORS: readonly (readonly MinorSeed[])[] = [
     { id: 'artisanManual', name: '匠人手册', desc: '各站配方的对照手册。', cost: 3 },
   ],
   [
-    { id: 'workshopRules', name: '工坊规章', desc: '排班与缺料的规矩。', cost: 4 },
+    { id: 'workshopRules', name: '工坊规章', desc: '排班规矩减轻同站两人冲突（效率 −25%）。', cost: 4 },
     { id: 'pipelineChart', name: '流水线图', desc: '站与站之间的物流草图。', cost: 4 },
-    { id: 'artisanArchive', name: '工匠密录', desc: '软失败与遇险攒下的经验。', cost: 5 },
+    { id: 'artisanArchive', name: '工匠密录', desc: '密录消除同站两人冲突，满员按人数全速。', cost: 5 },
   ],
   [
     { id: 'knightEdict', name: '骑士训令', desc: '骑士对工坊的号令。', cost: 5 },
@@ -322,9 +329,32 @@ export function fuseStayAssigned(_save: Save): boolean {
   return false
 }
 
-/** 站点速度不受科技影响。 */
+/** 站点速度不受科技影响（冲突倍率走 stationConflictMul）。 */
 export function stationTechSpeedMul(_save: Save, _stationId: StationId): number {
   return 1
+}
+
+function assignedAt(save: Save, stationId: StationId): number {
+  return save.workers.filter((w) => w.assignment === stationId).length
+}
+
+/**
+ * 同站正好 2 人时的冲突倍率，乘在人数 / 工具等之后。
+ * 1 人或 0 人无冲突。不做吵架、掉血、拆队，也不影响战斗。
+ */
+export function stationConflictMul(save: Save, stationId: StationId): number {
+  if (assignedAt(save, stationId) !== 2) return STATION_CONFLICT_CLEARED_MUL
+  if (hasTech(save, 'artisanArchive')) return STATION_CONFLICT_CLEARED_MUL
+  if (hasTech(save, 'workshopRules')) return STATION_CONFLICT_RULES_MUL
+  return STATION_CONFLICT_BASE_MUL
+}
+
+/** 站卡满 2 人且仍有冲突时的提示。mul === 1 不显示。 */
+export function stationConflictHint(save: Save, stationId: StationId): string | null {
+  const mul = stationConflictMul(save, stationId)
+  if (mul >= 1) return null
+  const cutPct = Math.round((1 - mul) * 100)
+  return `冲突：效率 −${cutPct}%`
 }
 
 /** 任意站完成一次吞吐后给灵感。 */

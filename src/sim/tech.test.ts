@@ -29,6 +29,11 @@ import {
   recruitCost,
   researchNextTech,
   researchTech,
+  STATION_CONFLICT_BASE_MUL,
+  STATION_CONFLICT_CLEARED_MUL,
+  STATION_CONFLICT_RULES_MUL,
+  stationConflictHint,
+  stationConflictMul,
   stationTechSpeedMul,
   techEffectValue,
   techStage,
@@ -225,7 +230,7 @@ describe('encounterSlotCount', () => {
 })
 
 describe('tech effects stay no-op', () => {
-  it('does not change recruit / offline / explore / speed / merge', () => {
+  it('does not change recruit / offline / explore / one-worker speed / merge', () => {
     const save = createSave()
     save.unlockedTechIds = TECH_TREE.map((node) => node.id)
     applyTechEffects(save)
@@ -255,5 +260,63 @@ describe('tech effects stay no-op', () => {
     merge.unlockedTechIds = TECH_TREE.map((node) => node.id)
     expect(fuseWorkers(merge, a.id, b.id).ok).toBe(true)
     expect(merge.workers[0].assignment).toBeNull()
+  })
+})
+
+describe('station conflict', () => {
+  it('halves two-worker speed before conflict techs', () => {
+    const two = createSave()
+    spawnWorker(two)
+    spawnWorker(two)
+    assignWorker(two, two.workers[0].id, 'mining')
+    assignWorker(two, two.workers[1].id, 'mining')
+    const one = createSave()
+    spawnWorker(one)
+    assignWorker(one, one.workers[0].id, 'mining')
+    const noConflictTwo = currentSpeed(one, 'mining') * 2
+
+    expect(stationConflictMul(two, 'mining')).toBe(STATION_CONFLICT_BASE_MUL)
+    expect(currentSpeed(two, 'mining')).toBeCloseTo(noConflictTwo * 0.5)
+    expect(currentSpeed(two, 'mining')).toBeCloseTo(currentSpeed(one, 'mining'))
+    expect(stationConflictHint(two, 'mining')).toBe('冲突：效率 −50%')
+  })
+
+  it('changes mul after researching workshopRules then artisanArchive', () => {
+    const two = createSave()
+    spawnWorker(two)
+    spawnWorker(two)
+    assignWorker(two, two.workers[0].id, 'mining')
+    assignWorker(two, two.workers[1].id, 'mining')
+    const one = createSave()
+    spawnWorker(one)
+    assignWorker(one, one.workers[0].id, 'mining')
+    const stacked = currentSpeed(one, 'mining') * 2
+    two.techPoints = 999
+
+    expect(stationConflictMul(two, 'mining')).toBe(STATION_CONFLICT_BASE_MUL)
+    while (!hasTech(two, 'workshopRules')) {
+      expect(researchNextTech(two).ok).toBe(true)
+    }
+    expect(stationConflictMul(two, 'mining')).toBe(STATION_CONFLICT_RULES_MUL)
+    expect(currentSpeed(two, 'mining')).toBeCloseTo(stacked * 0.75)
+    expect(stationConflictHint(two, 'mining')).toBe('冲突：效率 −25%')
+
+    while (!hasTech(two, 'artisanArchive')) {
+      expect(researchNextTech(two).ok).toBe(true)
+    }
+    expect(stationConflictMul(two, 'mining')).toBe(STATION_CONFLICT_CLEARED_MUL)
+    expect(currentSpeed(two, 'mining')).toBeCloseTo(stacked)
+    expect(stationConflictHint(two, 'mining')).toBeNull()
+  })
+
+  it('does not apply when 0 or 1 worker is assigned', () => {
+    const save = createSave()
+    expect(stationConflictMul(save, 'mining')).toBe(1)
+    expect(stationConflictHint(save, 'mining')).toBeNull()
+    spawnWorker(save)
+    assignWorker(save, save.workers[0].id, 'mining')
+    expect(stationConflictMul(save, 'mining')).toBe(1)
+    expect(stationConflictHint(save, 'mining')).toBeNull()
+    expect(currentSpeed(save, 'mining')).toBeCloseTo(1 / 20)
   })
 })

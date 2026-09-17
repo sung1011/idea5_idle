@@ -15,7 +15,7 @@ import {
   stationSpeed,
   type IoRule,
 } from './tables'
-import { stationTechSpeedMul } from './tech'
+import { stationConflictMul, stationTechSpeedMul } from './tech'
 import { assignedToolWeight } from './tools'
 import type { Hint, ItemId, Save, StationId } from './types'
 
@@ -34,7 +34,7 @@ export function currentSpeed(save: Save, stationId: StationId, now = Date.now())
   const cat = selectedCategoryDef(save, stationId)
   const weight = assignedToolWeight(save, stationId, now)
   const base = stationSpeed(weight, cat.cycleS)
-  return base * workshopBuffMul(save, now) * stationTechSpeedMul(save, stationId)
+  return base * workshopBuffMul(save, now) * stationTechSpeedMul(save, stationId) * stationConflictMul(save, stationId)
 }
 
 export type ConsumePick = { kind: 'none' | 'primary' | 'alt'; rules: IoRule[] }

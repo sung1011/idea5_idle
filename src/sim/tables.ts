@@ -25,7 +25,7 @@ export const RECRUIT_COST = 15
 
 /** 每站派驻上限。第 3 人派入失败；旧档超出的人 hydrate 撤到休息。 */
 export const STATION_WORKER_CAP = 2
-/** 同站堆人：speed = (1 / cycleS) * stackFactor(n)。玩法 n≤2。 */
+/** 同站堆人：speed = (1 / cycleS) * stackFactor(n) * 冲突倍率。玩法 n≤2。 */
 export const STACK_LINEAR = 1
 
 /** 每 5 级解锁 1 个新品类：Lv5 第 2 类，Lv10 第 3 类。 */
@@ -903,10 +903,11 @@ export function stackFactor(n: number): number {
 }
 
 /**
- * 站点每秒进度。
+ * 站点每秒进度（人数项，不含冲突）。
  * speed = (1 / cycleS) * n
  * 1 人采矿 cycleS=20 → 0.05/s，20 秒出 1 矿
  * 3 人采矿 → 0.15/s，同等时间 3 倍吞吐
+ * 玩法满 2 人时 currentSpeed 再乘 stationConflictMul
  */
 export function stationSpeed(n: number, cycleS: number): number {
   if (n <= 0 || cycleS <= 0) return 0

@@ -104,8 +104,10 @@ xpToNext(L) = Math.round(100 * Math.pow(1.45, L - 1) * 0.175)  // L >= 1
 `stepStation` / `completeCycle` 读当前品类的周期、消耗、产出。堆人（玩法 n≤2；站上工具另乘增效）：
 
 ```
-speed = (1 / 当前品类 cycleS) * n
+speed = (1 / 当前品类 cycleS) * n * stationConflictMul
 ```
+
+满 2 人未研究冲突 ×0.5，工坊规章 ×0.75，工匠密录 ×1.0。1 人无冲突。
 
 完成周期后 `grantStationXp`。升级时把 `unlockLevel <= 新等级` 的品类写入 `unlockedCategories`，并写 `progressNotice`（如「采矿升到 Lv5，解锁铁矿」）。UI 不展示该升级文案；停产只靠卡片红框。
 

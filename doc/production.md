@@ -175,7 +175,21 @@ type ItemId /* 钓鱼相关 */ = 'fish' | 'junk'
 
 ## 4. 共振（已废）
 
-相邻站同时有人不再加速、也不额外掉主产物。`STATION_DEF.neighbors` 已清空，结算不读。旧档 `resonanceStreak` 仍 hydrate，不参与吞吐。
+相邻站同时有人不再加速、也不额外掉主产物。`STATION_DEF.neighbors` 已清空，结算不读。旧档 `resonanceStreak` 仍 hydrate，不参与吞吐。不要加回。
+
+---
+
+## 4.1 同站两人冲突
+
+某站 `assignment` 正好 2 人 → 该站生产速度在人数 / 工具 / 食物等之后再乘 `stationConflictMul(save, stationId)`：
+
+| 科技 | 倍率 |
+| --- | --- |
+| 未研究 | ×0.5 |
+| 解锁「工坊规章」`workshopRules` | ×0.75 |
+| 再解锁「工匠密录」`artisanArchive` | ×1.0（消除冲突） |
+
+1 人或 0 人无冲突。站卡满 2 人且倍率小于 1 时显示「冲突：效率 −50% / −25%」；倍率 = 1 不显示。不做随机吵架、掉血、拆队，不影响战斗。
 
 ---
 

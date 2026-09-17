@@ -124,7 +124,7 @@ describe('matching tool speed', () => {
     assignWorker(save, save.workers[1].id, 'mining')
     expect(equipStationTool(save, 'mining', 'tool').ok).toBe(true)
     expect(assignedToolWeight(save, 'mining')).toBeCloseTo(2.5)
-    expect(currentSpeed(save, 'mining')).toBeCloseTo((1 / 20) * 2.5)
+    expect(currentSpeed(save, 'mining')).toBeCloseTo((1 / 20) * 2.5 * 0.5)
   })
 })
 

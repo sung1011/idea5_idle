@@ -172,7 +172,7 @@ describe('categoryPickOptions', () => {
 })
 
 describe('stack current category', () => {
-  it('two miners on iron produce 2x ironOre in the same time', () => {
+  it('two miners on iron without conflict tech produce like one miner', () => {
     const one = roster(1)
     unlockTo(one, 'mining', 5)
     expect(selectStationCategory(one, 'mining', 'iron').ok).toBe(true)
@@ -187,8 +187,8 @@ describe('stack current category', () => {
     const b = ticks(two, 24)
     expect(bankQty(a, 'ironOre')).toBe(1)
     expect(bankQty(a, 'ore')).toBe(0)
-    expect(bankQty(b, 'ironOre')).toBe(2)
-    expect(b.stations.mining.completed).toBe(2)
+    expect(bankQty(b, 'ironOre')).toBe(1)
+    expect(b.stations.mining.completed).toBe(1)
   })
 })
 

@@ -41,7 +41,7 @@ describe('mining → bank', () => {
     expect(next.stations.mining.progress).toBeCloseTo(0)
   })
 
-  it('two miners produce 2x ore in the same time', () => {
+  it('two miners without conflict tech produce like one miner', () => {
     const one = roster(1)
     assignWorker(one, one.workers[0].id, 'mining')
     const two = roster(2)
@@ -50,8 +50,8 @@ describe('mining → bank', () => {
     const a = ticks(one, 20)
     const b = ticks(two, 20)
     expect(bankQty(a, 'ore')).toBe(1)
-    expect(bankQty(b, 'ore')).toBe(2)
-    expect(b.stations.mining.completed).toBe(2)
+    expect(bankQty(b, 'ore')).toBe(1)
+    expect(b.stations.mining.completed).toBe(1)
   })
 
   it('keeps mining after stock exceeds the old bank cap', () => {
@@ -124,7 +124,7 @@ describe('fishing → bank', () => {
     expect(next.stations.fishing.progress).toBeCloseTo(0)
   })
 
-  it('two fishers produce 2x fish in the same time', () => {
+  it('two fishers without conflict tech produce like one fisher', () => {
     setRollOverride(() => 0.5)
     const one = roster(1)
     assignWorker(one, one.workers[0].id, 'fishing')
@@ -134,8 +134,8 @@ describe('fishing → bank', () => {
     const a = ticks(one, 28)
     const b = ticks(two, 28)
     expect(bankQty(a, 'fish')).toBe(1)
-    expect(bankQty(b, 'fish')).toBe(2)
-    expect(b.stations.fishing.completed).toBe(2)
+    expect(bankQty(b, 'fish')).toBe(1)
+    expect(b.stations.fishing.completed).toBe(1)
   })
 })
 

@@ -52,7 +52,7 @@ function onNode(node: TechNodeDef) {
     <p class="kicker">骑士工坊 · 科技</p>
     <p class="title">阶段科技树</p>
     <p class="hint">
-      任意工坊完成一个周期 +1 灵感。骑士等级每升 1 级也 +1。阶段内小点可任意顺序点亮；大科技要本阶段小点全亮。偶遇格由大科技 1→6。
+      任意工坊完成一个周期 +1 灵感。骑士等级每升 1 级也 +1。阶段内小点可任意顺序点亮；大科技要本阶段小点全亮。偶遇格由大科技 1→6。工坊规章 / 工匠密录减轻同站两人冲突。
     </p>
     <div class="chips">
       <span class="chip">骑士 {{ knightLevel }} 级</span>

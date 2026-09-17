@@ -13,6 +13,7 @@ import {
   stationStockRows,
 } from '../sim/query'
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
+import { stationConflictHint } from '../sim/tech'
 import {
   ITEM_DEF,
   STATION_DEF,
@@ -74,6 +75,7 @@ const pickOptions = computed(() => categoryPickOptions(game.save, props.stationI
 const costText = computed(() => formatCostOptions(consumeRuleSets(game.save, props.stationId)))
 const hasCosts = computed(() => costText.value !== '—')
 const stallLine = computed(() => stationBottleneckText(game.save, props.stationId))
+const conflictLine = computed(() => stationConflictHint(game.save, props.stationId))
 const stock = computed(() => stationStockRows(game.save, props.stationId))
 
 function pick(id: CategoryId) {
@@ -125,6 +127,7 @@ function onMerge() {
       <i :style="{ width: xpPct + '%' }" />
     </div>
     <p class="stat">进度 {{ pctLabel }}% · XP {{ station.stationXp }}/{{ xpNeed }} · 速度 {{ speed.toFixed(2) }}/s</p>
+    <p v-if="conflictLine" class="stat conflict">{{ conflictLine }}</p>
     <p v-if="gatherLine" class="stat gather">{{ gatherLine }}</p>
     <p v-if="station.craftNotice" class="stat gather">{{ station.craftNotice }}</p>
     <p v-if="stallLine" class="stat jam">{{ stallLine }}</p>
@@ -228,6 +231,10 @@ h2 {
 }
 
 .gather {
+  color: var(--copper);
+}
+
+.conflict {
   color: var(--copper);
 }
 
