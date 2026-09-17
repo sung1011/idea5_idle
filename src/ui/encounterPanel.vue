@@ -243,7 +243,6 @@ function pawnGold(enc: PawnEncounter) {
             <button
               v-else-if="isCombatWon(enc)"
               type="button"
-              class="success"
               @click="game.claimLoot(i)"
             >
               战利品
@@ -382,7 +381,7 @@ function pawnGold(enc: PawnEncounter) {
         </ul>
         <div class="row">
           <button type="button" :disabled="!picked.length" @click="confirmPick">开战</button>
-          <button type="button" class="ghost" @click="closePick">取消</button>
+          <button type="button" @click="closePick">取消</button>
         </div>
       </div>
     </div>
@@ -762,24 +761,6 @@ ul {
   justify-content: flex-start;
   gap: 6px;
   text-align: left;
-  font-family: var(--font-body);
-  font-size: 14px;
-  letter-spacing: 0;
-  text-indent: 0;
-  text-shadow: none;
-  line-height: 1.4;
-  min-height: 44px;
-  padding: 8px 12px;
-  border: 3px solid var(--gold-deep);
-  border-radius: var(--radius-card);
-  background: linear-gradient(#fffef8, #fff3d8);
-  background-blend-mode: normal;
-  box-shadow: 0 3px 0 var(--shadow), inset 0 0 0 2px #fff8e0;
-  color: var(--ink);
-}
-
-.pick-list button::before {
-  display: none;
 }
 
 .pick-name {
@@ -811,9 +792,6 @@ ul {
 }
 
 .pick-worker.on {
-  color: var(--ink);
-  background: linear-gradient(#ffe27a, #f0b83a);
-  box-shadow: 0 3px 0 var(--shadow), inset 0 2px 4px rgba(90, 56, 20, 0.12);
   filter: none;
   opacity: 1;
 }

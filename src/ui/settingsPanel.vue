@@ -44,7 +44,7 @@ onUnmounted(() => {
     <section class="panel box" role="dialog" aria-modal="true" aria-labelledby="set-title">
       <header>
         <h2 id="set-title" class="title">设置</h2>
-        <button type="button" class="close ghost" @click="emit('close')">关闭</button>
+        <button type="button" class="close" @click="emit('close')">关闭</button>
       </header>
 
       <nav class="sub" role="tablist" aria-label="设置分页">
@@ -90,7 +90,7 @@ onUnmounted(() => {
       <div v-else class="body">
         <p class="hint">仅调试用。初始化会重开存档。</p>
         <div class="row">
-          <button type="button" class="danger" @click="game.gmReset()">初始化</button>
+          <button type="button" @click="game.gmReset()">初始化</button>
           <button type="button" @click="game.gmAddGold()">加金币 1w</button>
           <button type="button" @click="game.gmAddDiamonds()">加钻石 1w</button>
           <button type="button" @click="game.gmAddWorkers()">加工人×5</button>
@@ -149,9 +149,8 @@ header .title,
 }
 
 .close {
-  min-height: 44px;
-  padding: 6px 14px;
-  font-size: 15px;
+  min-height: 32px;
+  padding: 4px 10px;
 }
 
 .sub {
@@ -167,6 +166,8 @@ header .title,
 
 .sub button.on {
   color: var(--ink);
+  background: linear-gradient(#ffe27a, #f0b83a);
+  box-shadow: 0 3px 0 var(--shadow);
   opacity: 1;
   filter: none;
 }

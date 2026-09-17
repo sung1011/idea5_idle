@@ -198,25 +198,14 @@ i {
   box-shadow: none;
   clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
   background: linear-gradient(#fff6dc, #f0d48a);
-  background-blend-mode: normal;
-  font-family: var(--font-body);
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0;
-  text-indent: 0;
-  text-shadow: none;
-}
-
-.hex::before {
-  display: none;
 }
 
 .hex.on {
   background: linear-gradient(#8fd94a, var(--moss-deep));
   color: #fffdf8;
   border-color: var(--moss-deep);
-  box-shadow: none;
-  text-shadow: none;
 }
 
 .hex.ready {
@@ -234,37 +223,16 @@ i {
   align-items: flex-start;
   gap: 2px;
   min-height: 48px;
-  padding: 8px 12px;
+  padding: 6px 8px;
   text-align: left;
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  text-indent: 0;
-  line-height: 1.25;
 }
 
 .major.on {
-  color: #14380c;
-  text-shadow:
-    0 1px 0 rgba(220, 255, 180, 0.7),
-    0 -1px 0 rgba(20, 56, 12, 0.2);
-  background:
-    var(--paper-grain),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0%, transparent 40%),
-    linear-gradient(180deg, #b8f070 0%, #6ec840 50%, #2f8a22 100%);
-  background-blend-mode: soft-light, normal, normal;
-  box-shadow:
-    0 0 0 2px #e8ffd0,
-    0 0 0 5px #1e6a16,
-    0 5px 0 #164e10,
-    0 8px 12px rgba(20, 56, 12, 0.2);
+  background: linear-gradient(#fffef4, #d8f0b0);
 }
 
 .major.ready {
-  box-shadow:
-    0 0 0 2px #fff3c4,
-    0 0 0 5px var(--ember),
-    0 5px 0 #8a4e0c,
-    0 8px 14px rgba(90, 56, 20, 0.22);
+  border-color: var(--ember);
 }
 
 .major.off {
@@ -273,7 +241,7 @@ i {
 
 .major strong {
   font-family: var(--font-display);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   font-size: 13px;
 }
 

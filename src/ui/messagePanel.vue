@@ -31,8 +31,8 @@ onUnmounted(() => {
       <header>
         <h2 id="mail-title" class="title">消息</h2>
         <div class="row">
-          <button type="button" class="secondary" :disabled="!inbox.length" @click="game.markAllRead()">全部已读</button>
-          <button type="button" class="close ghost" @click="close">关闭</button>
+          <button type="button" :disabled="!inbox.length" @click="game.markAllRead()">全部已读</button>
+          <button type="button" class="close" @click="close">关闭</button>
         </div>
       </header>
       <p v-if="!inbox.length" class="hint">还没有消息。</p>
@@ -99,9 +99,8 @@ li .title {
 }
 
 .close {
-  min-height: 44px;
-  padding: 6px 14px;
-  font-size: 15px;
+  min-height: 32px;
+  padding: 4px 10px;
 }
 
 ul {

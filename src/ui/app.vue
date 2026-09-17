@@ -203,8 +203,6 @@ onUnmounted(() => {
   min-width: 44px;
   min-height: 44px;
   padding: 0;
-  letter-spacing: 0;
-  text-indent: 0;
 }
 
 .dot {
