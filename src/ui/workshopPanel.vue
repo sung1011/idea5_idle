@@ -11,6 +11,8 @@ import type { StationId } from '../sim/types'
 import { useGameStore } from './gameStore'
 import StationCard from './stationCard.vue'
 import UiIcon from './uiIcon.vue'
+import { useFrameNow } from './visualProgress'
+import { railProgressHalted, railVisualPct, railWorkerDotColors } from './workshopRail'
 import {
   WORKSHOP_TAB_IDS,
   loadWorkshopTab,
@@ -23,6 +25,7 @@ const now = computed(() => {
   void game.save.elapsedS
   return Date.now()
 })
+const frameNow = useFrameNow()
 const buffOn = computed(() => isWorkshopBuffActive(game.save, now.value))
 const buffLabel = computed(() => {
   if (!buffOn.value) return ''
@@ -32,6 +35,20 @@ const buffLabel = computed(() => {
 
 const activeTab = ref<StationId>(loadWorkshopTab())
 const leftover = computed(() => leftoverStockRows(game.save))
+const railById = computed(() => {
+  const save = game.save
+  const clock = frameNow.value
+  return Object.fromEntries(
+    WORKSHOP_TAB_IDS.map((id) => [
+      id,
+      {
+        dots: railWorkerDotColors(save, id),
+        pct: railVisualPct(save, id, clock),
+        halted: railProgressHalted(save, id),
+      },
+    ]),
+  ) as Record<StationId, { dots: string[]; pct: number; halted: boolean }>
+})
 
 function selectTab(id: StationId) {
   activeTab.value = saveWorkshopTab(id)
@@ -49,11 +66,19 @@ function selectTab(id: StationId) {
           type="button"
           role="tab"
           :aria-selected="activeTab === id"
-          :class="{ on: activeTab === id }"
+          :class="{ on: activeTab === id, halt: railById[id].halted }"
           @click="selectTab(id)"
         >
-          <UiIcon :name="id" />
-          {{ workshopTabLabel(id) }}
+          <span class="fill-clip" aria-hidden="true">
+            <i class="fill" :style="{ height: railById[id].pct.toFixed(2) + '%' }" />
+          </span>
+          <span class="face">
+            <UiIcon :name="id" />
+            <span class="lab">{{ workshopTabLabel(id) }}</span>
+            <span v-if="railById[id].dots.length" class="dots">
+              <i v-for="(color, i) in railById[id].dots" :key="i" :style="{ background: color }" />
+            </span>
+          </span>
         </button>
       </nav>
       <section class="stage">
@@ -96,6 +121,8 @@ function selectTab(id: StationId) {
 }
 
 .rail button {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -104,18 +131,83 @@ function selectTab(id: StationId) {
   flex: 1 1 0;
   width: 100%;
   min-height: 44px;
-  padding: 2px;
+  padding: 2px 2px 3px;
   font-family: var(--font-display);
   font-size: 11px;
   letter-spacing: 0.04em;
 }
 
+.rail .fill-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.rail .fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(0deg, #3e9a2a, #c8f08a 70%, #f3d06a);
+}
+
+.rail button.halt .fill {
+  background: linear-gradient(0deg, #9a8f7c, #d4cdc0);
+}
+
+.rail .face {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.rail .lab {
+  line-height: 1.1;
+}
+
+.rail .dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 7px;
+}
+
+.rail .dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(90, 58, 16, 0.28);
+}
+
 .rail button.on {
   color: var(--ink);
-  background: linear-gradient(#ffe27a, #f0b83a);
-  box-shadow: 0 3px 0 var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  background: linear-gradient(#fffbeb, var(--btn));
+  box-shadow:
+    0 3px 0 var(--shadow),
+    inset 0 0 0 2px #ffe27a,
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
   opacity: 1;
   filter: none;
+}
+
+.rail button.on::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px rgba(255, 226, 122, 0.95);
 }
 
 .rail .ui-ico {

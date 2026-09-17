@@ -131,11 +131,14 @@ function onMerge() {
       </div>
     </header>
     <ul class="crew" aria-label="在岗工人">
-      <li v-for="w in crew" :key="w.id" class="crew-row">
-        <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
-        <b class="crew-name" :style="workerQualityNameStyle(w)">{{ w.name ?? w.id }}</b>
+      <li v-if="crew.length" class="crew-row">
+        <span v-for="w in crew" :key="w.id" class="crew-slot">
+          <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
+          <b class="crew-name" :style="workerQualityNameStyle(w)">{{ w.name ?? w.id }}</b>
+        </span>
+        <button v-if="canMerge" type="button" class="crew-merge" @click="onMerge">{{ mergeLabel }}</button>
       </li>
-      <li v-if="!crew.length" class="crew-empty">空岗</li>
+      <li v-else class="crew-empty">空岗</li>
     </ul>
     <div class="bars">
       <div class="bar live" :aria-valuenow="pctLabel">
@@ -204,7 +207,6 @@ function onMerge() {
     <div class="actions">
       <button type="button" @click="game.assignIdle(stationId)">派入</button>
       <button type="button" @click="game.withdraw(stationId)">撤出</button>
-      <button v-if="canMerge" type="button" @click="onMerge">{{ mergeLabel }}</button>
     </div>
   </article>
 </template>
@@ -285,8 +287,16 @@ h2 {
 .crew-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 22px;
+  gap: 8px;
+  min-height: 32px;
+  min-width: 0;
+}
+
+.crew-slot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
 }
 
 .qmark {
@@ -302,8 +312,22 @@ h2 {
 }
 
 .crew-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 13px;
   font-weight: 700;
+}
+
+.crew-merge {
+  flex: 0 0 auto;
+  margin-left: auto;
+  min-height: 32px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
 }
 
 .crew-empty {

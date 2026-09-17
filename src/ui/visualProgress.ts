@@ -1,4 +1,4 @@
-import { computed, onMounted, onUnmounted, ref, type ComputedRef } from 'vue'
+import { computed, onMounted, onUnmounted, ref, type ComputedRef, type Ref } from 'vue'
 
 export type VisualProgressInput = {
   progress: number
@@ -30,7 +30,8 @@ export function visualStationProgress(input: VisualProgressInput): number {
   return visual
 }
 
-export function useVisualProgress(read: () => Omit<VisualProgressInput, 'now'>): ComputedRef<number> {
+/** 一帧一拍的墙钟，工坊竖签多站共用，避免每站各开一条 RAF。 */
+export function useFrameNow(): Ref<number> {
   const now = ref(Date.now())
   let raf = 0
 
@@ -48,5 +49,10 @@ export function useVisualProgress(read: () => Omit<VisualProgressInput, 'now'>):
     if (raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(raf)
   })
 
+  return now
+}
+
+export function useVisualProgress(read: () => Omit<VisualProgressInput, 'now'>): ComputedRef<number> {
+  const now = useFrameNow()
   return computed(() => visualStationProgress({ ...read(), now: now.value }))
 }
