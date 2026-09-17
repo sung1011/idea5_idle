@@ -73,6 +73,10 @@ describe('spawn / hydrate quality', () => {
     expect(hydrateWorker({ id: 'w-ok', qualityTier: 7, classId: 'smith' }).qualityTier).toBe(7)
     expect(hydrateWorker({ id: 'w-ok', qualityTier: 7, classId: 'smith' }).classId).toBe('smith')
     expect(hydrateWorker({ id: 'w-x', classId: 'not-a-job' }).classId).toBeUndefined()
+    const full = hydrateWorker({ id: 'w-old', assignment: null, classId: 'laborer' })
+    expect(full.hp).toBe(full.hpMax)
+    expect(full.hp).toBeGreaterThan(0)
+    expect(hydrateWorker({ id: 'w-hurt', classId: 'laborer', hp: 6 }).hp).toBe(6)
   })
 
   it('maps the old gray table once, then leaves the new table alone', () => {

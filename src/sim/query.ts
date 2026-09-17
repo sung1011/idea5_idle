@@ -1,4 +1,5 @@
 import { assignedWorkers } from './assign'
+import { isWorkerInCombat } from './combat'
 import { itemQty } from './bank'
 import { canAffordCosts, missingCostLabels } from './costs'
 import { workshopBuffMul } from './encounters'
@@ -29,7 +30,7 @@ export function assignedCount(save: Save, stationId: StationId): number {
 }
 
 export function idleCount(save: Save): number {
-  return save.workers.filter((w) => w.assignment === null).length
+  return save.workers.filter((w) => w.assignment === null && !isWorkerInCombat(save, w.id)).length
 }
 
 export function isResonating(save: Save, a: StationId, b: StationId): boolean {

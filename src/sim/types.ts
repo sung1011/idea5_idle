@@ -139,15 +139,51 @@ export type FoodSlot = {
   effects: EffectInstance[]
 }
 
+export type CombatStats = {
+  hp: number
+  atk: number
+  /** 每隔多少秒出手一次。越小越快。 */
+  spd: number
+}
+
+export type CombatFighter = CombatStats & {
+  id: string
+  label: string
+  hpMax: number
+  /** 下一次出手墙钟。 */
+  nextActAt: number
+}
+
+export type CombatLogEntry = {
+  at: number
+  text: string
+}
+
+export type CombatOutcome = 'win' | 'lose'
+
+/** 敌人卡上的一场战斗快照。出战不算派驻；结束把工人 hp 写回。 */
+export type EnemyCombat = {
+  startedAt: number
+  timeoutAt: number
+  workerIds: string[]
+  workers: CombatFighter[]
+  enemy: CombatFighter
+  logs: CombatLogEntry[]
+  outcome: CombatOutcome | null
+}
+
 export type Worker = {
   id: string
   name?: string
-  /** 占位。不当战斗成长用。 */
+  /** 生活职业；战斗只做三围小修正，不当成长树。 */
   classId?: ClassId
   /** 1～10。抽人默认白档；旧档缺字段 hydrate 补 1。 */
   qualityTier: QualityTier
   assignment: StationId | null
   foodSlot: FoodSlot | null
+  /** 当前生命。hydrate 缺字段则按表满血。 */
+  hp: number
+  hpMax: number
 }
 
 export type MiningNodeState = {
@@ -213,7 +249,7 @@ export type GameMessage = {
 }
 
 export type Save = {
-  /** 抽人 / 探索 / 黑心商人购买扣金；当铺典当 / 收购 / 敌人战利品加金。不接战斗。 */
+  /** 抽人 / 探索 / 黑心商人购买扣金；当铺典当 / 收购 / 敌人战利品加金。 */
   gold: number
   /** 高级代币占位。默认 0，本轮没有获得途径。 */
   diamonds: number
@@ -286,13 +322,16 @@ export type EnemyEncounter = EncounterBase & {
   distance: EncounterDistance
   power: EncounterPower
   needs: EncounterNeedMap
-  /** 行军结束后点「战利品」只发这笔金币，不加物资。 */
+  /** 战胜后点「战利品」只发这笔金币，不加物资。 */
   lootGold: number
-  /** 旧两步流程残留。新档不写；仅 hydrate 用来让「已扣货未出发」免再扣。 */
+  /** 旧两步流程残留。新档不写；仅 hydrate 用来让「已扣货未开战」免再扣。 */
   submitted?: boolean
+  /** 成功开过战。统计用；主流程看 combat / lootClaimed。 */
   departed: boolean
-  /** 行军结束墙钟；未出发为 null。 */
-  marchEndsAt: number | null
+  /** 旧行军墙钟。新档不写；hydrate 把「已出发未领奖」迁成胜可领。 */
+  marchEndsAt?: number | null
+  /** 当前/最近一场战斗。未开过为 null。 */
+  combat: EnemyCombat | null
   lootClaimed: boolean
 }
 

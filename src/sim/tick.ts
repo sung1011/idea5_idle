@@ -1,3 +1,4 @@
+import { applyRestHeal, stepCombats } from './combat'
 import { cloneSave } from './clone'
 import { refreshFoodSlots } from './food'
 import { stepStation } from './stations'
@@ -15,6 +16,8 @@ export function applyTick(save: Save, opts: TickOpts = {}): void {
   save.lastTick = now
   refreshFoodSlots(save, now)
   for (const id of STATION_IDS) stepStation(save, id, now)
+  stepCombats(save, now)
+  applyRestHeal(save)
 }
 
 export function tick(save: Save, opts?: TickOpts): Save {

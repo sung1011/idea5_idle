@@ -3,6 +3,7 @@ import { computed, reactive } from 'vue'
 import { bankQty } from '../sim/bank'
 import { formatMarchClock } from '../sim/encounters'
 import { foodBuffRemainS, isFoodBuffActive } from '../sim/food'
+import { isWorkerInCombat, workerLiveStats } from '../sim/combat'
 import { idleCount } from '../sim/query'
 import {
   CLASS_LABEL,
@@ -31,7 +32,16 @@ function atStation(w: Worker, id: StationId) {
 }
 
 function resting(w: Worker) {
-  return w.assignment === null
+  return w.assignment === null && !isWorkerInCombat(game.save, w.id)
+}
+
+function fighting(w: Worker) {
+  return isWorkerInCombat(game.save, w.id)
+}
+
+function combatLine(w: Worker) {
+  const stats = workerLiveStats(w)
+  return `HP ${w.hp}/${w.hpMax} · ATK ${stats.atk} · SPD ${stats.spd}`
 }
 
 function availableFoods() {
@@ -119,6 +129,7 @@ function badgeStyle(w: Worker) {
           <b class="qmark" :style="badgeStyle(w)">{{ qualityOf(w).label }}</b>
           {{ w.name ?? w.id }} · {{ w.classId ? CLASS_LABEL[w.classId] : '未标' }}
         </p>
+        <p class="hint">{{ combatLine(w) }}<template v-if="fighting(w)"> · 战斗中</template></p>
         <p class="hint">{{ foodLine(w) }}</p>
         <div class="row tool-row">
           <template v-if="w.foodSlot">
@@ -154,7 +165,7 @@ function badgeStyle(w: Worker) {
             :key="id"
             type="button"
             :class="{ on: atStation(w, id) }"
-            :disabled="atStation(w, id)"
+            :disabled="atStation(w, id) || fighting(w)"
             :aria-pressed="atStation(w, id)"
             @click="game.assign(w.id, id)"
           >
@@ -163,7 +174,7 @@ function badgeStyle(w: Worker) {
           <button
             type="button"
             :class="{ on: resting(w) }"
-            :disabled="resting(w)"
+            :disabled="resting(w) || fighting(w)"
             :aria-pressed="resting(w)"
             @click="game.assign(w.id, null)"
           >

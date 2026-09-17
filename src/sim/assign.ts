@@ -1,3 +1,4 @@
+import { isWorkerInCombat } from './combat'
 import { findWorker } from './recruit'
 import { isDeprecatedStationId, isStationId, STATION_WORKER_CAP } from './tables'
 import type { ActionResult, Save, StationId } from './types'
@@ -28,6 +29,7 @@ export function clampStationAssignments(save: Save): void {
 export function assignWorker(save: Save, workerId: string, stationId: StationId | null): ActionResult {
   const worker = findWorker(save, workerId)
   if (!worker) return { ok: false, reason: '没有这个 worker' }
+  if (isWorkerInCombat(save, workerId)) return { ok: false, reason: '正在战斗' }
   if (stationId !== null && (isDeprecatedStationId(stationId) || !isStationId(stationId))) {
     return { ok: false, reason: '没有这个站点' }
   }
@@ -40,7 +42,7 @@ export function assignWorker(save: Save, workerId: string, stationId: StationId 
 }
 
 export function assignIdleWorker(save: Save, stationId: StationId): ActionResult {
-  const idle = save.workers.find((w) => w.assignment === null)
+  const idle = save.workers.find((w) => w.assignment === null && !isWorkerInCombat(save, w.id))
   if (!idle) return { ok: false, reason: '没有空闲工人' }
   return assignWorker(save, idle.id, stationId)
 }

@@ -1,4 +1,14 @@
 import { addToBank, bankQty } from './bank'
+import {
+  beginEnemyCombat,
+  combatPartyBlockReason,
+  combatStatus,
+  isCombatWon,
+  isEnemyCombat,
+  isFighting,
+  legacyMarchAsWin,
+  selectableCombatWorkers,
+} from './combat'
 import { canAffordCosts, missingCostLabels, takeCosts } from './costs'
 import { ITEM_DEF, bulkUnitGold, pawnUnitGold, type IoRule } from './tables'
 import { exploreCostReduce } from './tech'
@@ -123,7 +133,7 @@ export const MERCHANT_KIND_WEIGHTS: Readonly<Record<MerchantKind, number>> = {
   pawn: 2,
 }
 
-/** 行军时长（秒）。远 / 强更久，夹在 10～30 分钟。 */
+/** @deprecated 旧行军时长。敌人主流程已改战斗，不再读此表。 */
 export const MARCH_DURATION_S: Readonly<Record<EncounterDistance, Record<EncounterPower, number>>> = {
   near: { weak: 10 * 60, strong: 18 * 60 },
   far: { weak: 22 * 60, strong: 30 * 60 },
@@ -352,6 +362,7 @@ export function enemyNeedsFor(distance: EncounterDistance, power: EncounterPower
   )
 }
 
+/** @deprecated 旧行军秒数。新流程用战斗超时。 */
 export function marchDurationS(distance: EncounterDistance, power: EncounterPower): number {
   return MARCH_DURATION_S[distance][power]
 }
@@ -407,16 +418,22 @@ export function formatMarchClock(remainS: number): string {
 }
 
 export function marchRemainS(enc: EnemyEncounter, now = Date.now()): number {
-  if (enc.marchEndsAt == null) return 0
-  return Math.max(0, Math.ceil((enc.marchEndsAt - now) / 1000))
+  const combat = enc.combat
+  if (!combat || combat.outcome) {
+    void now
+    return 0
+  }
+  return Math.max(0, Math.ceil((combat.timeoutAt - now) / 1000))
 }
 
 export function isMarching(enc: EnemyEncounter, now = Date.now()): boolean {
-  return enc.departed && !enc.lootClaimed && enc.marchEndsAt != null && now < enc.marchEndsAt
+  void now
+  return isFighting(enc)
 }
 
 export function isLootReady(enc: EnemyEncounter, now = Date.now()): boolean {
-  return enc.departed && !enc.lootClaimed && enc.marchEndsAt != null && now >= enc.marchEndsAt
+  void now
+  return isCombatWon(enc)
 }
 
 export function isEncounterDone(enc: Encounter, now = Date.now()): boolean {
@@ -521,7 +538,7 @@ function makeEnemy(seed: number, slot: number, quality: EncounterQuality): Enemy
     needs: scaleNeedMap(enemyNeedsFor(distance, power), q.demandMul),
     lootGold: scaleGold(enemyLootGoldFor(distance, power), q.outputMul),
     departed: false,
-    marchEndsAt: null,
+    combat: null,
     lootClaimed: false,
   }
 }
@@ -638,7 +655,7 @@ function isEnemyEncounter(value: unknown): value is EnemyEncounter {
     typeof enc.lootGold === 'number' &&
     (enc.submitted === undefined || typeof enc.submitted === 'boolean') &&
     typeof enc.departed === 'boolean' &&
-    (enc.marchEndsAt === null || typeof enc.marchEndsAt === 'number') &&
+    (enc.combat === null || isEnemyCombat(enc.combat)) &&
     typeof enc.lootClaimed === 'boolean'
   )
 }
@@ -794,17 +811,18 @@ export function bulkBuyAt(save: Save, index: number): BulkBuyEncounter | undefin
 }
 
 function enemyStatusReason(enc: EnemyEncounter): string | null {
-  if (enc.lootClaimed) return '战利品已领取'
-  if (enc.departed) return '已出发，行军中'
+  const status = combatStatus(enc)
+  if (status === 'claimed') return '战利品已领取'
+  if (status === 'fighting') return '战斗中'
+  if (status === 'win') return '先领取战利品'
   return null
 }
 
 function suppliesAlreadyTaken(enc: EnemyEncounter): boolean {
-  return enc.submitted === true
+  return enc.submitted === true && !enc.combat
 }
 
-/** 一键出发：货不够则失败；货够（或旧档已扣过补给）则扣货并进入行军。 */
-export function departBlockReason(save: Save, index: number): string | null {
+export function combatSupplyBlockReason(save: Save, index: number): string | null {
   const enc = enemyAt(save, index)
   if (!enc) return '不是敌人偶遇'
   const status = enemyStatusReason(enc)
@@ -815,36 +833,59 @@ export function departBlockReason(save: Save, index: number): string | null {
   return null
 }
 
-export function canDepartEncounter(save: Save, index: number): boolean {
-  return departBlockReason(save, index) === null
+/** 开战：货不够则失败；货够（或旧档已扣过补给且尚未开过）则扣货并进入战斗。 */
+export function startCombatBlockReason(save: Save, index: number, workerIds: readonly string[]): string | null {
+  const supply = combatSupplyBlockReason(save, index)
+  if (supply) return supply
+  return combatPartyBlockReason(save, workerIds)
 }
 
-/** 一次点击扣光补给并进入行军。不发金币、不做战斗。 */
-export function departEncounter(save: Save, index: number, now = Date.now()): ActionResult {
-  const blocked = departBlockReason(save, index)
+export function departBlockReason(save: Save, index: number, workerIds: readonly string[] = []): string | null {
+  return startCombatBlockReason(save, index, workerIds)
+}
+
+export function canStartCombat(save: Save, index: number, workerIds: readonly string[] = []): boolean {
+  return startCombatBlockReason(save, index, workerIds) === null
+}
+
+export function canDepartEncounter(save: Save, index: number, workerIds: readonly string[] = []): boolean {
+  return canStartCombat(save, index, workerIds)
+}
+
+/** 扣光补给、选人开战。不发金币。出战工人保持休息（assignment 仍为 null）。 */
+export function startCombat(save: Save, index: number, workerIds: readonly string[], now = Date.now()): ActionResult {
+  const blocked = startCombatBlockReason(save, index, workerIds)
   if (blocked) return { ok: false, reason: blocked }
   const enc = enemyAt(save, index)
   if (!enc) return { ok: false, reason: '不是敌人偶遇' }
+  const party = workerIds.map((id) => save.workers.find((w) => w.id === id)).filter((w): w is NonNullable<typeof w> => !!w)
+  if (!party.length) return { ok: false, reason: '请选择出战工人' }
   if (!suppliesAlreadyTaken(enc)) {
     const took = takeCosts(save, needMapToRules(enc.needs))
     if (!took.ok) return took
   }
-  const durationS = marchDurationS(enc.distance, enc.power)
   save.departCount += 1
   save.lastDepartAt = now
   delete enc.submitted
-  enc.departed = true
-  enc.marchEndsAt = now + durationS * 1000
-  enc.lootClaimed = false
-  return { ok: true, message: `已出发，行军 ${formatMarchClock(durationS)}` }
+  beginEnemyCombat(enc, party, now)
+  const names = party.map((w) => w.name ?? w.id).join('、')
+  return { ok: true, message: `${names} 出战` }
+}
+
+/** @deprecated 改走 startCombat。无工人时只报「请选择出战工人」。 */
+export function departEncounter(save: Save, index: number, now = Date.now()): ActionResult {
+  const idle = selectableCombatWorkers(save).slice(0, 2).map((w) => w.id)
+  if (!idle.length) return { ok: false, reason: startCombatBlockReason(save, index, []) ?? '请选择出战工人' }
+  return startCombat(save, index, idle, now)
 }
 
 export function claimLootBlockReason(save: Save, index: number, now = Date.now()): string | null {
   const enc = enemyAt(save, index)
   if (!enc) return '不是敌人偶遇'
+  void now
   if (enc.lootClaimed) return '战利品已领取'
-  if (!enc.departed || enc.marchEndsAt == null) return '先出发行军'
-  if (now < enc.marchEndsAt) return '行军尚未结束'
+  if (isFighting(enc)) return '战斗尚未结束'
+  if (!isCombatWon(enc)) return '战胜后才能领战利品'
   return null
 }
 
@@ -852,7 +893,7 @@ export function canClaimLoot(save: Save, index: number, now = Date.now()): boole
   return claimLootBlockReason(save, index, now) === null
 }
 
-/** 行军到期后领金币。不加物资。 */
+/** 战胜后领金币。败不发金。不加物资。 */
 export function claimLoot(save: Save, index: number, now = Date.now()): ActionResult {
   const blocked = claimLootBlockReason(save, index, now)
   if (blocked) return { ok: false, reason: blocked }
@@ -1039,10 +1080,11 @@ export function sellBulk(save: Save, index: number): ActionResult {
   return { ok: true, message: `收购成交。金币 +${enc.rewardGold}` }
 }
 
-/** 行军中或可领战利品的敌人占位保留；未出发 / 已领奖 / 已完成 / 其它格可换。 */
+/** 战斗中 / 胜可领 / 败可再战 的敌人占位保留；未开打 / 已领奖 / 其它格可换。 */
 export function shouldKeepOnExplore(enc: Encounter, now = Date.now()): boolean {
   if (enc.kind !== 'enemy') return false
-  return isMarching(enc, now) || isLootReady(enc, now)
+  void now
+  return isFighting(enc) || isCombatWon(enc) || combatStatus(enc) === 'lose'
 }
 
 /** 探索：扣金币，只替换可刷新格，保留格占位，板子仍满 6 格。 */
@@ -1081,7 +1123,7 @@ function migrateLegacyOrder(save: LegacyOrderSave): void {
     needs: { ...old.needs },
     lootGold: old.lootGold,
     departed: false,
-    marchEndsAt: null,
+    combat: null,
     lootClaimed: false,
     ...(save.orderSubmitted === true ? { submitted: true } : {}),
   }
@@ -1143,8 +1185,30 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
         : enemyLootGoldFor(raw.distance, raw.power)
   const departed = raw.departed === true
   const hasMarch = typeof raw.marchEndsAt === 'number'
+  const existingCombat = isEnemyCombat(raw.combat) ? raw.combat : null
   // 旧存档出发当时已发补给金：视为已领取，避免再发。
-  const lootClaimed = raw.lootClaimed === true || (departed && !hasMarch)
+  const lootClaimed = raw.lootClaimed === true || (departed && !hasMarch && !existingCombat)
+  let combat = existingCombat
+  if (lootClaimed) {
+    combat = existingCombat && existingCombat.outcome === 'win' ? existingCombat : null
+  } else if (!combat && departed && hasMarch) {
+    combat = legacyMarchAsWin(
+      {
+        kind: 'enemy',
+        id: raw.id,
+        label: raw.label,
+        quality: readQuality(raw.quality),
+        distance: raw.distance,
+        power: raw.power,
+        needs: { ...raw.needs },
+        lootGold,
+        departed: true,
+        combat: null,
+        lootClaimed: false,
+      },
+      typeof raw.marchEndsAt === 'number' ? raw.marchEndsAt : 0,
+    )
+  }
   return {
     kind: 'enemy',
     id: raw.id,
@@ -1155,9 +1219,9 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
     needs: { ...raw.needs },
     lootGold,
     departed,
-    marchEndsAt: hasMarch ? raw.marchEndsAt : null,
+    combat,
     lootClaimed,
-    ...(raw.submitted === true && !departed ? { submitted: true } : {}),
+    ...(raw.submitted === true && !departed && !combat ? { submitted: true } : {}),
   }
 }
 

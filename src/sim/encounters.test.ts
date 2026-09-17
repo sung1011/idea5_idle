@@ -15,12 +15,11 @@ import {
   boardSignature,
   buyMerchant,
   canClaimLoot,
-  canDepartEncounter,
   canExplore,
+  canStartCombat,
   claimLoot,
   claimLootBlockReason,
-  departBlockReason,
-  departEncounter,
+  combatSupplyBlockReason,
   enemyLootGoldFor,
   enemyNeedsFor,
   exploreBlockReason,
@@ -32,7 +31,6 @@ import {
   isMerchantKind,
   isTradeKind,
   isWorkshopBuffActive,
-  marchDurationS,
   pawnGoldForMap,
   pawnMerchant,
   pawnRewardGold,
@@ -42,13 +40,14 @@ import {
   sellBulk,
   shouldKeepOnExplore,
   stampLabel,
+  startCombat,
   submitArtisan,
   workshopBuffMul,
 } from './encounters'
-import { settleOffline } from './offline'
+import { isCombatWon, isFighting } from './combat'
 import { assignWorker } from './assign'
 import { currentSpeed } from './query'
-import { recruitWorker } from './recruit'
+import { recruitWorker, spawnWorker } from './recruit'
 import { bulkUnitGold, pawnUnitGold } from './tables'
 import { ticks } from './tick'
 import type {
@@ -78,6 +77,26 @@ function put(save: Save, index: number, enc: Save['encounters'][number]) {
   save.encounters[index] = enc
 }
 
+function fightSnap(outcome: 'win' | 'lose' | null) {
+  return {
+    startedAt: 0,
+    timeoutAt: 120_000,
+    workerIds: ['w-1'],
+    workers: [{ id: 'w-1', label: '甲', hp: 10, hpMax: 24, atk: 4, spd: 5, nextActAt: 5_000 }],
+    enemy: {
+      id: 'enemy',
+      label: '试敌',
+      hp: outcome === 'win' ? 0 : 10,
+      hpMax: 18,
+      atk: 3,
+      spd: 5,
+      nextActAt: 5_000,
+    },
+    logs: [],
+    outcome,
+  }
+}
+
 function testEnemy(overrides: Partial<EnemyEncounter> = {}): EnemyEncounter {
   return {
     kind: 'enemy',
@@ -89,7 +108,7 @@ function testEnemy(overrides: Partial<EnemyEncounter> = {}): EnemyEncounter {
     needs: { weapon: 1, meal: 1 },
     lootGold: enemyLootGoldFor('near', 'weak'),
     departed: false,
-    marchEndsAt: null,
+    combat: null,
     lootClaimed: false,
     ...overrides,
   }
@@ -247,37 +266,37 @@ describe('exploreBoard', () => {
     expect(boardSignature(save.encounters)).toBe(beforeSig)
   })
 
-  it('keeps marching or loot-ready enemies and replaces idle or claimed ones', () => {
+  it('keeps fighting, won, or lost enemies and replaces idle or claimed ones', () => {
     const save = createSave()
     const now = 2_000_000_000_000
-    const marching = testEnemy({
-      id: 'keep-march',
+    const fighting = testEnemy({
+      id: 'keep-fight',
       departed: true,
-      marchEndsAt: now + 10 * 60 * 1000,
+      combat: fightSnap(null),
     })
-    const lootReady = testEnemy({
-      id: 'keep-loot',
+    const won = testEnemy({
+      id: 'keep-win',
       departed: true,
-      marchEndsAt: now - 1000,
+      combat: fightSnap('win'),
     })
     const idle = testEnemy({ id: 'swap-idle' })
     const claimed = testEnemy({
       id: 'swap-claimed',
       departed: true,
-      marchEndsAt: now - 1000,
+      combat: fightSnap('win'),
       lootClaimed: true,
     })
     const passerby = testPasserby({ id: 'swap-passerby' })
     const sixth = testEnemy({ id: 'swap-sixth' })
-    put(save, 0, marching)
-    put(save, 1, lootReady)
+    put(save, 0, fighting)
+    put(save, 1, won)
     put(save, 2, idle)
     put(save, 3, claimed)
     put(save, 4, passerby)
     put(save, 5, sixth)
 
-    expect(shouldKeepOnExplore(marching, now)).toBe(true)
-    expect(shouldKeepOnExplore(lootReady, now)).toBe(true)
+    expect(shouldKeepOnExplore(fighting, now)).toBe(true)
+    expect(shouldKeepOnExplore(won, now)).toBe(true)
     expect(shouldKeepOnExplore(idle, now)).toBe(false)
     expect(shouldKeepOnExplore(claimed, now)).toBe(false)
     expect(shouldKeepOnExplore(passerby, now)).toBe(false)
@@ -285,8 +304,8 @@ describe('exploreBoard', () => {
     const result = exploreBoard(save, now)
     expect(result.ok).toBe(true)
     expect(save.encounters).toHaveLength(6)
-    expect(save.encounters[0].id).toBe('keep-march')
-    expect(save.encounters[1].id).toBe('keep-loot')
+    expect(save.encounters[0].id).toBe('keep-fight')
+    expect(save.encounters[1].id).toBe('keep-win')
     expect(save.encounters[2].id).not.toBe('swap-idle')
     expect(save.encounters[3].id).not.toBe('swap-claimed')
     expect(save.encounters[4].id).not.toBe('swap-passerby')
@@ -294,9 +313,10 @@ describe('exploreBoard', () => {
   })
 })
 
-describe('enemy march and loot', () => {
-  it('one-click depart fails when short and does not take goods or start a march', () => {
+describe('enemy combat and loot', () => {
+  it('does not start or take goods when supplies are short', () => {
     const save = createSave()
+    const worker = spawnWorker(save)
     const index = firstOf(save, 'enemy')
     const enemy = save.encounters[index]
     expect(enemy.kind).toBe('enemy')
@@ -305,22 +325,23 @@ describe('enemy march and loot', () => {
     save.bank.weapon = 0
     save.bank.meal = 0
     const bankBefore = { ...save.bank }
-    expect(canDepartEncounter(save, index)).toBe(false)
-    expect(departBlockReason(save, index)).toContain('货不够')
-    const result = departEncounter(save, index)
+    expect(canStartCombat(save, index, [worker.id])).toBe(false)
+    expect(combatSupplyBlockReason(save, index)).toContain('货不够')
+    const result = startCombat(save, index, [worker.id])
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.reason).toContain('货不够')
     expect(save.bank).toEqual(bankBefore)
     expect(save.departCount).toBe(0)
     expect(save.lastDepartAt).toBeNull()
     expect(enemy.departed).toBe(false)
-    expect(enemy.marchEndsAt).toBeNull()
+    expect(enemy.combat).toBeNull()
     expect(enemy.submitted).toBeUndefined()
   })
 
-  it('one click takes all supplies and starts the march without paying gold', () => {
+  it('takes supplies once, starts combat without paying gold, and blocks claim while fighting', () => {
     const save = createSave()
     save.gold = 10
+    const worker = spawnWorker(save)
     const index = firstOf(save, 'enemy')
     const enemy = save.encounters[index]
     expect(enemy.kind).toBe('enemy')
@@ -329,10 +350,9 @@ describe('enemy march and loot', () => {
     stock(save, { weapon: 4, meal: 4, fish: 4, ore: 4, wood: 4 })
     const now = 1_700_000_000_000
     const bankBefore = needSnapshot(save, enemy.needs)
-    expect(canDepartEncounter(save, index)).toBe(true)
-    const result = departEncounter(save, index, now)
+    expect(canStartCombat(save, index, [worker.id])).toBe(true)
+    const result = startCombat(save, index, [worker.id], now)
     expect(result.ok).toBe(true)
-    if (result.ok) expect(result.message).toContain('已出发，行军')
     expect(save.gold).toBe(10)
     for (const [itemId, qty] of Object.entries(enemy.needs) as Array<[ItemId, number]>) {
       expect(bankQty(save, itemId)).toBe(bankBefore[itemId] - qty)
@@ -342,53 +362,56 @@ describe('enemy march and loot', () => {
     expect(enemy.departed).toBe(true)
     expect(enemy.submitted).toBeUndefined()
     expect(enemy.lootClaimed).toBe(false)
-    expect(enemy.marchEndsAt).toBe(now + marchDurationS(enemy.distance, enemy.power) * 1000)
+    expect(isFighting(enemy)).toBe(true)
+    expect(worker.assignment).toBeNull()
     expect(canClaimLoot(save, index, now)).toBe(false)
-    expect(claimLootBlockReason(save, index, now)).toBe('行军尚未结束')
-    expect(departEncounter(save, index, now + 1000).ok).toBe(false)
+    expect(claimLootBlockReason(save, index, now)).toBe('战斗尚未结束')
+    expect(startCombat(save, index, [worker.id], now + 1000).ok).toBe(false)
   })
 
-  it('lets a leftover submitted save depart without taking goods again', () => {
+  it('lets a leftover submitted save start without taking goods again', () => {
     const save = createSave()
     save.gold = 6
     save.bank = { weapon: 1, meal: 1 }
+    const worker = spawnWorker(save)
     const enemy = testEnemy({
       needs: { weapon: 2, meal: 2 },
       submitted: true,
     })
     put(save, 0, enemy)
     const now = 1_710_000_000_000
-    const result = departEncounter(save, 0, now)
+    const result = startCombat(save, 0, [worker.id], now)
     expect(result.ok).toBe(true)
     expect(save.bank).toEqual({ weapon: 1, meal: 1 })
     expect(save.gold).toBe(6)
     expect(enemy.departed).toBe(true)
     expect(enemy.submitted).toBeUndefined()
-    expect(enemy.marchEndsAt).toBe(now + marchDurationS(enemy.distance, enemy.power) * 1000)
+    expect(isFighting(enemy)).toBe(true)
   })
 
-  it('cannot claim loot before the march ends', () => {
+  it('cannot claim loot while fighting', () => {
     const save = createSave()
     const now = 1_800_000_000_000
-    put(save, 0, testEnemy({ departed: true, marchEndsAt: now + 60_000 }))
+    put(save, 0, testEnemy({ departed: true, combat: fightSnap(null) }))
     const gold = save.gold
     const result = claimLoot(save, 0, now)
     expect(result.ok).toBe(false)
-    expect(claimLootBlockReason(save, 0, now)).toBe('行军尚未结束')
+    expect(claimLootBlockReason(save, 0, now)).toBe('战斗尚未结束')
     expect(save.gold).toBe(gold)
     if (save.encounters[0].kind === 'enemy') expect(save.encounters[0].lootClaimed).toBe(false)
   })
 
-  it('claims table gold only after the march ends and does not add bank items', () => {
+  it('claims table gold only after a win and does not add bank items', () => {
     const save = createSave()
     save.gold = 10
     save.bank = { wood: 2, meal: 1 }
     const enemy = testEnemy({
       departed: true,
-      marchEndsAt: 1_000,
+      combat: fightSnap('win'),
       lootGold: 14,
     })
     put(save, 0, enemy)
+    expect(isCombatWon(enemy)).toBe(true)
     const result = claimLoot(save, 0, 2_000)
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.message).toContain('金币 +14')
@@ -398,37 +421,39 @@ describe('enemy march and loot', () => {
     expect(claimLoot(save, 0, 3_000).ok).toBe(false)
   })
 
-  it('can claim loot after offline time crosses the march end', () => {
+  it('migrates a leftover march into a winnable claim without offline waiting', () => {
     const save = createSave()
     save.gold = 10
     save.bank = { ore: 3 }
-    const now = 5_000_000
-    const durationS = marchDurationS('near', 'weak')
-    put(
-      save,
-      0,
-      testEnemy({
-        departed: true,
-        marchEndsAt: now + durationS * 1000,
+    save.encounters = [
+      {
+        kind: 'enemy',
+        id: 'old-march',
+        label: '旧行军',
+        quality: 'green',
+        distance: 'near',
+        power: 'weak',
+        needs: { meal: 1 },
         lootGold: 8,
-      }),
-    )
-    save.lastTick = now
-    const later = now + (durationS + 30) * 1000
-    const offline = settleOffline(save, later)
-    expect(offline.save.encounters[0].kind).toBe('enemy')
-    if (offline.save.encounters[0].kind !== 'enemy') return
-    expect(offline.save.encounters[0].lootClaimed).toBe(false)
-    expect(offline.save.gold).toBe(10)
-    expect(bankQty(offline.save, 'ore')).toBe(3)
-
-    const result = claimLoot(offline.save, 0, later)
+        departed: true,
+        marchEndsAt: 5_000_000 + 60_000,
+        lootClaimed: false,
+      },
+      testPasserby({ id: 'p1' }),
+      testBlackMerchant({ id: 'b1' }),
+      testPawn({ id: 'w1' }),
+      testArtisan({ id: 'a1' }),
+      testEnemy({ id: 'e2' }),
+    ] as unknown as Save['encounters']
+    hydrateEncounterFields(save)
+    expect(save.encounters[0].kind).toBe('enemy')
+    if (save.encounters[0].kind !== 'enemy') return
+    expect(isCombatWon(save.encounters[0])).toBe(true)
+    expect(save.encounters[0].lootClaimed).toBe(false)
+    const result = claimLoot(save, 0, 6_000_000)
     expect(result.ok).toBe(true)
-    expect(offline.save.gold).toBe(18)
-    expect(bankQty(offline.save, 'ore')).toBe(3)
-    if (offline.save.encounters[0].kind === 'enemy') {
-      expect(offline.save.encounters[0].lootClaimed).toBe(true)
-    }
+    expect(save.gold).toBe(18)
+    expect(bankQty(save, 'ore')).toBe(3)
   })
 })
 
@@ -564,7 +589,7 @@ describe('hydrateEncounterFields', () => {
     expect(save.encounters[0].departed).toBe(false)
     expect(save.encounters[0].lootGold).toBe(10)
     expect(save.encounters[0].quality).toBe('green')
-    expect(save.encounters[0].marchEndsAt).toBeNull()
+    expect(save.encounters[0].combat).toBeNull()
     expect(save.encounters[0].lootClaimed).toBe(false)
     expect(save.currentOrderId).toBeUndefined()
     expect(save.orderIndex).toBeUndefined()
@@ -728,24 +753,24 @@ describe('artisan and bulk buy', () => {
     expect(stampLabel(bulk)).toBe('成交')
   })
 
-  it('refreshes completed trades and claimed loot but keeps marching or loot-ready enemies', () => {
+  it('refreshes completed trades and claimed loot but keeps fighting enemies', () => {
     const save = createSave()
     const now = 2_100_000_000_000
-    const marching = testEnemy({
-      id: 'keep-march',
+    const fighting = testEnemy({
+      id: 'keep-fight',
       departed: true,
-      marchEndsAt: now + 10 * 60 * 1000,
+      combat: fightSnap(null),
     })
     const claimed = testEnemy({
       id: 'swap-claimed',
       departed: true,
-      marchEndsAt: now - 1000,
+      combat: fightSnap('win'),
       lootClaimed: true,
     })
     const doneArtisan = testArtisan({ id: 'swap-artisan', completed: true })
     const doneBulk = testBulk({ id: 'swap-bulk', completed: true })
     const idle = testPasserby({ id: 'swap-idle' })
-    put(save, 0, marching)
+    put(save, 0, fighting)
     put(save, 1, claimed)
     put(save, 2, doneArtisan)
     put(save, 3, doneBulk)
@@ -753,7 +778,7 @@ describe('artisan and bulk buy', () => {
     expect(shouldKeepOnExplore(claimed, now)).toBe(false)
     expect(shouldKeepOnExplore(doneArtisan, now)).toBe(false)
     expect(exploreBoard(save, now).ok).toBe(true)
-    expect(save.encounters[0].id).toBe('keep-march')
+    expect(save.encounters[0].id).toBe('keep-fight')
     expect(save.encounters[1].id).not.toBe('swap-claimed')
     expect(save.encounters[2].id).not.toBe('swap-artisan')
     expect(save.encounters[3].id).not.toBe('swap-bulk')

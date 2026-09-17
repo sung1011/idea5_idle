@@ -1,3 +1,4 @@
+import { fillWorkerHp } from './combat'
 import {
   CLASS_PLACEHOLDERS,
   FOOD_BUFF_DEF,
@@ -107,14 +108,16 @@ function hydrateFoodSlot(rawSlot: unknown, rawWorker: Record<string, unknown>): 
 export function hydrateWorker(raw: unknown, index = 0): Worker {
   const src = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
   const id = typeof src.id === 'string' && src.id ? src.id : `w-${index + 1}`
-  return {
+  return fillWorkerHp({
     id,
     name: typeof src.name === 'string' ? src.name : undefined,
     classId: isClassId(src.classId) ? src.classId : undefined,
     qualityTier: hydrateQualityTier(src.qualityTier),
     assignment: resolveStationId(src.assignment),
     foodSlot: hydrateFoodSlot(src.foodSlot, src),
-  }
+    hp: 0,
+    hpMax: 1,
+  }, src.hp)
 }
 
 /**
@@ -142,14 +145,16 @@ export function spawnWorker(save: Save): Worker {
 /** 指定品质与职业写入花名册。名字仍按 nextWorkerId 轮转。 */
 export function spawnWorkerWith(save: Save, qualityTier: QualityTier, classId: ClassId): Worker {
   const idx = save.nextWorkerId - 1
-  const worker: Worker = {
+  const worker: Worker = fillWorkerHp({
     id: `w-${save.nextWorkerId}`,
     name: WORKER_NAME_POOL[idx % WORKER_NAME_POOL.length],
     classId,
     qualityTier,
     assignment: null,
     foodSlot: null,
-  }
+    hp: 0,
+    hpMax: 1,
+  })
   save.nextWorkerId += 1
   save.workers.push(worker)
   return worker

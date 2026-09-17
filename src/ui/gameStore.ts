@@ -22,8 +22,8 @@ import {
   barterMerchant,
   buyMerchant,
   claimLoot,
-  departEncounter,
   exploreBoard,
+  startCombat,
   pawnMerchant,
   sellBulk,
   submitArtisan,
@@ -146,7 +146,7 @@ export const useGameStore = defineStore('game', () => {
     selectCategory: (stationId: StationId, categoryId: CategoryId) =>
       apply((s) => selectStationCategory(s, stationId, categoryId)),
     explore: () => apply(exploreBoard),
-    departEncounter: (index: number) => apply((s) => departEncounter(s, index)),
+    startCombat: (index: number, workerIds: string[]) => apply((s) => startCombat(s, index, workerIds)),
     claimLoot: (index: number) => apply((s) => claimLoot(s, index)),
     barter: (index: number) => apply((s) => barterMerchant(s, index)),
     buyMerchant: (index: number) => apply((s) => buyMerchant(s, index)),

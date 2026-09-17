@@ -1,18 +1,27 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import {
+  COMBAT_PARTY_MAX,
+  COMBAT_STATUS_LABEL,
+  combatStatus,
+  isCombatLost,
+  isCombatWon,
+  isFighting,
+  recentCombatLogs,
+  restCombatCandidates,
+  workerLiveStats,
+} from '../sim/combat'
 import {
   DISTANCE_LABEL,
   ENCOUNTER_KIND_LABEL,
   POWER_LABEL,
   QUALITY_LABEL,
+  combatSupplyBlockReason,
   exploreCost,
   formatMarchClock,
   formatNeedMap,
   isEncounterDone,
-  isLootReady,
-  isMarching,
   isWorkshopBuffActive,
-  marchRemainS,
   needLines,
   pawnQuoteLines,
   pawnRewardGold,
@@ -20,7 +29,9 @@ import {
   workshopBuffMul,
   workshopBuffRemainS,
 } from '../sim/encounters'
-import type { Encounter, EncounterKind, EnemyEncounter, PawnEncounter } from '../sim/types'
+import { CLASS_LABEL } from '../sim/tables'
+import type { Encounter, EncounterKind, EnemyEncounter, PawnEncounter, Worker } from '../sim/types'
+import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
 
 const game = useGameStore()
@@ -36,6 +47,46 @@ const buffLabel = computed(() => {
   const pct = Math.round((workshopBuffMul(game.save, now.value) - 1) * 100)
   return `工匠加持：工坊产量 +${pct}% · 剩余 ${formatMarchClock(workshopBuffRemainS(game.save, now.value))}`
 })
+const pickIndex = ref<number | null>(null)
+const picked = ref<string[]>([])
+const pickOpen = computed(() => pickIndex.value !== null)
+const pickCandidates = computed(() => restCombatCandidates(game.save))
+
+function openPick(index: number) {
+  const blocked = combatSupplyBlockReason(game.save, index)
+  if (blocked) {
+    pushFloatTip(blocked, 'err')
+    return
+  }
+  pickIndex.value = index
+  picked.value = []
+}
+
+function closePick() {
+  pickIndex.value = null
+  picked.value = []
+}
+
+function togglePick(worker: Worker) {
+  if (worker.hp <= 0) return
+  const id = worker.id
+  if (picked.value.includes(id)) {
+    picked.value = picked.value.filter((x) => x !== id)
+    return
+  }
+  if (picked.value.length >= COMBAT_PARTY_MAX) {
+    pushFloatTip(`最多选 ${COMBAT_PARTY_MAX} 人`, 'err')
+    return
+  }
+  picked.value = [...picked.value, id]
+}
+
+function confirmPick() {
+  const index = pickIndex.value
+  if (index == null) return
+  const result = game.startCombat(index, [...picked.value])
+  if (result.ok) closePick()
+}
 
 function enemyLines(enc: Encounter) {
   return enc.kind === 'enemy' ? needLines(game.save, enc.needs) : []
@@ -67,16 +118,19 @@ function cardClass(enc: Encounter) {
   }
 }
 
-function marching(enc: EnemyEncounter) {
-  return isMarching(enc, now.value)
+function statusText(enc: EnemyEncounter) {
+  return COMBAT_STATUS_LABEL[combatStatus(enc)]
 }
 
-function lootReady(enc: EnemyEncounter) {
-  return isLootReady(enc, now.value)
+function hpPct(hp: number, hpMax: number) {
+  if (hpMax <= 0) return 0
+  return Math.max(0, Math.min(100, Math.round((hp / hpMax) * 100)))
 }
 
-function marchLabel(enc: EnemyEncounter) {
-  return `行军中 ${formatMarchClock(marchRemainS(enc, now.value))}`
+function workerLine(w: Worker) {
+  const stats = workerLiveStats(w)
+  const job = w.classId ? CLASS_LABEL[w.classId] : '未标'
+  return `${w.name ?? w.id} · ${job} · HP ${w.hp}/${w.hpMax} · ATK ${stats.atk} · SPD ${stats.spd}`
 }
 
 function pawnGold(enc: PawnEncounter) {
@@ -112,15 +166,34 @@ function pawnGold(enc: PawnEncounter) {
             </div>
           </header>
           <p class="label">{{ enc.label }} · 战利品 {{ enc.lootGold }} 金</p>
+          <p class="ready">{{ statusText(enc) }}</p>
           <ul>
             <li v-for="line in enemyLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
               {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}
               <span v-if="line.missing > 0"> · 差 {{ line.missing }}</span>
             </li>
           </ul>
-          <p v-if="enc.lootClaimed" class="ready">战利品已领取</p>
-          <p v-else-if="lootReady(enc)" class="ready">行军结束，可以领取战利品</p>
-          <p v-else-if="marching(enc)" class="ready">{{ marchLabel(enc) }}</p>
+          <template v-if="enc.combat">
+            <div class="bars">
+              <p class="bar-line">
+                敌 {{ enc.combat.enemy.hp }}/{{ enc.combat.enemy.hpMax }}
+                · ATK {{ enc.combat.enemy.atk }} · SPD {{ enc.combat.enemy.spd }}
+              </p>
+              <i class="bar" aria-hidden="true"><b :style="{ width: hpPct(enc.combat.enemy.hp, enc.combat.enemy.hpMax) + '%' }" /></i>
+              <p v-for="w in enc.combat.workers" :key="w.id" class="bar-line">
+                {{ w.label }} {{ w.hp }}/{{ w.hpMax }} · ATK {{ w.atk }} · SPD {{ w.spd }}
+              </p>
+              <i
+                v-for="w in enc.combat.workers"
+                :key="`${w.id}-bar`"
+                class="bar ally"
+                aria-hidden="true"
+              ><b :style="{ width: hpPct(w.hp, w.hpMax) + '%' }" /></i>
+            </div>
+            <ul v-if="recentCombatLogs(enc).length" class="logs">
+              <li v-for="(log, li) in recentCombatLogs(enc)" :key="`${enc.id}-${li}`">{{ log.text }}</li>
+            </ul>
+          </template>
           <div class="row">
             <button
               v-if="enc.lootClaimed"
@@ -130,19 +203,25 @@ function pawnGold(enc: PawnEncounter) {
               已领
             </button>
             <button
-              v-else-if="!enc.departed"
+              v-else-if="isFighting(enc)"
               type="button"
-              @click="game.departEncounter(i)"
+              disabled
             >
-              出发
+              战斗中
             </button>
-            <button v-else-if="marching(enc)" type="button" disabled>{{ marchLabel(enc) }}</button>
             <button
-              v-else
+              v-else-if="isCombatWon(enc)"
               type="button"
               @click="game.claimLoot(i)"
             >
               战利品
+            </button>
+            <button
+              v-else
+              type="button"
+              @click="openPick(i)"
+            >
+              {{ isCombatLost(enc) ? '再战' : '战斗' }}
             </button>
           </div>
         </template>
@@ -244,7 +323,31 @@ function pawnGold(enc: PawnEncounter) {
       </article>
     </div>
 
-    <p v-if="departedTotal > 0" class="hint">已出发 {{ departedTotal }} 次</p>
+    <p v-if="departedTotal > 0" class="hint">已开战 {{ departedTotal }} 次</p>
+
+    <div v-if="pickOpen" class="modal" role="dialog" aria-label="选择出战工人" @click.self="closePick">
+      <div class="sheet">
+        <p>选择休息中工人（最多 {{ COMBAT_PARTY_MAX }} 人）</p>
+        <p class="hint">HP≤0 不可选。出战不算派驻工坊。</p>
+        <ul class="pick-list">
+          <li v-for="w in pickCandidates" :key="w.id">
+            <button
+              type="button"
+              :class="{ on: picked.includes(w.id) }"
+              :disabled="w.hp <= 0"
+              @click="togglePick(w)"
+            >
+              {{ workerLine(w) }}
+            </button>
+          </li>
+          <li v-if="!pickCandidates.length" class="hint">没有休息中的工人</li>
+        </ul>
+        <div class="row">
+          <button type="button" :disabled="!picked.length" @click="confirmPick">开战</button>
+          <button type="button" @click="closePick">取消</button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -463,5 +566,75 @@ ul {
 
 .ready {
   color: var(--moss);
+}
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bar-line {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.bar {
+  display: block;
+  height: 8px;
+  border: 2px solid var(--gold-deep);
+  border-radius: 999px;
+  background: #efe4c4;
+  overflow: hidden;
+}
+
+.bar b {
+  display: block;
+  height: 100%;
+  background: #c0392b;
+}
+
+.bar.ally b {
+  background: var(--moss);
+}
+
+.logs {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(40, 24, 8, 0.45);
+}
+
+.sheet {
+  width: min(520px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 3px solid var(--gold-deep);
+  border-radius: 16px;
+  background: var(--plate);
+  box-shadow: 0 6px 0 var(--shadow);
+}
+
+.pick-list {
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.pick-list button {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
 }
 </style>

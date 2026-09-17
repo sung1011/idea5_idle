@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { assignIdleWorker, assignWorker, clampStationAssignments } from './assign'
+import { beginEnemyCombat } from './combat'
 import { createSave } from './createSave'
 import { fuseStationWorkers, fuseWorkers } from './fuse'
 import { spawnWorker } from './recruit'
 import { STATION_WORKER_CAP } from './tables'
+import type { EnemyEncounter } from './types'
 
 function roster(n: number) {
   const save = createSave()
@@ -28,6 +30,28 @@ describe('station worker cap', () => {
     assignWorker(save, save.workers[1].id, 'mining')
     expect(assignWorker(save, save.workers[0].id, 'mining').ok).toBe(true)
     expect(save.workers[0].assignment).toBe('mining')
+  })
+
+  it('blocks assigning a worker who is already fighting', () => {
+    const save = roster(1)
+    const worker = save.workers[0]
+    save.encounters[0] = {
+      kind: 'enemy',
+      id: 'fight',
+      label: '试敌',
+      quality: 'green',
+      distance: 'near',
+      power: 'weak',
+      needs: { meal: 1 },
+      lootGold: 8,
+      departed: true,
+      combat: null,
+      lootClaimed: false,
+    } satisfies EnemyEncounter
+    beginEnemyCombat(save.encounters[0] as EnemyEncounter, [worker], 1_000)
+    expect(assignWorker(save, worker.id, 'mining')).toEqual({ ok: false, reason: '正在战斗' })
+    expect(worker.assignment).toBeNull()
+    expect(assignIdleWorker(save, 'mining')).toEqual({ ok: false, reason: '没有空闲工人' })
   })
 
   it('blocks assignIdle when the station is full', () => {
