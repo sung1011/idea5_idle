@@ -1,8 +1,15 @@
 import { createSave, normalizeDiamonds } from './createSave'
 import { syncKnightLevel } from './knightLevel'
-import { spawnWorker } from './recruit'
+import { spawnWorker, spawnWorkerWith } from './recruit'
+import { roll01 } from './rng'
 import { syncUnlockedCategories } from './stationProgress'
-import { STATION_DEF, STATION_IDS } from './tables'
+import {
+  QUALITY_MAX,
+  STATION_DEF,
+  STATION_IDS,
+  classPoolForQuality,
+  pickClassFromPool,
+} from './tables'
 import type { ActionResult, ItemId, Save } from './types'
 
 export const GM_GOLD_GRANT = 10000
@@ -50,6 +57,14 @@ export function gmAddWorkers(save: Save, count = GM_WORKER_GRANT): ActionResult 
   const n = Math.max(0, Math.floor(count))
   for (let i = 0; i < n; i++) spawnWorker(save)
   return { ok: true, message: `加工人 ×${n}` }
+}
+
+/** 一名彩档工人；职业从满档池随机，战斗属性走 spawn 开槽。 */
+export function gmAddMaxQualityWorker(save: Save): ActionResult {
+  const pool = classPoolForQuality(QUALITY_MAX)
+  const classId = pickClassFromPool(pool, roll01(save))
+  const worker = spawnWorkerWith(save, QUALITY_MAX, classId)
+  return { ok: true, message: `满品质工人 ${worker.name ?? worker.id}` }
 }
 
 export function gmMaxStations(save: Save, level = GM_MAX_STATION_LEVEL): ActionResult {

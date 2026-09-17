@@ -9,12 +9,13 @@ import {
   GM_WORKER_GRANT,
   gmAddDiamonds,
   gmAddGold,
+  gmAddMaxQualityWorker,
   gmAddWorkers,
   gmFillBankBasics,
   gmMaxStations,
   gmResetSave,
 } from './gm'
-import { START_DIAMONDS, START_GOLD } from './tables'
+import { QUALITY_MAX, START_DIAMONDS, START_GOLD, classPoolForQuality } from './tables'
 
 describe('gm debug grants', () => {
   it('resets to a fresh createSave', () => {
@@ -66,6 +67,20 @@ describe('gm debug grants', () => {
     expect(save.workers).toHaveLength(GM_WORKER_GRANT)
     expect(save.gold).toBe(gold)
     expect(save.workers.every((w) => w.assignment === null)).toBe(true)
+  })
+
+  it('grants one max-quality worker with two combat attrs', () => {
+    const save = createSave()
+    const gold = save.gold
+    expect(gmAddMaxQualityWorker(save).ok).toBe(true)
+    expect(save.workers).toHaveLength(1)
+    const worker = save.workers[0]
+    expect(worker.qualityTier).toBe(QUALITY_MAX)
+    expect(worker.assignment).toBe(null)
+    expect(worker.combatAttrs).toHaveLength(2)
+    expect(new Set(worker.combatAttrs).size).toBe(2)
+    expect(classPoolForQuality(QUALITY_MAX)).toContain(worker.classId)
+    expect(save.gold).toBe(gold)
   })
 
   it('sets every station to Lv10 and unlocks all categories', () => {

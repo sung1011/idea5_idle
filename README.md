@@ -26,7 +26,7 @@ npm run build
 npm test
 ```
 
-开发页默认 http://localhost:5173/idea5_idle/ 。存档写在 `localStorage`，键名 **`idea5Idle`**。设置里的 **GM** 仅调试用：可初始化存档、加金币/钻石、加工人、站点满级、加基础物资。音乐/音效开关记在 **`idea5IdleSettings`**。工坊当前站签记在 **`idea5IdleWorkshopStation`**，不进存档。
+开发页默认 http://localhost:5173/idea5_idle/ 。存档写在 `localStorage`，键名 **`idea5Idle`**。设置里的 **GM** 仅调试用：可初始化存档、加金币/钻石、加工人、满品质工人、站点满级、加基础物资。音乐/音效开关记在 **`idea5IdleSettings`**。工坊当前站签记在 **`idea5IdleWorkshopStation`**，不进存档。
 
 测试也可以直接：
 

@@ -6,6 +6,7 @@ import { createSave } from '../sim/createSave'
 import {
   gmAddDiamonds,
   gmAddGold,
+  gmAddMaxQualityWorker,
   gmAddWorkers,
   gmFillBankBasics,
   gmMaxStations,
@@ -167,6 +168,7 @@ export const useGameStore = defineStore('game', () => {
     gmAddGold: () => apply(gmAddGold),
     gmAddDiamonds: () => apply(gmAddDiamonds),
     gmAddWorkers: () => apply(gmAddWorkers),
+    gmAddMaxQualityWorker: () => apply(gmAddMaxQualityWorker),
     gmMaxStations: () => apply(gmMaxStations),
     gmFillBankBasics: () => apply(gmFillBankBasics),
     markAllRead: () => apply(markAllRead),

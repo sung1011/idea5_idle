@@ -1,11 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import {
-  COMBAT_ATTR_KIND,
-  COMBAT_ATTR_LABEL,
-  formatCombatAttrs,
-  visibleWeaknessSlots,
-} from '../sim/combatAttrs'
+import { visibleWeaknessSlots } from '../sim/combatAttrs'
+import CombatAttrIcon from './combatAttrIcon.vue'
+import CombatAttrRow from './combatAttrRow.vue'
 import {
   COMBAT_PARTY_MAX,
   COMBAT_STATUS_LABEL,
@@ -136,7 +133,7 @@ function hpPct(hp: number, hpMax: number) {
 function workerLine(w: Worker) {
   const stats = workerLiveStats(w)
   const job = w.classId ? CLASS_LABEL[w.classId] : '未标'
-  return `${w.name ?? w.id} · ${job} · HP ${w.hp}/${w.hpMax} · ATK ${stats.atk} · SPD ${stats.spd} · ${formatCombatAttrs(w.combatAttrs)}`
+  return `${w.name ?? w.id} · ${job} · HP ${w.hp}/${w.hpMax} · ATK ${stats.atk} · SPD ${stats.spd}`
 }
 
 function weaknessSlots(enc: EnemyEncounter) {
@@ -178,11 +175,11 @@ function pawnGold(enc: PawnEncounter) {
           <p class="label">{{ enc.label }} · 战利品 {{ enc.lootGold }} 金</p>
           <p class="weak">
             弱点
-            <i
+            <CombatAttrIcon
               v-for="(slot, si) in weaknessSlots(enc)"
               :key="`${enc.id}-w-${si}`"
-              :class="slot ? COMBAT_ATTR_KIND[slot] : 'unknown'"
-            >{{ slot ? COMBAT_ATTR_LABEL[slot] : '?' }}</i>
+              :attr="slot"
+            />
           </p>
           <p class="ready">{{ statusText(enc) }}</p>
           <ul>
@@ -352,7 +349,8 @@ function pawnGold(enc: PawnEncounter) {
               :disabled="w.hp <= 0"
               @click="togglePick(w)"
             >
-              {{ workerLine(w) }}
+              <span>{{ workerLine(w) }}</span>
+              <CombatAttrRow :attrs="w.combatAttrs" />
             </button>
           </li>
           <li v-if="!pickCandidates.length" class="hint">没有休息中的工人</li>
@@ -592,32 +590,6 @@ ul {
   font-size: 13px;
 }
 
-.weak i {
-  font-style: normal;
-  min-width: 22px;
-  padding: 1px 7px;
-  border: 2px solid var(--gold-deep);
-  border-radius: 999px;
-  background: var(--slot);
-  text-align: center;
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-
-.weak i.unknown {
-  color: var(--muted);
-}
-
-.weak i.physical {
-  color: #6b3f12;
-  background: #f3e2c0;
-}
-
-.weak i.elemental {
-  color: #1f56b0;
-  background: #dcebff;
-}
-
 .bars {
   display: flex;
   flex-direction: column;
@@ -684,7 +656,11 @@ ul {
 
 .pick-list button {
   width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-start;
+  gap: 6px;
   text-align: left;
 }
 </style>
