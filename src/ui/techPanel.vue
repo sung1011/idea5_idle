@@ -1,28 +1,48 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import {
-  TECH_STAGES,
+  TECH_TAB_IDS,
+  TECH_TAB_LABELS,
   TECH_TREE,
   encounterSlotCount,
   hasTech,
-  isStageOpen,
+  isRowOpen,
   isTechComplete,
-  researchBlockReason,
-  stageMinorsReady,
+  techReadyLabel,
+  techTab,
   techTier,
   type TechNodeDef,
-  type TechStageDef,
+  type TechTabId,
 } from '../sim/tech'
 import type { TechId } from '../sim/types'
 import { useGameStore } from './gameStore'
+import { loadTechTab, saveTechTab } from './techTabs'
 
 const game = useGameStore()
+const tab = ref<TechTabId>(loadTechTab())
+const selected = ref<TechNodeDef | null>(null)
 const points = computed(() => game.save.techPoints)
 const knightLevel = computed(() => game.save.knightLevel)
 const slots = computed(() => encounterSlotCount(game.save))
 const done = computed(() => isTechComplete(game.save))
 const unlockedCount = computed(() => techTier(game.save))
 const progressPct = computed(() => Math.round((unlockedCount.value / TECH_TREE.length) * 100))
+const currentTab = computed(() => techTab(tab.value))
+const displayRows = computed(() => [...currentTab.value.rows].reverse())
+const selectedLive = computed(() => {
+  const node = selected.value
+  if (!node) return null
+  return {
+    node,
+    lit: hasTech(game.save, node.id),
+    readyLine: techReadyLabel(node),
+  }
+})
+
+function selectTab(id: TechTabId) {
+  tab.value = saveTechTab(id)
+  selected.value = null
+}
 
 function lit(id: TechId) {
   return hasTech(game.save, id)
@@ -30,29 +50,35 @@ function lit(id: TechId) {
 
 function nodeClass(node: TechNodeDef) {
   if (lit(node.id)) return 'on'
-  if (!researchBlockReason(game.save, node.id)) return 'ready'
+  if (isRowOpen(game.save, node.tab, node.row)) return 'ready'
   return 'off'
 }
 
-function majorHint(stage: TechStageDef) {
-  if (lit(stage.major.id)) return '已点亮'
-  if (!isStageOpen(game.save, stage.stage)) return '需上一阶段'
-  if (!stageMinorsReady(game.save, stage.stage)) return '小点未齐'
-  return `${stage.major.cost} 灵感`
+function onNode(node: TechNodeDef) {
+  if (lit(node.id) || isRowOpen(game.save, node.tab, node.row)) {
+    selected.value = node
+    return
+  }
+  game.researchTech(node.id)
 }
 
-function onNode(node: TechNodeDef) {
-  if (lit(node.id)) return
+function activate() {
+  const node = selected.value
+  if (!node || lit(node.id)) return
   game.researchTech(node.id)
+}
+
+function closeSheet() {
+  selected.value = null
 }
 </script>
 
 <template>
   <section class="panel tree">
     <p class="kicker">骑士工坊 · 科技</p>
-    <p class="title">阶段科技树</p>
+    <p class="title">科技树</p>
     <p class="hint">
-      任意工坊完成一个周期 +1 灵感。骑士等级每升 1 级也 +1。阶段内小点可任意顺序点亮；大科技要本阶段小点全亮。主线订单格由大科技 1→6。工坊规章 / 工匠密录减轻同站两人冲突。
+      三页签各自成串。任意工坊完成一个周期 +1 灵感，骑士升级也 +1。买任意 1 个开上一层，同行可稍后补买。工坊规章 / 工匠密录减轻同站冲突；事务订单格科技把主线 1→6。
     </p>
     <div class="chips">
       <span class="chip">骑士 {{ knightLevel }} 级</span>
@@ -63,46 +89,74 @@ function onNode(node: TechNodeDef) {
     <div class="bar xp" aria-label="科技进度">
       <i :style="{ width: `${progressPct}%` }" />
     </div>
-    <p v-if="done" class="hint">科技树已满。</p>
-    <ol class="stages">
-      <li
-        v-for="stage in TECH_STAGES"
-        :key="stage.stage"
-        class="stage"
-        :class="{ locked: !isStageOpen(game.save, stage.stage), done: lit(stage.major.id) }"
+    <nav class="sub" role="tablist" aria-label="科技分页">
+      <button
+        v-for="id in TECH_TAB_IDS"
+        :key="id"
+        type="button"
+        role="tab"
+        :aria-selected="tab === id"
+        :class="{ on: tab === id }"
+        @click="selectTab(id)"
       >
-        <b class="num">{{ String(stage.stage).padStart(2, '0') }}</b>
-        <div class="minors">
+        {{ TECH_TAB_LABELS[id] }}
+      </button>
+    </nav>
+    <p v-if="done" class="hint">科技树已满。</p>
+    <ol class="rows">
+      <li v-for="row in displayRows" :key="`${row.tab}-${row.row}`" class="row">
+        <div class="opts" :class="`n${row.options.length}`">
           <button
-            v-for="minor in stage.minors"
-            :key="minor.id"
+            v-for="node in row.options"
+            :key="node.id"
             type="button"
-            class="hex"
-            :class="nodeClass(minor)"
-            :title="`${minor.name} · ${minor.cost} 灵感`"
-            @click="onNode(minor)"
+            class="node"
+            :class="nodeClass(node)"
+            :title="node.name"
+            @click="onNode(node)"
           >
-            <span>{{ minor.name.slice(0, 1) }}</span>
+            <span class="ico" aria-hidden="true">{{ node.icon }}</span>
+            <strong>{{ node.name }}</strong>
+            <i v-if="lit(node.id)" class="mark" aria-hidden="true">✓</i>
           </button>
         </div>
-        <button
-          type="button"
-          class="major"
-          :class="nodeClass(stage.major)"
-          @click="onNode(stage.major)"
-        >
-          <strong>{{ stage.major.name }}</strong>
-          <i>{{ majorHint(stage) }}</i>
-        </button>
       </li>
     </ol>
+
+    <div v-if="selectedLive" class="modal" role="dialog" aria-modal="true" :aria-label="selectedLive.node.name" @click.self="closeSheet">
+      <div class="sheet">
+        <header>
+          <p class="sheet-ico" aria-hidden="true">{{ selectedLive.node.icon }}</p>
+          <h2 class="title">{{ selectedLive.node.name }}</h2>
+          <button type="button" class="close" @click="closeSheet">关闭</button>
+        </header>
+        <p class="ready">{{ selectedLive.readyLine }}</p>
+        <p class="desc">{{ selectedLive.node.desc }}</p>
+        <div class="actions">
+          <button
+            v-if="selectedLive.lit"
+            type="button"
+            disabled
+          >
+            已激活
+          </button>
+          <button
+            v-else
+            type="button"
+            @click="activate"
+          >
+            激活 · {{ selectedLive.node.cost }} 灵感
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
 <style scoped>
 .tree,
 .chips,
-.stages {
+.rows {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -120,10 +174,10 @@ p,
 
 .kicker,
 .hint,
-i {
+.desc,
+.ready {
   color: var(--muted);
   font-size: 13px;
-  font-style: normal;
 }
 
 .kicker {
@@ -143,109 +197,149 @@ i {
   align-items: center;
 }
 
-.stages {
+.sub {
+  display: flex;
+  gap: 8px;
+}
+
+.sub button {
+  flex: 1 1 0;
+  min-height: 40px;
+}
+
+.sub button.on {
+  color: var(--ink);
+  background: linear-gradient(#ffe27a, #f0b83a);
+  box-shadow: 0 3px 0 var(--shadow);
+  opacity: 1;
+  filter: none;
+}
+
+.rows {
   margin: 8px 0 0;
   padding: 0;
   list-style: none;
+  gap: 12px;
 }
 
-.stage {
+.opts {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) minmax(112px, 34%);
-  align-items: center;
   gap: 8px;
-  padding: 8px 6px;
-  border-bottom: 1px dashed var(--seam);
 }
 
-.stage.locked {
-  opacity: 0.55;
+.opts.n2 {
+  grid-template-columns: 1fr 1fr;
 }
 
-.num {
-  display: inline-flex;
+.opts.n3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 2px solid var(--gold-deep);
-  border-radius: 999px;
-  background: linear-gradient(#ffe27a, #f0b83a);
-  font-size: 12px;
-  font-family: var(--font-mono);
+  gap: 4px;
+  min-height: 72px;
+  padding: 8px 6px;
 }
 
-.stage.done .num {
-  background: linear-gradient(#8fd94a, var(--moss-deep));
-  color: #fffdf8;
-  border-color: var(--moss-deep);
+.node strong {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  font-weight: 400;
 }
 
-.minors {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
+.node .ico {
+  font-size: 22px;
+  line-height: 1;
 }
 
-.hex {
-  width: 36px;
-  height: 40px;
-  min-height: 40px;
-  padding: 0;
-  border: 2px solid var(--gold-deep);
-  border-radius: 0;
-  box-shadow: none;
-  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-  background: linear-gradient(#fff6dc, #f0d48a);
-  font-size: 12px;
+.node .mark {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 14px;
+  font-style: normal;
   font-weight: 700;
 }
 
-.hex.on {
-  background: linear-gradient(#8fd94a, var(--moss-deep));
+.node.on {
   color: #fffdf8;
+  background: linear-gradient(#8fd94a, var(--moss-deep));
   border-color: var(--moss-deep);
 }
 
-.hex.ready {
+.node.ready {
   background: linear-gradient(#fff3a8, #f0c14a);
 }
 
-.hex.off {
-  background: #efe4c8;
+.node.off {
   color: var(--muted);
+  background: #efe4c8;
+  box-shadow: none;
+  filter: grayscale(0.35);
 }
 
-.major {
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px 12px calc(16px + env(safe-area-inset-bottom));
+  background: rgba(40, 24, 8, 0.45);
+}
+
+.sheet {
+  width: min(480px, 100%);
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  min-height: 48px;
-  padding: 6px 8px;
-  text-align: left;
+  gap: 10px;
+  padding: 16px;
+  border: 3px solid var(--gold-deep);
+  border-radius: 16px 16px 12px 12px;
+  background: var(--plate);
+  box-shadow: 0 6px 0 var(--shadow);
 }
 
-.major.on {
-  background: linear-gradient(#fffef4, #d8f0b0);
+.sheet header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
 }
 
-.major.ready {
-  border-color: var(--ember);
+.sheet .title {
+  margin: 0;
+  font-size: 20px;
 }
 
-.major.off {
-  opacity: 0.78;
+.sheet-ico {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1;
 }
 
-.major strong {
-  font-family: var(--font-display);
-  letter-spacing: 0.04em;
-  font-size: 13px;
+.close {
+  min-height: 32px;
+  padding: 4px 10px;
 }
 
-.major i {
-  font-size: 11px;
+.ready {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+}
+
+.actions button {
+  flex: 1 1 auto;
 }
 </style>

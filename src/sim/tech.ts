@@ -10,52 +10,58 @@ export const CRAFT_TECH_POINTS = CYCLE_TECH_POINTS
 
 export const ENCOUNTER_SLOT_MIN = 1
 export const ENCOUNTER_SLOT_MAX = 6
-/** 主线订单格大科技的 effectId。每点亮 1 个 +1 格，与初始 1 格相加，封顶 6。 */
+/** 主线订单格科技的 effectId。每点亮 1 个 +1 格，与初始 1 格相加，封顶 6。 */
 export const ENCOUNTER_SLOT_EFFECT = 'encounterSlot'
 export const NOOP_TECH_EFFECT = 'noop'
 
-export type TechKind = 'minor' | 'major'
+export const TECH_TAB_IDS = ['production', 'combat', 'affairs'] as const
+export type TechTabId = (typeof TECH_TAB_IDS)[number]
+
+export const TECH_TAB_LABELS: Record<TechTabId, string> = {
+  production: '生产',
+  combat: '战斗',
+  affairs: '事务',
+}
 
 export type TechNodeDef = {
   id: TechId
   name: string
   desc: string
   cost: number
-  /** 多数占位。主线订单格大科技为 encounterSlot；工坊规章 / 工匠密录走 stationConflictMul。 */
+  /** 多数占位。事务订单格为 encounterSlot；工坊规章 / 工匠密录走 stationConflictMul。 */
   effectId: string
-  kind: TechKind
-  stage: number
+  tab: TechTabId
+  row: number
+  icon: string
+  implemented: boolean
 }
 
-export type TechStageDef = {
-  stage: number
-  name: string
-  minors: readonly TechNodeDef[]
-  major: TechNodeDef
-}
-
-type MinorSeed = {
-  id: TechId
-  name: string
-  desc?: string
+export type TechRowDef = {
+  tab: TechTabId
+  row: number
   cost: number
+  options: readonly TechNodeDef[]
 }
 
-type MajorSeed = {
+export type TechTabDef = {
+  id: TechTabId
+  name: string
+  rows: readonly TechRowDef[]
+}
+
+type OptionSeed = {
   id: TechId
   name: string
   desc: string
-  cost: number
+  icon: string
   effectId?: string
+  implemented?: boolean
 }
 
-type StageSeed = {
-  name: string
-  minors: readonly MinorSeed[]
-  major: MajorSeed
+type RowSeed = {
+  cost: number
+  options: readonly OptionSeed[]
 }
-
-const LATER = '稍后开放。'
 
 /** 未研究时同站两人冲突倍率。 */
 export const STATION_CONFLICT_BASE_MUL = 0.5
@@ -64,112 +70,222 @@ export const STATION_CONFLICT_RULES_MUL = 0.75
 /** 解锁「工匠密录」后消除冲突。 */
 export const STATION_CONFLICT_CLEARED_MUL = 1
 
-const SLOT_MAJORS: readonly MajorSeed[] = [
-  { id: 'pathOutpost', name: '探路哨岗', desc: '在工坊外立一座哨岗，主线订单格 1→2。', cost: 5, effectId: ENCOUNTER_SLOT_EFFECT },
-  { id: 'marketLicense', name: '市集执照', desc: '拿到摆摊文书，主线订单格 2→3。', cost: 8, effectId: ENCOUNTER_SLOT_EFFECT },
-  { id: 'scoutRelay', name: '斥候驿站', desc: '路书可传到更远，主线订单格 3→4。', cost: 12, effectId: ENCOUNTER_SLOT_EFFECT },
-  { id: 'farWatch', name: '远望烽台', desc: '夜里也能看见客商，主线订单格 4→5。', cost: 16, effectId: ENCOUNTER_SLOT_EFFECT },
-  { id: 'caravanPermit', name: '商队路引', desc: '大队可同时进场，主线订单格 5→6。', cost: 20, effectId: ENCOUNTER_SLOT_EFFECT },
+const PLACEHOLDER = '效果尚未实现。扣灵感点亮后可占位。'
+
+const PRODUCTION_ROWS: readonly RowSeed[] = [
+  {
+    cost: 2,
+    options: [
+      { id: 'workshopLog', name: '工坊日志', desc: '记下每日吞吐与空转。', icon: '📋' },
+      { id: 'apprenticeNotes', name: '学徒笔记', desc: '学徒手抄的工序要点。', icon: '📝' },
+      { id: 'artisanManual', name: '匠人手册', desc: '各站配方的对照手册。', icon: '📘' },
+    ],
+  },
+  {
+    cost: 4,
+    options: [
+      {
+        id: 'workshopRules',
+        name: '工坊规章',
+        desc: '排班规矩减轻同站两人冲突（效率 −25%）。',
+        icon: '📜',
+        implemented: true,
+      },
+      { id: 'pipelineChart', name: '流水线图', desc: '站与站之间的物流草图。', icon: '📊' },
+    ],
+  },
+  {
+    cost: 6,
+    options: [
+      {
+        id: 'artisanArchive',
+        name: '工匠密录',
+        desc: '密录消除同站两人冲突，满员按人数全速。',
+        icon: '📗',
+        implemented: true,
+      },
+      { id: 'knightEdict', name: '骑士训令', desc: '骑士对工坊的号令。', icon: '📯' },
+    ],
+  },
+  {
+    cost: 8,
+    options: [
+      { id: 'crestDraft', name: '纹章底稿', desc: '纹章未上色的底稿。', icon: '✏️' },
+      { id: 'workshopCrest', name: '工坊纹章', desc: '工坊自己的徽记。', icon: '🛡️' },
+      { id: 'knightCrest', name: '骑士工坊纹章', desc: '正式授纹的底稿。', icon: '🏅' },
+    ],
+  },
+  {
+    cost: 10,
+    options: [
+      { id: 's06DraftA', name: '炉火手记', desc: PLACEHOLDER, icon: '🔥' },
+      { id: 's07DraftA', name: '典籍目录', desc: PLACEHOLDER, icon: '📚' },
+    ],
+  },
+  {
+    cost: 12,
+    options: [
+      { id: 's08DraftA', name: '号角试音', desc: PLACEHOLDER, icon: '📢' },
+      { id: 's09DraftA', name: '盟约草稿', desc: PLACEHOLDER, icon: '🤝' },
+      { id: 's10DraftA', name: '王庭备忘', desc: PLACEHOLDER, icon: '👑' },
+    ],
+  },
 ]
 
-const EARLY_MINORS: readonly (readonly MinorSeed[])[] = [
-  [
-    { id: 'workshopLog', name: '工坊日志', desc: '记下每日吞吐与空转。', cost: 1 },
-    { id: 'apprenticeNotes', name: '学徒笔记', desc: '学徒手抄的工序要点。', cost: 2 },
-    { id: 'artisanManual', name: '匠人手册', desc: '各站配方的对照手册。', cost: 3 },
-  ],
-  [
-    { id: 'workshopRules', name: '工坊规章', desc: '排班规矩减轻同站两人冲突（效率 −25%）。', cost: 4 },
-    { id: 'pipelineChart', name: '流水线图', desc: '站与站之间的物流草图。', cost: 4 },
-    { id: 'artisanArchive', name: '工匠密录', desc: '密录消除同站两人冲突，满员按人数全速。', cost: 5 },
-  ],
-  [
-    { id: 'knightEdict', name: '骑士训令', desc: '骑士对工坊的号令。', cost: 5 },
-    { id: 'crestDraft', name: '纹章底稿', desc: '纹章未上色的底稿。', cost: 6 },
-    { id: 'workshopCrest', name: '工坊纹章', desc: '工坊自己的徽记。', cost: 6 },
-  ],
-  [
-    { id: 'knightCrest', name: '骑士工坊纹章', desc: '正式授纹的底稿。', cost: 6 },
-    { id: 's04DraftB', name: '路碑拓片', cost: 7 },
-    { id: 's04DraftC', name: '夜更口令', cost: 7 },
-  ],
-  [
-    { id: 's05DraftA', name: '货单副本', cost: 8 },
-    { id: 's05DraftB', name: '脚力名册', cost: 8 },
-    { id: 's05DraftC', name: '关卡印花', cost: 9 },
-  ],
+const COMBAT_ROWS: readonly RowSeed[] = [
+  {
+    cost: 3,
+    options: [
+      { id: 'combatPost', name: '训练木桩', desc: PLACEHOLDER, icon: '🪵' },
+      { id: 'combatBracer', name: '护腕试作', desc: PLACEHOLDER, icon: '🥊' },
+    ],
+  },
+  {
+    cost: 5,
+    options: [
+      { id: 'combatManual', name: '步战教范', desc: PLACEHOLDER, icon: '📖' },
+      { id: 'combatShield', name: '盾墙口令', desc: PLACEHOLDER, icon: '🛡️' },
+      { id: 'combatWeak', name: '弱点笔记', desc: PLACEHOLDER, icon: '🎯' },
+    ],
+  },
+  {
+    cost: 7,
+    options: [
+      { id: 'combatMarch', name: '急行号令', desc: PLACEHOLDER, icon: '🏃' },
+      { id: 'combatOath', name: '骑士誓词', desc: PLACEHOLDER, icon: '⚔️' },
+    ],
+  },
+  {
+    cost: 9,
+    options: [
+      { id: 'combatBanner', name: '纹章战旗', desc: PLACEHOLDER, icon: '🚩' },
+      { id: 'combatEdge', name: '锋刃打磨', desc: PLACEHOLDER, icon: '🗡️' },
+      { id: 'combatArmor', name: '甲胄合缝', desc: PLACEHOLDER, icon: '🪖' },
+    ],
+  },
+  {
+    cost: 11,
+    options: [
+      { id: 'combatCourt', name: '王庭校场', desc: PLACEHOLDER, icon: '🏰' },
+      { id: 'combatLegend', name: '传奇演武', desc: PLACEHOLDER, icon: '⭐' },
+    ],
+  },
 ]
 
-const LATER_STAGE_NAMES = [
-  '工坊',
-  '纹章',
-  '骑士',
-  '边贸',
-  '驿站',
-  '炉火',
-  '典籍',
-  '号角',
-  '盟约',
-  '王庭',
-  '传奇',
-] as const
+const AFFAIRS_ROWS: readonly RowSeed[] = [
+  {
+    cost: 5,
+    options: [
+      {
+        id: 'pathOutpost',
+        name: '探路哨岗',
+        desc: '在工坊外立一座哨岗，主线订单格 1→2。',
+        icon: '🏕️',
+        effectId: ENCOUNTER_SLOT_EFFECT,
+      },
+      { id: 's04DraftB', name: '路碑拓片', desc: PLACEHOLDER, icon: '🪨' },
+    ],
+  },
+  {
+    cost: 8,
+    options: [
+      {
+        id: 'marketLicense',
+        name: '市集执照',
+        desc: '拿到摆摊文书，主线订单格 2→3。',
+        icon: '🪪',
+        effectId: ENCOUNTER_SLOT_EFFECT,
+      },
+      { id: 's05DraftA', name: '货单副本', desc: PLACEHOLDER, icon: '📄' },
+    ],
+  },
+  {
+    cost: 12,
+    options: [
+      {
+        id: 'scoutRelay',
+        name: '斥候驿站',
+        desc: '路书可传到更远，主线订单格 3→4。',
+        icon: '🏇',
+        effectId: ENCOUNTER_SLOT_EFFECT,
+      },
+      { id: 's05DraftB', name: '脚力名册', desc: PLACEHOLDER, icon: '📋' },
+    ],
+  },
+  {
+    cost: 16,
+    options: [
+      {
+        id: 'farWatch',
+        name: '远望烽台',
+        desc: '夜里也能看见客商，主线订单格 4→5。',
+        icon: '🗼',
+        effectId: ENCOUNTER_SLOT_EFFECT,
+      },
+      { id: 's04DraftC', name: '夜更口令', desc: PLACEHOLDER, icon: '🌙' },
+    ],
+  },
+  {
+    cost: 20,
+    options: [
+      {
+        id: 'caravanPermit',
+        name: '商队路引',
+        desc: '大队可同时进场，主线订单格 5→6。',
+        icon: '🐫',
+        effectId: ENCOUNTER_SLOT_EFFECT,
+      },
+      { id: 's05DraftC', name: '关卡印花', desc: PLACEHOLDER, icon: '💮' },
+    ],
+  },
+  {
+    cost: 24,
+    options: [
+      { id: 'affairsRoadbook', name: '边贸路书', desc: PLACEHOLDER, icon: '🗺️' },
+      { id: 'affairsRoster', name: '驿站号簿', desc: PLACEHOLDER, icon: '📒' },
+      { id: 'affairsSeal', name: '商盟印信', desc: PLACEHOLDER, icon: '🔏' },
+    ],
+  },
+]
 
-function laterStageSeed(index: number, name: string): StageSeed {
-  const stage = index + 1
-  const marks = ['A', 'B', 'C'] as const
-  const labels = ['甲', '乙', '丙'] as const
-  return {
-    name,
-    minors: marks.map((mark, i) => ({
-      id: `s${String(stage).padStart(2, '0')}Draft${mark}`,
-      name: `${name}草稿${labels[i]}`,
-      cost: 8 + stage + i,
-    })),
-    major: {
-      id: `s${String(stage).padStart(2, '0')}Major`,
-      name: `${name}要诀`,
-      desc: LATER,
-      cost: 18 + stage * 2,
-    },
-  }
+function isImplemented(seed: OptionSeed): boolean {
+  return seed.implemented === true || seed.effectId === ENCOUNTER_SLOT_EFFECT
 }
 
-function buildStage(stage: number, seed: StageSeed): TechStageDef {
-  const minors = seed.minors.map((minor) => ({
-    id: minor.id,
-    name: minor.name,
-    desc: minor.desc ?? LATER,
-    cost: minor.cost,
-    effectId: NOOP_TECH_EFFECT,
-    kind: 'minor' as const,
-    stage,
+function buildRow(tab: TechTabId, row: number, seed: RowSeed): TechRowDef {
+  const options = seed.options.map((option) => ({
+    id: option.id,
+    name: option.name,
+    desc: option.desc,
+    cost: seed.cost,
+    effectId: option.effectId ?? NOOP_TECH_EFFECT,
+    tab,
+    row,
+    icon: option.icon,
+    implemented: isImplemented(option),
   }))
-  const major: TechNodeDef = {
-    id: seed.major.id,
-    name: seed.major.name,
-    desc: seed.major.desc,
-    cost: seed.major.cost,
-    effectId: seed.major.effectId ?? NOOP_TECH_EFFECT,
-    kind: 'major',
-    stage,
-  }
-  return { stage, name: seed.name, minors, major }
+  return { tab, row, cost: seed.cost, options }
 }
 
-const STAGE_SEEDS: StageSeed[] = [
-  { name: '探路', minors: EARLY_MINORS[0], major: SLOT_MAJORS[0] },
-  { name: '市集', minors: EARLY_MINORS[1], major: SLOT_MAJORS[1] },
-  { name: '哨线', minors: EARLY_MINORS[2], major: SLOT_MAJORS[2] },
-  { name: '远望', minors: EARLY_MINORS[3], major: SLOT_MAJORS[3] },
-  { name: '商队', minors: EARLY_MINORS[4], major: SLOT_MAJORS[4] },
-  ...LATER_STAGE_NAMES.map((name, i) => laterStageSeed(i + 5, name)),
+function buildTab(id: TechTabId, seeds: readonly RowSeed[]): TechTabDef {
+  return {
+    id,
+    name: TECH_TAB_LABELS[id],
+    rows: seeds.map((seed, i) => buildRow(id, i + 1, seed)),
+  }
+}
+
+/** 三页签科技树。每页独立线性层，第 1 层在屏幕最下。 */
+export const TECH_TABS: readonly TechTabDef[] = [
+  buildTab('production', PRODUCTION_ROWS),
+  buildTab('combat', COMBAT_ROWS),
+  buildTab('affairs', AFFAIRS_ROWS),
 ]
 
-/** 阶段科技树。每阶段 3 小点 + 1 大科技，表驱动可往后扩。 */
-export const TECH_STAGES: readonly TechStageDef[] = STAGE_SEEDS.map((seed, i) => buildStage(i + 1, seed))
-
-/** 扁平表，兼容旧遍历。顺序：阶段从小到大，先小点后大科技。 */
-export const TECH_TREE: readonly TechNodeDef[] = TECH_STAGES.flatMap((stage) => [...stage.minors, stage.major])
+/** 扁平表，兼容旧遍历。顺序：生产 → 战斗 → 事务，层内自下而上。 */
+export const TECH_TREE: readonly TechNodeDef[] = TECH_TABS.flatMap((tab) =>
+  tab.rows.flatMap((row) => row.options),
+)
 
 export const TECH_IDS = TECH_TREE.map((node) => node.id)
 
@@ -178,8 +294,12 @@ export const ENCOUNTER_SLOT_TECH_IDS: readonly TechId[] = TECH_TREE.filter(
 ).map((node) => node.id)
 
 const TECH_BY_ID = new Map<TechId, TechNodeDef>(TECH_TREE.map((node) => [node.id, node]))
-const STAGE_BY_NUMBER = new Map<number, TechStageDef>(TECH_STAGES.map((stage) => [stage.stage, stage]))
+const TAB_BY_ID = new Map<TechTabId, TechTabDef>(TECH_TABS.map((tab) => [tab.id, tab]))
 const TECH_ID_SET = new Set<TechId>(TECH_IDS)
+
+export function isTechTabId(value: unknown): value is TechTabId {
+  return typeof value === 'string' && TECH_TAB_IDS.includes(value as TechTabId)
+}
 
 export function isTechId(value: unknown): value is TechId {
   return typeof value === 'string' && TECH_ID_SET.has(value)
@@ -189,8 +309,16 @@ export function techNode(id: TechId): TechNodeDef {
   return TECH_BY_ID.get(id) ?? TECH_TREE[0]
 }
 
-export function techStage(stage: number): TechStageDef | undefined {
-  return STAGE_BY_NUMBER.get(stage)
+export function techTab(id: TechTabId): TechTabDef {
+  return TAB_BY_ID.get(id) ?? TECH_TABS[0]
+}
+
+export function techRow(tab: TechTabId, row: number): TechRowDef | undefined {
+  return techTab(tab).rows.find((item) => item.row === row)
+}
+
+export function techReadyLabel(node: TechNodeDef): string {
+  return node.implemented ? '已实装' : '未实装（效果尚未实现）'
 }
 
 export function normalizeTechPoints(value: unknown): number {
@@ -203,29 +331,13 @@ function unlockedSet(ids: readonly string[]): Set<TechId> {
 }
 
 /**
- * 旧线性档：能对上新 id 的小点保留，对不上的丢掉。
- * 大科技必须本阶段小点齐才保留，避免旧档或脏档白送主线订单格。
- * 灵感另走字段，这里不改点数。
+ * 旧档：能对上新表的 id 原样留下并保留效果，对不上的丢掉。
+ * 不要求下层已买，也不扣灵感。
  */
 export function hydrateUnlockedTechIds(raw: unknown): TechId[] {
   if (!Array.isArray(raw)) return []
   const have = unlockedSet(raw.filter((id): id is string => typeof id === 'string'))
-  const kept: TechId[] = []
-  const keptSet = new Set<TechId>()
-  for (const stage of TECH_STAGES) {
-    for (const minor of stage.minors) {
-      if (have.has(minor.id)) {
-        kept.push(minor.id)
-        keptSet.add(minor.id)
-      }
-    }
-    const minorsReady = stage.minors.every((minor) => keptSet.has(minor.id))
-    if (minorsReady && have.has(stage.major.id)) {
-      kept.push(stage.major.id)
-      keptSet.add(stage.major.id)
-    }
-  }
-  return kept
+  return TECH_TREE.filter((node) => have.has(node.id)).map((node) => node.id)
 }
 
 export function hydrateTechFields(save: Save & { inspiration?: unknown }): void {
@@ -240,36 +352,34 @@ export function hasTech(save: Save, id: TechId): boolean {
   return save.unlockedTechIds.includes(id)
 }
 
-export function isStageOpen(save: Save, stage: number): boolean {
-  if (stage <= 1) return true
-  const prev = techStage(stage - 1)
-  return !!prev && hasTech(save, prev.major.id)
+export function rowHasPurchase(save: Save, tab: TechTabId, row: number): boolean {
+  const def = techRow(tab, row)
+  return !!def && def.options.some((option) => hasTech(save, option.id))
 }
 
-export function stageMinorsReady(save: Save, stage: number): boolean {
-  const def = techStage(stage)
-  return !!def && def.minors.every((minor) => hasTech(save, minor.id))
+/** 某层可买：第 1 层，或更低序号层已买过至少 1 个。本层已有旧档点亮时也可补买同行。 */
+export function isRowOpen(save: Save, tab: TechTabId, row: number): boolean {
+  if (row <= 1) return true
+  return rowHasPurchase(save, tab, row - 1) || rowHasPurchase(save, tab, row)
 }
 
 export function researchBlockReason(save: Save, techId: string): string | null {
   if (!isTechId(techId)) return '未知科技'
   if (hasTech(save, techId)) return '已经点亮'
   const node = techNode(techId)
-  if (!isStageOpen(save, node.stage)) return '需先点亮上一阶段大科技'
-  if (node.kind === 'major' && !stageMinorsReady(save, node.stage)) return '需先点亮本阶段小点'
+  if (!isRowOpen(save, node.tab, node.row)) return '未解锁'
   if (normalizeTechPoints(save.techPoints) < node.cost) return '灵感不足'
   return null
 }
 
 export function researchableTechs(save: Save): TechNodeDef[] {
   const out: TechNodeDef[] = []
-  for (const stage of TECH_STAGES) {
-    if (!isStageOpen(save, stage.stage)) continue
-    for (const minor of stage.minors) {
-      if (!hasTech(save, minor.id)) out.push(minor)
-    }
-    if (stageMinorsReady(save, stage.stage) && !hasTech(save, stage.major.id)) {
-      out.push(stage.major)
+  for (const tab of TECH_TABS) {
+    for (const row of tab.rows) {
+      if (!isRowOpen(save, tab.id, row.row)) continue
+      for (const option of row.options) {
+        if (!hasTech(save, option.id)) out.push(option)
+      }
     }
   }
   return out
@@ -287,7 +397,7 @@ export function techTier(save: Save): number {
   return save.unlockedTechIds.filter(isTechId).length
 }
 
-/** 当前主线订单格数。初始 1，每点亮一个主线订单格大科技 +1，封顶 6。 */
+/** 当前主线订单格数。初始 1，每点亮一个主线订单格科技 +1，封顶 6。 */
 export function encounterSlotCount(save: Save): number {
   const have = unlockedSet(save.unlockedTechIds ?? [])
   let bonus = 0

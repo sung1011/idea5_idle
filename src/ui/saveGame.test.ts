@@ -211,6 +211,13 @@ describe('save migration', () => {
     expect(aliased?.knightLevel).toBe(1)
     expect(aliased?.unlockedTechIds).toEqual(['workshopLog', 'apprenticeNotes'])
 
+    const mappedSlot = hydrateLoadedSave({
+      ...createSave(),
+      unlockedTechIds: ['pathOutpost', 'workshopRules'],
+    })
+    expect(mappedSlot?.unlockedTechIds).toEqual(['workshopRules', 'pathOutpost'])
+    expect(mappedSlot?.encounters).toHaveLength(2)
+
     const backfill = hydrateLoadedSave({
       ...createSave(),
       techPoints: 4,

@@ -58,7 +58,7 @@ export type ClassId =
   | 'steward'
   | 'knight'
 
-/** 阶段科技树节点 id。表在 `TECH_STAGES`，可往后扩。 */
+/** 三页签行选科技节点 id。表在 `TECH_TABS`，可往后扩。 */
 export type TechId = string
 
 /** 工人品质档。1 最低（抽人默认），10 最高（不能再合成）。 */
@@ -321,7 +321,7 @@ export type Save = {
   knightLevel: number
   /** 账号级灵感。任意站完成周期 +1；骑士等级每升 1 级 +1。旧档缺字段 / 别名 `inspiration` hydrate 为点数，不无故重置成 1。 */
   techPoints: number
-  /** 已点亮的科技 id。阶段内小点可乱序；大科技需本阶段小点齐。旧档缺字段为 []。 */
+  /** 已点亮的科技 id。三页签各自成串，买任意 1 个开上一层，同行可补买。旧档缺字段为 []。 */
   unlockedTechIds: TechId[]
 }
 

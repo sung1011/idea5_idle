@@ -13,7 +13,12 @@ import {
   ENCOUNTER_SLOT_MAX,
   ENCOUNTER_SLOT_MIN,
   ENCOUNTER_SLOT_TECH_IDS,
-  TECH_STAGES,
+  STATION_CONFLICT_BASE_MUL,
+  STATION_CONFLICT_CLEARED_MUL,
+  STATION_CONFLICT_RULES_MUL,
+  TECH_TAB_IDS,
+  TECH_TAB_LABELS,
+  TECH_TABS,
   TECH_TREE,
   applyTechEffects,
   encounterSlotCount,
@@ -22,6 +27,7 @@ import {
   hasTech,
   hydrateTechFields,
   hydrateUnlockedTechIds,
+  isRowOpen,
   nextTech,
   normalizeTechPoints,
   offlineCapHours,
@@ -29,14 +35,14 @@ import {
   recruitCost,
   researchNextTech,
   researchTech,
-  STATION_CONFLICT_BASE_MUL,
-  STATION_CONFLICT_CLEARED_MUL,
-  STATION_CONFLICT_RULES_MUL,
+  rowHasPurchase,
   stationConflictHint,
   stationConflictMul,
   stationTechSpeedMul,
   techEffectValue,
-  techStage,
+  techReadyLabel,
+  techRow,
+  techTab,
 } from './tech'
 import { OFFLINE_CAP_S, RECRUIT_COST } from './tables'
 import { ticks } from './tick'
@@ -46,24 +52,37 @@ afterEach(() => {
   setRollOverride(null)
 })
 
-function lightStage(save: Save, stage: number) {
-  const def = techStage(stage)
-  expect(def).toBeTruthy()
-  if (!def) return
+function buy(save: Save, id: string) {
   save.techPoints = 999
-  for (const minor of def.minors) {
-    expect(researchTech(save, minor.id).ok).toBe(true)
-  }
-  expect(researchTech(save, def.major.id)).toEqual({ ok: true, message: `已点亮「${def.major.name}」` })
+  return researchTech(save, id)
 }
 
-describe('tech stage table', () => {
-  it('is a stage tree with many placeholder nodes and five slot majors', () => {
-    expect(TECH_STAGES.length).toBeGreaterThanOrEqual(16)
-    expect(TECH_TREE.length).toBe(TECH_STAGES.length * 4)
-    expect(TECH_STAGES.every((stage) => stage.minors.length === 3 && stage.major.kind === 'major')).toBe(true)
+describe('tech tab row table', () => {
+  it('is three independent tabs with 2-3 same-cost options per row', () => {
+    expect(TECH_TABS.map((tab) => tab.id)).toEqual([...TECH_TAB_IDS])
+    expect(TECH_TAB_LABELS).toEqual({
+      production: '生产',
+      combat: '战斗',
+      affairs: '事务',
+    })
     expect(new Set(TECH_TREE.map((node) => node.id)).size).toBe(TECH_TREE.length)
-    expect(TECH_TREE.every((node) => node.cost > 0 && node.desc && node.effectId && node.stage >= 1)).toBe(true)
+    expect(TECH_TREE.every((node) => node.cost > 0 && node.desc && node.effectId && node.row >= 1 && node.icon)).toBe(
+      true,
+    )
+
+    for (const tab of TECH_TABS) {
+      expect(tab.name).toBe(TECH_TAB_LABELS[tab.id])
+      expect(tab.rows.length).toBeGreaterThanOrEqual(5)
+      tab.rows.forEach((row, i) => {
+        expect(row.tab).toBe(tab.id)
+        expect(row.row).toBe(i + 1)
+        expect(row.options.length).toBeGreaterThanOrEqual(2)
+        expect(row.options.length).toBeLessThanOrEqual(3)
+        expect(row.options.every((option) => option.cost === row.cost)).toBe(true)
+        expect(row.options.every((option) => option.tab === tab.id && option.row === row.row)).toBe(true)
+      })
+    }
+
     expect(ENCOUNTER_SLOT_TECH_IDS).toEqual([
       'pathOutpost',
       'marketLicense',
@@ -71,17 +90,26 @@ describe('tech stage table', () => {
       'farWatch',
       'caravanPermit',
     ])
-    expect(TECH_STAGES[0].major.name).toBe('探路哨岗')
-    expect(TECH_STAGES[1].major.name).toBe('市集执照')
-    expect(TECH_STAGES[2].major.name).toBe('斥候驿站')
-    expect(TECH_STAGES[3].major.name).toBe('远望烽台')
-    expect(TECH_STAGES[4].major.name).toBe('商队路引')
+    expect(techRow('affairs', 1)?.options.some((option) => option.id === 'pathOutpost')).toBe(true)
+    expect(techRow('affairs', 2)?.options.some((option) => option.id === 'marketLicense')).toBe(true)
+    expect(techRow('affairs', 3)?.options.some((option) => option.id === 'scoutRelay')).toBe(true)
+    expect(techRow('affairs', 4)?.options.some((option) => option.id === 'farWatch')).toBe(true)
+    expect(techRow('affairs', 5)?.options.some((option) => option.id === 'caravanPermit')).toBe(true)
     expect(TECH_TREE.filter((node) => node.effectId === ENCOUNTER_SLOT_EFFECT)).toHaveLength(5)
+
+    const rules = TECH_TREE.find((node) => node.id === 'workshopRules')
+    const archive = TECH_TREE.find((node) => node.id === 'artisanArchive')
+    expect(rules).toMatchObject({ tab: 'production', row: 2, implemented: true })
+    expect(archive).toMatchObject({ tab: 'production', row: 3, implemented: true })
+    expect(techReadyLabel(rules!)).toBe('已实装')
+    expect(techReadyLabel(archive!)).toBe('已实装')
+    expect(techTab('combat').rows.every((row) => row.options.every((option) => !option.implemented))).toBe(true)
+    expect(techReadyLabel(techRow('combat', 1)!.options[0])).toBe('未实装（效果尚未实现）')
   })
 })
 
 describe('hydrate tech fields', () => {
-  it('keeps known old ids, drops junk, and does not require left-to-right minors', () => {
+  it('keeps known old ids, drops junk, and does not require previous rows', () => {
     expect(normalizeTechPoints(undefined)).toBe(0)
     expect(normalizeTechPoints(-4)).toBe(0)
     expect(normalizeTechPoints(3.8)).toBe(3)
@@ -95,10 +123,15 @@ describe('hydrate tech fields', () => {
       'workshopLog',
       'apprenticeNotes',
     ])
-    expect(hydrateUnlockedTechIds(['pathOutpost'])).toEqual([])
+    expect(hydrateUnlockedTechIds(['pathOutpost'])).toEqual(['pathOutpost'])
     expect(
       hydrateUnlockedTechIds(['workshopLog', 'apprenticeNotes', 'artisanManual', 'pathOutpost']),
     ).toEqual(['workshopLog', 'apprenticeNotes', 'artisanManual', 'pathOutpost'])
+    expect(hydrateUnlockedTechIds(['workshopRules', 'artisanArchive', 'marketLicense'])).toEqual([
+      'workshopRules',
+      'artisanArchive',
+      'marketLicense',
+    ])
 
     const save = createSave()
     delete (save as { techPoints?: number }).techPoints
@@ -108,13 +141,18 @@ describe('hydrate tech fields', () => {
     expect(save.unlockedTechIds).toEqual([])
   })
 
-  it('reads inspiration as a techPoints alias and keeps points when clearing old linear progress', () => {
+  it('reads inspiration as a techPoints alias and keeps points when mapping old ids', () => {
     const save = createSave()
     delete (save as { techPoints?: number }).techPoints
     const aliased = save as Save & { inspiration: number }
     aliased.inspiration = 7.6
+    aliased.unlockedTechIds = ['pathOutpost', 'workshopRules']
     hydrateTechFields(aliased)
     expect(aliased.techPoints).toBe(7)
+    expect(aliased.unlockedTechIds).toEqual(['workshopRules', 'pathOutpost'])
+    expect(encounterSlotCount(aliased)).toBe(2)
+    expect(hasTech(aliased, 'workshopRules')).toBe(true)
+    expect(hasTech(aliased, 'pathOutpost')).toBe(true)
   })
 })
 
@@ -157,7 +195,7 @@ describe('inspiration grant', () => {
 })
 
 describe('research unlock', () => {
-  it('lets stage minors light in any order and spends inspiration', () => {
+  it('lets a row light in any order and spends shared inspiration', () => {
     const save = createSave()
     expect(nextTech(save)?.id).toBe('workshopLog')
     save.techPoints = 6
@@ -170,6 +208,34 @@ describe('research unlock', () => {
     expect(save.techPoints).toBe(0)
   })
 
+  it('opens the next row after buying any one option and still allows leftover buys', () => {
+    const save = createSave()
+    expect(isRowOpen(save, 'production', 1)).toBe(true)
+    expect(isRowOpen(save, 'production', 2)).toBe(false)
+    expect(isRowOpen(save, 'affairs', 1)).toBe(true)
+    expect(isRowOpen(save, 'affairs', 2)).toBe(false)
+
+    expect(buy(save, 'workshopRules')).toEqual({ ok: false, reason: '未解锁' })
+    expect(buy(save, 'workshopLog')).toEqual({ ok: true, message: '已点亮「工坊日志」' })
+    expect(isRowOpen(save, 'production', 2)).toBe(true)
+    expect(rowHasPurchase(save, 'production', 1)).toBe(true)
+    expect(buy(save, 'workshopRules')).toEqual({ ok: true, message: '已点亮「工坊规章」' })
+    expect(buy(save, 'pipelineChart')).toEqual({ ok: true, message: '已点亮「流水线图」' })
+    expect(buy(save, 'apprenticeNotes')).toEqual({ ok: true, message: '已点亮「学徒笔记」' })
+    expect(isRowOpen(save, 'production', 3)).toBe(true)
+    expect(buy(save, 'artisanArchive')).toEqual({ ok: true, message: '已点亮「工匠密录」' })
+  })
+
+  it('keeps tabs independent and combat placeholders buyable', () => {
+    const save = createSave()
+    save.techPoints = 3
+    expect(researchTech(save, 'combatPost')).toEqual({ ok: true, message: '已点亮「训练木桩」' })
+    expect(isRowOpen(save, 'combat', 2)).toBe(true)
+    expect(isRowOpen(save, 'production', 2)).toBe(false)
+    expect(researchTech(save, 'workshopRules')).toEqual({ ok: false, reason: '未解锁' })
+    expect(researchTech(save, 'combatManual')).toEqual({ ok: false, reason: '灵感不足' })
+  })
+
   it('fails when inspiration is not enough', () => {
     const save = createSave()
     save.techPoints = 0
@@ -178,20 +244,24 @@ describe('research unlock', () => {
     expect(save.techPoints).toBe(0)
   })
 
-  it('rejects a major before all minors in the stage are lit', () => {
+  it('rejects a later affairs row before the previous row has a purchase', () => {
     const save = createSave()
     save.techPoints = 99
-    expect(researchTech(save, 'pathOutpost')).toEqual({ ok: false, reason: '需先点亮本阶段小点' })
+    expect(researchTech(save, 'marketLicense')).toEqual({ ok: false, reason: '未解锁' })
     expect(save.unlockedTechIds).toEqual([])
     expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MIN)
-    expect(researchTech(save, 'workshopLog').ok).toBe(true)
-    expect(researchTech(save, 'pathOutpost')).toEqual({ ok: false, reason: '需先点亮本阶段小点' })
+    expect(researchTech(save, 'pathOutpost').ok).toBe(true)
+    expect(researchTech(save, 'marketLicense').ok).toBe(true)
+    expect(encounterSlotCount(save)).toBe(3)
   })
 
-  it('rejects a later stage before the previous major', () => {
+  it('lets leftover options on a hydrated row be bought later', () => {
     const save = createSave()
-    save.techPoints = 99
-    expect(researchTech(save, 'workshopRules')).toEqual({ ok: false, reason: '需先点亮上一阶段大科技' })
+    save.unlockedTechIds = ['workshopRules']
+    save.techPoints = 20
+    expect(isRowOpen(save, 'production', 2)).toBe(true)
+    expect(researchTech(save, 'pipelineChart')).toEqual({ ok: true, message: '已点亮「流水线图」' })
+    expect(save.techPoints).toBe(16)
   })
 
   it('fails when the tree is already full', () => {
@@ -204,26 +274,26 @@ describe('research unlock', () => {
 })
 
 describe('encounterSlotCount', () => {
-  it('starts at 1, grows after a finished stage major, and caps at 6', () => {
+  it('starts at 1, grows after each slot tech, and caps at 6', () => {
     const save = createSave()
     expect(encounterSlotCount(save)).toBe(1)
     expect(save.encounters).toHaveLength(1)
 
-    lightStage(save, 1)
+    expect(buy(save, 'pathOutpost').ok).toBe(true)
     expect(encounterSlotCount(save)).toBe(2)
     expect(save.encounters).toHaveLength(2)
 
-    lightStage(save, 2)
+    expect(buy(save, 'marketLicense').ok).toBe(true)
     expect(encounterSlotCount(save)).toBe(3)
-    lightStage(save, 3)
+    expect(buy(save, 'scoutRelay').ok).toBe(true)
     expect(encounterSlotCount(save)).toBe(4)
-    lightStage(save, 4)
+    expect(buy(save, 'farWatch').ok).toBe(true)
     expect(encounterSlotCount(save)).toBe(5)
-    lightStage(save, 5)
+    expect(buy(save, 'caravanPermit').ok).toBe(true)
     expect(encounterSlotCount(save)).toBe(6)
     expect(save.encounters).toHaveLength(6)
 
-    lightStage(save, 6)
+    expect(buy(save, 'affairsRoadbook').ok).toBe(true)
     expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MAX)
     expect(save.encounters).toHaveLength(6)
   })
