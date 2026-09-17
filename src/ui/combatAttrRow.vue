@@ -19,8 +19,17 @@ defineProps<{
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
+  align-content: center;
   gap: 4px;
   vertical-align: middle;
+}
+
+.row :deep(.chip) {
+  flex: none;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  aspect-ratio: 1;
 }
 
 .empty {

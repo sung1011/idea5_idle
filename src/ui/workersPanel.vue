@@ -302,6 +302,14 @@ ul {
   margin: 0;
 }
 
+.attrs :deep(.chip) {
+  flex: none;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  aspect-ratio: 1;
+}
+
 .hp {
   position: relative;
   flex: 1 1 108px;

@@ -28,12 +28,22 @@ defineProps<{
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
+  align-self: center;
+  flex: none;
+  flex-shrink: 0;
+  box-sizing: border-box;
   width: 20px;
   height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  max-width: 20px;
+  max-height: 20px;
+  aspect-ratio: 1;
   padding: 0;
+  gap: 0;
   border: 2px solid var(--gold-deep);
   border-radius: 6px;
+  box-shadow: none;
   background: var(--slot);
   color: var(--ink);
   font-style: normal;
@@ -46,6 +56,7 @@ defineProps<{
 
 .chip svg {
   display: block;
+  flex: none;
   width: 14px;
   height: 14px;
   fill: currentColor;

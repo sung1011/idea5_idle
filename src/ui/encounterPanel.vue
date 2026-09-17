@@ -585,9 +585,22 @@ ul {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  align-content: center;
   gap: 6px;
   margin: 0;
   font-size: 13px;
+}
+
+.weak :deep(.chip) {
+  flex: none;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  max-width: 20px;
+  max-height: 20px;
+  aspect-ratio: 1;
 }
 
 .bars {
@@ -662,5 +675,13 @@ ul {
   justify-content: flex-start;
   gap: 6px;
   text-align: left;
+}
+
+.pick-list :deep(.chip) {
+  flex: none;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  aspect-ratio: 1;
 }
 </style>
