@@ -10,7 +10,7 @@ import {
   selectableCombatWorkers,
   writeBackCombatWorkers,
 } from './combat'
-import { enemyRankFor, ensureEnemyIntel, pickEnemyWeaknesses } from './combatAttrs'
+import { ensureEnemyIntel, isEnemyRank, pickEnemyWeaknesses } from './combatAttrs'
 import {
   MAIN_LOOT_CLAIMS_GOAL,
   hasLiveChapterBoss,
@@ -21,6 +21,7 @@ import {
   normalizeMainLootClaims,
 } from './mainChapter'
 import { canAffordCosts, missingCostLabels, takeCosts } from './costs'
+import { normalizeRngState, roll01 } from './rng'
 import { ITEM_DEF, bulkUnitGold, pawnUnitGold, type IoRule } from './tables'
 import {
   ENCOUNTER_SLOT_MAX,
@@ -34,10 +35,8 @@ import type {
   BlackMerchantEncounter,
   BulkBuyEncounter,
   Encounter,
-  EncounterDistance,
   EncounterKind,
   EncounterNeedMap,
-  EncounterPower,
   EncounterQuality,
   EnemyEncounter,
   ItemId,
@@ -55,16 +54,6 @@ export const ENCOUNTER_SLOT_COUNT = ENCOUNTER_SLOT_MAX
 
 /** 探索费用。随探索次数略涨，超出表长后钉在末档。 */
 export const EXPLORE_COST_TABLE: readonly number[] = [8, 10, 12, 14, 16]
-
-export const DISTANCE_LABEL: Record<EncounterDistance, string> = {
-  near: '近',
-  far: '远',
-}
-
-export const POWER_LABEL: Record<EncounterPower, string> = {
-  weak: '弱',
-  strong: '强',
-}
 
 export const ENCOUNTER_KIND_LABEL: Record<EncounterKind, string> = {
   enemy: '敌人',
@@ -150,17 +139,10 @@ export const MERCHANT_KIND_WEIGHTS: Readonly<Record<MerchantKind, number>> = {
   pawn: 2,
 }
 
-/** @deprecated 旧行军时长。敌人主流程已改战斗，不再读此表。 */
-export const MARCH_DURATION_S: Readonly<Record<EncounterDistance, Record<EncounterPower, number>>> = {
-  near: { weak: 10 * 60, strong: 18 * 60 },
-  far: { weak: 22 * 60, strong: 30 * 60 },
-}
-
-/** 战利品只发金币，按远近强弱。绿档基准。 */
-export const LOOT_GOLD_TABLE: Readonly<Record<EncounterDistance, Record<EncounterPower, number>>> = {
-  near: { weak: 8, strong: 14 },
-  far: { weak: 12, strong: 20 },
-}
+/** 战利品只发金币。绿档基准，品质再乘产出倍率。 */
+export const LOOT_GOLD_BASE = 12
+/** 本章 Boss 战利品相对同品质普通敌人。 */
+export const CHAPTER_BOSS_LOOT_MUL = 1.5
 
 export type EncounterLine = {
   itemId: ItemId
@@ -276,10 +258,10 @@ const LEGACY_ORDER_DEFS: ReadonlyArray<{
   { id: 'timberPost', label: '矿营补给', needs: { ore: 3, meal: 1 }, lootGold: 7 },
 ]
 
-const BASE_FOOD: EncounterNeedMap = { meal: 1 }
-const FAR_FOOD_EXTRA: EncounterNeedMap = { meal: 2, fish: 2, roast: 1 }
-const BASE_ARMS: EncounterNeedMap = { ore: 1 }
-const STRONG_ARMS_EXTRA: EncounterNeedMap = { ore: 2 }
+/** 绿档补给底版。品质只乘需求倍率，不再分远近强弱。 */
+export const ENEMY_NEEDS_BASE: EncounterNeedMap = { meal: 2, ore: 2, fish: 1 }
+/** 本章 Boss 额外补给。 */
+export const ENEMY_NEEDS_BOSS_EXTRA: EncounterNeedMap = { meal: 1, roast: 1, ore: 1 }
 
 type LegacyOrderSave = Save & {
   currentOrderId?: string
@@ -298,9 +280,27 @@ type LegacyMerchant = {
   completed?: boolean
 }
 
-type LegacyEnemy = EnemyEncounter & {
-  departGold?: number
+type LegacyEnemy = {
+  kind: 'enemy'
+  id: string
+  label: string
   quality?: EncounterQuality
+  needs?: EncounterNeedMap
+  lootGold?: number
+  departGold?: number
+  submitted?: boolean
+  departed?: boolean
+  marchEndsAt?: number | null
+  combat?: unknown
+  lootClaimed?: boolean
+  enemyRank?: unknown
+  chapterBoss?: unknown
+  weaknesses?: unknown
+  revealedWeaknesses?: unknown
+  /** 旧档远近，hydrate 读完即丢。 */
+  distance?: unknown
+  /** 旧档强弱，hydrate 读完即丢。 */
+  power?: unknown
 }
 
 type LegacyTrade = {
@@ -369,23 +369,13 @@ export function scaleGold(gold: number, mul: number): number {
   return Math.max(1, Math.round(gold * mul))
 }
 
-/** 远 → 更高食物/干粮；强 → 更高矿物与武器。绿档基准。 */
-export function enemyNeedsFor(distance: EncounterDistance, power: EncounterPower): EncounterNeedMap {
-  return mergeNeedMaps(
-    BASE_FOOD,
-    distance === 'far' ? FAR_FOOD_EXTRA : {},
-    BASE_ARMS,
-    power === 'strong' ? STRONG_ARMS_EXTRA : {},
-  )
+/** 绿档补给。本章 Boss 再叠一份额外物资。 */
+export function enemyNeedsFor(chapterBoss = false): EncounterNeedMap {
+  return mergeNeedMaps(ENEMY_NEEDS_BASE, chapterBoss ? ENEMY_NEEDS_BOSS_EXTRA : {})
 }
 
-/** @deprecated 旧行军秒数。新流程用战斗超时。 */
-export function marchDurationS(distance: EncounterDistance, power: EncounterPower): number {
-  return MARCH_DURATION_S[distance][power]
-}
-
-export function enemyLootGoldFor(distance: EncounterDistance, power: EncounterPower): number {
-  return LOOT_GOLD_TABLE[distance][power]
+export function enemyLootGoldFor(chapterBoss = false): number {
+  return chapterBoss ? scaleGold(LOOT_GOLD_BASE, CHAPTER_BOSS_LOOT_MUL) : LOOT_GOLD_BASE
 }
 
 export function pawnGoldForMap(map: EncounterNeedMap): number {
@@ -507,42 +497,53 @@ export function isTradeSlot(enc: Encounter): enc is TradeEncounter {
   return isTradeKind(enc.kind)
 }
 
-function weightBag<T extends string>(weights: Readonly<Record<T, number>>): T[] {
-  const bag: T[] = []
-  for (const key of Object.keys(weights) as T[]) {
-    const weight = weights[key]
-    for (let i = 0; i < weight; i++) bag.push(key)
-  }
-  return bag
-}
-
-const KIND_WEIGHT_BAG = weightBag(ENCOUNTER_KIND_WEIGHTS)
-const QUALITY_WEIGHT_BAG = weightBag({
+const QUALITY_SPAWN_WEIGHTS: Readonly<Record<Exclude<EncounterQuality, 'gray'>, number>> = {
   green: QUALITY_TABLE.green.weight,
   blue: QUALITY_TABLE.blue.weight,
   purple: QUALITY_TABLE.purple.weight,
   orange: QUALITY_TABLE.orange.weight,
-})
-const MERCHANT_WEIGHT_BAG = weightBag(MERCHANT_KIND_WEIGHTS)
-
-export function pickEncounterKind(seed: number, slot: number): EncounterKind {
-  const bag = KIND_WEIGHT_BAG
-  return bag[(seed * 7 + slot * 5) % bag.length]
 }
 
-export function pickQuality(seed: number, slot: number): EncounterQuality {
-  const bag = QUALITY_WEIGHT_BAG
-  return bag[(seed * 11 + slot * 9) % bag.length]
+export function pickWeighted<T extends string>(weights: Readonly<Record<T, number>>, roll: number): T {
+  const keys = Object.keys(weights) as T[]
+  const total = keys.reduce((sum, key) => sum + Math.max(0, weights[key]), 0)
+  const t = Number.isFinite(roll) ? Math.min(0.999999, Math.max(0, roll)) : 0
+  const target = t * Math.max(0, total)
+  let acc = 0
+  for (const key of keys) {
+    acc += Math.max(0, weights[key])
+    if (target < acc) return key
+  }
+  return keys[keys.length - 1]
 }
 
-export function pickMerchantKind(seed: number, slot: number): MerchantKind {
-  const bag = MERCHANT_WEIGHT_BAG
-  return bag[(seed * 5 + slot * 3) % bag.length]
+function rollRng(rng: { rngState: number }): number {
+  return roll01(rng as Save)
+}
+
+export function pickEncounterKind(rng: { rngState: number }): EncounterKind {
+  return pickWeighted(ENCOUNTER_KIND_WEIGHTS, rollRng(rng))
+}
+
+export function pickQuality(rng: { rngState: number }): EncounterQuality {
+  return pickWeighted(QUALITY_SPAWN_WEIGHTS, rollRng(rng))
+}
+
+export function pickMerchantKind(rng: { rngState: number }): MerchantKind {
+  return pickWeighted(MERCHANT_KIND_WEIGHTS, rollRng(rng))
 }
 
 export type EncounterSpawnOpts = {
   mainLootClaims?: number
   reservedChapterBoss?: boolean
+  /** 有则推进这份 rng；无则用 seed+1 开一份局部骰。 */
+  rng?: { rngState: number }
+}
+
+function encounterRng(seed: number, rng?: { rngState: number }): { rngState: number } {
+  if (rng) return rng
+  const n = Number.isFinite(seed) ? Math.floor(seed) : 0
+  return { rngState: normalizeRngState(n + 1) }
 }
 
 function makeEnemy(
@@ -552,19 +553,15 @@ function makeEnemy(
   forceChapterBoss = false,
 ): EnemyEncounter {
   const name = ENEMY_NAME_DEFS[(seed + slot) % ENEMY_NAME_DEFS.length]
-  const distance: EncounterDistance = (seed + slot) % 2 === 0 ? 'near' : 'far'
-  const power: EncounterPower = (seed + slot * 3) % 4 < 2 ? 'weak' : 'strong'
   const q = qualityDef(quality)
-  const enemyRank = mainlineEnemyRank(power, quality, forceChapterBoss)
+  const enemyRank = mainlineEnemyRank(quality, forceChapterBoss)
   return {
     kind: 'enemy',
     id: `${name.id}-${quality}-${seed}-${slot}`,
     label: forceChapterBoss ? `${name.label}·首领` : name.label,
     quality,
-    distance,
-    power,
-    needs: scaleNeedMap(enemyNeedsFor(distance, power), q.demandMul),
-    lootGold: scaleGold(enemyLootGoldFor(distance, power), q.outputMul),
+    needs: scaleNeedMap(enemyNeedsFor(forceChapterBoss), q.demandMul),
+    lootGold: scaleGold(enemyLootGoldFor(forceChapterBoss), q.outputMul),
     departed: false,
     combat: null,
     lootClaimed: false,
@@ -649,9 +646,13 @@ function makeBulkBuy(seed: number, slot: number, quality: EncounterQuality): Bul
   }
 }
 
-function makeEncounter(seed: number, slot: number, forceChapterBoss = false): Encounter {
-  const quality = pickQuality(seed, slot)
-  const kind = pickEncounterKind(seed, slot)
+function makeEncounter(
+  seed: number,
+  slot: number,
+  quality: EncounterQuality,
+  kind: EncounterKind,
+  forceChapterBoss = false,
+): Encounter {
   if (kind === 'enemy') return makeEnemy(seed, slot, quality, forceChapterBoss)
   if (kind === 'blackMerchant') return makeBlackMerchant(seed, slot, quality)
   if (kind === 'passerby') return makePasserby(seed, slot, quality)
@@ -663,12 +664,14 @@ function makeEncounter(seed: number, slot: number, forceChapterBoss = false): En
 export function encounterFiller(seed: number, opts: EncounterSpawnOpts = {}): (slot: number) => Encounter {
   const safe = Number.isFinite(seed) && seed >= 0 ? Math.floor(seed) : 0
   const claims = normalizeMainLootClaims(opts.mainLootClaims)
+  const rng = encounterRng(safe, opts.rng)
   let reserved = opts.reservedChapterBoss === true
   return (slot: number) => {
-    const kind = pickEncounterKind(safe, slot)
+    const quality = pickQuality(rng)
+    const kind = pickEncounterKind(rng)
     const forceBoss = kind === 'enemy' && claims >= MAIN_LOOT_CLAIMS_GOAL && !reserved
     if (forceBoss) reserved = true
-    return makeEncounter(safe, slot, forceBoss)
+    return makeEncounter(safe, slot, quality, kind, forceBoss)
   }
 }
 
@@ -689,6 +692,7 @@ function spawnOptsFor(save: Save, reserved: readonly Encounter[]): EncounterSpaw
   return {
     mainLootClaims: normalizeMainLootClaims(save.mainLootClaims),
     reservedChapterBoss: hasLiveChapterBoss(reserved),
+    rng: save,
   }
 }
 
@@ -708,8 +712,6 @@ function isEnemyEncounter(value: unknown): value is EnemyEncounter {
     typeof enc.id === 'string' &&
     typeof enc.label === 'string' &&
     isEncounterQuality(enc.quality) &&
-    (enc.distance === 'near' || enc.distance === 'far') &&
-    (enc.power === 'weak' || enc.power === 'strong') &&
     isNeedMap(enc.needs) &&
     typeof enc.lootGold === 'number' &&
     (enc.submitted === undefined || typeof enc.submitted === 'boolean') &&
@@ -1268,8 +1270,6 @@ function migrateLegacyOrder(save: LegacyOrderSave): void {
     id: old.id,
     label: old.label,
     quality: 'green',
-    distance: 'near',
-    power: 'weak',
     needs: { ...old.needs },
     lootGold: old.lootGold,
     departed: false,
@@ -1331,17 +1331,27 @@ function migrateLegacyMerchant(raw: LegacyMerchant): MerchantEncounter {
 }
 
 function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
+  // 旧档远近 / 强弱只读一遍：有 loot/needs 则原样留下，缺字段按品质表补。随后不再写入。
+  void raw.distance
+  void raw.power
+  const quality = readQuality(raw.quality)
+  const chapterBoss = raw.chapterBoss === true
   const lootGold =
     typeof raw.lootGold === 'number'
       ? raw.lootGold
       : typeof raw.departGold === 'number'
         ? raw.departGold
-        : enemyLootGoldFor(raw.distance, raw.power)
+        : scaleGold(enemyLootGoldFor(chapterBoss), qualityDef(quality).outputMul)
+  const needs =
+    isNeedMap(raw.needs) && needEntries(raw.needs).length
+      ? { ...raw.needs }
+      : scaleNeedMap(enemyNeedsFor(chapterBoss), qualityDef(quality).demandMul)
   const departed = raw.departed === true
   const hasMarch = typeof raw.marchEndsAt === 'number'
   const existingCombat = isEnemyCombat(raw.combat) ? raw.combat : null
   // 旧存档出发当时已发补给金：视为已领取，避免再发。
   const lootClaimed = raw.lootClaimed === true || (departed && !hasMarch && !existingCombat)
+  const enemyRank = isEnemyRank(raw.enemyRank) ? raw.enemyRank : mainlineEnemyRank(quality, chapterBoss)
   let combat = existingCombat
   if (lootClaimed) {
     combat = existingCombat && existingCombat.outcome === 'win' ? existingCombat : null
@@ -1351,16 +1361,14 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
         kind: 'enemy',
         id: raw.id,
         label: raw.label,
-        quality: readQuality(raw.quality),
-        distance: raw.distance,
-        power: raw.power,
-        needs: { ...raw.needs },
+        quality,
+        needs,
         lootGold,
         departed: true,
         combat: null,
         lootClaimed: false,
-        enemyRank: enemyRankFor(raw.power, readQuality(raw.quality)),
-        chapterBoss: (raw as { chapterBoss?: unknown }).chapterBoss === true,
+        enemyRank,
+        chapterBoss,
         weaknesses: [],
         revealedWeaknesses: [],
       },
@@ -1371,21 +1379,19 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
     kind: 'enemy',
     id: raw.id,
     label: raw.label,
-    quality: readQuality(raw.quality),
-    distance: raw.distance,
-    power: raw.power,
-    needs: { ...raw.needs },
+    quality,
+    needs,
     lootGold,
     departed,
     combat,
     lootClaimed,
-    enemyRank: enemyRankFor(raw.power, readQuality(raw.quality)),
-    chapterBoss: (raw as { chapterBoss?: unknown }).chapterBoss === true,
-    weaknesses: Array.isArray((raw as { weaknesses?: unknown }).weaknesses)
-      ? ((raw as { weaknesses: unknown }).weaknesses as EnemyEncounter['weaknesses'])
+    enemyRank,
+    chapterBoss,
+    weaknesses: Array.isArray(raw.weaknesses)
+      ? (raw.weaknesses as EnemyEncounter['weaknesses'])
       : [],
-    revealedWeaknesses: Array.isArray((raw as { revealedWeaknesses?: unknown }).revealedWeaknesses)
-      ? ((raw as { revealedWeaknesses: unknown }).revealedWeaknesses as EnemyEncounter['revealedWeaknesses'])
+    revealedWeaknesses: Array.isArray(raw.revealedWeaknesses)
+      ? (raw.revealedWeaknesses as EnemyEncounter['revealedWeaknesses'])
       : [],
     ...(raw.submitted === true && !departed && !combat ? { submitted: true } : {}),
   })

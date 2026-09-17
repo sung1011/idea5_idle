@@ -30,8 +30,6 @@ function testEnemy(overrides: Partial<EnemyEncounter> = {}): EnemyEncounter {
     id: 'test-enemy',
     label: '试敌',
     quality: 'green',
-    distance: 'near',
-    power: 'weak',
     needs: { meal: 1 },
     lootGold: 8,
     departed: false,
@@ -209,9 +207,11 @@ describe('enemy weakness tables', () => {
     expect(ENEMY_WEAKNESS_COUNT.minion).toEqual({ min: 2, max: 3 })
     expect(ENEMY_WEAKNESS_COUNT.elite).toEqual({ min: 3, max: 4 })
     expect(ENEMY_WEAKNESS_COUNT.boss).toEqual({ min: 3, max: 4 })
-    expect(enemyRankFor('weak', 'green')).toBe('minion')
-    expect(enemyRankFor('strong', 'green')).toBe('elite')
-    expect(enemyRankFor('weak', 'orange')).toBe('boss')
+    expect(enemyRankFor('gray')).toBe('minion')
+    expect(enemyRankFor('green')).toBe('minion')
+    expect(enemyRankFor('blue')).toBe('minion')
+    expect(enemyRankFor('purple')).toBe('elite')
+    expect(enemyRankFor('orange')).toBe('elite')
 
     for (let seed = 0; seed < 24; seed++) {
       const minion = pickEnemyWeaknesses(seed, 0, 'minion')

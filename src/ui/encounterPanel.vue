@@ -15,9 +15,7 @@ import {
   workerLiveStats,
 } from '../sim/combat'
 import {
-  DISTANCE_LABEL,
   ENCOUNTER_KIND_LABEL,
-  POWER_LABEL,
   QUALITY_LABEL,
   combatSupplyBlockReason,
   exploreCost,
@@ -187,9 +185,7 @@ function pawnGold(enc: PawnEncounter) {
             <div class="titles">
               <span class="kind">{{ kindTitle(enc.kind) }}</span>
               <span class="tags">
-                <i>{{ DISTANCE_LABEL[enc.distance] }}</i>
-                <i>{{ POWER_LABEL[enc.power] }}</i>
-                <i v-if="enc.chapterBoss">{{ ENEMY_RANK_LABEL.boss }}</i>
+                <i>{{ ENEMY_RANK_LABEL[enc.enemyRank] }}</i>
               </span>
             </div>
           </header>

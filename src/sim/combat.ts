@@ -13,8 +13,6 @@ import type {
   CombatLogEntry,
   CombatOutcome,
   CombatStats,
-  EncounterDistance,
-  EncounterPower,
   EncounterQuality,
   EnemyCombat,
   EnemyEncounter,
@@ -71,21 +69,10 @@ export const CLASS_COMBAT_MOD: Readonly<Record<ClassId, CombatStats>> = {
 }
 
 /**
- * 底版按两名约 5 档工人（atk 8 / spd 4，合计约 240 伤/分）来定。
+ * 单一底版。按两名约 5 档工人（atk 8 / spd 4，合计约 240 伤/分）来定。
  * 绿杂兵 HP ≈ 10 分钟。出手必须慢：敌人会集火，先倒下一人后 DPS 减半。
  */
-export const ENEMY_COMBAT_BASE: Readonly<
-  Record<EncounterDistance, Record<EncounterPower, CombatStats>>
-> = {
-  near: {
-    weak: { hp: 2400, atk: 2, spd: 32 },
-    strong: { hp: 2450, atk: 2, spd: 32 },
-  },
-  far: {
-    weak: { hp: 2450, atk: 2, spd: 32 },
-    strong: { hp: 2500, atk: 2, spd: 32 },
-  },
-}
+export const ENEMY_COMBAT_BASE: CombatStats = { hp: 2400, atk: 2, spd: 32 }
 
 /** 品质只微调 HP / ATK。橙首领再叠阶级倍率后约 20 分钟（×1.2）可斩杀。 */
 export const ENEMY_COMBAT_QUALITY_MUL: Readonly<Record<EncounterQuality, number>> = {
@@ -138,21 +125,18 @@ export function workerLiveStats(worker: Worker): CombatStats {
 }
 
 export function enemyCombatStats(
-  distance: EncounterDistance,
-  power: EncounterPower,
   quality: EncounterQuality,
   rank?: EnemyRank,
   chapter = 1,
 ): CombatStats {
-  const resolvedRank = rank ?? enemyRankFor(power, quality)
-  const base = ENEMY_COMBAT_BASE[distance][power]
+  const resolvedRank = rank ?? enemyRankFor(quality)
   const qMul = ENEMY_COMBAT_QUALITY_MUL[quality]
   const rMul = ENEMY_COMBAT_RANK_MUL[resolvedRank]
   const cMul = chapterCombatMul(chapter)
   return {
-    hp: scaleStat(base.hp, qMul * rMul.hp * cMul),
-    atk: scaleStat(base.atk, qMul * rMul.atk * cMul),
-    spd: Math.max(1, Math.round(base.spd * rMul.spd)),
+    hp: scaleStat(ENEMY_COMBAT_BASE.hp, qMul * rMul.hp * cMul),
+    atk: scaleStat(ENEMY_COMBAT_BASE.atk, qMul * rMul.atk * cMul),
+    spd: Math.max(1, Math.round(ENEMY_COMBAT_BASE.spd * rMul.spd)),
   }
 }
 
@@ -282,7 +266,7 @@ export function beginEnemyCombat(
   chapter = 1,
 ): EnemyCombat {
   ensureEnemyIntel(enc)
-  const eStats = enemyCombatStats(enc.distance, enc.power, enc.quality, enc.enemyRank, chapter)
+  const eStats = enemyCombatStats(enc.quality, enc.enemyRank, chapter)
   const combat: EnemyCombat = {
     startedAt: now,
     timeoutAt: now + combatTimeoutS(enc.enemyRank) * 1000,
@@ -450,7 +434,7 @@ export function writeBackCombatWorkers(save: Save, combat: EnemyCombat): void {
 }
 
 export function legacyMarchAsWin(enc: EnemyEncounter, now = 0, chapter = 1): EnemyCombat {
-  const stats = enemyCombatStats(enc.distance, enc.power, enc.quality, enc.enemyRank, chapter)
+  const stats = enemyCombatStats(enc.quality, enc.enemyRank, chapter)
   return {
     startedAt: now,
     timeoutAt: now,

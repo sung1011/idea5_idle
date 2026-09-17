@@ -33,8 +33,6 @@ function testEnemy(overrides: Partial<EnemyEncounter> = {}): EnemyEncounter {
     id: 'test-enemy',
     label: '试敌',
     quality: 'green',
-    distance: 'near',
-    power: 'weak',
     needs: { meal: 1 },
     lootGold: 8,
     departed: true,
@@ -198,10 +196,11 @@ describe('loot claim counter and chapter boss spawn', () => {
   })
 
   it('keeps regular orders in the minion / elite pool before the chapter boss', () => {
-    expect(mainlineEnemyRank('weak', 'green', false)).toBe('minion')
-    expect(mainlineEnemyRank('strong', 'green', false)).toBe('elite')
-    expect(mainlineEnemyRank('weak', 'orange', false)).toBe('elite')
-    expect(mainlineEnemyRank('weak', 'green', true)).toBe('boss')
+    expect(mainlineEnemyRank('green', false)).toBe('minion')
+    expect(mainlineEnemyRank('blue', false)).toBe('minion')
+    expect(mainlineEnemyRank('purple', false)).toBe('elite')
+    expect(mainlineEnemyRank('orange', false)).toBe('elite')
+    expect(mainlineEnemyRank('green', true)).toBe('boss')
   })
 })
 
@@ -279,17 +278,17 @@ describe('chapter advance on boss loot', () => {
 })
 
 describe('chapter combat mul', () => {
-  it('layers mild HP / ATK growth on top of distance / power / quality / rank math', () => {
+  it('layers mild HP / ATK growth on top of quality / rank math', () => {
     expect(chapterCombatMul(1)).toBe(1)
     expect(chapterCombatMul(2)).toBe(MAIN_CHAPTER_COMBAT_MUL[2])
     expect(chapterCombatMul(2)).toBeGreaterThan(1)
-    const base = enemyCombatStats('near', 'weak', 'green', 'minion', 1)
-    const next = enemyCombatStats('near', 'weak', 'green', 'minion', 2)
-    const far = enemyCombatStats('near', 'weak', 'green', 'minion', 12)
+    const base = enemyCombatStats('green', 'minion', 1)
+    const next = enemyCombatStats('green', 'minion', 2)
+    const late = enemyCombatStats('green', 'minion', 12)
     expect(next.hp).toBeGreaterThan(base.hp)
     expect(next.atk).toBeGreaterThanOrEqual(base.atk)
     expect(next.spd).toBe(base.spd)
-    expect(far.hp).toBeGreaterThan(next.hp)
-    expect(enemyCombatStats('near', 'weak', 'green', 'minion')).toEqual(base)
+    expect(late.hp).toBeGreaterThan(next.hp)
+    expect(enemyCombatStats('green', 'minion')).toEqual(base)
   })
 })

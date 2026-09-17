@@ -1,5 +1,5 @@
 import { enemyRankFor } from './combatAttrs'
-import type { Encounter, EncounterPower, EncounterQuality, EnemyEncounter, EnemyRank, Save } from './types'
+import type { Encounter, EncounterQuality, EnemyEncounter, EnemyRank, Save } from './types'
 
 /** 新档 / 旧档缺字段从第 1 章开始。 */
 export const MAIN_CHAPTER_START = 1
@@ -74,15 +74,10 @@ export function shouldForceChapterBoss(save: Pick<Save, 'mainLootClaims'>, encou
 }
 
 /**
- * 主线杂兵池：远近强弱 / 品质仍走 enemyRankFor，但橙档首领压成精英。
+ * 主线杂兵池：只按品质走 enemyRankFor（橙仍是精英）。
  * 本章 Boss 只由战利品计数强制刷出。
  */
-export function mainlineEnemyRank(
-  power: EncounterPower,
-  quality: EncounterQuality,
-  forceChapterBoss: boolean,
-): EnemyRank {
+export function mainlineEnemyRank(quality: EncounterQuality, forceChapterBoss: boolean): EnemyRank {
   if (forceChapterBoss) return 'boss'
-  const rank = enemyRankFor(power, quality)
-  return rank === 'boss' ? 'elite' : rank
+  return enemyRankFor(quality)
 }

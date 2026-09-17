@@ -27,6 +27,7 @@ import {
   exploreCost,
   generateEncounterBoard,
   hydrateEncounterFields,
+  pickEncounterKind,
   isEncounterDone,
   isMerchantKind,
   isTradeKind,
@@ -70,10 +71,6 @@ function stock(save: Save, needs: EncounterNeedMap) {
   }
 }
 
-function firstOf<K extends Save['encounters'][number]['kind']>(save: Save, kind: K): number {
-  return save.encounters.findIndex((enc) => enc.kind === kind)
-}
-
 function put(save: Save, index: number, enc: Save['encounters'][number]) {
   save.encounters[index] = enc
 }
@@ -104,10 +101,8 @@ function testEnemy(overrides: Partial<EnemyEncounter> = {}): EnemyEncounter {
     id: 'test-enemy',
     label: '试敌',
     quality: 'green',
-    distance: 'near',
-    power: 'weak',
     needs: { weapon: 1, meal: 1 },
-    lootGold: enemyLootGoldFor('near', 'weak'),
+    lootGold: enemyLootGoldFor(),
     departed: false,
     combat: null,
     lootClaimed: false,
@@ -218,6 +213,10 @@ describe('encounter board', () => {
           expect(enc.weaknesses.length).toBeLessThanOrEqual(4)
           expect(new Set(enc.weaknesses).size).toBe(enc.weaknesses.length)
           expect(enc.revealedWeaknesses).toEqual([])
+          expect((enc as { distance?: unknown }).distance).toBeUndefined()
+          expect((enc as { power?: unknown }).power).toBeUndefined()
+          if (enc.chapterBoss) expect(enc.enemyRank).toBe('boss')
+          else expect(enc.enemyRank).not.toBe('boss')
         }
       }
     }
@@ -239,14 +238,19 @@ describe('encounter board', () => {
     expect(isTradeKind('bulkBuy')).toBe(true)
   })
 
-  it('gives far encounters more food and strong encounters more ore/weapons', () => {
-    const nearWeak = enemyNeedsFor('near', 'weak')
-    const farWeak = enemyNeedsFor('far', 'weak')
-    const nearStrong = enemyNeedsFor('near', 'strong')
-    expect(farWeak.meal ?? 0).toBeGreaterThan(nearWeak.meal ?? 0)
-    expect(farWeak.fish ?? 0).toBeGreaterThan(nearWeak.fish ?? 0)
-    expect(nearStrong.weapon ?? 0).toBe(0)
-    expect(nearStrong.ore ?? 0).toBeGreaterThan(nearWeak.ore ?? 0)
+  it('scales a single needs / loot table by quality and chapter boss extras', () => {
+    const base = enemyNeedsFor()
+    const boss = enemyNeedsFor(true)
+    expect(base.meal).toBe(2)
+    expect(base.ore).toBe(2)
+    expect(base.fish).toBe(1)
+    expect(boss.meal ?? 0).toBeGreaterThan(base.meal ?? 0)
+    expect(boss.ore ?? 0).toBeGreaterThan(base.ore ?? 0)
+    expect(boss.roast ?? 0).toBeGreaterThan(0)
+    expect(enemyLootGoldFor(true)).toBeGreaterThan(enemyLootGoldFor())
+    const purpleNeeds = scaleNeedMap(base, QUALITY_TABLE.purple.demandMul)
+    expect(purpleNeeds.meal ?? 0).toBeGreaterThan(base.meal ?? 0)
+    expect(scaleGold(enemyLootGoldFor(), QUALITY_TABLE.orange.outputMul)).toBeGreaterThan(enemyLootGoldFor())
   })
 })
 
@@ -327,16 +331,68 @@ describe('exploreBoard', () => {
     expect(save.encounters[4].id).not.toBe('swap-passerby')
     expect(save.encounters[5].id).not.toBe('swap-sixth')
   })
+
+  it('can still roll enemies into empty slots when kept fights occupy the old enemy-only indices', () => {
+    const save = createSave()
+    unlockMaxSlots(save)
+    save.gold = 10_000
+    const now = 3_000_000_000_000
+    save.encounters = [
+      testEnemy({ id: 'keep-0', departed: true, combat: fightSnap(null) }),
+      testPasserby({ id: 'empty-1' }),
+      testEnemy({ id: 'keep-2', departed: true, combat: fightSnap(null) }),
+      testEnemy({ id: 'keep-3', departed: true, combat: fightSnap(null) }),
+      testArtisan({ id: 'empty-4' }),
+      testBulk({ id: 'empty-5' }),
+    ]
+    let newEnemy = 0
+    const draws = 40
+    for (let i = 0; i < draws; i++) {
+      expect(exploreBoard(save, now).ok).toBe(true)
+      expect(save.encounters[0].id).toBe('keep-0')
+      expect(save.encounters[2].id).toBe('keep-2')
+      expect(save.encounters[3].id).toBe('keep-3')
+      for (const idx of [1, 4, 5]) {
+        const enc = save.encounters[idx]
+        if (enc.kind === 'enemy' && enc.id !== 'keep-0' && enc.id !== 'keep-2' && enc.id !== 'keep-3') {
+          newEnemy += 1
+        }
+      }
+    }
+    expect(newEnemy).toBeGreaterThanOrEqual(8)
+  })
+
+  it('picks encounter kinds by weight instead of board-index modulo', () => {
+    const counts: Record<string, number> = {
+      enemy: 0,
+      blackMerchant: 0,
+      passerby: 0,
+      pawn: 0,
+      artisan: 0,
+      bulkBuy: 0,
+    }
+    const rng = { rngState: 17 }
+    const n = 1400
+    for (let i = 0; i < n; i++) {
+      counts[pickEncounterKind(rng)] += 1
+    }
+    expect(counts.enemy).toBeGreaterThan(n * 0.2)
+    expect(counts.enemy).toBeLessThan(n * 0.4)
+    expect(counts.blackMerchant).toBeGreaterThan(0)
+    expect(counts.passerby).toBeGreaterThan(0)
+    expect(counts.pawn).toBeGreaterThan(0)
+    expect(counts.artisan).toBeGreaterThan(0)
+    expect(counts.bulkBuy).toBeGreaterThan(0)
+  })
 })
 
 describe('enemy combat and loot', () => {
   it('does not start or take goods when supplies are short', () => {
     const save = createSave()
     const worker = spawnWorker(save)
-    const index = firstOf(save, 'enemy')
-    const enemy = save.encounters[index]
-    expect(enemy.kind).toBe('enemy')
-    if (enemy.kind !== 'enemy') return
+    const enemy = testEnemy({ needs: { weapon: 1, meal: 1 } })
+    put(save, 0, enemy)
+    const index = 0
 
     save.bank.weapon = 0
     save.bank.meal = 0
@@ -358,10 +414,9 @@ describe('enemy combat and loot', () => {
     const save = createSave()
     save.gold = 10
     const worker = spawnWorker(save)
-    const index = firstOf(save, 'enemy')
-    const enemy = save.encounters[index]
-    expect(enemy.kind).toBe('enemy')
-    if (enemy.kind !== 'enemy') return
+    const enemy = testEnemy({ needs: { weapon: 1, meal: 1 } })
+    put(save, 0, enemy)
+    const index = 0
 
     stock(save, { weapon: 4, meal: 4, fish: 4, ore: 4, wood: 4 })
     const now = 1_700_000_000_000
@@ -466,10 +521,37 @@ describe('enemy combat and loot', () => {
     if (save.encounters[0].kind !== 'enemy') return
     expect(isCombatWon(save.encounters[0])).toBe(true)
     expect(save.encounters[0].lootClaimed).toBe(false)
+    expect((save.encounters[0] as { distance?: unknown }).distance).toBeUndefined()
+    expect((save.encounters[0] as { power?: unknown }).power).toBeUndefined()
     const result = claimLoot(save, 0, 6_000_000)
     expect(result.ok).toBe(true)
     expect(save.gold).toBe(18)
     expect(bankQty(save, 'ore')).toBe(3)
+  })
+
+  it('fills missing enemy needs/loot from the quality table and ignores leftover distance/power', () => {
+    const save = createSave()
+    save.encounters = [
+      {
+        kind: 'enemy',
+        id: 'bare-enemy',
+        label: '无远近旧敌',
+        quality: 'green',
+        distance: 'far',
+        power: 'strong',
+        departed: false,
+        combat: null,
+        lootClaimed: false,
+      },
+    ] as unknown as Save['encounters']
+    hydrateEncounterFields(save)
+    expect(save.encounters[0].kind).toBe('enemy')
+    if (save.encounters[0].kind !== 'enemy') return
+    expect(save.encounters[0].needs).toEqual(enemyNeedsFor())
+    expect(save.encounters[0].lootGold).toBe(enemyLootGoldFor())
+    expect(save.encounters[0].enemyRank).toBe('minion')
+    expect((save.encounters[0] as { distance?: unknown }).distance).toBeUndefined()
+    expect((save.encounters[0] as { power?: unknown }).power).toBeUndefined()
   })
 })
 

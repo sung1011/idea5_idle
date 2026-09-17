@@ -151,7 +151,7 @@ export type CombatAttrId =
   | 'light'
   | 'dark'
 
-/** 杂兵 2～3 弱点；精英 / 首领 3～4。由远近强弱与品质表映射。 */
+/** 杂兵 2～3 弱点；精英 / 首领 3～4。由品质映射（本章 Boss 强制首领）。 */
 export type EnemyRank = 'minion' | 'elite' | 'boss'
 
 export type CombatFighter = CombatStats & {
@@ -329,8 +329,6 @@ export type WorkshopBuff = {
 export type EncounterKind = 'enemy' | 'blackMerchant' | 'passerby' | 'pawn' | 'artisan' | 'bulkBuy'
 /** @deprecated 旧名，等同 blackMerchant / passerby / pawn */
 export type MerchantKind = 'blackMerchant' | 'passerby' | 'pawn'
-export type EncounterDistance = 'near' | 'far'
-export type EncounterPower = 'weak' | 'strong'
 
 export type EncounterNeedMap = Partial<Record<ItemId, number>>
 
@@ -342,8 +340,6 @@ type EncounterBase = {
 
 export type EnemyEncounter = EncounterBase & {
   kind: 'enemy'
-  distance: EncounterDistance
-  power: EncounterPower
   needs: EncounterNeedMap
   /** 战胜后点「战利品」只发这笔金币，不加物资。 */
   lootGold: number

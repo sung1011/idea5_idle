@@ -40,8 +40,6 @@ describe('station worker cap', () => {
       id: 'fight',
       label: '试敌',
       quality: 'green',
-      distance: 'near',
-      power: 'weak',
       needs: { meal: 1 },
       lootGold: 8,
       departed: true,

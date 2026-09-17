@@ -3,7 +3,6 @@ import type {
   CombatAttrId,
   EnemyEncounter,
   EnemyRank,
-  EncounterPower,
   EncounterQuality,
   QualityTier,
   Save,
@@ -72,12 +71,11 @@ export const ENEMY_WEAKNESS_COUNT: Readonly<Record<EnemyRank, { min: number; max
 }
 
 /**
- * 弱+绿蓝灰 → 杂兵；强或紫 → 精英；橙 → 首领。
+ * 灰绿蓝 → 杂兵；紫橙 → 精英。橙不自动当首领。
  * 决定弱点条数、战斗超时，以及 HP / ATK / SPD 阶级倍率。
  */
-export function enemyRankFor(power: EncounterPower, quality: EncounterQuality): EnemyRank {
-  if (quality === 'orange') return 'boss'
-  if (power === 'strong' || quality === 'purple') return 'elite'
+export function enemyRankFor(quality: EncounterQuality): EnemyRank {
+  if (quality === 'purple' || quality === 'orange') return 'elite'
   return 'minion'
 }
 
@@ -251,7 +249,7 @@ export function formatWeaknessLabels(ids: readonly CombatAttrId[]): string {
 
 /** 旧单缺弱点表则按 id 种子补；再战保留已揭示。新单 revealed 为空。 */
 export function ensureEnemyIntel(enc: EnemyEncounter, seed = 0, slot = 0): EnemyEncounter {
-  const rank = isEnemyRank(enc.enemyRank) ? enc.enemyRank : enemyRankFor(enc.power, enc.quality)
+  const rank = isEnemyRank(enc.enemyRank) ? enc.enemyRank : enemyRankFor(enc.quality)
   enc.enemyRank = rank
   const existing = uniqueCombatAttrs(enc.weaknesses)
   const { min, max } = ENEMY_WEAKNESS_COUNT[rank]

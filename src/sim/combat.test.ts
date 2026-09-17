@@ -39,8 +39,6 @@ function testEnemy(overrides: Partial<EnemyEncounter> = {}): EnemyEncounter {
     id: 'test-enemy',
     label: '试敌',
     quality: 'green',
-    distance: 'near',
-    power: 'weak',
     needs: { meal: 1 },
     lootGold: 8,
     departed: false,
@@ -78,19 +76,19 @@ describe('combat stats tables', () => {
     expect(knight.spd).toBeGreaterThanOrEqual(1)
   })
 
-  it('looks up enemy stats by distance, power, quality and rank', () => {
-    const nearWeak = enemyCombatStats('near', 'weak', 'green', 'minion')
-    const farStrong = enemyCombatStats('far', 'strong', 'green', 'elite')
-    const orange = enemyCombatStats('near', 'weak', 'orange', 'boss')
-    expect(farStrong.hp).toBeGreaterThan(nearWeak.hp)
-    expect(orange.hp).toBeGreaterThan(farStrong.hp)
-    expect(orange.atk).toBeGreaterThan(nearWeak.atk)
-    expect(orange.spd).toBeGreaterThan(nearWeak.spd)
+  it('looks up enemy stats by quality and rank from a single combat base', () => {
+    const minion = enemyCombatStats('green', 'minion')
+    const elite = enemyCombatStats('green', 'elite')
+    const orange = enemyCombatStats('orange', 'boss')
+    expect(elite.hp).toBeGreaterThan(minion.hp)
+    expect(orange.hp).toBeGreaterThan(elite.hp)
+    expect(orange.atk).toBeGreaterThan(minion.atk)
+    expect(orange.spd).toBeGreaterThan(minion.spd)
     expect(combatTimeoutS('minion')).toBe(900)
     expect(combatTimeoutS('elite')).toBe(900)
     expect(combatTimeoutS('boss')).toBe(1800)
     expect(COMBAT_TIMEOUT_S).toBe(COMBAT_TIMEOUT_BY_RANK.boss)
-    expect(ENEMY_COMBAT_BASE.near.weak.hp).toBe(2400)
+    expect(ENEMY_COMBAT_BASE.hp).toBe(2400)
     expect(ENEMY_COMBAT_QUALITY_MUL.orange).toBe(1.2)
     expect(ENEMY_COMBAT_RANK_MUL.boss.hp).toBe(2.1)
   })
@@ -246,7 +244,7 @@ describe('combat timeline', () => {
   it('resolves the same timeline through applyTick / offline catch-up', () => {
     const save = createSave()
     const worker = spawnWorkerWith(save, 8, 'knight')
-    const enc = testEnemy({ distance: 'near', power: 'weak', quality: 'green' })
+    const enc = testEnemy({ quality: 'green' })
     putEnemy(save, enc)
     const now = 5_000_000
     beginEnemyCombat(enc, [worker], now)
@@ -294,8 +292,6 @@ describe('combat duration targets', () => {
   it('lets two mid workers beat a minion in about 8-12 minutes without weakness', () => {
     const enc = testEnemy({
       quality: 'green',
-      distance: 'near',
-      power: 'weak',
       enemyRank: 'minion',
       weaknesses: ['fire', 'ice'],
       revealedWeaknesses: [],
@@ -309,8 +305,6 @@ describe('combat duration targets', () => {
   it('lets two mid workers beat an elite in about 12-15 minutes without weakness', () => {
     const enc = testEnemy({
       quality: 'green',
-      distance: 'near',
-      power: 'strong',
       enemyRank: 'elite',
       weaknesses: ['fire', 'ice', 'dark'],
       revealedWeaknesses: [],
@@ -324,8 +318,6 @@ describe('combat duration targets', () => {
   it('makes a boss wipe two mid workers who miss every weakness', () => {
     const enc = testEnemy({
       quality: 'orange',
-      distance: 'near',
-      power: 'weak',
       enemyRank: 'boss',
       weaknesses: bossWeak,
       revealedWeaknesses: [],
@@ -339,8 +331,6 @@ describe('combat duration targets', () => {
   it('lets two mid workers with ×1.2 weakness beat a boss in about 18-22 minutes', () => {
     const enc = testEnemy({
       quality: 'orange',
-      distance: 'near',
-      power: 'weak',
       enemyRank: 'boss',
       weaknesses: bossWeak,
       revealedWeaknesses: [],
