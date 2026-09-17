@@ -11,7 +11,6 @@ import {
   isCombatWon,
   isFighting,
   restCombatCandidates,
-  workerLiveStats,
 } from '../sim/combat'
 import {
   ENCOUNTER_KIND_LABEL,
@@ -140,9 +139,8 @@ function hpPct(hp: number, hpMax: number) {
 }
 
 function workerLine(w: Worker) {
-  const stats = workerLiveStats(w)
   const job = w.classId ? CLASS_LABEL[w.classId] : '未标'
-  return `${w.name ?? w.id} · ${job} · HP ${w.hp}/${w.hpMax} · ATK ${stats.atk} · SPD ${stats.spd}`
+  return `${w.name ?? w.id} · ${job} · HP ${w.hp}/${w.hpMax}`
 }
 
 function weaknessSlots(enc: EnemyEncounter) {
