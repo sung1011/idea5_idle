@@ -1,4 +1,5 @@
 import { fillWorkerHp } from './combat'
+import { hydrateWorkerCombatAttrs, spawnFillCombatAttrs, uniqueCombatAttrs } from './combatAttrs'
 import {
   CLASS_PLACEHOLDERS,
   FOOD_BUFF_DEF,
@@ -22,6 +23,7 @@ import type {
   ItemId,
   ProductionBuff,
   ClassId,
+  CombatAttrId,
   QualityTier,
   Save,
   Worker,
@@ -108,16 +110,20 @@ function hydrateFoodSlot(rawSlot: unknown, rawWorker: Record<string, unknown>): 
 export function hydrateWorker(raw: unknown, index = 0): Worker {
   const src = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
   const id = typeof src.id === 'string' && src.id ? src.id : `w-${index + 1}`
-  return fillWorkerHp({
-    id,
-    name: typeof src.name === 'string' ? src.name : undefined,
-    classId: isClassId(src.classId) ? src.classId : undefined,
-    qualityTier: hydrateQualityTier(src.qualityTier),
-    assignment: resolveStationId(src.assignment),
-    foodSlot: hydrateFoodSlot(src.foodSlot, src),
-    hp: 0,
-    hpMax: 1,
-  }, src.hp)
+  return hydrateWorkerCombatAttrs(
+    fillWorkerHp({
+      id,
+      name: typeof src.name === 'string' ? src.name : undefined,
+      classId: isClassId(src.classId) ? src.classId : undefined,
+      qualityTier: hydrateQualityTier(src.qualityTier),
+      assignment: resolveStationId(src.assignment),
+      foodSlot: hydrateFoodSlot(src.foodSlot, src),
+      hp: 0,
+      hpMax: 1,
+      combatAttrs: uniqueCombatAttrs(src.combatAttrs),
+    }, src.hp),
+    src.combatAttrs,
+  )
 }
 
 /**
@@ -131,6 +137,7 @@ export function hydrateWorkers(raw: unknown, qualityRev?: unknown): Worker[] {
   if (needsGrayQualityMigration(qualityRev)) {
     for (const worker of workers) {
       worker.qualityTier = migrateQualityTierFromGrayTable(worker.qualityTier)
+      hydrateWorkerCombatAttrs(worker, worker.combatAttrs)
     }
   }
   return workers
@@ -142,19 +149,28 @@ export function spawnWorker(save: Save): Worker {
   return spawnWorkerWith(save, QUALITY_MIN, CLASS_PLACEHOLDERS[idx % CLASS_PLACEHOLDERS.length])
 }
 
-/** 指定品质与职业写入花名册。名字仍按 nextWorkerId 轮转。 */
-export function spawnWorkerWith(save: Save, qualityTier: QualityTier, classId: ClassId): Worker {
+/** 指定品质与职业写入花名册。名字仍按 nextWorkerId 轮转。可带入已有战斗属性，只补新解锁空槽。 */
+export function spawnWorkerWith(
+  save: Save,
+  qualityTier: QualityTier,
+  classId: ClassId,
+  combatAttrs: readonly CombatAttrId[] = [],
+): Worker {
   const idx = save.nextWorkerId - 1
-  const worker: Worker = fillWorkerHp({
-    id: `w-${save.nextWorkerId}`,
-    name: WORKER_NAME_POOL[idx % WORKER_NAME_POOL.length],
-    classId,
-    qualityTier,
-    assignment: null,
-    foodSlot: null,
-    hp: 0,
-    hpMax: 1,
-  })
+  const worker: Worker = spawnFillCombatAttrs(
+    save,
+    fillWorkerHp({
+      id: `w-${save.nextWorkerId}`,
+      name: WORKER_NAME_POOL[idx % WORKER_NAME_POOL.length],
+      classId,
+      qualityTier,
+      assignment: null,
+      foodSlot: null,
+      hp: 0,
+      hpMax: 1,
+      combatAttrs: uniqueCombatAttrs(combatAttrs),
+    }),
+  )
   save.nextWorkerId += 1
   save.workers.push(worker)
   return worker

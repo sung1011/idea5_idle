@@ -3,6 +3,7 @@ import { computed, reactive } from 'vue'
 import { bankQty } from '../sim/bank'
 import { formatMarchClock } from '../sim/encounters'
 import { foodBuffRemainS, isFoodBuffActive } from '../sim/food'
+import { formatCombatAttrs } from '../sim/combatAttrs'
 import { isWorkerInCombat, workerLiveStats } from '../sim/combat'
 import { idleCount } from '../sim/query'
 import {
@@ -152,6 +153,7 @@ function badgeStyle(w: Worker) {
             <span>{{ hpBarLabel(w.hp, w.hpMax) }}</span>
           </div>
           <p class="hint">{{ combatTail(w) }}<template v-if="fighting(w)"> · 战斗中</template></p>
+          <p class="attrs" :class="{ empty: !w.combatAttrs.length }">{{ formatCombatAttrs(w.combatAttrs) }}</p>
         </div>
         <p class="hint">{{ foodLine(w) }}</p>
         <div class="row tool-row">
@@ -289,6 +291,18 @@ ul {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+
+.attrs {
+  flex: 1 1 100%;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--copper);
+}
+
+.attrs.empty {
+  color: var(--muted);
 }
 
 .hp {

@@ -41,6 +41,9 @@ function testEnemy(overrides: Partial<EnemyEncounter> = {}): EnemyEncounter {
     departed: false,
     combat: null,
     lootClaimed: false,
+    enemyRank: 'minion',
+    weaknesses: ['fire', 'sword'],
+    revealedWeaknesses: [],
     ...overrides,
   }
 }

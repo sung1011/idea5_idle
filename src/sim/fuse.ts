@@ -39,8 +39,9 @@ export function fuseWorkers(save: Save, workerIdA: string, workerIdB: string): A
   const classId = pickClassFromPool(pool, roll01(save))
 
   const stayAt = fuseStayAssigned(save) ? a.assignment : null
+  const keptAttrs = a.combatAttrs
   save.workers = save.workers.filter((w) => w.id !== a.id && w.id !== b.id)
-  const worker = spawnWorkerWith(save, nextTier, classId)
+  const worker = spawnWorkerWith(save, nextTier, classId, keptAttrs)
   if (stayAt) worker.assignment = stayAt
   const quality = workerQualityDef(nextTier)
   const job = worker.classId ? CLASS_LABEL[worker.classId] : '未标'

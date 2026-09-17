@@ -203,6 +203,7 @@ type Worker = {
   qualityTier: QualityTier // 1～10
   assignment: StationId | null // 每站最多 2 人
   foodSlot: FoodSlot | null
+  combatAttrs: CombatAttrId[] // 白 0 / 绿蓝青 1 / 紫+ 2；同人不重复
 }
 
 type EffectSource = 'tool' | 'food'
@@ -246,7 +247,7 @@ type ProductionBuff = {
 }
 ```
 
-品质 `qualityTier` 1～10，色表 `WORKER_QUALITY_TABLE`（白绿蓝青紫橙粉红金彩，无灰）。抽人默认白档 1；**同一工坊**同档两人可在工坊站卡合并升一档（消耗两人产出 1 人），满档不可；不同档 / 不同站 / 不满 2 人不允许。合并时工人食物回物资、站上工具留下、新人休息。职业按新档池随机。品质不改吞吐。旧灰表存档靠 `workerQualityRev` 迁一次。每站最多 2 人（`STATION_WORKER_CAP`）。
+品质 `qualityTier` 1～10，色表 `WORKER_QUALITY_TABLE`（白绿蓝青紫橙粉红金彩，无灰）。抽人默认白档 1；**同一工坊**同档两人可在工坊站卡合并升一档（消耗两人产出 1 人），满档不可；不同档 / 不同站 / 不满 2 人不允许。合并时工人食物回物资、站上工具留下、新人休息。职业按新档池随机。品质不改吞吐。战斗属性随品质开槽，合成保留已有、只补新槽。旧灰表存档靠 `workerQualityRev` 迁一次。每站最多 2 人（`STATION_WORKER_CAP`）。偶遇敌人弱点与揭示见 [main.md](main.md) 6.2。
 
 ### 5.1 工坊工具槽
 

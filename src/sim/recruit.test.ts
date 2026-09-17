@@ -64,6 +64,7 @@ describe('spawn / hydrate quality', () => {
     expect(worker.qualityTier).toBe(QUALITY_MIN)
     expect(worker.classId).toBe('laborer')
     expect(worker.name).toBe(WORKER_NAME_POOL[0])
+    expect(worker.combatAttrs).toEqual([])
   })
 
   it('hydrates missing or dirty quality to the lowest tier', () => {

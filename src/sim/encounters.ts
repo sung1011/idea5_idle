@@ -9,6 +9,7 @@ import {
   legacyMarchAsWin,
   selectableCombatWorkers,
 } from './combat'
+import { enemyRankFor, ensureEnemyIntel, pickEnemyWeaknesses } from './combatAttrs'
 import { canAffordCosts, missingCostLabels, takeCosts } from './costs'
 import { ITEM_DEF, bulkUnitGold, pawnUnitGold, type IoRule } from './tables'
 import {
@@ -534,6 +535,7 @@ function makeEnemy(seed: number, slot: number, quality: EncounterQuality): Enemy
   const distance: EncounterDistance = (seed + slot) % 2 === 0 ? 'near' : 'far'
   const power: EncounterPower = (seed + slot * 3) % 4 < 2 ? 'weak' : 'strong'
   const q = qualityDef(quality)
+  const enemyRank = enemyRankFor(power, quality)
   return {
     kind: 'enemy',
     id: `${name.id}-${quality}-${seed}-${slot}`,
@@ -546,6 +548,9 @@ function makeEnemy(seed: number, slot: number, quality: EncounterQuality): Enemy
     departed: false,
     combat: null,
     lootClaimed: false,
+    enemyRank,
+    weaknesses: pickEnemyWeaknesses(seed, slot, enemyRank),
+    revealedWeaknesses: [],
   }
 }
 
@@ -1185,7 +1190,7 @@ function migrateLegacyOrder(save: LegacyOrderSave): void {
     (typeof save.orderIndex === 'number' && Number.isFinite(save.orderIndex))
   if (!hasLegacy) return
   const old = findLegacyOrder(save.currentOrderId, save.orderIndex ?? 0)
-  save.encounters[0] = {
+  save.encounters[0] = ensureEnemyIntel({
     kind: 'enemy',
     id: old.id,
     label: old.label,
@@ -1197,8 +1202,11 @@ function migrateLegacyOrder(save: LegacyOrderSave): void {
     departed: false,
     combat: null,
     lootClaimed: false,
+    enemyRank: 'minion',
+    weaknesses: [],
+    revealedWeaknesses: [],
     ...(save.orderSubmitted === true ? { submitted: true } : {}),
-  }
+  })
 }
 
 function inferMerchantKind(raw: LegacyMerchant): MerchantKind {
@@ -1277,11 +1285,14 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
         departed: true,
         combat: null,
         lootClaimed: false,
+        enemyRank: enemyRankFor(raw.power, readQuality(raw.quality)),
+        weaknesses: [],
+        revealedWeaknesses: [],
       },
       typeof raw.marchEndsAt === 'number' ? raw.marchEndsAt : 0,
     )
   }
-  return {
+  return ensureEnemyIntel({
     kind: 'enemy',
     id: raw.id,
     label: raw.label,
@@ -1293,8 +1304,15 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
     departed,
     combat,
     lootClaimed,
+    enemyRank: enemyRankFor(raw.power, readQuality(raw.quality)),
+    weaknesses: Array.isArray((raw as { weaknesses?: unknown }).weaknesses)
+      ? ((raw as { weaknesses: unknown }).weaknesses as EnemyEncounter['weaknesses'])
+      : [],
+    revealedWeaknesses: Array.isArray((raw as { revealedWeaknesses?: unknown }).revealedWeaknesses)
+      ? ((raw as { revealedWeaknesses: unknown }).revealedWeaknesses as EnemyEncounter['revealedWeaknesses'])
+      : [],
     ...(raw.submitted === true && !departed && !combat ? { submitted: true } : {}),
-  }
+  })
 }
 
 function migrateTrade(raw: LegacyTrade): Encounter | unknown {
@@ -1426,6 +1444,9 @@ export function hydrateEncounterFields(save: Save): Save {
   }
 
   resizeEncounterBoard(raw)
+  for (const enc of raw.encounters) {
+    if (enc.kind === 'enemy') ensureEnemyIntel(enc)
+  }
   delete raw.currentOrderId
   delete raw.orderIndex
   delete raw.orderSubmitted

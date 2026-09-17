@@ -136,12 +136,32 @@ export type CombatStats = {
   spd: number
 }
 
+/** 工人战斗属性 / 敌人弱点。物理 6 + 元素 6。 */
+export type CombatAttrId =
+  | 'sword'
+  | 'polearm'
+  | 'dagger'
+  | 'axe'
+  | 'bow'
+  | 'staff'
+  | 'fire'
+  | 'ice'
+  | 'lightning'
+  | 'wind'
+  | 'light'
+  | 'dark'
+
+/** 杂兵 2～3 弱点；精英 / 首领 3～4。由远近强弱与品质表映射。 */
+export type EnemyRank = 'minion' | 'elite' | 'boss'
+
 export type CombatFighter = CombatStats & {
   id: string
   label: string
   hpMax: number
   /** 下一次出手墙钟。 */
   nextActAt: number
+  /** 出战工人带上自己的属性；敌人忽略。 */
+  combatAttrs?: CombatAttrId[]
 }
 
 export type CombatLogEntry = {
@@ -174,6 +194,11 @@ export type Worker = {
   /** 当前生命。hydrate 缺字段则按表满血。 */
   hp: number
   hpMax: number
+  /**
+   * 战斗属性。槽数看品质：白 0、绿蓝青 1、紫及以上 2。
+   * 同工人不重复。旧档缺字段 hydrate 按品质掷点；白档空数组。
+   */
+  combatAttrs: CombatAttrId[]
 }
 
 export type MiningNodeState = {
@@ -323,6 +348,12 @@ export type EnemyEncounter = EncounterBase & {
   /** 当前/最近一场战斗。未开过为 null。 */
   combat: EnemyCombat | null
   lootClaimed: boolean
+  /** 杂兵 / 精英 / 首领。决定弱点条数区间。 */
+  enemyRank: EnemyRank
+  /** 真实弱点。卡面先全是 ?，命中再揭示对应项。 */
+  weaknesses: CombatAttrId[]
+  /** 已揭示弱点。再战同一单保留；换新敌 / 刷掉本单清空。 */
+  revealedWeaknesses: CombatAttrId[]
 }
 
 export type BlackMerchantEncounter = EncounterBase & {

@@ -21,7 +21,15 @@ describe('gm debug grants', () => {
     const dirty = createSave()
     dirty.gold = 999
     dirty.diamonds = 40
-    dirty.workers.push({ id: 'w-x', assignment: 'mining', qualityTier: 1, foodSlot: null, hp: 24, hpMax: 24 })
+    dirty.workers.push({
+      id: 'w-x',
+      assignment: 'mining',
+      qualityTier: 1,
+      foodSlot: null,
+      hp: 24,
+      hpMax: 24,
+      combatAttrs: [],
+    })
     dirty.stations.mining.stationLevel = 7
     const next = gmResetSave()
     expect(next).not.toBe(dirty)

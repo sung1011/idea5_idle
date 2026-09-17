@@ -111,6 +111,9 @@ function testEnemy(overrides: Partial<EnemyEncounter> = {}): EnemyEncounter {
     departed: false,
     combat: null,
     lootClaimed: false,
+    enemyRank: 'minion',
+    weaknesses: ['fire', 'sword'],
+    revealedWeaknesses: [],
     ...overrides,
   }
 }
@@ -210,6 +213,12 @@ describe('encounter board', () => {
         seenQualities.add(enc.quality)
         expect(enc.quality).not.toBe('gray')
         expect(QUALITY_TABLE[enc.quality].weight).toBeGreaterThan(0)
+        if (enc.kind === 'enemy') {
+          expect(enc.weaknesses.length).toBeGreaterThanOrEqual(2)
+          expect(enc.weaknesses.length).toBeLessThanOrEqual(4)
+          expect(new Set(enc.weaknesses).size).toBe(enc.weaknesses.length)
+          expect(enc.revealedWeaknesses).toEqual([])
+        }
       }
     }
     expect(seenKinds.has('enemy')).toBe(true)

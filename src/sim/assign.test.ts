@@ -47,6 +47,9 @@ describe('station worker cap', () => {
       departed: true,
       combat: null,
       lootClaimed: false,
+      enemyRank: 'minion',
+      weaknesses: ['fire', 'sword'],
+      revealedWeaknesses: [],
     } satisfies EnemyEncounter
     beginEnemyCombat(save.encounters[0] as EnemyEncounter, [worker], 1_000)
     expect(assignWorker(save, worker.id, 'mining')).toEqual({ ok: false, reason: '正在战斗' })

@@ -1,6 +1,12 @@
-import { CLASS_LABEL } from './tables'
+import {
+  COMBAT_ATTR_LABEL,
+  ensureEnemyIntel,
+  formatWeaknessLabels,
+  resolveWorkerAttack,
+} from './combatAttrs'
 import type {
   ClassId,
+  CombatAttrId,
   CombatFighter,
   CombatLogEntry,
   CombatOutcome,
@@ -218,7 +224,14 @@ export function recentCombatLogs(enc: EnemyEncounter, n = 4): CombatLogEntry[] {
   return logs.slice(-n)
 }
 
-function makeFighter(id: string, label: string, stats: CombatStats, hp: number, now: number): CombatFighter {
+function makeFighter(
+  id: string,
+  label: string,
+  stats: CombatStats,
+  hp: number,
+  now: number,
+  combatAttrs?: CombatAttrId[],
+): CombatFighter {
   const hpMax = Math.max(1, stats.hp)
   return {
     id,
@@ -228,10 +241,12 @@ function makeFighter(id: string, label: string, stats: CombatStats, hp: number, 
     atk: Math.max(1, stats.atk),
     spd: Math.max(1, stats.spd),
     nextActAt: now + Math.max(1, stats.spd) * 1000,
+    ...(combatAttrs && combatAttrs.length ? { combatAttrs: [...combatAttrs] } : {}),
   }
 }
 
 export function beginEnemyCombat(enc: EnemyEncounter, workers: Worker[], now: number): EnemyCombat {
+  ensureEnemyIntel(enc)
   const eStats = enemyCombatStats(enc.distance, enc.power, enc.quality)
   const combat: EnemyCombat = {
     startedAt: now,
@@ -239,7 +254,7 @@ export function beginEnemyCombat(enc: EnemyEncounter, workers: Worker[], now: nu
     workerIds: workers.map((w) => w.id),
     workers: workers.map((w) => {
       const stats = workerLiveStats(w)
-      return makeFighter(w.id, w.name ?? w.id, { ...stats, hp: w.hpMax }, w.hp, now)
+      return makeFighter(w.id, w.name ?? w.id, { ...stats, hp: w.hpMax }, w.hp, now, w.combatAttrs)
     }),
     enemy: makeFighter('enemy', enc.label, eStats, eStats.hp, now),
     logs: [],
@@ -290,8 +305,28 @@ function finishCombat(save: Save, combat: EnemyCombat, at: number, outcome: Comb
   writeBackWorkers(save, combat)
 }
 
-function strike(combat: EnemyCombat, at: number, attacker: CombatFighter, target: CombatFighter): void {
+function strike(
+  enc: EnemyEncounter,
+  combat: EnemyCombat,
+  at: number,
+  attacker: CombatFighter,
+  target: CombatFighter,
+): void {
   if (attacker.hp <= 0 || target.hp <= 0) return
+  if (attacker.id !== 'enemy') {
+    const result = resolveWorkerAttack(enc, attacker.combatAttrs ?? [], attacker.atk)
+    target.hp = Math.max(0, target.hp - result.damage)
+    if (result.newlyRevealed.length) {
+      pushLog(combat, at, `揭示弱点：${formatWeaknessLabels(result.newlyRevealed)}`)
+    }
+    const mulText = result.mul > 1 ? ` ×${result.mul}` : ''
+    const hitText = result.hits.length
+      ? `弱点${result.hits.map((id) => COMBAT_ATTR_LABEL[id]).join('')}${mulText}`
+      : ''
+    const tail = hitText ? `（${hitText}）（${target.hp}/${target.hpMax}）` : `（${target.hp}/${target.hpMax}）`
+    pushLog(combat, at, `${attacker.label} 对 ${target.label} 造成 ${result.damage}${tail}`)
+    return
+  }
   target.hp = Math.max(0, target.hp - attacker.atk)
   pushLog(combat, at, `${attacker.label} 对 ${target.label} 造成 ${attacker.atk}（${target.hp}/${target.hpMax}）`)
 }
@@ -348,9 +383,9 @@ export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number): v
           finishCombat(save, combat, nextAt, 'lose', '全员倒下，战败')
           break
         }
-        strike(combat, nextAt, actor, target)
+        strike(enc, combat, nextAt, actor, target)
       } else {
-        strike(combat, nextAt, actor, combat.enemy)
+        strike(enc, combat, nextAt, actor, combat.enemy)
       }
       actor.nextActAt = nextAt + actor.spd * 1000
     }
