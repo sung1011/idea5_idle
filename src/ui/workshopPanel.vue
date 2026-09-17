@@ -72,21 +72,26 @@ function selectTab(id: StationId) {
 .wrap {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  height: 100%;
+  min-height: 0;
 }
 
 .board {
   display: flex;
   align-items: stretch;
-  gap: 10px;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .rail {
   display: flex;
   flex-direction: column;
-  flex: 0 0 72px;
-  width: 72px;
-  gap: 6px;
+  flex: 0 0 56px;
+  width: 56px;
+  gap: 4px;
+  min-height: 0;
 }
 
 .rail button {
@@ -94,12 +99,13 @@ function selectTab(id: StationId) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 1px;
+  flex: 1 1 0;
   width: 100%;
-  min-height: 48px;
-  padding: 4px 4px;
-  font-size: 12px;
-  letter-spacing: 0.08em;
+  min-height: 44px;
+  padding: 2px 2px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
 }
 
 .rail button.on {
@@ -111,8 +117,8 @@ function selectTab(id: StationId) {
 }
 
 .rail .sprite-station {
-  width: 28px;
-  height: 32px;
+  width: 22px;
+  height: 26px;
 }
 
 .stage {
@@ -120,25 +126,29 @@ function selectTab(id: StationId) {
   flex: 1 1 auto;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 
 .note,
 .buff {
   margin: 0;
-  line-height: 1.5;
-  letter-spacing: 0.08em;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
 }
 
 .note {
   color: var(--copper);
+  font-size: 12px;
 }
 
 .buff {
-  padding: 8px 12px;
+  flex: 0 0 auto;
+  padding: 6px 10px;
   border: 2px solid var(--moss-deep);
   border-radius: 10px;
   background: #e7f8d8;
   color: var(--moss-deep);
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -151,6 +161,7 @@ function selectTab(id: StationId) {
 }
 
 .leftover {
+  flex: 0 0 auto;
   flex-direction: column;
 }
 
@@ -165,18 +176,5 @@ function selectTab(id: StationId) {
   border: 2px solid var(--seam);
   border-radius: 8px;
   background: var(--slot);
-}
-
-@media (max-width: 420px) {
-  .rail {
-    flex-basis: 56px;
-    width: 56px;
-  }
-
-  .rail button {
-    min-height: 44px;
-    font-size: 11px;
-    padding: 3px 2px;
-  }
 }
 </style>

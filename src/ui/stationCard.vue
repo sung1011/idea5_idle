@@ -114,7 +114,9 @@ function onMerge() {
   <article class="card" :class="{ stall: !!stall, wait: frozen && !stall }">
     <StationTips :station-id="stationId" />
     <header>
-      <i class="sprite sprite-station" :class="stationId" aria-hidden="true" />
+      <span class="badge">
+        <i class="sprite sprite-station" :class="stationId" aria-hidden="true" />
+      </span>
       <div class="titles">
         <h2>
           {{ def.label }} · Lv{{ station.stationLevel }}
@@ -122,67 +124,71 @@ function onMerge() {
         <p class="meta">{{ count }}/{{ STATION_WORKER_CAP }} 人 · {{ cat.label }} {{ cat.cycleS }}s/次</p>
       </div>
     </header>
-    <div class="bar live" :aria-valuenow="pctLabel">
-      <i :style="{ width: pct.toFixed(2) + '%' }" />
-    </div>
-    <div class="bar xp" :aria-valuenow="xpPct">
-      <i :style="{ width: xpPct + '%' }" />
+    <div class="bars">
+      <div class="bar live" :aria-valuenow="pctLabel">
+        <i :style="{ width: pct.toFixed(2) + '%' }" />
+      </div>
+      <div class="bar xp" :aria-valuenow="xpPct">
+        <i :style="{ width: xpPct + '%' }" />
+      </div>
     </div>
     <p class="stat">进度 {{ pctLabel }}% · XP {{ station.stationXp }}/{{ xpNeed }} · 速度 {{ speed.toFixed(2) }}/s</p>
-    <p v-if="conflictLine" class="stat conflict">{{ conflictLine }}</p>
-    <p v-if="gatherLine" class="stat gather">{{ gatherLine }}</p>
-    <p v-if="station.craftNotice" class="stat gather">{{ station.craftNotice }}</p>
-    <p v-if="stallLine" class="stat jam">{{ stallLine }}</p>
-    <p v-if="hasCosts" class="stat">消耗 {{ costText }}</p>
-    <div v-if="stock.costs.length" class="stock">
-      <p class="stock-row">
-        <span class="stock-k">消耗库存</span>
-        <span
-          v-for="row in stock.costs"
-          :key="row.itemId"
-          class="stock-item"
-          :class="{ empty: row.qty === 0 }"
-        >
-          {{ row.label }} {{ row.qty }}
-        </span>
-      </p>
-    </div>
-    <label v-if="stationId === 'forging'" class="cats">
-      <span class="sr">工具类型</span>
-      <select class="cat-select" :value="station.selectedToolType ?? 'pick'" @change="onToolType">
-        <option v-for="id in TOOL_TYPE_IDS" :key="id" :value="id">
-          {{ TOOL_TYPE_DEF[id].label }}（{{ STATION_DEF[TOOL_TYPE_DEF[id].matchStationId].label }}）
-        </option>
-      </select>
-    </label>
-    <label v-if="pickOptions.length > 1" class="cats">
-      <span class="sr">{{ pickCaption }}</span>
-      <select class="cat-select" :value="station.selectedCategory" @change="onPick">
-        <option v-for="c in pickOptions" :key="c.id" :value="c.id" :disabled="!c.unlocked">
-          {{ c.unlocked ? c.label : `${c.label}（Lv${c.unlockLevel}）` }}
-        </option>
-      </select>
-    </label>
-    <p class="stat">{{ toolLine }}</p>
-    <div class="row tool-row">
-      <template v-if="station.toolSlot">
-        <button type="button" @click="onUnequipTool">卸下工具</button>
-      </template>
-      <template v-if="availableTools.length">
-        <select
-          class="cat-select"
-          :value="pickTool || availableTools[0]"
-          @change="pickTool = ($event.target as HTMLSelectElement).value as ToolItemId"
-        >
-          <option v-for="id in availableTools" :key="id" :value="id">
-            {{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}
+    <div class="sub">
+      <p v-if="conflictLine" class="stat conflict">{{ conflictLine }}</p>
+      <p v-if="gatherLine" class="stat gather">{{ gatherLine }}</p>
+      <p v-if="station.craftNotice" class="stat gather">{{ station.craftNotice }}</p>
+      <p v-if="stallLine" class="stat jam">{{ stallLine }}</p>
+      <p v-if="hasCosts" class="stat">消耗 {{ costText }}</p>
+      <div v-if="stock.costs.length" class="stock">
+        <p class="stock-row">
+          <span class="stock-k">消耗库存</span>
+          <span
+            v-for="row in stock.costs"
+            :key="row.itemId"
+            class="stock-item"
+            :class="{ empty: row.qty === 0 }"
+          >
+            {{ row.label }} {{ row.qty }}
+          </span>
+        </p>
+      </div>
+      <label v-if="stationId === 'forging'" class="cats">
+        <span class="sr">工具类型</span>
+        <select class="cat-select" :value="station.selectedToolType ?? 'pick'" @change="onToolType">
+          <option v-for="id in TOOL_TYPE_IDS" :key="id" :value="id">
+            {{ TOOL_TYPE_DEF[id].label }}（{{ STATION_DEF[TOOL_TYPE_DEF[id].matchStationId].label }}）
           </option>
         </select>
-        <button type="button" @click="onEquipTool">{{ station.toolSlot ? '换装' : '装备' }}</button>
-      </template>
-      <span v-else-if="!station.toolSlot" class="hint">物资里没有工具</span>
+      </label>
+      <label v-if="pickOptions.length > 1" class="cats">
+        <span class="sr">{{ pickCaption }}</span>
+        <select class="cat-select" :value="station.selectedCategory" @change="onPick">
+          <option v-for="c in pickOptions" :key="c.id" :value="c.id" :disabled="!c.unlocked">
+            {{ c.unlocked ? c.label : `${c.label}（Lv${c.unlockLevel}）` }}
+          </option>
+        </select>
+      </label>
+      <p class="stat">{{ toolLine }}</p>
+      <div class="row tool-row">
+        <template v-if="station.toolSlot">
+          <button type="button" @click="onUnequipTool">卸下工具</button>
+        </template>
+        <template v-if="availableTools.length">
+          <select
+            class="cat-select"
+            :value="pickTool || availableTools[0]"
+            @change="pickTool = ($event.target as HTMLSelectElement).value as ToolItemId"
+          >
+            <option v-for="id in availableTools" :key="id" :value="id">
+              {{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}
+            </option>
+          </select>
+          <button type="button" @click="onEquipTool">{{ station.toolSlot ? '换装' : '装备' }}</button>
+        </template>
+        <span v-else-if="!station.toolSlot" class="hint">物资里没有工具</span>
+      </div>
     </div>
-    <div class="row">
+    <div class="actions">
       <button type="button" @click="game.assignIdle(stationId)">派入</button>
       <button type="button" @click="game.withdraw(stationId)">撤出</button>
       <button v-if="canMerge" type="button" @click="onMerge">{{ mergeLabel }}</button>
@@ -195,8 +201,11 @@ function onMerge() {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  padding: 12px;
 }
 
 .jam {
@@ -207,12 +216,29 @@ header {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex: 0 0 auto;
+}
+
+.badge {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 3px solid var(--gold);
+  border-radius: 50%;
+  background: linear-gradient(#fffef8, #ffe9b8);
+  box-shadow: 0 2px 0 var(--gold-deep), inset 0 0 0 2px #fff8e0;
+}
+
+.badge .sprite-station {
+  width: 36px;
+  height: 40px;
 }
 
 .titles {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
 }
 
@@ -230,13 +256,36 @@ h2 {
 .meta,
 .stat {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 
-.gather {
-  color: var(--copper);
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 0 0 auto;
 }
 
+.bar.live {
+  height: 16px;
+  border-radius: 999px;
+}
+
+.bar.xp {
+  height: 10px;
+  border-radius: 999px;
+}
+
+.sub {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.gather,
 .conflict {
   color: var(--copper);
 }
@@ -263,13 +312,13 @@ h2 {
 
 .stock-k {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.06em;
 }
 
 .stock-item {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   padding: 2px 8px;
   border: 2px solid var(--seam);
   border-radius: 8px;
@@ -285,7 +334,7 @@ h2 {
   position: relative;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .sr {
@@ -300,8 +349,8 @@ h2 {
   font: inherit;
   color: var(--ink);
   min-height: 36px;
-  min-width: 140px;
-  padding: 6px 12px;
+  min-width: 120px;
+  padding: 4px 10px;
   border: 3px solid var(--gold-deep);
   border-radius: 12px;
   background: linear-gradient(#fffbeb, var(--btn));
@@ -312,8 +361,28 @@ h2 {
   align-items: center;
 }
 
+.tool-row button {
+  min-height: 36px;
+}
+
 .hint {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.actions button {
+  flex: 1 1 0;
+  min-height: 48px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
 }
 </style>

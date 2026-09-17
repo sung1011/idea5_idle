@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
+import { formatHudQty } from './formatHud'
 import { useGameStore } from './gameStore'
 import EncounterPanel from './encounterPanel.vue'
 import MessagePanel from './messagePanel.vue'
@@ -34,9 +35,40 @@ onUnmounted(() => {
 
 <template>
   <div class="shell">
-    <header class="mast">
-      <h1>骑士工坊</h1>
-      <div class="mast-actions">
+    <header class="hud" aria-label="资源">
+      <div class="resources">
+        <div class="chip">
+          <i class="sprite sprite-res gold" aria-hidden="true" />
+          <span>{{ formatHudQty(game.save.gold) }}</span>
+        </div>
+        <div class="chip">
+          <i class="sprite sprite-res diamonds" aria-hidden="true" />
+          <span>{{ formatHudQty(game.save.diamonds) }}</span>
+        </div>
+        <div class="chip">
+          <i class="sprite sprite-res workers" aria-hidden="true" />
+          <span>{{ formatHudQty(game.save.workers.length) }}</span>
+        </div>
+        <div class="chip">
+          <svg class="hud-ico" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M14.6 3.4 20.6 9.4 19.2 10.8 17.5 9.1 8.8 17.8v2.3h2.3l1.6-1.6 1.4 1.4-4.4 4.4-1.4-1.4.7-.7H3.8v-4.8l-.7.7-1.4-1.4 4.4-4.4 1.4 1.4-1.6 1.6H8.2v2.3l8.7-8.7-1.7-1.7z"
+            />
+          </svg>
+          <span>Lv{{ game.save.knightLevel }}</span>
+        </div>
+        <div class="chip">
+          <svg class="hud-ico" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M12 2.4 13.7 8.1 19.4 9.8 13.7 11.5 12 17.2 10.3 11.5 4.6 9.8 10.3 8.1ZM18.2 14.2 19 16.6 21.4 17.4 19 18.2 18.2 20.6 17.4 18.2 15 17.4 17.4 16.6Z"
+            />
+          </svg>
+          <span>{{ formatHudQty(game.save.techPoints) }}</span>
+        </div>
+      </div>
+      <div class="hud-actions">
         <button
           type="button"
           class="icon-btn"
@@ -50,7 +82,6 @@ onUnmounted(() => {
               d="M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5v-11Zm1.7.5 6.7 4.3c.37.24.83.24 1.2 0L19.3 7H4.7Zm14.8 1.3-6.4 4.1a2.7 2.7 0 0 1-2.8 0L4.5 8.8V17h15V8.8Z"
             />
           </svg>
-          消息
           <i v-if="game.unread" class="dot" />
         </button>
         <button type="button" class="icon-btn" aria-label="设置" @click="settingsOpen = true">
@@ -60,35 +91,11 @@ onUnmounted(() => {
               d="M19.1 12.7a7.4 7.4 0 0 0 .1-1.4 7.4 7.4 0 0 0-.1-1.4l2-1.6a.5.5 0 0 0 .1-.6l-1.9-3.3a.5.5 0 0 0-.6-.2l-2.4 1a7 7 0 0 0-2.4-1.4l-.4-2.5a.5.5 0 0 0-.5-.4h-3.8a.5.5 0 0 0-.5.4l-.4 2.5a7 7 0 0 0-2.4 1.4l-2.4-1a.5.5 0 0 0-.6.2L2.7 7.7a.5.5 0 0 0 .1.6l2 1.6a7.4 7.4 0 0 0-.1 1.4 7.4 7.4 0 0 0 .1 1.4l-2 1.6a.5.5 0 0 0-.1.6l1.9 3.3a.5.5 0 0 0 .6.2l2.4-1a7 7 0 0 0 2.4 1.4l.4 2.5a.5.5 0 0 0 .5.4h3.8a.5.5 0 0 0 .5-.4l.4-2.5a7 7 0 0 0 2.4-1.4l2.4 1a.5.5 0 0 0 .6-.2l1.9-3.3a.5.5 0 0 0-.1-.6Zm-7.1 2.1A2.8 2.8 0 1 1 14.8 12 2.8 2.8 0 0 1 12 14.8Z"
             />
           </svg>
-          设置
         </button>
       </div>
     </header>
 
-    <section class="panel top" aria-label="资源">
-      <div class="resources">
-        <div class="chip">
-          <i class="sprite sprite-res gold" aria-hidden="true" />
-          <span>{{ game.save.gold }}</span>
-        </div>
-        <div class="chip">
-          <i class="sprite sprite-res diamonds" aria-hidden="true" />
-          <span>{{ game.save.diamonds }}</span>
-        </div>
-        <div class="chip">
-          <i class="sprite sprite-res workers" aria-hidden="true" />
-          <span>{{ game.save.workers.length }}</span>
-        </div>
-        <div class="chip">
-          <span>骑士 {{ game.save.knightLevel }} 级</span>
-        </div>
-        <div class="chip">
-          <span>灵感 {{ game.save.techPoints }}</span>
-        </div>
-      </div>
-    </section>
-
-    <main class="page">
+    <main class="page" :class="tab">
       <WorkshopPanel v-if="tab === 'workshop'" />
       <WorkersPanel v-else-if="tab === 'workers'" />
       <EncounterPanel v-else-if="tab === 'encounters'" />
@@ -106,7 +113,7 @@ onUnmounted(() => {
         @click="tab = t.id"
       >
         <i class="sprite sprite-tab" :class="t.id" aria-hidden="true" />
-        {{ t.label }}
+        <span>{{ t.label }}</span>
       </button>
     </nav>
 
@@ -120,44 +127,84 @@ onUnmounted(() => {
 .shell {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  width: min(720px, 100%);
-  min-height: 100dvh;
+  width: 100%;
+  max-width: 480px;
+  height: 100dvh;
   margin: 0 auto;
-  padding: 16px 16px calc(80px + env(safe-area-inset-bottom));
+  padding-top: env(safe-area-inset-top);
 }
 
-.mast {
+.hud {
+  position: sticky;
+  top: 0;
+  z-index: 4;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 6px;
+  min-height: 52px;
+  padding: 6px 8px 6px 8px;
+  background: var(--paper);
+  border-bottom: 3px solid var(--gold);
+  box-shadow: 0 2px 0 var(--gold-deep);
 }
 
-.mast-actions {
+.resources {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.resources::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 2px 8px 2px 4px;
+  font-size: 13px;
+}
+
+.chip .sprite-res {
+  width: 22px;
+  height: 22px;
+}
+
+.hud-ico,
+.glyph {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: var(--ink);
+}
+
+.hud-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+  flex: 0 0 auto;
 }
 
 .icon-btn {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 40px;
-  padding: 4px 10px;
-}
-
-.glyph {
-  width: 18px;
-  height: 18px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
 }
 
 .dot {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: 6px;
+  right: 6px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -165,42 +212,31 @@ onUnmounted(() => {
   box-shadow: 0 0 0 2px var(--plate);
 }
 
-h1 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--ink);
-}
-
-.panel {
+.page {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
-}
-
-.resources {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.page {
   flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: 8px 8px 6px;
+}
+
+.page > * {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.page.workshop > * {
+  overflow: hidden;
 }
 
 .dock {
-  position: fixed;
-  left: 50%;
-  bottom: 0;
   z-index: 3;
   display: flex;
-  gap: 8px;
-  width: min(720px, 100%);
-  transform: translateX(-50%);
-  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
   background: var(--paper);
   border-top: 3px solid var(--gold);
   box-shadow: 0 -2px 0 var(--gold-deep);
@@ -208,13 +244,16 @@ h1 {
 
 .dock button {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  flex: 1 1 64px;
-  min-width: 56px;
-  min-height: 48px;
-  padding: 8px 8px;
+  gap: 2px;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 52px;
+  padding: 4px 4px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
 }
 
 .dock button.on {
@@ -225,4 +264,8 @@ h1 {
   filter: none;
 }
 
+.dock .sprite-tab {
+  width: 24px;
+  height: 24px;
+}
 </style>
