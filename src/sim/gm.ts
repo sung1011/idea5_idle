@@ -23,6 +23,9 @@ export const GM_BASIC_ITEMS: ItemId[] = [
   'eye',
   'meal',
   'roast',
+  'tool',
+  'ironTool',
+  'mithrilTool',
 ]
 
 /** 按 createSave 重开。调用方替换整份存档并写回 localStorage。 */
