@@ -7,16 +7,15 @@ import {
   workshopBuffRemainS,
 } from '../sim/encounters'
 import { leftoverStockRows } from '../sim/query'
+import type { StationId } from '../sim/types'
 import { useGameStore } from './gameStore'
 import StationCard from './stationCard.vue'
 import {
-  WORKSHOP_LINES,
-  loadWorkshopLine,
-  saveWorkshopLine,
-  workshopLineOf,
-  workshopLineTitle,
-  type WorkshopLineId,
-} from './workshopLines'
+  WORKSHOP_TAB_IDS,
+  loadWorkshopTab,
+  saveWorkshopTab,
+  workshopTabLabel,
+} from './workshopTabs'
 
 const game = useGameStore()
 const now = computed(() => {
@@ -30,13 +29,11 @@ const buffLabel = computed(() => {
   return `工匠加持：产量 +${pct}% · 剩余 ${formatMarchClock(workshopBuffRemainS(game.save, now.value))}`
 })
 
-const activeLineId = ref<WorkshopLineId>(loadWorkshopLine())
-const activeLine = computed(() => workshopLineOf(activeLineId.value))
-const stageTitle = computed(() => workshopLineTitle(activeLine.value))
+const activeTab = ref<StationId>(loadWorkshopTab())
 const leftover = computed(() => leftoverStockRows(game.save))
 
-function selectLine(id: WorkshopLineId) {
-  activeLineId.value = saveWorkshopLine(id)
+function selectTab(id: StationId) {
+  activeTab.value = saveWorkshopTab(id)
 }
 </script>
 
@@ -44,29 +41,26 @@ function selectLine(id: WorkshopLineId) {
   <div class="wrap">
     <p v-if="buffOn" class="buff">{{ buffLabel }}</p>
     <div class="board">
-      <nav class="rail" role="tablist" aria-label="产线">
+      <nav class="rail" role="tablist" aria-label="工坊站点">
         <button
-          v-for="line in WORKSHOP_LINES"
-          :key="line.id"
+          v-for="id in WORKSHOP_TAB_IDS"
+          :key="id"
           type="button"
           role="tab"
-          :aria-selected="activeLineId === line.id"
-          :class="{ on: activeLineId === line.id }"
-          @click="selectLine(line.id)"
+          :aria-selected="activeTab === id"
+          :class="{ on: activeTab === id }"
+          @click="selectTab(id)"
         >
-          <i class="sprite sprite-station" :class="line.stationIds[0]" aria-hidden="true" />
-          {{ line.label }}
+          <i class="sprite sprite-station" :class="id" aria-hidden="true" />
+          {{ workshopTabLabel(id) }}
         </button>
       </nav>
       <section class="stage">
-        <p class="chain-title">{{ stageTitle }}</p>
-        <div class="grid" :class="{ solo: activeLine.stationIds.length < 2 }">
-          <StationCard v-for="id in activeLine.stationIds" :key="id" :station-id="id" />
-        </div>
+        <StationCard :station-id="activeTab" />
       </section>
     </div>
     <section v-if="leftover.length" class="leftover" aria-label="其它库存">
-      <p class="chain-title">其它库存</p>
+      <p class="note">其它库存</p>
       <div class="stock-row">
         <span v-for="row in leftover" :key="row.itemId" class="stock-item">{{ row.label }} {{ row.qty }}</span>
       </div>
@@ -92,7 +86,7 @@ function selectLine(id: WorkshopLineId) {
   flex-direction: column;
   flex: 0 0 72px;
   width: 72px;
-  gap: 8px;
+  gap: 6px;
 }
 
 .rail button {
@@ -100,11 +94,11 @@ function selectLine(id: WorkshopLineId) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 2px;
   width: 100%;
-  min-height: 64px;
-  padding: 6px 4px;
-  font-size: 13px;
+  min-height: 48px;
+  padding: 4px 4px;
+  font-size: 12px;
   letter-spacing: 0.08em;
 }
 
@@ -117,26 +111,25 @@ function selectLine(id: WorkshopLineId) {
 }
 
 .rail .sprite-station {
-  width: 32px;
-  height: 36px;
+  width: 28px;
+  height: 32px;
 }
 
 .stage {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 8px;
   min-width: 0;
 }
 
-.chain-title,
+.note,
 .buff {
   margin: 0;
   line-height: 1.5;
   letter-spacing: 0.08em;
 }
 
-.chain-title {
+.note {
   color: var(--copper);
 }
 
@@ -147,22 +140,6 @@ function selectLine(id: WorkshopLineId) {
   background: #e7f8d8;
   color: var(--moss-deep);
   font-weight: 700;
-}
-
-.grid {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  gap: 12px;
-}
-
-.grid > * {
-  flex: 1 1 0;
-  min-width: 0;
-}
-
-.grid.solo {
-  justify-content: center;
 }
 
 .leftover,
@@ -192,14 +169,14 @@ function selectLine(id: WorkshopLineId) {
 
 @media (max-width: 420px) {
   .rail {
-    flex-basis: 60px;
-    width: 60px;
+    flex-basis: 56px;
+    width: 56px;
   }
 
   .rail button {
-    min-height: 56px;
-    font-size: 12px;
-    padding: 4px 2px;
+    min-height: 44px;
+    font-size: 11px;
+    padding: 3px 2px;
   }
 }
 </style>
