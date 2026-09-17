@@ -9,7 +9,7 @@ export type TickOpts = {
   now?: number
 }
 
-/** 在线与离线共用。按站点结算：同站人数加速，相邻站共振。 */
+/** 在线与离线共用。按站点结算：同站人数加速。 */
 export function applyTick(save: Save, opts: TickOpts = {}): void {
   const now = opts.now ?? Date.now()
   save.elapsedS += 1

@@ -3,10 +3,10 @@ import { addToBank } from './bank'
 import { takeCosts } from './costs'
 import { completeForgingCycle } from './forging'
 import { applyGatherOutputs, applyHuntingPauseTick, applyMiningRecovery, isGatherFrozen, isGatherStation } from './gather'
-import { assignedCount, canConsume, currentSpeed, pickConsume, stationResonating } from './query'
+import { assignedCount, canConsume, currentSpeed, pickConsume } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
 import { ITEM_DEF, isPotionItemId } from './tables'
-import { grantCraftTechPoint, resonanceBonusEvery } from './tech'
+import { grantCraftTechPoint } from './tech'
 import { cycleOutputBonus } from './tools'
 import type { Save, StationId } from './types'
 
@@ -25,11 +25,7 @@ function completeAlchemyCycle(save: Save, now: number): boolean {
   if (!takeCosts(save, pick.rules).ok) return false
   const station = save.stations.alchemy
   const def = selectedCategoryDef(save, 'alchemy')
-  const resonating = stationResonating(save, 'alchemy')
-  if (resonating) station.resonanceStreak += 1
-  else station.resonanceStreak = 0
-  const extra = resonating && station.resonanceStreak % resonanceBonusEvery(save) === 0
-  const bonus = cycleOutputBonus(save, 'alchemy', extra, now)
+  const bonus = cycleOutputBonus(save, 'alchemy', now)
   for (const io of def.outputs) {
     const qty = io.qty + (io === def.outputs[0] ? bonus : 0)
     if (!addToBank(save, io.itemId, qty).ok) return false
@@ -42,20 +38,17 @@ function completeAlchemyCycle(save: Save, now: number): boolean {
   return true
 }
 
-function emitOutputs(save: Save, stationId: StationId, extra: boolean, now: number): boolean {
+function emitOutputs(save: Save, stationId: StationId, now: number): boolean {
   const def = selectedCategoryDef(save, stationId)
-  const bonus = cycleOutputBonus(save, stationId, extra, now)
+  const bonus = cycleOutputBonus(save, stationId, now)
   for (const io of def.outputs) {
     const added = addToBank(save, io.itemId, io.qty + (io === def.outputs[0] ? bonus : 0))
     if (!added.ok) return false
   }
-  if (extra && stationId === 'forging') {
-    addToBank(save, 'blueprint', 1)
-  }
   return true
 }
 
-/** 完成一次吞吐：按当前品类扣原料、写入物资，并给站 XP。共振满 streak 时额外产出。 */
+/** 完成一次吞吐：按当前品类扣原料、写入物资，并给站 XP。 */
 export function completeCycle(save: Save, stationId: StationId, now = Date.now()): boolean {
   if (!canConsume(save, stationId)) return false
   if (stationId === 'forging') {
@@ -70,13 +63,9 @@ export function completeCycle(save: Save, stationId: StationId, now = Date.now()
   }
   if (!consumeInputs(save, stationId)) return false
   const station = save.stations[stationId]
-  const resonating = stationResonating(save, stationId)
-  if (resonating) station.resonanceStreak += 1
-  else station.resonanceStreak = 0
-  const extra = resonating && station.resonanceStreak % resonanceBonusEvery(save) === 0
   if (isGatherStation(stationId)) {
-    if (!applyGatherOutputs(save, stationId, extra, now)) return false
-  } else if (!emitOutputs(save, stationId, extra, now)) {
+    if (!applyGatherOutputs(save, stationId, now)) return false
+  } else if (!emitOutputs(save, stationId, now)) {
     return false
   }
   station.completed += 1

@@ -10,7 +10,6 @@ import {
   consumeRuleSets,
   currentSpeed,
   stationBottleneckText,
-  stationResonating,
   stationStockRows,
 } from '../sim/query'
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
@@ -50,7 +49,6 @@ const toolLine = computed(() => {
 })
 const cat = computed(() => selectedCategoryDef(game.save, props.stationId))
 const speed = computed(() => currentSpeed(game.save, props.stationId))
-const resonating = computed(() => stationResonating(game.save, props.stationId))
 const stall = computed(() => station.value.stallReason)
 const frozen = computed(() => isGatherFrozen(game.save, props.stationId))
 const gatherLine = computed(() => gatherStatusText(game.save, props.stationId))
@@ -110,13 +108,12 @@ function onMerge() {
 </script>
 
 <template>
-  <article class="card" :class="{ stall: !!stall, wait: frozen && !stall, hot: resonating }">
+  <article class="card" :class="{ stall: !!stall, wait: frozen && !stall }">
     <header>
       <i class="sprite sprite-station" :class="stationId" aria-hidden="true" />
       <div class="titles">
         <h2>
           {{ def.label }} · Lv{{ station.stationLevel }}
-          <em v-if="resonating" class="reso">共振</em>
         </h2>
         <p class="meta">{{ count }}/{{ STATION_WORKER_CAP }} 人 · {{ cat.label }} {{ cat.cycleS }}s/次</p>
       </div>

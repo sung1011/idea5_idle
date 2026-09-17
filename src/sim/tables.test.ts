@@ -23,7 +23,7 @@ import {
 } from './tables'
 
 describe('production phase-1 tables', () => {
-  it('marks seven stations with gather/craft and the new resonance graph', () => {
+  it('marks seven stations with gather/craft and no resonance neighbors', () => {
     expect(STATION_DEF.mining.kind).toBe('gather')
     expect(STATION_DEF.forging.kind).toBe('craft')
     expect(STATION_DEF.hunting.kind).toBe('gather')
@@ -31,13 +31,13 @@ describe('production phase-1 tables', () => {
     expect(STATION_DEF.herbalism.kind).toBe('gather')
     expect(STATION_DEF.alchemy.kind).toBe('craft')
     expect(STATION_DEF.fishing.kind).toBe('gather')
-    expect(STATION_DEF.mining.neighbors).toEqual(['forging'])
-    expect(STATION_DEF.forging.neighbors).toEqual(['mining'])
-    expect(STATION_DEF.fishing.neighbors).toEqual(['cooking'])
-    expect(STATION_DEF.hunting.neighbors).toEqual(['cooking'])
-    expect(STATION_DEF.cooking.neighbors).toEqual(['fishing', 'hunting'])
-    expect(STATION_DEF.herbalism.neighbors).toEqual(['alchemy'])
-    expect(STATION_DEF.alchemy.neighbors).toEqual(['herbalism'])
+    expect(STATION_DEF.mining.neighbors).toEqual([])
+    expect(STATION_DEF.forging.neighbors).toEqual([])
+    expect(STATION_DEF.fishing.neighbors).toEqual([])
+    expect(STATION_DEF.hunting.neighbors).toEqual([])
+    expect(STATION_DEF.cooking.neighbors).toEqual([])
+    expect(STATION_DEF.herbalism.neighbors).toEqual([])
+    expect(STATION_DEF.alchemy.neighbors).toEqual([])
     expect(PLAYABLE_STATION_IDS).toEqual([
       'mining',
       'forging',

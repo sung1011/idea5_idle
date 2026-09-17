@@ -13,7 +13,7 @@
 - 完成一次生产周期给该站 XP；XP 满则升级。
 - 每 5 级解锁 1 个新品类：Lv5 第 2 类，Lv10 第 3 类。
 - 高阶产出用新 `itemId`（`ironOre`、`ironTool`、`mithrilOre`、`mithrilTool`），不是同一个 `ore` / `tool` 换皮。旧武器 id 仍可卖。
-- 整站共用一个 `selectedCategory`；同站堆人只加速当前品类。迅雷公式与共振不变。
+- 整站共用一个 `selectedCategory`；同站堆人只加速当前品类。迅雷公式不变；相邻站不再加成。
 - 采矿 / 锻造 / 钓鱼 / 狩猎各 3 个品类（默认 / Lv5 / Lv10）。烹饪开局烤鱼+烤肉，Lv5 香料炖。采药无限稳采，不设节点。
 
 ---
@@ -89,7 +89,7 @@ xpToNext(L) = Math.round(100 * Math.pow(1.45, L - 1) * 0.175)  // L >= 1
 
 铜档 1 XP / 次，到 Lv5 要 133 次吞吐。
 
-- 采矿 20s：1 人约 44 分钟；3 人约 15 分钟；3 人且共振（×1.2）约 12 分钟。
+- 采矿 20s：1 人约 44 分钟；3 人约 15 分钟。
 - 锻造 32s：1 人约 71 分钟；3 人约 24 分钟。
 - 比旧 5s 周期 + 760 XP，前期升到 Lv5 大约快 30%。
 
@@ -104,10 +104,10 @@ xpToNext(L) = Math.round(100 * Math.pow(1.45, L - 1) * 0.175)  // L >= 1
 `stepStation` / `completeCycle` 读当前品类的周期、消耗、产出。堆人（玩法 n≤2；站上工具另乘增效）：
 
 ```
-speed = (1 / 当前品类 cycleS) * n * (共振 ? 1.2 : 1)
+speed = (1 / 当前品类 cycleS) * n
 ```
 
-完成周期后 `grantStationXp`。升级时把 `unlockLevel <= 新等级` 的品类写入 `unlockedCategories`，并写 `progressNotice`（如「采矿升到 Lv5，解锁铁矿」）。UI 不展示该升级文案；停产只靠卡片红框，共振在对应卡片标「共振」。
+完成周期后 `grantStationXp`。升级时把 `unlockLevel <= 新等级` 的品类写入 `unlockedCategories`，并写 `progressNotice`（如「采矿升到 Lv5，解锁铁矿」）。UI 不展示该升级文案；停产只靠卡片红框。
 
 `selectStationCategory`：未解锁返回失败（文案含 Lv 需求），不改选中。切换成功则进度清零。挖矿切换会换 `miningNode`，其它矿的恢复倒计时留在 `miningNodes`。
 

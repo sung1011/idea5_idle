@@ -97,10 +97,6 @@ button.on:disabled {
   box-shadow: 0 3px 0 var(--gold-deep), inset 0 0 0 2px #fff8e0;
 }
 
-.card.hot {
-  border-color: var(--ember);
-}
-
 .card.stall,
 .item.full {
   border-color: var(--danger);
@@ -160,16 +156,3 @@ button.on:disabled {
   font-weight: 700;
 }
 
-.reso {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 8px;
-  border: 2px solid var(--gold-deep);
-  border-radius: 999px;
-  background: linear-gradient(#ffe27a, #f0b83a);
-  color: var(--ink);
-  font-size: 12px;
-  font-style: normal;
-  letter-spacing: 0.08em;
-  vertical-align: middle;
-}

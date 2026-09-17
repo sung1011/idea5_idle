@@ -19,7 +19,7 @@ import {
   stationSpeed,
   type IoRule,
 } from './tables'
-import { resonanceSpeedMul, stationTechSpeedMul } from './tech'
+import { stationTechSpeedMul } from './tech'
 import { assignedToolWeight } from './tools'
 import type { Hint, ItemId, Save, StationId } from './types'
 
@@ -33,37 +33,12 @@ export function idleCount(save: Save): number {
   return save.workers.filter((w) => w.assignment === null && !isWorkerInCombat(save, w.id)).length
 }
 
-export function isResonating(save: Save, a: StationId, b: StationId): boolean {
-  const def = STATION_DEF[a]
-  if (!def.neighbors.includes(b)) return false
-  return assignedCount(save, a) > 0 && assignedCount(save, b) > 0
-}
-
-export function stationResonating(save: Save, stationId: StationId): boolean {
-  return STATION_DEF[stationId].neighbors.some((n) => isResonating(save, stationId, n))
-}
-
 export function currentSpeed(save: Save, stationId: StationId, now = Date.now()): number {
   if (isGatherFrozen(save, stationId)) return 0
   const cat = selectedCategoryDef(save, stationId)
   const weight = assignedToolWeight(save, stationId, now)
-  const resonating = stationResonating(save, stationId)
-  const base = stationSpeed(weight, cat.cycleS, resonating, resonanceSpeedMul(save))
+  const base = stationSpeed(weight, cat.cycleS)
   return base * workshopBuffMul(save, now) * stationTechSpeedMul(save, stationId)
-}
-
-export function resonancePairs(save: Save): Array<{ a: StationId; b: StationId }> {
-  const seen = new Set<string>()
-  const pairs: Array<{ a: StationId; b: StationId }> = []
-  for (const id of STATION_IDS) {
-    for (const n of STATION_DEF[id].neighbors) {
-      const key = [id, n].sort().join('+')
-      if (seen.has(key)) continue
-      seen.add(key)
-      if (isResonating(save, id, n)) pairs.push({ a: id, b: n })
-    }
-  }
-  return pairs
 }
 
 export type ConsumePick = { kind: 'none' | 'primary' | 'alt'; rules: IoRule[] }
@@ -181,12 +156,6 @@ export function collectHints(save: Save): Hint[] {
     if (n <= 0) continue
     const stallText = stationBottleneckText(save, id)
     if (stallText) hints.push({ kind: 'bottleneck', text: stallText })
-  }
-  for (const pair of resonancePairs(save)) {
-    hints.push({
-      kind: 'resonance',
-      text: `${STATION_DEF[pair.a].label} + ${STATION_DEF[pair.b].label} 工坊共振`,
-    })
   }
   return hints
 }

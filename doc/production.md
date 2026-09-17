@@ -173,23 +173,9 @@ type ItemId /* 钓鱼相关 */ = 'fish' | 'junk'
 
 ---
 
-## 4. 共振
+## 4. 共振（已废）
 
-`STATION_DEF.neighbors` 两端同时有人即共振。现公式保留：速度 × `RESONANCE_SPEED_MUL`（1.2），每 `RESONANCE_BONUS_EVERY`（4）次吞吐主产物 +1。
-
-定稿邻接（建议，第 1 期改表）：
-
-| 站 | `neighbors` |
-| --- | --- |
-| `mining` | `forging` |
-| `forging` | `mining` |
-| `fishing` | `cooking` |
-| `hunting` | `cooking` |
-| `cooking` | `fishing`, `hunting` |
-| `herbalism` | `alchemy` |
-| `alchemy` | `herbalism` |
-
-旧邻接作废：`woodcutting` ↔ `alchemy`，`forging` ↔ `alchemy`。
+相邻站同时有人不再加速、也不额外掉主产物。`STATION_DEF.neighbors` 已清空，结算不读。旧档 `resonanceStreak` 仍 hydrate，不参与吞吐。
 
 ---
 

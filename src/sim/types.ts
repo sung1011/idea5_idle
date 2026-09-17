@@ -392,6 +392,6 @@ export type MerchantEncounter = BlackMerchantEncounter | PasserbyEncounter | Paw
 export type Encounter = EnemyEncounter | TradeEncounter
 
 export type Hint = {
-  kind: 'bottleneck' | 'resonance' | 'progress'
+  kind: 'bottleneck' | 'progress'
   text: string
 }

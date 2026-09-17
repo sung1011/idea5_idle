@@ -80,12 +80,10 @@ describe('alchemy placeholder', () => {
     expect(currentSpeed(save, 'mining')).toBe(bare)
   })
 
-  it('stays on the main board and only resonates with herbalism', () => {
+  it('stays on the main board without resonance neighbors', () => {
     expect(PLAYABLE_STATION_IDS).toContain('alchemy')
-    expect(STATION_DEF.alchemy.neighbors).toEqual(['herbalism'])
-    expect(STATION_DEF.herbalism.neighbors).toEqual(['alchemy'])
-    expect(STATION_DEF.alchemy.neighbors).not.toContain('forging')
-    expect(STATION_DEF.alchemy.neighbors).not.toContain('cooking')
+    expect(STATION_DEF.alchemy.neighbors).toEqual([])
+    expect(STATION_DEF.herbalism.neighbors).toEqual([])
     expect((STATION_DEF as Record<string, unknown>).leatherworking).toBeUndefined()
     expect(SELLABLE_GOODS).not.toContain('weapon')
     expect(SELLABLE_GOODS).toEqual(['tool', 'ironTool', 'mithrilTool', 'meal', 'roast', 'stew'])

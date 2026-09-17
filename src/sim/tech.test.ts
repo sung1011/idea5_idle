@@ -23,12 +23,10 @@ import {
   recruitCost,
   researchNextTech,
   researchTech,
-  resonanceBonusEvery,
-  resonanceSpeedMul,
   stationTechSpeedMul,
   techEffectValue,
 } from './tech'
-import { OFFLINE_CAP_S, RECRUIT_COST, RESONANCE_BONUS_EVERY, RESONANCE_SPEED_MUL } from './tables'
+import { OFFLINE_CAP_S, RECRUIT_COST } from './tables'
 import { ticks } from './tick'
 import type { Save } from './types'
 
@@ -169,8 +167,6 @@ describe('tech effects stay no-op', () => {
     expect(offlineCapS(save)).toBe(OFFLINE_CAP_S)
     expect(offlineCapHours(save)).toBe(8)
     expect(exploreCost(save)).toBe(8)
-    expect(resonanceSpeedMul(save)).toBe(RESONANCE_SPEED_MUL)
-    expect(resonanceBonusEvery(save)).toBe(RESONANCE_BONUS_EVERY)
     expect(stationTechSpeedMul(save, 'cooking')).toBe(1)
     expect(fuseStayAssigned(save)).toBe(false)
 

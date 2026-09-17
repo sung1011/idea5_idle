@@ -25,7 +25,7 @@
 
 - [x] `StationId` 纳入 `hunting` `herbalism`；`woodcutting` 标废弃
 - [x] `ItemId` 按 production 第 9 节补：`meat` `blood` `tooth` `eye` `herb` `spice` `junk` `tool` `ironTool` `mithrilTool`（`meal` `ore` `fish` `potion` 沿用）
-- [x] `STATION_DEF.kind = 'gather' | 'craft'`；共振邻接改为挖矿↔锻造、钓鱼/狩猎↔烹饪、采药↔炼金
+- [x] `STATION_DEF.kind = 'gather' | 'craft'`；`neighbors` 已清空，结算不读（旧共振邻接作废）
 - [x] Worker 存档加 `toolSlot` / `foodSlot`（可先空）；hydrate 缺字段补 `null`；旧别名 `toolId` / `foodItemId` / `prodBuff` 可迁
 - [x] 伐木迁移（与七站对齐）：
   - [x] 移出 `PLAYABLE_CHAINS` / 工人派站按钮（藏入口）
@@ -80,7 +80,7 @@
 
 - [x] 炼金一次性消耗草 / 猎副产，产物占位（`potion`）；效果不定
 - [x] 预留 `effectId` 解析口，本阶段不填数值
-- [x] 升到主界面；共振只跟采药
+- [x] 升到主界面；与采药只走物流，不再共振
 - [x] 打磨：堵点文案、七站 UI、sprite 空格、卖货清单去武器加工具/食物
 - [x] 制皮确认不做；银行容量确认不恢复
 - [x] 去掉独立物资区与主界面卖货；各站卡片就近显示该站 `costs` / `outputs` 数量
@@ -110,7 +110,7 @@
 - [x] 账号级 `techPoints`（界面称灵感；旧档别名 `inspiration`）
 - [x] 任意站完成周期 +1 灵感；骑士等级每升 1 级 +1 灵感（已去掉图纸兑换灵感）
 - [x] 线性 10 档：工坊日志 → 学徒笔记 → 匠人手册 → 工坊规章 → 流水线图 → 工匠密录 → 骑士训令 → 纹章底稿 → 工坊纹章 → 骑士工坊纹章
-- [x] 按序扣点点亮；已满 / 灵感不足 / 乱序失败；`techEffectValue` 与抽人/离线/共振/探索/速度/合并函数恒 no-op
+- [x] 按序扣点点亮；已满 / 灵感不足 / 乱序失败；`techEffectValue` 与抽人/离线/探索/速度/合并函数恒 no-op
 - [x] 底栏「科技」页：骑士等级、灵感、进度、列表、研究；失败漂字
 - [x] 旧档 hydrate；Vitest：加点、扣点解锁、乱序失败、灵感不足
 - [x] 新档骑士 1 级 / 灵感 1；站升级带动骑士等级 +1 时灵感 +1；hydrate 按站等级重算并补发差额
@@ -150,7 +150,7 @@
 
 ## 附录 A · 第一期已完成（历史）
 
-当时对照的是伐木 / 锻造武器主轴，不是七站定稿。
+当时对照的是伐木 / 锻造武器主轴，不是七站定稿。文中「共振」是当时做过的邻站加速 / 额外产物，现已删除。
 
 - [x] Vite + Vue 3 + TypeScript + Pinia + Vitest
 - [x] 目录：`src/sim/`、`src/ui/`

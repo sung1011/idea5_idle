@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
-import { collectHints, isResonating } from './query'
+import { collectHints } from './query'
 import { recruitWorker } from './recruit'
 import { setRollOverride } from './rng'
 import { PLAYABLE_STATION_IDS, STATION_DEF, STATION_IDS, stationSpeed } from './tables'
@@ -200,57 +200,5 @@ describe('forging pipeline', () => {
     expect(next.stations.forging.stallReason).toBe('emptyInput')
     const hints = collectHints(next)
     expect(hints.some((h) => h.kind === 'bottleneck' && h.text.includes('见底'))).toBe(true)
-  })
-})
-
-describe('resonance', () => {
-  it('detects mining + forging when both have workers', () => {
-    const save = roster(2)
-    assignWorker(save, save.workers[0].id, 'mining')
-    expect(isResonating(save, 'mining', 'forging')).toBe(false)
-    assignWorker(save, save.workers[1].id, 'forging')
-    expect(isResonating(save, 'mining', 'forging')).toBe(true)
-    expect(collectHints(save).some((h) => h.kind === 'resonance')).toBe(true)
-  })
-
-  it('detects hunting + cooking when both have workers', () => {
-    const save = roster(2)
-    assignWorker(save, save.workers[0].id, 'hunting')
-    expect(isResonating(save, 'hunting', 'cooking')).toBe(false)
-    assignWorker(save, save.workers[1].id, 'cooking')
-    expect(isResonating(save, 'hunting', 'cooking')).toBe(true)
-    expect(collectHints(save).some((h) => h.kind === 'resonance' && h.text.includes('狩猎'))).toBe(true)
-  })
-
-  it('detects herbalism + alchemy when both have workers', () => {
-    const save = roster(2)
-    assignWorker(save, save.workers[0].id, 'herbalism')
-    assignWorker(save, save.workers[1].id, 'alchemy')
-    expect(isResonating(save, 'herbalism', 'alchemy')).toBe(true)
-  })
-
-  it('detects fishing + cooking when both have workers', () => {
-    const save = roster(2)
-    assignWorker(save, save.workers[0].id, 'fishing')
-    expect(isResonating(save, 'fishing', 'cooking')).toBe(false)
-    assignWorker(save, save.workers[1].id, 'cooking')
-    expect(isResonating(save, 'fishing', 'cooking')).toBe(true)
-    expect(collectHints(save).some((h) => h.kind === 'resonance' && h.text.includes('钓鱼'))).toBe(true)
-  })
-
-  it('speeds fishing when cooking also has a worker', () => {
-    setRollOverride(() => 0.5)
-    const alone = roster(1)
-    assignWorker(alone, alone.workers[0].id, 'fishing')
-    const pair = roster(2)
-    assignWorker(pair, pair.workers[0].id, 'fishing')
-    assignWorker(pair, pair.workers[1].id, 'cooking')
-
-    const a = ticks(alone, 24)
-    const b = ticks(pair, 24)
-    expect(a.stations.fishing.completed).toBe(0)
-    expect(a.stations.fishing.progress).toBeCloseTo(24 / 28)
-    expect(bankQty(b, 'fish')).toBe(1)
-    expect(b.stations.fishing.completed).toBe(1)
   })
 })

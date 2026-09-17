@@ -1,10 +1,5 @@
 import { syncKnightLevel } from './knightLevel'
-import {
-  OFFLINE_CAP_S,
-  RECRUIT_COST,
-  RESONANCE_BONUS_EVERY,
-  RESONANCE_SPEED_MUL,
-} from './tables'
+import { OFFLINE_CAP_S, RECRUIT_COST } from './tables'
 import type { ActionResult, Save, StationId, TechId } from './types'
 
 /** 任意站完成 1 次周期给 1 点灵感。 */
@@ -26,7 +21,7 @@ export const TECH_TREE: readonly TechNodeDef[] = [
   { id: 'workshopLog', name: '工坊日志', desc: '记下每日吞吐与空转，方便回看。', cost: 1, effectId: 'workshopLog' },
   { id: 'apprenticeNotes', name: '学徒笔记', desc: '学徒手抄的工序要点。', cost: 2, effectId: 'apprenticeNotes' },
   { id: 'artisanManual', name: '匠人手册', desc: '各站配方的对照手册。', cost: 3, effectId: 'artisanManual' },
-  { id: 'workshopRules', name: '工坊规章', desc: '排班、共振与缺料的规矩。', cost: 5, effectId: 'workshopRules' },
+  { id: 'workshopRules', name: '工坊规章', desc: '排班与缺料的规矩。', cost: 5, effectId: 'workshopRules' },
   { id: 'pipelineChart', name: '流水线图', desc: '站与站之间的物流草图。', cost: 8, effectId: 'pipelineChart' },
   { id: 'artisanArchive', name: '工匠密录', desc: '软失败与遇险攒下的经验。', cost: 12, effectId: 'artisanArchive' },
   { id: 'knightEdict', name: '骑士训令', desc: '骑士对工坊的号令。', cost: 18, effectId: 'knightEdict' },
@@ -114,16 +109,6 @@ export function offlineCapS(_save: Save): number {
 
 export function offlineCapHours(save: Save): number {
   return Math.round(offlineCapS(save) / 3600)
-}
-
-/** 共振速度不受科技影响。 */
-export function resonanceSpeedMul(_save: Save): number {
-  return RESONANCE_SPEED_MUL
-}
-
-/** 共振额外产物间隔不受科技影响。 */
-export function resonanceBonusEvery(_save: Save): number {
-  return RESONANCE_BONUS_EVERY
 }
 
 /** 合并后新人仍回休息。 */

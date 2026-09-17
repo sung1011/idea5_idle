@@ -25,11 +25,8 @@ export const RECRUIT_COST = 15
 
 /** 每站派驻上限。第 3 人派入失败；旧档超出的人 hydrate 撤到休息。 */
 export const STATION_WORKER_CAP = 2
-/** 同站堆人：speed = (1 / cycleS) * stackFactor(n) * 共振倍率。玩法 n≤2。 */
+/** 同站堆人：speed = (1 / cycleS) * stackFactor(n)。玩法 n≤2。 */
 export const STACK_LINEAR = 1
-export const RESONANCE_SPEED_MUL = 1.2
-/** 共振期间每完成这么多次吞吐，额外 +1 主产物（下游少空转 / 额外产出） */
-export const RESONANCE_BONUS_EVERY = 4
 
 /** 每 5 级解锁 1 个新品类：Lv5 第 2 类，Lv10 第 3 类。 */
 export const CATEGORY_UNLOCK_EVERY = 5
@@ -88,6 +85,7 @@ export type StationDef = {
   id: StationId
   label: string
   kind: StationKind
+  /** 已废：旧共振邻接。结算不再读。 */
   neighbors: StationId[]
   categories: StationCategoryDef[]
 }
@@ -118,7 +116,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
     id: 'mining',
     label: '采矿',
     kind: 'gather',
-    neighbors: ['forging'],
+    neighbors: [],
     categories: [
       {
         id: 'copper',
@@ -153,7 +151,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
     id: 'forging',
     label: '锻造',
     kind: 'craft',
-    neighbors: ['mining'],
+    neighbors: [],
     categories: [
       {
         id: 'copper',
@@ -189,7 +187,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
     id: 'hunting',
     label: '狩猎',
     kind: 'gather',
-    neighbors: ['cooking'],
+    neighbors: [],
     categories: [
       {
         id: 'copper',
@@ -231,7 +229,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
     id: 'cooking',
     label: '烹饪',
     kind: 'craft',
-    neighbors: ['fishing', 'hunting'],
+    neighbors: [],
     categories: [
       {
         id: 'copper',
@@ -273,21 +271,21 @@ export const STATION_DEF: Record<StationId, StationDef> = {
     id: 'herbalism',
     label: '采药',
     kind: 'gather',
-    neighbors: ['alchemy'],
+    neighbors: [],
     categories: singleCategory('草', 20, [], [{ itemId: 'herb', qty: 1 }]),
   },
   alchemy: {
     id: 'alchemy',
     label: '炼金',
     kind: 'craft',
-    neighbors: ['herbalism'],
+    neighbors: [],
     categories: singleCategory('药剂', 40, [{ itemId: 'herb', qty: 1 }], [{ itemId: 'potion', qty: 1 }]),
   },
   fishing: {
     id: 'fishing',
     label: '钓鱼',
     kind: 'gather',
-    neighbors: ['cooking'],
+    neighbors: [],
     categories: [
       {
         id: 'copper',
@@ -906,17 +904,12 @@ export function stackFactor(n: number): number {
 
 /**
  * 站点每秒进度。
- * speed = (1 / cycleS) * n * (共振 ? RESONANCE_SPEED_MUL : 1)
+ * speed = (1 / cycleS) * n
  * 1 人采矿 cycleS=20 → 0.05/s，20 秒出 1 矿
  * 3 人采矿 → 0.15/s，同等时间 3 倍吞吐
  */
-export function stationSpeed(
-  n: number,
-  cycleS: number,
-  resonating = false,
-  resonanceMul = RESONANCE_SPEED_MUL,
-): number {
+export function stationSpeed(n: number, cycleS: number): number {
   if (n <= 0 || cycleS <= 0) return 0
   const base = 1 / cycleS
-  return base * stackFactor(n) * (resonating ? resonanceMul : 1)
+  return base * stackFactor(n)
 }

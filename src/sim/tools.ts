@@ -165,8 +165,8 @@ export function matchingToolEffectMax(
   return best
 }
 
-export function cycleOutputBonus(save: Save, stationId: StationId, resonanceExtra: boolean, now = Date.now()): number {
-  return (resonanceExtra ? 1 : 0) + Math.floor(matchingToolEffectMax(save, stationId, EFFECT_ID.extraOutput, now))
+export function cycleOutputBonus(save: Save, stationId: StationId, now = Date.now()): number {
+  return Math.floor(matchingToolEffectMax(save, stationId, EFFECT_ID.extraOutput, now))
 }
 
 export function hydrateForgedTools(raw: unknown): ForgedTool[] {
