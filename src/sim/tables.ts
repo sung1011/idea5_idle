@@ -657,7 +657,7 @@ export function findCategory(stationId: StationId, categoryId: CategoryId): Stat
   return STATION_DEF[stationId].categories.find((c) => c.id === categoryId)
 }
 
-/** 主界面七站：挖矿→锻造、钓鱼/狩猎→烹饪、采药→炼金。伐木已藏。 */
+/** 可玩七站展开顺序（骑士等级 / leftover / 工人派站）。工坊页左侧四条产线见 `src/ui/workshopLines.ts`。伐木已藏。 */
 export const PLAYABLE_CHAINS: StationId[][] = [
   ['mining', 'forging'],
   ['fishing', 'hunting', 'cooking'],

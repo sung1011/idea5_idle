@@ -40,7 +40,7 @@ type StationId =
 type DeprecatedStationId = 'woodcutting'
 ```
 
-UI 主列七站。`woodcutting` 废弃或藏入口，见第 7 节。
+UI 主列七站，工坊页按四条产线竖签切换（矿冶 / 狩猎 / 药炼 / 钓鱼），双站左右并排。`woodcutting` 废弃或藏入口，见第 7 节。
 
 ---
 

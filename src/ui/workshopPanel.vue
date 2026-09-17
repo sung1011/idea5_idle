@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import {
   formatMarchClock,
   isWorkshopBuffActive,
@@ -7,10 +7,16 @@ import {
   workshopBuffRemainS,
 } from '../sim/encounters'
 import { leftoverStockRows } from '../sim/query'
-import { PLAYABLE_CHAINS, STATION_DEF } from '../sim/tables'
-import type { StationId } from '../sim/types'
 import { useGameStore } from './gameStore'
 import StationCard from './stationCard.vue'
+import {
+  WORKSHOP_LINES,
+  loadWorkshopLine,
+  saveWorkshopLine,
+  workshopLineOf,
+  workshopLineTitle,
+  type WorkshopLineId,
+} from './workshopLines'
 
 const game = useGameStore()
 const now = computed(() => {
@@ -24,22 +30,41 @@ const buffLabel = computed(() => {
   return `工匠加持：产量 +${pct}% · 剩余 ${formatMarchClock(workshopBuffRemainS(game.save, now.value))}`
 })
 
-function chainTitle(ids: StationId[]): string {
-  return ids.map((id) => STATION_DEF[id].label).join(' → ')
-}
-
+const activeLineId = ref<WorkshopLineId>(loadWorkshopLine())
+const activeLine = computed(() => workshopLineOf(activeLineId.value))
+const stageTitle = computed(() => workshopLineTitle(activeLine.value))
 const leftover = computed(() => leftoverStockRows(game.save))
+
+function selectLine(id: WorkshopLineId) {
+  activeLineId.value = saveWorkshopLine(id)
+}
 </script>
 
 <template>
   <div class="wrap">
     <p v-if="buffOn" class="buff">{{ buffLabel }}</p>
-    <section v-for="ids in PLAYABLE_CHAINS" :key="chainTitle(ids)" class="chain">
-      <p class="chain-title">{{ chainTitle(ids) }}</p>
-      <div class="grid">
-        <StationCard v-for="id in ids" :key="id" :station-id="id" />
-      </div>
-    </section>
+    <div class="board">
+      <nav class="rail" role="tablist" aria-label="产线">
+        <button
+          v-for="line in WORKSHOP_LINES"
+          :key="line.id"
+          type="button"
+          role="tab"
+          :aria-selected="activeLineId === line.id"
+          :class="{ on: activeLineId === line.id }"
+          @click="selectLine(line.id)"
+        >
+          <i class="sprite sprite-station" :class="line.stationIds[0]" aria-hidden="true" />
+          {{ line.label }}
+        </button>
+      </nav>
+      <section class="stage">
+        <p class="chain-title">{{ stageTitle }}</p>
+        <div class="grid" :class="{ solo: activeLine.stationIds.length < 2 }">
+          <StationCard v-for="id in activeLine.stationIds" :key="id" :station-id="id" />
+        </div>
+      </section>
+    </div>
     <section v-if="leftover.length" class="leftover" aria-label="其它库存">
       <p class="chain-title">其它库存</p>
       <div class="stock-row">
@@ -50,11 +75,58 @@ const leftover = computed(() => leftoverStockRows(game.save))
 </template>
 
 <style scoped>
-.wrap,
-.chain {
+.wrap {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.board {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 72px;
+  width: 72px;
+  gap: 8px;
+}
+
+.rail button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 64px;
+  padding: 6px 4px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+
+.rail button.on {
+  color: var(--ink);
+  background: linear-gradient(#ffe27a, #f0b83a);
+  box-shadow: 0 3px 0 var(--shadow);
+  opacity: 1;
+  filter: none;
+}
+
+.rail .sprite-station {
+  width: 32px;
+  height: 36px;
+}
+
+.stage {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
 }
 
 .chain-title,
@@ -78,9 +150,19 @@ const leftover = computed(() => leftoverStockRows(game.save))
 }
 
 .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
   gap: 12px;
+}
+
+.grid > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.grid.solo {
+  justify-content: center;
 }
 
 .leftover,
@@ -106,5 +188,18 @@ const leftover = computed(() => leftoverStockRows(game.save))
   border: 2px solid var(--seam);
   border-radius: 8px;
   background: var(--slot);
+}
+
+@media (max-width: 420px) {
+  .rail {
+    flex-basis: 60px;
+    width: 60px;
+  }
+
+  .rail button {
+    min-height: 56px;
+    font-size: 12px;
+    padding: 4px 2px;
+  }
 }
 </style>
