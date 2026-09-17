@@ -70,6 +70,10 @@ function foodQtyMax(id: FoodItemId) {
   return Math.max(1, bankQty(game.save, id))
 }
 
+function canEat(w: Worker) {
+  return !!w.foodSlot && w.foodSlot.qty >= 1
+}
+
 function onLoadFood(w: Worker) {
   const itemId = pickFood[w.id] ?? availableFoods()[0]
   if (!itemId) return
@@ -132,6 +136,7 @@ function badgeStyle(w: Worker) {
         <p class="hint">{{ combatLine(w) }}<template v-if="fighting(w)"> · 战斗中</template></p>
         <p class="hint">{{ foodLine(w) }}</p>
         <div class="row tool-row">
+          <button type="button" :disabled="!canEat(w)" @click="game.eatFood(w.id)">吃 1</button>
           <template v-if="w.foodSlot">
             <button type="button" @click="game.unloadFood(w.id)">卸下食物</button>
           </template>

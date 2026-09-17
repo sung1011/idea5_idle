@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
-import { loadFood, unloadFood } from './food'
+import { eatFood, loadFood, unloadFood } from './food'
 import { currentSpeed } from './query'
 import { recruitWorker } from './recruit'
 import { selectStationCategory } from './stationProgress'
@@ -162,5 +162,64 @@ describe('food slot buff', () => {
     const next = ticks(save, 16, { now: t0 })
     expect(bankQty(next, 'ore')).toBe(2)
     expect(next.stations.mining.completed).toBe(1)
+  })
+})
+
+describe('eatFood', () => {
+  it('manually eats one leftover and restarts the same buff from now', () => {
+    const t0 = 6_000_000
+    const save = roster(1)
+    save.bank.meal = 3
+    const id = save.workers[0].id
+    const hp = save.workers[0].hp
+    expect(loadFood(save, id, 'meal', 3, t0).ok).toBe(true)
+    expect(save.workers[0].foodSlot?.qty).toBe(2)
+    expect(save.workers[0].foodSlot?.expiresAt).toBe(t0 + FOOD_BUFF_DEF.meal.durationS * 1000)
+
+    const later = t0 + 60_000
+    expect(eatFood(save, id, later)).toEqual({ ok: true, message: '吃了1份熟食' })
+    expect(save.workers[0].foodSlot?.itemId).toBe('meal')
+    expect(save.workers[0].foodSlot?.qty).toBe(1)
+    expect(save.workers[0].foodSlot?.expiresAt).toBe(later + FOOD_BUFF_DEF.meal.durationS * 1000)
+    expect(save.workers[0].foodSlot?.buff.effectId).toBe(EFFECT_ID.prodSpeed)
+    expect(save.workers[0].foodSlot?.buff.mul).toBe(FOOD_BUFF_DEF.meal.mul)
+    expect(save.workers[0].hp).toBe(hp)
+    expect(bankQty(save, 'meal')).toBe(0)
+  })
+
+  it('fails when leftover is gone and does not change the slot', () => {
+    const t0 = 7_000_000
+    const save = roster(1)
+    save.bank.meal = 1
+    const id = save.workers[0].id
+    expect(loadFood(save, id, 'meal', 1, t0).ok).toBe(true)
+    expect(save.workers[0].foodSlot?.qty).toBe(0)
+    const expiresAt = save.workers[0].foodSlot?.expiresAt
+    expect(eatFood(save, id, t0 + 1_000)).toEqual({ ok: false, reason: '没有余粮' })
+    expect(save.workers[0].foodSlot?.qty).toBe(0)
+    expect(save.workers[0].foodSlot?.expiresAt).toBe(expiresAt)
+  })
+
+  it('fails without a slot', () => {
+    const save = roster(1)
+    expect(eatFood(save, save.workers[0].id)).toEqual({ ok: false, reason: '没有装食物' })
+    expect(save.workers[0].foodSlot).toBeNull()
+  })
+
+  it('still auto-eats leftover after a manual eat', () => {
+    const t0 = 8_000_000
+    const save = roster(1)
+    save.bank.meal = 3
+    const id = save.workers[0].id
+    expect(loadFood(save, id, 'meal', 3, t0).ok).toBe(true)
+    expect(eatFood(save, id, t0 + 10_000).ok).toBe(true)
+    expect(save.workers[0].foodSlot?.qty).toBe(1)
+    expect(save.workers[0].foodSlot?.expiresAt).toBe(t0 + 10_000 + FOOD_BUFF_DEF.meal.durationS * 1000)
+
+    applyTick(save, { now: t0 + 10_000 + FOOD_BUFF_DEF.meal.durationS * 1000 })
+    expect(save.workers[0].foodSlot?.itemId).toBe('meal')
+    expect(save.workers[0].foodSlot?.qty).toBe(0)
+    expect(save.workers[0].foodSlot?.expiresAt).toBe(t0 + 10_000 + FOOD_BUFF_DEF.meal.durationS * 2000)
+    expect(save.workers[0].foodSlot?.buff.mul).toBe(FOOD_BUFF_DEF.meal.mul)
   })
 })

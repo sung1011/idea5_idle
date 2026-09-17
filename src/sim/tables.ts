@@ -605,7 +605,7 @@ export function isToolItemId(id: unknown): id is ToolItemId {
 
 export type FoodItemId = 'meal' | 'roast' | 'stew'
 
-/** 食物 → 生产 Buff。装槽后续期 / 换食覆盖。 */
+/** 食物 → 生产 Buff。装槽后续期 / 换食覆盖 / 可手动吃 1。 */
 export const FOOD_BUFF_DEF: Record<FoodItemId, ProductionBuff> = {
   meal: { effectId: EFFECT_ID.prodSpeed, mul: 1.15, durationS: 180 },
   roast: { effectId: EFFECT_ID.extraOutput, mul: 1, durationS: 180 },

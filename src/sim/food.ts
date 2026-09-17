@@ -126,6 +126,18 @@ export function unloadFood(save: Save, workerId: string): ActionResult {
   return { ok: true, message: '已卸下食物' }
 }
 
+/** 槽内再吃 1 份：扣 qty，按当前食物从 now 重计 expiresAt，刷新同一 Buff。不回血。 */
+export function eatFood(save: Save, workerId: string, now = Date.now()): ActionResult {
+  const worker = findWorker(save, workerId)
+  if (!worker) return { ok: false, reason: '没有这个工人' }
+  const slot = worker.foodSlot
+  if (!slot) return { ok: false, reason: '没有装食物' }
+  if (slot.qty < 1) return { ok: false, reason: '没有余粮' }
+  slot.qty -= 1
+  applyFreshBuff(slot, now)
+  return { ok: true, message: `吃了1份${ITEM_DEF[slot.itemId].label}` }
+}
+
 /** 测试 / hydrate：按表重写当前 Buff 截止。 */
 export function restartFoodBuff(slot: FoodSlot, now: number): void {
   applyFreshBuff(slot, now)

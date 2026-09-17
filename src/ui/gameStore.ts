@@ -13,7 +13,7 @@ import {
 } from '../sim/gm'
 import { hasUnread, listedMessages, markAllRead } from '../sim/messages'
 import { settleOffline } from '../sim/offline'
-import { loadFood, unloadFood } from '../sim/food'
+import { eatFood, loadFood, unloadFood } from '../sim/food'
 import { fuseStationWorkers } from '../sim/fuse'
 import { recruitWorker } from '../sim/recruit'
 import { equipStationTool, selectForgingToolType, unequipStationTool } from '../sim/tools'
@@ -142,6 +142,7 @@ export const useGameStore = defineStore('game', () => {
     loadFood: (workerId: string, itemId: ItemId, qty: number) =>
       apply((s) => loadFood(s, workerId, itemId, qty)),
     unloadFood: (workerId: string) => apply((s) => unloadFood(s, workerId)),
+    eatFood: (workerId: string) => apply((s) => eatFood(s, workerId)),
     selectToolType: (toolTypeId: ToolTypeId) => apply((s) => selectForgingToolType(s, toolTypeId)),
     selectCategory: (stationId: StationId, categoryId: CategoryId) =>
       apply((s) => selectStationCategory(s, stationId, categoryId)),
