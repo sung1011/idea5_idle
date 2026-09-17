@@ -10,7 +10,6 @@ import {
   isCombatLost,
   isCombatWon,
   isFighting,
-  recentCombatLogs,
   restCombatCandidates,
   workerLiveStats,
 } from '../sim/combat'
@@ -33,6 +32,7 @@ import {
 import { mainChapterTitle, mainLootClaimBarLabel, mainLootClaimFillPct } from '../sim/mainChapter'
 import { CLASS_LABEL } from '../sim/tables'
 import type { Encounter, EncounterKind, EnemyEncounter, PawnEncounter, Worker } from '../sim/types'
+import EncounterTips from './encounterTips.vue'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
 
@@ -176,6 +176,7 @@ function pawnGold(enc: PawnEncounter) {
 
     <div class="board">
       <article v-for="(enc, i) in game.save.encounters" :key="enc.id" class="card" :class="cardClass(enc)">
+        <EncounterTips :encounter-id="enc.id" />
         <i v-if="isEncounterDone(enc, now)" class="stamp" aria-hidden="true">{{ stampLabel(enc) }}</i>
         <b class="qmark">{{ QUALITY_LABEL[enc.quality] }}</b>
 
@@ -219,9 +220,6 @@ function pawnGold(enc: PawnEncounter) {
                 <i class="bar ally" aria-hidden="true"><b :style="{ width: hpPct(w.hp, w.hpMax) + '%' }" /></i>
               </template>
             </div>
-            <ul v-if="recentCombatLogs(enc).length" class="logs">
-              <li v-for="(log, li) in recentCombatLogs(enc)" :key="`${enc.id}-${li}`">{{ log.text }}</li>
-            </ul>
           </template>
           <div class="row">
             <button
@@ -484,7 +482,7 @@ function pawnGold(enc: PawnEncounter) {
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .card header {
@@ -716,11 +714,6 @@ ul {
 
 .bar.ally b {
   background: var(--bar-fill-moss);
-}
-
-.logs {
-  font-size: 13px;
-  color: var(--muted);
 }
 
 .modal {

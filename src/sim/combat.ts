@@ -209,6 +209,9 @@ export function selectableCombatWorkers(save: Save): Worker[] {
   return restCombatCandidates(save).filter((w) => w.hp > 0)
 }
 
+export type CombatTipKind = 'ok' | 'err'
+export type CombatLogSink = (encounterId: string, text: string, kind: CombatTipKind) => void
+
 export function combatPartyBlockReason(save: Save, workerIds: readonly string[]): string | null {
   if (!workerIds.length) return '请选择出战工人'
   if (workerIds.length > COMBAT_PARTY_MAX) return `最多选 ${COMBAT_PARTY_MAX} 人`
@@ -231,6 +234,18 @@ function pushLog(combat: EnemyCombat, at: number, text: string): void {
   if (combat.logs.length > COMBAT_LOG_CAP) {
     combat.logs.splice(0, combat.logs.length - COMBAT_LOG_CAP)
   }
+}
+
+function emitLog(
+  enc: EnemyEncounter,
+  combat: EnemyCombat,
+  at: number,
+  text: string,
+  kind: CombatTipKind,
+  onLog?: CombatLogSink,
+): void {
+  pushLog(combat, at, text)
+  onLog?.(enc.id, text, kind)
 }
 
 export function recentCombatLogs(enc: EnemyEncounter, n = 4): CombatLogEntry[] {
@@ -264,6 +279,7 @@ export function beginEnemyCombat(
   workers: Worker[],
   now: number,
   chapter = 1,
+  onLog?: CombatLogSink,
 ): EnemyCombat {
   ensureEnemyIntel(enc)
   const eStats = enemyCombatStats(enc.quality, enc.enemyRank, chapter)
@@ -279,7 +295,7 @@ export function beginEnemyCombat(
     logs: [],
     outcome: null,
   }
-  pushLog(combat, now, `${workers.map((w) => w.name ?? w.id).join('、')} 出战`)
+  emitLog(enc, combat, now, `${workers.map((w) => w.name ?? w.id).join('、')} 出战`, 'ok', onLog)
   enc.combat = combat
   enc.departed = true
   enc.lootClaimed = false
@@ -318,9 +334,17 @@ function writeBackWorkers(save: Save, combat: EnemyCombat): void {
   }
 }
 
-function finishCombat(save: Save, combat: EnemyCombat, at: number, outcome: CombatOutcome, text: string): void {
+function finishCombat(
+  save: Save,
+  enc: EnemyEncounter,
+  combat: EnemyCombat,
+  at: number,
+  outcome: CombatOutcome,
+  text: string,
+  onLog?: CombatLogSink,
+): void {
   combat.outcome = outcome
-  pushLog(combat, at, text)
+  emitLog(enc, combat, at, text, outcome === 'win' ? 'ok' : 'err', onLog)
   writeBackWorkers(save, combat)
 }
 
@@ -330,24 +354,32 @@ function strike(
   at: number,
   attacker: CombatFighter,
   target: CombatFighter,
+  onLog?: CombatLogSink,
 ): void {
   if (attacker.hp <= 0 || target.hp <= 0) return
   if (attacker.id !== 'enemy') {
     const result = resolveWorkerAttack(enc, attacker.combatAttrs ?? [], attacker.atk)
     target.hp = Math.max(0, target.hp - result.damage)
     if (result.newlyRevealed.length) {
-      pushLog(combat, at, `揭示弱点：${formatWeaknessLabels(result.newlyRevealed)}`)
+      emitLog(enc, combat, at, `揭示弱点：${formatWeaknessLabels(result.newlyRevealed)}`, 'ok', onLog)
     }
     const mulText = result.mul > 1 ? ` ×${result.mul}` : ''
     const hitText = result.hits.length
       ? `弱点${result.hits.map((id) => COMBAT_ATTR_LABEL[id]).join('')}${mulText}`
       : ''
     const tail = hitText ? `（${hitText}）（${target.hp}/${target.hpMax}）` : `（${target.hp}/${target.hpMax}）`
-    pushLog(combat, at, `${attacker.label} 对 ${target.label} 造成 ${result.damage}${tail}`)
+    emitLog(enc, combat, at, `${attacker.label} 对 ${target.label} 造成 ${result.damage}${tail}`, 'ok', onLog)
     return
   }
   target.hp = Math.max(0, target.hp - attacker.atk)
-  pushLog(combat, at, `${attacker.label} 对 ${target.label} 造成 ${attacker.atk}（${target.hp}/${target.hpMax}）`)
+  emitLog(
+    enc,
+    combat,
+    at,
+    `${attacker.label} 对 ${target.label} 造成 ${attacker.atk}（${target.hp}/${target.hpMax}）`,
+    'err',
+    onLog,
+  )
 }
 
 function actorSort(a: CombatFighter, b: CombatFighter): number {
@@ -363,29 +395,29 @@ function nextActionAt(combat: EnemyCombat): number | null {
   return Math.min(...actors.map((f) => f.nextActAt))
 }
 
-export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number): void {
+export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number, onLog?: CombatLogSink): void {
   const combat = enc.combat
   if (!combat || combat.outcome || enc.lootClaimed) return
 
   let lastAt = combat.startedAt
   while (combat.outcome === null) {
     if (combat.enemy.hp <= 0) {
-      finishCombat(save, combat, lastAt, 'win', '战斗胜利')
+      finishCombat(save, enc, combat, lastAt, 'win', '战斗胜利', onLog)
       return
     }
     const living = livingWorkers(combat)
     if (!living.length) {
-      finishCombat(save, combat, lastAt, 'lose', '全员倒下，战败')
+      finishCombat(save, enc, combat, lastAt, 'lose', '全员倒下，战败', onLog)
       return
     }
 
     const nextAt = nextActionAt(combat)
     if (nextAt == null) {
-      finishCombat(save, combat, lastAt, 'lose', '全员倒下，战败')
+      finishCombat(save, enc, combat, lastAt, 'lose', '全员倒下，战败', onLog)
       return
     }
     if (nextAt > combat.timeoutAt || (now >= combat.timeoutAt && nextAt > now)) {
-      finishCombat(save, combat, Math.min(now, combat.timeoutAt), 'lose', '超时判败')
+      finishCombat(save, enc, combat, Math.min(now, combat.timeoutAt), 'lose', '超时判败', onLog)
       return
     }
     if (nextAt > now) return
@@ -401,21 +433,21 @@ export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number): v
       if (actor.id === 'enemy') {
         const target = pickEnemyTarget(combat)
         if (!target) {
-          finishCombat(save, combat, nextAt, 'lose', '全员倒下，战败')
+          finishCombat(save, enc, combat, nextAt, 'lose', '全员倒下，战败', onLog)
           break
         }
-        strike(enc, combat, nextAt, actor, target)
+        strike(enc, combat, nextAt, actor, target, onLog)
       } else {
-        strike(enc, combat, nextAt, actor, combat.enemy)
+        strike(enc, combat, nextAt, actor, combat.enemy, onLog)
       }
       actor.nextActAt = nextAt + actor.spd * 1000
     }
   }
 }
 
-export function stepCombats(save: Save, now: number): void {
+export function stepCombats(save: Save, now: number, onLog?: CombatLogSink): void {
   for (const enc of save.encounters) {
-    if (enc.kind === 'enemy') stepEnemyCombat(save, enc, now)
+    if (enc.kind === 'enemy') stepEnemyCombat(save, enc, now, onLog)
   }
 }
 

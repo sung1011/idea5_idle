@@ -9,6 +9,7 @@ import {
   legacyMarchAsWin,
   selectableCombatWorkers,
   writeBackCombatWorkers,
+  type CombatLogSink,
 } from './combat'
 import { ensureEnemyIntel, isEnemyRank, pickEnemyWeaknesses } from './combatAttrs'
 import {
@@ -975,7 +976,13 @@ export function canDepartEncounter(save: Save, index: number, workerIds: readonl
 }
 
 /** 扣光补给、选人开战。不发金币。出战工人保持休息（assignment 仍为 null）。 */
-export function startCombat(save: Save, index: number, workerIds: readonly string[], now = Date.now()): ActionResult {
+export function startCombat(
+  save: Save,
+  index: number,
+  workerIds: readonly string[],
+  now = Date.now(),
+  onLog?: CombatLogSink,
+): ActionResult {
   const blocked = startCombatBlockReason(save, index, workerIds)
   if (blocked) return { ok: false, reason: blocked }
   const enc = enemyAt(save, index)
@@ -989,9 +996,8 @@ export function startCombat(save: Save, index: number, workerIds: readonly strin
   save.departCount += 1
   save.lastDepartAt = now
   delete enc.submitted
-  beginEnemyCombat(enc, party, now, normalizeMainChapter(save.mainChapter))
-  const names = party.map((w) => w.name ?? w.id).join('、')
-  return { ok: true, message: `${names} 出战` }
+  beginEnemyCombat(enc, party, now, normalizeMainChapter(save.mainChapter), onLog)
+  return { ok: true }
 }
 
 /** @deprecated 改走 startCombat。无工人时只报「请选择出战工人」。 */

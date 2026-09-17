@@ -32,6 +32,7 @@ import {
 import { researchNextTech, researchTech } from '../sim/tech'
 import { tick } from '../sim/tick'
 import type { ActionResult, CategoryId, ItemId, Save, StationId, ToolTypeId } from '../sim/types'
+import { pushCombatLogTip } from './encounterTips'
 import { pushFloatTip } from './floatTips'
 import { clearSave, loadSave, persistSave } from './saveGame'
 import { pushCycleGain } from './stationTips'
@@ -52,6 +53,9 @@ export const useGameStore = defineStore('game', () => {
     save.value = tick(save.value, {
       onGain: (gain) => {
         pushCycleGain(gain)
+      },
+      onCombatLog: (encounterId, text, kind) => {
+        pushCombatLogTip(encounterId, text, kind)
       },
     })
     persist()
@@ -152,7 +156,8 @@ export const useGameStore = defineStore('game', () => {
     selectCategory: (stationId: StationId, categoryId: CategoryId) =>
       apply((s) => selectStationCategory(s, stationId, categoryId)),
     explore: () => apply(exploreBoard),
-    startCombat: (index: number, workerIds: string[]) => apply((s) => startCombat(s, index, workerIds)),
+    startCombat: (index: number, workerIds: string[]) =>
+      apply((s) => startCombat(s, index, workerIds, Date.now(), pushCombatLogTip)),
     claimLoot: (index: number) => apply((s) => claimLoot(s, index)),
     barter: (index: number) => apply((s) => barterMerchant(s, index)),
     buyMerchant: (index: number) => apply((s) => buyMerchant(s, index)),

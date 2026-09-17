@@ -30,7 +30,7 @@ import { claimLoot, startCombat } from './encounters'
 import { hydrateWorker, spawnWorker, spawnWorkerWith } from './recruit'
 import { settleOffline } from './offline'
 import { assignWorker } from './assign'
-import { ticks } from './tick'
+import { tick, ticks } from './tick'
 import type { CombatAttrId, EnemyCombat, EnemyEncounter, Save } from './types'
 
 function testEnemy(overrides: Partial<EnemyEncounter> = {}): EnemyEncounter {
@@ -258,6 +258,42 @@ describe('combat timeline', () => {
     expect(offline.save.gold).toBe(save.gold)
     expect(claimLoot(offline.save, 0, later).ok).toBe(true)
     expect(offline.save.gold).toBe(save.gold + enc.lootGold)
+  })
+
+  it('emits live combat logs to onLog and still stores the same text', () => {
+    const save = createSave()
+    const a = spawnWorkerWith(save, 1, 'laborer')
+    a.name = '甲'
+    const enc = testEnemy()
+    putEnemy(save, enc)
+    const now = 40_000
+    const events: { id: string; text: string; kind: string }[] = []
+    const onLog = (id: string, text: string, kind: 'ok' | 'err') => {
+      events.push({ id, text, kind })
+    }
+    beginEnemyCombat(enc, [a], now, 1, onLog)
+    expect(events.some((row) => row.id === enc.id && row.text.includes('出战') && row.kind === 'ok')).toBe(true)
+    stepEnemyCombat(save, enc, now + 5_000, onLog)
+    expect(events.some((row) => row.text.includes('造成') && row.kind === 'ok')).toBe(true)
+    expect(enc.combat?.logs.some((row) => row.text.includes('造成'))).toBe(true)
+    if (enc.combat) enc.combat.enemy.hp = 0
+    stepEnemyCombat(save, enc, now + 6_000, onLog)
+    expect(events.some((row) => row.text === '战斗胜利' && row.kind === 'ok')).toBe(true)
+    expect(enc.combat?.logs.some((row) => row.text === '战斗胜利')).toBe(true)
+
+    const live: string[] = []
+    const fighting = createSave()
+    const fighter = spawnWorkerWith(fighting, 1, 'laborer')
+    const liveEnc = testEnemy({ id: 'live-enemy' })
+    putEnemy(fighting, liveEnc)
+    beginEnemyCombat(liveEnc, [fighter], now)
+    tick(fighting, {
+      now: now + 5_000,
+      onCombatLog: (_id, text) => {
+        live.push(text)
+      },
+    })
+    expect(live.some((text) => text.includes('造成'))).toBe(true)
   })
 })
 
