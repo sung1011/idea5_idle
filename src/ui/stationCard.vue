@@ -135,6 +135,7 @@ function onMerge() {
         <span v-for="w in crew" :key="w.id" class="crew-slot">
           <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
           <b class="crew-name" :style="workerQualityNameStyle(w)">{{ w.name ?? w.id }}</b>
+          <span class="crew-lv">Lv{{ w.level }}</span>
         </span>
         <button v-if="canMerge" type="button" class="crew-merge" @click="onMerge">{{ mergeLabel }}</button>
       </li>
@@ -317,6 +318,14 @@ h2 {
   white-space: nowrap;
   font-size: 13px;
   font-weight: 700;
+}
+
+.crew-lv {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .crew-merge {

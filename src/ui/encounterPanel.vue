@@ -361,7 +361,7 @@ function weaknessSlots(enc: EnemyEncounter) {
               <span class="pick-name">
                 <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
                 <b class="pick-worker-name" :style="workerQualityNameStyle(w)">{{ w.name ?? w.id }}</b>
-                <span class="pick-meta">· {{ workerJob(w) }} · HP {{ w.hp }}/{{ w.hpMax }}</span>
+                <span class="pick-meta">· Lv{{ w.level }} · {{ workerJob(w) }} · HP {{ w.hp }}/{{ w.hpMax }}</span>
               </span>
               <CombatAttrRow :attrs="w.combatAttrs" />
             </button>

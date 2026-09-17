@@ -29,6 +29,8 @@ describe('gm debug grants', () => {
       foodSlot: null,
       hp: 24,
       hpMax: 24,
+      level: 1,
+      xp: 0,
       combatAttrs: [],
     })
     dirty.stations.mining.stationLevel = 7

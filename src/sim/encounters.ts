@@ -3,6 +3,7 @@ import {
   beginEnemyCombat,
   combatPartyBlockReason,
   combatStatus,
+  grantWorkerCombatXp,
   isCombatWon,
   isEnemyCombat,
   isFighting,
@@ -11,6 +12,7 @@ import {
   writeBackCombatWorkers,
   type CombatLogSink,
 } from './combat'
+import { workerLootXp } from './workerLevel'
 import { ensureEnemyIntel, isEnemyRank, pickEnemyWeaknesses } from './combatAttrs'
 import {
   MAIN_CHAPTER_START,
@@ -1128,6 +1130,27 @@ export function advanceMainChapter(save: Save, now = Date.now()): void {
   resizeEncounterBoard(save, now)
 }
 
+function grantCombatLootXp(save: Save, enc: EnemyEncounter): boolean {
+  const combat = enc.combat
+  if (!combat) return false
+  const chapter = normalizeMainChapter(save.mainChapter)
+  const amount = workerLootXp(enc.enemyRank, chapter)
+  let granted = false
+  for (const id of combat.workerIds) {
+    const worker = save.workers.find((w) => w.id === id)
+    if (!worker) continue
+    grantWorkerCombatXp(worker, amount)
+    granted = true
+  }
+  return granted
+}
+
+function lootClaimMessage(lootGold: number, grantedXp: boolean, chapterNote?: string): string {
+  const xpNote = grantedXp ? '。工人获得经验' : ''
+  const tail = chapterNote ? `。${chapterNote}` : ''
+  return `战利品：金币 +${lootGold}${xpNote}${tail}`
+}
+
 /** 战胜后领金币。败不发金。不加物资。成功领取计入本章战利品；Boss 领取后进下一章。 */
 export function claimLoot(save: Save, index: number, now = Date.now()): ActionResult {
   const blocked = claimLootBlockReason(save, index, now)
@@ -1135,14 +1158,15 @@ export function claimLoot(save: Save, index: number, now = Date.now()): ActionRe
   const enc = enemyAt(save, index)
   if (!enc || enc.kind !== 'enemy') return { ok: false, reason: '不是敌人偶遇' }
   const lootGold = enc.lootGold
+  const grantedXp = grantCombatLootXp(save, enc)
   enc.lootClaimed = true
   save.gold += lootGold
   save.mainLootClaims = normalizeMainLootClaims(save.mainLootClaims) + 1
   if (isChapterBoss(enc)) {
     advanceMainChapter(save, now)
-    return { ok: true, message: `战利品：金币 +${lootGold}。进入第 ${save.mainChapter} 章` }
+    return { ok: true, message: lootClaimMessage(lootGold, grantedXp, `进入第 ${save.mainChapter} 章`) }
   }
-  return { ok: true, message: `战利品：金币 +${lootGold}` }
+  return { ok: true, message: lootClaimMessage(lootGold, grantedXp) }
 }
 
 export function barterBlockReason(save: Save, index: number): string | null {

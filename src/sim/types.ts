@@ -195,6 +195,13 @@ export type Worker = {
   hp: number
   hpMax: number
   /**
+   * 战斗等级。从 1 起。只改 HP / ATK / SPD，不改生产 / 品质。
+   * 旧档缺字段 hydrate 为 1。抽人 / spawn 默认 1。
+   */
+  level: number
+  /** 当前级内经验。仅战胜领战利品发放。旧档缺字段 hydrate 为 0。 */
+  xp: number
+  /**
    * 战斗属性。槽数看品质：白 0、绿蓝青 1、紫及以上 2。
    * 同工人不重复。旧档缺字段 hydrate 按品质掷点；白档空数组。
    */

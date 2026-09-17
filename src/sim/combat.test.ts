@@ -74,6 +74,11 @@ describe('combat stats tables', () => {
     expect(knight.atk).toBe(WORKER_COMBAT_BY_TIER[10].atk + CLASS_COMBAT_MOD.knight.atk)
     expect(knight.spd).toBe(WORKER_COMBAT_BY_TIER[10].spd + CLASS_COMBAT_MOD.knight.spd)
     expect(knight.spd).toBeGreaterThanOrEqual(1)
+    const leveled = workerCombatStats(1, 'laborer', 10)
+    const base = workerCombatStats(1, 'laborer', 1)
+    expect(leveled.hp).toBeGreaterThan(base.hp)
+    expect(leveled.atk).toBeGreaterThan(base.atk)
+    expect(leveled.spd).toBeLessThan(base.spd)
   })
 
   it('looks up enemy stats by quality and rank from a single combat base', () => {

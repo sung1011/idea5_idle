@@ -1,5 +1,6 @@
 import { fillWorkerHp } from './combat'
 import { hydrateWorkerCombatAttrs, spawnFillCombatAttrs, uniqueCombatAttrs } from './combatAttrs'
+import { normalizeWorkerProgress, WORKER_LEVEL_MIN } from './workerLevel'
 import {
   CLASS_PLACEHOLDERS,
   FOOD_BUFF_DEF,
@@ -110,6 +111,7 @@ function hydrateFoodSlot(rawSlot: unknown, rawWorker: Record<string, unknown>): 
 export function hydrateWorker(raw: unknown, index = 0): Worker {
   const src = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
   const id = typeof src.id === 'string' && src.id ? src.id : `w-${index + 1}`
+  const progress = normalizeWorkerProgress(src.level, src.xp)
   return hydrateWorkerCombatAttrs(
     fillWorkerHp({
       id,
@@ -120,6 +122,8 @@ export function hydrateWorker(raw: unknown, index = 0): Worker {
       foodSlot: hydrateFoodSlot(src.foodSlot, src),
       hp: 0,
       hpMax: 1,
+      level: progress.level,
+      xp: progress.xp,
       combatAttrs: uniqueCombatAttrs(src.combatAttrs),
     }, src.hp),
     src.combatAttrs,
@@ -168,6 +172,8 @@ export function spawnWorkerWith(
       foodSlot: null,
       hp: 0,
       hpMax: 1,
+      level: WORKER_LEVEL_MIN,
+      xp: 0,
       combatAttrs: uniqueCombatAttrs(combatAttrs),
     }),
   )

@@ -65,6 +65,8 @@ describe('spawn / hydrate quality', () => {
     expect(worker.classId).toBe('laborer')
     expect(worker.name).toBe(WORKER_NAME_POOL[0])
     expect(worker.combatAttrs).toEqual([])
+    expect(worker.level).toBe(1)
+    expect(worker.xp).toBe(0)
   })
 
   it('hydrates missing or dirty quality to the lowest tier', () => {
@@ -78,6 +80,8 @@ describe('spawn / hydrate quality', () => {
     expect(full.hp).toBe(full.hpMax)
     expect(full.hp).toBeGreaterThan(0)
     expect(hydrateWorker({ id: 'w-hurt', classId: 'laborer', hp: 6 }).hp).toBe(6)
+    expect(hydrateWorker({ id: 'w-old', assignment: null }).level).toBe(1)
+    expect(hydrateWorker({ id: 'w-old', assignment: null }).xp).toBe(0)
   })
 
   it('maps the old gray table once, then leaves the new table alone', () => {

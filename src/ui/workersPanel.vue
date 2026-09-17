@@ -4,6 +4,7 @@ import { bankQty } from '../sim/bank'
 import { formatMarchClock } from '../sim/encounters'
 import { foodBuffRemainS, isFoodBuffActive } from '../sim/food'
 import { isWorkerInCombat, workerLiveStats } from '../sim/combat'
+import { workerXpProgress } from '../sim/workerLevel'
 import CombatAttrRow from './combatAttrRow.vue'
 import { idleCount } from '../sim/query'
 import {
@@ -48,7 +49,8 @@ function fighting(w: Worker) {
 
 function combatTail(w: Worker) {
   const stats = workerLiveStats(w)
-  return `ATK ${stats.atk} · SPD ${stats.spd}`
+  const xp = workerXpProgress(w)
+  return `Lv${w.level} · ATK ${stats.atk} · SPD ${stats.spd} · XP ${xp.xp}/${xp.need}`
 }
 
 function hpPct(w: Worker) {
@@ -117,7 +119,7 @@ function onLoadFood(w: Worker) {
       >
         <p class="name">
           <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
-          {{ w.name ?? w.id }} · {{ w.classId ? CLASS_LABEL[w.classId] : '未标' }}
+          {{ w.name ?? w.id }} · {{ w.classId ? CLASS_LABEL[w.classId] : '未标' }} · Lv{{ w.level }}
         </p>
         <div class="combat">
           <div

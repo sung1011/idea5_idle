@@ -1,6 +1,8 @@
 import { assignedWorkers } from './assign'
+import { fillWorkerHp } from './combat'
 import { unloadFood } from './food'
 import { findWorker, spawnWorkerWith } from './recruit'
+import { workerFromTotalXp, workerTotalXp } from './workerLevel'
 import { roll01 } from './rng'
 import {
   CLASS_LABEL,
@@ -39,8 +41,13 @@ export function fuseWorkers(save: Save, workerIdA: string, workerIdB: string): A
 
   const stayAt = fuseStayAssigned(save) ? a.assignment : null
   const keptAttrs = a.combatAttrs
+  const avgTotal = Math.floor((workerTotalXp(a.level, a.xp) + workerTotalXp(b.level, b.xp)) / 2)
+  const progress = workerFromTotalXp(avgTotal)
   save.workers = save.workers.filter((w) => w.id !== a.id && w.id !== b.id)
   const worker = spawnWorkerWith(save, nextTier, classId, keptAttrs)
+  worker.level = progress.level
+  worker.xp = progress.xp
+  fillWorkerHp(worker)
   if (stayAt) worker.assignment = stayAt
   const quality = workerQualityDef(nextTier)
   const job = worker.classId ? CLASS_LABEL[worker.classId] : '未标'

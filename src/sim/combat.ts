@@ -6,6 +6,13 @@ import {
   resolveWorkerAttack,
 } from './combatAttrs'
 import { chapterCombatMul } from './mainChapter'
+import {
+  addWorkerXp,
+  workerLevelAtkMul,
+  workerLevelHpMul,
+  workerLevelSpdMul,
+  WORKER_LEVEL_SPD_FLOOR,
+} from './workerLevel'
 import type {
   ClassId,
   CombatAttrId,
@@ -110,18 +117,36 @@ function scaleStat(qty: number, mul: number): number {
   return Math.max(1, Math.round(qty * mul))
 }
 
-export function workerCombatStats(qualityTier: QualityTier, classId?: ClassId | null): CombatStats {
+export function workerCombatStats(
+  qualityTier: QualityTier,
+  classId?: ClassId | null,
+  level = 1,
+): CombatStats {
   const base = WORKER_COMBAT_BY_TIER[qualityTier]
   const mod = classId ? CLASS_COMBAT_MOD[classId] : { hp: 0, atk: 0, spd: 0 }
-  return {
+  const raw: CombatStats = {
     hp: Math.max(1, base.hp + mod.hp),
     atk: Math.max(1, base.atk + mod.atk),
     spd: Math.max(1, base.spd + mod.spd),
   }
+  return applyWorkerLevelStats(raw, level)
+}
+
+/** 在品质底版 + 职业修正之上叠等级加成。 */
+export function applyWorkerLevelStats(base: CombatStats, level = 1): CombatStats {
+  const hpMul = workerLevelHpMul(level)
+  const atkMul = workerLevelAtkMul(level)
+  const spdMul = workerLevelSpdMul(level)
+  const spdFloor = base.spd * WORKER_LEVEL_SPD_FLOOR
+  return {
+    hp: Math.max(1, Math.round(base.hp * hpMul)),
+    atk: Math.max(1, Math.round(base.atk * atkMul)),
+    spd: Math.max(1, Math.max(spdFloor, base.spd * spdMul)),
+  }
 }
 
 export function workerLiveStats(worker: Worker): CombatStats {
-  return workerCombatStats(worker.qualityTier, worker.classId)
+  return workerCombatStats(worker.qualityTier, worker.classId, worker.level ?? 1)
 }
 
 export function enemyCombatStats(
@@ -470,6 +495,31 @@ export function applyRestHeal(save: Save): void {
 
 export function writeBackCombatWorkers(save: Save, combat: EnemyCombat): void {
   writeBackWorkers(save, combat)
+}
+
+/** 升级时重算 hpMax，当前 hp 按升级前比例留到新上限。 */
+export function applyWorkerLevelHpRatio(worker: Worker, oldHp: number, oldHpMax: number): void {
+  const stats = workerLiveStats(worker)
+  const ratio = oldHpMax > 0 ? Math.max(0, oldHp) / oldHpMax : 1
+  worker.hpMax = stats.hp
+  worker.hp = clampInt(Math.round(ratio * worker.hpMax), 0, worker.hpMax)
+}
+
+/**
+ * 给参战工人加 XP。连升后按升级前血量比例重算上限。
+ * 返回实际发放量与升了几级。
+ */
+export function grantWorkerCombatXp(
+  worker: Worker,
+  amount: number,
+): { xpGranted: number; levelsGained: number } {
+  const before = Math.max(1, Math.floor(worker.level || 1))
+  const oldHp = worker.hp
+  const oldHpMax = worker.hpMax
+  const xpGranted = addWorkerXp(worker, amount)
+  const levelsGained = Math.max(0, worker.level - before)
+  if (levelsGained > 0) applyWorkerLevelHpRatio(worker, oldHp, oldHpMax)
+  return { xpGranted, levelsGained }
 }
 
 export function legacyMarchAsWin(enc: EnemyEncounter, now = 0, chapter = 1): EnemyCombat {
