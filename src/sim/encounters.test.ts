@@ -49,6 +49,7 @@ import { assignWorker } from './assign'
 import { currentSpeed } from './query'
 import { recruitWorker, spawnWorker } from './recruit'
 import { bulkUnitGold, pawnUnitGold } from './tables'
+import { ENCOUNTER_SLOT_TECH_IDS, encounterSlotCount } from './tech'
 import { ticks } from './tick'
 import type {
   ArtisanEncounter,
@@ -180,6 +181,10 @@ function testBulk(overrides: Partial<BulkBuyEncounter> = {}): BulkBuyEncounter {
   }
 }
 
+function unlockMaxSlots(save: Save) {
+  save.unlockedTechIds = [...ENCOUNTER_SLOT_TECH_IDS]
+}
+
 function needSnapshot(save: Save, map: EncounterNeedMap): Record<ItemId, number> {
   const out = {} as Record<ItemId, number>
   for (const itemId of Object.keys(map) as ItemId[]) {
@@ -189,16 +194,17 @@ function needSnapshot(save: Save, map: EncounterNeedMap): Record<ItemId, number>
 }
 
 describe('encounter board', () => {
-  it('always has 6 slots and can roll all 6 kinds without gray', () => {
+  it('starts at 1 slot; full rolls still cover all 6 kinds without gray', () => {
     const save = createSave()
-    expect(save.encounters).toHaveLength(ENCOUNTER_SLOT_COUNT)
+    expect(save.encounters).toHaveLength(1)
+    expect(encounterSlotCount(save)).toBe(1)
     expect(save.workshopBuff).toBeNull()
 
     const seenKinds = new Set<string>()
     const seenQualities = new Set<string>()
     for (let seed = 0; seed < 80; seed++) {
       const board = generateEncounterBoard(seed)
-      expect(board).toHaveLength(6)
+      expect(board).toHaveLength(ENCOUNTER_SLOT_COUNT)
       for (const enc of board) {
         seenKinds.add(enc.kind)
         seenQualities.add(enc.quality)
@@ -236,7 +242,7 @@ describe('encounter board', () => {
 })
 
 describe('exploreBoard', () => {
-  it('deducts gold and replaces refreshable slots on the 6-slot board', () => {
+  it('deducts gold and replaces refreshable slots on the current board', () => {
     const save = createSave()
     const beforeGold = save.gold
     const beforeCost = exploreCost(save)
@@ -248,7 +254,7 @@ describe('exploreBoard', () => {
     if (result.ok) expect(result.message).toContain('探索完成')
     expect(save.gold).toBe(beforeGold - beforeCost)
     expect(save.exploreCount).toBe(1)
-    expect(save.encounters).toHaveLength(6)
+    expect(save.encounters).toHaveLength(1)
     expect(boardSignature(save.encounters)).not.toBe(beforeSig)
   })
 
@@ -268,6 +274,7 @@ describe('exploreBoard', () => {
 
   it('keeps fighting, won, or lost enemies and replaces idle or claimed ones', () => {
     const save = createSave()
+    unlockMaxSlots(save)
     const now = 2_000_000_000_000
     const fighting = testEnemy({
       id: 'keep-fight',
@@ -568,7 +575,7 @@ describe('merchant kinds', () => {
 })
 
 describe('hydrateEncounterFields', () => {
-  it('builds a 6-slot board and migrates a legacy order into the first enemy', () => {
+  it('builds a 1-slot board and migrates a legacy order into the first enemy', () => {
     const save = createSave() as Save & {
       currentOrderId?: string
       orderIndex?: number
@@ -580,7 +587,7 @@ describe('hydrateEncounterFields', () => {
     save.orderIndex = 2
     save.orderSubmitted = true
     hydrateEncounterFields(save)
-    expect(save.encounters).toHaveLength(6)
+    expect(save.encounters).toHaveLength(1)
     expect(save.encounters[0].kind).toBe('enemy')
     if (save.encounters[0].kind !== 'enemy') return
     expect(save.encounters[0].id).toBe('campKitchen')
@@ -598,6 +605,7 @@ describe('hydrateEncounterFields', () => {
 
   it('migrates a generic merchant into a passerby when it has barter fields', () => {
     const save = createSave()
+    unlockMaxSlots(save)
     const legacy = {
       kind: 'merchant',
       id: 'woodPeddler-0-1',
@@ -620,6 +628,7 @@ describe('hydrateEncounterFields', () => {
 
   it('migrates shady and pawnshop kinds plus missing workshop buff', () => {
     const save = createSave()
+    unlockMaxSlots(save)
     delete (save as { workshopBuff?: unknown }).workshopBuff
     save.encounters = [
       {
@@ -655,7 +664,7 @@ describe('hydrateEncounterFields', () => {
     }
   })
 
-  it('pads a leftover 5-slot board to 6 without losing the first marching enemy', () => {
+  it('keeps a leftover fighting enemy when shrinking an old 5-slot board to 1', () => {
     const save = createSave()
     const now = 2_200_000_000_000
     const marching = testEnemy({
@@ -671,7 +680,7 @@ describe('hydrateEncounterFields', () => {
       testArtisan({ id: 'a1' }),
     ] as unknown as Save['encounters']
     hydrateEncounterFields(save)
-    expect(save.encounters).toHaveLength(6)
+    expect(save.encounters).toHaveLength(1)
     expect(save.encounters[0].id).toBe('keep-five-pad')
   })
 })
@@ -755,6 +764,7 @@ describe('artisan and bulk buy', () => {
 
   it('refreshes completed trades and claimed loot but keeps fighting enemies', () => {
     const save = createSave()
+    unlockMaxSlots(save)
     const now = 2_100_000_000_000
     const fighting = testEnemy({
       id: 'keep-fight',

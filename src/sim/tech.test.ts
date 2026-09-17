@@ -9,8 +9,14 @@ import { setRollOverride } from './rng'
 import { completeCycle } from './stations'
 import {
   CYCLE_TECH_POINTS,
+  ENCOUNTER_SLOT_EFFECT,
+  ENCOUNTER_SLOT_MAX,
+  ENCOUNTER_SLOT_MIN,
+  ENCOUNTER_SLOT_TECH_IDS,
+  TECH_STAGES,
   TECH_TREE,
   applyTechEffects,
+  encounterSlotCount,
   fuseStayAssigned,
   grantTechPoint,
   hasTech,
@@ -25,6 +31,7 @@ import {
   researchTech,
   stationTechSpeedMul,
   techEffectValue,
+  techStage,
 } from './tech'
 import { OFFLINE_CAP_S, RECRUIT_COST } from './tables'
 import { ticks } from './tick'
@@ -34,32 +41,59 @@ afterEach(() => {
   setRollOverride(null)
 })
 
-describe('tech tree table', () => {
-  it('is a linear 8–10 tier list with Chinese labels and costs', () => {
-    expect(TECH_TREE.length).toBeGreaterThanOrEqual(8)
-    expect(TECH_TREE.length).toBeLessThanOrEqual(10)
-    expect(TECH_TREE[0].id).toBe('workshopLog')
-    expect(TECH_TREE[0].name).toBe('工坊日志')
-    expect(TECH_TREE.at(-1)?.id).toBe('knightCrest')
-    expect(TECH_TREE.at(-1)?.name).toBe('骑士工坊纹章')
-    const ids = TECH_TREE.map((node) => node.id)
-    expect(new Set(ids).size).toBe(ids.length)
-    expect(TECH_TREE.every((node) => node.cost > 0 && node.desc && node.effectId)).toBe(true)
+function lightStage(save: Save, stage: number) {
+  const def = techStage(stage)
+  expect(def).toBeTruthy()
+  if (!def) return
+  save.techPoints = 999
+  for (const minor of def.minors) {
+    expect(researchTech(save, minor.id).ok).toBe(true)
+  }
+  expect(researchTech(save, def.major.id)).toEqual({ ok: true, message: `已点亮「${def.major.name}」` })
+}
+
+describe('tech stage table', () => {
+  it('is a stage tree with many placeholder nodes and five slot majors', () => {
+    expect(TECH_STAGES.length).toBeGreaterThanOrEqual(16)
+    expect(TECH_TREE.length).toBe(TECH_STAGES.length * 4)
+    expect(TECH_STAGES.every((stage) => stage.minors.length === 3 && stage.major.kind === 'major')).toBe(true)
+    expect(new Set(TECH_TREE.map((node) => node.id)).size).toBe(TECH_TREE.length)
+    expect(TECH_TREE.every((node) => node.cost > 0 && node.desc && node.effectId && node.stage >= 1)).toBe(true)
+    expect(ENCOUNTER_SLOT_TECH_IDS).toEqual([
+      'pathOutpost',
+      'marketLicense',
+      'scoutRelay',
+      'farWatch',
+      'caravanPermit',
+    ])
+    expect(TECH_STAGES[0].major.name).toBe('探路哨岗')
+    expect(TECH_STAGES[1].major.name).toBe('市集执照')
+    expect(TECH_STAGES[2].major.name).toBe('斥候驿站')
+    expect(TECH_STAGES[3].major.name).toBe('远望烽台')
+    expect(TECH_STAGES[4].major.name).toBe('商队路引')
+    expect(TECH_TREE.filter((node) => node.effectId === ENCOUNTER_SLOT_EFFECT)).toHaveLength(5)
   })
 })
 
 describe('hydrate tech fields', () => {
-  it('fills missing or dirty points and drops skipped / unknown ids', () => {
+  it('keeps known old ids, drops junk, and does not require left-to-right minors', () => {
     expect(normalizeTechPoints(undefined)).toBe(0)
     expect(normalizeTechPoints(-4)).toBe(0)
     expect(normalizeTechPoints(3.8)).toBe(3)
     expect(hydrateUnlockedTechIds(undefined)).toEqual([])
-    expect(hydrateUnlockedTechIds(['workshopLog', 'notATech', 'artisanManual'])).toEqual(['workshopLog'])
-    expect(hydrateUnlockedTechIds(['apprenticeNotes'])).toEqual([])
+    expect(hydrateUnlockedTechIds(['workshopLog', 'notATech', 'artisanManual'])).toEqual([
+      'workshopLog',
+      'artisanManual',
+    ])
+    expect(hydrateUnlockedTechIds(['apprenticeNotes'])).toEqual(['apprenticeNotes'])
     expect(hydrateUnlockedTechIds(['workshopLog', 'apprenticeNotes'])).toEqual([
       'workshopLog',
       'apprenticeNotes',
     ])
+    expect(hydrateUnlockedTechIds(['pathOutpost'])).toEqual([])
+    expect(
+      hydrateUnlockedTechIds(['workshopLog', 'apprenticeNotes', 'artisanManual', 'pathOutpost']),
+    ).toEqual(['workshopLog', 'apprenticeNotes', 'artisanManual', 'pathOutpost'])
 
     const save = createSave()
     delete (save as { techPoints?: number }).techPoints
@@ -69,7 +103,7 @@ describe('hydrate tech fields', () => {
     expect(save.unlockedTechIds).toEqual([])
   })
 
-  it('reads inspiration as a techPoints alias', () => {
+  it('reads inspiration as a techPoints alias and keeps points when clearing old linear progress', () => {
     const save = createSave()
     delete (save as { techPoints?: number }).techPoints
     const aliased = save as Save & { inspiration: number }
@@ -118,18 +152,17 @@ describe('inspiration grant', () => {
 })
 
 describe('research unlock', () => {
-  it('spends inspiration and unlocks the next tier in order', () => {
+  it('lets stage minors light in any order and spends inspiration', () => {
     const save = createSave()
     expect(nextTech(save)?.id).toBe('workshopLog')
-    save.techPoints = 3
-    expect(researchNextTech(save)).toEqual({ ok: true, message: '已点亮「工坊日志」' })
+    save.techPoints = 6
+    expect(researchTech(save, 'artisanManual')).toEqual({ ok: true, message: '已点亮「匠人手册」' })
+    expect(researchTech(save, 'workshopLog')).toEqual({ ok: true, message: '已点亮「工坊日志」' })
     expect(save.techPoints).toBe(2)
-    expect(save.unlockedTechIds).toEqual(['workshopLog'])
     expect(hasTech(save, 'workshopLog')).toBe(true)
-
+    expect(hasTech(save, 'artisanManual')).toBe(true)
     expect(researchTech(save, 'apprenticeNotes')).toEqual({ ok: true, message: '已点亮「学徒笔记」' })
     expect(save.techPoints).toBe(0)
-    expect(save.unlockedTechIds).toEqual(['workshopLog', 'apprenticeNotes'])
   })
 
   it('fails when inspiration is not enough', () => {
@@ -140,12 +173,20 @@ describe('research unlock', () => {
     expect(save.techPoints).toBe(0)
   })
 
-  it('rejects out-of-order research', () => {
+  it('rejects a major before all minors in the stage are lit', () => {
     const save = createSave()
     save.techPoints = 99
-    expect(researchTech(save, 'knightCrest')).toEqual({ ok: false, reason: '需按序研究' })
+    expect(researchTech(save, 'pathOutpost')).toEqual({ ok: false, reason: '需先点亮本阶段小点' })
     expect(save.unlockedTechIds).toEqual([])
-    expect(save.techPoints).toBe(99)
+    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MIN)
+    expect(researchTech(save, 'workshopLog').ok).toBe(true)
+    expect(researchTech(save, 'pathOutpost')).toEqual({ ok: false, reason: '需先点亮本阶段小点' })
+  })
+
+  it('rejects a later stage before the previous major', () => {
+    const save = createSave()
+    save.techPoints = 99
+    expect(researchTech(save, 'workshopRules')).toEqual({ ok: false, reason: '需先点亮上一阶段大科技' })
   })
 
   it('fails when the tree is already full', () => {
@@ -154,6 +195,32 @@ describe('research unlock', () => {
     save.unlockedTechIds = TECH_TREE.map((node) => node.id)
     expect(researchNextTech(save)).toEqual({ ok: false, reason: '科技树已满' })
     expect(save.techPoints).toBe(999)
+  })
+})
+
+describe('encounterSlotCount', () => {
+  it('starts at 1, grows after a finished stage major, and caps at 6', () => {
+    const save = createSave()
+    expect(encounterSlotCount(save)).toBe(1)
+    expect(save.encounters).toHaveLength(1)
+
+    lightStage(save, 1)
+    expect(encounterSlotCount(save)).toBe(2)
+    expect(save.encounters).toHaveLength(2)
+
+    lightStage(save, 2)
+    expect(encounterSlotCount(save)).toBe(3)
+    lightStage(save, 3)
+    expect(encounterSlotCount(save)).toBe(4)
+    lightStage(save, 4)
+    expect(encounterSlotCount(save)).toBe(5)
+    lightStage(save, 5)
+    expect(encounterSlotCount(save)).toBe(6)
+    expect(save.encounters).toHaveLength(6)
+
+    lightStage(save, 6)
+    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MAX)
+    expect(save.encounters).toHaveLength(6)
   })
 })
 

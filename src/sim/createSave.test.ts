@@ -46,5 +46,6 @@ describe('createSave seven stations', () => {
     expect(save.knightLevel).toBe(1)
     expect(save.techPoints).toBe(1)
     expect(save.unlockedTechIds).toEqual([])
+    expect(save.encounters).toHaveLength(1)
   })
 })

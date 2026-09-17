@@ -146,7 +146,7 @@ function pawnGold(enc: PawnEncounter) {
         探索（{{ cost }} 金）
       </button>
     </div>
-    <p class="hint">工坊看板 6 格。当前金币 {{ game.save.gold }}</p>
+    <p class="hint">工坊看板 {{ game.save.encounters.length }} 格。当前金币 {{ game.save.gold }}</p>
     <p v-if="buffOn" class="buff">{{ buffLabel }}</p>
 
     <div class="board">

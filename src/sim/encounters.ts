@@ -11,7 +11,12 @@ import {
 } from './combat'
 import { canAffordCosts, missingCostLabels, takeCosts } from './costs'
 import { ITEM_DEF, bulkUnitGold, pawnUnitGold, type IoRule } from './tables'
-import { exploreCostReduce } from './tech'
+import {
+  ENCOUNTER_SLOT_MAX,
+  ENCOUNTER_SLOT_MIN,
+  encounterSlotCount,
+  exploreCostReduce,
+} from './tech'
 import type {
   ActionResult,
   ArtisanEncounter,
@@ -34,7 +39,8 @@ import type {
   WorkshopBuff,
 } from './types'
 
-export const ENCOUNTER_SLOT_COUNT = 6
+/** 偶遇板上限。当前格数用 encounterSlotCount(save)，初始 1。 */
+export const ENCOUNTER_SLOT_COUNT = ENCOUNTER_SLOT_MAX
 
 /** 探索费用。随探索次数略涨，超出表长后钉在末档。 */
 export const EXPLORE_COST_TABLE: readonly number[] = [8, 10, 12, 14, 16]
@@ -628,9 +634,13 @@ function makeEncounter(seed: number, slot: number): Encounter {
   return makeBulkBuy(seed, slot, quality)
 }
 
-export function generateEncounterBoard(seed: number): Encounter[] {
+export function generateEncounterBoard(seed: number, slotCount = ENCOUNTER_SLOT_MAX): Encounter[] {
   const safe = Number.isFinite(seed) && seed >= 0 ? Math.floor(seed) : 0
-  return Array.from({ length: ENCOUNTER_SLOT_COUNT }, (_, slot) => makeEncounter(safe, slot))
+  const n = Math.min(
+    ENCOUNTER_SLOT_MAX,
+    Math.max(ENCOUNTER_SLOT_MIN, Number.isFinite(slotCount) ? Math.floor(slotCount) : ENCOUNTER_SLOT_MIN),
+  )
+  return Array.from({ length: n }, (_, slot) => makeEncounter(safe, slot))
 }
 
 function isNeedMap(value: unknown): value is EncounterNeedMap {
@@ -744,13 +754,73 @@ export function isEncounter(value: unknown): value is Encounter {
   )
 }
 
-export function isValidEncounterBoard(value: unknown): value is Encounter[] {
-  return Array.isArray(value) && value.length === ENCOUNTER_SLOT_COUNT && value.every(isEncounter)
+export function isValidEncounterBoard(value: unknown, slotCount?: number): value is Encounter[] {
+  if (!Array.isArray(value) || !value.every(isEncounter)) return false
+  if (slotCount == null) {
+    return value.length >= ENCOUNTER_SLOT_MIN && value.length <= ENCOUNTER_SLOT_MAX
+  }
+  return value.length === slotCount
 }
 
 function slotAt(save: Save, index: number): Encounter | undefined {
-  if (!Number.isInteger(index) || index < 0 || index >= ENCOUNTER_SLOT_COUNT) return undefined
+  if (!Number.isInteger(index) || index < 0 || index >= save.encounters.length) return undefined
   return save.encounters[index]
+}
+
+function keptEncounters(encounters: readonly Encounter[], now: number): Encounter[] {
+  return encounters.filter((enc) => shouldKeepOnExplore(enc, now))
+}
+
+function boardSizeFor(save: Save, now = Date.now()): number {
+  const current = Array.isArray(save.encounters) ? save.encounters.filter(isEncounter) : []
+  return Math.min(ENCOUNTER_SLOT_MAX, Math.max(encounterSlotCount(save), keptEncounters(current, now).length))
+}
+
+function placeKeptThenFill(
+  size: number,
+  previous: readonly Encounter[],
+  kept: readonly Encounter[],
+  fill: (index: number) => Encounter,
+  reuseIdle: boolean,
+): Encounter[] {
+  const out: Array<Encounter | undefined> = Array.from({ length: size })
+  const used = new Set<Encounter>()
+  for (let i = 0; i < previous.length && i < size; i++) {
+    const enc = previous[i]
+    if (shouldKeepOnExplore(enc)) {
+      out[i] = enc
+      used.add(enc)
+    }
+  }
+  let cursor = 0
+  const place = (enc: Encounter) => {
+    while (cursor < size && out[cursor]) cursor += 1
+    if (cursor < size) {
+      out[cursor] = enc
+      used.add(enc)
+    }
+  }
+  for (const enc of kept) {
+    if (!used.has(enc)) place(enc)
+  }
+  if (reuseIdle) {
+    for (const enc of previous) {
+      if (used.has(enc) || shouldKeepOnExplore(enc)) continue
+      place(enc)
+    }
+  }
+  const seedFill = fill
+  return Array.from({ length: size }, (_, i) => out[i] ?? seedFill(i))
+}
+
+/** 按当前格数补齐或收板；战斗中 / 胜可领 / 败可再战优先保留，可暂超目标格数、仍封顶 6。 */
+export function resizeEncounterBoard(save: Save, now = Date.now()): Encounter[] {
+  const previous = Array.isArray(save.encounters) ? save.encounters.filter(isEncounter) : []
+  const size = boardSizeFor(save, now)
+  const seed = Number.isFinite(save.exploreCount) && save.exploreCount > 0 ? Math.floor(save.exploreCount) : 0
+  const fresh = generateEncounterBoard(seed, size)
+  save.encounters = placeKeptThenFill(size, previous, keptEncounters(previous, now), (i) => fresh[i], true)
+  return save.encounters
 }
 
 function missingLabels(save: Save, map: EncounterNeedMap): string[] {
@@ -1087,16 +1157,18 @@ export function shouldKeepOnExplore(enc: Encounter, now = Date.now()): boolean {
   return isFighting(enc) || isCombatWon(enc) || combatStatus(enc) === 'lose'
 }
 
-/** 探索：扣金币，只替换可刷新格，保留格占位，板子仍满 6 格。 */
+/** 探索：扣金币，只替换可刷新格，保留格占位，板子按当前格数（战斗保留可暂超目标）。 */
 export function exploreBoard(save: Save, now = Date.now()): ActionResult {
   const blocked = exploreBlockReason(save)
   if (blocked) return { ok: false, reason: blocked }
   const cost = exploreCost(save)
-  const kept = save.encounters.map((enc) => (shouldKeepOnExplore(enc, now) ? enc : null))
+  const previous = save.encounters.filter(isEncounter)
+  const kept = keptEncounters(previous, now)
   save.gold -= cost
   save.exploreCount += 1
-  const next = generateEncounterBoard(save.exploreCount)
-  save.encounters = next.map((fresh, slot) => kept[slot] ?? fresh)
+  const size = Math.min(ENCOUNTER_SLOT_MAX, Math.max(encounterSlotCount(save), kept.length))
+  const next = generateEncounterBoard(save.exploreCount, size)
+  save.encounters = placeKeptThenFill(size, previous, kept, (i) => next[i], false)
   return { ok: true, message: `探索完成。花费 ${cost} 金币` }
 }
 
@@ -1330,7 +1402,7 @@ function hydrateWorkshopBuff(save: Save): void {
   raw.workshopBuff = null
 }
 
-/** 旧存档补偶遇板；单格出发字段迁进第 0 格敌人；通用商人拆成六种之一。 */
+/** 旧存档补偶遇板；单格出发字段迁进第 0 格敌人；通用商人拆成六种之一。按当前科技格数收/补。 */
 export function hydrateEncounterFields(save: Save): Save {
   const raw = save as LegacyOrderSave
   raw.exploreCount =
@@ -1343,23 +1415,17 @@ export function hydrateEncounterFields(save: Save): Save {
 
   if (Array.isArray(raw.encounters)) {
     raw.encounters = raw.encounters.map((slot) => migrateEncounterSlot(slot) as Encounter)
-    if (raw.encounters.length > 0 && raw.encounters.every(isEncounter)) {
-      if (raw.encounters.length !== ENCOUNTER_SLOT_COUNT) {
-        const fresh = generateEncounterBoard(raw.exploreCount)
-        raw.encounters = Array.from(
-          { length: ENCOUNTER_SLOT_COUNT },
-          (_, slot) => raw.encounters[slot] ?? fresh[slot],
-        )
-      }
-    }
   }
 
-  const hadBoard = isValidEncounterBoard(raw.encounters)
-  if (!hadBoard) {
-    raw.encounters = generateEncounterBoard(raw.exploreCount)
+  const migrated = Array.isArray(raw.encounters) ? raw.encounters.filter(isEncounter) : []
+  if (migrated.length === 0) {
+    raw.encounters = generateEncounterBoard(raw.exploreCount, encounterSlotCount(raw))
     migrateLegacyOrder(raw)
+  } else {
+    raw.encounters = migrated
   }
 
+  resizeEncounterBoard(raw)
   delete raw.currentOrderId
   delete raw.orderIndex
   delete raw.orderSubmitted

@@ -1,4 +1,5 @@
 import { generateEncounterBoard } from './encounters'
+import { encounterSlotCount } from './tech'
 import { computeKnightLevel } from './knightLevel'
 import { hydrateStations } from './stationProgress'
 import { START_DIAMONDS, START_GOLD, WORKER_QUALITY_REV } from './tables'
@@ -23,7 +24,7 @@ export function createSave(): Save {
     lastTick: Date.now(),
     elapsedS: 0,
     nextWorkerId: 1,
-    encounters: generateEncounterBoard(0),
+    encounters: [],
     workshopBuff: null,
     exploreCount: 0,
     departCount: 0,
@@ -40,5 +41,6 @@ export function createSave(): Save {
     unlockedTechIds: [],
   }
   save.knightLevel = computeKnightLevel(save)
+  save.encounters = generateEncounterBoard(0, encounterSlotCount(save))
   return save
 }

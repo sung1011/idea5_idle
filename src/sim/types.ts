@@ -58,18 +58,8 @@ export type ClassId =
   | 'steward'
   | 'knight'
 
-/** 线性科技树档位。必须先解锁前一档。 */
-export type TechId =
-  | 'workshopLog'
-  | 'apprenticeNotes'
-  | 'artisanManual'
-  | 'workshopRules'
-  | 'pipelineChart'
-  | 'artisanArchive'
-  | 'knightEdict'
-  | 'crestDraft'
-  | 'workshopCrest'
-  | 'knightCrest'
+/** 阶段科技树节点 id。表在 `TECH_STAGES`，可往后扩。 */
+export type TechId = string
 
 /** 工人品质档。1 最低（抽人默认），10 最高（不能再合成）。 */
 export type QualityTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10
@@ -260,7 +250,7 @@ export type Save = {
   lastTick: number
   elapsedS: number
   nextWorkerId: number
-  /** 偶遇板，固定 6 格。 */
+  /** 偶遇板。格数由科技决定，初始 1、封顶 6。 */
   encounters: Encounter[]
   /** 工匠委托留下的工坊产量加成；到期后不算。 */
   workshopBuff: WorkshopBuff | null
@@ -291,7 +281,7 @@ export type Save = {
   knightLevel: number
   /** 账号级灵感。任意站完成周期 +1；骑士等级每升 1 级 +1。旧档缺字段 / 别名 `inspiration` hydrate 为点数，不无故重置成 1。 */
   techPoints: number
-  /** 已按序点亮的科技档。必须是树的前缀；旧档缺字段 hydrate 为 []。 */
+  /** 已点亮的科技 id。阶段内小点可乱序；大科技需本阶段小点齐。旧档缺字段为 []。 */
   unlockedTechIds: TechId[]
 }
 

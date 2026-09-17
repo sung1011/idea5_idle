@@ -172,7 +172,7 @@ describe('save migration', () => {
     expect(loaded?.stations.cooking.toolSlot?.matchStationId).toBe('cooking')
   })
 
-  it('hydrates missing tech fields and keeps a linear prefix', () => {
+  it('hydrates missing tech fields and keeps known old ids without granting slot majors', () => {
     const raw = {
       ...createSave(),
       techPoints: 7.8,
@@ -181,7 +181,8 @@ describe('save migration', () => {
     const save = hydrateLoadedSave(raw)
     expect(save?.techPoints).toBe(7)
     expect(save?.knightLevel).toBe(1)
-    expect(save?.unlockedTechIds).toEqual(['workshopLog'])
+    expect(save?.unlockedTechIds).toEqual(['workshopLog', 'artisanManual'])
+    expect(save?.encounters).toHaveLength(1)
 
     const old = {
       ...createSave(),
@@ -198,7 +199,7 @@ describe('save migration', () => {
       ...createSave(),
       unlockedTechIds: ['apprenticeNotes'],
     })
-    expect(skipped?.unlockedTechIds).toEqual([])
+    expect(skipped?.unlockedTechIds).toEqual(['apprenticeNotes'])
 
     const aliased = hydrateLoadedSave({
       ...createSave(),

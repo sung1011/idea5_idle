@@ -1,72 +1,99 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import {
+  TECH_STAGES,
   TECH_TREE,
+  encounterSlotCount,
   hasTech,
+  isStageOpen,
   isTechComplete,
-  nextTech,
+  researchBlockReason,
+  stageMinorsReady,
   techTier,
+  type TechNodeDef,
+  type TechStageDef,
 } from '../sim/tech'
+import type { TechId } from '../sim/types'
 import { useGameStore } from './gameStore'
 
 const game = useGameStore()
 const points = computed(() => game.save.techPoints)
 const knightLevel = computed(() => game.save.knightLevel)
-const next = computed(() => nextTech(game.save))
+const slots = computed(() => encounterSlotCount(game.save))
 const done = computed(() => isTechComplete(game.save))
 const unlockedCount = computed(() => techTier(game.save))
 const progressPct = computed(() => Math.round((unlockedCount.value / TECH_TREE.length) * 100))
 
-function nodeState(id: (typeof TECH_TREE)[number]['id']) {
-  if (hasTech(game.save, id)) return 'done'
-  if (next.value?.id === id) return 'next'
-  return 'lock'
+function lit(id: TechId) {
+  return hasTech(game.save, id)
+}
+
+function nodeClass(node: TechNodeDef) {
+  if (lit(node.id)) return 'on'
+  if (!researchBlockReason(game.save, node.id)) return 'ready'
+  return 'off'
+}
+
+function majorHint(stage: TechStageDef) {
+  if (lit(stage.major.id)) return '已点亮'
+  if (!isStageOpen(game.save, stage.stage)) return '需上一阶段'
+  if (!stageMinorsReady(game.save, stage.stage)) return '小点未齐'
+  return `${stage.major.cost} 灵感`
+}
+
+function onNode(node: TechNodeDef) {
+  if (lit(node.id)) return
+  game.researchTech(node.id)
 }
 </script>
 
 <template>
   <section class="panel tree">
     <p class="kicker">骑士工坊 · 科技</p>
-    <p class="title">灵感与纹章</p>
+    <p class="title">阶段科技树</p>
     <p class="hint">
-      任意工坊完成一个周期 +1 灵感。骑士等级每升 1 级也 +1 灵感。按序点亮，效果稍后开放。
+      任意工坊完成一个周期 +1 灵感。骑士等级每升 1 级也 +1。阶段内小点可任意顺序点亮；大科技要本阶段小点全亮。偶遇格由大科技 1→6。
     </p>
     <div class="chips">
       <span class="chip">骑士 {{ knightLevel }} 级</span>
       <span class="chip">灵感 {{ points }}</span>
+      <span class="chip">偶遇 {{ slots }} 格</span>
       <span class="chip">进度 {{ unlockedCount }}/{{ TECH_TREE.length }}</span>
     </div>
     <div class="bar xp" aria-label="科技进度">
       <i :style="{ width: `${progressPct}%` }" />
     </div>
-    <p v-if="next" class="hint">下一档 {{ next.name }} · 需要 {{ next.cost }} 灵感</p>
-    <p v-else class="hint">科技树已满。</p>
-    <div class="row">
-      <button type="button" :disabled="done" @click="game.researchNextTech()">
-        {{ done ? '科技树已满' : `研究「${next?.name ?? ''}」· ${next?.cost ?? 0} 灵感` }}
-      </button>
-    </div>
-    <ol>
-      <li v-for="(node, index) in TECH_TREE" :key="node.id" class="card" :class="nodeState(node.id)">
-        <p class="name">
-          <b class="mark">{{ String(index + 1).padStart(2, '0') }}</b>
-          {{ node.name }}
-          <i v-if="nodeState(node.id) === 'done'">已点亮</i>
-          <i v-else-if="nodeState(node.id) === 'next'">可研究 · {{ node.cost }} 灵感</i>
-          <i v-else>未解锁 · {{ node.cost }} 灵感</i>
-        </p>
-        <p class="desc">{{ node.desc }}</p>
-        <p class="later">效果稍后开放</p>
-        <div class="row">
+    <p v-if="done" class="hint">科技树已满。</p>
+    <ol class="stages">
+      <li
+        v-for="stage in TECH_STAGES"
+        :key="stage.stage"
+        class="stage"
+        :class="{ locked: !isStageOpen(game.save, stage.stage), done: lit(stage.major.id) }"
+      >
+        <b class="num">{{ String(stage.stage).padStart(2, '0') }}</b>
+        <div class="minors">
           <button
-            v-if="nodeState(node.id) === 'next'"
+            v-for="minor in stage.minors"
+            :key="minor.id"
             type="button"
-            @click="game.researchTech(node.id)"
+            class="hex"
+            :class="nodeClass(minor)"
+            :title="`${minor.name} · ${minor.cost} 灵感`"
+            @click="onNode(minor)"
           >
-            研究
+            <span>{{ minor.name.slice(0, 1) }}</span>
           </button>
-          <span v-else-if="nodeState(node.id) === 'done'" class="seal">已入册</span>
         </div>
+        <button
+          type="button"
+          class="major"
+          :class="nodeClass(stage.major)"
+          @click="onNode(stage.major)"
+        >
+          <strong>{{ stage.major.name }}</strong>
+          <i>{{ majorHint(stage) }}</i>
+        </button>
       </li>
     </ol>
   </section>
@@ -74,9 +101,8 @@ function nodeState(id: (typeof TECH_TREE)[number]['id']) {
 
 <style scoped>
 .tree,
-ol,
-.row,
-.chips {
+.chips,
+.stages {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -88,17 +114,13 @@ ol,
 }
 
 p,
-.hint,
-.desc,
-.later {
+.hint {
   margin: 0;
   line-height: 1.5;
 }
 
 .kicker,
 .hint,
-.desc,
-.later,
 i {
   color: var(--muted);
   font-size: 13px;
@@ -116,52 +138,37 @@ i {
   letter-spacing: 0.12em;
 }
 
-.chips,
-.row {
+.chips {
   flex-direction: row;
   flex-wrap: wrap;
   align-items: center;
 }
 
-ol {
-  margin: 0;
+.stages {
+  margin: 8px 0 0;
   padding: 0;
   list-style: none;
 }
 
-.card {
-  padding: 10px 12px;
-}
-
-.card.next {
-  border-color: var(--ember);
-}
-
-.card.done {
-  background: linear-gradient(#fffef4, #f6e7b8);
-}
-
-.card.lock {
-  opacity: 0.72;
-}
-
-.name {
-  display: flex;
-  flex-wrap: wrap;
+.stage {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) minmax(112px, 34%);
   align-items: center;
   gap: 8px;
-  font-weight: 700;
-  font-family: var(--font-display);
-  letter-spacing: 0.06em;
+  padding: 8px 6px;
+  border-bottom: 1px dashed var(--seam);
 }
 
-.mark {
+.stage.locked {
+  opacity: 0.55;
+}
+
+.num {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
+  width: 32px;
+  height: 32px;
   border: 2px solid var(--gold-deep);
   border-radius: 999px;
   background: linear-gradient(#ffe27a, #f0b83a);
@@ -169,19 +176,77 @@ ol {
   font-family: var(--font-mono);
 }
 
-.card.done .mark {
+.stage.done .num {
   background: linear-gradient(#8fd94a, var(--moss-deep));
   color: #fffdf8;
   border-color: var(--moss-deep);
 }
 
-.later {
-  font-size: 12px;
+.minors {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
 }
 
-.seal {
-  color: var(--moss-deep);
+.hex {
+  width: 36px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 2px solid var(--gold-deep);
+  border-radius: 0;
+  box-shadow: none;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: linear-gradient(#fff6dc, #f0d48a);
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+}
+
+.hex.on {
+  background: linear-gradient(#8fd94a, var(--moss-deep));
+  color: #fffdf8;
+  border-color: var(--moss-deep);
+}
+
+.hex.ready {
+  background: linear-gradient(#fff3a8, #f0c14a);
+}
+
+.hex.off {
+  background: #efe4c8;
+  color: var(--muted);
+}
+
+.major {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 48px;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.major.on {
+  background: linear-gradient(#fffef4, #d8f0b0);
+}
+
+.major.ready {
+  border-color: var(--ember);
+}
+
+.major.off {
+  opacity: 0.78;
+}
+
+.major strong {
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+  font-size: 13px;
+}
+
+.major i {
+  font-size: 11px;
 }
 </style>
