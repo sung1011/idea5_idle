@@ -37,8 +37,7 @@ import { useGameStore } from './gameStore'
 import {
   qualityOf,
   workerQualityBadgeStyle,
-  workerQualityCardStyle,
-  workerQualityToneClass,
+  workerQualityNameStyle,
 } from './workerQuality'
 
 const game = useGameStore()
@@ -138,9 +137,8 @@ function hpPct(hp: number, hpMax: number) {
   return Math.max(0, Math.min(100, Math.round((hp / hpMax) * 100)))
 }
 
-function workerLine(w: Worker) {
-  const job = w.classId ? CLASS_LABEL[w.classId] : '未标'
-  return `${w.name ?? w.id} · ${job} · HP ${w.hp}/${w.hpMax}`
+function workerJob(w: Worker) {
+  return w.classId ? CLASS_LABEL[w.classId] : '未标'
 }
 
 function weaknessSlots(enc: EnemyEncounter) {
@@ -365,14 +363,14 @@ function pawnGold(enc: PawnEncounter) {
             <button
               type="button"
               class="pick-worker"
-              :class="{ on: picked.includes(w.id), ...workerQualityToneClass(w) }"
-              :style="workerQualityCardStyle(w)"
+              :class="{ on: picked.includes(w.id) }"
               :disabled="w.hp <= 0"
               @click="togglePick(w)"
             >
               <span class="pick-name">
                 <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
-                {{ workerLine(w) }}
+                <b class="pick-worker-name" :style="workerQualityNameStyle(w)">{{ w.name ?? w.id }}</b>
+                <span class="pick-meta">· {{ workerJob(w) }} · HP {{ w.hp }}/{{ w.hpMax }}</span>
               </span>
               <CombatAttrRow :attrs="w.combatAttrs" />
             </button>
@@ -772,7 +770,12 @@ ul {
   color: var(--copper);
 }
 
+.pick-worker-name {
+  font-weight: 700;
+}
+
 .pick-list .qmark {
+  position: static;
   min-width: 22px;
   padding: 1px 7px;
   border: 2px solid currentColor;
@@ -783,15 +786,15 @@ ul {
   text-align: center;
 }
 
-.pick-worker.rainbow {
-  background: linear-gradient(#fffdf8, #ffe8f4);
-}
-
-.pick-worker.pink {
-  background: linear-gradient(#fffdf8, #ffe4ef);
-}
-
-.pick-worker.on {
+.pick-worker.on,
+.pick-worker.on:disabled {
+  color: var(--ink);
+  background: linear-gradient(180deg, #ffe9a0, #f0c14a);
+  border-color: var(--gold-deep);
+  box-shadow:
+    0 3px 0 var(--gold-deep),
+    inset 0 1px 0 #fff6c8,
+    inset 0 0 0 2px #ffe28a;
   filter: none;
   opacity: 1;
 }

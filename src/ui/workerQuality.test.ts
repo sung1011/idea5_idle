@@ -8,6 +8,7 @@ import {
   qualityOf,
   workerQualityBadgeStyle,
   workerQualityCardStyle,
+  workerQualityNameStyle,
   workerQualityToneClass,
 } from './workerQuality'
 
@@ -41,5 +42,13 @@ describe('workerQuality', () => {
     expect(workerQualityToneClass(workerAt(7))).toEqual({ rainbow: false, pink: true })
     expect(workerQualityToneClass(workerAt(10))).toEqual({ rainbow: true, pink: false })
     expect(workerQualityToneClass(workerAt(2))).toEqual({ rainbow: false, pink: false })
+  })
+
+  it('colors pick-list names with table color, dark brown on white', () => {
+    expect(workerQualityNameStyle(workerAt(1))).toEqual({ color: '#5a3a10' })
+    expect(workerQualityNameStyle(workerAt(2))).toEqual({ color: WORKER_QUALITY_TABLE[2].color })
+    expect(workerQualityNameStyle(workerAt(7))).toEqual({ color: WORKER_QUALITY_TABLE[7].color })
+    expect(workerQualityNameStyle(workerAt(9))).toEqual({ color: WORKER_QUALITY_TABLE[9].color })
+    expect(workerQualityNameStyle(workerAt(10))).toEqual({ color: WORKER_QUALITY_TABLE[10].color })
   })
 })

@@ -34,3 +34,11 @@ export function workerQualityBadgeStyle(worker: Worker) {
     borderColor: qualityOf(worker).color,
   }
 }
+
+/** 选人列表名字色：用档表色；白档等浅色改偏深棕，羊皮纸上能看清。 */
+export function workerQualityNameStyle(worker: Worker) {
+  const { id, color } = qualityOf(worker)
+  return {
+    color: id === 'white' ? '#5a3a10' : color,
+  }
+}
