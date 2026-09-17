@@ -240,7 +240,7 @@ describe('tech effects stay no-op', () => {
     expect(offlineCapHours(save)).toBe(8)
     expect(exploreCost(save)).toBe(8)
     expect(stationTechSpeedMul(save, 'cooking')).toBe(1)
-    expect(fuseStayAssigned(save)).toBe(false)
+    expect(fuseStayAssigned(save)).toBe(true)
 
     spawnWorker(save)
     assignWorker(save, save.workers[0].id, 'cooking')
@@ -259,7 +259,7 @@ describe('tech effects stay no-op', () => {
     assignWorker(merge, b.id, 'mining')
     merge.unlockedTechIds = TECH_TREE.map((node) => node.id)
     expect(fuseWorkers(merge, a.id, b.id).ok).toBe(true)
-    expect(merge.workers[0].assignment).toBeNull()
+    expect(merge.workers[0].assignment).toBe('mining')
   })
 })
 

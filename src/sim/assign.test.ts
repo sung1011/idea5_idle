@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { assignIdleWorker, assignWorker, clampStationAssignments } from './assign'
 import { beginEnemyCombat } from './combat'
 import { createSave } from './createSave'
-import { fuseStationWorkers, fuseWorkers } from './fuse'
+import { fuseStationWorkers, fuseWorkers, stationMergeLabel } from './fuse'
 import { spawnWorker } from './recruit'
 import { STATION_WORKER_CAP } from './tables'
 import type { EnemyEncounter } from './types'
@@ -82,7 +82,15 @@ describe('station merge', () => {
     expect(result.ok).toBe(true)
     expect(save.workers).toHaveLength(1)
     expect(save.workers[0].qualityTier).toBe(2)
-    expect(save.workers[0].assignment).toBeNull()
+    expect(save.workers[0].assignment).toBe('mining')
+  })
+
+  it('labels the station merge button as 合成', () => {
+    const save = roster(2)
+    expect(stationMergeLabel(save, 'mining')).toBe('合成')
+    assignWorker(save, save.workers[0].id, 'mining')
+    assignWorker(save, save.workers[1].id, 'mining')
+    expect(stationMergeLabel(save, 'mining')).toBe('合成')
   })
 
   it('fails when the station does not have two workers', () => {

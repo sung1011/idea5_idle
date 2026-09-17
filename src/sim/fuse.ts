@@ -8,7 +8,6 @@ import {
   isStationId,
   pickClassFromPool,
   QUALITY_MAX,
-  STATION_DEF,
   workerQualityDef,
 } from './tables'
 import { fuseStayAssigned } from './tech'
@@ -18,7 +17,7 @@ function stripSlots(save: Save, worker: Worker): void {
   if (worker.foodSlot) unloadFood(save, worker.id)
 }
 
-/** 同站同档两人合成：消耗两人，产出 1 个高一档新人（休息、空槽）。满档 / 不同档 / 不同站失败。 */
+/** 同站同档两人合成：消耗两人，产出 1 个高一档新人（留在原站、空槽）。满档 / 不同档 / 不同站失败。 */
 export function fuseWorkers(save: Save, workerIdA: string, workerIdB: string): ActionResult {
   if (!workerIdA || !workerIdB) return { ok: false, reason: '请选两个同品质工人' }
   if (workerIdA === workerIdB) return { ok: false, reason: '不能合成同一个人' }
@@ -56,9 +55,6 @@ export function fuseStationWorkers(save: Save, stationId: StationId): ActionResu
   return fuseWorkers(save, pair[0].id, pair[1].id)
 }
 
-export function stationMergeLabel(save: Save, stationId: StationId): string {
-  const pair = assignedWorkers(save, stationId)
-  if (pair.length < 2) return `合并（${STATION_DEF[stationId].label}）`
-  const names = pair.map((w) => w.name ?? w.id).join(' + ')
-  return `合并 ${names}`
+export function stationMergeLabel(_save: Save, _stationId: StationId): string {
+  return '合成'
 }

@@ -121,7 +121,7 @@ describe('fuseWorkers', () => {
     expect(result.ok).toBe(true)
     expect(save.workers).toHaveLength(1)
     expect(save.workers[0].qualityTier).toBe(2)
-    expect(save.workers[0].assignment).toBeNull()
+    expect(save.workers[0].assignment).toBe('mining')
     expect(save.workers[0].foodSlot).toBeNull()
     expect(save.workers[0].id).toBe('w-3')
     expect(save.workers[0].name).toBe(WORKER_NAME_POOL[2])
@@ -142,7 +142,7 @@ describe('fuseWorkers', () => {
     expect(save.workers[0].classId).not.toBe('laborer')
   })
 
-  it('returns leftover food to the bank; station tool stays; new worker rests', () => {
+  it('returns leftover food to the bank; station tool stays; new worker stays assigned', () => {
     const save = createSave()
     const a = spawnWorker(save)
     const b = spawnWorker(save)
@@ -160,8 +160,8 @@ describe('fuseWorkers', () => {
     expect(bankQty(save, 'tool')).toBe(0)
     expect(save.stations.mining.toolSlot?.itemId).toBe('tool')
     expect(bankQty(save, 'meal')).toBe(1)
-    expect(save.workers[0].assignment).toBeNull()
-    expect(save.workers.every((w) => w.assignment === null)).toBe(true)
+    expect(save.workers[0].assignment).toBe('mining')
+    expect(save.workers.every((w) => w.assignment === 'mining')).toBe(true)
   })
 
   it('rejects missing, same, mixed-tier, and max-tier pairs', () => {

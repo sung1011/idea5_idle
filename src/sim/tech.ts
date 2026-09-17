@@ -324,9 +324,9 @@ export function offlineCapHours(save: Save): number {
   return Math.round(offlineCapS(save) / 3600)
 }
 
-/** 合并后新人仍回休息。 */
+/** 合成后新人留在原站。 */
 export function fuseStayAssigned(_save: Save): boolean {
-  return false
+  return true
 }
 
 /** 站点速度不受科技影响（冲突倍率走 stationConflictMul）。 */
