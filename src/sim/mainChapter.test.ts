@@ -89,9 +89,8 @@ describe('main chapter hydrate and header', () => {
     expect(normalizeMainLootClaims(-1)).toBe(0)
     expect(normalizeMainLootClaims(10.9)).toBe(10)
 
-    const raw = createSave() as Save & { mainChapter?: unknown; mainLootClaims?: unknown }
-    delete raw.mainChapter
-    delete raw.mainLootClaims
+    const { mainChapter: _chapter, mainLootClaims: _claims, ...omitted } = createSave()
+    const raw = omitted as Save
     hydrateMainChapterFields(raw)
     expect(raw.mainChapter).toBe(1)
     expect(raw.mainLootClaims).toBe(0)
@@ -188,11 +187,11 @@ describe('loot claim counter and chapter boss spawn', () => {
     for (let seed = 1; seed < 80 && !board.some((enc) => enc.kind === 'enemy'); seed++) {
       board = generateEncounterBoard(seed, 6, { mainLootClaims: 10 })
     }
-    const bosses = board.filter((enc) => enc.kind === 'enemy' && enc.chapterBoss)
-    const extras = board.filter((enc) => enc.kind === 'enemy' && !enc.chapterBoss)
+    const bosses = board.filter((enc): enc is EnemyEncounter => enc.kind === 'enemy' && enc.chapterBoss === true)
+    const extras = board.filter((enc): enc is EnemyEncounter => enc.kind === 'enemy' && enc.chapterBoss !== true)
     expect(bosses).toHaveLength(1)
     expect(bosses[0].enemyRank).toBe('boss')
-    expect(extras.every((enc) => enc.kind === 'enemy' && enc.enemyRank !== 'boss')).toBe(true)
+    expect(extras.every((enc) => enc.enemyRank !== 'boss')).toBe(true)
     expect(shouldForceChapterBoss({ mainLootClaims: 10 }, [])).toBe(true)
     expect(shouldForceChapterBoss({ mainLootClaims: 10 }, bosses)).toBe(false)
     expect(hasLiveChapterBoss(bosses)).toBe(true)

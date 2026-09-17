@@ -1040,15 +1040,16 @@ export function claimLoot(save: Save, index: number, now = Date.now()): ActionRe
   const blocked = claimLootBlockReason(save, index, now)
   if (blocked) return { ok: false, reason: blocked }
   const enc = enemyAt(save, index)
-  if (!enc) return { ok: false, reason: '不是敌人偶遇' }
-  save.gold += enc.lootGold
+  if (!enc || enc.kind !== 'enemy') return { ok: false, reason: '不是敌人偶遇' }
+  const lootGold = enc.lootGold
   enc.lootClaimed = true
+  save.gold += lootGold
   save.mainLootClaims = normalizeMainLootClaims(save.mainLootClaims) + 1
   if (isChapterBoss(enc)) {
     advanceMainChapter(save, now)
-    return { ok: true, message: `战利品：金币 +${enc.lootGold}。进入第 ${save.mainChapter} 章` }
+    return { ok: true, message: `战利品：金币 +${lootGold}。进入第 ${save.mainChapter} 章` }
   }
-  return { ok: true, message: `战利品：金币 +${enc.lootGold}` }
+  return { ok: true, message: `战利品：金币 +${lootGold}` }
 }
 
 export function barterBlockReason(save: Save, index: number): string | null {

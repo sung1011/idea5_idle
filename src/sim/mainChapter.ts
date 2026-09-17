@@ -59,7 +59,7 @@ export function mainChapterHeader(save: Pick<Save, 'mainChapter' | 'mainLootClai
   return `${mainChapterTitle(save)} · ${mainLootClaimBarLabel(save)}`
 }
 
-export function isChapterBoss(enc: Encounter): enc is EnemyEncounter {
+export function isChapterBoss(enc: Encounter): enc is EnemyEncounter & { chapterBoss: true } {
   return enc.kind === 'enemy' && enc.chapterBoss === true
 }
 
