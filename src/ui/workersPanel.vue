@@ -18,6 +18,7 @@ import {
 import { recruitCost } from '../sim/tech'
 import type { StationId, Worker } from '../sim/types'
 import { useGameStore } from './gameStore'
+import { hpBarFill, hpBarLabel, hpBarTone } from './hpBar'
 
 const game = useGameStore()
 const now = computed(() => {
@@ -39,9 +40,13 @@ function fighting(w: Worker) {
   return isWorkerInCombat(game.save, w.id)
 }
 
-function combatLine(w: Worker) {
+function combatTail(w: Worker) {
   const stats = workerLiveStats(w)
-  return `HP ${w.hp}/${w.hpMax} · ATK ${stats.atk} · SPD ${stats.spd}`
+  return `ATK ${stats.atk} · SPD ${stats.spd}`
+}
+
+function hpPct(w: Worker) {
+  return `${(hpBarFill(w.hp, w.hpMax) * 100).toFixed(2)}%`
 }
 
 function availableFoods() {
@@ -133,7 +138,21 @@ function badgeStyle(w: Worker) {
           <b class="qmark" :style="badgeStyle(w)">{{ qualityOf(w).label }}</b>
           {{ w.name ?? w.id }} · {{ w.classId ? CLASS_LABEL[w.classId] : '未标' }}
         </p>
-        <p class="hint">{{ combatLine(w) }}<template v-if="fighting(w)"> · 战斗中</template></p>
+        <div class="combat">
+          <div
+            class="hp"
+            :class="hpBarTone(w.hp, w.hpMax)"
+            role="progressbar"
+            :aria-valuenow="w.hp"
+            :aria-valuemin="0"
+            :aria-valuemax="w.hpMax"
+            :aria-label="`HP ${hpBarLabel(w.hp, w.hpMax)}`"
+          >
+            <i class="fill" :style="{ width: hpPct(w) }" />
+            <span>{{ hpBarLabel(w.hp, w.hpMax) }}</span>
+          </div>
+          <p class="hint">{{ combatTail(w) }}<template v-if="fighting(w)"> · 战斗中</template></p>
+        </div>
         <p class="hint">{{ foodLine(w) }}</p>
         <div class="row tool-row">
           <button type="button" :disabled="!canEat(w)" @click="game.eatFood(w.id)">吃 1</button>
@@ -263,6 +282,54 @@ ul {
 .hint {
   color: var(--muted);
   font-size: 14px;
+}
+
+.combat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.hp {
+  position: relative;
+  flex: 1 1 108px;
+  min-width: 96px;
+  max-width: 168px;
+  height: 22px;
+  overflow: hidden;
+  border: 2px solid var(--gold-deep);
+  border-radius: 8px;
+  background: var(--bar-track);
+  box-shadow: inset 0 0 0 1px #fff8e0;
+}
+
+.hp .fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(180deg, #a8e86a, var(--moss-deep));
+}
+
+.hp.mid .fill {
+  background: linear-gradient(180deg, #f0c14a, #c48a22);
+}
+
+.hp.low .fill {
+  background: linear-gradient(180deg, #f08a6a, var(--danger));
+}
+
+.hp span {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  text-shadow: 0 0 3px #fff8ee, 0 1px 0 #fff8ee;
 }
 
 .tool-row {
