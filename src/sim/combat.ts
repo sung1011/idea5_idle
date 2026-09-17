@@ -1,5 +1,6 @@
 import {
   COMBAT_ATTR_LABEL,
+  enemyRankFor,
   ensureEnemyIntel,
   formatWeaknessLabels,
   resolveWorkerAttack,
@@ -16,16 +17,28 @@ import type {
   EncounterQuality,
   EnemyCombat,
   EnemyEncounter,
+  EnemyRank,
   QualityTier,
   Save,
   Worker,
 } from './types'
 
 export const COMBAT_PARTY_MAX = 2
-export const COMBAT_TIMEOUT_S = 120
+/** 按阶超时：杂兵 / 精英 15 分钟，首领 30 分钟。 */
+export const COMBAT_TIMEOUT_BY_RANK: Readonly<Record<EnemyRank, number>> = {
+  minion: 900,
+  elite: 900,
+  boss: 1800,
+}
+/** 全局上限，等于首领超时。 */
+export const COMBAT_TIMEOUT_S = COMBAT_TIMEOUT_BY_RANK.boss
 export const COMBAT_LOG_CAP = 8
 export const REST_HEAL_EVERY_S = 10
 export const REST_HEAL_HP = 1
+
+export function combatTimeoutS(rank: EnemyRank): number {
+  return COMBAT_TIMEOUT_BY_RANK[rank]
+}
 
 export const WORKER_COMBAT_BY_TIER: Readonly<Record<QualityTier, CombatStats>> = {
   1: { hp: 24, atk: 4, spd: 5 },
@@ -56,26 +69,37 @@ export const CLASS_COMBAT_MOD: Readonly<Record<ClassId, CombatStats>> = {
   knight: { hp: 4, atk: 2, spd: -1 },
 }
 
+/**
+ * 底版按两名约 5 档工人（atk 8 / spd 4，合计约 240 伤/分）来定。
+ * 绿杂兵 HP ≈ 10 分钟。出手必须慢：敌人会集火，先倒下一人后 DPS 减半。
+ */
 export const ENEMY_COMBAT_BASE: Readonly<
   Record<EncounterDistance, Record<EncounterPower, CombatStats>>
 > = {
   near: {
-    weak: { hp: 18, atk: 3, spd: 5 },
-    strong: { hp: 28, atk: 5, spd: 4 },
+    weak: { hp: 2400, atk: 2, spd: 32 },
+    strong: { hp: 2450, atk: 2, spd: 32 },
   },
   far: {
-    weak: { hp: 24, atk: 4, spd: 4 },
-    strong: { hp: 40, atk: 7, spd: 3 },
+    weak: { hp: 2450, atk: 2, spd: 32 },
+    strong: { hp: 2500, atk: 2, spd: 32 },
   },
 }
 
-/** 只放大敌人 HP / ATK，出手间隔仍看远近强弱。 */
+/** 品质只微调 HP / ATK。橙首领再叠阶级倍率后约 20 分钟（×1.2）可斩杀。 */
 export const ENEMY_COMBAT_QUALITY_MUL: Readonly<Record<EncounterQuality, number>> = {
-  gray: 0.8,
+  gray: 0.9,
   green: 1,
-  blue: 1.2,
-  purple: 1.45,
-  orange: 1.75,
+  blue: 1.08,
+  purple: 1.12,
+  orange: 1.2,
+}
+
+/** 阶级放大 HP / ATK，并拉长出手间隔。首领打得重但慢，无弱点时工人先倒下。 */
+export const ENEMY_COMBAT_RANK_MUL: Readonly<Record<EnemyRank, CombatStats>> = {
+  minion: { hp: 1, atk: 1, spd: 1 },
+  elite: { hp: 1.3, atk: 1.2, spd: 1.25 },
+  boss: { hp: 2.1, atk: 2, spd: 4 },
 }
 
 export type CombatStatus = 'idle' | 'fighting' | 'win' | 'lose' | 'claimed'
@@ -116,13 +140,16 @@ export function enemyCombatStats(
   distance: EncounterDistance,
   power: EncounterPower,
   quality: EncounterQuality,
+  rank?: EnemyRank,
 ): CombatStats {
+  const resolvedRank = rank ?? enemyRankFor(power, quality)
   const base = ENEMY_COMBAT_BASE[distance][power]
-  const mul = ENEMY_COMBAT_QUALITY_MUL[quality]
+  const qMul = ENEMY_COMBAT_QUALITY_MUL[quality]
+  const rMul = ENEMY_COMBAT_RANK_MUL[resolvedRank]
   return {
-    hp: scaleStat(base.hp, mul),
-    atk: scaleStat(base.atk, mul),
-    spd: Math.max(1, base.spd),
+    hp: scaleStat(base.hp, qMul * rMul.hp),
+    atk: scaleStat(base.atk, qMul * rMul.atk),
+    spd: Math.max(1, Math.round(base.spd * rMul.spd)),
   }
 }
 
@@ -247,10 +274,10 @@ function makeFighter(
 
 export function beginEnemyCombat(enc: EnemyEncounter, workers: Worker[], now: number): EnemyCombat {
   ensureEnemyIntel(enc)
-  const eStats = enemyCombatStats(enc.distance, enc.power, enc.quality)
+  const eStats = enemyCombatStats(enc.distance, enc.power, enc.quality, enc.enemyRank)
   const combat: EnemyCombat = {
     startedAt: now,
-    timeoutAt: now + COMBAT_TIMEOUT_S * 1000,
+    timeoutAt: now + combatTimeoutS(enc.enemyRank) * 1000,
     workerIds: workers.map((w) => w.id),
     workers: workers.map((w) => {
       const stats = workerLiveStats(w)
@@ -348,20 +375,21 @@ export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number): v
   const combat = enc.combat
   if (!combat || combat.outcome || enc.lootClaimed) return
 
+  let lastAt = combat.startedAt
   while (combat.outcome === null) {
     if (combat.enemy.hp <= 0) {
-      finishCombat(save, combat, now, 'win', '战斗胜利')
+      finishCombat(save, combat, lastAt, 'win', '战斗胜利')
       return
     }
     const living = livingWorkers(combat)
     if (!living.length) {
-      finishCombat(save, combat, now, 'lose', '全员倒下，战败')
+      finishCombat(save, combat, lastAt, 'lose', '全员倒下，战败')
       return
     }
 
     const nextAt = nextActionAt(combat)
     if (nextAt == null) {
-      finishCombat(save, combat, now, 'lose', '全员倒下，战败')
+      finishCombat(save, combat, lastAt, 'lose', '全员倒下，战败')
       return
     }
     if (nextAt > combat.timeoutAt || (now >= combat.timeoutAt && nextAt > now)) {
@@ -370,6 +398,7 @@ export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number): v
     }
     if (nextAt > now) return
 
+    lastAt = nextAt
     const actors = [...living, combat.enemy]
       .filter((f) => f.hp > 0 && f.nextActAt === nextAt)
       .sort(actorSort)
@@ -409,7 +438,7 @@ export function applyRestHeal(save: Save): void {
 }
 
 export function legacyMarchAsWin(enc: EnemyEncounter, now = 0): EnemyCombat {
-  const stats = enemyCombatStats(enc.distance, enc.power, enc.quality)
+  const stats = enemyCombatStats(enc.distance, enc.power, enc.quality, enc.enemyRank)
   return {
     startedAt: now,
     timeoutAt: now,

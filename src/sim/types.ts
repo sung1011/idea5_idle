@@ -348,7 +348,7 @@ export type EnemyEncounter = EncounterBase & {
   /** 当前/最近一场战斗。未开过为 null。 */
   combat: EnemyCombat | null
   lootClaimed: boolean
-  /** 杂兵 / 精英 / 首领。决定弱点条数区间。 */
+  /** 杂兵 / 精英 / 首领。决定弱点条数、超时与战斗倍率。 */
   enemyRank: EnemyRank
   /** 真实弱点。卡面先全是 ?，命中再揭示对应项。 */
   weaknesses: CombatAttrId[]

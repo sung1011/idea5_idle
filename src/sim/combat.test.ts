@@ -2,12 +2,17 @@ import { describe, expect, it } from 'vitest'
 import {
   CLASS_COMBAT_MOD,
   COMBAT_PARTY_MAX,
+  COMBAT_TIMEOUT_BY_RANK,
   COMBAT_TIMEOUT_S,
+  ENEMY_COMBAT_BASE,
+  ENEMY_COMBAT_QUALITY_MUL,
+  ENEMY_COMBAT_RANK_MUL,
   REST_HEAL_EVERY_S,
   WORKER_COMBAT_BY_TIER,
   applyRestHeal,
   beginEnemyCombat,
   combatPartyBlockReason,
+  combatTimeoutS,
   enemyCombatStats,
   fillWorkerHp,
   isCombatLost,
@@ -26,7 +31,7 @@ import { hydrateWorker, spawnWorker, spawnWorkerWith } from './recruit'
 import { settleOffline } from './offline'
 import { assignWorker } from './assign'
 import { ticks } from './tick'
-import type { EnemyEncounter, Save } from './types'
+import type { CombatAttrId, EnemyCombat, EnemyEncounter, Save } from './types'
 
 function testEnemy(overrides: Partial<EnemyEncounter> = {}): EnemyEncounter {
   return {
@@ -73,15 +78,21 @@ describe('combat stats tables', () => {
     expect(knight.spd).toBeGreaterThanOrEqual(1)
   })
 
-  it('looks up enemy stats by distance, power and quality', () => {
-    const nearWeak = enemyCombatStats('near', 'weak', 'green')
-    const farStrong = enemyCombatStats('far', 'strong', 'green')
-    const orange = enemyCombatStats('near', 'weak', 'orange')
+  it('looks up enemy stats by distance, power, quality and rank', () => {
+    const nearWeak = enemyCombatStats('near', 'weak', 'green', 'minion')
+    const farStrong = enemyCombatStats('far', 'strong', 'green', 'elite')
+    const orange = enemyCombatStats('near', 'weak', 'orange', 'boss')
     expect(farStrong.hp).toBeGreaterThan(nearWeak.hp)
-    expect(farStrong.atk).toBeGreaterThan(nearWeak.atk)
-    expect(orange.hp).toBeGreaterThan(nearWeak.hp)
+    expect(orange.hp).toBeGreaterThan(farStrong.hp)
     expect(orange.atk).toBeGreaterThan(nearWeak.atk)
-    expect(orange.spd).toBe(nearWeak.spd)
+    expect(orange.spd).toBeGreaterThan(nearWeak.spd)
+    expect(combatTimeoutS('minion')).toBe(900)
+    expect(combatTimeoutS('elite')).toBe(900)
+    expect(combatTimeoutS('boss')).toBe(1800)
+    expect(COMBAT_TIMEOUT_S).toBe(COMBAT_TIMEOUT_BY_RANK.boss)
+    expect(ENEMY_COMBAT_BASE.near.weak.hp).toBe(2400)
+    expect(ENEMY_COMBAT_QUALITY_MUL.orange).toBe(1.2)
+    expect(ENEMY_COMBAT_RANK_MUL.boss.hp).toBe(2.1)
   })
 
   it('hydrates missing hp to full and keeps a stored wound', () => {
@@ -160,9 +171,13 @@ describe('combat timeline', () => {
 
     stepEnemyCombat(save, enc, now + 5_000)
     expect(enc.combat?.enemy.hp).toBeLessThan(enc.combat?.enemy.hpMax ?? 0)
+    expect(enc.combat?.workers.every((w) => w.hp === w.hpMax)).toBe(true)
+
+    stepEnemyCombat(save, enc, now + 32_000)
     expect(enc.combat?.workers.some((w) => w.hp < w.hpMax)).toBe(true)
 
-    stepEnemyCombat(save, enc, now + COMBAT_TIMEOUT_S * 1000)
+    if (enc.combat) enc.combat.enemy.hp = 1
+    stepEnemyCombat(save, enc, now + 35_000)
     expect(isCombatWon(enc)).toBe(true)
     expect(save.gold).toBe(createSave().gold)
     expect(a.hp).toBe(enc.combat?.workers.find((w) => w.id === a.id)?.hp)
@@ -213,15 +228,15 @@ describe('combat timeline', () => {
     const combat = enc.combat
     expect(combat).toBeTruthy()
     if (!combat) return
-    combat.workers[0].nextActAt = now + COMBAT_TIMEOUT_S * 1000 + 5_000
-    combat.enemy.nextActAt = now + COMBAT_TIMEOUT_S * 1000 + 5_000
-    stepEnemyCombat(save, enc, now + COMBAT_TIMEOUT_S * 1000)
+    combat.workers[0].nextActAt = combat.timeoutAt + 5_000
+    combat.enemy.nextActAt = combat.timeoutAt + 5_000
+    stepEnemyCombat(save, enc, combat.timeoutAt)
     expect(isCombatLost(enc)).toBe(true)
     expect(save.gold).toBe(10)
     expect(worker.hp).toBe(combat.workers[0].hp)
-    expect(claimLoot(save, 0, now + COMBAT_TIMEOUT_S * 1000).ok).toBe(false)
+    expect(claimLoot(save, 0, combat.timeoutAt).ok).toBe(false)
 
-    const rematch = startCombat(save, 0, [worker.id], now + COMBAT_TIMEOUT_S * 1000 + 1_000)
+    const rematch = startCombat(save, 0, [worker.id], combat.timeoutAt + 1_000)
     expect(rematch.ok).toBe(true)
     expect(save.bank.meal).toBe(2)
     expect(isFighting(enc)).toBe(true)
@@ -236,7 +251,7 @@ describe('combat timeline', () => {
     const now = 5_000_000
     beginEnemyCombat(enc, [worker], now)
     save.lastTick = now
-    const later = now + 40_000
+    const later = now + 400_000
     const offline = settleOffline(save, later)
     const after = offline.save.encounters[0]
     expect(after.kind).toBe('enemy')
@@ -245,6 +260,95 @@ describe('combat timeline', () => {
     expect(offline.save.gold).toBe(save.gold)
     expect(claimLoot(offline.save, 0, later).ok).toBe(true)
     expect(offline.save.gold).toBe(save.gold + enc.lootGold)
+  })
+})
+
+function midArtisans(save: Save, attrs: readonly CombatAttrId[]) {
+  return [spawnWorkerWith(save, 5, 'artisan', attrs), spawnWorkerWith(save, 5, 'artisan', attrs)]
+}
+
+function combatElapsedS(combat: EnemyCombat): number {
+  const last = combat.logs[combat.logs.length - 1]
+  return (last.at - combat.startedAt) / 1000
+}
+
+describe('combat duration targets', () => {
+  const noMatch: CombatAttrId[] = ['bow', 'staff']
+  const oneHit: CombatAttrId[] = ['fire', 'bow']
+  const bossWeak: CombatAttrId[] = ['fire', 'ice', 'dark']
+
+  function run(
+    enc: EnemyEncounter,
+    attrs: readonly CombatAttrId[],
+    now = 1_000_000,
+  ): { combat: EnemyCombat; elapsedS: number } {
+    const save = createSave()
+    putEnemy(save, enc)
+    const party = midArtisans(save, attrs)
+    const combat = beginEnemyCombat(enc, party, now)
+    expect(combat.timeoutAt - combat.startedAt).toBe(combatTimeoutS(enc.enemyRank) * 1000)
+    stepEnemyCombat(save, enc, combat.timeoutAt)
+    return { combat, elapsedS: combatElapsedS(combat) }
+  }
+
+  it('lets two mid workers beat a minion in about 8-12 minutes without weakness', () => {
+    const enc = testEnemy({
+      quality: 'green',
+      distance: 'near',
+      power: 'weak',
+      enemyRank: 'minion',
+      weaknesses: ['fire', 'ice'],
+      revealedWeaknesses: [],
+    })
+    const { combat, elapsedS } = run(enc, noMatch)
+    expect(combat.outcome).toBe('win')
+    expect(elapsedS).toBeGreaterThanOrEqual(8 * 60)
+    expect(elapsedS).toBeLessThanOrEqual(12 * 60)
+  })
+
+  it('lets two mid workers beat an elite in about 12-15 minutes without weakness', () => {
+    const enc = testEnemy({
+      quality: 'green',
+      distance: 'near',
+      power: 'strong',
+      enemyRank: 'elite',
+      weaknesses: ['fire', 'ice', 'dark'],
+      revealedWeaknesses: [],
+    })
+    const { combat, elapsedS } = run(enc, noMatch)
+    expect(combat.outcome).toBe('win')
+    expect(elapsedS).toBeGreaterThanOrEqual(12 * 60)
+    expect(elapsedS).toBeLessThanOrEqual(15 * 60)
+  })
+
+  it('makes a boss wipe two mid workers who miss every weakness', () => {
+    const enc = testEnemy({
+      quality: 'orange',
+      distance: 'near',
+      power: 'weak',
+      enemyRank: 'boss',
+      weaknesses: bossWeak,
+      revealedWeaknesses: [],
+    })
+    const { combat } = run(enc, noMatch)
+    expect(combat.outcome).toBe('lose')
+    expect(combat.logs.some((row) => row.text.includes('超时') || row.text.includes('倒下'))).toBe(true)
+    expect(combat.enemy.hp).toBeGreaterThan(0)
+  })
+
+  it('lets two mid workers with ×1.2 weakness beat a boss in about 18-22 minutes', () => {
+    const enc = testEnemy({
+      quality: 'orange',
+      distance: 'near',
+      power: 'weak',
+      enemyRank: 'boss',
+      weaknesses: bossWeak,
+      revealedWeaknesses: [],
+    })
+    const { combat, elapsedS } = run(enc, oneHit)
+    expect(combat.outcome).toBe('win')
+    expect(elapsedS).toBeGreaterThanOrEqual(18 * 60)
+    expect(elapsedS).toBeLessThanOrEqual(22 * 60)
   })
 })
 

@@ -73,7 +73,7 @@ export const ENEMY_WEAKNESS_COUNT: Readonly<Record<EnemyRank, { min: number; max
 
 /**
  * 弱+绿蓝灰 → 杂兵；强或紫 → 精英；橙 → 首领。
- * 只决定弱点条数区间，不改 HP / ATK 表。
+ * 决定弱点条数、战斗超时，以及 HP / ATK / SPD 阶级倍率。
  */
 export function enemyRankFor(power: EncounterPower, quality: EncounterQuality): EnemyRank {
   if (quality === 'orange') return 'boss'
