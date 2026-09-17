@@ -314,7 +314,7 @@ function pawnGold(enc: PawnEncounter) {
 
           <template v-else-if="enc.kind === 'artisan'">
             <p>交成品：{{ formatNeedMap(enc.wants) }}</p>
-            <p>工坊回礼：{{ enc.rewardGold }} 金 + 产量 +{{ Math.round((enc.buffMul - 1) * 100) }}% · {{ formatMarchClock(enc.buffDurationS) }}</p>
+            <p>工坊回礼：产量 +{{ Math.round((enc.buffMul - 1) * 100) }}% · {{ formatMarchClock(enc.buffDurationS) }}</p>
             <ul>
               <li v-for="line in wantLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
                 {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}

@@ -136,7 +136,7 @@ progress >= 1 → 完成一次吞吐，progress -= 1
 - 2 人已点「工坊规章」：×0.75；已点「工匠密录」：×1.0（消除冲突）
 - 3 人：`stationSpeed` 仍按 n 倍算（玩法派驻上限 2）
 
-`cycleS` 取当前 `selectedCategory`。没人的站不推进。原料见底（锻造高阶档缺对应矿也算）时进度冻结，并写 `stallReason: emptyInput`。产物再多也不停产，没有满仓。
+`cycleS` 取当前 `selectedCategory`。没人的站不推进，且 `assignedCount <= 0` 时立刻把 `station.progress` 置 0（站卡条与左侧竖签进度底同一字段，一起归零）；再派人从 0 涨。原料见底（锻造高阶档缺对应矿也算）时进度冻结，并写 `stallReason: emptyInput`。产物再多也不停产，没有满仓。
 
 ---
 
@@ -198,7 +198,14 @@ progress >= 1 → 完成一次吞吐，progress -= 1
 
 ### 6.2 敌人
 
-补给 `needs` / 战利品 `lootGold` 各一张绿档底表，再乘品质需求 / 产出倍率；本章 Boss 另叠一份补给与战利品倍率。旧档 `distance` / `power` hydrate 时读完即丢，已有 needs / loot 原样留下。
+新刷出的交物单只要求 **1 种物品**。消耗数量表驱动：
+
+```
+qty = max(1, round(base × QUALITY_TABLE.demandMul × chapterNeedMul(chapter) × bossMul))
+chapterNeedMul(chapter) = 1 + (chapter - 1) * 0.15
+```
+
+`base` 绿档第 1 章约 2，可按物品微调（`MAIN_NEED_BASE`）。物品从 `MAIN_NEED_ITEM_POOL`（meal / ore / fish / tool / roast / stew / potion 等已有产物）掷 1 个；交易单用该类型表里的第一种。本章 Boss **只再 × `CHAPTER_BOSS_NEED_MUL`（1.25）加数量**，不再叠第二种物品。战利品 `lootGold` 仍乘品质产出倍率，Boss 另乘战利品倍率。章节需求倍率单独函数，不绑战斗 HP 倍率。旧档 `distance` / `power` hydrate 时读完即丢；已有 needs / loot 原样留下（再战中的多物品敌不改写）。
 
 流程（行军门闩已换成战斗；交易单不动）：
 
@@ -216,7 +223,7 @@ progress >= 1 → 完成一次吞吐，progress -= 1
 
 ### 6.3 黑心商人 / 路人 / 当铺 / 工匠委托 / 收购
 
-五种交易互斥，卡面标题用中文名，只渲染该类型允许的按钮。品质已在生成时写入需求 / 产出。
+五种交易互斥，卡面标题用中文名，只渲染该类型允许的按钮。品质与章节已在生成时写入需求 / 产出。玩家交物侧（敌人 needs、委托 / 收购 / 路人 wants、当铺 pawnWants）以及黑心商人 buyOffers 都只写 1 种物品；路人 offers 仍可以是另一种。
 
 1. **黑心商人**（kind `blackMerchant`）
    - 只提供：玩家花金币购买对方货物
@@ -230,8 +237,8 @@ progress >= 1 → 完成一次吞吐，progress -= 1
    - 列出可典当物品与报价，确认后扣货加金；货不够失败、不扣错货
    - 不购买、不以物易物
 4. **工匠委托**（kind `artisan`）
-   - 提交指定成品，换金币 + 工坊临时产量 buff（配方系统未就绪，先不做限时配方）
-   - buff 写入 `workshopBuff`，站点速度乘 `buffMul`，到期失效
+   - 提交指定成品，**只**给工坊临时产量 buff，不加金币、不奖物资（配方系统未就绪，先不做限时配方）
+   - buff 写入 `workshopBuff`，站点速度乘 `buffMul`，到期失效；卡面「工坊回礼」只写产量与时长
 5. **收购**（kind `bulkBuy`）
    - 高价收指定成品：玩家给物品换金币
    - `bulkUnitGold` 用 `BULK_BUY_RATE = 1.15`，单价优于当铺

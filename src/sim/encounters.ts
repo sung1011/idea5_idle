@@ -13,6 +13,7 @@ import {
 } from './combat'
 import { ensureEnemyIntel, isEnemyRank, pickEnemyWeaknesses } from './combatAttrs'
 import {
+  MAIN_CHAPTER_START,
   MAIN_LOOT_CLAIMS_GOAL,
   hasLiveChapterBoss,
   hydrateMainChapterFields,
@@ -190,7 +191,6 @@ export type ArtisanDef = {
   id: string
   label: string
   wants: EncounterNeedMap
-  rewardGold: number
   buffMul: number
   buffDurationS: number
 }
@@ -224,16 +224,16 @@ export const PAWN_DEFS: readonly PawnDef[] = [
   { id: 'merchantPawnMeal', label: '干粮当', pawnWants: { meal: 1 } },
   { id: 'merchantPawnRoast', label: '烤肉当', pawnWants: { roast: 1 } },
   { id: 'merchantPawnWood', label: '矿料当', pawnWants: { ore: 3 } },
-  { id: 'merchantPawnOre', label: '矿石当', pawnWants: { ore: 2, fish: 2 } },
+  { id: 'merchantPawnOre', label: '矿石当', pawnWants: { ore: 2 } },
 ]
 
 export const PAWNSHOP_DEFS = PAWN_DEFS
 
 export const ARTISAN_DEFS: readonly ArtisanDef[] = [
-  { id: 'artisanBlade', label: '修工具委托', wants: { tool: 1 }, rewardGold: 10, buffMul: 1.15, buffDurationS: 180 },
-  { id: 'artisanMeal', label: '灶头加餐', wants: { meal: 2 }, rewardGold: 12, buffMul: 1.12, buffDurationS: 150 },
-  { id: 'artisanStew', label: '炖锅加餐', wants: { stew: 1 }, rewardGold: 16, buffMul: 1.16, buffDurationS: 180 },
-  { id: 'artisanPotion', label: '药剂试制', wants: { potion: 1 }, rewardGold: 14, buffMul: 1.18, buffDurationS: 210 },
+  { id: 'artisanBlade', label: '修工具委托', wants: { tool: 1 }, buffMul: 1.15, buffDurationS: 180 },
+  { id: 'artisanMeal', label: '灶头加餐', wants: { meal: 2 }, buffMul: 1.12, buffDurationS: 150 },
+  { id: 'artisanStew', label: '炖锅加餐', wants: { stew: 1 }, buffMul: 1.16, buffDurationS: 180 },
+  { id: 'artisanPotion', label: '药剂试制', wants: { potion: 1 }, buffMul: 1.18, buffDurationS: 210 },
 ]
 
 export const BULK_BUY_DEFS: readonly BulkBuyDef[] = [
@@ -241,7 +241,7 @@ export const BULK_BUY_DEFS: readonly BulkBuyDef[] = [
   { id: 'bulkMeal', label: '熟食收购', wants: { meal: 2 } },
   { id: 'bulkRoast', label: '烤肉收购', wants: { roast: 2 } },
   { id: 'bulkPotion', label: '药剂收购', wants: { potion: 1 } },
-  { id: 'bulkCooked', label: '干粮收购', wants: { meal: 1, fish: 2 } },
+  { id: 'bulkCooked', label: '干粮收购', wants: { meal: 1 } },
 ]
 
 /** 旧单格出发存档迁进偶遇敌人用。 */
@@ -259,10 +259,27 @@ const LEGACY_ORDER_DEFS: ReadonlyArray<{
   { id: 'timberPost', label: '矿营补给', needs: { ore: 3, meal: 1 }, lootGold: 7 },
 ]
 
-/** 绿档补给底版。品质只乘需求倍率，不再分远近强弱。 */
-export const ENEMY_NEEDS_BASE: EncounterNeedMap = { meal: 2, ore: 2, fish: 1 }
-/** 本章 Boss 额外补给。 */
-export const ENEMY_NEEDS_BOSS_EXTRA: EncounterNeedMap = { meal: 1, roast: 1, ore: 1 }
+/** 主线消耗池。新刷出的交物单只从这里掷 1 种。 */
+export const MAIN_NEED_ITEM_POOL: readonly ItemId[] = ['meal', 'ore', 'fish', 'tool', 'roast', 'stew', 'potion']
+
+/** 绿档第 1 章底数。缺表项按 MAIN_NEED_BASE_DEFAULT。 */
+export const MAIN_NEED_BASE: Readonly<Partial<Record<ItemId, number>>> = {
+  meal: 2,
+  ore: 2,
+  fish: 2,
+  tool: 2,
+  roast: 2,
+  stew: 2,
+  potion: 2,
+}
+
+export const MAIN_NEED_BASE_DEFAULT = 2
+
+/** 章节需求步进。第 1 章 = 1，之后每章 +15%。不绑战斗 HP 倍率。 */
+export const CHAPTER_NEED_STEP = 0.15
+
+/** 本章 Boss 只加数量，不再叠第二种物品。 */
+export const CHAPTER_BOSS_NEED_MUL = 1.25
 
 type LegacyOrderSave = Save & {
   currentOrderId?: string
@@ -370,9 +387,61 @@ export function scaleGold(gold: number, mul: number): number {
   return Math.max(1, Math.round(gold * mul))
 }
 
-/** 绿档补给。本章 Boss 再叠一份额外物资。 */
-export function enemyNeedsFor(chapterBoss = false): EncounterNeedMap {
-  return mergeNeedMaps(ENEMY_NEEDS_BASE, chapterBoss ? ENEMY_NEEDS_BOSS_EXTRA : {})
+export function itemNeedBase(itemId: ItemId): number {
+  const base = MAIN_NEED_BASE[itemId]
+  return typeof base === 'number' && base > 0 ? base : MAIN_NEED_BASE_DEFAULT
+}
+
+/** 章节需求倍率：1 + (chapter-1) * CHAPTER_NEED_STEP。 */
+export function chapterNeedMul(chapter: unknown): number {
+  return 1 + (normalizeMainChapter(chapter) - 1) * CHAPTER_NEED_STEP
+}
+
+export function scaledDemandQty(
+  itemId: ItemId,
+  quality: EncounterQuality,
+  chapter: unknown,
+  chapterBoss = false,
+): number {
+  const mul =
+    qualityDef(quality).demandMul * chapterNeedMul(chapter) * (chapterBoss ? CHAPTER_BOSS_NEED_MUL : 1)
+  return Math.max(1, Math.round(itemNeedBase(itemId) * mul))
+}
+
+/** 只写 1 个 key 的消耗表。 */
+export function scaledMainNeed(
+  itemId: ItemId,
+  quality: EncounterQuality,
+  chapter: unknown,
+  chapterBoss = false,
+): EncounterNeedMap {
+  return { [itemId]: scaledDemandQty(itemId, quality, chapter, chapterBoss) }
+}
+
+export function firstNeedItem(map: EncounterNeedMap, fallback: ItemId = 'meal'): ItemId {
+  return needEntries(map)[0]?.[0] ?? fallback
+}
+
+export function pickMainNeedItem(rng: { rngState: number }): ItemId {
+  const pool = MAIN_NEED_ITEM_POOL
+  const idx = Math.min(pool.length - 1, Math.floor(rollRng(rng) * pool.length))
+  return pool[idx]
+}
+
+function singleOutputMap(map: EncounterNeedMap, mul: number): EncounterNeedMap {
+  const itemId = firstNeedItem(map)
+  const qty = needEntries(map)[0]?.[1] ?? 1
+  return { [itemId]: scaleQty(qty, mul) }
+}
+
+/** 缺 needs 的旧敌：按品质 / 章节补一张单物品补给。 */
+export function enemyNeedsFor(
+  quality: EncounterQuality = 'green',
+  chapter: unknown = 1,
+  chapterBoss = false,
+  itemId: ItemId = 'meal',
+): EncounterNeedMap {
+  return scaledMainNeed(itemId, quality, chapter, chapterBoss)
 }
 
 export function enemyLootGoldFor(chapterBoss = false): number {
@@ -539,6 +608,7 @@ export type EncounterSpawnOpts = {
   reservedChapterBoss?: boolean
   /** 有则推进这份 rng；无则用 seed+1 开一份局部骰。 */
   rng?: { rngState: number }
+  mainChapter?: number
 }
 
 function encounterRng(seed: number, rng?: { rngState: number }): { rngState: number } {
@@ -552,16 +622,21 @@ function makeEnemy(
   slot: number,
   quality: EncounterQuality,
   forceChapterBoss = false,
+  chapter = 1,
+  rng?: { rngState: number },
 ): EnemyEncounter {
   const name = ENEMY_NAME_DEFS[(seed + slot) % ENEMY_NAME_DEFS.length]
   const q = qualityDef(quality)
   const enemyRank = mainlineEnemyRank(quality, forceChapterBoss)
+  const itemId = rng
+    ? pickMainNeedItem(rng)
+    : MAIN_NEED_ITEM_POOL[(seed + slot) % MAIN_NEED_ITEM_POOL.length]
   return {
     kind: 'enemy',
     id: `${name.id}-${quality}-${seed}-${slot}`,
     label: forceChapterBoss ? `${name.label}·首领` : name.label,
     quality,
-    needs: scaleNeedMap(enemyNeedsFor(forceChapterBoss), q.demandMul),
+    needs: scaledMainNeed(itemId, quality, chapter, forceChapterBoss),
     lootGold: scaleGold(enemyLootGoldFor(forceChapterBoss), q.outputMul),
     departed: false,
     combat: null,
@@ -573,7 +648,13 @@ function makeEnemy(
   }
 }
 
-function makeBlackMerchant(seed: number, slot: number, quality: EncounterQuality): BlackMerchantEncounter {
+function makeBlackMerchant(
+  seed: number,
+  slot: number,
+  quality: EncounterQuality,
+  chapter = 1,
+): BlackMerchantEncounter {
+  void chapter
   const def = BLACK_MERCHANT_DEFS[(seed + slot) % BLACK_MERCHANT_DEFS.length]
   const q = qualityDef(quality)
   return {
@@ -582,12 +663,12 @@ function makeBlackMerchant(seed: number, slot: number, quality: EncounterQuality
     label: def.label,
     quality,
     buyGold: scaleGold(def.buyGold, q.demandMul),
-    buyOffers: scaleNeedMap(def.buyOffers, q.outputMul),
+    buyOffers: singleOutputMap(def.buyOffers, q.outputMul),
     completed: false,
   }
 }
 
-function makePasserby(seed: number, slot: number, quality: EncounterQuality): PasserbyEncounter {
+function makePasserby(seed: number, slot: number, quality: EncounterQuality, chapter = 1): PasserbyEncounter {
   const def = PASSERBY_DEFS[(seed + slot) % PASSERBY_DEFS.length]
   const q = qualityDef(quality)
   return {
@@ -595,28 +676,28 @@ function makePasserby(seed: number, slot: number, quality: EncounterQuality): Pa
     id: `${def.id}-${quality}-${seed}-${slot}`,
     label: def.label,
     quality,
-    wants: scaleNeedMap(def.wants, q.demandMul),
-    offers: scaleNeedMap(def.offers, q.outputMul),
+    wants: scaledMainNeed(firstNeedItem(def.wants), quality, chapter),
+    offers: singleOutputMap(def.offers, q.outputMul),
     completed: false,
   }
 }
 
-function makePawn(seed: number, slot: number, quality: EncounterQuality): PawnEncounter {
+function makePawn(seed: number, slot: number, quality: EncounterQuality, chapter = 1): PawnEncounter {
   const def = PAWN_DEFS[(seed + slot) % PAWN_DEFS.length]
   const q = qualityDef(quality)
-  const pawnWants = scaleNeedMap(def.pawnWants, q.demandMul)
+  const pawnWants = scaledMainNeed(firstNeedItem(def.pawnWants), quality, chapter)
   return {
     kind: 'pawn',
     id: `${def.id}-${quality}-${seed}-${slot}`,
     label: def.label,
     quality,
     pawnWants,
-    rewardGold: scaleGold(pawnGoldForMap(def.pawnWants), q.outputMul),
+    rewardGold: scaleGold(pawnGoldForMap(pawnWants), q.outputMul / q.demandMul),
     completed: false,
   }
 }
 
-function makeArtisan(seed: number, slot: number, quality: EncounterQuality): ArtisanEncounter {
+function makeArtisan(seed: number, slot: number, quality: EncounterQuality, chapter = 1): ArtisanEncounter {
   const def = ARTISAN_DEFS[(seed + slot) % ARTISAN_DEFS.length]
   const q = qualityDef(quality)
   return {
@@ -624,25 +705,25 @@ function makeArtisan(seed: number, slot: number, quality: EncounterQuality): Art
     id: `${def.id}-${quality}-${seed}-${slot}`,
     label: def.label,
     quality,
-    wants: scaleNeedMap(def.wants, q.demandMul),
-    rewardGold: scaleGold(def.rewardGold, q.outputMul),
+    wants: scaledMainNeed(firstNeedItem(def.wants), quality, chapter),
+    rewardGold: 0,
     buffMul: 1 + (def.buffMul - 1) * q.outputMul,
     buffDurationS: scaleQty(def.buffDurationS, q.outputMul),
     completed: false,
   }
 }
 
-function makeBulkBuy(seed: number, slot: number, quality: EncounterQuality): BulkBuyEncounter {
+function makeBulkBuy(seed: number, slot: number, quality: EncounterQuality, chapter = 1): BulkBuyEncounter {
   const def = BULK_BUY_DEFS[(seed + slot) % BULK_BUY_DEFS.length]
   const q = qualityDef(quality)
-  const wants = scaleNeedMap(def.wants, q.demandMul)
+  const wants = scaledMainNeed(firstNeedItem(def.wants), quality, chapter)
   return {
     kind: 'bulkBuy',
     id: `${def.id}-${quality}-${seed}-${slot}`,
     label: def.label,
     quality,
     wants,
-    rewardGold: scaleGold(bulkGoldForMap(def.wants), q.outputMul),
+    rewardGold: scaleGold(bulkGoldForMap(wants), q.outputMul / q.demandMul),
     completed: false,
   }
 }
@@ -653,26 +734,29 @@ function makeEncounter(
   quality: EncounterQuality,
   kind: EncounterKind,
   forceChapterBoss = false,
+  chapter = 1,
+  rng?: { rngState: number },
 ): Encounter {
-  if (kind === 'enemy') return makeEnemy(seed, slot, quality, forceChapterBoss)
-  if (kind === 'blackMerchant') return makeBlackMerchant(seed, slot, quality)
-  if (kind === 'passerby') return makePasserby(seed, slot, quality)
-  if (kind === 'pawn') return makePawn(seed, slot, quality)
-  if (kind === 'artisan') return makeArtisan(seed, slot, quality)
-  return makeBulkBuy(seed, slot, quality)
+  if (kind === 'enemy') return makeEnemy(seed, slot, quality, forceChapterBoss, chapter, rng)
+  if (kind === 'blackMerchant') return makeBlackMerchant(seed, slot, quality, chapter)
+  if (kind === 'passerby') return makePasserby(seed, slot, quality, chapter)
+  if (kind === 'pawn') return makePawn(seed, slot, quality, chapter)
+  if (kind === 'artisan') return makeArtisan(seed, slot, quality, chapter)
+  return makeBulkBuy(seed, slot, quality, chapter)
 }
 
 export function encounterFiller(seed: number, opts: EncounterSpawnOpts = {}): (slot: number) => Encounter {
   const safe = Number.isFinite(seed) && seed >= 0 ? Math.floor(seed) : 0
   const claims = normalizeMainLootClaims(opts.mainLootClaims)
   const rng = encounterRng(safe, opts.rng)
+  const chapter = normalizeMainChapter(opts.mainChapter)
   let reserved = opts.reservedChapterBoss === true
   return (slot: number) => {
     const quality = pickQuality(rng)
     const kind = pickEncounterKind(rng)
     const forceBoss = kind === 'enemy' && claims >= MAIN_LOOT_CLAIMS_GOAL && !reserved
     if (forceBoss) reserved = true
-    return makeEncounter(safe, slot, quality, kind, forceBoss)
+    return makeEncounter(safe, slot, quality, kind, forceBoss, chapter, rng)
   }
 }
 
@@ -694,6 +778,7 @@ function spawnOptsFor(save: Save, reserved: readonly Encounter[]): EncounterSpaw
     mainLootClaims: normalizeMainLootClaims(save.mainLootClaims),
     reservedChapterBoss: hasLiveChapterBoss(reserved),
     rng: save,
+    mainChapter: normalizeMainChapter(save.mainChapter),
   }
 }
 
@@ -1214,13 +1299,12 @@ export function submitArtisan(save: Save, index: number, now = Date.now()): Acti
   if (!enc) return { ok: false, reason: '不是工匠委托' }
   const took = takeCosts(save, needMapToRules(enc.wants))
   if (!took.ok) return took
-  save.gold += enc.rewardGold
   applyWorkshopBuff(save, enc.buffMul, enc.buffDurationS, now)
   enc.completed = true
   const pct = Math.round((enc.buffMul - 1) * 100)
   return {
     ok: true,
-    message: `委托完成。金币 +${enc.rewardGold}，工坊产量 +${pct}% · ${formatMarchClock(enc.buffDurationS)}`,
+    message: `委托完成。工坊产量 +${pct}% · ${formatMarchClock(enc.buffDurationS)}`,
   }
 }
 
@@ -1351,7 +1435,7 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
   const needs =
     isNeedMap(raw.needs) && needEntries(raw.needs).length
       ? { ...raw.needs }
-      : scaleNeedMap(enemyNeedsFor(chapterBoss), qualityDef(quality).demandMul)
+      : scaledMainNeed('meal', quality, MAIN_CHAPTER_START, chapterBoss)
   const departed = raw.departed === true
   const hasMarch = typeof raw.marchEndsAt === 'number'
   const existingCombat = isEnemyCombat(raw.combat) ? raw.combat : null
@@ -1453,7 +1537,7 @@ function migrateTrade(raw: LegacyTrade): Encounter | unknown {
       label,
       quality,
       wants: isNeedMap(raw.wants) ? { ...raw.wants } : { weapon: 1 },
-      rewardGold: typeof raw.rewardGold === 'number' ? raw.rewardGold : 10,
+      rewardGold: 0,
       buffMul: typeof raw.buffMul === 'number' && raw.buffMul > 1 ? raw.buffMul : 1.15,
       buffDurationS: typeof raw.buffDurationS === 'number' && raw.buffDurationS > 0 ? raw.buffDurationS : 180,
       completed,

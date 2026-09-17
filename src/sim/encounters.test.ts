@@ -20,8 +20,13 @@ import {
   claimLoot,
   claimLootBlockReason,
   combatSupplyBlockReason,
+  chapterNeedMul,
   enemyLootGoldFor,
   enemyNeedsFor,
+  MAIN_NEED_ITEM_POOL,
+  needEntries,
+  scaledDemandQty,
+  scaledMainNeed,
   exploreBlockReason,
   exploreBoard,
   exploreCost,
@@ -158,7 +163,7 @@ function testArtisan(overrides: Partial<ArtisanEncounter> = {}): ArtisanEncounte
     label: '修刃委托',
     quality: 'green',
     wants: { weapon: 1 },
-    rewardGold: 10,
+    rewardGold: 0,
     buffMul: 1.15,
     buffDurationS: 180,
     completed: false,
@@ -217,7 +222,17 @@ describe('encounter board', () => {
           expect((enc as { power?: unknown }).power).toBeUndefined()
           if (enc.chapterBoss) expect(enc.enemyRank).toBe('boss')
           else expect(enc.enemyRank).not.toBe('boss')
+          expect(needEntries(enc.needs)).toHaveLength(1)
+          expect(MAIN_NEED_ITEM_POOL.includes(needEntries(enc.needs)[0][0])).toBe(true)
         }
+        if (enc.kind === 'artisan') {
+          expect(needEntries(enc.wants)).toHaveLength(1)
+          expect(enc.rewardGold).toBe(0)
+        }
+        if (enc.kind === 'passerby') expect(needEntries(enc.wants)).toHaveLength(1)
+        if (enc.kind === 'pawn') expect(needEntries(enc.pawnWants)).toHaveLength(1)
+        if (enc.kind === 'bulkBuy') expect(needEntries(enc.wants)).toHaveLength(1)
+        if (enc.kind === 'blackMerchant') expect(needEntries(enc.buyOffers)).toHaveLength(1)
       }
     }
     expect(seenKinds.has('enemy')).toBe(true)
@@ -238,19 +253,50 @@ describe('encounter board', () => {
     expect(isTradeKind('bulkBuy')).toBe(true)
   })
 
-  it('scales a single needs / loot table by quality and chapter boss extras', () => {
-    const base = enemyNeedsFor()
-    const boss = enemyNeedsFor(true)
-    expect(base.meal).toBe(2)
-    expect(base.ore).toBe(2)
-    expect(base.fish).toBe(1)
-    expect(boss.meal ?? 0).toBeGreaterThan(base.meal ?? 0)
-    expect(boss.ore ?? 0).toBeGreaterThan(base.ore ?? 0)
-    expect(boss.roast ?? 0).toBeGreaterThan(0)
+  it('uses one consume item and grows qty with quality, chapter, and boss mul', () => {
+    expect(chapterNeedMul(1)).toBe(1)
+    expect(chapterNeedMul(2)).toBeCloseTo(1.15)
+    expect(chapterNeedMul(5)).toBeCloseTo(1.6)
+    expect(scaledDemandQty('meal', 'green', 1)).toBe(2)
+    expect(scaledDemandQty('meal', 'orange', 1)).toBeGreaterThan(scaledDemandQty('meal', 'green', 1))
+    expect(scaledDemandQty('meal', 'green', 5)).toBeGreaterThan(scaledDemandQty('meal', 'green', 1))
+    const green = scaledMainNeed('meal', 'green', 1)
+    const boss = scaledMainNeed('meal', 'green', 1, true)
+    expect(Object.keys(green)).toEqual(['meal'])
+    expect(Object.keys(boss)).toEqual(['meal'])
+    expect(boss.meal ?? 0).toBeGreaterThan(green.meal ?? 0)
+    expect(boss.roast).toBeUndefined()
+    expect(enemyNeedsFor()).toEqual(scaledMainNeed('meal', 'green', 1))
     expect(enemyLootGoldFor(true)).toBeGreaterThan(enemyLootGoldFor())
-    const purpleNeeds = scaleNeedMap(base, QUALITY_TABLE.purple.demandMul)
-    expect(purpleNeeds.meal ?? 0).toBeGreaterThan(base.meal ?? 0)
     expect(scaleGold(enemyLootGoldFor(), QUALITY_TABLE.orange.outputMul)).toBeGreaterThan(enemyLootGoldFor())
+
+    let sawEnemy = false
+    let sawArtisan = false
+    for (let seed = 0; seed < 40; seed++) {
+      const low = generateEncounterBoard(seed, 6, { mainChapter: 1 })
+      const high = generateEncounterBoard(seed, 6, { mainChapter: 8 })
+      const lowEnemy = low.find((enc) => enc.kind === 'enemy')
+      const highEnemy = high.find((enc) => enc.kind === 'enemy')
+      const lowArtisan = low.find((enc) => enc.kind === 'artisan')
+      const highArtisan = high.find((enc) => enc.kind === 'artisan')
+      if (lowEnemy?.kind === 'enemy' && highEnemy?.kind === 'enemy') {
+        expect(needEntries(lowEnemy.needs)).toHaveLength(1)
+        expect(needEntries(highEnemy.needs)).toHaveLength(1)
+        expect(needEntries(lowEnemy.needs)[0][0]).toBe(needEntries(highEnemy.needs)[0][0])
+        expect(needEntries(highEnemy.needs)[0][1]).toBeGreaterThan(needEntries(lowEnemy.needs)[0][1])
+        sawEnemy = true
+      }
+      if (lowArtisan?.kind === 'artisan' && highArtisan?.kind === 'artisan') {
+        expect(needEntries(lowArtisan.wants)).toHaveLength(1)
+        expect(needEntries(highArtisan.wants)).toHaveLength(1)
+        expect(lowArtisan.rewardGold).toBe(0)
+        expect(needEntries(highArtisan.wants)[0][1]).toBeGreaterThan(needEntries(lowArtisan.wants)[0][1])
+        sawArtisan = true
+      }
+      if (sawEnemy && sawArtisan) break
+    }
+    expect(sawEnemy).toBe(true)
+    expect(sawArtisan).toBe(true)
   })
 })
 
@@ -547,11 +593,32 @@ describe('enemy combat and loot', () => {
     hydrateEncounterFields(save)
     expect(save.encounters[0].kind).toBe('enemy')
     if (save.encounters[0].kind !== 'enemy') return
-    expect(save.encounters[0].needs).toEqual(enemyNeedsFor())
+    expect(save.encounters[0].needs).toEqual(scaledMainNeed('meal', 'green', 1))
     expect(save.encounters[0].lootGold).toBe(enemyLootGoldFor())
     expect(save.encounters[0].enemyRank).toBe('minion')
     expect((save.encounters[0] as { distance?: unknown }).distance).toBeUndefined()
     expect((save.encounters[0] as { power?: unknown }).power).toBeUndefined()
+  })
+
+  it('keeps a leftover multi-item enemy needs map so a rematch is not rewritten', () => {
+    const save = createSave()
+    save.encounters = [
+      {
+        kind: 'enemy',
+        id: 'old-multi',
+        label: '旧多物敌',
+        quality: 'green',
+        needs: { meal: 2, ore: 2, fish: 1 },
+        lootGold: 12,
+        departed: true,
+        combat: fightSnap(null),
+        lootClaimed: false,
+      },
+    ] as unknown as Save['encounters']
+    hydrateEncounterFields(save)
+    expect(save.encounters[0].kind).toBe('enemy')
+    if (save.encounters[0].kind !== 'enemy') return
+    expect(save.encounters[0].needs).toEqual({ meal: 2, ore: 2, fish: 1 })
   })
 })
 
@@ -806,15 +873,19 @@ describe('encounter quality', () => {
 })
 
 describe('artisan and bulk buy', () => {
-  it('lets an artisan take finished goods for gold plus a workshop yield buff', () => {
+  it('lets an artisan take finished goods for a workshop yield buff and does not change gold', () => {
     const save = createSave()
     save.gold = 20
-    put(save, 0, testArtisan())
+    put(save, 0, testArtisan({ rewardGold: 10 }))
     stock(save, { weapon: 2 })
     const now = 3_000_000_000_000
     const result = submitArtisan(save, 0, now)
     expect(result.ok).toBe(true)
-    expect(save.gold).toBe(30)
+    if (result.ok) {
+      expect(result.message).toContain('工坊产量 +15%')
+      expect(result.message).not.toContain('金币 +')
+    }
+    expect(save.gold).toBe(20)
     expect(bankQty(save, 'weapon')).toBe(1)
     expect(save.encounters[0].kind === 'artisan' && save.encounters[0].completed).toBe(true)
     expect(stampLabel(save.encounters[0])).toBe('完成')

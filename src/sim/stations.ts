@@ -99,6 +99,7 @@ export function stepStation(save: Save, stationId: StationId, now = Date.now(), 
   const station = save.stations[stationId]
   const n = assignedCount(save, stationId)
   if (n <= 0) {
+    station.progress = 0
     station.stallReason = null
     return
   }

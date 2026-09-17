@@ -394,6 +394,7 @@ export type PawnshopEncounter = PawnEncounter
 export type ArtisanEncounter = EncounterBase & {
   kind: 'artisan'
   wants: EncounterNeedMap
+  /** 新单固定 0；提交只给产量 buff，不加金币。 */
   rewardGold: number
   buffMul: number
   buffDurationS: number

@@ -37,7 +37,12 @@ export function assignWorker(save: Save, workerId: string, stationId: StationId 
     const n = assignedWorkers(save, stationId).length
     if (n >= STATION_WORKER_CAP) return { ok: false, reason: '该站最多 2 人' }
   }
+  const prev = worker.assignment
   worker.assignment = stationId
+  if (prev && prev !== stationId && isStationId(prev) && assignedWorkers(save, prev).length <= 0) {
+    save.stations[prev].progress = 0
+    save.stations[prev].stallReason = null
+  }
   return { ok: true }
 }
 

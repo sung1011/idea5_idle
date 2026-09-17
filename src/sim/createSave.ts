@@ -43,6 +43,9 @@ export function createSave(): Save {
     unlockedTechIds: [],
   }
   save.knightLevel = computeKnightLevel(save)
-  save.encounters = generateEncounterBoard(0, encounterSlotCount(save), { rng: save })
+  save.encounters = generateEncounterBoard(0, encounterSlotCount(save), {
+    rng: save,
+    mainChapter: save.mainChapter,
+  })
   return save
 }

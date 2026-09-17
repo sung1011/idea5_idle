@@ -175,6 +175,29 @@ describe('cooking pipeline', () => {
   })
 })
 
+describe('empty station progress', () => {
+  it('zeros progress as soon as nobody is assigned', () => {
+    const save = roster(1)
+    assignWorker(save, save.workers[0].id, 'mining')
+    const mid = ticks(save, 10)
+    expect(mid.stations.mining.progress).toBeGreaterThan(0.4)
+    expect(assignWorker(mid, mid.workers[0].id, null).ok).toBe(true)
+    expect(mid.stations.mining.progress).toBe(0)
+    const next = ticks(mid, 5)
+    expect(next.stations.mining.progress).toBe(0)
+    expect(next.stations.mining.completed).toBe(0)
+    expect(next.stations.mining.stallReason).toBeNull()
+  })
+
+  it('keeps leftover progress at 0 on later empty ticks', () => {
+    const save = roster(1)
+    save.stations.mining.progress = 0.7
+    expect(save.workers[0].assignment).toBeNull()
+    const next = ticks(save, 3)
+    expect(next.stations.mining.progress).toBe(0)
+  })
+})
+
 describe('forging pipeline', () => {
   it('consumes ore and deposits a tool', () => {
     setRollOverride(() => 0.99)
