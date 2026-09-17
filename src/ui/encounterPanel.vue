@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { visibleWeaknessSlots } from '../sim/combatAttrs'
+import { ENEMY_RANK_LABEL, visibleWeaknessSlots } from '../sim/combatAttrs'
 import CombatAttrIcon from './combatAttrIcon.vue'
 import CombatAttrRow from './combatAttrRow.vue'
 import {
@@ -32,6 +32,7 @@ import {
   workshopBuffMul,
   workshopBuffRemainS,
 } from '../sim/encounters'
+import { mainChapterHeader } from '../sim/mainChapter'
 import { CLASS_LABEL } from '../sim/tables'
 import type { Encounter, EncounterKind, EnemyEncounter, PawnEncounter, Worker } from '../sim/types'
 import { pushFloatTip } from './floatTips'
@@ -39,6 +40,7 @@ import { useGameStore } from './gameStore'
 
 const game = useGameStore()
 const cost = computed(() => exploreCost(game.save))
+const chapterTitle = computed(() => mainChapterHeader(game.save))
 const departedTotal = computed(() => game.save.departCount)
 const now = computed(() => {
   void game.save.elapsedS
@@ -147,7 +149,8 @@ function pawnGold(enc: PawnEncounter) {
 
 <template>
   <section class="panel encounter">
-    <p>偶遇</p>
+    <p>主线</p>
+    <p class="chapter">{{ chapterTitle }}</p>
     <div class="row">
       <button type="button" @click="game.explore()">
         探索（{{ cost }} 金）
@@ -169,6 +172,7 @@ function pawnGold(enc: PawnEncounter) {
               <span class="tags">
                 <i>{{ DISTANCE_LABEL[enc.distance] }}</i>
                 <i>{{ POWER_LABEL[enc.power] }}</i>
+                <i v-if="enc.chapterBoss">{{ ENEMY_RANK_LABEL.boss }}</i>
               </span>
             </div>
           </header>
@@ -378,6 +382,12 @@ function pawnGold(enc: PawnEncounter) {
 .buff {
   margin: 0;
   line-height: 1.5;
+}
+
+.chapter {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
 .label {

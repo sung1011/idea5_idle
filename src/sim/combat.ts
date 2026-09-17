@@ -5,6 +5,7 @@ import {
   formatWeaknessLabels,
   resolveWorkerAttack,
 } from './combatAttrs'
+import { chapterCombatMul } from './mainChapter'
 import type {
   ClassId,
   CombatAttrId,
@@ -141,14 +142,16 @@ export function enemyCombatStats(
   power: EncounterPower,
   quality: EncounterQuality,
   rank?: EnemyRank,
+  chapter = 1,
 ): CombatStats {
   const resolvedRank = rank ?? enemyRankFor(power, quality)
   const base = ENEMY_COMBAT_BASE[distance][power]
   const qMul = ENEMY_COMBAT_QUALITY_MUL[quality]
   const rMul = ENEMY_COMBAT_RANK_MUL[resolvedRank]
+  const cMul = chapterCombatMul(chapter)
   return {
-    hp: scaleStat(base.hp, qMul * rMul.hp),
-    atk: scaleStat(base.atk, qMul * rMul.atk),
+    hp: scaleStat(base.hp, qMul * rMul.hp * cMul),
+    atk: scaleStat(base.atk, qMul * rMul.atk * cMul),
     spd: Math.max(1, Math.round(base.spd * rMul.spd)),
   }
 }
@@ -272,9 +275,14 @@ function makeFighter(
   }
 }
 
-export function beginEnemyCombat(enc: EnemyEncounter, workers: Worker[], now: number): EnemyCombat {
+export function beginEnemyCombat(
+  enc: EnemyEncounter,
+  workers: Worker[],
+  now: number,
+  chapter = 1,
+): EnemyCombat {
   ensureEnemyIntel(enc)
-  const eStats = enemyCombatStats(enc.distance, enc.power, enc.quality, enc.enemyRank)
+  const eStats = enemyCombatStats(enc.distance, enc.power, enc.quality, enc.enemyRank, chapter)
   const combat: EnemyCombat = {
     startedAt: now,
     timeoutAt: now + combatTimeoutS(enc.enemyRank) * 1000,
@@ -437,8 +445,12 @@ export function applyRestHeal(save: Save): void {
   }
 }
 
-export function legacyMarchAsWin(enc: EnemyEncounter, now = 0): EnemyCombat {
-  const stats = enemyCombatStats(enc.distance, enc.power, enc.quality, enc.enemyRank)
+export function writeBackCombatWorkers(save: Save, combat: EnemyCombat): void {
+  writeBackWorkers(save, combat)
+}
+
+export function legacyMarchAsWin(enc: EnemyEncounter, now = 0, chapter = 1): EnemyCombat {
+  const stats = enemyCombatStats(enc.distance, enc.power, enc.quality, enc.enemyRank, chapter)
   return {
     startedAt: now,
     timeoutAt: now,

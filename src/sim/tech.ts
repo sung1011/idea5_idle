@@ -10,7 +10,7 @@ export const CRAFT_TECH_POINTS = CYCLE_TECH_POINTS
 
 export const ENCOUNTER_SLOT_MIN = 1
 export const ENCOUNTER_SLOT_MAX = 6
-/** 偶遇格大科技的 effectId。每点亮 1 个 +1 格，与初始 1 格相加，封顶 6。 */
+/** 主线订单格大科技的 effectId。每点亮 1 个 +1 格，与初始 1 格相加，封顶 6。 */
 export const ENCOUNTER_SLOT_EFFECT = 'encounterSlot'
 export const NOOP_TECH_EFFECT = 'noop'
 
@@ -21,7 +21,7 @@ export type TechNodeDef = {
   name: string
   desc: string
   cost: number
-  /** 多数占位。偶遇格大科技为 encounterSlot；工坊规章 / 工匠密录走 stationConflictMul。 */
+  /** 多数占位。主线订单格大科技为 encounterSlot；工坊规章 / 工匠密录走 stationConflictMul。 */
   effectId: string
   kind: TechKind
   stage: number
@@ -65,11 +65,11 @@ export const STATION_CONFLICT_RULES_MUL = 0.75
 export const STATION_CONFLICT_CLEARED_MUL = 1
 
 const SLOT_MAJORS: readonly MajorSeed[] = [
-  { id: 'pathOutpost', name: '探路哨岗', desc: '在工坊外立一座哨岗，偶遇格 1→2。', cost: 5, effectId: ENCOUNTER_SLOT_EFFECT },
-  { id: 'marketLicense', name: '市集执照', desc: '拿到摆摊文书，偶遇格 2→3。', cost: 8, effectId: ENCOUNTER_SLOT_EFFECT },
-  { id: 'scoutRelay', name: '斥候驿站', desc: '路书可传到更远，偶遇格 3→4。', cost: 12, effectId: ENCOUNTER_SLOT_EFFECT },
-  { id: 'farWatch', name: '远望烽台', desc: '夜里也能看见客商，偶遇格 4→5。', cost: 16, effectId: ENCOUNTER_SLOT_EFFECT },
-  { id: 'caravanPermit', name: '商队路引', desc: '大队可同时进场，偶遇格 5→6。', cost: 20, effectId: ENCOUNTER_SLOT_EFFECT },
+  { id: 'pathOutpost', name: '探路哨岗', desc: '在工坊外立一座哨岗，主线订单格 1→2。', cost: 5, effectId: ENCOUNTER_SLOT_EFFECT },
+  { id: 'marketLicense', name: '市集执照', desc: '拿到摆摊文书，主线订单格 2→3。', cost: 8, effectId: ENCOUNTER_SLOT_EFFECT },
+  { id: 'scoutRelay', name: '斥候驿站', desc: '路书可传到更远，主线订单格 3→4。', cost: 12, effectId: ENCOUNTER_SLOT_EFFECT },
+  { id: 'farWatch', name: '远望烽台', desc: '夜里也能看见客商，主线订单格 4→5。', cost: 16, effectId: ENCOUNTER_SLOT_EFFECT },
+  { id: 'caravanPermit', name: '商队路引', desc: '大队可同时进场，主线订单格 5→6。', cost: 20, effectId: ENCOUNTER_SLOT_EFFECT },
 ]
 
 const EARLY_MINORS: readonly (readonly MinorSeed[])[] = [
@@ -204,7 +204,7 @@ function unlockedSet(ids: readonly string[]): Set<TechId> {
 
 /**
  * 旧线性档：能对上新 id 的小点保留，对不上的丢掉。
- * 大科技必须本阶段小点齐才保留，避免旧档或脏档白送偶遇格。
+ * 大科技必须本阶段小点齐才保留，避免旧档或脏档白送主线订单格。
  * 灵感另走字段，这里不改点数。
  */
 export function hydrateUnlockedTechIds(raw: unknown): TechId[] {
@@ -287,7 +287,7 @@ export function techTier(save: Save): number {
   return save.unlockedTechIds.filter(isTechId).length
 }
 
-/** 当前偶遇格数。初始 1，每点亮一个偶遇格大科技 +1，封顶 6。 */
+/** 当前主线订单格数。初始 1，每点亮一个主线订单格大科技 +1，封顶 6。 */
 export function encounterSlotCount(save: Save): number {
   const have = unlockedSet(save.unlockedTechIds ?? [])
   let bonus = 0
@@ -297,7 +297,7 @@ export function encounterSlotCount(save: Save): number {
   return Math.min(ENCOUNTER_SLOT_MAX, ENCOUNTER_SLOT_MIN + bonus)
 }
 
-/** 结算占位：科技效果本阶段恒为 0。偶遇格走 encounterSlotCount，不走这里。 */
+/** 结算占位：科技效果本阶段恒为 0。主线订单格走 encounterSlotCount，不走这里。 */
 export function techEffectValue(_save: Save, _effectId: string): number {
   return 0
 }

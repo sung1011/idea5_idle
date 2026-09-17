@@ -25,6 +25,8 @@ export function createSave(): Save {
     elapsedS: 0,
     nextWorkerId: 1,
     encounters: [],
+    mainChapter: 1,
+    mainLootClaims: 0,
     workshopBuff: null,
     exploreCount: 0,
     departCount: 0,

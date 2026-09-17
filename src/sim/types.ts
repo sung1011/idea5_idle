@@ -275,8 +275,16 @@ export type Save = {
   lastTick: number
   elapsedS: number
   nextWorkerId: number
-  /** 偶遇板。格数由科技决定，初始 1、封顶 6。 */
+  /** 主线订单板。格数由科技决定，初始 1、封顶 6。 */
   encounters: Encounter[]
+  /** 主线章节。从 1 起；旧档缺字段 hydrate 为 1。 */
+  mainChapter: number
+  /**
+   * 本章已成功领取的敌人格战利品次数（0 起）。
+   * 到 10 后下一张新刷出的敌人是本章 Boss；领 Boss 战后清零并进下一章。
+   * 旧档缺字段 hydrate 为 0。
+   */
+  mainLootClaims: number
   /** 工匠委托留下的工坊产量加成；到期后不算。 */
   workshopBuff: WorkshopBuff | null
   /** 成功探索次数，驱动探索费用与下一板种子。 */
@@ -350,6 +358,8 @@ export type EnemyEncounter = EncounterBase & {
   lootClaimed: boolean
   /** 杂兵 / 精英 / 首领。决定弱点条数、超时与战斗倍率。 */
   enemyRank: EnemyRank
+  /** 本章主线 Boss。领取战利品后进下一章。旧档 / 普通敌缺字段视为 false。 */
+  chapterBoss?: boolean
   /** 真实弱点。卡面先全是 ?，命中再揭示对应项。 */
   weaknesses: CombatAttrId[]
   /** 已揭示弱点。再战同一单保留；换新敌 / 刷掉本单清空。 */

@@ -13,7 +13,7 @@ import FloatTips from './floatTips.vue'
 const TABS = [
   { id: 'workshop', label: '工坊' },
   { id: 'workers', label: '工人' },
-  { id: 'encounters', label: '偶遇' },
+  { id: 'encounters', label: '主线' },
   { id: 'tech', label: '科技' },
 ] as const
 

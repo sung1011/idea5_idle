@@ -8,8 +8,18 @@ import {
   isFighting,
   legacyMarchAsWin,
   selectableCombatWorkers,
+  writeBackCombatWorkers,
 } from './combat'
 import { enemyRankFor, ensureEnemyIntel, pickEnemyWeaknesses } from './combatAttrs'
+import {
+  MAIN_LOOT_CLAIMS_GOAL,
+  hasLiveChapterBoss,
+  hydrateMainChapterFields,
+  isChapterBoss,
+  mainlineEnemyRank,
+  normalizeMainChapter,
+  normalizeMainLootClaims,
+} from './mainChapter'
 import { canAffordCosts, missingCostLabels, takeCosts } from './costs'
 import { ITEM_DEF, bulkUnitGold, pawnUnitGold, type IoRule } from './tables'
 import {
@@ -40,7 +50,7 @@ import type {
   WorkshopBuff,
 } from './types'
 
-/** 偶遇板上限。当前格数用 encounterSlotCount(save)，初始 1。 */
+/** 主线订单板上限。当前格数用 encounterSlotCount(save)，初始 1。 */
 export const ENCOUNTER_SLOT_COUNT = ENCOUNTER_SLOT_MAX
 
 /** 探索费用。随探索次数略涨，超出表长后钉在末档。 */
@@ -530,16 +540,26 @@ export function pickMerchantKind(seed: number, slot: number): MerchantKind {
   return bag[(seed * 5 + slot * 3) % bag.length]
 }
 
-function makeEnemy(seed: number, slot: number, quality: EncounterQuality): EnemyEncounter {
+export type EncounterSpawnOpts = {
+  mainLootClaims?: number
+  reservedChapterBoss?: boolean
+}
+
+function makeEnemy(
+  seed: number,
+  slot: number,
+  quality: EncounterQuality,
+  forceChapterBoss = false,
+): EnemyEncounter {
   const name = ENEMY_NAME_DEFS[(seed + slot) % ENEMY_NAME_DEFS.length]
   const distance: EncounterDistance = (seed + slot) % 2 === 0 ? 'near' : 'far'
   const power: EncounterPower = (seed + slot * 3) % 4 < 2 ? 'weak' : 'strong'
   const q = qualityDef(quality)
-  const enemyRank = enemyRankFor(power, quality)
+  const enemyRank = mainlineEnemyRank(power, quality, forceChapterBoss)
   return {
     kind: 'enemy',
     id: `${name.id}-${quality}-${seed}-${slot}`,
-    label: name.label,
+    label: forceChapterBoss ? `${name.label}·首领` : name.label,
     quality,
     distance,
     power,
@@ -549,6 +569,7 @@ function makeEnemy(seed: number, slot: number, quality: EncounterQuality): Enemy
     combat: null,
     lootClaimed: false,
     enemyRank,
+    chapterBoss: forceChapterBoss,
     weaknesses: pickEnemyWeaknesses(seed, slot, enemyRank),
     revealedWeaknesses: [],
   }
@@ -628,10 +649,10 @@ function makeBulkBuy(seed: number, slot: number, quality: EncounterQuality): Bul
   }
 }
 
-function makeEncounter(seed: number, slot: number): Encounter {
+function makeEncounter(seed: number, slot: number, forceChapterBoss = false): Encounter {
   const quality = pickQuality(seed, slot)
   const kind = pickEncounterKind(seed, slot)
-  if (kind === 'enemy') return makeEnemy(seed, slot, quality)
+  if (kind === 'enemy') return makeEnemy(seed, slot, quality, forceChapterBoss)
   if (kind === 'blackMerchant') return makeBlackMerchant(seed, slot, quality)
   if (kind === 'passerby') return makePasserby(seed, slot, quality)
   if (kind === 'pawn') return makePawn(seed, slot, quality)
@@ -639,13 +660,36 @@ function makeEncounter(seed: number, slot: number): Encounter {
   return makeBulkBuy(seed, slot, quality)
 }
 
-export function generateEncounterBoard(seed: number, slotCount = ENCOUNTER_SLOT_MAX): Encounter[] {
+export function encounterFiller(seed: number, opts: EncounterSpawnOpts = {}): (slot: number) => Encounter {
   const safe = Number.isFinite(seed) && seed >= 0 ? Math.floor(seed) : 0
+  const claims = normalizeMainLootClaims(opts.mainLootClaims)
+  let reserved = opts.reservedChapterBoss === true
+  return (slot: number) => {
+    const kind = pickEncounterKind(safe, slot)
+    const forceBoss = kind === 'enemy' && claims >= MAIN_LOOT_CLAIMS_GOAL && !reserved
+    if (forceBoss) reserved = true
+    return makeEncounter(safe, slot, forceBoss)
+  }
+}
+
+export function generateEncounterBoard(
+  seed: number,
+  slotCount = ENCOUNTER_SLOT_MAX,
+  opts: EncounterSpawnOpts = {},
+): Encounter[] {
   const n = Math.min(
     ENCOUNTER_SLOT_MAX,
     Math.max(ENCOUNTER_SLOT_MIN, Number.isFinite(slotCount) ? Math.floor(slotCount) : ENCOUNTER_SLOT_MIN),
   )
-  return Array.from({ length: n }, (_, slot) => makeEncounter(safe, slot))
+  const fill = encounterFiller(seed, opts)
+  return Array.from({ length: n }, (_, slot) => fill(slot))
+}
+
+function spawnOptsFor(save: Save, reserved: readonly Encounter[]): EncounterSpawnOpts {
+  return {
+    mainLootClaims: normalizeMainLootClaims(save.mainLootClaims),
+    reservedChapterBoss: hasLiveChapterBoss(reserved),
+  }
 }
 
 function isNeedMap(value: unknown): value is EncounterNeedMap {
@@ -823,8 +867,9 @@ export function resizeEncounterBoard(save: Save, now = Date.now()): Encounter[] 
   const previous = Array.isArray(save.encounters) ? save.encounters.filter(isEncounter) : []
   const size = boardSizeFor(save, now)
   const seed = Number.isFinite(save.exploreCount) && save.exploreCount > 0 ? Math.floor(save.exploreCount) : 0
-  const fresh = generateEncounterBoard(seed, size)
-  save.encounters = placeKeptThenFill(size, previous, keptEncounters(previous, now), (i) => fresh[i], true)
+  const kept = keptEncounters(previous, now)
+  const fill = encounterFiller(seed, spawnOptsFor(save, kept))
+  save.encounters = placeKeptThenFill(size, previous, kept, fill, true)
   return save.encounters
 }
 
@@ -942,7 +987,7 @@ export function startCombat(save: Save, index: number, workerIds: readonly strin
   save.departCount += 1
   save.lastDepartAt = now
   delete enc.submitted
-  beginEnemyCombat(enc, party, now)
+  beginEnemyCombat(enc, party, now, normalizeMainChapter(save.mainChapter))
   const names = party.map((w) => w.name ?? w.id).join('、')
   return { ok: true, message: `${names} 出战` }
 }
@@ -968,7 +1013,29 @@ export function canClaimLoot(save: Save, index: number, now = Date.now()): boole
   return claimLootBlockReason(save, index, now) === null
 }
 
-/** 战胜后领金币。败不发金。不加物资。 */
+function dismissMainlineEnemies(save: Save): void {
+  const kept: Encounter[] = []
+  for (const enc of save.encounters) {
+    if (enc.kind !== 'enemy') {
+      kept.push(enc)
+      continue
+    }
+    if (enc.combat && !enc.combat.outcome) {
+      writeBackCombatWorkers(save, enc.combat)
+    }
+  }
+  save.encounters = kept
+}
+
+/** 领本章 Boss 战后进下一章：计数清零，清掉旧章敌人格，再按新章补板。 */
+export function advanceMainChapter(save: Save, now = Date.now()): void {
+  save.mainChapter = normalizeMainChapter(save.mainChapter) + 1
+  save.mainLootClaims = 0
+  dismissMainlineEnemies(save)
+  resizeEncounterBoard(save, now)
+}
+
+/** 战胜后领金币。败不发金。不加物资。成功领取计入本章战利品；Boss 领取后进下一章。 */
 export function claimLoot(save: Save, index: number, now = Date.now()): ActionResult {
   const blocked = claimLootBlockReason(save, index, now)
   if (blocked) return { ok: false, reason: blocked }
@@ -976,6 +1043,11 @@ export function claimLoot(save: Save, index: number, now = Date.now()): ActionRe
   if (!enc) return { ok: false, reason: '不是敌人偶遇' }
   save.gold += enc.lootGold
   enc.lootClaimed = true
+  save.mainLootClaims = normalizeMainLootClaims(save.mainLootClaims) + 1
+  if (isChapterBoss(enc)) {
+    advanceMainChapter(save, now)
+    return { ok: true, message: `战利品：金币 +${enc.lootGold}。进入第 ${save.mainChapter} 章` }
+  }
   return { ok: true, message: `战利品：金币 +${enc.lootGold}` }
 }
 
@@ -1172,8 +1244,8 @@ export function exploreBoard(save: Save, now = Date.now()): ActionResult {
   save.gold -= cost
   save.exploreCount += 1
   const size = Math.min(ENCOUNTER_SLOT_MAX, Math.max(encounterSlotCount(save), kept.length))
-  const next = generateEncounterBoard(save.exploreCount, size)
-  save.encounters = placeKeptThenFill(size, previous, kept, (i) => next[i], false)
+  const fill = encounterFiller(save.exploreCount, spawnOptsFor(save, kept))
+  save.encounters = placeKeptThenFill(size, previous, kept, fill, false)
   return { ok: true, message: `探索完成。花费 ${cost} 金币` }
 }
 
@@ -1203,6 +1275,7 @@ function migrateLegacyOrder(save: LegacyOrderSave): void {
     combat: null,
     lootClaimed: false,
     enemyRank: 'minion',
+    chapterBoss: false,
     weaknesses: [],
     revealedWeaknesses: [],
     ...(save.orderSubmitted === true ? { submitted: true } : {}),
@@ -1286,6 +1359,7 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
         combat: null,
         lootClaimed: false,
         enemyRank: enemyRankFor(raw.power, readQuality(raw.quality)),
+        chapterBoss: (raw as { chapterBoss?: unknown }).chapterBoss === true,
         weaknesses: [],
         revealedWeaknesses: [],
       },
@@ -1305,6 +1379,7 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
     combat,
     lootClaimed,
     enemyRank: enemyRankFor(raw.power, readQuality(raw.quality)),
+    chapterBoss: (raw as { chapterBoss?: unknown }).chapterBoss === true,
     weaknesses: Array.isArray((raw as { weaknesses?: unknown }).weaknesses)
       ? ((raw as { weaknesses: unknown }).weaknesses as EnemyEncounter['weaknesses'])
       : [],
@@ -1420,7 +1495,7 @@ function hydrateWorkshopBuff(save: Save): void {
   raw.workshopBuff = null
 }
 
-/** 旧存档补偶遇板；单格出发字段迁进第 0 格敌人；通用商人拆成六种之一。按当前科技格数收/补。 */
+/** 旧存档补主线订单板；单格出发字段迁进第 0 格敌人；通用商人拆成六种之一。按当前科技格数收/补。 */
 export function hydrateEncounterFields(save: Save): Save {
   const raw = save as LegacyOrderSave
   raw.exploreCount =
@@ -1429,6 +1504,7 @@ export function hydrateEncounterFields(save: Save): Save {
     Number.isFinite(raw.departCount) && raw.departCount > 0 ? Math.floor(raw.departCount) : 0
   raw.lastDepartAt =
     typeof raw.lastDepartAt === 'number' && Number.isFinite(raw.lastDepartAt) ? raw.lastDepartAt : null
+  hydrateMainChapterFields(raw)
   hydrateWorkshopBuff(raw)
 
   if (Array.isArray(raw.encounters)) {
@@ -1437,7 +1513,7 @@ export function hydrateEncounterFields(save: Save): Save {
 
   const migrated = Array.isArray(raw.encounters) ? raw.encounters.filter(isEncounter) : []
   if (migrated.length === 0) {
-    raw.encounters = generateEncounterBoard(raw.exploreCount, encounterSlotCount(raw))
+    raw.encounters = generateEncounterBoard(raw.exploreCount, encounterSlotCount(raw), spawnOptsFor(raw, []))
     migrateLegacyOrder(raw)
   } else {
     raw.encounters = migrated
