@@ -246,7 +246,13 @@ export type Save = {
    * 缺字段或小于 2 视为旧灰表，hydrate 迁一次后盖成 2。
    */
   workerQualityRev: number
-  /** 账号级灵感。任意站完成周期 +1；也可消耗图纸兑换。旧档缺字段 / 别名 `inspiration` hydrate 为 0。 */
+  /**
+   * 骑士等级快照。由各可玩工坊 `stationLevel` 换算：
+   * `knightLevel = 1 + sum(stationLevel - 1)`，等价 `sum(level) - (站数 - 1)`。
+   * 每升 1 级发 1 灵感；只在当前等级高于本字段时补发，防重复。
+   */
+  knightLevel: number
+  /** 账号级灵感。任意站完成周期 +1；骑士等级每升 1 级 +1。旧档缺字段 / 别名 `inspiration` hydrate 为点数，不无故重置成 1。 */
   techPoints: number
   /** 已按序点亮的科技档。必须是树的前缀；旧档缺字段 hydrate 为 []。 */
   unlockedTechIds: TechId[]

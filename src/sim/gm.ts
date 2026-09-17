@@ -1,4 +1,5 @@
 import { createSave, normalizeDiamonds } from './createSave'
+import { syncKnightLevel } from './knightLevel'
 import { spawnWorker } from './recruit'
 import { syncUnlockedCategories } from './stationProgress'
 import { STATION_DEF, STATION_IDS } from './tables'
@@ -60,6 +61,7 @@ export function gmMaxStations(save: Save, level = GM_MAX_STATION_LEVEL): ActionR
     syncUnlockedCategories(station, id)
     station.progressNotice = `${STATION_DEF[id].label}升到 Lv${target}`
   }
+  syncKnightLevel(save)
   return { ok: true, message: `站点全满级 Lv${target}` }
 }
 

@@ -80,6 +80,9 @@ onUnmounted(() => {
           <span>{{ game.save.workers.length }}</span>
         </div>
         <div class="chip">
+          <span>骑士 {{ game.save.knightLevel }} 级</span>
+        </div>
+        <div class="chip">
           <span>灵感 {{ game.save.techPoints }}</span>
         </div>
       </div>

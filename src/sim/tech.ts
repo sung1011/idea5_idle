@@ -1,4 +1,4 @@
-import { takeCosts } from './costs'
+import { syncKnightLevel } from './knightLevel'
 import {
   OFFLINE_CAP_S,
   RECRUIT_COST,
@@ -9,8 +9,6 @@ import type { ActionResult, Save, StationId, TechId } from './types'
 
 /** 任意站完成 1 次周期给 1 点灵感。 */
 export const CYCLE_TECH_POINTS = 1
-/** 消耗 1 张图纸兑换的灵感。 */
-export const BLUEPRINT_TECH_POINTS = 1
 /** @deprecated 旧名，等同 CYCLE_TECH_POINTS */
 export const CRAFT_TECH_POINTS = CYCLE_TECH_POINTS
 
@@ -71,6 +69,7 @@ export function hydrateTechFields(save: Save & { inspiration?: unknown }): void 
     typeof save.techPoints === 'number' && Number.isFinite(save.techPoints) && save.techPoints > 0
   save.techPoints = normalizeTechPoints(hasPoints ? save.techPoints : save.inspiration)
   save.unlockedTechIds = hydrateUnlockedTechIds(save.unlockedTechIds)
+  syncKnightLevel(save)
 }
 
 export function hasTech(save: Save, id: TechId): boolean {
@@ -144,15 +143,6 @@ export function grantTechPoint(save: Save, _stationId?: StationId): void {
 
 /** @deprecated 旧名，现对任意站生效。 */
 export const grantCraftTechPoint = grantTechPoint
-
-export function exchangeBlueprint(save: Save, qty = 1): ActionResult {
-  const n = Math.max(1, Math.floor(qty))
-  const took = takeCosts(save, [{ itemId: 'blueprint', qty: n }])
-  if (!took.ok) return { ok: false, reason: took.reason ?? '图纸见底' }
-  const gained = n * BLUEPRINT_TECH_POINTS
-  save.techPoints = normalizeTechPoints(save.techPoints) + gained
-  return { ok: true, message: `图纸兑换灵感 +${gained}` }
-}
 
 export function researchTech(save: Save, techId: string): ActionResult {
   if (!isTechId(techId)) return { ok: false, reason: '未知科技' }

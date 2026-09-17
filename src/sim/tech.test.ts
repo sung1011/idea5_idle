@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
-import { bankQty } from './bank'
 import { createSave } from './createSave'
 import { exploreCost } from './encounters'
 import { fuseWorkers } from './fuse'
@@ -9,11 +8,9 @@ import { recruitWorker, spawnWorker } from './recruit'
 import { setRollOverride } from './rng'
 import { completeCycle } from './stations'
 import {
-  BLUEPRINT_TECH_POINTS,
   CYCLE_TECH_POINTS,
   TECH_TREE,
   applyTechEffects,
-  exchangeBlueprint,
   fuseStayAssigned,
   grantTechPoint,
   hasTech,
@@ -89,7 +86,7 @@ describe('inspiration grant', () => {
     const save = createSave()
     grantTechPoint(save, 'mining')
     grantTechPoint(save, 'forging')
-    expect(save.techPoints).toBe(2 * CYCLE_TECH_POINTS)
+    expect(save.techPoints).toBe(1 + 2 * CYCLE_TECH_POINTS)
   })
 
   it('gives +1 inspiration when any station finishes a cycle', () => {
@@ -98,7 +95,7 @@ describe('inspiration grant', () => {
     assignWorker(mine, mine.workers[0].id, 'mining')
     const mined = ticks(mine, 20)
     expect(mined.stations.mining.completed).toBe(1)
-    expect(mined.techPoints).toBe(1)
+    expect(mined.techPoints).toBe(1 + CYCLE_TECH_POINTS)
 
     setRollOverride(() => 0.99)
     const forge = createSave()
@@ -107,7 +104,7 @@ describe('inspiration grant', () => {
     forge.bank.ore = 1
     const forged = ticks(forge, 32)
     expect(forged.stations.forging.completed).toBe(1)
-    expect(forged.techPoints).toBe(1)
+    expect(forged.techPoints).toBe(1 + CYCLE_TECH_POINTS)
   })
 
   it('still grants a point on a forging soft-fail cycle', () => {
@@ -118,7 +115,7 @@ describe('inspiration grant', () => {
     save.bank.ore = 1
     expect(completeCycle(save, 'forging')).toBe(true)
     expect(save.stations.forging.craftNotice).toContain('软失败')
-    expect(save.techPoints).toBe(1)
+    expect(save.techPoints).toBe(1 + CYCLE_TECH_POINTS)
   })
 })
 
@@ -139,6 +136,7 @@ describe('research unlock', () => {
 
   it('fails when inspiration is not enough', () => {
     const save = createSave()
+    save.techPoints = 0
     expect(researchNextTech(save)).toEqual({ ok: false, reason: '灵感不足' })
     expect(save.unlockedTechIds).toEqual([])
     expect(save.techPoints).toBe(0)
@@ -158,17 +156,6 @@ describe('research unlock', () => {
     save.unlockedTechIds = TECH_TREE.map((node) => node.id)
     expect(researchNextTech(save)).toEqual({ ok: false, reason: '科技树已满' })
     expect(save.techPoints).toBe(999)
-  })
-})
-
-describe('blueprint exchange', () => {
-  it('converts one blueprint into inspiration and fails when empty', () => {
-    const save = createSave()
-    expect(exchangeBlueprint(save)).toEqual({ ok: false, reason: '图纸见底' })
-    save.bank.blueprint = 2
-    expect(exchangeBlueprint(save)).toEqual({ ok: true, message: `图纸兑换灵感 +${BLUEPRINT_TECH_POINTS}` })
-    expect(bankQty(save, 'blueprint')).toBe(1)
-    expect(save.techPoints).toBe(BLUEPRINT_TECH_POINTS)
   })
 })
 

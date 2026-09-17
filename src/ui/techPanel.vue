@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { bankQty } from '../sim/bank'
 import {
-  BLUEPRINT_TECH_POINTS,
   TECH_TREE,
   hasTech,
   isTechComplete,
@@ -13,9 +11,9 @@ import { useGameStore } from './gameStore'
 
 const game = useGameStore()
 const points = computed(() => game.save.techPoints)
+const knightLevel = computed(() => game.save.knightLevel)
 const next = computed(() => nextTech(game.save))
 const done = computed(() => isTechComplete(game.save))
-const blueprints = computed(() => bankQty(game.save, 'blueprint'))
 const unlockedCount = computed(() => techTier(game.save))
 const progressPct = computed(() => Math.round((unlockedCount.value / TECH_TREE.length) * 100))
 
@@ -31,12 +29,12 @@ function nodeState(id: (typeof TECH_TREE)[number]['id']) {
     <p class="kicker">骑士工坊 · 科技</p>
     <p class="title">灵感与纹章</p>
     <p class="hint">
-      任意工坊完成一个周期 +1 灵感。也可消耗 1 张图纸兑换 {{ BLUEPRINT_TECH_POINTS }} 点。按序点亮，效果稍后开放。
+      任意工坊完成一个周期 +1 灵感。骑士等级每升 1 级也 +1 灵感。按序点亮，效果稍后开放。
     </p>
     <div class="chips">
+      <span class="chip">骑士 {{ knightLevel }} 级</span>
       <span class="chip">灵感 {{ points }}</span>
       <span class="chip">进度 {{ unlockedCount }}/{{ TECH_TREE.length }}</span>
-      <span class="chip">图纸 {{ blueprints }}</span>
     </div>
     <div class="bar xp" aria-label="科技进度">
       <i :style="{ width: `${progressPct}%` }" />
@@ -46,9 +44,6 @@ function nodeState(id: (typeof TECH_TREE)[number]['id']) {
     <div class="row">
       <button type="button" :disabled="done" @click="game.researchNextTech()">
         {{ done ? '科技树已满' : `研究「${next?.name ?? ''}」· ${next?.cost ?? 0} 灵感` }}
-      </button>
-      <button type="button" :disabled="blueprints < 1" @click="game.exchangeBlueprint()">
-        图纸兑换灵感（{{ BLUEPRINT_TECH_POINTS }}）
       </button>
     </div>
     <ol>

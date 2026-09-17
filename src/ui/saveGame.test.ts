@@ -100,7 +100,8 @@ describe('save migration', () => {
     expect(save?.stations.fishing.selectedCategory).toBe('copper')
     expect(save?.stations.hunting.selectedCategory).toBe('copper')
     expect(save?.workerQualityRev).toBe(2)
-    expect(save?.techPoints).toBe(0)
+    expect(save?.knightLevel).toBe(1)
+    expect(save?.techPoints).toBe(1)
     expect(save?.unlockedTechIds).toEqual([])
   })
 
@@ -178,15 +179,18 @@ describe('save migration', () => {
     }
     const save = hydrateLoadedSave(raw)
     expect(save?.techPoints).toBe(7)
+    expect(save?.knightLevel).toBe(1)
     expect(save?.unlockedTechIds).toEqual(['workshopLog'])
 
     const old = {
       ...createSave(),
     }
     delete (old as { techPoints?: number }).techPoints
+    delete (old as { knightLevel?: number }).knightLevel
     delete (old as { unlockedTechIds?: string[] }).unlockedTechIds
     const hydrated = hydrateLoadedSave(old)
     expect(hydrated?.techPoints).toBe(0)
+    expect(hydrated?.knightLevel).toBe(1)
     expect(hydrated?.unlockedTechIds).toEqual([])
 
     const skipped = hydrateLoadedSave({
@@ -202,6 +206,19 @@ describe('save migration', () => {
       unlockedTechIds: ['workshopLog', 'apprenticeNotes'],
     })
     expect(aliased?.techPoints).toBe(4)
+    expect(aliased?.knightLevel).toBe(1)
     expect(aliased?.unlockedTechIds).toEqual(['workshopLog', 'apprenticeNotes'])
+
+    const backfill = hydrateLoadedSave({
+      ...createSave(),
+      techPoints: 4,
+      knightLevel: 1,
+      stations: {
+        ...createSave().stations,
+        mining: { ...createSave().stations.mining, stationLevel: 3 },
+      },
+    })
+    expect(backfill?.knightLevel).toBe(3)
+    expect(backfill?.techPoints).toBe(6)
   })
 })

@@ -1,3 +1,4 @@
+import { syncKnightLevel } from './knightLevel'
 import {
   asMiningCategoryId,
   defaultCategory,
@@ -224,6 +225,7 @@ export function grantStationXp(save: Save, stationId: StationId, xp: number): vo
     unlockedNow.push(...syncUnlockedCategories(station, stationId))
   }
   if (!leveled) return
+  syncKnightLevel(save)
   const label = STATION_DEF[stationId].label
   const bits = [`${label}升到 Lv${station.stationLevel}`]
   if (unlockedNow.length) {

@@ -74,7 +74,14 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
   }
   migrateWorkerToolsToStations(merged, parsed.workers)
   clampStationAssignments(merged)
-  hydrateTechFields(merged)
+  // createSave 新档默认灵感 1；旧档缺字段时先拿掉，交给 hydrate 读点数 / 别名，避免无故变成 1。
+  if (!Object.prototype.hasOwnProperty.call(parsed, 'techPoints')) {
+    delete (merged as { techPoints?: number }).techPoints
+  }
+  if (!Object.prototype.hasOwnProperty.call(parsed, 'knightLevel')) {
+    delete (merged as { knightLevel?: number }).knightLevel
+  }
+  hydrateTechFields(merged as Save & { inspiration?: unknown })
   if (!Array.isArray(parsed.encounters)) merged.encounters = []
   return hydrateEncounterFields(merged)
 }

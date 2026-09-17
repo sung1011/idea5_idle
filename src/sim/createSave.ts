@@ -1,4 +1,5 @@
 import { generateEncounterBoard } from './encounters'
+import { computeKnightLevel } from './knightLevel'
 import { hydrateStations } from './stationProgress'
 import { START_DIAMONDS, START_GOLD, WORKER_QUALITY_REV } from './tables'
 import type { Save } from './types'
@@ -12,12 +13,13 @@ export function normalizeDiamonds(value: unknown): number {
 }
 
 export function createSave(): Save {
-  return {
+  const stations = hydrateStations()
+  const save: Save = {
     gold: START_GOLD,
     diamonds: START_DIAMONDS,
     bank: {},
     workers: [],
-    stations: hydrateStations(),
+    stations,
     lastTick: Date.now(),
     elapsedS: 0,
     nextWorkerId: 1,
@@ -32,7 +34,11 @@ export function createSave(): Save {
     rngState: 1,
     forgedTools: [],
     workerQualityRev: WORKER_QUALITY_REV,
-    techPoints: 0,
+    /** 新档：骑士 1 级，灵感 1。七站开局都是 Lv1，公式见 computeKnightLevel。 */
+    knightLevel: 1,
+    techPoints: 1,
     unlockedTechIds: [],
   }
+  save.knightLevel = computeKnightLevel(save)
+  return save
 }

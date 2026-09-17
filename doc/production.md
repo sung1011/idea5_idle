@@ -341,7 +341,8 @@ type ProductionBuff = {
 | 特效 | `effectId` `value` `source`；`prodSpeed` `extraOutput` `cycleShorten` |
 | 食物 Buff | `buff` `expiresAt` `durationS` `mul` `qty` |
 | 停产 | 只留 `emptyInput`；无满仓 |
-| 灵感 | `techPoints`（界面称灵感；别名 `inspiration` 仅 hydrate） |
+| 骑士等级 | `knightLevel`：`1 + sum(可玩站 stationLevel - 1)`，初始 1；每升 1 级 +1 灵感 |
+| 灵感 | `techPoints`（界面称灵感；别名 `inspiration` 仅 hydrate）。周期完成 +1；骑士升级 +1；图纸不当来源 |
 | 科技树 | `unlockedTechIds` 线性前缀；表 `TECH_TREE`（工坊日志→骑士工坊纹章）；效果函数恒 no-op |
 
 ---
