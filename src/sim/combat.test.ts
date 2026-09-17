@@ -226,19 +226,26 @@ describe('combat timeline', () => {
     const combat = enc.combat
     expect(combat).toBeTruthy()
     if (!combat) return
+    const leftoverHp = Math.max(1, combat.enemy.hpMax - 37)
+    combat.enemy.hp = leftoverHp
     combat.workers[0].nextActAt = combat.timeoutAt + 5_000
     combat.enemy.nextActAt = combat.timeoutAt + 5_000
     stepEnemyCombat(save, enc, combat.timeoutAt)
     expect(isCombatLost(enc)).toBe(true)
     expect(save.gold).toBe(10)
     expect(worker.hp).toBe(combat.workers[0].hp)
+    expect(combat.enemy.hp).toBe(leftoverHp)
     expect(claimLoot(save, 0, combat.timeoutAt).ok).toBe(false)
 
-    const rematch = startCombat(save, 0, [worker.id], combat.timeoutAt + 1_000)
+    const rematchAt = combat.timeoutAt + 1_000
+    const rematch = startCombat(save, 0, [worker.id], rematchAt)
     expect(rematch.ok).toBe(true)
     expect(save.bank.meal).toBe(2)
     expect(isFighting(enc)).toBe(true)
-    expect(enc.combat?.enemy.hp).toBe(enc.combat?.enemy.hpMax)
+    expect(enc.combat?.enemy.hp).toBe(leftoverHp)
+    expect(enc.combat?.enemy.hpMax).toBe(combat.enemy.hpMax)
+    expect(enc.combat?.startedAt).toBe(rematchAt)
+    expect(enc.combat?.timeoutAt).toBe(rematchAt + combatTimeoutS(enc.enemyRank) * 1000)
   })
 
   it('resolves the same timeline through applyTick / offline catch-up', () => {
@@ -375,6 +382,56 @@ describe('combat duration targets', () => {
     expect(combat.outcome).toBe('win')
     expect(elapsedS).toBeGreaterThanOrEqual(18 * 60)
     expect(elapsedS).toBeLessThanOrEqual(22 * 60)
+  })
+})
+
+describe('rematch leftover enemy hp', () => {
+  it('starts the first fight at full enemy hp', () => {
+    const save = createSave()
+    const worker = spawnWorker(save)
+    const enc = testEnemy()
+    putEnemy(save, enc)
+    const combat = beginEnemyCombat(enc, [worker], 10_000)
+    expect(combat.enemy.hp).toBe(combat.enemy.hpMax)
+    expect(combat.enemy.hp).toBe(enemyCombatStats(enc.quality, enc.enemyRank).hp)
+  })
+
+  it('keeps leftover enemy hp on rematch after a loss', () => {
+    const save = createSave()
+    const worker = spawnWorker(save)
+    const enc = testEnemy({ needs: { meal: 1 } })
+    putEnemy(save, enc)
+    save.bank.meal = 4
+    const now = 20_000
+    expect(startCombat(save, 0, [worker.id], now).ok).toBe(true)
+    const first = enc.combat
+    expect(first).toBeTruthy()
+    if (!first) return
+    expect(first.enemy.hp).toBe(first.enemy.hpMax)
+    const leftoverHp = Math.max(1, first.enemy.hpMax - 91)
+    first.enemy.hp = leftoverHp
+    first.outcome = 'lose'
+
+    const rematchAt = now + 8_000
+    expect(startCombat(save, 0, [worker.id], rematchAt).ok).toBe(true)
+    expect(enc.combat?.enemy.hp).toBe(leftoverHp)
+    expect(enc.combat?.enemy.hp).toBeLessThan(enc.combat?.enemy.hpMax ?? 0)
+    expect(enc.combat?.enemy.hpMax).toBe(first.enemy.hpMax)
+    expect(enc.combat?.timeoutAt).toBe(rematchAt + combatTimeoutS(enc.enemyRank) * 1000)
+  })
+
+  it('falls back to full enemy hp if a loss left hp<=0', () => {
+    const save = createSave()
+    const worker = spawnWorker(save)
+    const enc = testEnemy()
+    putEnemy(save, enc)
+    const now = 12_000
+    const first = beginEnemyCombat(enc, [worker], now)
+    first.enemy.hp = 0
+    first.outcome = 'lose'
+    const rematch = beginEnemyCombat(enc, [worker], now + 1_000)
+    expect(rematch.enemy.hp).toBe(rematch.enemy.hpMax)
+    expect(rematch.enemy.hp).toBe(enemyCombatStats(enc.quality, enc.enemyRank).hp)
   })
 })
 

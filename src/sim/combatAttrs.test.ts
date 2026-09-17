@@ -156,14 +156,17 @@ describe('reveal and rematch', () => {
     expect(enc.revealedWeaknesses).toEqual(['fire'])
     expect(enc.combat?.enemy.hp).toBe(enc.combat?.enemy.hpMax)
 
+    const leftoverHp = Math.max(1, (enc.combat?.enemy.hpMax ?? 2) - 44)
     enc.combat = {
       ...enc.combat!,
       outcome: 'lose',
+      enemy: { ...enc.combat!.enemy, hp: leftoverHp },
     }
     const rematch = startCombat(save, 0, [worker.id], now + 1_000)
     expect(rematch.ok).toBe(true)
     expect(enc.revealedWeaknesses).toEqual(['fire'])
     expect(visibleWeaknessSlots(enc)[0]).toBe('fire')
+    expect(enc.combat?.enemy.hp).toBe(leftoverHp)
   })
 })
 

@@ -274,6 +274,12 @@ function makeFighter(
   }
 }
 
+function rematchEnemyHp(enc: EnemyEncounter, fullHp: number): number {
+  const prev = enc.combat
+  if (prev?.outcome === 'lose' && prev.enemy.hp > 0) return prev.enemy.hp
+  return fullHp
+}
+
 export function beginEnemyCombat(
   enc: EnemyEncounter,
   workers: Worker[],
@@ -283,6 +289,7 @@ export function beginEnemyCombat(
 ): EnemyCombat {
   ensureEnemyIntel(enc)
   const eStats = enemyCombatStats(enc.quality, enc.enemyRank, chapter)
+  const enemyHp = rematchEnemyHp(enc, eStats.hp)
   const combat: EnemyCombat = {
     startedAt: now,
     timeoutAt: now + combatTimeoutS(enc.enemyRank) * 1000,
@@ -291,7 +298,7 @@ export function beginEnemyCombat(
       const stats = workerLiveStats(w)
       return makeFighter(w.id, w.name ?? w.id, { ...stats, hp: w.hpMax }, w.hp, now, w.combatAttrs)
     }),
-    enemy: makeFighter('enemy', enc.label, eStats, eStats.hp, now),
+    enemy: makeFighter('enemy', enc.label, eStats, enemyHp, now),
     logs: [],
     outcome: null,
   }
