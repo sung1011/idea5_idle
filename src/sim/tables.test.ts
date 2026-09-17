@@ -105,7 +105,7 @@ describe('production phase-1 tables', () => {
     expect(FISHING_DROP_TABLE.beginner.some((row) => row.outcome === 'empty')).toBe(true)
   })
 
-  it('lists each station\'s related costs and outputs for workshop stock', () => {
+  it('lists each station\'s related costs and outputs for leftover classification', () => {
     expect(stationRelatedItems('mining')).toEqual({
       costs: [],
       outputs: ['ore', 'ironOre', 'mithrilOre'],

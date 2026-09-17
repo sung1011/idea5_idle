@@ -678,8 +678,8 @@ export type StationRelatedItems = {
 }
 
 /**
- * 该站产出 / 消耗相关物品。只从表里的 `costs` / `altCosts` / `outputs`
- * 以及掉落表、`ALCHEMY_COST_OPTIONS` 归并，不另起库存字段。
+ * 该站产出 / 消耗相关物品（给 leftover 归类用，不是站卡常驻列表）。
+ * 只从表里的 `costs` / `altCosts` / `outputs` 以及掉落表、`ALCHEMY_COST_OPTIONS` 归并。
  */
 export function stationRelatedItems(stationId: StationId): StationRelatedItems {
   const costs: ItemId[] = []

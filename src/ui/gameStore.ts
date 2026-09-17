@@ -29,6 +29,7 @@ import {
   submitArtisan,
 } from '../sim/encounters'
 import { researchNextTech, researchTech } from '../sim/tech'
+import { formatGainTip } from '../sim/gains'
 import { tick } from '../sim/tick'
 import type { ActionResult, CategoryId, ItemId, Save, StationId, ToolTypeId } from '../sim/types'
 import { pushFloatTip } from './floatTips'
@@ -44,6 +45,16 @@ export const useGameStore = defineStore('game', () => {
 
   function persist() {
     persistSave(save.value)
+  }
+
+  function liveTick() {
+    save.value = tick(save.value, {
+      onGain: (lots) => {
+        const text = formatGainTip(lots)
+        if (text) pushFloatTip(text, 'ok')
+      },
+    })
+    persist()
   }
 
   function apply(fn: (s: Save) => ActionResult): ActionResult {
@@ -81,10 +92,7 @@ export const useGameStore = defineStore('game', () => {
     }
     catchUp()
     if (!timer) {
-      timer = window.setInterval(() => {
-        save.value = tick(save.value)
-        persist()
-      }, 1000)
+      timer = window.setInterval(liveTick, 1000)
     }
   }
 
@@ -101,10 +109,7 @@ export const useGameStore = defineStore('game', () => {
   function startClock() {
     stopClock()
     boot()
-    timer = window.setInterval(() => {
-      save.value = tick(save.value)
-      persist()
-    }, 1000)
+    timer = window.setInterval(liveTick, 1000)
     document.addEventListener('visibilitychange', onVis)
     window.addEventListener('pagehide', persist)
     window.addEventListener('beforeunload', persist)

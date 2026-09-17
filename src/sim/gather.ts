@@ -1,4 +1,5 @@
 import { addToBank, bankQty, takeFromBank } from './bank'
+import { pushRuleLots, type ItemLot } from './gains'
 import { roll01 } from './rng'
 import { selectedCategoryDef } from './stationProgress'
 import {
@@ -152,12 +153,20 @@ function miningOutputItem(categoryId: CategoryId): ItemId {
   return 'ore'
 }
 
-function emitRules(save: Save, stationId: StationId, rules: IoRule[], now: number): boolean {
+function emitRules(
+  save: Save,
+  stationId: StationId,
+  rules: IoRule[],
+  now: number,
+  into?: ItemLot[],
+): boolean {
   const bonus = cycleOutputBonus(save, stationId, now)
   for (const io of rules) {
-    const added = addToBank(save, io.itemId, io.qty + (io === rules[0] ? bonus : 0))
+    const qty = io.qty + (io === rules[0] ? bonus : 0)
+    const added = addToBank(save, io.itemId, qty)
     if (!added.ok) return false
   }
+  pushRuleLots(into, rules, bonus)
   return true
 }
 
@@ -189,21 +198,26 @@ export function applyHuntingPauseTick(save: Save): void {
 }
 
 /** 写出采集产物 / 挖空 / 遇险。调用方再记 completed 与 XP。失败则整单作废。 */
-export function applyGatherOutputs(save: Save, stationId: StationId, now = Date.now()): boolean {
-  if (stationId === 'mining') return completeMiningCycle(save, now)
-  if (stationId === 'fishing') return completeFishingCycle(save, now)
-  if (stationId === 'herbalism') return completeHerbalismCycle(save, now)
-  if (stationId === 'hunting') return completeHuntingCycle(save, now)
+export function applyGatherOutputs(
+  save: Save,
+  stationId: StationId,
+  now = Date.now(),
+  into?: ItemLot[],
+): boolean {
+  if (stationId === 'mining') return completeMiningCycle(save, now, into)
+  if (stationId === 'fishing') return completeFishingCycle(save, now, into)
+  if (stationId === 'herbalism') return completeHerbalismCycle(save, now, into)
+  if (stationId === 'hunting') return completeHuntingCycle(save, now, into)
   return false
 }
 
-function completeMiningCycle(save: Save, now: number): boolean {
+function completeMiningCycle(save: Save, now: number, into?: ItemLot[]): boolean {
   applyMiningRecovery(save)
   const station = save.stations.mining
   const node = station.miningNode
   if (!node || isMiningNodeRecovering(node, save.elapsedS)) return false
   const cat = selectedCategoryDef(save, 'mining')
-  if (!emitRules(save, 'mining', cat.outputs, now)) return false
+  if (!emitRules(save, 'mining', cat.outputs, now, into)) return false
   node.nodeHp = Math.max(0, node.nodeHp - 1)
   const key = asMiningCategoryId(node.categoryId)
   if (node.nodeHp <= 0) {
@@ -219,7 +233,7 @@ function completeMiningCycle(save: Save, now: number): boolean {
   return true
 }
 
-function completeFishingCycle(save: Save, now: number): boolean {
+function completeFishingCycle(save: Save, now: number, into?: ItemLot[]): boolean {
   const tier = categoryToFisheryTier(save.stations.fishing.selectedCategory)
   const caught = resolveFishingCatch(tier, roll01(save))
   const itemId = fishingCatchItem(caught)
@@ -227,19 +241,19 @@ function completeFishingCycle(save: Save, now: number): boolean {
     save.stations.fishing.gatherNotice = '空杆'
     return true
   }
-  if (!emitRules(save, 'fishing', [{ itemId, qty: 1 }], now)) return false
+  if (!emitRules(save, 'fishing', [{ itemId, qty: 1 }], now, into)) return false
   save.stations.fishing.gatherNotice = itemId === 'junk' ? '钓到杂物' : `钓到${ITEM_DEF.fish.label}`
   return true
 }
 
-function completeHerbalismCycle(save: Save, now: number): boolean {
+function completeHerbalismCycle(save: Save, now: number, into?: ItemLot[]): boolean {
   const itemId = resolveHerbalismDrop(roll01(save))
-  if (!emitRules(save, 'herbalism', [{ itemId, qty: 1 }], now)) return false
+  if (!emitRules(save, 'herbalism', [{ itemId, qty: 1 }], now, into)) return false
   save.stations.herbalism.gatherNotice = `采到${ITEM_DEF[itemId].label}`
   return true
 }
 
-function completeHuntingCycle(save: Save, now: number): boolean {
+function completeHuntingCycle(save: Save, now: number, into?: ItemLot[]): boolean {
   const prey = huntingPreyByCategory(save.stations.hunting.selectedCategory)
   const hazard = resolveHazard(prey.hazardChance, roll01(save))
   if (hazard.outcome === 'hazard') {
@@ -253,7 +267,7 @@ function completeHuntingCycle(save: Save, now: number): boolean {
     }
     return true
   }
-  if (!emitRules(save, 'hunting', prey.outputs, now)) return false
+  if (!emitRules(save, 'hunting', prey.outputs, now, into)) return false
   save.stations.hunting.gatherNotice = `安全捕获 · ${prey.label}`
   return true
 }

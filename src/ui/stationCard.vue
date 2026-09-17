@@ -129,25 +129,14 @@ function onMerge() {
     <p v-if="station.craftNotice" class="stat gather">{{ station.craftNotice }}</p>
     <p v-if="stallLine" class="stat jam">{{ stallLine }}</p>
     <p v-if="hasCosts" class="stat">消耗 {{ costText }}</p>
-    <div v-if="stock.costs.length || stock.outputs.length" class="stock">
-      <p v-if="stock.costs.length" class="stock-row">
+    <div v-if="stock.costs.length" class="stock">
+      <p class="stock-row">
         <span class="stock-k">消耗库存</span>
         <span
           v-for="row in stock.costs"
           :key="row.itemId"
           class="stock-item"
-          :class="{ now: row.current, empty: row.qty === 0 }"
-        >
-          {{ row.label }} {{ row.qty }}
-        </span>
-      </p>
-      <p v-if="stock.outputs.length" class="stock-row">
-        <span class="stock-k">产出库存</span>
-        <span
-          v-for="row in stock.outputs"
-          :key="row.itemId"
-          class="stock-item"
-          :class="{ now: row.current, empty: row.qty === 0 }"
+          :class="{ empty: row.qty === 0 }"
         >
           {{ row.label }} {{ row.qty }}
         </span>
@@ -275,11 +264,6 @@ h2 {
   border: 2px solid var(--seam);
   border-radius: 8px;
   background: var(--slot);
-}
-
-.stock-item.now {
-  border-color: var(--gold-deep);
-  color: var(--ink);
 }
 
 .stock-item.empty {

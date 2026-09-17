@@ -1,12 +1,15 @@
 import { applyRestHeal, stepCombats } from './combat'
 import { cloneSave } from './clone'
 import { refreshFoodSlots } from './food'
+import type { GainSink } from './gains'
 import { stepStation } from './stations'
 import { STATION_IDS } from './tables'
 import type { Save } from './types'
 
 export type TickOpts = {
   now?: number
+  /** 仅在线 tick 传入。离线追赶不要刷「获得」漂字。 */
+  onGain?: GainSink
 }
 
 /** 在线与离线共用。按站点结算：同站人数加速。 */
@@ -15,7 +18,7 @@ export function applyTick(save: Save, opts: TickOpts = {}): void {
   save.elapsedS += 1
   save.lastTick = now
   refreshFoodSlots(save, now)
-  for (const id of STATION_IDS) stepStation(save, id, now)
+  for (const id of STATION_IDS) stepStation(save, id, now, opts.onGain)
   stepCombats(save, now)
   applyRestHeal(save)
 }

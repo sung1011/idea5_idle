@@ -1,5 +1,6 @@
 import { addToBank } from './bank'
 import { collapseCosts, takeCosts } from './costs'
+import { pushLot, type ItemLot } from './gains'
 import { pickConsume } from './query'
 import { roll01 } from './rng'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
@@ -36,7 +37,7 @@ export function forgingSoftFailChance(categoryId: CategoryId): number {
 }
 
 /** 完成一次锻造：成功出工具；软失败扣部分矿、无成品、少量 XP。不停站。 */
-export function completeForgingCycle(save: Save, now = Date.now()): boolean {
+export function completeForgingCycle(save: Save, now = Date.now(), into?: ItemLot[]): boolean {
   const pick = pickConsume(save, 'forging')
   if (!pick) return false
   const def = selectedCategoryDef(save, 'forging')
@@ -57,6 +58,7 @@ export function completeForgingCycle(save: Save, now = Date.now()): boolean {
   for (const io of def.outputs) {
     const qty = io.qty + (io === def.outputs[0] ? bonus : 0)
     if (!addToBank(save, io.itemId, qty).ok) return false
+    pushLot(into, io.itemId, qty)
   }
   const out = def.outputs[0]
   if (out && isToolItemId(out.itemId)) {

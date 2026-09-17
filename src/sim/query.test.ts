@@ -1,58 +1,61 @@
 import { describe, expect, it } from 'vitest'
 import { createSave } from './createSave'
 import { leftoverStockRows, stationStockRows } from './query'
+import { grantStationXp, selectStationCategory } from './stationProgress'
+import { xpToNextLevel } from './tables'
 
 describe('station stock rows', () => {
-  it('reads bank qty next to forging costs and outputs', () => {
+  it('lists only the selected forging recipe costs, not all station outputs', () => {
     const save = createSave()
     save.bank.ore = 4
+    save.bank.slag = 2
+    save.bank.ironOre = 3
     save.bank.tool = 2
-    save.bank.blueprint = 1
     const rows = stationStockRows(save, 'forging')
-    expect(rows.costs.map((r) => r.itemId)).toEqual(['ore', 'slag', 'ironOre', 'mithrilOre'])
-    expect(rows.outputs.map((r) => r.itemId)).toEqual(['tool', 'ironTool', 'mithrilTool', 'blueprint'])
+    expect(rows.costs.map((r) => r.itemId)).toEqual(['ore', 'slag'])
     expect(rows.costs.find((r) => r.itemId === 'ore')).toMatchObject({
       label: '铜矿',
       qty: 4,
-      role: 'cost',
-      current: true,
     })
-    expect(rows.costs.find((r) => r.itemId === 'ironOre')).toMatchObject({
-      qty: 0,
-      current: false,
-    })
-    expect(rows.outputs.find((r) => r.itemId === 'tool')).toMatchObject({
-      label: '初级工具',
-      qty: 2,
-      role: 'output',
-      current: true,
-    })
-    expect(rows.outputs.find((r) => r.itemId === 'blueprint')).toMatchObject({
-      qty: 1,
-      current: true,
-    })
+    expect(rows).not.toHaveProperty('outputs')
+
+    while (save.stations.forging.stationLevel < 5) {
+      grantStationXp(save, 'forging', xpToNextLevel(save.stations.forging.stationLevel))
+    }
+    expect(selectStationCategory(save, 'forging', 'iron').ok).toBe(true)
+    expect(stationStockRows(save, 'forging').costs.map((r) => r.itemId)).toEqual(['ironOre'])
+    expect(stationStockRows(save, 'forging').costs[0]).toMatchObject({ label: '铁矿', qty: 3 })
   })
 
-  it('marks alchemy alternatives and fishing junk as current stock', () => {
+  it('shows alchemy current consume only and hides gather consume stock', () => {
     const save = createSave()
     save.bank.herb = 3
     save.bank.blood = 1
-    save.bank.fish = 5
-    save.bank.junk = 2
-    const alchemy = stationStockRows(save, 'alchemy')
-    expect(alchemy.costs.map((r) => [r.itemId, r.qty, r.current])).toEqual([
-      ['herb', 3, true],
-      ['blood', 1, true],
-      ['tooth', 0, true],
-      ['eye', 0, true],
-    ])
-    expect(alchemy.outputs).toEqual([
-      { itemId: 'potion', label: '药剂', qty: 0, role: 'output', current: true },
-    ])
-    const fishing = stationStockRows(save, 'fishing')
-    expect(fishing.outputs).toEqual([
-      { itemId: 'fish', label: '鱼', qty: 5, role: 'output', current: true },
-      { itemId: 'junk', label: '杂物', qty: 2, role: 'output', current: true },
+    expect(stationStockRows(save, 'alchemy').costs).toEqual([{ itemId: 'herb', label: '草', qty: 3 }])
+    save.bank.herb = 0
+    expect(stationStockRows(save, 'alchemy').costs).toEqual([{ itemId: 'blood', label: '血', qty: 1 }])
+    save.bank.blood = 0
+    expect(stationStockRows(save, 'alchemy').costs).toEqual([])
+    expect(stationStockRows(save, 'mining').costs).toEqual([])
+    expect(stationStockRows(save, 'fishing').costs).toEqual([])
+    expect(stationStockRows(save, 'hunting').costs).toEqual([])
+    expect(stationStockRows(save, 'herbalism').costs).toEqual([])
+  })
+
+  it('lists stew costs plus altCosts for the selected cooking recipe', () => {
+    const save = createSave()
+    save.bank.fish = 2
+    save.bank.meat = 1
+    save.bank.spice = 4
+    expect(stationStockRows(save, 'cooking').costs.map((r) => r.itemId)).toEqual(['fish'])
+    while (save.stations.cooking.stationLevel < 5) {
+      grantStationXp(save, 'cooking', xpToNextLevel(save.stations.cooking.stationLevel))
+    }
+    expect(selectStationCategory(save, 'cooking', 'mithril').ok).toBe(true)
+    expect(stationStockRows(save, 'cooking').costs).toEqual([
+      { itemId: 'meat', label: '肉', qty: 1 },
+      { itemId: 'spice', label: '香料', qty: 4 },
+      { itemId: 'fish', label: '鱼', qty: 2 },
     ])
   })
 

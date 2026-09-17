@@ -3,6 +3,7 @@ import { addToBank } from './bank'
 import { takeCosts } from './costs'
 import { completeForgingCycle } from './forging'
 import { applyGatherOutputs, applyHuntingPauseTick, applyMiningRecovery, isGatherFrozen, isGatherStation } from './gather'
+import { emitGain, pushLot, type GainSink, type ItemLot } from './gains'
 import { assignedCount, canConsume, currentSpeed, pickConsume } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
 import { ITEM_DEF, isPotionItemId } from './tables'
@@ -19,7 +20,7 @@ function consumeInputs(save: Save, stationId: StationId): boolean {
   return takeCosts(save, pick.rules).ok
 }
 
-function completeAlchemyCycle(save: Save, now: number): boolean {
+function completeAlchemyCycle(save: Save, now: number, into?: ItemLot[]): boolean {
   const pick = pickConsume(save, 'alchemy')
   if (!pick) return false
   if (!takeCosts(save, pick.rules).ok) return false
@@ -29,6 +30,7 @@ function completeAlchemyCycle(save: Save, now: number): boolean {
   for (const io of def.outputs) {
     const qty = io.qty + (io === def.outputs[0] ? bonus : 0)
     if (!addToBank(save, io.itemId, qty).ok) return false
+    pushLot(into, io.itemId, qty)
   }
   station.completed += 1
   grantStationXp(save, 'alchemy', def.xpPerCycle)
@@ -38,43 +40,54 @@ function completeAlchemyCycle(save: Save, now: number): boolean {
   return true
 }
 
-function emitOutputs(save: Save, stationId: StationId, now: number): boolean {
+function emitOutputs(save: Save, stationId: StationId, now: number, into?: ItemLot[]): boolean {
   const def = selectedCategoryDef(save, stationId)
   const bonus = cycleOutputBonus(save, stationId, now)
   for (const io of def.outputs) {
-    const added = addToBank(save, io.itemId, io.qty + (io === def.outputs[0] ? bonus : 0))
+    const qty = io.qty + (io === def.outputs[0] ? bonus : 0)
+    const added = addToBank(save, io.itemId, qty)
     if (!added.ok) return false
+    pushLot(into, io.itemId, qty)
   }
   return true
 }
 
-/** 完成一次吞吐：按当前品类扣原料、写入物资，并给站 XP。 */
-export function completeCycle(save: Save, stationId: StationId, now = Date.now()): boolean {
+/** 完成一次吞吐：按当前品类扣原料、写入物资，并给站 XP。有产出才回调 onGain。 */
+export function completeCycle(
+  save: Save,
+  stationId: StationId,
+  now = Date.now(),
+  onGain?: GainSink,
+): boolean {
   if (!canConsume(save, stationId)) return false
+  const lots: ItemLot[] = []
   if (stationId === 'forging') {
-    const ok = completeForgingCycle(save, now)
+    const ok = completeForgingCycle(save, now, lots)
     if (ok) grantCraftTechPoint(save, 'forging')
+    if (ok) emitGain(onGain, lots)
     return ok
   }
   if (stationId === 'alchemy') {
-    const ok = completeAlchemyCycle(save, now)
+    const ok = completeAlchemyCycle(save, now, lots)
     if (ok) grantCraftTechPoint(save, 'alchemy')
+    if (ok) emitGain(onGain, lots)
     return ok
   }
   if (!consumeInputs(save, stationId)) return false
   const station = save.stations[stationId]
   if (isGatherStation(stationId)) {
-    if (!applyGatherOutputs(save, stationId, now)) return false
-  } else if (!emitOutputs(save, stationId, now)) {
+    if (!applyGatherOutputs(save, stationId, now, lots)) return false
+  } else if (!emitOutputs(save, stationId, now, lots)) {
     return false
   }
   station.completed += 1
   grantStationXp(save, stationId, selectedCategoryDef(save, stationId).xpPerCycle)
   grantCraftTechPoint(save, stationId)
+  emitGain(onGain, lots)
   return true
 }
 
-export function stepStation(save: Save, stationId: StationId, now = Date.now()): void {
+export function stepStation(save: Save, stationId: StationId, now = Date.now(), onGain?: GainSink): void {
   if (stationId === 'mining') applyMiningRecovery(save)
   if (stationId === 'hunting') applyHuntingPauseTick(save)
 
@@ -102,7 +115,7 @@ export function stepStation(save: Save, stationId: StationId, now = Date.now()):
       station.stallReason = 'emptyInput'
       break
     }
-    if (!completeCycle(save, stationId, now)) break
+    if (!completeCycle(save, stationId, now, onGain)) break
     station.progress -= 1
     if (Math.abs(station.progress) < CYCLE_EPS) station.progress = 0
   }

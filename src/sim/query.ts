@@ -7,15 +7,11 @@ import { isGatherFrozen, isMiningNodeRecovering } from './gather'
 import { selectedCategoryDef } from './stationProgress'
 import {
   ALCHEMY_COST_OPTIONS,
-  categoryToFisheryTier,
-  FISHING_DROP_TABLE,
-  HERBALISM_DROP_TABLE,
   ITEM_DEF,
   miningNodeDef,
   leftoverStockItems,
   STATION_DEF,
   STATION_IDS,
-  stationRelatedItems,
   stationSpeed,
   type IoRule,
 } from './tables'
@@ -95,46 +91,35 @@ export type StationStockRow = {
   itemId: ItemId
   label: string
   qty: number
-  role: 'cost' | 'output'
-  current: boolean
 }
 
-function currentRelatedItemIds(save: Save, stationId: StationId): Set<ItemId> {
-  const ids = new Set<ItemId>()
+function currentConsumeItemIds(save: Save, stationId: StationId): ItemId[] {
+  const ids: ItemId[] = []
+  const push = (itemId: ItemId) => {
+    if (!ids.includes(itemId)) ids.push(itemId)
+  }
+  if (stationId === 'alchemy') {
+    const pick = pickConsume(save, stationId)
+    if (!pick || pick.kind === 'none') return []
+    for (const io of pick.rules) push(io.itemId)
+    return ids
+  }
   for (const rules of consumeRuleSets(save, stationId)) {
-    for (const io of rules) ids.add(io.itemId)
+    for (const io of rules) push(io.itemId)
   }
-  for (const io of selectedCategoryDef(save, stationId).outputs) ids.add(io.itemId)
-  if (stationId === 'fishing') {
-    const tier = categoryToFisheryTier(selectedCategoryDef(save, stationId).id)
-    for (const row of FISHING_DROP_TABLE[tier]) {
-      if (row.itemId) ids.add(row.itemId)
-    }
-  }
-  if (stationId === 'herbalism') {
-    for (const row of HERBALISM_DROP_TABLE) ids.add(row.itemId)
-  }
-  if (stationId === 'forging') ids.add('blueprint')
   return ids
 }
 
-/** 工坊卡片就近展示：该站 costs / outputs 对应的 bank 数量。 */
+/** 工坊卡片「消耗库存」：只列当前这次制造会扣的物品。采集无消耗则空。 */
 export function stationStockRows(save: Save, stationId: StationId): {
   costs: StationStockRow[]
-  outputs: StationStockRow[]
 } {
-  const related = stationRelatedItems(stationId)
-  const current = currentRelatedItemIds(save, stationId)
-  const toRow = (itemId: ItemId, role: 'cost' | 'output'): StationStockRow => ({
-    itemId,
-    label: ITEM_DEF[itemId].label,
-    qty: itemQty(save, itemId),
-    role,
-    current: current.has(itemId),
-  })
   return {
-    costs: related.costs.map((id) => toRow(id, 'cost')),
-    outputs: related.outputs.map((id) => toRow(id, 'output')),
+    costs: currentConsumeItemIds(save, stationId).map((itemId) => ({
+      itemId,
+      label: ITEM_DEF[itemId].label,
+      qty: itemQty(save, itemId),
+    })),
   }
 }
 
