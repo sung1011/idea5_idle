@@ -4,8 +4,9 @@ import { hydrateEncounterFields } from '../sim/encounters'
 import { hydrateMessages } from '../sim/messages'
 import { normalizeRngState } from '../sim/rng'
 import { hydrateStations } from '../sim/stationProgress'
+import { clampStationAssignments } from '../sim/assign'
 import { hydrateWorkers } from '../sim/recruit'
-import { hydrateForgedTools } from '../sim/tools'
+import { hydrateForgedTools, migrateWorkerToolsToStations } from '../sim/tools'
 import { WORKER_QUALITY_REV } from '../sim/tables'
 import type { Save } from '../sim/types'
 
@@ -70,6 +71,8 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
     rngState: normalizeRngState((parsed as { rngState?: unknown }).rngState),
     forgedTools: hydrateForgedTools((parsed as { forgedTools?: unknown }).forgedTools),
   }
+  migrateWorkerToolsToStations(merged, parsed.workers)
+  clampStationAssignments(merged)
   if (!Array.isArray(parsed.encounters)) merged.encounters = []
   return hydrateEncounterFields(merged)
 }

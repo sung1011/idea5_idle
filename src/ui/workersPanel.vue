@@ -1,26 +1,21 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive } from 'vue'
 import { bankQty } from '../sim/bank'
 import { formatMarchClock } from '../sim/encounters'
 import { foodBuffRemainS, isFoodBuffActive } from '../sim/food'
 import { idleCount } from '../sim/query'
-import { isToolMatched } from '../sim/tools'
 import {
   CLASS_LABEL,
   FOOD_ITEM_IDS,
   ITEM_DEF,
   PLAYABLE_STATION_IDS,
-  QUALITY_MAX,
   RECRUIT_COST,
   STATION_DEF,
-  TOOL_ITEM_IDS,
-  TOOL_TYPE_DEF,
-  TOOL_TYPE_IDS,
-  toolTypeByStation,
+  STATION_WORKER_CAP,
   workerQualityDef,
   type FoodItemId,
 } from '../sim/tables'
-import type { StationId, ToolTypeId, Worker } from '../sim/types'
+import type { StationId, Worker } from '../sim/types'
 import { useGameStore } from './gameStore'
 
 const game = useGameStore()
@@ -28,8 +23,6 @@ const now = computed(() => {
   void game.save.elapsedS
   return Date.now()
 })
-const pickItem = reactive<Record<string, (typeof TOOL_ITEM_IDS)[number]>>({})
-const pickType = reactive<Record<string, ToolTypeId>>({})
 const pickFood = reactive<Record<string, FoodItemId>>({})
 const pickFoodQty = reactive<Record<string, number>>({})
 
@@ -39,32 +32,6 @@ function atStation(w: Worker, id: StationId) {
 
 function resting(w: Worker) {
   return w.assignment === null
-}
-
-function availableTools() {
-  return TOOL_ITEM_IDS.filter((id) => bankQty(game.save, id) > 0)
-}
-
-function toolLine(w: Worker) {
-  const slot = w.toolSlot
-  if (!slot) return '空手'
-  const type = TOOL_TYPE_DEF[toolTypeByStation(slot.matchStationId)]
-  const item = ITEM_DEF[slot.itemId]
-  const match = w.assignment ? isToolMatched(slot, w.assignment) : false
-  if (!w.assignment) return `${item.label}（${type.label}）· 休息`
-  return match ? `${item.label}（${type.label}）· 匹配${STATION_DEF[slot.matchStationId].label}` : `${item.label}（${type.label}）· 未匹配，裸效率`
-}
-
-function queuedType(itemId: (typeof TOOL_ITEM_IDS)[number]): ToolTypeId {
-  const queued = game.save.forgedTools.find((row) => row.itemId === itemId)
-  return queued ? toolTypeByStation(queued.matchStationId) : 'pick'
-}
-
-function onEquip(w: Worker) {
-  const itemId = pickItem[w.id] ?? availableTools()[0]
-  if (!itemId) return
-  const typeId = pickType[w.id] ?? queuedType(itemId)
-  game.equipTool(w.id, itemId, TOOL_TYPE_DEF[typeId].matchStationId)
 }
 
 function availableFoods() {
@@ -100,8 +67,6 @@ function onLoadFood(w: Worker) {
   game.loadFood(w.id, itemId, qty)
 }
 
-const fusePick = ref<string[]>([])
-
 function qualityOf(w: Worker) {
   return workerQualityDef(w.qualityTier)
 }
@@ -128,25 +93,6 @@ function badgeStyle(w: Worker) {
   }
 }
 
-function picked(id: string) {
-  return fusePick.value.includes(id)
-}
-
-function toggleFuse(id: string) {
-  const i = fusePick.value.indexOf(id)
-  if (i >= 0) {
-    fusePick.value = fusePick.value.filter((x) => x !== id)
-    return
-  }
-  if (fusePick.value.length >= 2) fusePick.value = [fusePick.value[1], id]
-  else fusePick.value = [...fusePick.value, id]
-}
-
-function onFuse() {
-  const [a, b] = fusePick.value
-  const result = game.fuse(a, b)
-  if (result.ok) fusePick.value = []
-}
 </script>
 
 <template>
@@ -156,64 +102,23 @@ function onFuse() {
       金币 {{ game.save.gold }} · 名册 {{ game.save.workers.length }} · 空闲 {{ idleCount(game.save) }}
     </p>
     <p class="hint">
-      同品质两人合成升一档，满档不可再升。新职业从该档池里随机，可能是两人已有的，也可能是池里其它职业。
+      每站最多 {{ STATION_WORKER_CAP }} 人。同站满两人时，到工坊站卡合并升档；满档不可再升。新职业从该档池里随机。
     </p>
     <div class="row">
       <button type="button" @click="game.recruit()">抽工人（{{ RECRUIT_COST }} 金）</button>
-      <button type="button" @click="onFuse">
-        合成{{ fusePick.length === 2 ? '（已选 2）' : fusePick.length === 1 ? '（再选 1）' : '' }}
-      </button>
     </div>
     <ul v-if="game.save.workers.length">
       <li
         v-for="w in game.save.workers"
         :key="w.id"
         class="card"
-        :class="{ picked: picked(w.id), rainbow: qualityOf(w).id === 'rainbow', pink: qualityOf(w).id === 'pink' }"
+        :class="{ rainbow: qualityOf(w).id === 'rainbow', pink: qualityOf(w).id === 'pink' }"
         :style="cardStyle(w)"
       >
         <p class="name">
           <b class="qmark" :style="badgeStyle(w)">{{ qualityOf(w).label }}</b>
           {{ w.name ?? w.id }} · {{ w.classId ? CLASS_LABEL[w.classId] : '未标' }}
         </p>
-        <div class="row">
-          <button
-            type="button"
-            :class="{ on: picked(w.id) }"
-            :aria-pressed="picked(w.id)"
-            @click="toggleFuse(w.id)"
-          >
-            {{ picked(w.id) ? '取消选入' : w.qualityTier >= QUALITY_MAX ? '满档' : '选入合成' }}
-          </button>
-        </div>
-        <p class="hint">{{ toolLine(w) }}</p>
-        <div class="row tool-row">
-          <template v-if="w.toolSlot">
-            <button type="button" @click="game.unequipTool(w.id)">卸下</button>
-          </template>
-          <template v-else-if="availableTools().length">
-            <select
-              class="tool-select"
-              :value="pickItem[w.id] ?? availableTools()[0]"
-              @change="pickItem[w.id] = ($event.target as HTMLSelectElement).value as (typeof TOOL_ITEM_IDS)[number]"
-            >
-              <option v-for="id in availableTools()" :key="id" :value="id">
-                {{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}
-              </option>
-            </select>
-            <select
-              class="tool-select"
-              :value="pickType[w.id] ?? queuedType(pickItem[w.id] ?? availableTools()[0])"
-              @change="pickType[w.id] = ($event.target as HTMLSelectElement).value as ToolTypeId"
-            >
-              <option v-for="id in TOOL_TYPE_IDS" :key="id" :value="id">
-                {{ TOOL_TYPE_DEF[id].label }}（{{ STATION_DEF[TOOL_TYPE_DEF[id].matchStationId].label }}）
-              </option>
-            </select>
-            <button type="button" @click="onEquip(w)">装备</button>
-          </template>
-          <span v-else class="hint">物资里没有工具</span>
-        </div>
         <p class="hint">{{ foodLine(w) }}</p>
         <div class="row tool-row">
           <template v-if="w.foodSlot">
@@ -309,11 +214,6 @@ ul {
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-}
-
-.card.picked {
-  outline: 3px dashed var(--ink);
-  outline-offset: 2px;
 }
 
 .card.rainbow {

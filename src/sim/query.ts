@@ -1,3 +1,4 @@
+import { assignedWorkers } from './assign'
 import { itemQty } from './bank'
 import { canAffordCosts, missingCostLabels } from './costs'
 import { workshopBuffMul } from './encounters'
@@ -20,8 +21,10 @@ import {
 import { assignedToolWeight } from './tools'
 import type { Hint, ItemId, Save, StationId } from './types'
 
+export { assignedWorkers }
+
 export function assignedCount(save: Save, stationId: StationId): number {
-  return save.workers.filter((w) => w.assignment === stationId).length
+  return assignedWorkers(save, stationId).length
 }
 
 export function idleCount(save: Save): number {

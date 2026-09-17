@@ -99,7 +99,7 @@ xpToNext(L) = Math.round(100 * Math.pow(1.45, L - 1) * 0.175)  // L >= 1
 
 ## 结算
 
-`stepStation` / `completeCycle` 读当前品类的周期、消耗、产出。堆人：
+`stepStation` / `completeCycle` 读当前品类的周期、消耗、产出。堆人（玩法 n≤2；站上工具另乘增效）：
 
 ```
 speed = (1 / 当前品类 cycleS) * n * (共振 ? 1.2 : 1)

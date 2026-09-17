@@ -10,6 +10,7 @@ import {
   xpToNextLevel,
   type MiningCategoryId,
 } from './tables'
+import { hydrateToolSlot } from './tools'
 import type { ActionResult, CategoryId, MiningNodeState, Save, StationId, StationState } from './types'
 
 export function blankMiningNode(categoryId: CategoryId = 'copper'): MiningNodeState {
@@ -150,6 +151,7 @@ export function blankStation(stationId: StationId): StationState {
     gatherPauseUntil: null,
     selectedToolType: stationId === 'forging' ? 'pick' : null,
     craftNotice: null,
+    toolSlot: null,
     ...(stationId === 'mining'
       ? (() => {
           const bundle = hydrateMiningNodes(undefined, first.id)
@@ -191,6 +193,7 @@ export function hydrateStationState(stationId: StationId, incoming?: Partial<Sta
           : 'pick'
         : null,
     craftNotice: typeof incoming.craftNotice === 'string' ? incoming.craftNotice : null,
+    toolSlot: hydrateToolSlot(incoming.toolSlot),
     ...(stationId === 'mining'
       ? hydrateMiningNodes(incoming, incoming.selectedCategory ?? blank.selectedCategory)
       : {}),

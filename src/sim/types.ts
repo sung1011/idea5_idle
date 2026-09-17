@@ -134,7 +134,6 @@ export type Worker = {
   /** 1～10。抽人默认白档；旧档缺字段 hydrate 补 1。 */
   qualityTier: QualityTier
   assignment: StationId | null
-  toolSlot: ToolSlot | null
   foodSlot: FoodSlot | null
 }
 
@@ -169,6 +168,8 @@ export type StationState = {
   selectedToolType?: ToolTypeId | null
   /** 最近一次制造结算文案（软失败 / 锻成）。 */
   craftNotice?: string | null
+  /** 装在该站的生产工具；增效按站结算，不跟工人走。 */
+  toolSlot: ToolSlot | null
 }
 
 export type FisheryTier = 'beginner' | 'mid' | 'high'

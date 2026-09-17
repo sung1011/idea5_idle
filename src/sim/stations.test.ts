@@ -41,17 +41,17 @@ describe('mining → bank', () => {
     expect(next.stations.mining.progress).toBeCloseTo(0)
   })
 
-  it('three miners produce 3x ore in the same time', () => {
+  it('two miners produce 2x ore in the same time', () => {
     const one = roster(1)
     assignWorker(one, one.workers[0].id, 'mining')
-    const three = roster(3)
-    for (const w of three.workers) assignWorker(three, w.id, 'mining')
+    const two = roster(2)
+    for (const w of two.workers) assignWorker(two, w.id, 'mining')
 
     const a = ticks(one, 20)
-    const b = ticks(three, 20)
+    const b = ticks(two, 20)
     expect(bankQty(a, 'ore')).toBe(1)
-    expect(bankQty(b, 'ore')).toBe(3)
-    expect(b.stations.mining.completed).toBe(3)
+    expect(bankQty(b, 'ore')).toBe(2)
+    expect(b.stations.mining.completed).toBe(2)
   })
 
   it('keeps mining after stock exceeds the old bank cap', () => {
@@ -124,18 +124,18 @@ describe('fishing → bank', () => {
     expect(next.stations.fishing.progress).toBeCloseTo(0)
   })
 
-  it('three fishers produce 3x fish in the same time', () => {
+  it('two fishers produce 2x fish in the same time', () => {
     setRollOverride(() => 0.5)
     const one = roster(1)
     assignWorker(one, one.workers[0].id, 'fishing')
-    const three = roster(3)
-    for (const w of three.workers) assignWorker(three, w.id, 'fishing')
+    const two = roster(2)
+    for (const w of two.workers) assignWorker(two, w.id, 'fishing')
 
     const a = ticks(one, 28)
-    const b = ticks(three, 28)
+    const b = ticks(two, 28)
     expect(bankQty(a, 'fish')).toBe(1)
-    expect(bankQty(b, 'fish')).toBe(3)
-    expect(b.stations.fishing.completed).toBe(3)
+    expect(bankQty(b, 'fish')).toBe(2)
+    expect(b.stations.fishing.completed).toBe(2)
   })
 })
 

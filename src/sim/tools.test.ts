@@ -17,11 +17,11 @@ import {
 import { ticks } from './tick'
 import {
   assignedToolWeight,
-  equipTool,
+  equipStationTool,
   makeToolSlot,
   matchingToolEffectMax,
   selectForgingToolType,
-  unequipTool,
+  unequipStationTool,
   workerToolSpeedMul,
 } from './tools'
 import type { Save } from './types'
@@ -61,28 +61,28 @@ describe('tool type table', () => {
 })
 
 describe('equip / unequip', () => {
-  it('equips from bank and unequips back', () => {
+  it('equips a station from bank and unequips back', () => {
     const save = roster(1)
     save.bank.tool = 1
-    const workerId = save.workers[0].id
-    expect(equipTool(save, workerId, 'tool', 'cooking').ok).toBe(true)
+    expect(equipStationTool(save, 'cooking', 'tool').ok).toBe(true)
     expect(bankQty(save, 'tool')).toBe(0)
-    expect(save.workers[0].toolSlot?.itemId).toBe('tool')
-    expect(save.workers[0].toolSlot?.matchStationId).toBe('cooking')
-    expect(save.workers[0].toolSlot?.affixes).toEqual([])
-    expect(unequipTool(save, workerId).ok).toBe(true)
-    expect(save.workers[0].toolSlot).toBeNull()
+    expect(save.stations.cooking.toolSlot?.itemId).toBe('tool')
+    expect(save.stations.cooking.toolSlot?.matchStationId).toBe('cooking')
+    expect(save.stations.cooking.toolSlot?.affixes).toEqual([])
+    expect(save.workers[0].foodSlot).toBeNull()
+    expect(unequipStationTool(save, 'cooking').ok).toBe(true)
+    expect(save.stations.cooking.toolSlot).toBeNull()
     expect(bankQty(save, 'tool')).toBe(1)
   })
 
-  it('still assigns when empty or mismatched', () => {
+  it('does not apply another station\'s tool', () => {
     const save = roster(1)
     save.bank.tool = 1
     const id = save.workers[0].id
     expect(assignWorker(save, id, 'mining').ok).toBe(true)
-    expect(equipTool(save, id, 'tool', 'cooking').ok).toBe(true)
+    expect(equipStationTool(save, 'cooking', 'tool').ok).toBe(true)
     expect(save.workers[0].assignment).toBe('mining')
-    expect(workerToolSpeedMul(save.workers[0], 'mining')).toBe(1)
+    expect(workerToolSpeedMul(save, save.workers[0], 'mining')).toBe(1)
     expect(currentSpeed(save, 'mining')).toBeCloseTo(1 / 20)
   })
 })
@@ -94,7 +94,7 @@ describe('matching tool speed', () => {
     const tooled = roster(1)
     tooled.bank.tool = 1
     assignWorker(tooled, tooled.workers[0].id, 'mining')
-    expect(equipTool(tooled, tooled.workers[0].id, 'tool', 'mining').ok).toBe(true)
+    expect(equipStationTool(tooled, 'mining', 'tool').ok).toBe(true)
 
     expect(assignedToolWeight(bare, 'mining')).toBe(1)
     expect(assignedToolWeight(tooled, 'mining')).toBeCloseTo(1.25)
@@ -111,10 +111,20 @@ describe('matching tool speed', () => {
     const save = roster(1)
     save.bank.ironTool = 1
     assignWorker(save, save.workers[0].id, 'cooking')
-    expect(equipTool(save, save.workers[0].id, 'ironTool', 'cooking').ok).toBe(true)
+    expect(equipStationTool(save, 'cooking', 'ironTool').ok).toBe(true)
     expect(save.workers[0].foodSlot).toBeNull()
     expect(matchingToolEffectMax(save, 'cooking', EFFECT_ID.extraOutput)).toBe(1)
-    expect(workerToolSpeedMul(save.workers[0], 'cooking')).toBeCloseTo(1.2 / 0.8)
+    expect(workerToolSpeedMul(save, save.workers[0], 'cooking')).toBeCloseTo(1.2 / 0.8)
+  })
+
+  it('one station tool speeds both assigned workers', () => {
+    const save = roster(2)
+    save.bank.tool = 1
+    assignWorker(save, save.workers[0].id, 'mining')
+    assignWorker(save, save.workers[1].id, 'mining')
+    expect(equipStationTool(save, 'mining', 'tool').ok).toBe(true)
+    expect(assignedToolWeight(save, 'mining')).toBeCloseTo(2.5)
+    expect(currentSpeed(save, 'mining')).toBeCloseTo((1 / 20) * 2.5)
   })
 })
 

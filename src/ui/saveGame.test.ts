@@ -80,14 +80,13 @@ describe('save migration', () => {
     const save = hydrateLoadedSave(raw)
     expect(save?.workers).toHaveLength(2)
     expect(save?.workers[0].assignment).toBeNull()
-    expect(save?.workers[0].toolSlot).toBeNull()
     expect(save?.workers[0].foodSlot).toBeNull()
     expect(save?.workers[0].qualityTier).toBe(1)
     expect(save?.workers[1].qualityTier).toBe(1)
     expect(save?.workers[1].assignment).toBe('forging')
-    expect(save?.workers[1].toolSlot?.itemId).toBe('tool')
-    expect(save?.workers[1].toolSlot?.matchStationId).toBe('mining')
     expect(save?.workers[1].foodSlot?.itemId).toBe('meal')
+    expect(save?.stations.mining.toolSlot?.itemId).toBe('tool')
+    expect(save?.stations.mining.toolSlot?.matchStationId).toBe('mining')
     expect(save?.workers[1].foodSlot?.buff.mul).toBe(1.2)
     expect(save?.workers[1].foodSlot?.qty).toBe(2)
     expect(save?.stations.hunting).toBeTruthy()
@@ -108,10 +107,10 @@ describe('save migration', () => {
       ...createSave(),
       workerQualityRev: undefined,
       workers: [
-        { id: 'w-1', qualityTier: 1, assignment: null, toolSlot: null, foodSlot: null },
-        { id: 'w-2', qualityTier: 2, assignment: null, toolSlot: null, foodSlot: null },
-        { id: 'w-3', qualityTier: 7, assignment: null, toolSlot: null, foodSlot: null },
-        { id: 'w-4', qualityTier: 8, assignment: null, toolSlot: null, foodSlot: null },
+        { id: 'w-1', qualityTier: 1, assignment: null, foodSlot: null },
+        { id: 'w-2', qualityTier: 2, assignment: null, foodSlot: null },
+        { id: 'w-3', qualityTier: 7, assignment: null, foodSlot: null },
+        { id: 'w-4', qualityTier: 8, assignment: null, foodSlot: null },
       ],
     }
     delete (raw as { workerQualityRev?: number }).workerQualityRev
@@ -129,12 +128,43 @@ describe('save migration', () => {
       ...createSave(),
       workerQualityRev: 2,
       workers: [
-        { id: 'w-1', qualityTier: 2, assignment: null, toolSlot: null, foodSlot: null },
-        { id: 'w-2', qualityTier: 7, assignment: null, toolSlot: null, foodSlot: null },
+        { id: 'w-1', qualityTier: 2, assignment: null, foodSlot: null },
+        { id: 'w-2', qualityTier: 7, assignment: null, foodSlot: null },
       ],
     }
     const save = hydrateLoadedSave(raw)
     expect(save?.workers.map((w) => w.qualityTier)).toEqual([2, 7])
     expect(save?.workerQualityRev).toBe(2)
+  })
+
+  it('moves worker tools onto the matching station and rests overflow assignees', () => {
+    const raw = {
+      ...createSave(),
+      workers: [
+        { id: 'w-1', assignment: 'mining', toolSlot: { itemId: 'tool', matchStationId: 'mining', affixes: [], effects: [] } },
+        { id: 'w-2', assignment: 'mining', toolSlot: { itemId: 'ironTool', matchStationId: 'mining', affixes: [], effects: [] } },
+        { id: 'w-3', assignment: 'mining' },
+      ],
+    }
+    const save = hydrateLoadedSave(raw)
+    expect(save?.stations.mining.toolSlot?.itemId).toBe('tool')
+    expect(save?.bank.ironTool).toBe(1)
+    expect(save?.workers.map((w) => w.assignment)).toEqual(['mining', 'mining', null])
+    expect(save?.workers.every((w) => !('toolSlot' in w) || (w as { toolSlot?: unknown }).toolSlot == null)).toBe(true)
+  })
+
+  it('keeps a station toolSlot through persist / load', () => {
+    const store = memory()
+    const save = createSave()
+    save.stations.cooking.toolSlot = {
+      itemId: 'tool',
+      matchStationId: 'cooking',
+      affixes: [],
+      effects: [{ effectId: 'prodSpeed', value: 1.25, source: 'tool' }],
+    }
+    persistSave(save, store)
+    const loaded = loadSave(store)
+    expect(loaded?.stations.cooking.toolSlot?.itemId).toBe('tool')
+    expect(loaded?.stations.cooking.toolSlot?.matchStationId).toBe('cooking')
   })
 })

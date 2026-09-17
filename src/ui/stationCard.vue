@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { bankQty } from '../sim/bank'
 import { formatCostOptions } from '../sim/costs'
+import { stationMergeLabel } from '../sim/fuse'
 import { gatherStatusText, isGatherFrozen } from '../sim/gather'
 import {
   assignedCount,
+  assignedWorkers,
   consumeRuleSets,
   currentSpeed,
   stationBottleneckText,
@@ -11,7 +14,17 @@ import {
   stationStockRows,
 } from '../sim/query'
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
-import { STATION_DEF, TOOL_TYPE_DEF, TOOL_TYPE_IDS, xpToNextLevel } from '../sim/tables'
+import {
+  ITEM_DEF,
+  STATION_DEF,
+  STATION_WORKER_CAP,
+  TOOL_ITEM_IDS,
+  TOOL_TYPE_DEF,
+  TOOL_TYPE_IDS,
+  toolTypeByStation,
+  xpToNextLevel,
+  type ToolItemId,
+} from '../sim/tables'
 import type { CategoryId, StationId, ToolTypeId } from '../sim/types'
 import { useGameStore } from './gameStore'
 import { useVisualProgress } from './visualProgress'
@@ -23,7 +36,18 @@ const props = defineProps<{
 const game = useGameStore()
 const def = computed(() => STATION_DEF[props.stationId])
 const count = computed(() => assignedCount(game.save, props.stationId))
+const crew = computed(() => assignedWorkers(game.save, props.stationId))
+const canMerge = computed(() => crew.value.length >= STATION_WORKER_CAP)
+const mergeLabel = computed(() => stationMergeLabel(game.save, props.stationId))
 const station = computed(() => game.save.stations[props.stationId])
+const pickTool = ref<ToolItemId | ''>('')
+const availableTools = computed(() => TOOL_ITEM_IDS.filter((id) => bankQty(game.save, id) > 0))
+const toolLine = computed(() => {
+  const slot = station.value.toolSlot
+  if (!slot) return '未装工具 · 裸效率'
+  const type = TOOL_TYPE_DEF[toolTypeByStation(slot.matchStationId)]
+  return `${ITEM_DEF[slot.itemId].label}（${type.label}）· 本站增效`
+})
 const cat = computed(() => selectedCategoryDef(game.save, props.stationId))
 const speed = computed(() => currentSpeed(game.save, props.stationId))
 const resonating = computed(() => stationResonating(game.save, props.stationId))
@@ -69,6 +93,20 @@ function onToolType(ev: Event) {
   const value = (ev.target as HTMLSelectElement).value as ToolTypeId
   game.selectToolType(value)
 }
+
+function onEquipTool() {
+  const itemId = pickTool.value || availableTools.value[0]
+  if (!itemId) return
+  game.equipStationTool(props.stationId, itemId)
+}
+
+function onUnequipTool() {
+  game.unequipStationTool(props.stationId)
+}
+
+function onMerge() {
+  game.fuseStation(props.stationId)
+}
 </script>
 
 <template>
@@ -80,7 +118,7 @@ function onToolType(ev: Event) {
           {{ def.label }} · Lv{{ station.stationLevel }}
           <em v-if="resonating" class="reso">共振</em>
         </h2>
-        <p class="meta">{{ count }} 人 · {{ cat.label }} {{ cat.cycleS }}s/次</p>
+        <p class="meta">{{ count }}/{{ STATION_WORKER_CAP }} 人 · {{ cat.label }} {{ cat.cycleS }}s/次</p>
       </div>
     </header>
     <div class="bar live" :aria-valuenow="pctLabel">
@@ -134,9 +172,29 @@ function onToolType(ev: Event) {
         </option>
       </select>
     </label>
+    <p class="stat">{{ toolLine }}</p>
+    <div class="row tool-row">
+      <template v-if="station.toolSlot">
+        <button type="button" @click="onUnequipTool">卸下工具</button>
+      </template>
+      <template v-if="availableTools.length">
+        <select
+          class="cat-select"
+          :value="pickTool || availableTools[0]"
+          @change="pickTool = ($event.target as HTMLSelectElement).value as ToolItemId"
+        >
+          <option v-for="id in availableTools" :key="id" :value="id">
+            {{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}
+          </option>
+        </select>
+        <button type="button" @click="onEquipTool">{{ station.toolSlot ? '换装' : '装备' }}</button>
+      </template>
+      <span v-else-if="!station.toolSlot" class="hint">物资里没有工具</span>
+    </div>
     <div class="row">
       <button type="button" @click="game.assignIdle(stationId)">派入</button>
       <button type="button" @click="game.withdraw(stationId)">撤出</button>
+      <button v-if="canMerge" type="button" @click="onMerge">{{ mergeLabel }}</button>
     </div>
   </article>
 </template>
@@ -257,5 +315,14 @@ h2 {
   border-radius: 12px;
   background: linear-gradient(#fffbeb, var(--btn));
   box-shadow: 0 3px 0 var(--shadow);
+}
+
+.tool-row {
+  align-items: center;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 13px;
 }
 </style>

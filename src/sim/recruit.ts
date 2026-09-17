@@ -5,19 +5,16 @@ import {
   hydrateQualityTier,
   isClassId,
   isFoodItemId,
-  isToolItemId,
   ITEM_IDS,
   migrateQualityTierFromGrayTable,
   needsGrayQualityMigration,
   QUALITY_MIN,
   RECRUIT_COST,
   resolveStationId,
-  TOOL_DEF,
   WORKER_NAME_POOL,
 } from './tables'
 import type {
   ActionResult,
-  Affix,
   EffectInstance,
   EffectSource,
   FoodSlot,
@@ -26,7 +23,6 @@ import type {
   ClassId,
   QualityTier,
   Save,
-  ToolSlot,
   Worker,
 } from './types'
 
@@ -36,19 +32,6 @@ export function findWorker(save: Save, workerId: string): Worker | undefined {
 
 function isItemId(id: unknown): id is ItemId {
   return typeof id === 'string' && (ITEM_IDS as string[]).includes(id)
-}
-
-function hydrateAffixes(raw: unknown): Affix[] {
-  if (!Array.isArray(raw)) return []
-  const out: Affix[] = []
-  for (const row of raw) {
-    if (!row || typeof row !== 'object') continue
-    const affix = row as Partial<Affix>
-    if (typeof affix.affixId !== 'string' || typeof affix.effectId !== 'string') continue
-    if (typeof affix.value !== 'number' || !Number.isFinite(affix.value)) continue
-    out.push({ affixId: affix.affixId, effectId: affix.effectId, value: affix.value })
-  }
-  return out
 }
 
 function hydrateEffects(raw: unknown, fallbackSource: EffectSource): EffectInstance[] {
@@ -77,34 +60,6 @@ function hydrateProductionBuff(raw: unknown, fallback?: ProductionBuff): Product
     }
   }
   return fallback ?? null
-}
-
-function hydrateToolSlot(rawSlot: unknown, rawWorker: Record<string, unknown>): ToolSlot | null {
-  if (rawSlot && typeof rawSlot === 'object') {
-    const slot = rawSlot as Partial<ToolSlot>
-    if (isToolItemId(slot.itemId) || isItemId(slot.itemId)) {
-      const itemId = slot.itemId
-      const def = isToolItemId(itemId) ? TOOL_DEF[itemId] : undefined
-      const affixes = hydrateAffixes(slot.affixes)
-      const effects = hydrateEffects(slot.effects, 'tool')
-      return {
-        itemId,
-        matchStationId: resolveStationId(slot.matchStationId) ?? def?.matchStationId ?? 'mining',
-        affixes: affixes.length ? affixes : (def?.affixes ?? []),
-        effects: effects.length ? effects : (def?.effects ?? []),
-      }
-    }
-  }
-  if (isToolItemId(rawWorker.toolId)) {
-    const def = TOOL_DEF[rawWorker.toolId]
-    return {
-      itemId: def.itemId,
-      matchStationId: def.matchStationId,
-      affixes: def.affixes,
-      effects: def.effects,
-    }
-  }
-  return null
 }
 
 function hydrateQty(raw: unknown): number {
@@ -158,13 +113,13 @@ export function hydrateWorker(raw: unknown, index = 0): Worker {
     classId: isClassId(src.classId) ? src.classId : undefined,
     qualityTier: hydrateQualityTier(src.qualityTier),
     assignment: resolveStationId(src.assignment),
-    toolSlot: hydrateToolSlot(src.toolSlot, src),
     foodSlot: hydrateFoodSlot(src.foodSlot, src),
   }
 }
 
 /**
- * 旧档缺双槽补 null；已派伐木 / 未知站撤到休息；`smithing` 映到 forging。
+ * 旧档缺食物槽补 null；已派伐木 / 未知站撤到休息；`smithing` 映到 forging。
+ * 工人身上的旧 toolSlot 不在这里落地，由 hydrate 迁到站或回物资。
  * `qualityRev` 缺或小于当前色表版本时，按旧灰表迁一次 `qualityTier`。
  */
 export function hydrateWorkers(raw: unknown, qualityRev?: unknown): Worker[] {
@@ -193,7 +148,6 @@ export function spawnWorkerWith(save: Save, qualityTier: QualityTier, classId: C
     classId,
     qualityTier,
     assignment: null,
-    toolSlot: null,
     foodSlot: null,
   }
   save.nextWorkerId += 1

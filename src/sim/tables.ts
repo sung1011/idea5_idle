@@ -23,7 +23,9 @@ export const START_GOLD = 80
 export const START_DIAMONDS = 0
 export const RECRUIT_COST = 15
 
-/** 同站堆人：speed = (1 / cycleS) * stackFactor(n) * 共振倍率 */
+/** 每站派驻上限。第 3 人派入失败；旧档超出的人 hydrate 撤到休息。 */
+export const STATION_WORKER_CAP = 2
+/** 同站堆人：speed = (1 / cycleS) * stackFactor(n) * 共振倍率。玩法 n≤2。 */
 export const STACK_LINEAR = 1
 export const RESONANCE_SPEED_MUL = 1.2
 /** 共振期间每完成这么多次吞吐，额外 +1 主产物（下游少空转 / 额外产出） */

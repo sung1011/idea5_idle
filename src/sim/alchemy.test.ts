@@ -75,7 +75,7 @@ describe('alchemy placeholder', () => {
     expect(potionEffectValue('potion', EFFECT_ID.cycleShorten)).toBe(0)
     expect(loadFood(save, save.workers[0].id, 'potion', 1).ok).toBe(false)
     const bare = currentSpeed(save, 'mining')
-    const withPotion = workerEffectValue(save.workers[0], 'mining', EFFECT_ID.prodSpeed)
+    const withPotion = workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.prodSpeed)
     expect(withPotion).toBe(0)
     expect(currentSpeed(save, 'mining')).toBe(bare)
   })

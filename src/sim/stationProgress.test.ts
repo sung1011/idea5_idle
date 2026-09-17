@@ -172,23 +172,23 @@ describe('categoryPickOptions', () => {
 })
 
 describe('stack current category', () => {
-  it('three miners on iron produce 3x ironOre in the same time', () => {
+  it('two miners on iron produce 2x ironOre in the same time', () => {
     const one = roster(1)
     unlockTo(one, 'mining', 5)
     expect(selectStationCategory(one, 'mining', 'iron').ok).toBe(true)
     assignWorker(one, one.workers[0].id, 'mining')
 
-    const three = roster(3)
-    unlockTo(three, 'mining', 5)
-    expect(selectStationCategory(three, 'mining', 'iron').ok).toBe(true)
-    for (const w of three.workers) assignWorker(three, w.id, 'mining')
+    const two = roster(2)
+    unlockTo(two, 'mining', 5)
+    expect(selectStationCategory(two, 'mining', 'iron').ok).toBe(true)
+    for (const w of two.workers) assignWorker(two, w.id, 'mining')
 
     const a = ticks(one, 24)
-    const b = ticks(three, 24)
+    const b = ticks(two, 24)
     expect(bankQty(a, 'ironOre')).toBe(1)
     expect(bankQty(a, 'ore')).toBe(0)
-    expect(bankQty(b, 'ironOre')).toBe(3)
-    expect(b.stations.mining.completed).toBe(3)
+    expect(bankQty(b, 'ironOre')).toBe(2)
+    expect(b.stations.mining.completed).toBe(2)
   })
 })
 

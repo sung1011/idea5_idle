@@ -18,7 +18,7 @@ import {
   WORKER_QUALITY_REV,
   WORKER_QUALITY_TABLE,
 } from './tables'
-import { equipTool } from './tools'
+import { equipStationTool } from './tools'
 
 afterEach(() => {
   setRollOverride(null)
@@ -110,12 +110,13 @@ describe('fuseWorkers', () => {
     const save = createSave()
     const a = spawnWorker(save)
     const b = spawnWorker(save)
+    expect(assignWorker(save, a.id, 'mining').ok).toBe(true)
+    expect(assignWorker(save, b.id, 'mining').ok).toBe(true)
     const result = fuseWorkers(save, a.id, b.id)
     expect(result.ok).toBe(true)
     expect(save.workers).toHaveLength(1)
     expect(save.workers[0].qualityTier).toBe(2)
     expect(save.workers[0].assignment).toBeNull()
-    expect(save.workers[0].toolSlot).toBeNull()
     expect(save.workers[0].foodSlot).toBeNull()
     expect(save.workers[0].id).toBe('w-3')
     expect(save.workers[0].name).toBe(WORKER_NAME_POOL[2])
@@ -128,28 +129,31 @@ describe('fuseWorkers', () => {
     const b = spawnWorker(save)
     a.classId = 'laborer'
     b.classId = 'laborer'
+    expect(assignWorker(save, a.id, 'cooking').ok).toBe(true)
+    expect(assignWorker(save, b.id, 'cooking').ok).toBe(true)
     setRollOverride(() => 0.99)
     expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
     expect(save.workers[0].classId).toBe('miner')
     expect(save.workers[0].classId).not.toBe('laborer')
   })
 
-  it('returns tools and leftover food to the bank and clears assignment', () => {
+  it('returns leftover food to the bank; station tool stays; new worker rests', () => {
     const save = createSave()
     const a = spawnWorker(save)
     const b = spawnWorker(save)
     save.bank.tool = 1
     save.bank.meal = 2
     save.forgedTools.push({ itemId: 'tool', matchStationId: 'mining' })
-    expect(equipTool(save, a.id, 'tool', 'mining').ok).toBe(true)
+    expect(equipStationTool(save, 'mining', 'tool').ok).toBe(true)
     expect(loadFood(save, a.id, 'meal', 2).ok).toBe(true)
     expect(assignWorker(save, a.id, 'mining').ok).toBe(true)
-    expect(assignWorker(save, b.id, 'forging').ok).toBe(true)
+    expect(assignWorker(save, b.id, 'mining').ok).toBe(true)
     expect(bankQty(save, 'tool')).toBe(0)
     expect(bankQty(save, 'meal')).toBe(0)
 
     expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
-    expect(bankQty(save, 'tool')).toBe(1)
+    expect(bankQty(save, 'tool')).toBe(0)
+    expect(save.stations.mining.toolSlot?.itemId).toBe('tool')
     expect(bankQty(save, 'meal')).toBe(1)
     expect(save.workers[0].assignment).toBeNull()
     expect(save.workers.every((w) => w.assignment === null)).toBe(true)
@@ -163,6 +167,8 @@ describe('fuseWorkers', () => {
     expect(fuseWorkers(save, a.id, 'w-missing')).toEqual({ ok: false, reason: '没有这个工人' })
     expect(fuseWorkers(save, '', b.id)).toEqual({ ok: false, reason: '请选两个同品质工人' })
 
+    expect(assignWorker(save, a.id, 'herbalism').ok).toBe(true)
+    expect(assignWorker(save, b.id, 'herbalism').ok).toBe(true)
     b.qualityTier = 2
     expect(fuseWorkers(save, a.id, b.id)).toEqual({ ok: false, reason: '品质不同，不能合成' })
     expect(save.workers).toHaveLength(2)
