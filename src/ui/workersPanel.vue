@@ -13,13 +13,18 @@ import {
   PLAYABLE_STATION_IDS,
   STATION_DEF,
   STATION_WORKER_CAP,
-  workerQualityDef,
   type FoodItemId,
 } from '../sim/tables'
 import { recruitCost } from '../sim/tech'
 import type { StationId, Worker } from '../sim/types'
 import { useGameStore } from './gameStore'
 import { hpBarFill, hpBarLabel, hpBarTone } from './hpBar'
+import {
+  qualityOf,
+  workerQualityBadgeStyle,
+  workerQualityCardStyle,
+  workerQualityToneClass,
+} from './workerQuality'
 
 const game = useGameStore()
 const now = computed(() => {
@@ -87,31 +92,6 @@ function onLoadFood(w: Worker) {
   game.loadFood(w.id, itemId, qty)
 }
 
-function qualityOf(w: Worker) {
-  return workerQualityDef(w.qualityTier)
-}
-
-/** 浅档用深字，其余角标白字，避免羊皮纸上白/粉/金看不清。 */
-function qualityInk(w: Worker) {
-  const id = qualityOf(w).id
-  return id === 'white' || id === 'gold' || id === 'cyan' || id === 'pink' ? '#5a3a10' : '#fffdf8'
-}
-
-function cardStyle(w: Worker) {
-  const color = qualityOf(w).color
-  return {
-    borderColor: color,
-    boxShadow: `inset 6px 0 0 ${color}, 0 3px 0 var(--gold-deep), inset 0 0 0 2px #fff8e0`,
-  }
-}
-
-function badgeStyle(w: Worker) {
-  return {
-    color: qualityInk(w),
-    background: qualityOf(w).color,
-    borderColor: qualityOf(w).color,
-  }
-}
 
 </script>
 
@@ -132,11 +112,11 @@ function badgeStyle(w: Worker) {
         v-for="w in game.save.workers"
         :key="w.id"
         class="card"
-        :class="{ rainbow: qualityOf(w).id === 'rainbow', pink: qualityOf(w).id === 'pink' }"
-        :style="cardStyle(w)"
+        :class="workerQualityToneClass(w)"
+        :style="workerQualityCardStyle(w)"
       >
         <p class="name">
-          <b class="qmark" :style="badgeStyle(w)">{{ qualityOf(w).label }}</b>
+          <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
           {{ w.name ?? w.id }} · {{ w.classId ? CLASS_LABEL[w.classId] : '未标' }}
         </p>
         <div class="combat">

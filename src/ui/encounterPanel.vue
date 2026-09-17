@@ -35,6 +35,12 @@ import type { Encounter, EncounterKind, EnemyEncounter, PawnEncounter, Worker } 
 import EncounterTips from './encounterTips.vue'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
+import {
+  qualityOf,
+  workerQualityBadgeStyle,
+  workerQualityCardStyle,
+  workerQualityToneClass,
+} from './workerQuality'
 
 const game = useGameStore()
 const cost = computed(() => exploreCost(game.save))
@@ -360,11 +366,16 @@ function pawnGold(enc: PawnEncounter) {
           <li v-for="w in pickCandidates" :key="w.id">
             <button
               type="button"
-              :class="{ on: picked.includes(w.id) }"
+              class="pick-worker"
+              :class="{ on: picked.includes(w.id), ...workerQualityToneClass(w) }"
+              :style="workerQualityCardStyle(w)"
               :disabled="w.hp <= 0"
               @click="togglePick(w)"
             >
-              <span>{{ workerLine(w) }}</span>
+              <span class="pick-name">
+                <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
+                {{ workerLine(w) }}
+              </span>
               <CombatAttrRow :attrs="w.combatAttrs" />
             </button>
           </li>
@@ -752,6 +763,39 @@ ul {
   justify-content: flex-start;
   gap: 6px;
   text-align: left;
+}
+
+.pick-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  color: var(--copper);
+}
+
+.pick-list .qmark {
+  min-width: 22px;
+  padding: 1px 7px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.pick-worker.rainbow {
+  background: linear-gradient(#fffdf8, #ffe8f4);
+}
+
+.pick-worker.pink {
+  background: linear-gradient(#fffdf8, #ffe4ef);
+}
+
+.pick-worker.on {
+  filter: none;
+  opacity: 1;
 }
 
 .pick-list :deep(.chip) {
