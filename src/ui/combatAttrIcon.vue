@@ -60,6 +60,7 @@ defineProps<{
   width: 14px;
   height: 14px;
   fill: currentColor;
+  animation: reveal-in var(--motion) ease;
 }
 
 .chip.physical {
@@ -74,5 +75,22 @@ defineProps<{
 
 .chip.unknown {
   color: var(--muted);
+}
+
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip svg {
+    animation: none;
+  }
 }
 </style>

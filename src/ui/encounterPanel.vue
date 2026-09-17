@@ -152,7 +152,7 @@ function pawnGold(enc: PawnEncounter) {
 
 <template>
   <section class="panel encounter">
-    <p>主线</p>
+    <h2 class="title">主线</h2>
     <div class="chapter-head">
       <p class="chapter">{{ chapterTitle }}</p>
       <div
@@ -389,11 +389,17 @@ function pawnGold(enc: PawnEncounter) {
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 16px;
+  gap: 8px;
+  padding: 12px 12px 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 20px;
 }
 
 .panel p,
+.panel .title,
 .hint,
 .label,
 .buff {
@@ -409,7 +415,8 @@ function pawnGold(enc: PawnEncounter) {
 
 .chapter {
   margin: 0;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-weight: 400;
   letter-spacing: 0.08em;
 }
 
@@ -418,19 +425,19 @@ function pawnGold(enc: PawnEncounter) {
   height: 22px;
   overflow: hidden;
   border: 2px solid var(--gold-deep);
-  border-radius: 8px;
-  background: var(--bar-track);
-  box-shadow: inset 0 0 0 1px #fff8e0;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, #efe0b0, var(--bar-track));
+  box-shadow: inset 0 1px 2px rgba(106, 66, 24, 0.16);
 }
 
 .loot-bar .fill {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #f0c14a, var(--gold-deep));
+  background: var(--bar-fill-gold);
 }
 
 .loot-bar.ready .fill {
-  background: linear-gradient(90deg, #e67a12, #c0392b);
+  background: var(--bar-sheen), linear-gradient(90deg, #e67a12, #c0392b);
 }
 
 .loot-bar span {
@@ -500,6 +507,7 @@ function pawnGold(enc: PawnEncounter) {
 }
 
 .kind {
+  font-family: var(--font-display);
   letter-spacing: 0.12em;
 }
 
@@ -612,11 +620,23 @@ function pawnGold(enc: PawnEncounter) {
   font-family: var(--font-display);
   font-size: 22px;
   font-style: normal;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0.28em;
   pointer-events: none;
   transform: rotate(-18deg);
   box-shadow: inset 0 0 0 2px rgba(192, 57, 43, 0.35);
+  animation: stamp-in var(--motion) ease;
+}
+
+@keyframes stamp-in {
+  from {
+    opacity: 0;
+    transform: rotate(-18deg) scale(1.12);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-18deg) scale(1);
+  }
 }
 
 ul {
@@ -687,18 +707,19 @@ ul {
   height: 8px;
   border: 2px solid var(--gold-deep);
   border-radius: 999px;
-  background: #efe4c4;
+  background: linear-gradient(180deg, #efe0b0, #efe4c4);
   overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(106, 66, 24, 0.16);
 }
 
 .bar b {
   display: block;
   height: 100%;
-  background: #c0392b;
+  background: var(--bar-fill-hp);
 }
 
 .bar.ally b {
-  background: var(--moss);
+  background: var(--bar-fill-moss);
 }
 
 .logs {
@@ -750,5 +771,11 @@ ul {
   width: 20px;
   height: 20px;
   aspect-ratio: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp {
+    animation: none;
+  }
 }
 </style>

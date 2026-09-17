@@ -28,6 +28,7 @@ import {
 import type { CategoryId, StationId, ToolTypeId } from '../sim/types'
 import { useGameStore } from './gameStore'
 import StationTips from './stationTips.vue'
+import UiIcon from './uiIcon.vue'
 import { useVisualProgress } from './visualProgress'
 
 const props = defineProps<{
@@ -115,7 +116,7 @@ function onMerge() {
     <StationTips :station-id="stationId" />
     <header>
       <span class="badge">
-        <i class="sprite sprite-station" :class="stationId" aria-hidden="true" />
+        <UiIcon :name="stationId" />
       </span>
       <div class="titles">
         <h2>
@@ -227,12 +228,12 @@ header {
   border: 3px solid var(--gold);
   border-radius: 50%;
   background: linear-gradient(#fffef8, #ffe9b8);
-  box-shadow: 0 2px 0 var(--gold-deep), inset 0 0 0 2px #fff8e0;
+  box-shadow: 0 2px 0 var(--gold-deep), inset 0 1px 0 #fffef6, inset 0 0 0 2px #fff8e0;
 }
 
-.badge .sprite-station {
-  width: 36px;
-  height: 40px;
+.badge :deep(.ui-ico) {
+  width: 26px;
+  height: 26px;
 }
 
 .titles {

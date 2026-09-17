@@ -117,7 +117,7 @@ function badgeStyle(w: Worker) {
 
 <template>
   <section class="panel roster">
-    <p>工人</p>
+    <h2 class="title">工人</h2>
     <p class="hint">
       金币 {{ game.save.gold }} · 名册 {{ game.save.workers.length }} · 空闲 {{ idleCount(game.save) }}
     </p>
@@ -219,10 +219,16 @@ function badgeStyle(w: Worker) {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 14px 16px;
+  padding: 12px 12px 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 20px;
 }
 
 .panel p,
+.panel .title,
 .hint,
 .name {
   margin: 0;
@@ -318,23 +324,23 @@ ul {
   height: 22px;
   overflow: hidden;
   border: 2px solid var(--gold-deep);
-  border-radius: 8px;
-  background: var(--bar-track);
-  box-shadow: inset 0 0 0 1px #fff8e0;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, #efe0b0, var(--bar-track));
+  box-shadow: inset 0 1px 2px rgba(106, 66, 24, 0.16);
 }
 
 .hp .fill {
   display: block;
   height: 100%;
-  background: linear-gradient(180deg, #a8e86a, var(--moss-deep));
+  background: var(--bar-fill-moss);
 }
 
 .hp.mid .fill {
-  background: linear-gradient(180deg, #f0c14a, #c48a22);
+  background: var(--bar-fill-gold);
 }
 
 .hp.low .fill {
-  background: linear-gradient(180deg, #f08a6a, var(--danger));
+  background: var(--bar-fill-hp);
 }
 
 .hp span {

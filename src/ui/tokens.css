@@ -1,3 +1,11 @@
+@font-face {
+  font-family: 'KnightTitle';
+  src: url('../assets/fonts/titleSubset.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --paper: #fff8ee;
   --paper-deep: #ffe9c4;
@@ -19,9 +27,20 @@
   --btn-on: #efe4c8;
   --shadow: #d4a017;
   --bar-track: #f6e6bc;
-  --font-display: 'Songti SC', 'Noto Serif SC', serif;
-  --font-body: 'PingFang SC', 'Noto Sans SC', sans-serif;
+  --radius: 12px;
+  --radius-card: 14px;
+  --radius-pill: 999px;
+  --border: 3px;
+  --border-thin: 2px;
+  --motion: 180ms;
+  --font-display: 'KnightTitle', 'Songti SC', 'STSong', 'Noto Serif SC', serif;
+  --font-body: 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
   --font-mono: ui-monospace, 'SFMono-Regular', monospace;
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .78  0 0 0 0 .62  0 0 0 0 .36  0 0 0 .2 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.08) 46%, transparent 54%);
+  --bar-fill-moss: var(--bar-sheen), linear-gradient(90deg, #9ee65a, var(--moss-deep));
+  --bar-fill-gold: var(--bar-sheen), linear-gradient(90deg, #f3d06a, var(--gold-deep));
+  --bar-fill-hp: var(--bar-sheen), linear-gradient(90deg, #f0785a, var(--danger));
 }
 
 *,
@@ -45,23 +64,24 @@ body,
 
 body {
   background:
+    var(--paper-grain),
     radial-gradient(ellipse at 50% -8%, #fff1c4 0%, transparent 50%),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 55px,
-      rgba(212, 160, 23, 0.06) 56px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent,
-      transparent 55px,
-      rgba(212, 160, 23, 0.05) 56px
-    ),
+    repeating-linear-gradient(0deg, transparent, transparent 55px, rgba(212, 160, 23, 0.05) 56px),
+    repeating-linear-gradient(90deg, transparent, transparent 55px, rgba(212, 160, 23, 0.04) 56px),
     var(--paper);
+  background-blend-mode: soft-light, normal, normal, normal, normal;
   color: var(--ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+.title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.08em;
 }
 
 button {
@@ -70,10 +90,25 @@ button {
   cursor: pointer;
   padding: 6px 12px;
   min-height: 44px;
-  border: 3px solid var(--gold-deep);
-  border-radius: 12px;
+  border: var(--border) solid var(--gold-deep);
+  border-radius: var(--radius);
   background: linear-gradient(#fffbeb, var(--btn));
-  box-shadow: 0 3px 0 var(--shadow);
+  box-shadow: 0 3px 0 var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transition:
+    transform var(--motion) ease,
+    box-shadow var(--motion) ease,
+    filter var(--motion) ease,
+    background-color var(--motion) ease,
+    opacity var(--motion) ease;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.03);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--shadow), inset 0 2px 3px rgba(106, 66, 24, 0.12);
 }
 
 button:disabled {
@@ -97,10 +132,17 @@ button.on:disabled {
 .panel,
 .card,
 .item {
-  background: var(--plate);
-  border: 3px solid var(--gold);
-  border-radius: 14px;
-  box-shadow: 0 3px 0 var(--gold-deep), inset 0 0 0 2px #fff8e0;
+  position: relative;
+  isolation: isolate;
+  background-color: var(--plate);
+  background-image: var(--paper-grain), linear-gradient(180deg, #fffef8 0%, #fff3d8 100%);
+  background-blend-mode: multiply, normal;
+  border: var(--border) solid var(--gold);
+  border-radius: var(--radius-card);
+  box-shadow:
+    0 3px 0 var(--gold-deep),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    inset 0 0 0 2px #fff8e0;
 }
 
 .card.stall,
@@ -116,15 +158,16 @@ button.on:disabled {
 .bar {
   height: 10px;
   overflow: hidden;
-  background: var(--bar-track);
-  border: 2px solid var(--gold-deep);
-  border-radius: 8px;
+  background: linear-gradient(180deg, #efe0b0, var(--bar-track));
+  border: var(--border-thin) solid var(--gold-deep);
+  border-radius: var(--radius-pill);
+  box-shadow: inset 0 1px 2px rgba(106, 66, 24, 0.16);
 }
 
 .bar i {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #8fd94a, var(--moss-deep));
+  background: var(--bar-fill-moss);
 }
 
 .bar.live i {
@@ -136,16 +179,16 @@ button.on:disabled {
 }
 
 .bar.xp i {
-  background: linear-gradient(90deg, #f0c14a, var(--gold-deep));
+  background: var(--bar-fill-gold);
   transition: width 0.8s linear;
 }
 
 .item.warn .bar i {
-  background: linear-gradient(90deg, var(--ember), var(--danger));
+  background: var(--bar-sheen), linear-gradient(90deg, var(--ember), var(--danger));
 }
 
 .item.full .bar i {
-  background: var(--danger);
+  background: var(--bar-fill-hp);
 }
 
 .chip {
@@ -154,11 +197,28 @@ button.on:disabled {
   gap: 6px;
   min-height: 36px;
   padding: 4px 12px 4px 6px;
-  border: 3px solid var(--gold);
-  border-radius: 999px;
+  border: var(--border) solid var(--gold);
+  border-radius: var(--radius-pill);
   background: linear-gradient(#fffef8, #fff3d4);
-  box-shadow: 0 2px 0 var(--gold-deep), inset 0 0 0 2px #fff8e0;
+  box-shadow: 0 2px 0 var(--gold-deep), inset 0 1px 0 #fffef6, inset 0 0 0 2px #fff8e0;
   font-family: var(--font-mono);
   font-weight: 700;
 }
 
+.ui-ico {
+  display: block;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion: 0.01ms;
+  }
+
+  .bar.xp i {
+    transition: none;
+  }
+}

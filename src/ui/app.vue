@@ -9,6 +9,7 @@ import TechPanel from './techPanel.vue'
 import WorkersPanel from './workersPanel.vue'
 import WorkshopPanel from './workshopPanel.vue'
 import FloatTips from './floatTips.vue'
+import UiIcon from './uiIcon.vue'
 
 const TABS = [
   { id: 'workshop', label: '工坊' },
@@ -112,7 +113,7 @@ onUnmounted(() => {
         :class="{ on: tab === t.id }"
         @click="tab = t.id"
       >
-        <i class="sprite sprite-tab" :class="t.id" aria-hidden="true" />
+        <UiIcon :name="t.id" />
         <span>{{ t.label }}</span>
       </button>
     </nav>
@@ -142,8 +143,11 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   min-height: 52px;
-  padding: 6px 8px 6px 8px;
-  background: var(--paper);
+  padding: 6px 8px;
+  background:
+    var(--paper-grain),
+    linear-gradient(180deg, #fffdf6, var(--paper));
+  background-blend-mode: multiply, normal;
   border-bottom: 3px solid var(--gold);
   box-shadow: 0 2px 0 var(--gold-deep);
 }
@@ -225,6 +229,18 @@ onUnmounted(() => {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  animation: page-in var(--motion) ease;
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .page.workshop > * {
@@ -237,7 +253,10 @@ onUnmounted(() => {
   gap: 6px;
   flex: 0 0 auto;
   padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
-  background: var(--paper);
+  background:
+    var(--paper-grain),
+    linear-gradient(0deg, #fffdf6, var(--paper));
+  background-blend-mode: multiply, normal;
   border-top: 3px solid var(--gold);
   box-shadow: 0 -2px 0 var(--gold-deep);
 }
@@ -251,21 +270,28 @@ onUnmounted(() => {
   flex: 1 1 0;
   min-width: 0;
   min-height: 52px;
-  padding: 4px 4px;
-  font-size: 11px;
+  padding: 4px;
+  font-family: var(--font-display);
+  font-size: 12px;
   letter-spacing: 0.08em;
 }
 
 .dock button.on {
   color: var(--ink);
   background: linear-gradient(#ffe27a, #f0b83a);
-  box-shadow: 0 3px 0 var(--shadow);
+  box-shadow: 0 3px 0 var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.55);
   opacity: 1;
   filter: none;
 }
 
-.dock .sprite-tab {
-  width: 24px;
-  height: 24px;
+.dock .ui-ico {
+  width: 18px;
+  height: 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page > * {
+    animation: none;
+  }
 }
 </style>

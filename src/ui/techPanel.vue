@@ -109,8 +109,7 @@ function onNode(node: TechNodeDef) {
 }
 
 .tree {
-  padding: 14px 16px;
-  background: linear-gradient(180deg, #fffdf6 0%, #fff4dc 100%);
+  padding: 12px 12px 10px;
 }
 
 p,

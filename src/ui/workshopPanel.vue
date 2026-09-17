@@ -10,6 +10,7 @@ import { leftoverStockRows } from '../sim/query'
 import type { StationId } from '../sim/types'
 import { useGameStore } from './gameStore'
 import StationCard from './stationCard.vue'
+import UiIcon from './uiIcon.vue'
 import {
   WORKSHOP_TAB_IDS,
   loadWorkshopTab,
@@ -51,7 +52,7 @@ function selectTab(id: StationId) {
           :class="{ on: activeTab === id }"
           @click="selectTab(id)"
         >
-          <i class="sprite sprite-station" :class="id" aria-hidden="true" />
+          <UiIcon :name="id" />
           {{ workshopTabLabel(id) }}
         </button>
       </nav>
@@ -103,7 +104,8 @@ function selectTab(id: StationId) {
   flex: 1 1 0;
   width: 100%;
   min-height: 44px;
-  padding: 2px 2px;
+  padding: 2px;
+  font-family: var(--font-display);
   font-size: 11px;
   letter-spacing: 0.04em;
 }
@@ -111,14 +113,14 @@ function selectTab(id: StationId) {
 .rail button.on {
   color: var(--ink);
   background: linear-gradient(#ffe27a, #f0b83a);
-  box-shadow: 0 3px 0 var(--shadow);
+  box-shadow: 0 3px 0 var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.55);
   opacity: 1;
   filter: none;
 }
 
-.rail .sprite-station {
-  width: 22px;
-  height: 26px;
+.rail .ui-ico {
+  width: 16px;
+  height: 16px;
 }
 
 .stage {

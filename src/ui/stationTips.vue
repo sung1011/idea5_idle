@@ -78,4 +78,22 @@ const { tips } = useStationTips(toRef(props, 'stationId'))
     transform: translateY(-36px);
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .tip {
+    animation: station-tip-static 1.4s linear forwards;
+  }
+}
+
+@keyframes station-tip-static {
+  0%,
+  70% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
 </style>

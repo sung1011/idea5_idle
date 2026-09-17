@@ -74,4 +74,22 @@ const { tips } = useFloatTips()
     transform: translate(-50%, -190%);
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .tip {
+    animation: float-tip-static 1.4s linear forwards;
+  }
+}
+
+@keyframes float-tip-static {
+  0%,
+  70% {
+    opacity: 1;
+    transform: translate(-50%, -120%);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -120%);
+  }
+}
 </style>

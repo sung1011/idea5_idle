@@ -43,7 +43,7 @@ onUnmounted(() => {
   <div class="mask" @click.self="emit('close')">
     <section class="panel box" role="dialog" aria-modal="true" aria-labelledby="set-title">
       <header>
-        <p id="set-title">设置</p>
+        <h2 id="set-title" class="title">设置</h2>
         <button type="button" class="close" @click="emit('close')">关闭</button>
       </header>
 
@@ -122,7 +122,12 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 14px 16px;
+  padding: 12px 12px 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 20px;
 }
 
 header {
@@ -132,7 +137,7 @@ header {
   gap: 8px;
 }
 
-header p,
+header .title,
 .hint {
   margin: 0;
   line-height: 1.5;

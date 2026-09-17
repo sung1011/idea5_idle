@@ -29,7 +29,7 @@ onUnmounted(() => {
   <div class="mask" @click.self="close">
     <section class="panel box" role="dialog" aria-modal="true" aria-labelledby="mail-title">
       <header>
-        <p id="mail-title">消息</p>
+        <h2 id="mail-title" class="title">消息</h2>
         <div class="row">
           <button type="button" :disabled="!inbox.length" @click="game.markAllRead()">全部已读</button>
           <button type="button" class="close" @click="close">关闭</button>
@@ -65,7 +65,12 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 14px 16px;
+  padding: 12px 12px 10px;
+}
+
+header .title {
+  margin: 0;
+  font-size: 20px;
 }
 
 header {
@@ -75,9 +80,9 @@ header {
   gap: 8px;
 }
 
-header p,
+header .title,
 .hint,
-.title {
+li .title {
   margin: 0;
   line-height: 1.5;
 }
@@ -119,8 +124,10 @@ li.unread {
   box-shadow: inset 0 0 0 2px #fff3c4;
 }
 
-.title {
+li .title {
+  font-family: var(--font-body);
   font-weight: 700;
+  letter-spacing: 0;
 }
 
 pre {
