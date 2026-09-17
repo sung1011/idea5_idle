@@ -180,15 +180,12 @@ function pawnGold(enc: PawnEncounter) {
                 · ATK {{ enc.combat.enemy.atk }} · SPD {{ enc.combat.enemy.spd }}
               </p>
               <i class="bar" aria-hidden="true"><b :style="{ width: hpPct(enc.combat.enemy.hp, enc.combat.enemy.hpMax) + '%' }" /></i>
-              <p v-for="w in enc.combat.workers" :key="w.id" class="bar-line">
-                {{ w.label }} {{ w.hp }}/{{ w.hpMax }} · ATK {{ w.atk }} · SPD {{ w.spd }}
-              </p>
-              <i
-                v-for="w in enc.combat.workers"
-                :key="`${w.id}-bar`"
-                class="bar ally"
-                aria-hidden="true"
-              ><b :style="{ width: hpPct(w.hp, w.hpMax) + '%' }" /></i>
+              <template v-for="w in enc.combat.workers" :key="w.id">
+                <p class="bar-line">
+                  {{ w.label }} {{ w.hp }}/{{ w.hpMax }} · ATK {{ w.atk }} · SPD {{ w.spd }}
+                </p>
+                <i class="bar ally" aria-hidden="true"><b :style="{ width: hpPct(w.hp, w.hpMax) + '%' }" /></i>
+              </template>
             </div>
             <ul v-if="recentCombatLogs(enc).length" class="logs">
               <li v-for="(log, li) in recentCombatLogs(enc)" :key="`${enc.id}-${li}`">{{ log.text }}</li>
