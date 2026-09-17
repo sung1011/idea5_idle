@@ -341,8 +341,8 @@ type ProductionBuff = {
 | 特效 | `effectId` `value` `source`；`prodSpeed` `extraOutput` `cycleShorten` |
 | 食物 Buff | `buff` `expiresAt` `durationS` `mul` `qty` |
 | 停产 | 只留 `emptyInput`；无满仓 |
-| 科技点 | `techPoints`；制造站完成周期 +1；图纸兑换 `BLUEPRINT_TECH_POINTS = 3` |
-| 科技树 | `unlockedTechIds`；线性 10 档，见 `TECH_TREE` |
+| 灵感 | `techPoints`（界面称灵感；别名 `inspiration` 仅 hydrate） |
+| 科技树 | `unlockedTechIds` 线性前缀；表 `TECH_TREE`（工坊日志→骑士工坊纹章）；效果函数恒 no-op |
 
 ---
 

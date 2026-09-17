@@ -28,7 +28,7 @@ import {
   sellBulk,
   submitArtisan,
 } from '../sim/encounters'
-import { exchangeBlueprint, researchNextTech } from '../sim/tech'
+import { exchangeBlueprint, researchNextTech, researchTech } from '../sim/tech'
 import { tick } from '../sim/tick'
 import type { ActionResult, CategoryId, ItemId, Save, StationId, ToolTypeId } from '../sim/types'
 import { pushFloatTip } from './floatTips'
@@ -166,6 +166,7 @@ export const useGameStore = defineStore('game', () => {
     gmFillBankBasics: () => apply(gmFillBankBasics),
     markAllRead: () => apply(markAllRead),
     researchNextTech: () => apply(researchNextTech),
+    researchTech: (techId: string) => apply((s) => researchTech(s, techId)),
     exchangeBlueprint: () => apply((s) => exchangeBlueprint(s, 1)),
   }
 })

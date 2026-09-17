@@ -174,11 +174,11 @@ describe('save migration', () => {
     const raw = {
       ...createSave(),
       techPoints: 7.8,
-      unlockedTechIds: ['workshopLedger', 'skipMe', 'recruitDeal'],
+      unlockedTechIds: ['workshopLog', 'skipMe', 'artisanManual'],
     }
     const save = hydrateLoadedSave(raw)
     expect(save?.techPoints).toBe(7)
-    expect(save?.unlockedTechIds).toEqual(['workshopLedger', 'recruitDeal'])
+    expect(save?.unlockedTechIds).toEqual(['workshopLog'])
 
     const old = {
       ...createSave(),
@@ -191,8 +191,17 @@ describe('save migration', () => {
 
     const skipped = hydrateLoadedSave({
       ...createSave(),
-      unlockedTechIds: ['recruitDeal'],
+      unlockedTechIds: ['apprenticeNotes'],
     })
     expect(skipped?.unlockedTechIds).toEqual([])
+
+    const aliased = hydrateLoadedSave({
+      ...createSave(),
+      techPoints: undefined,
+      inspiration: 4.2,
+      unlockedTechIds: ['workshopLog', 'apprenticeNotes'],
+    })
+    expect(aliased?.techPoints).toBe(4)
+    expect(aliased?.unlockedTechIds).toEqual(['workshopLog', 'apprenticeNotes'])
   })
 })

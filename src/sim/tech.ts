@@ -4,90 +4,45 @@ import {
   RECRUIT_COST,
   RESONANCE_BONUS_EVERY,
   RESONANCE_SPEED_MUL,
-  STATION_DEF,
 } from './tables'
 import type { ActionResult, Save, StationId, TechId } from './types'
 
-/** 制造站（锻造 / 烹饪 / 炼金）每完成 1 次周期给 1 点。采集站不给。 */
-export const CRAFT_TECH_POINTS = 1
-/** 消耗 1 张图纸兑换的科技点。 */
-export const BLUEPRINT_TECH_POINTS = 3
+/** 任意站完成 1 次周期给 1 点灵感。 */
+export const CYCLE_TECH_POINTS = 1
+/** 消耗 1 张图纸兑换的灵感。 */
+export const BLUEPRINT_TECH_POINTS = 1
+/** @deprecated 旧名，等同 CYCLE_TECH_POINTS */
+export const CRAFT_TECH_POINTS = CYCLE_TECH_POINTS
 
 export type TechNodeDef = {
   id: TechId
   name: string
   desc: string
   cost: number
+  /** 占位。本阶段结算不读。 */
+  effectId: string
 }
 
-/** 线性 10 档。必须先解锁前一档。效果挂进 sim 结算。 */
+/** 线性 10 档。必须先解锁前一档。效果稍后开放。 */
 export const TECH_TREE: readonly TechNodeDef[] = [
-  {
-    id: 'workshopLedger',
-    name: '工坊账本',
-    desc: '离线上限 +1 小时（8→9）。',
-    cost: 4,
-  },
-  {
-    id: 'recruitDeal',
-    name: '招工优惠',
-    desc: '抽人费 −2 金。',
-    cost: 6,
-  },
-  {
-    id: 'resonanceTune',
-    name: '共振调谐',
-    desc: '工坊共振速度 1.2 → 1.3。',
-    cost: 8,
-  },
-  {
-    id: 'exploreMap',
-    name: '探路简图',
-    desc: '探索费 −1 金。',
-    cost: 10,
-  },
-  {
-    id: 'craftRhythm',
-    name: '制造节奏',
-    desc: '锻造 / 烹饪 / 炼金速度 +8%。',
-    cost: 12,
-  },
-  {
-    id: 'toolReady',
-    name: '工具就绪',
-    desc: '工坊已装工具时该站再 +6% 速度。',
-    cost: 16,
-  },
-  {
-    id: 'mergeInsight',
-    name: '合并心得',
-    desc: '同站两人合并后，新人留在该站，不必再派。',
-    cost: 20,
-  },
-  {
-    id: 'longWatch',
-    name: '长时守望',
-    desc: '离线上限再 +3 小时（合计 12 小时）。',
-    cost: 24,
-  },
-  {
-    id: 'deepResonance',
-    name: '深层共振',
-    desc: '共振额外产物改为每 3 次吞吐触发（原 4 次）。',
-    cost: 30,
-  },
-  {
-    id: 'masterPlan',
-    name: '工坊主计',
-    desc: '抽人再 −2 金、探索再 −1 金、制造站再 +7% 速度。',
-    cost: 40,
-  },
+  { id: 'workshopLog', name: '工坊日志', desc: '记下每日吞吐与空转，方便回看。', cost: 1, effectId: 'workshopLog' },
+  { id: 'apprenticeNotes', name: '学徒笔记', desc: '学徒手抄的工序要点。', cost: 2, effectId: 'apprenticeNotes' },
+  { id: 'artisanManual', name: '匠人手册', desc: '各站配方的对照手册。', cost: 3, effectId: 'artisanManual' },
+  { id: 'workshopRules', name: '工坊规章', desc: '排班、共振与缺料的规矩。', cost: 5, effectId: 'workshopRules' },
+  { id: 'pipelineChart', name: '流水线图', desc: '站与站之间的物流草图。', cost: 8, effectId: 'pipelineChart' },
+  { id: 'artisanArchive', name: '工匠密录', desc: '软失败与遇险攒下的经验。', cost: 12, effectId: 'artisanArchive' },
+  { id: 'knightEdict', name: '骑士训令', desc: '骑士对工坊的号令。', cost: 18, effectId: 'knightEdict' },
+  { id: 'crestDraft', name: '纹章底稿', desc: '纹章未上色的底稿。', cost: 25, effectId: 'crestDraft' },
+  { id: 'workshopCrest', name: '工坊纹章', desc: '工坊自己的徽记。', cost: 35, effectId: 'workshopCrest' },
+  { id: 'knightCrest', name: '骑士工坊纹章', desc: '正式授纹。科技树到此为止。', cost: 50, effectId: 'knightCrest' },
 ]
 
-const TECH_IDS = new Set<TechId>(TECH_TREE.map((node) => node.id))
+export const TECH_IDS = TECH_TREE.map((node) => node.id)
+
+const TECH_ID_SET = new Set<TechId>(TECH_IDS)
 
 export function isTechId(value: unknown): value is TechId {
-  return typeof value === 'string' && TECH_IDS.has(value as TechId)
+  return typeof value === 'string' && TECH_ID_SET.has(value as TechId)
 }
 
 export function techNode(id: TechId): TechNodeDef {
@@ -99,9 +54,7 @@ export function normalizeTechPoints(value: unknown): number {
   return Math.floor(value)
 }
 
-/**
- * 只保留树的连续前缀。跳档、脏 id、缺字段都钉回合法线性进度。
- */
+/** 只保留树的连续前缀。跳档、脏 id、缺字段都钉回合法线性进度。 */
 export function hydrateUnlockedTechIds(raw: unknown): TechId[] {
   if (!Array.isArray(raw)) return []
   const have = new Set(raw.filter(isTechId))
@@ -113,78 +66,84 @@ export function hydrateUnlockedTechIds(raw: unknown): TechId[] {
   return out
 }
 
-export function hydrateTechFields(save: Pick<Save, 'techPoints' | 'unlockedTechIds'>): void {
-  save.techPoints = normalizeTechPoints(save.techPoints)
+export function hydrateTechFields(save: Save & { inspiration?: unknown }): void {
+  const hasPoints =
+    typeof save.techPoints === 'number' && Number.isFinite(save.techPoints) && save.techPoints > 0
+  save.techPoints = normalizeTechPoints(hasPoints ? save.techPoints : save.inspiration)
   save.unlockedTechIds = hydrateUnlockedTechIds(save.unlockedTechIds)
 }
 
 export function hasTech(save: Save, id: TechId): boolean {
-  return save.unlockedTechIds.includes(id)
+  return hydrateUnlockedTechIds(save.unlockedTechIds).includes(id)
 }
 
 export function nextTech(save: Save): TechNodeDef | null {
-  const index = save.unlockedTechIds.length
+  const index = hydrateUnlockedTechIds(save.unlockedTechIds).length
   return TECH_TREE[index] ?? null
 }
 
 export function isTechComplete(save: Save): boolean {
-  return save.unlockedTechIds.length >= TECH_TREE.length
+  return hydrateUnlockedTechIds(save.unlockedTechIds).length >= TECH_TREE.length
 }
 
-export function recruitCost(save: Save): number {
-  let cost = RECRUIT_COST
-  if (hasTech(save, 'recruitDeal')) cost -= 2
-  if (hasTech(save, 'masterPlan')) cost -= 2
-  return Math.max(1, cost)
+export function techTier(save: Save): number {
+  return hydrateUnlockedTechIds(save.unlockedTechIds).length
 }
 
-export function exploreCostReduce(save: Save): number {
-  let reduce = 0
-  if (hasTech(save, 'exploreMap')) reduce += 1
-  if (hasTech(save, 'masterPlan')) reduce += 1
-  return reduce
+/** 结算占位：科技效果本阶段恒为 0。 */
+export function techEffectValue(_save: Save, _effectId: string): number {
+  return 0
 }
 
-export function offlineCapS(save: Save): number {
-  let cap = OFFLINE_CAP_S
-  if (hasTech(save, 'workshopLedger')) cap += 60 * 60
-  if (hasTech(save, 'longWatch')) cap += 3 * 60 * 60
-  return cap
+/** 结算占位。恒 no-op。 */
+export function applyTechEffects(_save: Save): void {}
+
+/** 抽人费不受科技影响。 */
+export function recruitCost(_save: Save): number {
+  return RECRUIT_COST
+}
+
+/** 探索费减免恒 0。 */
+export function exploreCostReduce(_save: Save): number {
+  return 0
+}
+
+/** 离线上限不受科技影响。 */
+export function offlineCapS(_save: Save): number {
+  return OFFLINE_CAP_S
 }
 
 export function offlineCapHours(save: Save): number {
   return Math.round(offlineCapS(save) / 3600)
 }
 
-export function resonanceSpeedMul(save: Save): number {
-  return hasTech(save, 'resonanceTune') ? 1.3 : RESONANCE_SPEED_MUL
+/** 共振速度不受科技影响。 */
+export function resonanceSpeedMul(_save: Save): number {
+  return RESONANCE_SPEED_MUL
 }
 
-export function resonanceBonusEvery(save: Save): number {
-  return hasTech(save, 'deepResonance') ? 3 : RESONANCE_BONUS_EVERY
+/** 共振额外产物间隔不受科技影响。 */
+export function resonanceBonusEvery(_save: Save): number {
+  return RESONANCE_BONUS_EVERY
 }
 
-export function fuseStayAssigned(save: Save): boolean {
-  return hasTech(save, 'mergeInsight')
+/** 合并后新人仍回休息。 */
+export function fuseStayAssigned(_save: Save): boolean {
+  return false
 }
 
-export function stationTechSpeedMul(save: Save, stationId: StationId): number {
-  let mul = 1
-  if (STATION_DEF[stationId].kind === 'craft') {
-    if (hasTech(save, 'craftRhythm')) mul *= 1.08
-    if (hasTech(save, 'masterPlan')) mul *= 1.07
-  }
-  if (hasTech(save, 'toolReady') && save.stations[stationId].toolSlot) {
-    mul *= 1.06
-  }
-  return mul
+/** 站点速度不受科技影响。 */
+export function stationTechSpeedMul(_save: Save, _stationId: StationId): number {
+  return 1
 }
 
-/** 制造站完成一次吞吐后给点。采集站不给。 */
-export function grantCraftTechPoint(save: Save, stationId: StationId): void {
-  if (STATION_DEF[stationId].kind !== 'craft') return
-  save.techPoints = normalizeTechPoints(save.techPoints) + CRAFT_TECH_POINTS
+/** 任意站完成一次吞吐后给灵感。 */
+export function grantTechPoint(save: Save, _stationId?: StationId): void {
+  save.techPoints = normalizeTechPoints(save.techPoints) + CYCLE_TECH_POINTS
 }
+
+/** @deprecated 旧名，现对任意站生效。 */
+export const grantCraftTechPoint = grantTechPoint
 
 export function exchangeBlueprint(save: Save, qty = 1): ActionResult {
   const n = Math.max(1, Math.floor(qty))
@@ -192,16 +151,26 @@ export function exchangeBlueprint(save: Save, qty = 1): ActionResult {
   if (!took.ok) return { ok: false, reason: took.reason ?? '图纸见底' }
   const gained = n * BLUEPRINT_TECH_POINTS
   save.techPoints = normalizeTechPoints(save.techPoints) + gained
-  return { ok: true, message: `兑换科技点 +${gained}` }
+  return { ok: true, message: `图纸兑换灵感 +${gained}` }
+}
+
+export function researchTech(save: Save, techId: string): ActionResult {
+  if (!isTechId(techId)) return { ok: false, reason: '未知科技' }
+  const unlocked = hydrateUnlockedTechIds(save.unlockedTechIds)
+  save.unlockedTechIds = unlocked
+  if (unlocked.includes(techId)) return { ok: false, reason: '已经点亮' }
+  const next = nextTech(save)
+  if (!next) return { ok: false, reason: '科技树已满' }
+  if (next.id !== techId) return { ok: false, reason: '需按序研究' }
+  const have = normalizeTechPoints(save.techPoints)
+  if (have < next.cost) return { ok: false, reason: '灵感不足' }
+  save.techPoints = have - next.cost
+  save.unlockedTechIds = [...unlocked, next.id]
+  return { ok: true, message: `已点亮「${next.name}」` }
 }
 
 export function researchNextTech(save: Save): ActionResult {
   const next = nextTech(save)
-  if (!next) return { ok: false, reason: '科技已全部解锁' }
-  if (save.techPoints < next.cost) {
-    return { ok: false, reason: `科技点不足：还差 ${next.cost - save.techPoints}` }
-  }
-  save.techPoints -= next.cost
-  save.unlockedTechIds = [...save.unlockedTechIds, next.id]
-  return { ok: true, message: `研究完成：${next.name}` }
+  if (!next) return { ok: false, reason: '科技树已满' }
+  return researchTech(save, next.id)
 }

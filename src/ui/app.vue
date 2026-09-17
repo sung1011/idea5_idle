@@ -80,7 +80,7 @@ onUnmounted(() => {
           <span>{{ game.save.workers.length }}</span>
         </div>
         <div class="chip">
-          <span>科技 {{ game.save.techPoints }}</span>
+          <span>灵感 {{ game.save.techPoints }}</span>
         </div>
       </div>
     </section>

@@ -23,7 +23,7 @@ export function toolEffectValue(slot: ToolSlot | null | undefined, effectId: Eff
     if (effect.effectId === effectId && effect.value > best) best = effect.value
   }
   for (const affix of slot.affixes) {
-    if (affix.effectId === effectId && affix.value > best) best = effect.value
+    if (affix.effectId === effectId && affix.value > best) best = affix.value
   }
   return best
 }
