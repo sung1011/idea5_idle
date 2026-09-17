@@ -360,5 +360,5 @@ type ProductionBuff = {
 | 烹饪烤鱼 / 烤肉 / 香料炖；`foodSlot` 续期 / 换食覆盖 / 可手动吃 1 | — |
 | 工具词条与食物 Buff 同 `effectId` 取最强 | — |
 | 炼金耗草 / 猎副产出 `potion`；`potionEffectValue` 恒 0 | 药剂效果数值（饮用 / 涂装 / 工坊一次性） |
-| 主界面不再卖货；制造站卡片只列当前消耗库存；产出用 `floatTips`「获得」；`sellFromBank` / `sellAllGoods` 仅调试 / 单测 | — |
+| 主界面不再卖货；制造站卡片只列当前消耗库存；产出用工坊站卡本地「获得」漂字（带 `stationId`，不走全局 `floatTips`）；`sellFromBank` / `sellAllGoods` 仅调试 / 单测 | — |
 | 偶遇货单含烤肉 / 香料炖 / 药剂 | 炼金效果后再调 |

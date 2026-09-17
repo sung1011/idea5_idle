@@ -8,7 +8,7 @@ import type { Save } from './types'
 
 export type TickOpts = {
   now?: number
-  /** 仅在线 tick 传入。离线追赶不要刷「获得」漂字。 */
+  /** 仅在线 tick 传入。离线追赶不要刷站卡「获得」漂字。 */
   onGain?: GainSink
 }
 

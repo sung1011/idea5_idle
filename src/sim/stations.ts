@@ -52,7 +52,7 @@ function emitOutputs(save: Save, stationId: StationId, now: number, into?: ItemL
   return true
 }
 
-/** 完成一次吞吐：按当前品类扣原料、写入物资，并给站 XP。有产出才回调 onGain。 */
+/** 完成一次吞吐：按当前品类扣原料、写入物资，并给站 XP。回调带 stationId；无产出也可带站内 notice。 */
 export function completeCycle(
   save: Save,
   stationId: StationId,
@@ -64,13 +64,13 @@ export function completeCycle(
   if (stationId === 'forging') {
     const ok = completeForgingCycle(save, now, lots)
     if (ok) grantCraftTechPoint(save, 'forging')
-    if (ok) emitGain(onGain, lots)
+    if (ok) emitCycleGain(save, stationId, lots, onGain)
     return ok
   }
   if (stationId === 'alchemy') {
     const ok = completeAlchemyCycle(save, now, lots)
     if (ok) grantCraftTechPoint(save, 'alchemy')
-    if (ok) emitGain(onGain, lots)
+    if (ok) emitCycleGain(save, stationId, lots, onGain)
     return ok
   }
   if (!consumeInputs(save, stationId)) return false
@@ -83,8 +83,13 @@ export function completeCycle(
   station.completed += 1
   grantStationXp(save, stationId, selectedCategoryDef(save, stationId).xpPerCycle)
   grantCraftTechPoint(save, stationId)
-  emitGain(onGain, lots)
+  emitCycleGain(save, stationId, lots, onGain)
   return true
+}
+
+function emitCycleGain(save: Save, stationId: StationId, lots: ItemLot[], onGain?: GainSink): void {
+  const station = save.stations[stationId]
+  emitGain(onGain, lots, stationId, station.gatherNotice ?? station.craftNotice ?? null)
 }
 
 export function stepStation(save: Save, stationId: StationId, now = Date.now(), onGain?: GainSink): void {

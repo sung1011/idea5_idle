@@ -29,11 +29,11 @@ import {
   submitArtisan,
 } from '../sim/encounters'
 import { researchNextTech, researchTech } from '../sim/tech'
-import { formatGainTip } from '../sim/gains'
 import { tick } from '../sim/tick'
 import type { ActionResult, CategoryId, ItemId, Save, StationId, ToolTypeId } from '../sim/types'
 import { pushFloatTip } from './floatTips'
 import { clearSave, loadSave, persistSave } from './saveGame'
+import { pushCycleGain } from './stationTips'
 
 export const useGameStore = defineStore('game', () => {
   // 整份 Save 替换，不用深层响应式，避免 structuredClone 撞上 Proxy。
@@ -49,9 +49,8 @@ export const useGameStore = defineStore('game', () => {
 
   function liveTick() {
     save.value = tick(save.value, {
-      onGain: (lots) => {
-        const text = formatGainTip(lots)
-        if (text) pushFloatTip(text, 'ok')
+      onGain: (gain) => {
+        pushCycleGain(gain)
       },
     })
     persist()

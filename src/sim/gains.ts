@@ -1,12 +1,20 @@
 import { ITEM_DEF, type IoRule } from './tables'
-import type { ItemId } from './types'
+import type { ItemId, StationId } from './types'
 
 export type ItemLot = {
   itemId: ItemId
   qty: number
 }
 
-export type GainSink = (lots: ItemLot[]) => void
+export type CycleGain = {
+  stationId: StationId
+  lots: ItemLot[]
+  notice: string | null
+}
+
+export type GainSink = (gain: CycleGain) => void
+
+export type CycleTipKind = 'ok' | 'err'
 
 /** 同物品数量合并，qty<=0 丢掉。 */
 export function mergeLots(lots: ItemLot[]): ItemLot[] {
@@ -41,9 +49,24 @@ export function formatGainTip(lots: ItemLot[]): string | null {
   return `获得 ${parts.join('、')}`
 }
 
-export function emitGain(onGain: GainSink | undefined, lots: ItemLot[]): void {
+/** 有产出优先「获得」；空杆 / 软失败 / 遇险等无产出才漂站内 notice。 */
+export function formatCycleTip(gain: CycleGain): { text: string; kind: CycleTipKind } | null {
+  const text = formatGainTip(gain.lots)
+  if (text) return { text, kind: 'ok' }
+  const notice = gain.notice?.trim()
+  if (!notice) return null
+  return { text: notice, kind: 'err' }
+}
+
+export function emitGain(
+  onGain: GainSink | undefined,
+  lots: ItemLot[],
+  stationId: StationId,
+  notice: string | null = null,
+): void {
   if (!onGain) return
   const merged = mergeLots(lots)
-  if (!merged.length) return
-  onGain(merged)
+  const tipNotice = notice?.trim() || null
+  if (!merged.length && !tipNotice) return
+  onGain({ stationId, lots: merged, notice: tipNotice })
 }

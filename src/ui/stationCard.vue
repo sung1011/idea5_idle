@@ -27,6 +27,7 @@ import {
 } from '../sim/tables'
 import type { CategoryId, StationId, ToolTypeId } from '../sim/types'
 import { useGameStore } from './gameStore'
+import StationTips from './stationTips.vue'
 import { useVisualProgress } from './visualProgress'
 
 const props = defineProps<{
@@ -111,6 +112,7 @@ function onMerge() {
 
 <template>
   <article class="card" :class="{ stall: !!stall, wait: frozen && !stall }">
+    <StationTips :station-id="stationId" />
     <header>
       <i class="sprite sprite-station" :class="stationId" aria-hidden="true" />
       <div class="titles">
@@ -190,6 +192,7 @@ function onMerge() {
 
 <style scoped>
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 10px;
