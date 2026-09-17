@@ -30,6 +30,11 @@ import { useGameStore } from './gameStore'
 import StationTips from './stationTips.vue'
 import UiIcon from './uiIcon.vue'
 import { useVisualProgress } from './visualProgress'
+import {
+  qualityOf,
+  workerQualityBadgeStyle,
+  workerQualityNameStyle,
+} from './workerQuality'
 
 const props = defineProps<{
   stationId: StationId
@@ -122,9 +127,16 @@ function onMerge() {
         <h2>
           {{ def.label }} · Lv{{ station.stationLevel }}
         </h2>
-        <p class="meta">{{ count }}/{{ STATION_WORKER_CAP }} 人 · {{ cat.label }} {{ cat.cycleS }}s/次</p>
+        <p class="meta">{{ cat.label }} {{ cat.cycleS }}s/次</p>
       </div>
     </header>
+    <ul class="crew" aria-label="在岗工人">
+      <li v-for="w in crew" :key="w.id" class="crew-row">
+        <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
+        <b class="crew-name" :style="workerQualityNameStyle(w)">{{ w.name ?? w.id }}</b>
+      </li>
+      <li v-if="!crew.length" class="crew-empty">空岗</li>
+    </ul>
     <div class="bars">
       <div class="bar live" :aria-valuenow="pctLabel">
         <i :style="{ width: pct.toFixed(2) + '%' }" />
@@ -256,6 +268,45 @@ h2 {
 
 .meta,
 .stat {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.crew {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.crew-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+}
+
+.qmark {
+  flex: 0 0 auto;
+  min-width: 22px;
+  padding: 1px 7px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.crew-name {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.crew-empty {
   color: var(--muted);
   font-size: 12px;
 }
