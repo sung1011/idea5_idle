@@ -17,6 +17,8 @@ import {
   TOOL_DEF,
   TOOL_TYPE_DEF,
   TOOL_TYPE_IDS,
+  forgeToolUnlockCount,
+  isForgeToolUnlocked,
   isStationToolUnlocked,
   stationToolItemId,
   stationToolSpeedMulOf,
@@ -95,6 +97,14 @@ describe('station exclusive tools', () => {
     expect(isStationToolUnlocked(4, 1)).toBe(false)
     expect(isStationToolUnlocked(5, 1)).toBe(true)
     expect(isStationToolUnlocked(5, 2)).toBe(false)
+    expect(forgeToolUnlockCount(1)).toBe(1)
+    expect(forgeToolUnlockCount(5)).toBe(5)
+    expect(forgeToolUnlockCount(20)).toBe(20)
+    expect(forgeToolUnlockCount(25)).toBe(20)
+    expect(isForgeToolUnlocked(1, 1)).toBe(true)
+    expect(isForgeToolUnlocked(1, 2)).toBe(false)
+    expect(isForgeToolUnlocked(5, 5)).toBe(true)
+    expect(isForgeToolUnlocked(5, 6)).toBe(false)
     expect(stationToolSpeedMulOf(1)).toBeCloseTo(1 + STATION_TOOL_SPEED_STEP)
     expect(stationToolSpeedMulOf(20)).toBeCloseTo(1 + 20 * STATION_TOOL_SPEED_STEP)
   })
@@ -242,7 +252,6 @@ describe('forging soft fail', () => {
   it('soft fail spends ore, gives no tool, still grants some XP', () => {
     setRollOverride(() => 0)
     const save = roster(1)
-    save.stations.mining.stationLevel = 5
     expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
     save.bank.ore = 2
     assignWorker(save, save.workers[0].id, 'forging')
@@ -259,7 +268,6 @@ describe('forging soft fail', () => {
   it('success forges the selected exclusive tool and does not make generic tools', () => {
     setRollOverride(() => 0.99)
     const save = roster(1)
-    save.stations.cooking.stationLevel = 5
     expect(selectForgingToolType(save, 'pot').ok).toBe(true)
     expect(selectForgeOutput(save, 'cookingTool01').ok).toBe(true)
     save.bank.ore = 1
@@ -272,24 +280,42 @@ describe('forging soft fail', () => {
     expect(save.stations.forging.craftNotice).toContain('烹饪工具1')
   })
 
-  it('lists unlocked exclusive tools plus one locked preview, and rejects locked crafts', () => {
+  it('lists unlocked exclusive tools plus one locked preview by forging level', () => {
     const save = roster(1)
+    expect(save.stations.forging.stationLevel).toBe(1)
+    expect(save.stations.mining.stationLevel).toBe(1)
     expect(forgeToolPickOptions(save)).toEqual([
-      expect.objectContaining({ id: 'miningTool01', unlocked: false, unlockLevel: 5 }),
+      expect.objectContaining({ id: 'miningTool01', unlocked: true, unlockLevel: 1 }),
+      expect.objectContaining({ id: 'miningTool02', unlocked: false, unlockLevel: 2 }),
     ])
     expect(selectForgeOutput(save, 'miningTool01')).toEqual({
-      ok: false,
-      reason: '未解锁（需 采矿 Lv5）',
+      ok: true,
+      message: '锻造改为采矿工具1',
     })
-    save.stations.mining.stationLevel = 5
-    expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
-    const opts = forgeToolPickOptions(save)
-    expect(opts).toHaveLength(2)
-    expect(opts[0]).toMatchObject({ id: 'miningTool01', unlocked: true })
-    expect(opts[1]).toMatchObject({ id: 'miningTool02', unlocked: false, unlockLevel: 10 })
     expect(selectForgeOutput(save, 'miningTool02')).toEqual({
       ok: false,
-      reason: '未解锁（需 采矿 Lv10）',
+      reason: '未解锁（需 锻造 Lv2）',
     })
+    save.stations.forging.stationLevel = 5
+    const opts = forgeToolPickOptions(save)
+    expect(opts).toHaveLength(6)
+    expect(opts[4]).toMatchObject({ id: 'miningTool05', unlocked: true, unlockLevel: 5 })
+    expect(opts[5]).toMatchObject({ id: 'miningTool06', unlocked: false, unlockLevel: 6 })
+    expect(selectForgeOutput(save, 'miningTool05').ok).toBe(true)
+    expect(selectForgeOutput(save, 'miningTool06')).toEqual({
+      ok: false,
+      reason: '未解锁（需 锻造 Lv6）',
+    })
+  })
+
+  it('forging Lv1 can start mining tool 1 even if the target station is Lv1', () => {
+    setRollOverride(() => 0.99)
+    const save = roster(1)
+    expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
+    save.bank.ore = 1
+    assignWorker(save, save.workers[0].id, 'forging')
+    expect(completeCycle(save, 'forging')).toBe(true)
+    expect(bankQty(save, 'miningTool01')).toBe(1)
+    expect(save.stations.forging.completed).toBe(1)
   })
 })

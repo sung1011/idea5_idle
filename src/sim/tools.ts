@@ -6,6 +6,9 @@ import {
   isStationId,
   isStationToolId,
   forgeToolRecipeOf,
+  forgeToolUnlockCount,
+  forgeToolUnlockLevel,
+  isForgeToolUnlocked,
   isStationToolUnlocked,
   isToolItemId,
   isToolTypeId,
@@ -17,7 +20,6 @@ import {
   stationToolItemId,
   stationToolsOf,
   stationToolSpeedMulOf,
-  stationToolUnlockCount,
   stationToolUnlockLevel,
   TOOL_DEF,
   TOOL_TYPE_DEF,
@@ -271,28 +273,31 @@ export function hydrateSelectedForgeToolId(raw: unknown): StationToolId | null {
   return isStationToolId(raw) ? raw : null
 }
 
+function forgingStationLevel(save: Save): number {
+  return save.stations.forging?.stationLevel ?? 1
+}
+
 export function selectedForgeRecipe(save: Save): ForgeToolRecipe | null {
   const selected = save.stations.forging.selectedForgeToolId
   if (!selected || !isStationToolId(selected)) return null
   const def = STATION_TOOL_BY_ID[selected]
   if (!def) return null
-  if (!isStationToolUnlocked(save.stations[def.stationId].stationLevel, def.index)) return null
+  if (!isForgeToolUnlocked(forgingStationLevel(save), def.index)) return null
   return forgeToolRecipeOf(selected)
 }
 
 export function forgeToolPickOptions(save: Save): StationToolPickOption[] {
   const match = forgingMatchStation(save)
-  const level = save.stations[match]?.stationLevel ?? 1
-  const unlocked = stationToolUnlockCount(level)
+  const level = forgingStationLevel(save)
   const rows: StationToolPickOption[] = []
   let nextLocked: StationToolPickOption | null = null
   for (const def of stationToolsOf(match)) {
-    const open = isStationToolUnlocked(level, def.index)
+    const open = isForgeToolUnlocked(level, def.index)
     const row: StationToolPickOption = {
       id: def.id,
       label: def.label,
       unlocked: open,
-      unlockLevel: stationToolUnlockLevel(def.index),
+      unlockLevel: forgeToolUnlockLevel(def.index),
       qty: bankQty(save, def.id),
     }
     if (open) rows.push(row)
@@ -304,7 +309,7 @@ export function forgeToolPickOptions(save: Save): StationToolPickOption[] {
 export function sanitizeForgeSelection(save: Save): void {
   const station = save.stations.forging
   const match = forgingMatchStation(save)
-  const unlocked = stationToolUnlockCount(save.stations[match].stationLevel)
+  const unlocked = forgeToolUnlockCount(station.stationLevel)
   const current = station.selectedForgeToolId
   if (current && isStationToolId(current)) {
     const def = STATION_TOOL_BY_ID[current]
@@ -334,8 +339,8 @@ export function selectForgeOutput(save: Save, toolId: StationToolId): ActionResu
   if (save.stations.forging.selectedToolType !== type) {
     save.stations.forging.selectedToolType = type
   }
-  if (!isStationToolUnlocked(save.stations[def.stationId].stationLevel, def.index)) {
-    return { ok: false, reason: `未解锁（需 ${STATION_DEF[def.stationId].label} Lv${stationToolUnlockLevel(def.index)}）` }
+  if (!isForgeToolUnlocked(forgingStationLevel(save), def.index)) {
+    return { ok: false, reason: `未解锁（需 ${STATION_DEF.forging.label} Lv${forgeToolUnlockLevel(def.index)}）` }
   }
   const station = save.stations.forging
   if (station.selectedForgeToolId === def.id) return { ok: true }

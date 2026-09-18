@@ -585,6 +585,20 @@ export function isStationToolUnlocked(stationLevel: number, index: number): bool
   return index >= 1 && index <= stationToolUnlockCount(stationLevel)
 }
 
+/** 锻造能造到第几档：看锻造站自身等级，`min(20, forgeLevel)`。 */
+export function forgeToolUnlockCount(forgeLevel: number): number {
+  const level = Number.isFinite(forgeLevel) ? Math.floor(forgeLevel) : 1
+  return Math.min(STATION_TOOL_COUNT, Math.max(0, level))
+}
+
+export function forgeToolUnlockLevel(index: number): number {
+  return Math.min(STATION_TOOL_COUNT, Math.max(1, Math.floor(index)))
+}
+
+export function isForgeToolUnlocked(forgeLevel: number, index: number): boolean {
+  return index >= 1 && index <= forgeToolUnlockCount(forgeLevel)
+}
+
 export function stationToolSpeedMulOf(index: number): number {
   if (!Number.isFinite(index) || index < 1) return 1
   return 1 + Math.floor(index) * STATION_TOOL_SPEED_STEP

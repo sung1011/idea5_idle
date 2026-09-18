@@ -12,7 +12,6 @@ describe('station stock rows', () => {
     save.bank.slag = 2
     save.bank.ironOre = 3
     save.bank.tool = 2
-    save.stations.mining.stationLevel = 5
     expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
     const rows = stationStockRows(save, 'forging')
     expect(rows.costs.map((r) => r.itemId)).toEqual(['ore', 'slag'])
@@ -22,7 +21,7 @@ describe('station stock rows', () => {
     })
     expect(rows).not.toHaveProperty('outputs')
 
-    save.stations.mining.stationLevel = 30
+    save.stations.forging.stationLevel = 6
     expect(selectForgeOutput(save, 'miningTool06').ok).toBe(true)
     expect(stationStockRows(save, 'forging').costs.map((r) => r.itemId)).toEqual(['ironOre'])
     expect(stationStockRows(save, 'forging').costs[0]).toMatchObject({ label: '铁矿', qty: 3 })
@@ -64,7 +63,6 @@ describe('station stock rows', () => {
     const save = createSave()
     save.bank.ore = 0
     save.bank.slag = 2
-    save.stations.mining.stationLevel = 5
     expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
     expect(stationConsumeGroups(save, 'forging')).toEqual([
       [{ itemId: 'ore', label: '铜矿', need: 1, have: 0, short: true }],

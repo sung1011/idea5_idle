@@ -203,7 +203,6 @@ describe('forging pipeline', () => {
   it('consumes ore and deposits an exclusive tool', () => {
     setRollOverride(() => 0.99)
     const save = roster(1)
-    save.stations.mining.stationLevel = 5
     expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
     save.bank.ore = 1
     assignWorker(save, save.workers[0].id, 'forging')
@@ -216,8 +215,9 @@ describe('forging pipeline', () => {
     expect(next.stations.forging.stallReason).toBeNull()
   })
 
-  it('idles when the target station has not unlocked a tool', () => {
+  it('idles when forging station has no craft tier', () => {
     const save = roster(1)
+    save.stations.forging.stationLevel = 0
     assignWorker(save, save.workers[0].id, 'forging')
     const next = ticks(save, 32)
     expect(bankQty(next, 'miningTool01')).toBe(0)
@@ -231,7 +231,6 @@ describe('forging pipeline', () => {
 
   it('idles with a hint when a tool is selected but there is no ore', () => {
     const save = roster(1)
-    save.stations.mining.stationLevel = 5
     expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
     assignWorker(save, save.workers[0].id, 'forging')
     const next = ticks(save, 32)

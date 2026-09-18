@@ -68,7 +68,7 @@ type MiningNodeState = {
 
 表驱动 `costs`（及可选 `altCosts`）+ **软失败**：周期走完后做一次失败检定。成功按现规则扣光并出工具。失败扣部分原料（`FORGING_SOFT_FAIL_TAKE_RATIO` 0.5，不足 1 按 1；铜档 1 矿失败也扣 1），无成品，给少量 XP（`xpPerCycle * 0.5`，至少 1）。不炸炉、不停站、不额外扣工人。成功率见 `FORGING_SOFT_FAIL_CHANCE`。
 
-产出**只**是各站专属工具（`STATION_TOOL_DEF` 的 tool01–20）。已删除铜/铁/秘银通用 `tool` / `ironTool` / `mithrilTool` 配方。先选 `selectedToolType`（对应目标站），再选 `selectedForgeToolId`；解锁看目标站 `floor(stationLevel/5)`，未解锁不能造。工坊站卡用下拉选 `selectedToolId` 来用。武器线搁置，本阶段不当锻造主产物。旧通用工具 id 仍可存在于旧档 / 偶遇，不再产出。
+产出**只**是各站专属工具（`STATION_TOOL_DEF` 的 tool01–20）。已删除铜/铁/秘银通用 `tool` / `ironTool` / `mithrilTool` 配方。先选 `selectedToolType`（对应目标站），再选 `selectedForgeToolId`；造的解锁看锻造站 `min(20, forgeStation.level)`，未解锁不能造。目标站等级不挡造。工坊站卡用下拉选 `selectedToolId` 来用（使用解锁仍按目标站每 5 级）。武器线搁置，本阶段不当锻造主产物。旧通用工具 id 仍可存在于旧档 / 偶遇，不再产出。
 
 ```ts
 type SoftFailRoll = {
@@ -77,7 +77,7 @@ type SoftFailRoll = {
 }
 ```
 
-锻造制造列表来自 `STATION_TOOL_DEF`（采矿 / 锻造 / 狩猎 / 烹饪 / 采药 / 炼金 / 钓鱼各 20 种，名称可占位）。解锁 `min(20, floor(目标站 stationLevel/5))`，Lv1–4 不能造。下拉只列出已解锁 + 下一档预览置灰。占位配方：1–5 铜矿 32s / XP1 / 软失败 10%（第 1 种可用渣滓）；6–10 铁矿 36s / XP2 / 15%；11–20 秘银矿 40s / XP3 / 20%。
+锻造制造列表来自 `STATION_TOOL_DEF`（采矿 / 锻造 / 狩猎 / 烹饪 / 采药 / 炼金 / 钓鱼各 20 种，名称可占位）。造的解锁 `min(20, 锻造站 stationLevel)`：锻造 Lv1 可造各站工具1，Lv5 可造到工具5。目标站等级不挡造。下拉只列出已解锁 + 下一档预览置灰。占位配方：1–5 铜矿 32s / XP1 / 软失败 10%（第 1 种可用渣滓）；6–10 铁矿 36s / XP2 / 15%；11–20 秘银矿 40s / XP3 / 20%。
 
 用具下拉首项「无」。未解锁即使有库存也不可选。选中那一把：`speed × (1 + 序号 × 0.03)`，只生效一把；每次成功吞吐耗 1，「无」不耗，耗尽回「无」。没选 = 裸效率，仍可派。旧档 `tool` / `ironTool` / `mithrilTool` 与工人 / 站上 `toolSlot` / `toolId` hydrate：一律回物资，不自动选中。
 

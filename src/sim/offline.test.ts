@@ -75,7 +75,6 @@ describe('settleOffline', () => {
   it('summarizes forging consume and produce', () => {
     setRollOverride(() => 0.99)
     const save = roster(1)
-    save.stations.mining.stationLevel = 5
     save.stations.forging.selectedForgeToolId = 'miningTool01'
     save.bank.ore = 3
     assignWorker(save, save.workers[0].id, 'forging')

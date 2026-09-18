@@ -93,7 +93,6 @@ describe('forging costs table', () => {
   it('first exclusive tool spends 1 ore', () => {
     setRollOverride(() => 0.99)
     const save = roster(1)
-    save.stations.mining.stationLevel = 5
     expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
     save.bank.ore = 1
     assignWorker(save, save.workers[0].id, 'forging')
@@ -106,7 +105,7 @@ describe('forging costs table', () => {
 
   it('mid-tier exclusive tool spends ironOre only; missing ore deducts nothing', () => {
     const save = roster(1)
-    save.stations.mining.stationLevel = 30
+    save.stations.forging.stationLevel = 6
     expect(selectForgeOutput(save, 'miningTool06').ok).toBe(true)
     save.bank.ironOre = 0
     save.bank.wood = 2
@@ -123,7 +122,7 @@ describe('forging costs table', () => {
   it('mid-tier exclusive tool deducts ironOre and ignores leftover wood', () => {
     setRollOverride(() => 0.99)
     const save = roster(1)
-    save.stations.mining.stationLevel = 30
+    save.stations.forging.stationLevel = 6
     expect(selectForgeOutput(save, 'miningTool06').ok).toBe(true)
     save.bank.ironOre = 1
     save.bank.wood = 2
@@ -140,7 +139,7 @@ describe('forging costs table', () => {
   it('high-tier exclusive tool spends 1 mithrilOre and no wood', () => {
     setRollOverride(() => 0.99)
     const save = roster(1)
-    save.stations.mining.stationLevel = 55
+    save.stations.forging.stationLevel = 11
     expect(selectForgeOutput(save, 'miningTool11').ok).toBe(true)
     save.bank.mithrilOre = 1
     save.bank.wood = 2

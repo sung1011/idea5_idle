@@ -124,7 +124,6 @@ describe('completeCycle gain tips', () => {
     expect(hazardGain.tips[0]).toContain('遇险')
 
     const fail = roster(1)
-    fail.stations.mining.stationLevel = 5
     fail.stations.forging.selectedForgeToolId = 'miningTool01'
     fail.bank.ore = 1
     assignWorker(fail, fail.workers[0].id, 'forging')
@@ -140,7 +139,6 @@ describe('completeCycle gain tips', () => {
   it('tips forging and alchemy success', () => {
     setRollOverride(() => 0.99)
     const forge = roster(1)
-    forge.stations.mining.stationLevel = 5
     forge.stations.forging.selectedForgeToolId = 'miningTool01'
     forge.bank.ore = 1
     assignWorker(forge, forge.workers[0].id, 'forging')
@@ -189,7 +187,6 @@ describe('completeCycle craft gold', () => {
     setRollOverride(() => 0.99)
     const forge = roster(1)
     const forgeGold = forge.gold
-    forge.stations.mining.stationLevel = 5
     forge.stations.forging.selectedForgeToolId = 'miningTool01'
     forge.bank.ore = 1
     assignWorker(forge, forge.workers[0].id, 'forging')

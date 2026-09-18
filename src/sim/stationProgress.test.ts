@@ -197,7 +197,7 @@ describe('forging matching ore', () => {
   it('mid-tier exclusive tool consumes ironOre and deposits that tool', () => {
     setRollOverride(() => 0.99)
     const save = roster(1)
-    save.stations.mining.stationLevel = 30
+    save.stations.forging.stationLevel = 6
     expect(selectForgeOutput(save, 'miningTool06').ok).toBe(true)
     save.bank.ironOre = 1
     save.bank.wood = 1
@@ -215,7 +215,7 @@ describe('forging matching ore', () => {
 
   it('idles when a mid-tier tool is selected but only copper ore is in the bank', () => {
     const save = roster(1)
-    save.stations.mining.stationLevel = 30
+    save.stations.forging.stationLevel = 6
     expect(selectForgeOutput(save, 'miningTool06').ok).toBe(true)
     save.bank.ore = 4
     assignWorker(save, save.workers[0].id, 'forging')
