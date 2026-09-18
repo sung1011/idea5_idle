@@ -24,12 +24,22 @@ describe('encounterTips', () => {
   })
 
   it('shortens hits and keeps weakness / outcome lines', () => {
-    expect(formatCombatTip('甲 对 试敌 造成 10（弱点剑 ×1.2）（2390/2400）')).toBe('甲 造成 10（弱点剑）')
+    expect(formatCombatTip('甲 对 试敌 造成 8（2400/2400）')).toBe('甲 造成 8')
+    expect(formatCombatTip('甲 对 试敌 造成 10（枪 暴击 ×1.2）（2390/2400）')).toBe('甲 造成 10（枪 暴击）')
+    expect(formatCombatTip('甲 对 试敌 造成 15（枪 火 暴击 ×1.5）（2385/2400）')).toBe('甲 造成 15（枪 火 暴击）')
+    expect(formatCombatTip('甲 对 试敌 造成 12（匕首 暴击 ×1.2）（2388/2400）')).toBe('甲 造成 12（匕首 暴击）')
+    expect(formatCombatTip('甲 对 试敌 造成 10（弱点剑 ×1.2）（2390/2400）')).toBe('甲 造成 10（剑 暴击）')
+    expect(formatCombatTip('甲 对 试敌 造成 15（弱点剑火 ×1.5）（2385/2400）')).toBe('甲 造成 15（剑 火 暴击）')
     expect(formatCombatTip('揭示弱点：剑、火')).toBe('揭示弱点：剑、火')
     expect(formatCombatTip('战斗胜利')).toBe('战斗胜利')
     expect(formatCombatTip('全员倒下，战败')).toBe('全员倒下，战败')
     expect(formatCombatTip('超时判败')).toBe('超时判败')
     expect(formatCombatTip('甲、乙 出战')).toBe('甲、乙 出战')
+  })
+
+  it('pushes the crit float copy onto the encounter card', () => {
+    pushCombatLogTip('enc-a', '甲 对 试敌 造成 15（枪 火 暴击 ×1.5）（2385/2400）', 'ok')
+    expect(encounterTipList('enc-a').map((tip) => tip.text)).toEqual(['甲 造成 15（枪 火 暴击）'])
   })
 
   it('marks lose lines as err and the rest as ok', () => {

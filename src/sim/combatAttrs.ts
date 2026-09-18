@@ -331,6 +331,12 @@ export function formatWeaknessLabels(ids: readonly CombatAttrId[]): string {
   return ids.map((id) => COMBAT_ATTR_LABEL[id]).join('、')
 }
 
+/** 弱点命中漂字：一条 `枪 暴击`，两条 `枪 火 暴击`。不写「弱点×」。 */
+export function formatWeaknessCritTip(ids: readonly CombatAttrId[]): string {
+  if (!ids.length) return ''
+  return `${ids.map((id) => COMBAT_ATTR_LABEL[id]).join(' ')} 暴击`
+}
+
 /** 旧单缺弱点表则按 id 种子补；已有列表只补齐/截断，开战不另掷一份。再战保留已揭示，并按阶级补齐初始暴露。 */
 export function ensureEnemyIntel(enc: EnemyEncounter, seed = 0, slot = 0): EnemyEncounter {
   const rank = isEnemyRank(enc.enemyRank) ? enc.enemyRank : enemyRankFor(enc.quality)

@@ -12,6 +12,7 @@ import {
   ensureEnemyIntel,
   fighterRecommendLabel,
   fillWorkerCombatAttrs,
+  formatWeaknessCritTip,
   hydrateWorkerCombatAttrs,
   initialRevealedWeaknessCount,
   matchingWeaknesses,
@@ -266,6 +267,35 @@ describe('damage multiplier per acting worker', () => {
     expect(combat.enemy.hp).toBe(hp1 - Math.round(combat.workers[1].atk * 1.2))
     expect(fight.revealedWeaknesses).toEqual(['dark', 'fire', 'ice'])
     expect(combat.logs.some((row) => row.text.includes('揭示弱点'))).toBe(true)
+    expect(combat.logs.some((row) => /火 暴击 ×1\.2/.test(row.text))).toBe(true)
+    expect(combat.logs.every((row) => !row.text.includes('弱点') || row.text.includes('揭示弱点'))).toBe(true)
+  })
+})
+
+describe('weakness crit float copy', () => {
+  it('joins hit attr labels then 暴击, without 弱点×', () => {
+    expect(formatWeaknessCritTip([])).toBe('')
+    expect(formatWeaknessCritTip(['polearm'])).toBe('枪 暴击')
+    expect(formatWeaknessCritTip(['polearm', 'fire'])).toBe('枪 火 暴击')
+    expect(formatWeaknessCritTip(['dagger', 'fire'])).toBe('匕首 火 暴击')
+    expect(formatWeaknessCritTip(['polearm'])).not.toContain('弱点')
+    expect(formatWeaknessCritTip(['polearm', 'fire'])).not.toMatch(/×/)
+  })
+
+  it('writes a two-hit strike log as 枪 火 暴击 ×1.5 without changing the mul', () => {
+    const save = createSave()
+    const worker = spawnWorkerWith(save, 5, 'artisan', ['polearm', 'fire'])
+    worker.name = '甲'
+    const enc = testEnemy({ weaknesses: ['polearm', 'fire'] })
+    const now = 80_000
+    const combat = beginEnemyCombat(enc, [worker], now)
+    combat.workers[0].nextActAt = now + 1_000
+    combat.enemy.nextActAt = now + 9_000
+    const hp0 = combat.enemy.hp
+    stepEnemyCombat(save, enc, now + 1_000)
+    expect(combat.enemy.hp).toBe(hp0 - Math.round(combat.workers[0].atk * 1.5))
+    expect(combat.logs.some((row) => /枪 火 暴击 ×1\.5/.test(row.text))).toBe(true)
+    expect(combat.logs.every((row) => !/弱点(?!：)/.test(row.text))).toBe(true)
   })
 })
 

@@ -1,7 +1,7 @@
 import {
-  COMBAT_ATTR_LABEL,
   enemyRankFor,
   ensureEnemyIntel,
+  formatWeaknessCritTip,
   formatWeaknessLabels,
   resolveWorkerAttack,
 } from './combatAttrs'
@@ -396,9 +396,7 @@ function strike(
       emitLog(enc, combat, at, `揭示弱点：${formatWeaknessLabels(result.newlyRevealed)}`, 'ok', onLog)
     }
     const mulText = result.mul > 1 ? ` ×${result.mul}` : ''
-    const hitText = result.hits.length
-      ? `弱点${result.hits.map((id) => COMBAT_ATTR_LABEL[id]).join('')}${mulText}`
-      : ''
+    const hitText = result.hits.length ? `${formatWeaknessCritTip(result.hits)}${mulText}` : ''
     const tail = hitText ? `（${hitText}）（${target.hp}/${target.hpMax}）` : `（${target.hp}/${target.hpMax}）`
     emitLog(enc, combat, at, `${attacker.label} 对 ${target.label} 造成 ${result.damage}${tail}`, 'ok', onLog)
     return
