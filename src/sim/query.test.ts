@@ -3,6 +3,7 @@ import { createSave } from './createSave'
 import { leftoverStockRows, stationConsumeGroups, stationStockRows } from './query'
 import { grantStationXp, selectStationCategory } from './stationProgress'
 import { xpToNextLevel } from './tables'
+import { selectForgeOutput } from './tools'
 
 describe('station stock rows', () => {
   it('lists only the selected forging recipe costs, not all station outputs', () => {
@@ -11,6 +12,8 @@ describe('station stock rows', () => {
     save.bank.slag = 2
     save.bank.ironOre = 3
     save.bank.tool = 2
+    save.stations.mining.stationLevel = 5
+    expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
     const rows = stationStockRows(save, 'forging')
     expect(rows.costs.map((r) => r.itemId)).toEqual(['ore', 'slag'])
     expect(rows.costs.find((r) => r.itemId === 'ore')).toMatchObject({
@@ -19,10 +22,8 @@ describe('station stock rows', () => {
     })
     expect(rows).not.toHaveProperty('outputs')
 
-    while (save.stations.forging.stationLevel < 5) {
-      grantStationXp(save, 'forging', xpToNextLevel(save.stations.forging.stationLevel))
-    }
-    expect(selectStationCategory(save, 'forging', 'iron').ok).toBe(true)
+    save.stations.mining.stationLevel = 30
+    expect(selectForgeOutput(save, 'miningTool06').ok).toBe(true)
     expect(stationStockRows(save, 'forging').costs.map((r) => r.itemId)).toEqual(['ironOre'])
     expect(stationStockRows(save, 'forging').costs[0]).toMatchObject({ label: '铁矿', qty: 3 })
   })
@@ -63,6 +64,8 @@ describe('station stock rows', () => {
     const save = createSave()
     save.bank.ore = 0
     save.bank.slag = 2
+    save.stations.mining.stationLevel = 5
+    expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
     expect(stationConsumeGroups(save, 'forging')).toEqual([
       [{ itemId: 'ore', label: '铜矿', need: 1, have: 0, short: true }],
       [{ itemId: 'slag', label: '渣滓', need: 1, have: 2, short: false }],

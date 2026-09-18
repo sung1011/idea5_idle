@@ -216,6 +216,8 @@ describe('inspiration grant', () => {
     setRollOverride(() => 0.99)
     const forge = createSave()
     spawnWorker(forge)
+    forge.stations.mining.stationLevel = 5
+    forge.stations.forging.selectedForgeToolId = 'miningTool01'
     assignWorker(forge, forge.workers[0].id, 'forging')
     forge.bank.ore = 1
     const forged = ticks(forge, 32)
@@ -227,6 +229,8 @@ describe('inspiration grant', () => {
     setRollOverride(() => 0)
     const save = createSave()
     spawnWorker(save)
+    save.stations.mining.stationLevel = 5
+    save.stations.forging.selectedForgeToolId = 'miningTool01'
     assignWorker(save, save.workers[0].id, 'forging')
     save.bank.ore = 1
     expect(completeCycle(save, 'forging')).toBe(true)

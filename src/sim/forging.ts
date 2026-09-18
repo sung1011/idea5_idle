@@ -8,11 +8,10 @@ import {
   FORGING_SOFT_FAIL_CHANCE,
   FORGING_SOFT_FAIL_TAKE_RATIO,
   FORGING_SOFT_FAIL_XP_MUL,
-  isToolItemId,
   ITEM_DEF,
   type IoRule,
 } from './tables'
-import { cycleOutputBonus, forgingMatchStation, grantForgedStationTool, pushForgedTools } from './tools'
+import { cycleOutputBonus, sanitizeForgeSelection, selectedForgeRecipe } from './tools'
 import type { CategoryId, Save, SoftFailRoll } from './types'
 
 export function resolveSoftFail(chance: number, roll: number): SoftFailRoll {
@@ -36,13 +35,16 @@ export function forgingSoftFailChance(categoryId: CategoryId): number {
   return FORGING_SOFT_FAIL_CHANCE[categoryId] ?? FORGING_SOFT_FAIL_CHANCE.default
 }
 
-/** 完成一次锻造：成功出工具；软失败扣部分矿、无成品、少量 XP。不停站。 */
+/** 完成一次锻造：成功出选中的专属工具；软失败扣部分矿、无成品、少量 XP。不停站。 */
 export function completeForgingCycle(save: Save, now = Date.now(), into?: ItemLot[]): boolean {
+  sanitizeForgeSelection(save)
+  const recipe = selectedForgeRecipe(save)
+  if (!recipe) return false
   const pick = pickConsume(save, 'forging')
   if (!pick) return false
   const def = selectedCategoryDef(save, 'forging')
   const rules = pick.rules
-  const fail = resolveSoftFail(forgingSoftFailChance(def.id), roll01(save))
+  const fail = resolveSoftFail(recipe.softFailChance, roll01(save))
   const station = save.stations.forging
 
   if (fail.outcome === 'softFail') {
@@ -61,14 +63,8 @@ export function completeForgingCycle(save: Save, now = Date.now(), into?: ItemLo
     pushLot(into, io.itemId, qty)
   }
   const out = def.outputs[0]
-  if (out && isToolItemId(out.itemId)) {
-    const made = out.qty + bonus
-    pushForgedTools(save, out.itemId, forgingMatchStation(save), made)
-    grantForgedStationTool(save, made)
-  }
   station.completed += 1
   grantStationXp(save, 'forging', def.xpPerCycle)
   station.craftNotice = out ? `锻成${ITEM_DEF[out.itemId].label}` : '锻造成功'
   return true
 }
-

@@ -164,36 +164,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
     label: '锻造',
     kind: 'craft',
     neighbors: [],
-    categories: [
-      {
-        id: 'copper',
-        label: '初级工具',
-        cycleS: 32,
-        costs: [{ itemId: 'ore', qty: 1 }],
-        altCosts: [{ itemId: 'slag', qty: 1 }],
-        outputs: [{ itemId: 'tool', qty: 1 }],
-        xpPerCycle: 1,
-        unlockLevel: 1,
-      },
-      {
-        id: 'iron',
-        label: '中阶工具',
-        cycleS: 36,
-        costs: [{ itemId: 'ironOre', qty: 1 }],
-        outputs: [{ itemId: 'ironTool', qty: 1 }],
-        xpPerCycle: 2,
-        unlockLevel: 5,
-      },
-      {
-        id: 'mithril',
-        label: '高阶工具',
-        cycleS: 40,
-        costs: [{ itemId: 'mithrilOre', qty: 1 }],
-        outputs: [{ itemId: 'mithrilTool', qty: 1 }],
-        xpPerCycle: 3,
-        unlockLevel: 10,
-      },
-    ],
+    categories: singleCategory('专属工具', 32, [], []),
   },
   hunting: {
     id: 'hunting',
@@ -658,6 +629,61 @@ export function stationToolsOf(stationId: StationId): StationToolDef[] {
   return STATION_TOOL_DEF[stationId] ?? []
 }
 
+export type ForgeToolRecipe = {
+  toolId: StationToolId
+  cycleS: number
+  costs: IoRule[]
+  altCosts?: IoRule[]
+  xpPerCycle: number
+  softFailChance: number
+}
+
+/** 占位配方：1–5 铜矿 32s，6–10 铁矿 36s，11–20 秘银矿 40s。第 1 种可用渣滓。 */
+export function forgeToolRecipeOf(toolId: StationToolId): ForgeToolRecipe {
+  const def = STATION_TOOL_BY_ID[toolId]
+  const index = def?.index ?? 1
+  if (index <= 5) {
+    return {
+      toolId,
+      cycleS: 32,
+      costs: [{ itemId: 'ore', qty: 1 }],
+      altCosts: index === 1 ? [{ itemId: 'slag', qty: 1 }] : undefined,
+      xpPerCycle: 1,
+      softFailChance: FORGING_SOFT_FAIL_CHANCE.copper,
+    }
+  }
+  if (index <= 10) {
+    return {
+      toolId,
+      cycleS: 36,
+      costs: [{ itemId: 'ironOre', qty: 1 }],
+      xpPerCycle: 2,
+      softFailChance: FORGING_SOFT_FAIL_CHANCE.iron,
+    }
+  }
+  return {
+    toolId,
+    cycleS: 40,
+    costs: [{ itemId: 'mithrilOre', qty: 1 }],
+    xpPerCycle: 3,
+    softFailChance: FORGING_SOFT_FAIL_CHANCE.mithril,
+  }
+}
+
+export function forgeCategoryFromRecipe(recipe: ForgeToolRecipe): StationCategoryDef {
+  const def = STATION_TOOL_BY_ID[recipe.toolId]
+  return {
+    id: 'default',
+    label: def?.label ?? '专属工具',
+    cycleS: recipe.cycleS,
+    costs: recipe.costs,
+    altCosts: recipe.altCosts,
+    outputs: [{ itemId: recipe.toolId, qty: 1 }],
+    xpPerCycle: recipe.xpPerCycle,
+    unlockLevel: stationToolUnlockLevel(def?.index ?? 1),
+  }
+}
+
 export const ITEM_IDS = Object.keys(ITEM_DEF) as ItemId[]
 
 export type ToolDef = {
@@ -826,7 +852,15 @@ export function stationRelatedItems(stationId: StationId): StationRelatedItems {
       for (const io of prey.outputs) pushUniqueItem(outputs, io.itemId)
     }
   }
-  if (stationId === 'forging') pushUniqueItem(outputs, 'blueprint')
+  if (stationId === 'forging') {
+    pushUniqueItem(outputs, 'blueprint')
+    for (const toolId of STATION_TOOL_IDS) {
+      pushUniqueItem(outputs, toolId)
+      const recipe = forgeToolRecipeOf(toolId)
+      for (const io of recipe.costs) pushUniqueItem(costs, io.itemId)
+      for (const io of recipe.altCosts ?? []) pushUniqueItem(costs, io.itemId)
+    }
+  }
   for (const tool of stationToolsOf(stationId)) pushUniqueItem(costs, tool.id)
   return { costs, outputs }
 }

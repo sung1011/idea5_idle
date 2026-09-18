@@ -94,7 +94,7 @@ describe('gm debug grants', () => {
     expect(save.stations.forging.stationLevel).toBe(10)
     expect(save.stations.fishing.stationLevel).toBe(10)
     expect(save.stations.mining.unlockedCategories).toEqual(['copper', 'iron', 'mithril'])
-    expect(save.stations.forging.unlockedCategories).toEqual(['copper', 'iron', 'mithril'])
+    expect(save.stations.forging.unlockedCategories).toEqual(['default'])
     expect(save.stations.fishing.unlockedCategories).toEqual(['copper', 'iron', 'mithril'])
     expect(save.stations.hunting.unlockedCategories).toEqual(['copper', 'iron', 'mithril'])
   })

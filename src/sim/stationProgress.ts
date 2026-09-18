@@ -4,6 +4,7 @@ import {
   asMiningCategoryId,
   defaultCategory,
   findCategory,
+  forgeCategoryFromRecipe,
   isToolTypeId,
   miningNodeDef,
   MINING_NODE_DEF,
@@ -12,7 +13,7 @@ import {
   xpToNextLevel,
   type MiningCategoryId,
 } from './tables'
-import { hydrateSelectedToolId } from './tools'
+import { hydrateSelectedForgeToolId, hydrateSelectedToolId, selectedForgeRecipe } from './tools'
 import type { ActionResult, CategoryId, MiningNodeState, Save, StationId, StationState } from './types'
 
 export function blankMiningNode(categoryId: CategoryId = 'copper'): MiningNodeState {
@@ -93,6 +94,10 @@ export function isCategoryUnlocked(save: Save, stationId: StationId, categoryId:
 }
 
 export function selectedCategoryDef(save: Save, stationId: StationId) {
+  if (stationId === 'forging') {
+    const recipe = selectedForgeRecipe(save)
+    if (recipe) return forgeCategoryFromRecipe(recipe)
+  }
   const selected = save.stations[stationId].selectedCategory
   return findCategory(stationId, selected) ?? defaultCategory(stationId)
 }
@@ -152,6 +157,7 @@ export function blankStation(stationId: StationId): StationState {
     gatherNotice: null,
     gatherPauseUntil: null,
     selectedToolType: stationId === 'forging' ? 'pick' : null,
+    selectedForgeToolId: null,
     craftNotice: null,
     selectedToolId: null,
     ...(stationId === 'mining'
@@ -193,6 +199,10 @@ export function hydrateStationState(stationId: StationId, incoming?: Partial<Sta
         ? isToolTypeId(incoming.selectedToolType)
           ? incoming.selectedToolType
           : 'pick'
+        : null,
+    selectedForgeToolId:
+      stationId === 'forging'
+        ? hydrateSelectedForgeToolId((incoming as { selectedForgeToolId?: unknown }).selectedForgeToolId)
         : null,
     craftNotice: typeof incoming.craftNotice === 'string' ? incoming.craftNotice : null,
     selectedToolId: hydrateSelectedToolId(

@@ -14,6 +14,7 @@ import {
 } from './stationProgress'
 import { STATION_DEF, xpToNextLevel, xpToReachLevel } from './tables'
 import { ticks } from './tick'
+import { selectForgeOutput } from './tools'
 import type { Save } from './types'
 
 function roster(n: number): Save {
@@ -44,7 +45,7 @@ describe('station XP curve', () => {
     expect(xpToNextLevel(4)).toBe(53)
     expect(xpToReachLevel(5)).toBe(133)
     expect(STATION_DEF.mining.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
-    expect(STATION_DEF.forging.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
+    expect(STATION_DEF.forging.categories.map((c) => c.xpPerCycle)).toEqual([1])
     expect(STATION_DEF.fishing.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
     expect(STATION_DEF.cooking.categories.map((c) => c.xpPerCycle)).toEqual([1, 1, 2])
     expect(STATION_DEF.hunting.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
@@ -193,11 +194,11 @@ describe('stack current category', () => {
 })
 
 describe('forging matching ore', () => {
-  it('iron forging consumes ironOre and deposits ironTool', () => {
+  it('mid-tier exclusive tool consumes ironOre and deposits that tool', () => {
     setRollOverride(() => 0.99)
     const save = roster(1)
-    unlockTo(save, 'forging', 5)
-    expect(selectStationCategory(save, 'forging', 'iron').ok).toBe(true)
+    save.stations.mining.stationLevel = 30
+    expect(selectForgeOutput(save, 'miningTool06').ok).toBe(true)
     save.bank.ironOre = 1
     save.bank.wood = 1
     save.bank.ore = 2
@@ -206,22 +207,21 @@ describe('forging matching ore', () => {
     expect(bankQty(next, 'ironOre')).toBe(0)
     expect(bankQty(next, 'wood')).toBe(1)
     expect(bankQty(next, 'ore')).toBe(2)
-    expect(bankQty(next, 'ironTool')).toBe(1)
-    expect(bankQty(next, 'ironWeapon')).toBe(0)
+    expect(bankQty(next, 'miningTool06')).toBe(1)
+    expect(bankQty(next, 'ironTool')).toBe(0)
     expect(bankQty(next, 'weapon')).toBe(0)
     expect(next.stations.forging.completed).toBe(1)
   })
 
-  it('idles when iron is selected but only copper ore is in the bank', () => {
+  it('idles when a mid-tier tool is selected but only copper ore is in the bank', () => {
     const save = roster(1)
-    unlockTo(save, 'forging', 5)
-    expect(selectStationCategory(save, 'forging', 'iron').ok).toBe(true)
+    save.stations.mining.stationLevel = 30
+    expect(selectForgeOutput(save, 'miningTool06').ok).toBe(true)
     save.bank.ore = 4
     assignWorker(save, save.workers[0].id, 'forging')
     const next = ticks(save, 36)
+    expect(bankQty(next, 'miningTool06')).toBe(0)
     expect(bankQty(next, 'ironTool')).toBe(0)
-    expect(bankQty(next, 'ironWeapon')).toBe(0)
-    expect(bankQty(next, 'weapon')).toBe(0)
     expect(next.stations.forging.completed).toBe(0)
     expect(next.stations.forging.stallReason).toBe('emptyInput')
     expect(collectHints(next).some((h) => h.text.includes('铁矿') && h.text.includes('见底'))).toBe(true)

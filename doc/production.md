@@ -19,7 +19,7 @@
 | 站 | `stationId` | `kind` | 核心差异 | 产出 → 去向 |
 | --- | --- | --- | --- | --- |
 | 挖矿 | `mining` | gather | 节点生命，挖空等恢复 | 矿石 → 锻造 |
-| 锻造 | `forging` | craft | 配方 + 软失败 | 通用工具 + 专属工具 → 工坊下拉（武器线搁置） |
+| 锻造 | `forging` | craft | 配方 + 软失败 | 各站专属工具 → 工坊下拉（武器线搁置） |
 | 狩猎 | `hunting` | gather | 遇险检定（非战斗） | 肉 → 烹饪；血 / 牙 / 眼 → 炼金 |
 | 烹饪 | `cooking` | craft | 产出食物 | 食物 → 工人 `foodSlot` → 生产 Buff |
 | 采药 | `herbalism` | gather | 无限稳采 | 草 → 炼金；香料 → 烹饪 |
@@ -68,7 +68,7 @@ type MiningNodeState = {
 
 表驱动 `costs`（及可选 `altCosts`）+ **软失败**：周期走完后做一次失败检定。成功按现规则扣光并出工具。失败扣部分原料（`FORGING_SOFT_FAIL_TAKE_RATIO` 0.5，不足 1 按 1；铜档 1 矿失败也扣 1），无成品，给少量 XP（`xpPerCycle * 0.5`，至少 1）。不炸炉、不停站、不额外扣工人。成功率见 `FORGING_SOFT_FAIL_CHANCE`。
 
-产出是**通用生产工具**（铜/铁/秘银档），进物资；成功时另按锻造站 `floor(level/5)`（至少 1）写入目标站专属工具。工坊站卡用下拉选 `selectedToolId`，不再装进 `toolSlot`。武器线（`weapon` / `ironWeapon` / `mithrilWeapon`）搁置，本阶段不当锻造主产物。
+产出**只**是各站专属工具（`STATION_TOOL_DEF` 的 tool01–20）。已删除铜/铁/秘银通用 `tool` / `ironTool` / `mithrilTool` 配方。先选 `selectedToolType`（对应目标站），再选 `selectedForgeToolId`；解锁看目标站 `floor(stationLevel/5)`，未解锁不能造。工坊站卡用下拉选 `selectedToolId` 来用。武器线搁置，本阶段不当锻造主产物。旧通用工具 id 仍可存在于旧档 / 偶遇，不再产出。
 
 ```ts
 type SoftFailRoll = {
@@ -77,15 +77,9 @@ type SoftFailRoll = {
 }
 ```
 
-工具建议 id（第 3 期落地，现码可暂不出现）：
+锻造制造列表来自 `STATION_TOOL_DEF`（采矿 / 锻造 / 狩猎 / 烹饪 / 采药 / 炼金 / 钓鱼各 20 种，名称可占位）。解锁 `min(20, floor(目标站 stationLevel/5))`，Lv1–4 不能造。下拉只列出已解锁 + 下一档预览置灰。占位配方：1–5 铜矿 32s / XP1 / 软失败 10%（第 1 种可用渣滓）；6–10 铁矿 36s / XP2 / 15%；11–20 秘银矿 40s / XP3 / 20%。
 
-| `itemId` | 含义 |
-| --- | --- |
-| `tool` | 初级生产工具 |
-| `ironTool` | 中阶 |
-| `mithrilTool` | 高阶 |
-
-通用工具仍带 `matchStationId`（锻造队列 / 旧档回物资用）。现玩法每站表驱动 20 种专属工具（`miningTool01`…，名称可占位），下拉首项「无」。解锁 `min(20, floor(stationLevel/5))`，Lv1–4 只能「无」；未解锁即使有库存也不可选。选中那一把：`speed × (1 + 序号 × 0.03)`，只生效一把；每次成功吞吐耗 1，「无」不耗，耗尽回「无」。没选 = 裸效率，仍可派。不再看工人 assignment 是否匹配。锻造站可选 `selectedToolType`（镐/锤/猎具/锅/镰/瓶架/竿），通用成品写入 `forgedTools` 并进物资，专属工具只进物资。旧档工人 / 站上 `toolSlot` / `toolId` hydrate：一律回物资，不自动选中。
+用具下拉首项「无」。未解锁即使有库存也不可选。选中那一把：`speed × (1 + 序号 × 0.03)`，只生效一把；每次成功吞吐耗 1，「无」不耗，耗尽回「无」。没选 = 裸效率，仍可派。旧档 `tool` / `ironTool` / `mithrilTool` 与工人 / 站上 `toolSlot` / `toolId` hydrate：一律回物资，不自动选中。
 
 ### 2.3 狩猎 `hunting`（采集）
 
@@ -160,7 +154,7 @@ type ItemId /* 钓鱼相关 */ = 'fish' | 'junk'
 站间仍共用 `save.bank`（字段名沿用，**无容量**，堆再多也不停产）。
 
 ```
-挖矿 ──矿石──► 锻造 ──通用工具 + 专属工具──► 工坊 selectedToolId
+挖矿 ──矿石──► 锻造 ──各站专属工具──► 工坊 selectedToolId
 狩猎 ──肉────► 烹饪 ──食物──► 工人 foodSlot ──► 生产 Buff
 狩猎 ──血/牙/眼──► 炼金（占位）
 采药 ──草────► 炼金（占位）

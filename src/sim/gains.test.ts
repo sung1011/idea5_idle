@@ -124,11 +124,14 @@ describe('completeCycle gain tips', () => {
     expect(hazardGain.tips[0]).toContain('遇险')
 
     const fail = roster(1)
+    fail.stations.mining.stationLevel = 5
+    fail.stations.forging.selectedForgeToolId = 'miningTool01'
     fail.bank.ore = 1
     assignWorker(fail, fail.workers[0].id, 'forging')
     const failGain = collectGain(fail, 'forging')
     expect(failGain.ok).toBe(true)
     expect(fail.stations.forging.craftNotice).toContain('软失败')
+    expect(bankQty(fail, 'miningTool01')).toBe(0)
     expect(bankQty(fail, 'tool')).toBe(0)
     expect(failGain.events).toEqual([{ stationId: 'forging', lots: [], notice: '软失败，矿石损耗', gold: 0 }])
     expect(failGain.tips).toEqual(['软失败，矿石损耗'])
@@ -137,11 +140,13 @@ describe('completeCycle gain tips', () => {
   it('tips forging and alchemy success', () => {
     setRollOverride(() => 0.99)
     const forge = roster(1)
+    forge.stations.mining.stationLevel = 5
+    forge.stations.forging.selectedForgeToolId = 'miningTool01'
     forge.bank.ore = 1
     assignWorker(forge, forge.workers[0].id, 'forging')
     const forgeGain = collectGain(forge, 'forging')
     expect(forgeGain.events[0]?.stationId).toBe('forging')
-    expect(forgeGain.tips).toEqual(['获得 初级工具 ×1、金币 +2'])
+    expect(forgeGain.tips).toEqual(['获得 采矿工具1 ×1、金币 +1'])
 
     const brew = roster(1)
     brew.bank.blood = 1
@@ -184,13 +189,15 @@ describe('completeCycle craft gold', () => {
     setRollOverride(() => 0.99)
     const forge = roster(1)
     const forgeGold = forge.gold
+    forge.stations.mining.stationLevel = 5
+    forge.stations.forging.selectedForgeToolId = 'miningTool01'
     forge.bank.ore = 1
     assignWorker(forge, forge.workers[0].id, 'forging')
     const forged = collectGain(forge, 'forging')
     expect(forged.ok).toBe(true)
-    expect(forge.gold).toBe(forgeGold + 2)
-    expect(forged.events[0]?.gold).toBe(2)
-    expect(forged.tips).toEqual(['获得 初级工具 ×1、金币 +2'])
+    expect(forge.gold).toBe(forgeGold + 1)
+    expect(forged.events[0]?.gold).toBe(1)
+    expect(forged.tips).toEqual(['获得 采矿工具1 ×1、金币 +1'])
 
     const cook = roster(1)
     const cookGold = cook.gold

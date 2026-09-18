@@ -24,6 +24,7 @@ import {
   ITEM_DEF,
   itemCraftGold,
   stationToolsOf,
+  STATION_TOOL_IDS,
 } from './tables'
 
 describe('production phase-1 tables', () => {
@@ -56,11 +57,8 @@ describe('production phase-1 tables', () => {
   it('maps smithing to forging and drops woodcutting', () => {
     expect(resolveStationId('smithing')).toBe('forging')
     expect(resolveStationId('woodcutting')).toBeNull()
-    expect(STATION_DEF.forging.categories.map((c) => c.outputs[0].itemId)).toEqual([
-      'tool',
-      'ironTool',
-      'mithrilTool',
-    ])
+    expect(STATION_DEF.forging.categories.map((c) => c.id)).toEqual(['default'])
+    expect(STATION_DEF.forging.categories[0].outputs).toEqual([])
     expect(STATION_DEF.alchemy.categories[0].costs).toEqual([{ itemId: 'herb', qty: 1 }])
     expect(ALCHEMY_COST_OPTIONS).toEqual([
       [{ itemId: 'herb', qty: 1 }],
@@ -116,7 +114,7 @@ describe('production phase-1 tables', () => {
     })
     expect(stationRelatedItems('forging')).toEqual({
       costs: ['ore', 'slag', 'ironOre', 'mithrilOre', ...stationToolsOf('forging').map((row) => row.id)],
-      outputs: ['tool', 'ironTool', 'mithrilTool', 'blueprint'],
+      outputs: ['blueprint', ...STATION_TOOL_IDS],
     })
     expect(stationRelatedItems('fishing')).toEqual({
       costs: stationToolsOf('fishing').map((row) => row.id),
@@ -138,13 +136,23 @@ describe('production phase-1 tables', () => {
       costs: ['herb', 'blood', 'tooth', 'eye', ...stationToolsOf('alchemy').map((row) => row.id)],
       outputs: ['potion'],
     })
-    expect(leftoverStockItems()).toEqual(['wood', 'weapon', 'ironWeapon', 'mithrilWeapon'])
+    expect(leftoverStockItems()).toEqual([
+      'wood',
+      'weapon',
+      'ironWeapon',
+      'mithrilWeapon',
+      'tool',
+      'ironTool',
+      'mithrilTool',
+    ])
   })
 
   it('maps producible items to one primary station and leaves leftover goods unmapped', () => {
     expect(itemProducerStation('ore')).toBe('mining')
     expect(itemProducerStation('ironOre')).toBe('mining')
-    expect(itemProducerStation('tool')).toBe('forging')
+    expect(itemProducerStation('tool')).toBeNull()
+    expect(itemProducerStation('miningTool01')).toBe('forging')
+    expect(itemProducerStation('herbalismTool02')).toBe('forging')
     expect(itemProducerStation('blueprint')).toBe('forging')
     expect(itemProducerStation('fish')).toBe('fishing')
     expect(itemProducerStation('junk')).toBe('fishing')

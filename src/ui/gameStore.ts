@@ -18,7 +18,7 @@ import { settleOffline } from '../sim/offline'
 import { eatFood, loadFood, unloadFood } from '../sim/food'
 import { fuseStationWorkers } from '../sim/fuse'
 import { recruitWorker } from '../sim/recruit'
-import { selectForgingToolType, selectStationTool } from '../sim/tools'
+import { selectForgeOutput, selectForgingToolType, selectStationTool } from '../sim/tools'
 import { selectStationCategory } from '../sim/stationProgress'
 import {
   barterMerchant,
@@ -148,6 +148,7 @@ export const useGameStore = defineStore('game', () => {
     unloadFood: (workerId: string) => apply((s) => unloadFood(s, workerId)),
     eatFood: (workerId: string) => apply((s) => eatFood(s, workerId)),
     selectToolType: (toolTypeId: ToolTypeId) => apply((s) => selectForgingToolType(s, toolTypeId)),
+    selectForgeOutput: (toolId: StationToolId) => apply((s) => selectForgeOutput(s, toolId)),
     selectCategory: (stationId: StationId, categoryId: CategoryId) =>
       apply((s) => selectStationCategory(s, stationId, categoryId)),
     explore: () => apply(exploreBoard),

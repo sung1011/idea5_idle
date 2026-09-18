@@ -20,7 +20,12 @@ import {
   TOOL_TYPE_IDS,
   xpToNextLevel,
 } from '../sim/tables'
-import { stationToolPickOptions, stationToolSpeedMul, type StationToolPickOption } from '../sim/tools'
+import {
+  forgeToolPickOptions,
+  stationToolPickOptions,
+  stationToolSpeedMul,
+  type StationToolPickOption,
+} from '../sim/tools'
 import type { CategoryId, StationId, StationToolId, ToolTypeId } from '../sim/types'
 import ConsumeJumpItem from './consumeJumpItem.vue'
 import { formatConsumeToken } from './encounterDeal'
@@ -46,6 +51,9 @@ const canMerge = computed(() => crew.value.length >= STATION_WORKER_CAP)
 const mergeLabel = computed(() => stationMergeLabel(game.save, props.stationId))
 const station = computed(() => game.save.stations[props.stationId])
 const toolOptions = computed(() => stationToolPickOptions(game.save, props.stationId))
+const forgeOptions = computed(() =>
+  props.stationId === 'forging' ? forgeToolPickOptions(game.save) : [],
+)
 const toolLine = computed(() => {
   const selected = toolOptions.value.find((row) => row.id === station.value.selectedToolId)
   if (!selected?.id) return '未选工具 · 裸效率'
@@ -100,6 +108,18 @@ function onToolType(ev: Event) {
 function onSelectTool(ev: Event) {
   const value = (ev.target as HTMLSelectElement).value
   game.selectStationTool(props.stationId, value ? (value as StationToolId) : null)
+}
+
+function onForgeOutput(ev: Event) {
+  const value = (ev.target as HTMLSelectElement).value
+  if (!value) return
+  game.selectForgeOutput(value as StationToolId)
+}
+
+function forgeOptionLabel(row: StationToolPickOption) {
+  if (!row.id) return row.label
+  if (!row.unlocked) return `${row.label}（Lv${row.unlockLevel}）`
+  return row.label
 }
 
 function toolOptionLabel(row: StationToolPickOption) {
@@ -186,7 +206,20 @@ function consumeText(row: StationConsumeToken) {
           </option>
         </select>
       </label>
-      <label v-if="pickOptions.length > 1" class="cats">
+      <label v-if="stationId === 'forging'" class="cats">
+        <span class="sr">制造</span>
+        <select class="cat-select" :value="station.selectedForgeToolId ?? ''" @change="onForgeOutput">
+          <option
+            v-for="row in forgeOptions"
+            :key="row.id ?? 'none'"
+            :value="row.id ?? ''"
+            :disabled="!row.unlocked"
+          >
+            {{ forgeOptionLabel(row) }}
+          </option>
+        </select>
+      </label>
+      <label v-if="stationId !== 'forging' && pickOptions.length > 1" class="cats">
         <span class="sr">{{ pickCaption }}</span>
         <select class="cat-select" :value="station.selectedCategory" @change="onPick">
           <option v-for="c in pickOptions" :key="c.id" :value="c.id" :disabled="!c.unlocked">

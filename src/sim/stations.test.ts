@@ -7,6 +7,7 @@ import { recruitWorker } from './recruit'
 import { setRollOverride } from './rng'
 import { PLAYABLE_STATION_IDS, STATION_DEF, STATION_IDS, stationSpeed } from './tables'
 import { ticks } from './tick'
+import { selectForgeOutput } from './tools'
 import type { Save } from './types'
 
 afterEach(() => {
@@ -199,25 +200,42 @@ describe('empty station progress', () => {
 })
 
 describe('forging pipeline', () => {
-  it('consumes ore and deposits a tool', () => {
+  it('consumes ore and deposits an exclusive tool', () => {
     setRollOverride(() => 0.99)
     const save = roster(1)
+    save.stations.mining.stationLevel = 5
+    expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
     save.bank.ore = 1
     assignWorker(save, save.workers[0].id, 'forging')
     const next = ticks(save, 32)
     expect(bankQty(next, 'ore')).toBe(0)
-    expect(bankQty(next, 'tool')).toBe(1)
+    expect(bankQty(next, 'miningTool01')).toBe(1)
+    expect(bankQty(next, 'tool')).toBe(0)
     expect(bankQty(next, 'weapon')).toBe(0)
     expect(next.stations.forging.completed).toBe(1)
     expect(next.stations.forging.stallReason).toBeNull()
   })
 
-  it('idles with a hint when there is no ore', () => {
+  it('idles when the target station has not unlocked a tool', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'forging')
     const next = ticks(save, 32)
+    expect(bankQty(next, 'miningTool01')).toBe(0)
     expect(bankQty(next, 'tool')).toBe(0)
-    expect(bankQty(next, 'weapon')).toBe(0)
+    expect(next.stations.forging.completed).toBe(0)
+    expect(next.stations.forging.progress).toBe(0)
+    expect(next.stations.forging.stallReason).toBe('emptyInput')
+    const hints = collectHints(next)
+    expect(hints.some((h) => h.kind === 'bottleneck' && h.text.includes('未解锁工具'))).toBe(true)
+  })
+
+  it('idles with a hint when a tool is selected but there is no ore', () => {
+    const save = roster(1)
+    save.stations.mining.stationLevel = 5
+    expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
+    assignWorker(save, save.workers[0].id, 'forging')
+    const next = ticks(save, 32)
+    expect(bankQty(next, 'miningTool01')).toBe(0)
     expect(next.stations.forging.completed).toBe(0)
     expect(next.stations.forging.progress).toBe(0)
     expect(next.stations.forging.stallReason).toBe('emptyInput')

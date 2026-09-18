@@ -16,7 +16,7 @@ import {
   type IoRule,
 } from './tables'
 import { stationConflictMul, stationTechSpeedMul } from './tech'
-import { assignedToolWeight } from './tools'
+import { assignedToolWeight, selectedForgeRecipe } from './tools'
 import type { Hint, ItemId, Save, StationId } from './types'
 
 export { assignedWorkers }
@@ -42,6 +42,7 @@ export type ConsumePick = { kind: 'none' | 'primary' | 'alt'; rules: IoRule[] }
 /** 当前站可扣的配方组。炼金走草 / 猎副产表，其它站 costs + 可选 altCosts。 */
 export function consumeRuleSets(save: Save, stationId: StationId): IoRule[][] {
   if (stationId === 'alchemy') return ALCHEMY_COST_OPTIONS
+  if (stationId === 'forging' && !selectedForgeRecipe(save)) return []
   const def = selectedCategoryDef(save, stationId)
   const sets: IoRule[][] = [def.costs]
   if (def.altCosts?.length) sets.push(def.altCosts)
@@ -50,6 +51,7 @@ export function consumeRuleSets(save: Save, stationId: StationId): IoRule[][] {
 
 export function pickConsume(save: Save, stationId: StationId): ConsumePick | null {
   const sets = consumeRuleSets(save, stationId)
+  if (sets.length === 0) return null
   if (sets.length === 1 && sets[0].length === 0) return { kind: 'none', rules: [] }
   for (let i = 0; i < sets.length; i++) {
     const rules = sets[i]
@@ -60,6 +62,7 @@ export function pickConsume(save: Save, stationId: StationId): ConsumePick | nul
 }
 
 export function needLabel(save: Save, stationId: StationId): string {
+  if (stationId === 'forging' && !selectedForgeRecipe(save)) return '未解锁工具'
   const labels = new Set<string>()
   for (const rules of consumeRuleSets(save, stationId)) {
     for (const label of missingCostLabels(save, rules)) labels.add(label)
@@ -71,6 +74,9 @@ export function needLabel(save: Save, stationId: StationId): string {
 export function stationBottleneckText(save: Save, stationId: StationId): string | null {
   const station = save.stations[stationId]
   if (station.stallReason === 'emptyInput') {
+    if (stationId === 'forging' && !selectedForgeRecipe(save)) {
+      return `未解锁工具：${STATION_DEF.forging.label}空转`
+    }
     return `${needLabel(save, stationId)}见底：${STATION_DEF[stationId].label}空转`
   }
   if (stationId === 'mining' && isMiningNodeRecovering(station.miningNode, save.elapsedS)) {

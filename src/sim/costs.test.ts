@@ -6,10 +6,9 @@ import { createSave } from './createSave'
 import { collectHints } from './query'
 import { recruitWorker } from './recruit'
 import { setRollOverride } from './rng'
-import { grantStationXp, selectStationCategory } from './stationProgress'
 import { completeCycle } from './stations'
-import { xpToNextLevel } from './tables'
 import { ticks } from './tick'
+import { selectForgeOutput } from './tools'
 import type { Save } from './types'
 
 afterEach(() => {
@@ -23,13 +22,6 @@ function roster(n: number): Save {
     expect(recruitWorker(save).ok).toBe(true)
   }
   return save
-}
-
-function unlockTo(save: Save, stationId: 'forging', level: number) {
-  const station = save.stations[stationId]
-  while (station.stationLevel < level) {
-    grantStationXp(save, stationId, xpToNextLevel(station.stationLevel))
-  }
 }
 
 describe('takeCosts', () => {
@@ -98,38 +90,41 @@ describe('takeCosts', () => {
 })
 
 describe('forging costs table', () => {
-  it('copper forging still spends 1 ore', () => {
+  it('first exclusive tool spends 1 ore', () => {
     setRollOverride(() => 0.99)
     const save = roster(1)
+    save.stations.mining.stationLevel = 5
+    expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
     save.bank.ore = 1
     assignWorker(save, save.workers[0].id, 'forging')
     expect(completeCycle(save, 'forging')).toBe(true)
     expect(bankQty(save, 'ore')).toBe(0)
-    expect(bankQty(save, 'tool')).toBe(1)
+    expect(bankQty(save, 'miningTool01')).toBe(1)
+    expect(bankQty(save, 'tool')).toBe(0)
     expect(bankQty(save, 'weapon')).toBe(0)
   })
 
-  it('iron forging spends ironOre only; missing ore deducts nothing', () => {
+  it('mid-tier exclusive tool spends ironOre only; missing ore deducts nothing', () => {
     const save = roster(1)
-    unlockTo(save, 'forging', 5)
-    expect(selectStationCategory(save, 'forging', 'iron').ok).toBe(true)
+    save.stations.mining.stationLevel = 30
+    expect(selectForgeOutput(save, 'miningTool06').ok).toBe(true)
     save.bank.ironOre = 0
     save.bank.wood = 2
     assignWorker(save, save.workers[0].id, 'forging')
     const next = ticks(save, 36)
     expect(bankQty(next, 'ironOre')).toBe(0)
     expect(bankQty(next, 'wood')).toBe(2)
-    expect(bankQty(next, 'ironTool')).toBe(0)
+    expect(bankQty(next, 'miningTool06')).toBe(0)
     expect(next.stations.forging.completed).toBe(0)
     expect(next.stations.forging.stallReason).toBe('emptyInput')
     expect(collectHints(next).some((h) => h.text.includes('铁矿') && h.text.includes('见底'))).toBe(true)
   })
 
-  it('iron forging deducts ore and ignores leftover wood', () => {
+  it('mid-tier exclusive tool deducts ironOre and ignores leftover wood', () => {
     setRollOverride(() => 0.99)
     const save = roster(1)
-    unlockTo(save, 'forging', 5)
-    expect(selectStationCategory(save, 'forging', 'iron').ok).toBe(true)
+    save.stations.mining.stationLevel = 30
+    expect(selectForgeOutput(save, 'miningTool06').ok).toBe(true)
     save.bank.ironOre = 1
     save.bank.wood = 2
     save.bank.ore = 4
@@ -138,22 +133,22 @@ describe('forging costs table', () => {
     expect(bankQty(next, 'ironOre')).toBe(0)
     expect(bankQty(next, 'wood')).toBe(2)
     expect(bankQty(next, 'ore')).toBe(4)
-    expect(bankQty(next, 'ironTool')).toBe(1)
+    expect(bankQty(next, 'miningTool06')).toBe(1)
     expect(next.stations.forging.completed).toBe(1)
   })
 
-  it('mithril forging spends 1 mithrilOre and no wood', () => {
+  it('high-tier exclusive tool spends 1 mithrilOre and no wood', () => {
     setRollOverride(() => 0.99)
     const save = roster(1)
-    unlockTo(save, 'forging', 10)
-    expect(selectStationCategory(save, 'forging', 'mithril').ok).toBe(true)
+    save.stations.mining.stationLevel = 55
+    expect(selectForgeOutput(save, 'miningTool11').ok).toBe(true)
     save.bank.mithrilOre = 1
     save.bank.wood = 2
     assignWorker(save, save.workers[0].id, 'forging')
     expect(completeCycle(save, 'forging')).toBe(true)
     expect(bankQty(save, 'mithrilOre')).toBe(0)
     expect(bankQty(save, 'wood')).toBe(2)
-    expect(bankQty(save, 'mithrilTool')).toBe(1)
-    expect(bankQty(save, 'mithrilWeapon')).toBe(0)
+    expect(bankQty(save, 'miningTool11')).toBe(1)
+    expect(bankQty(save, 'mithrilTool')).toBe(0)
   })
 })

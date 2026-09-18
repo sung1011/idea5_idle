@@ -27,6 +27,8 @@ import { ticks } from './tick'
 import {
   assignedToolWeight,
   consumeSelectedStationTool,
+  forgeToolPickOptions,
+  selectForgeOutput,
   selectForgingToolType,
   selectStationTool,
   stationToolPickOptions,
@@ -240,10 +242,13 @@ describe('forging soft fail', () => {
   it('soft fail spends ore, gives no tool, still grants some XP', () => {
     setRollOverride(() => 0)
     const save = roster(1)
+    save.stations.mining.stationLevel = 5
+    expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
     save.bank.ore = 2
     assignWorker(save, save.workers[0].id, 'forging')
     expect(completeForgingCycle(save)).toBe(true)
     expect(bankQty(save, 'ore')).toBe(1)
+    expect(bankQty(save, 'miningTool01')).toBe(0)
     expect(bankQty(save, 'tool')).toBe(0)
     expect(save.stations.forging.completed).toBe(1)
     expect(save.stations.forging.stationXp).toBe(1)
@@ -251,17 +256,40 @@ describe('forging soft fail', () => {
     expect(save.stations.forging.stallReason).toBeNull()
   })
 
-  it('success forges a tool for the selected type and does not make weapons', () => {
+  it('success forges the selected exclusive tool and does not make generic tools', () => {
     setRollOverride(() => 0.99)
     const save = roster(1)
-    save.bank.ore = 1
+    save.stations.cooking.stationLevel = 5
     expect(selectForgingToolType(save, 'pot').ok).toBe(true)
+    expect(selectForgeOutput(save, 'cookingTool01').ok).toBe(true)
+    save.bank.ore = 1
     assignWorker(save, save.workers[0].id, 'forging')
     expect(completeCycle(save, 'forging')).toBe(true)
-    expect(bankQty(save, 'tool')).toBe(1)
+    expect(bankQty(save, 'tool')).toBe(0)
     expect(bankQty(save, 'weapon')).toBe(0)
     expect(bankQty(save, 'cookingTool01')).toBe(1)
-    expect(save.forgedTools[0]).toEqual({ itemId: 'tool', matchStationId: 'cooking' })
-    expect(save.stations.forging.craftNotice).toContain('初级工具')
+    expect(save.forgedTools).toEqual([])
+    expect(save.stations.forging.craftNotice).toContain('烹饪工具1')
+  })
+
+  it('lists unlocked exclusive tools plus one locked preview, and rejects locked crafts', () => {
+    const save = roster(1)
+    expect(forgeToolPickOptions(save)).toEqual([
+      expect.objectContaining({ id: 'miningTool01', unlocked: false, unlockLevel: 5 }),
+    ])
+    expect(selectForgeOutput(save, 'miningTool01')).toEqual({
+      ok: false,
+      reason: '未解锁（需 采矿 Lv5）',
+    })
+    save.stations.mining.stationLevel = 5
+    expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
+    const opts = forgeToolPickOptions(save)
+    expect(opts).toHaveLength(2)
+    expect(opts[0]).toMatchObject({ id: 'miningTool01', unlocked: true })
+    expect(opts[1]).toMatchObject({ id: 'miningTool02', unlocked: false, unlockLevel: 10 })
+    expect(selectForgeOutput(save, 'miningTool02')).toEqual({
+      ok: false,
+      reason: '未解锁（需 采矿 Lv10）',
+    })
   })
 })

@@ -7,7 +7,7 @@ import { craftGoldForLots, emitGain, pushLot, type GainSink, type ItemLot } from
 import { assignedCount, canConsume, currentSpeed, pickConsume } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
 import { ITEM_DEF, isPotionItemId } from './tables'
-import { consumeSelectedStationTool, cycleOutputBonus } from './tools'
+import { consumeSelectedStationTool, cycleOutputBonus, sanitizeForgeSelection } from './tools'
 import type { Save, StationId } from './types'
 
 /** 1/6、1/7 这类 cycle 累加会卡在 0.999…，差一丁点到 1。 */
@@ -105,6 +105,7 @@ function emitCycleGain(save: Save, stationId: StationId, lots: ItemLot[], onGain
 export function stepStation(save: Save, stationId: StationId, now = Date.now(), onGain?: GainSink): void {
   if (stationId === 'mining') applyMiningRecovery(save)
   if (stationId === 'hunting') applyHuntingPauseTick(save)
+  if (stationId === 'forging') sanitizeForgeSelection(save)
 
   const station = save.stations[stationId]
   const n = assignedCount(save, stationId)

@@ -12,9 +12,9 @@
 - 站内多品类；开局每站只解锁 1 个品类。
 - 完成一次生产周期给该站 XP；XP 满则升级。
 - 每 5 级解锁 1 个新品类：Lv5 第 2 类，Lv10 第 3 类。
-- 高阶产出用新 `itemId`（`ironOre`、`ironTool`、`mithrilOre`、`mithrilTool`），不是同一个 `ore` / `tool` 换皮。旧武器 id 仍可卖。
-- 整站共用一个 `selectedCategory`；同站堆人只加速当前品类。迅雷公式不变；相邻站不再加成。
-- 采矿 / 锻造 / 钓鱼 / 狩猎各 3 个品类（默认 / Lv5 / Lv10）。烹饪开局烤鱼+烤肉，Lv5 香料炖。采药无限稳采，不设节点。
+- 高阶产出用新 `itemId`（`ironOre`、`mithrilOre`、各站 `*Tool01`–`20`），不是同一个 `ore` / `tool` 换皮。旧 `tool` / `ironTool` / `mithrilTool` 与武器 id 仍可卖，不再锻造产出。
+- 整站共用一个 `selectedCategory`；同站堆人只加速当前品类。迅雷公式不变；相邻站不再加成。锻造另用 `selectedForgeToolId` 选专属工具。
+- 采矿 / 钓鱼 / 狩猎各 3 个品类（默认 / Lv5 / Lv10）。锻造单一占位品类，实际产出看目标站解锁的专属工具。烹饪开局烤鱼+烤肉，Lv5 香料炖。采药无限稳采，不设节点。
 
 ---
 
@@ -70,9 +70,7 @@ xpToNext(L) = Math.round(100 * Math.pow(1.45, L - 1) * 0.175)  // L >= 1
 | 采矿 | 铜矿 `copper` | 1 | 20s | — | `ore` 铜矿 | 1 |
 | 采矿 | 铁矿 `iron` | 5 | 24s | — | `ironOre` | 2 |
 | 采矿 | 秘银矿 `mithril` | 10 | 28s | — | `mithrilOre` | 3 |
-| 锻造 | 初级工具 `copper` | 1 | 32s | `[{ ore, 1 }]`；没有则 `altCosts` 渣滓；软失败扣部分矿、无成品、少量 XP | `tool` | 1 |
-| 锻造 | 中阶工具 `iron` | 5 | 36s | `[{ ironOre, 1 }]` | `ironTool` | 2 |
-| 锻造 | 高阶工具 `mithril` | 10 | 40s | `[{ mithrilOre, 1 }]` | `mithrilTool` | 3 |
+| 锻造 | 专属工具 `default`（站卡另选目标站 tool01–20） | 目标站 `floor(level/5)` | 32 / 36 / 40s（1–5 / 6–10 / 11–20） | 铜矿 / 铁矿 / 秘银矿；第 1 种可用渣滓；软失败扣部分矿、无成品、少量 XP | `miningTool01`… 等专属 id | 1 / 2 / 3 |
 | 钓鱼 | 初级渔场 `copper` | 1 | 28s | — | 掉落表：空杆 / 鱼 / 杂物（墙：只出初级） | 1 |
 | 钓鱼 | 中级渔场 `iron` | 5 | 32s | — | 掉落表：初级～中级 | 2 |
 | 钓鱼 | 高级渔场 `mithril` | 10 | 36s | — | 掉落表：初级～高级 | 3 |

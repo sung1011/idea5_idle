@@ -263,6 +263,8 @@ export type StationState = {
   gatherPauseUntil?: number | null
   /** 锻造当前工具类型（镐/锅/瓶架等）。其它站忽略。 */
   selectedToolType?: ToolTypeId | null
+  /** 锻造当前要造的专属工具。其它站忽略。未解锁或非法时回 null。 */
+  selectedForgeToolId?: StationToolId | null
   /** 最近一次制造结算文案（软失败 / 锻成）。 */
   craftNotice?: string | null
   /**
