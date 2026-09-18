@@ -85,9 +85,6 @@ function closeSheet() {
   <section class="panel tree">
     <p class="kicker">骑士工坊 · 科技</p>
     <p class="title">科技树</p>
-    <p class="hint">
-      三页签各自成串。任意工坊完成一个周期 +1 灵感，骑士升级也 +1。每个节点可点多次（图标 n/m），未满级且本层已开、灵感够可再点；买任意 1 次开上一层。工坊规章 / 工匠密录减轻同站冲突；事务订单格科技把主线 1→6。
-    </p>
     <div class="chips">
       <span class="chip">骑士 {{ knightLevel }} 级</span>
       <span class="chip">灵感 {{ points }}</span>

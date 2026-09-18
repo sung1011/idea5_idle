@@ -43,7 +43,6 @@ const chapterTitle = computed(() => mainChapterTitle(game.save))
 const lootBarLabel = computed(() => mainLootClaimBarLabel(game.save))
 const lootBarPct = computed(() => mainLootClaimFillPct(game.save))
 const lootBarReady = computed(() => game.save.mainLootClaims >= 10)
-const departedTotal = computed(() => game.save.departCount)
 const now = computed(() => {
   void game.save.elapsedS
   return Date.now()
@@ -171,7 +170,6 @@ function pickRecommend(w: Worker) {
         探索（{{ cost }} 金）
       </button>
     </div>
-    <p class="hint">工坊看板 {{ game.save.encounters.length }} 格。当前金币 {{ game.save.gold }}</p>
     <p v-if="buffOn" class="buff">{{ buffLabel }}</p>
 
     <div class="board">
@@ -330,8 +328,6 @@ function pickRecommend(w: Worker) {
         </template>
       </article>
     </div>
-
-    <p v-if="departedTotal > 0" class="hint">已开战 {{ departedTotal }} 次</p>
 
     <div v-if="pickOpen" class="modal" role="dialog" aria-label="选择出战工人" @click.self="closePick">
       <div class="sheet">

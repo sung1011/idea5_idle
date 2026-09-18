@@ -172,7 +172,6 @@ function consumeText(row: StationConsumeToken) {
       </p>
       <div v-if="stock.costs.length" class="stock">
         <p class="stock-row">
-          <span class="stock-k">消耗库存</span>
           <span
             v-for="row in stock.costs"
             :key="row.itemId"
@@ -411,12 +410,6 @@ h2 {
 
 .stock-row {
   margin: 0;
-}
-
-.stock-k {
-  color: var(--muted);
-  font-size: 11px;
-  letter-spacing: 0.06em;
 }
 
 .stock-item {
