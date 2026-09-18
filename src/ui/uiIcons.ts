@@ -1,5 +1,5 @@
 /** 底栏页签 + 工坊竖签：16×16 单色 path，与战斗属性图标同语言（currentColor）。 */
-export const DOCK_ICON_IDS = ['workshop', 'workers', 'encounters', 'tech'] as const
+export const DOCK_ICON_IDS = ['encounters', 'workshop', 'workers', 'tech'] as const
 export const STATION_ICON_IDS = [
   'mining',
   'forging',

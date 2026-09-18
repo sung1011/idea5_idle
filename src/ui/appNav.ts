@@ -4,15 +4,15 @@ import type { ItemId, StationId } from '../sim/types'
 import { loadWorkshopTab, saveWorkshopTab } from './workshopTabs'
 
 export const APP_TABS = [
+  { id: 'encounters', label: '主线' },
   { id: 'workshop', label: '工坊' },
   { id: 'workers', label: '工人' },
-  { id: 'encounters', label: '主线' },
   { id: 'tech', label: '科技' },
 ] as const
 
 export type AppTabId = (typeof APP_TABS)[number]['id']
 
-export const DEFAULT_APP_TAB: AppTabId = 'workshop'
+export const DEFAULT_APP_TAB: AppTabId = 'encounters'
 
 export const appTab = ref<AppTabId>(DEFAULT_APP_TAB)
 export const workshopTab = ref<StationId>(loadWorkshopTab())

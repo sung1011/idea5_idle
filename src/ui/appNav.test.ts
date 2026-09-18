@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  APP_TABS,
   DEFAULT_APP_TAB,
   appTab,
   openItemWorkshop,
@@ -34,15 +35,22 @@ function memory(): Storage {
 }
 
 describe('appNav', () => {
-  it('switches the dock tab and remembers a workshop station', () => {
-    selectAppTab('encounters')
+  it('keeps the dock order 主线 | 工坊 | 工人 | 科技 and falls back to 主线', () => {
+    expect(APP_TABS.map((tab) => tab.id)).toEqual(['encounters', 'workshop', 'workers', 'tech'])
+    expect(DEFAULT_APP_TAB).toBe('encounters')
+    expect(selectAppTab('nope')).toBe('encounters')
     expect(appTab.value).toBe('encounters')
+  })
+
+  it('switches the dock tab and remembers a workshop station', () => {
+    selectAppTab('workshop')
+    expect(appTab.value).toBe('workshop')
     const store = memory()
     expect(selectWorkshopStation('cooking', store)).toBe('cooking')
     expect(workshopTab.value).toBe('cooking')
     expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('cooking')
     expect(selectAppTab('nope')).toBe(DEFAULT_APP_TAB)
-    expect(appTab.value).toBe('workshop')
+    expect(appTab.value).toBe('encounters')
   })
 
   it('opens a producible item on the workshop dock and its producer station', () => {
