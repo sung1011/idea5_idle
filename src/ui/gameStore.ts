@@ -29,7 +29,7 @@ import {
   sellBulk,
   submitArtisan,
 } from '../sim/encounters'
-import { researchNextTech, researchTech } from '../sim/tech'
+import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
 import { tick } from '../sim/tick'
 import type { ActionResult, CategoryId, ItemId, Save, StationId, ToolTypeId } from '../sim/types'
 import { pushCombatLogTip } from './encounterTips'
@@ -176,6 +176,7 @@ export const useGameStore = defineStore('game', () => {
     gmAddMaxQualityWorker: () => apply(gmAddMaxQualityWorker),
     gmMaxStations: () => apply(gmMaxStations),
     gmFillBankBasics: () => apply(gmFillBankBasics),
+    gmResetTech: () => apply(resetAllTech),
     markAllRead: () => apply(markAllRead),
     researchNextTech: () => apply(researchNextTech),
     researchTech: (techId: string) => apply((s) => researchTech(s, techId)),

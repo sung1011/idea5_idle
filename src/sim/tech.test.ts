@@ -39,6 +39,8 @@ import {
   recruitCost,
   researchNextTech,
   researchTech,
+  resetAllTech,
+  spentTechPoints,
   rowHasPurchase,
   stationConflictHint,
   stationConflictMul,
@@ -505,5 +507,81 @@ describe('station conflict', () => {
     expect(stationConflictMul(save, 'mining')).toBe(1)
     expect(stationConflictHint(save, 'mining')).toBeNull()
     expect(currentSpeed(save, 'mining')).toBeCloseTo(1 / 20)
+  })
+})
+
+describe('resetAllTech', () => {
+  it('refunds every level × row cost, clears progress, and restores default slots/conflict', () => {
+    const save = createSave()
+    save.gold = 4321
+    save.diamonds = 11
+    save.bank.wood = 77
+    save.knightLevel = 6
+    const workerA = spawnWorker(save)
+    const workerB = spawnWorker(save)
+    assignWorker(save, workerA.id, 'mining')
+    assignWorker(save, workerB.id, 'mining')
+    const leftover = 17
+    save.techPoints = leftover
+
+    const buys: Array<{ id: string; times: number }> = [
+      { id: 'workshopLog', times: 3 },
+      { id: 'apprenticeNotes', times: 1 },
+      { id: 'workshopRules', times: 1 },
+      { id: 'artisanArchive', times: 1 },
+      { id: 'pathOutpost', times: 1 },
+      { id: 'marketLicense', times: 1 },
+    ]
+    let expectedSpent = 0
+    for (const { id, times } of buys) {
+      const cost = techNodeById(id).cost
+      for (let i = 0; i < times; i += 1) {
+        save.techPoints += cost
+        expect(researchTech(save, id).ok).toBe(true)
+        expectedSpent += cost
+      }
+    }
+
+    expect(spentTechPoints(save)).toBe(expectedSpent)
+    expect(save.techPoints).toBe(leftover)
+    expect(techLevel(save, 'workshopLog')).toBe(3)
+    expect(encounterSlotCount(save)).toBe(3)
+    expect(save.encounters).toHaveLength(3)
+    expect(stationConflictMul(save, 'mining')).toBe(STATION_CONFLICT_CLEARED_MUL)
+
+    const gold = save.gold
+    const diamonds = save.diamonds
+    const wood = save.bank.wood
+    const knightLevel = save.knightLevel
+    const workerCount = save.workers.length
+
+    expect(resetAllTech(save)).toEqual({
+      ok: true,
+      message: `已重置科技，返还灵感 ${expectedSpent}`,
+    })
+    expect(save.techPoints).toBe(leftover + expectedSpent)
+    expect(save.techLevels).toEqual({})
+    expect(save.unlockedTechIds).toEqual([])
+    expect(TECH_TREE.every((node) => techLevel(save, node.id) === 0)).toBe(true)
+    expect(spentTechPoints(save)).toBe(0)
+    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MIN)
+    expect(save.encounters).toHaveLength(ENCOUNTER_SLOT_MIN)
+    expect(stationConflictMul(save, 'mining')).toBe(STATION_CONFLICT_BASE_MUL)
+    expect(stationConflictHint(save, 'mining')).toBe('冲突：效率 −50%')
+    expect(save.gold).toBe(gold)
+    expect(save.diamonds).toBe(diamonds)
+    expect(save.bank.wood).toBe(wood)
+    expect(save.knightLevel).toBe(knightLevel)
+    expect(save.workers).toHaveLength(workerCount)
+  })
+
+  it('is a no-spend no-op on an empty tree besides succeeding', () => {
+    const save = createSave()
+    save.techPoints = 9
+    expect(resetAllTech(save)).toEqual({ ok: true, message: '已重置科技' })
+    expect(save.techPoints).toBe(9)
+    expect(save.techLevels).toEqual({})
+    expect(save.unlockedTechIds).toEqual([])
+    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MIN)
   })
 })

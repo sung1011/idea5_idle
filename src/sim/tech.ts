@@ -576,3 +576,25 @@ export function researchNextTech(save: Save): ActionResult {
   if (!next) return { ok: false, reason: '科技树已满' }
   return researchTech(save, next.id)
 }
+
+/** 已点科技按「等级 × 该层 cost」累计消耗的灵感。 */
+export function spentTechPoints(save: Save): number {
+  let spent = 0
+  for (const node of TECH_TREE) {
+    spent += techLevel(save, node.id) * node.cost
+  }
+  return spent
+}
+
+/** GM：清空科技进度并全额返还灵感。不改骑士等级、金币、工人、其它资源。 */
+export function resetAllTech(save: Save): ActionResult {
+  const refund = spentTechPoints(save)
+  save.techPoints = normalizeTechPoints(save.techPoints) + refund
+  save.techLevels = {}
+  save.unlockedTechIds = []
+  resizeEncounterBoard(save)
+  return {
+    ok: true,
+    message: refund > 0 ? `已重置科技，返还灵感 ${refund}` : '已重置科技',
+  }
+}
