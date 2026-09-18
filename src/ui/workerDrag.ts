@@ -1,6 +1,6 @@
 import { assignedWorkers, assignWorker } from '../sim/assign'
 import { isWorkerInCombat } from '../sim/combat'
-import { canFuseWorkerWithStation, fuseWorkerWithStation } from '../sim/fuse'
+import { canFuseWorkerOntoOccupant, fuseWorkerOntoOccupant } from '../sim/fuse'
 import { findWorker } from '../sim/recruit'
 import { isStationId, QUALITY_MAX, STATION_WORKER_CAP } from '../sim/tables'
 import type { ActionResult, Save, StationId } from '../sim/types'
@@ -59,7 +59,7 @@ export function canFuseDragOnSlot(save: Save, source: WorkerDragSource, target: 
   if (target.kind !== 'slot') return false
   const occupantId = slotOccupantId(save, target.stationId, target.slotIndex)
   if (!occupantId || occupantId === source.workerId) return false
-  return canFuseWorkerWithStation(save, source.workerId, target.stationId)
+  return canFuseWorkerOntoOccupant(save, source.workerId, occupantId, target.stationId)
 }
 
 export function canDropWorker(save: Save, source: WorkerDragSource, target: WorkerDropTarget): boolean {
@@ -86,13 +86,6 @@ function rejectOccupiedDrop(save: Save, source: WorkerDragSource, target: Extrac
       return { ok: false, reason: '品质不同，不能合成' }
     }
   }
-  if (
-    worker &&
-    worker.assignment !== target.stationId &&
-    assignedWorkers(save, target.stationId).length >= STATION_WORKER_CAP
-  ) {
-    return { ok: false, reason: '该站最多 2 人' }
-  }
   return { ok: false, reason: '不能派驻到这里' }
 }
 
@@ -115,8 +108,10 @@ export function applyWorkerDrag(save: Save, source: WorkerDragSource, target: Wo
     return { ok: false, reason: '不能派驻到这里' }
   }
   if (target.kind === 'rest') return assignWorker(save, source.workerId, null)
-  if (canFuseDragOnSlot(save, source, target)) {
-    return fuseWorkerWithStation(save, source.workerId, target.stationId)
+  if (target.kind === 'slot' && canFuseDragOnSlot(save, source, target)) {
+    const occupantId = slotOccupantId(save, target.stationId, target.slotIndex)
+    if (!occupantId) return { ok: false, reason: '不能派驻到这里' }
+    return fuseWorkerOntoOccupant(save, source.workerId, occupantId, target.stationId)
   }
   return assignWorker(save, source.workerId, target.stationId)
 }

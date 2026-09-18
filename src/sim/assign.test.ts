@@ -4,8 +4,10 @@ import { beginEnemyCombat } from './combat'
 import { createSave } from './createSave'
 import {
   canFuseStationWorkers,
+  canFuseWorkerOntoOccupant,
   canFuseWorkerWithStation,
   fuseStationWorkers,
+  fuseWorkerOntoOccupant,
   fuseWorkerWithStation,
   fuseWorkers,
   stationMergeLabel,
@@ -153,6 +155,23 @@ describe('station merge', () => {
     expect(save.workers).toHaveLength(1)
     expect(save.workers[0].qualityTier).toBe(2)
     expect(save.workers[0].assignment).toBe('cooking')
+  })
+
+  it('fuses onto an occupant without assigning first, even if the station is full', () => {
+    const save = roster(3)
+    const [idle, left, right] = save.workers
+    assignWorker(save, left.id, 'mining')
+    assignWorker(save, right.id, 'mining')
+    expect(canFuseWorkerWithStation(save, idle.id, 'mining')).toBe(false)
+    expect(canFuseWorkerOntoOccupant(save, idle.id, left.id, 'mining')).toBe(true)
+    const result = fuseWorkerOntoOccupant(save, idle.id, left.id, 'mining')
+    expect(result.ok).toBe(true)
+    expect(save.workers).toHaveLength(2)
+    expect(save.workers.find((w) => w.id === idle.id)).toBeUndefined()
+    expect(save.workers.find((w) => w.id === left.id)).toBeUndefined()
+    expect(save.workers.find((w) => w.id === right.id)?.assignment).toBe('mining')
+    expect(save.workers.find((w) => w.id !== right.id)?.assignment).toBe('mining')
+    expect(save.workers.find((w) => w.id !== right.id)?.qualityTier).toBe(2)
   })
 
   it('does not assign when the target station crew cannot fuse', () => {

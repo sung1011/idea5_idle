@@ -20,27 +20,21 @@ function stripSlots(save: Save, worker: Worker): void {
   if (worker.foodSlot) unloadFood(save, worker.id)
 }
 
-/** 同站同档两人合成：消耗两人，产出 1 个高一档新人（留在原站、空槽）。满档 / 不同档 / 不同站失败。 */
-export function fuseWorkers(save: Save, workerIdA: string, workerIdB: string): ActionResult {
-  if (!workerIdA || !workerIdB) return { ok: false, reason: '请选两个同品质工人' }
-  if (workerIdA === workerIdB) return { ok: false, reason: '不能合成同一个人' }
-  const a = findWorker(save, workerIdA)
-  const b = findWorker(save, workerIdB)
-  if (!a || !b) return { ok: false, reason: '没有这个工人' }
-  if (!a.assignment || a.assignment !== b.assignment) {
-    return { ok: false, reason: '只能合并同一工坊的两人' }
-  }
-  if (a.qualityTier !== b.qualityTier) return { ok: false, reason: '品质不同，不能合成' }
-  if (a.qualityTier >= QUALITY_MAX) return { ok: false, reason: '已是最高品质' }
+function clearEmptyStation(save: Save, stationId: StationId | null): void {
+  if (!stationId || !isStationId(stationId)) return
+  if (assignedWorkers(save, stationId).length > 0) return
+  save.stations[stationId].progress = 0
+  save.stations[stationId].stallReason = null
+}
 
+function fusePairAt(save: Save, a: Worker, b: Worker, stayAt: StationId | null): ActionResult {
   stripSlots(save, a)
   stripSlots(save, b)
-
+  const leftFrom = a.assignment
+  const rightFrom = b.assignment
   const nextTier = (a.qualityTier + 1) as QualityTier
   const pool = classPoolForQuality(nextTier)
   const classId = pickClassFromPool(pool, roll01(save))
-
-  const stayAt = fuseStayAssigned(save) ? a.assignment : null
   const keptAttrs = a.combatAttrs
   const avgTotal = Math.floor((workerTotalXp(a.level, a.xp) + workerTotalXp(b.level, b.xp)) / 2)
   const progress = workerFromTotalXp(avgTotal)
@@ -50,9 +44,64 @@ export function fuseWorkers(save: Save, workerIdA: string, workerIdB: string): A
   worker.xp = progress.xp
   fillWorkerHp(worker)
   if (stayAt) worker.assignment = stayAt
+  if (leftFrom !== stayAt) clearEmptyStation(save, leftFrom)
+  if (rightFrom !== stayAt) clearEmptyStation(save, rightFrom)
   const quality = workerQualityDef(nextTier)
   const job = worker.classId ? CLASS_LABEL[worker.classId] : '未标'
   return { ok: true, message: `合成出${worker.name ?? worker.id}（${quality.label}·${job}）` }
+}
+
+function fusePairReady(a: Worker | undefined, b: Worker | undefined): ActionResult | null {
+  if (!a || !b) return { ok: false, reason: '没有这个工人' }
+  if (a.id === b.id) return { ok: false, reason: '不能合成同一个人' }
+  if (a.qualityTier !== b.qualityTier) return { ok: false, reason: '品质不同，不能合成' }
+  if (a.qualityTier >= QUALITY_MAX) return { ok: false, reason: '已是最高品质' }
+  return null
+}
+
+/** 同站同档两人合成：消耗两人，产出 1 个高一档新人（留在原站、空槽）。满档 / 不同档 / 不同站失败。 */
+export function fuseWorkers(save: Save, workerIdA: string, workerIdB: string): ActionResult {
+  if (!workerIdA || !workerIdB) return { ok: false, reason: '请选两个同品质工人' }
+  if (workerIdA === workerIdB) return { ok: false, reason: '不能合成同一个人' }
+  const a = findWorker(save, workerIdA)
+  const b = findWorker(save, workerIdB)
+  const ready = fusePairReady(a, b)
+  if (ready || !a || !b) return ready ?? { ok: false, reason: '没有这个工人' }
+  if (!a.assignment || a.assignment !== b.assignment) {
+    return { ok: false, reason: '只能合并同一工坊的两人' }
+  }
+  const stayAt = fuseStayAssigned(save) ? a.assignment : null
+  return fusePairAt(save, a, b, stayAt)
+}
+
+/** 拖放到目标槽：与该槽工人合成，不先派驻（满站也能合），新人留在 stationId。 */
+export function canFuseWorkerOntoOccupant(
+  save: Save,
+  sourceId: string,
+  occupantId: string,
+  stationId: StationId | null,
+): boolean {
+  if (!stationId || !isStationId(stationId) || !sourceId || !occupantId || sourceId === occupantId) return false
+  const source = findWorker(save, sourceId)
+  const occupant = findWorker(save, occupantId)
+  if (fusePairReady(source, occupant) || !occupant) return false
+  return occupant.assignment === stationId
+}
+
+export function fuseWorkerOntoOccupant(
+  save: Save,
+  sourceId: string,
+  occupantId: string,
+  stationId: StationId,
+): ActionResult {
+  if (!isStationId(stationId)) return { ok: false, reason: '没有这个站点' }
+  if (!sourceId || !occupantId) return { ok: false, reason: '请选两个同品质工人' }
+  const source = findWorker(save, sourceId)
+  const occupant = findWorker(save, occupantId)
+  const ready = fusePairReady(source, occupant)
+  if (ready || !source || !occupant) return ready ?? { ok: false, reason: '没有这个工人' }
+  if (occupant.assignment !== stationId) return { ok: false, reason: '只能合并同一工坊的两人' }
+  return fusePairAt(save, source, occupant, stationId)
 }
 
 /** 该站两人同档且未满档，与 fuseStationWorkers 成功条件一致。 */
