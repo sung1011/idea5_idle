@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { bankQty } from '../sim/bank'
 import { formatMarchClock } from '../sim/encounters'
 import { foodBuffRemainS, isFoodBuffActive } from '../sim/food'
@@ -17,15 +17,23 @@ import {
   type FoodItemId,
 } from '../sim/tables'
 import { recruitCost } from '../sim/tech'
-import type { StationId, Worker } from '../sim/types'
+import type { ClassId, StationId, Worker } from '../sim/types'
+import ClassIcon from './classIcon.vue'
 import { useGameStore } from './gameStore'
+import { hpBarFill } from './hpBar'
 import HpBar from './hpBar.vue'
 import {
-  qualityOf,
-  workerQualityBadgeStyle,
-  workerQualityCardStyle,
-  workerQualityToneClass,
-} from './workerQuality'
+  groupWorkersByQuality,
+  loadWorkerGroupOrder,
+  rosterDutyCounts,
+  saveWorkerGroupOrder,
+  toggleWorkerGroupOrder,
+  workerDutyKind,
+  workerDutyLabel,
+  workerShortName,
+  type WorkerGroupOrder,
+} from './workerGroups'
+import { qualityOf, workerQualityDotStyle, workerQualityTileStyle } from './workerQuality'
 
 const game = useGameStore()
 const now = computed(() => {
@@ -34,6 +42,17 @@ const now = computed(() => {
 })
 const pickFood = reactive<Record<string, FoodItemId>>({})
 const pickFoodQty = reactive<Record<string, number>>({})
+const groupOrder = ref<WorkerGroupOrder>(loadWorkerGroupOrder())
+const selectedId = ref<string | null>(null)
+
+const counts = computed(() => rosterDutyCounts(game.save))
+const groups = computed(() => groupWorkersByQuality(game.save.workers, groupOrder.value))
+const selected = computed(() => {
+  const id = selectedId.value
+  if (!id) return null
+  return game.save.workers.find((w) => w.id === id) ?? null
+})
+const orderLabel = computed(() => (groupOrder.value === 'highFirst' ? '高→低' : '低→高'))
 
 function atStation(w: Worker, id: StationId) {
   return w.assignment === id
@@ -90,51 +109,118 @@ function onLoadFood(w: Worker) {
   game.loadFood(w.id, itemId, qty)
 }
 
+function jobLabel(w: Worker) {
+  return w.classId ? CLASS_LABEL[w.classId] : '未标'
+}
 
+function classIconOf(w: Worker): ClassId {
+  return w.classId ?? 'laborer'
+}
+
+function sheetMeta(w: Worker) {
+  return `${qualityOf(w).label} · ${jobLabel(w)} · Lv${w.level} · ${workerDutyLabel(game.save, w)}`
+}
+
+function isBusyTile(w: Worker) {
+  return workerDutyKind(game.save, w) !== 'rest'
+}
+
+function hurtFill(w: Worker) {
+  return `${(hpBarFill(w.hp, w.hpMax) * 100).toFixed(2)}%`
+}
+
+function openSheet(w: Worker) {
+  selectedId.value = w.id
+}
+
+function closeSheet() {
+  selectedId.value = null
+}
+
+function flipOrder() {
+  groupOrder.value = saveWorkerGroupOrder(toggleWorkerGroupOrder(groupOrder.value))
+}
 </script>
 
 <template>
   <section class="panel roster">
     <h2 class="title">工人</h2>
+    <div class="hud">
+      <span class="stat">工人 {{ counts.total }}</span>
+      <span class="stat">休息 {{ counts.rest }}</span>
+      <span class="stat">在岗 {{ counts.busy }}</span>
+      <button type="button" class="order" :aria-pressed="groupOrder === 'highFirst'" @click="flipOrder">
+        {{ orderLabel }}
+      </button>
+    </div>
     <p class="hint">
-      金币 {{ game.save.gold }} · 名册 {{ game.save.workers.length }} · 空闲 {{ idleCount(game.save) }}
-    </p>
-    <p class="hint">
-      每站最多 {{ STATION_WORKER_CAP }} 人。同站满两人时，到工坊站卡合并升档；满档不可再升。新职业从该档池里随机。
+      金币 {{ game.save.gold }} · 空闲 {{ idleCount(game.save) }} · 每站最多 {{ STATION_WORKER_CAP }} 人。同站满两人时，到工坊站卡合并升档。
     </p>
     <div class="row">
       <button type="button" @click="game.recruit()">抽工人（{{ recruitCost(game.save) }} 金）</button>
     </div>
-    <ul v-if="game.save.workers.length">
-      <li
-        v-for="w in game.save.workers"
-        :key="w.id"
-        class="card"
-        :class="workerQualityToneClass(w)"
-        :style="workerQualityCardStyle(w)"
-      >
-        <p class="name">
-          <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
-          {{ w.name ?? w.id }} · {{ w.classId ? CLASS_LABEL[w.classId] : '未标' }} · Lv{{ w.level }}
-        </p>
-        <div class="combat">
-          <HpBar class="hp-slot" :hp="w.hp" :hp-max="w.hpMax" />
-          <p class="hint">{{ combatTail(w) }}<template v-if="fighting(w)"> · 战斗中</template></p>
-          <p class="attrs">
-            <CombatAttrRow :attrs="w.combatAttrs" />
-          </p>
+    <div v-if="groups.length" class="groups">
+      <section v-for="g in groups" :key="g.tier" class="group">
+        <h3 class="group-h">
+          <i class="dot" :style="workerQualityDotStyle(g.tier)" />
+          {{ g.label }}
+          <span class="count">· {{ g.workers.length }}</span>
+        </h3>
+        <div class="grid">
+          <button
+            v-for="w in g.workers"
+            :key="w.id"
+            type="button"
+            class="ico"
+            :class="{ busy: isBusyTile(w), hurt: w.hp < w.hpMax }"
+            :style="workerQualityTileStyle(w)"
+            :aria-label="`${workerShortName(w)} ${sheetMeta(w)}`"
+            @click="openSheet(w)"
+          >
+            <ClassIcon :name="classIconOf(w)" />
+            <span class="nm">{{ workerShortName(w) }}</span>
+            <span class="lv">Lv{{ w.level }}</span>
+            <i v-if="w.hp < w.hpMax" class="hurt-track" aria-hidden="true">
+              <i class="hurt-fill" :style="{ width: hurtFill(w) }" />
+            </i>
+          </button>
         </div>
-        <p class="hint">{{ foodLine(w) }}</p>
+      </section>
+    </div>
+    <p v-else class="hint">还没有工人。先抽人，再点开小图标派驻。</p>
+  </section>
+
+  <Teleport to="body">
+    <div
+      v-if="selected"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="workerShortName(selected)"
+      @click.self="closeSheet"
+    >
+      <div class="sheet">
+        <header>
+          <h2 class="title">{{ workerShortName(selected) }}</h2>
+          <button type="button" class="close" @click="closeSheet">关闭</button>
+        </header>
+        <p class="meta">{{ sheetMeta(selected) }}</p>
+        <HpBar class="hp-slot" :hp="selected.hp" :hp-max="selected.hpMax" />
+        <p class="hint">{{ combatTail(selected) }}<template v-if="fighting(selected)"> · 战斗中</template></p>
+        <p class="attrs">
+          <CombatAttrRow :attrs="selected.combatAttrs" />
+        </p>
+        <p class="hint">{{ foodLine(selected) }}</p>
         <div class="row tool-row">
-          <button type="button" :disabled="!canEat(w)" @click="game.eatFood(w.id)">吃 1</button>
-          <template v-if="w.foodSlot">
-            <button type="button" @click="game.unloadFood(w.id)">卸下食物</button>
+          <button type="button" :disabled="!canEat(selected)" @click="game.eatFood(selected.id)">吃 1</button>
+          <template v-if="selected.foodSlot">
+            <button type="button" @click="game.unloadFood(selected.id)">卸下食物</button>
           </template>
           <template v-if="availableFoods().length">
             <select
               class="tool-select"
-              :value="pickFood[w.id] ?? availableFoods()[0]"
-              @change="pickFood[w.id] = ($event.target as HTMLSelectElement).value as FoodItemId"
+              :value="pickFood[selected.id] ?? availableFoods()[0]"
+              @change="pickFood[selected.id] = ($event.target as HTMLSelectElement).value as FoodItemId"
             >
               <option v-for="id in availableFoods()" :key="id" :value="id">
                 {{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}
@@ -144,41 +230,41 @@ function onLoadFood(w: Worker) {
               class="qty-input"
               type="number"
               min="1"
-              :max="foodQtyMax(pickFood[w.id] ?? availableFoods()[0])"
-              :value="pickFoodQty[w.id] ?? 1"
-              @change="pickFoodQty[w.id] = Math.max(1, Math.floor(Number(($event.target as HTMLInputElement).value) || 1))"
+              :max="foodQtyMax(pickFood[selected.id] ?? availableFoods()[0])"
+              :value="pickFoodQty[selected.id] ?? 1"
+              @change="pickFoodQty[selected.id] = Math.max(1, Math.floor(Number(($event.target as HTMLInputElement).value) || 1))"
             />
-            <button type="button" @click="onLoadFood(w)">
-              {{ w.foodSlot ? '换食' : '装入' }}
+            <button type="button" @click="onLoadFood(selected)">
+              {{ selected.foodSlot ? '换食' : '装入' }}
             </button>
           </template>
-          <span v-else-if="!w.foodSlot" class="hint">物资里没有食物</span>
+          <span v-else-if="!selected.foodSlot" class="hint">物资里没有食物</span>
         </div>
         <div class="row">
           <button
             v-for="id in PLAYABLE_STATION_IDS"
             :key="id"
             type="button"
-            :class="{ on: atStation(w, id) }"
-            :disabled="atStation(w, id) || fighting(w)"
-            :aria-pressed="atStation(w, id)"
-            @click="game.assign(w.id, id)"
+            :class="{ on: atStation(selected, id) }"
+            :disabled="atStation(selected, id) || fighting(selected)"
+            :aria-pressed="atStation(selected, id)"
+            @click="game.assign(selected.id, id)"
           >
             {{ STATION_DEF[id].label }}
           </button>
           <button
             type="button"
-            :class="{ on: resting(w) }"
-            :disabled="resting(w) || fighting(w)"
-            :aria-pressed="resting(w)"
-            @click="game.assign(w.id, null)"
+            :class="{ on: resting(selected) }"
+            :disabled="resting(selected) || fighting(selected)"
+            :aria-pressed="resting(selected)"
+            @click="game.assign(selected.id, null)"
           >
             休息
           </button>
         </div>
-      </li>
-    </ul>
-  </section>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -196,10 +282,31 @@ function onLoadFood(w: Worker) {
 
 .panel p,
 .panel .title,
-.hint,
-.name {
+.hint {
   margin: 0;
   line-height: 1.5;
+}
+
+.hud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.stat,
+.order {
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 3px solid var(--gold);
+  border-radius: 999px;
+  background: linear-gradient(#fffef8, #fff3d4);
+  box-shadow: 0 2px 0 var(--gold-deep);
+}
+
+.order {
+  margin-left: auto;
 }
 
 .row {
@@ -212,81 +319,166 @@ button {
   min-height: 36px;
 }
 
-ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-}
-
-.card.rainbow {
-  background: linear-gradient(#fffdf8, #ffe8f4);
-}
-
-.card.pink {
-  background: linear-gradient(#fffdf8, #ffe4ef);
-}
-
-.name {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  color: var(--copper);
-}
-
-.qmark {
-  min-width: 22px;
-  padding: 1px 7px;
-  border: 2px solid currentColor;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-align: center;
-}
-
 .hint {
   color: var(--muted);
   font-size: 14px;
 }
 
-.combat {
+.groups {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.group-h {
+  display: flex;
   align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #8a6410;
+}
+
+.count {
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
 
-.attrs {
-  flex: 1 1 100%;
+.ico {
+  aspect-ratio: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  margin: 0;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px;
+  min-height: 0;
+  border-width: 3px;
+  border-radius: 14px;
+  box-shadow: 0 2px 0 var(--gold-deep);
+  position: relative;
 }
 
-.attrs :deep(.chip) {
-  flex: none;
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  aspect-ratio: 1;
+.ico.busy {
+  outline: 2px dashed #c07020;
+  outline-offset: -1px;
+}
+
+.nm {
+  max-width: 100%;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lv {
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  font-size: 9px;
+  font-weight: 900;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.hurt-track {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 14px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #e8c8a0;
+}
+
+.hurt-fill {
+  display: block;
+  height: 100%;
+  background: #c0392b;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-sheet);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px 12px 0;
+  background: rgba(40, 24, 8, 0.45);
+}
+
+.sheet {
+  width: min(480px, 100%);
+  position: relative;
+  z-index: calc(var(--z-sheet) + 1);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: min(78vh, 640px);
+  overflow: auto;
+  padding: 16px 16px calc(16px + var(--dock-height));
+  border: 3px solid var(--gold-deep);
+  border-radius: 16px 16px 12px 12px;
+  background: linear-gradient(180deg, #fffef8, #fff3d8);
+  box-shadow: 0 6px 0 var(--shadow);
+}
+
+.sheet header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sheet .title {
+  font-size: 18px;
+}
+
+.close {
+  min-height: 32px;
+  padding: 4px 10px;
+}
+
+.meta {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
 }
 
 .hp-slot {
-  flex: 1 1 108px;
-  min-width: 96px;
-  max-width: 168px;
+  width: 100%;
+}
+
+.attrs {
+  display: flex;
+  align-items: center;
+  margin: 0;
 }
 
 .tool-row {

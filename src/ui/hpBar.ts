@@ -1,4 +1,4 @@
-/** 血条填充比例：钉在 [0, 1]。hp>hpMax 时条满，文字仍由调用方写真实 hp/hpMax。 */
+/** 血条填充比例：钉在 [0, 1]。hp>hpMax 时条满，文字仍写真实 `HP: hp/hpMax`。 */
 export function hpBarFill(hp: number, hpMax: number): number {
   if (!Number.isFinite(hp) || !Number.isFinite(hpMax) || hpMax <= 0) return 0
   if (hp <= 0) return 0
@@ -6,7 +6,7 @@ export function hpBarFill(hp: number, hpMax: number): number {
 }
 
 export function hpBarLabel(hp: number, hpMax: number): string {
-  return `${hp}/${hpMax}`
+  return `HP: ${hp}/${hpMax}`
 }
 
 export type HpBarTone = 'low' | 'mid' | 'full'

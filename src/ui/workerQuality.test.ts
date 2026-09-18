@@ -8,7 +8,9 @@ import {
   qualityOf,
   workerQualityBadgeStyle,
   workerQualityCardStyle,
+  workerQualityDotStyle,
   workerQualityNameStyle,
+  workerQualityTileStyle,
   workerQualityToneClass,
 } from './workerQuality'
 
@@ -50,5 +52,15 @@ describe('workerQuality', () => {
     expect(workerQualityNameStyle(workerAt(7))).toEqual({ color: WORKER_QUALITY_TABLE[7].color })
     expect(workerQualityNameStyle(workerAt(9))).toEqual({ color: WORKER_QUALITY_TABLE[9].color })
     expect(workerQualityNameStyle(workerAt(10))).toEqual({ color: WORKER_QUALITY_TABLE[10].color })
+  })
+
+  it('paints roster tiles and group dots from the 10-tier table', () => {
+    expect(workerQualityDotStyle(2)).toEqual({ background: WORKER_QUALITY_TABLE[2].color })
+    expect(workerQualityDotStyle(10).background).toContain('linear-gradient')
+    expect(workerQualityTileStyle(workerAt(6))).toMatchObject({
+      borderColor: WORKER_QUALITY_TABLE[6].color,
+      color: '#b85a08',
+    })
+    expect(workerQualityTileStyle(workerAt(10)).background).toContain('135deg')
   })
 })

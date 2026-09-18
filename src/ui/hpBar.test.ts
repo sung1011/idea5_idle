@@ -18,10 +18,10 @@ describe('hpBarFill', () => {
 })
 
 describe('hpBarLabel', () => {
-  it('always shows the real hp/hpMax, even when over cap', () => {
-    expect(hpBarLabel(12, 24)).toBe('12/24')
-    expect(hpBarLabel(30, 24)).toBe('30/24')
-    expect(hpBarLabel(0, 24)).toBe('0/24')
+  it('always shows HP: hp/hpMax, even when over cap', () => {
+    expect(hpBarLabel(12, 24)).toBe('HP: 12/24')
+    expect(hpBarLabel(30, 24)).toBe('HP: 30/24')
+    expect(hpBarLabel(0, 24)).toBe('HP: 0/24')
   })
 })
 
