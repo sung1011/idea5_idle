@@ -26,7 +26,18 @@ import {
 } from './mainChapter'
 import { canAffordCosts, missingCostLabels, takeCosts } from './costs'
 import { normalizeRngState, roll01 } from './rng'
-import { ITEM_DEF, bulkUnitGold, pawnUnitGold, type IoRule } from './tables'
+import {
+  ITEM_DEF,
+  STATION_IDS,
+  STATION_TOOL_COUNT,
+  STATION_TOOL_IDS,
+  bulkUnitGold,
+  isStationToolId,
+  isToolItemId,
+  pawnUnitGold,
+  stationToolItemId,
+  type IoRule,
+} from './tables'
 import {
   ENCOUNTER_SLOT_MAX,
   ENCOUNTER_SLOT_MIN,
@@ -280,10 +291,21 @@ const LEGACY_ORDER_DEFS: ReadonlyArray<{
   { id: 'timberPost', label: '矿营补给', needs: { ore: 3, meal: 1 }, lootGold: 7 },
 ]
 
-/** 主线消耗池。新刷出的交物单只从这里掷 1 种。 */
+/**
+ * 主线消耗种类池。新刷交物单先从这里掷 1 种。
+ * `tool` 只是种类标记：落地时改抽 `MAIN_NEED_TOOL_POOL`（锻造可造的各站专属工具）。
+ */
 export const MAIN_NEED_ITEM_POOL: readonly ItemId[] = ['meal', 'ore', 'fish', 'tool', 'roast', 'stew', 'potion']
 
-/** 绿档第 1 章底数。缺表项按 MAIN_NEED_BASE_DEFAULT。 */
+/** 订单要工具时的 id 池，与 `STATION_TOOL_DEF` / 锻造配方同一套。 */
+export const MAIN_NEED_TOOL_POOL: readonly ItemId[] = STATION_TOOL_IDS
+
+/** 档位中心随 demandMul × 章节倍率抬高，对齐数量缩放。 */
+export const MAIN_NEED_TOOL_TIER_STEP = 1.8
+/** 离中心越远权越低，风格接近品质权重（绿高、高档少）。 */
+export const MAIN_NEED_TOOL_TIER_DECAY = 0.55
+
+/** 绿档第 1 章底数。缺表项按 MAIN_NEED_BASE_DEFAULT。专属工具走 `tool` 底数。 */
 export const MAIN_NEED_BASE: Readonly<Partial<Record<ItemId, number>>> = {
   meal: 2,
   ore: 2,
@@ -409,8 +431,89 @@ export function scaleGold(gold: number, mul: number): number {
 }
 
 export function itemNeedBase(itemId: ItemId): number {
-  const base = MAIN_NEED_BASE[itemId]
+  const key = isStationToolId(itemId) ? 'tool' : itemId
+  const base = MAIN_NEED_BASE[key]
   return typeof base === 'number' && base > 0 ? base : MAIN_NEED_BASE_DEFAULT
+}
+
+export function isLegacyGenericToolNeed(id: unknown): boolean {
+  return isToolItemId(id)
+}
+
+/** 新刷交物可落地的物品：种类池里的非通用工具，或锻造专属工具。 */
+export function isMainNeedItem(id: unknown): id is ItemId {
+  if (typeof id !== 'string') return false
+  if (isLegacyGenericToolNeed(id)) return false
+  if ((MAIN_NEED_ITEM_POOL as readonly string[]).includes(id)) return true
+  return isStationToolId(id)
+}
+
+/** 档位中心：第 1 章绿≈1，随品质/章节/Boss 倍率抬高，封顶 20。 */
+export function mainNeedToolTierCenter(
+  quality: EncounterQuality,
+  chapter: unknown,
+  chapterBoss = false,
+): number {
+  const score =
+    qualityDef(quality).demandMul * chapterNeedMul(chapter) * (chapterBoss ? CHAPTER_BOSS_NEED_MUL : 1)
+  return Math.max(1, Math.min(STATION_TOOL_COUNT, 1 + (score - 1) * MAIN_NEED_TOOL_TIER_STEP))
+}
+
+export function mainNeedToolTierWeights(
+  quality: EncounterQuality,
+  chapter: unknown,
+  chapterBoss = false,
+): number[] {
+  const center = mainNeedToolTierCenter(quality, chapter, chapterBoss)
+  return Array.from({ length: STATION_TOOL_COUNT }, (_, i) =>
+    Math.pow(MAIN_NEED_TOOL_TIER_DECAY, Math.abs(i + 1 - center)),
+  )
+}
+
+function pickWeightedIndex(weights: readonly number[], roll: number): number {
+  const total = weights.reduce((sum, weight) => sum + Math.max(0, weight), 0)
+  const t = Number.isFinite(roll) ? Math.min(0.999999, Math.max(0, roll)) : 0
+  const target = t * Math.max(0, total)
+  let acc = 0
+  for (let i = 0; i < weights.length; i++) {
+    acc += Math.max(0, weights[i])
+    if (target < acc) return i
+  }
+  return Math.max(0, weights.length - 1)
+}
+
+function fracFromSalt(salt: number, stride: number): number {
+  const n = Number.isFinite(salt) ? Math.abs(Math.floor(salt)) : 0
+  return ((n * stride + 3) % 1000) / 1000
+}
+
+/** 从锻造可造的各站 tool01–20 抽一把。低章偏低档，高章/高品质偏高档。 */
+export function pickMainNeedTool(
+  quality: EncounterQuality,
+  chapter: unknown,
+  chapterBoss = false,
+  rng?: { rngState: number },
+  salt = 0,
+): ItemId {
+  const stationRoll = rng ? rollRng(rng) : fracFromSalt(salt, 1)
+  const stationIdx = Math.min(STATION_IDS.length - 1, Math.floor(stationRoll * STATION_IDS.length))
+  const stationId = STATION_IDS[stationIdx]
+  const tierRoll = rng ? rollRng(rng) : fracFromSalt(salt, 17)
+  const index = pickWeightedIndex(mainNeedToolTierWeights(quality, chapter, chapterBoss), tierRoll) + 1
+  return stationToolItemId(stationId, index)
+}
+
+/** 种类池掷到通用工具时，改抽专属工具；其它物品原样。 */
+export function resolveMainNeedItem(
+  itemId: ItemId,
+  quality: EncounterQuality,
+  chapter: unknown,
+  chapterBoss = false,
+  rng?: { rngState: number },
+  salt = 0,
+): ItemId {
+  if (!isLegacyGenericToolNeed(itemId)) return itemId
+  return pickMainNeedTool(quality, chapter, chapterBoss, rng, salt)
 }
 
 /** 章节需求倍率：1 + (chapter-1) * CHAPTER_NEED_STEP。 */
@@ -443,10 +546,15 @@ export function firstNeedItem(map: EncounterNeedMap, fallback: ItemId = 'meal'):
   return needEntries(map)[0]?.[0] ?? fallback
 }
 
-export function pickMainNeedItem(rng: { rngState: number }): ItemId {
+export function pickMainNeedItem(
+  rng: { rngState: number },
+  quality: EncounterQuality,
+  chapter: unknown,
+  chapterBoss = false,
+): ItemId {
   const pool = MAIN_NEED_ITEM_POOL
   const idx = Math.min(pool.length - 1, Math.floor(rollRng(rng) * pool.length))
-  return pool[idx]
+  return resolveMainNeedItem(pool[idx], quality, chapter, chapterBoss, rng)
 }
 
 function singleOutputMap(map: EncounterNeedMap, mul: number): EncounterNeedMap {
@@ -653,8 +761,15 @@ function makeEnemy(
   const q = qualityDef(resolvedQuality)
   const enemyRank = mainlineEnemyRank(resolvedQuality, forceChapterBoss)
   const itemId = rng
-    ? pickMainNeedItem(rng)
-    : MAIN_NEED_ITEM_POOL[(seed + slot) % MAIN_NEED_ITEM_POOL.length]
+    ? pickMainNeedItem(rng, resolvedQuality, chapter, forceChapterBoss)
+    : resolveMainNeedItem(
+        MAIN_NEED_ITEM_POOL[(seed + slot) % MAIN_NEED_ITEM_POOL.length],
+        resolvedQuality,
+        chapter,
+        forceChapterBoss,
+        undefined,
+        seed + slot,
+      )
   return seedInitialRevealedWeaknesses({
     kind: 'enemy',
     id: `${name.id}-${resolvedQuality}-${seed}-${slot}`,
@@ -692,24 +807,38 @@ function makeBlackMerchant(
   }
 }
 
-function makePasserby(seed: number, slot: number, quality: EncounterQuality, chapter = 1): PasserbyEncounter {
+function makePasserby(
+  seed: number,
+  slot: number,
+  quality: EncounterQuality,
+  chapter = 1,
+  rng?: { rngState: number },
+): PasserbyEncounter {
   const def = PASSERBY_DEFS[(seed + slot) % PASSERBY_DEFS.length]
   const q = qualityDef(quality)
+  const wantItem = resolveMainNeedItem(firstNeedItem(def.wants), quality, chapter, false, rng, seed + slot)
   return {
     kind: 'passerby',
     id: `${def.id}-${quality}-${seed}-${slot}`,
     label: def.label,
     quality,
-    wants: scaledMainNeed(firstNeedItem(def.wants), quality, chapter),
+    wants: scaledMainNeed(wantItem, quality, chapter),
     offers: singleOutputMap(def.offers, q.outputMul),
     completed: false,
   }
 }
 
-function makePawn(seed: number, slot: number, quality: EncounterQuality, chapter = 1): PawnEncounter {
+function makePawn(
+  seed: number,
+  slot: number,
+  quality: EncounterQuality,
+  chapter = 1,
+  rng?: { rngState: number },
+): PawnEncounter {
   const def = PAWN_DEFS[(seed + slot) % PAWN_DEFS.length]
   const q = qualityDef(quality)
-  const pawnWants = scaledMainNeed(firstNeedItem(def.pawnWants), quality, chapter)
+  const wantItem = resolveMainNeedItem(firstNeedItem(def.pawnWants), quality, chapter, false, rng, seed + slot)
+  const pawnWants = scaledMainNeed(wantItem, quality, chapter)
   return {
     kind: 'pawn',
     id: `${def.id}-${quality}-${seed}-${slot}`,
@@ -751,15 +880,22 @@ export function makeStarterCopperPawn(seed = 0, slot = 0): PawnEncounter {
   }
 }
 
-function makeArtisan(seed: number, slot: number, quality: EncounterQuality, chapter = 1): ArtisanEncounter {
+function makeArtisan(
+  seed: number,
+  slot: number,
+  quality: EncounterQuality,
+  chapter = 1,
+  rng?: { rngState: number },
+): ArtisanEncounter {
   const def = ARTISAN_DEFS[(seed + slot) % ARTISAN_DEFS.length]
   const q = qualityDef(quality)
+  const wantItem = resolveMainNeedItem(firstNeedItem(def.wants), quality, chapter, false, rng, seed + slot)
   return {
     kind: 'artisan',
     id: `${def.id}-${quality}-${seed}-${slot}`,
     label: def.label,
     quality,
-    wants: scaledMainNeed(firstNeedItem(def.wants), quality, chapter),
+    wants: scaledMainNeed(wantItem, quality, chapter),
     rewardGold: 0,
     buffMul: 1 + (def.buffMul - 1) * q.outputMul,
     buffDurationS: scaleQty(def.buffDurationS, q.outputMul),
@@ -767,10 +903,17 @@ function makeArtisan(seed: number, slot: number, quality: EncounterQuality, chap
   }
 }
 
-function makeBulkBuy(seed: number, slot: number, quality: EncounterQuality, chapter = 1): BulkBuyEncounter {
+function makeBulkBuy(
+  seed: number,
+  slot: number,
+  quality: EncounterQuality,
+  chapter = 1,
+  rng?: { rngState: number },
+): BulkBuyEncounter {
   const def = BULK_BUY_DEFS[(seed + slot) % BULK_BUY_DEFS.length]
   const q = qualityDef(quality)
-  const wants = scaledMainNeed(firstNeedItem(def.wants), quality, chapter)
+  const wantItem = resolveMainNeedItem(firstNeedItem(def.wants), quality, chapter, false, rng, seed + slot)
+  const wants = scaledMainNeed(wantItem, quality, chapter)
   return {
     kind: 'bulkBuy',
     id: `${def.id}-${quality}-${seed}-${slot}`,
@@ -793,10 +936,10 @@ function makeEncounter(
 ): Encounter {
   if (kind === 'enemy') return makeEnemy(seed, slot, quality, forceChapterBoss, chapter, rng)
   if (kind === 'blackMerchant') return makeBlackMerchant(seed, slot, quality, chapter)
-  if (kind === 'passerby') return makePasserby(seed, slot, quality, chapter)
-  if (kind === 'pawn') return makePawn(seed, slot, quality, chapter)
-  if (kind === 'artisan') return makeArtisan(seed, slot, quality, chapter)
-  return makeBulkBuy(seed, slot, quality, chapter)
+  if (kind === 'passerby') return makePasserby(seed, slot, quality, chapter, rng)
+  if (kind === 'pawn') return makePawn(seed, slot, quality, chapter, rng)
+  if (kind === 'artisan') return makeArtisan(seed, slot, quality, chapter, rng)
+  return makeBulkBuy(seed, slot, quality, chapter, rng)
 }
 
 export function encounterFiller(seed: number, opts: EncounterSpawnOpts = {}): (slot: number) => Encounter {

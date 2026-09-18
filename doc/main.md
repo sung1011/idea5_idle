@@ -17,7 +17,7 @@
 - **Worker**：抽取获得。带 `qualityTier` 1～10（颜色档）与 `classId`（生活职业，战斗只做三围小修正）。同档两人可合成升一档。存 `hp` / `hpMax`；hydrate 缺则按表满血。另存战斗 `level`（从 1）与当前级内 `xp`；hydrate 缺则 Lv1、xp 0。另存 `combatAttrs`（剑枪匕首斧弓杖 / 火冰雷风光暗），槽数看品质。
 - **生活站点（定稿七站）**：挖矿 `mining`、锻造 `forging`、狩猎 `hunting`、烹饪 `cooking`、采药 `herbalism`、炼金 `alchemy`、钓鱼 `fishing`。采集 / 制造各有核心差异，经同一套物资库存连成流水线。细则见 [production.md](production.md)。
 - **现码已是七站骨架**：采矿、锻造（工具）、狩猎、烹饪、采药、炼金、钓鱼。伐木 `woodcutting` 废弃并藏入口；旧档已派伐木的工人 hydrate 撤到休息。
-- 锻造**只造各站专属工具**（`STATION_TOOL_DEF` 的 `miningTool01`… / `herbalismTool01`… 等），已删除铜/铁/秘银通用 `tool` / `ironTool` / `mithrilTool` 配方。先选类型（镐/锤/猎具/锅/镰/瓶架/竿），再选要造的 tool01–20；未解锁不能造，下拉只列出已解锁 + 下一档预览置灰。造的解锁看**锻造站自身等级** `min(20, forgeStation.level)`：锻造 Lv1 可造各站工具1，Lv5 可造到工具5。目标站等级不再挡住能不能造。工坊站卡用下拉选用具（首项「无」），不装备/换装/卸下。选中那一把给该站小幅效率，每次成功吞吐耗 1；「无」不耗，耗尽回「无」。各站**使用**工具仍按目标站 `floor(stationLevel/5)`，Lv1–4 只能选「无」。**武器线搁置**。工人只留 `foodSlot` 装烹饪食物，同时仅 1 个生产 Buff；到期槽内还有则自动吃 1 份刷新，可手动吃 1，可立即换食覆盖。偶遇补给收食物 / 工具 / 矿。每站最多 2 人；同站满两人可在工坊站卡合并升档。
+- 锻造**只造各站专属工具**（`STATION_TOOL_DEF` 的 `miningTool01`… / `herbalismTool01`… 等），已删除铜/铁/秘银通用 `tool` / `ironTool` / `mithrilTool` 配方。先选类型（镐/锤/猎具/锅/镰/瓶架/竿），再选要造的 tool01–20；未解锁不能造，下拉只列出已解锁 + 下一档预览置灰。造的解锁看**锻造站自身等级** `min(20, forgeStation.level)`：锻造 Lv1 可造各站工具1，Lv5 可造到工具5。目标站等级不再挡住能不能造。工坊站卡用下拉选用具（首项「无」），不装备/换装/卸下。选中那一把给该站小幅效率，每次成功吞吐耗 1；「无」不耗，耗尽回「无」。各站**使用**工具仍按目标站 `floor(stationLevel/5)`，Lv1–4 只能选「无」。**武器线搁置**。工人只留 `foodSlot` 装烹饪食物，同时仅 1 个生产 Buff；到期槽内还有则自动吃 1 份刷新，可手动吃 1，可立即换食覆盖。偶遇补给收食物 / 各站专属工具 / 矿（新刷不再要通用工具；旧档通用工具可留）。每站最多 2 人；同站满两人可在工坊站卡合并升档。
 
 三条主轴：
 
@@ -121,7 +121,7 @@ Worker = {
 
 原料不足则空转并提示缺哪几样，够则一次性扣光 `costs` 再产出。产出不受库存数量限制。
 
-偶遇敌人新单改收食物 / 工具 / 矿。旧档武器需求仍可成交。
+偶遇敌人新单改收食物 / 各站专属工具 / 矿。新刷不再要通用 `tool` / `ironTool` / `mithrilTool`；旧档武器需求与通用工具库存仍可成交 / 可留。
 
 ---
 
@@ -212,7 +212,7 @@ qty = max(1, round(base × QUALITY_TABLE.demandMul × chapterNeedMul(chapter) ×
 chapterNeedMul(chapter) = 1 + (chapter - 1) * 0.15
 ```
 
-`base` 绿档第 1 章约 2，可按物品微调（`MAIN_NEED_BASE`）。物品从 `MAIN_NEED_ITEM_POOL`（meal / ore / fish / tool / roast / stew / potion 等已有产物）掷 1 个；交易单用该类型表里的第一种。本章 Boss **只再 × `CHAPTER_BOSS_NEED_MUL`（1.25）加数量**，不再叠第二种物品。战利品绿档基准 `LOOT_GOLD_BASE = 6`，`lootGold` 再乘品质产出倍率，Boss 另乘战利品倍率。章节需求倍率单独函数，不绑战斗 HP 倍率。旧档 `distance` / `power` hydrate 时读完即丢；已有 needs / loot 原样留下（再战中的多物品敌不改写）。
+`base` 绿档第 1 章约 2，可按物品微调（`MAIN_NEED_BASE`）。物品先从 `MAIN_NEED_ITEM_POOL`（meal / ore / fish / tool / roast / stew / potion）掷 1 个；掷到 `tool` 时改从 `MAIN_NEED_TOOL_POOL`（`STATION_TOOL_DEF` / 锻造可造的各站 tool01–20）抽一把，档位中心走同一套 `demandMul × chapterNeedMul`（Boss 再 × 1.25），低章偏低档、高章/高品质偏高档（第 1 章绿档常见采矿工具1）。新刷不再要 `tool` / `ironTool` / `mithrilTool`。交易单用该类型表里的第一种，第一种若是通用工具同样改抽专属工具。本章 Boss **只再 × `CHAPTER_BOSS_NEED_MUL`（1.25）加数量**，不再叠第二种物品。战利品绿档基准 `LOOT_GOLD_BASE = 6`，`lootGold` 再乘品质产出倍率，Boss 另乘战利品倍率。章节需求倍率单独函数，不绑战斗 HP 倍率。旧档 `distance` / `power` hydrate 时读完即丢；已有 needs / loot 原样留下（再战中的多物品敌不改写）。旧档库存里的通用工具可留，不必强删。
 
 流程（行军门闩已换成战斗；交易单不动）：
 

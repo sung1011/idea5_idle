@@ -28,7 +28,14 @@ import {
   enemyLootGoldFor,
   enemyNeedsFor,
   MAIN_NEED_ITEM_POOL,
+  MAIN_NEED_TOOL_POOL,
+  isLegacyGenericToolNeed,
+  isMainNeedItem,
+  itemNeedBase,
+  mainNeedToolTierCenter,
   needEntries,
+  pickMainNeedTool,
+  resolveMainNeedItem,
   scaledDemandQty,
   scaledMainNeed,
   exploreBlockReason,
@@ -64,7 +71,7 @@ import { isCombatWon, isFighting } from './combat'
 import { assignWorker } from './assign'
 import { currentSpeed } from './query'
 import { recruitWorker, spawnWorker } from './recruit'
-import { bulkUnitGold, ITEM_DEF, pawnUnitGold } from './tables'
+import { bulkUnitGold, ITEM_DEF, isStationToolId, pawnUnitGold, STATION_TOOL_BY_ID } from './tables'
 import { ENCOUNTER_SLOT_TECH_IDS, encounterSlotCount } from './tech'
 import { ticks } from './tick'
 import type {
@@ -263,15 +270,26 @@ describe('encounter board', () => {
           if (enc.chapterBoss) expect(enc.enemyRank).toBe('boss')
           else expect(enc.enemyRank).not.toBe('boss')
           expect(needEntries(enc.needs)).toHaveLength(1)
-          expect(MAIN_NEED_ITEM_POOL.includes(needEntries(enc.needs)[0][0])).toBe(true)
+          expect(isMainNeedItem(needEntries(enc.needs)[0][0])).toBe(true)
+          expect(isLegacyGenericToolNeed(needEntries(enc.needs)[0][0])).toBe(false)
         }
         if (enc.kind === 'artisan') {
           expect(needEntries(enc.wants)).toHaveLength(1)
+          expect(isLegacyGenericToolNeed(needEntries(enc.wants)[0][0])).toBe(false)
           expect(enc.rewardGold).toBe(0)
         }
-        if (enc.kind === 'passerby') expect(needEntries(enc.wants)).toHaveLength(1)
-        if (enc.kind === 'pawn') expect(needEntries(enc.pawnWants)).toHaveLength(1)
-        if (enc.kind === 'bulkBuy') expect(needEntries(enc.wants)).toHaveLength(1)
+        if (enc.kind === 'passerby') {
+          expect(needEntries(enc.wants)).toHaveLength(1)
+          expect(isLegacyGenericToolNeed(needEntries(enc.wants)[0][0])).toBe(false)
+        }
+        if (enc.kind === 'pawn') {
+          expect(needEntries(enc.pawnWants)).toHaveLength(1)
+          expect(isLegacyGenericToolNeed(needEntries(enc.pawnWants)[0][0])).toBe(false)
+        }
+        if (enc.kind === 'bulkBuy') {
+          expect(needEntries(enc.wants)).toHaveLength(1)
+          expect(isLegacyGenericToolNeed(needEntries(enc.wants)[0][0])).toBe(false)
+        }
         if (enc.kind === 'blackMerchant') expect(needEntries(enc.buyOffers)).toHaveLength(1)
       }
     }
@@ -324,7 +342,14 @@ describe('encounter board', () => {
       if (lowEnemy?.kind === 'enemy' && highEnemy?.kind === 'enemy') {
         expect(needEntries(lowEnemy.needs)).toHaveLength(1)
         expect(needEntries(highEnemy.needs)).toHaveLength(1)
-        expect(needEntries(lowEnemy.needs)[0][0]).toBe(needEntries(highEnemy.needs)[0][0])
+        const lowId = needEntries(lowEnemy.needs)[0][0]
+        const highId = needEntries(highEnemy.needs)[0][0]
+        if (isStationToolId(lowId) && isStationToolId(highId)) {
+          expect(STATION_TOOL_BY_ID[lowId].stationId).toBe(STATION_TOOL_BY_ID[highId].stationId)
+          expect(STATION_TOOL_BY_ID[highId].index).toBeGreaterThanOrEqual(STATION_TOOL_BY_ID[lowId].index)
+        } else {
+          expect(lowId).toBe(highId)
+        }
         expect(needEntries(highEnemy.needs)[0][1]).toBeGreaterThan(needEntries(lowEnemy.needs)[0][1])
         sawEnemy = true
       }
@@ -339,6 +364,29 @@ describe('encounter board', () => {
     }
     expect(sawEnemy).toBe(true)
     expect(sawArtisan).toBe(true)
+  })
+
+  it('resolves tool needs to forgeable station tools and raises tier with chapter/quality', () => {
+    expect(MAIN_NEED_ITEM_POOL).toContain('tool')
+    expect(MAIN_NEED_TOOL_POOL).toContain('miningTool01')
+    expect(MAIN_NEED_TOOL_POOL).toContain('fishingTool20')
+    expect(MAIN_NEED_TOOL_POOL).not.toContain('tool')
+    expect(MAIN_NEED_TOOL_POOL).not.toContain('ironTool')
+    expect(MAIN_NEED_TOOL_POOL).not.toContain('mithrilTool')
+    expect(pickMainNeedTool('green', 1, false, undefined, 0)).toBe('miningTool01')
+    expect(resolveMainNeedItem('tool', 'green', 1, false, undefined, 0)).toBe('miningTool01')
+    expect(resolveMainNeedItem('meal', 'green', 1)).toBe('meal')
+    expect(isMainNeedItem('miningTool01')).toBe(true)
+    expect(isMainNeedItem('tool')).toBe(false)
+    expect(itemNeedBase('miningTool01')).toBe(2)
+    expect(mainNeedToolTierCenter('green', 1)).toBeCloseTo(1)
+    expect(mainNeedToolTierCenter('orange', 8)).toBeGreaterThan(mainNeedToolTierCenter('green', 1))
+    expect(mainNeedToolTierCenter('orange', 8)).toBeGreaterThan(mainNeedToolTierCenter('green', 8))
+    const highTool = pickMainNeedTool('orange', 16, true, undefined, 0)
+    expect(isStationToolId(highTool)).toBe(true)
+    if (isStationToolId(highTool)) {
+      expect(STATION_TOOL_BY_ID[highTool].index).toBeGreaterThan(1)
+    }
   })
 })
 
