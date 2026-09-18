@@ -210,24 +210,58 @@ p,
 
 .sub {
   display: flex;
-  gap: 8px;
+  align-items: stretch;
+  gap: 2px;
+  padding: 3px;
+  border: 2px solid var(--gold);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, #fffef8 0%, #fff3d4 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .sub button {
   flex: 1 1 0;
-  min-height: 40px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  opacity: 1;
+  filter: none;
 }
 
-.sub button.on {
+.sub button:hover:not(:disabled) {
+  filter: none;
+  background: rgba(255, 243, 196, 0.45);
+}
+
+.sub button:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.sub button:focus-visible {
+  outline: 2px solid var(--gold-deep);
+  outline-offset: 1px;
+}
+
+.sub button.on,
+.sub button.on:hover:not(:disabled),
+.sub button.on:active:not(:disabled) {
   color: var(--ink);
   background: linear-gradient(#ffe27a, #f0b83a);
-  box-shadow: 0 3px 0 var(--shadow);
+  box-shadow: 0 2px 6px rgba(212, 160, 23, 0.32);
   opacity: 1;
   filter: none;
 }
 
 .rows {
-  margin: 8px 0 0;
+  margin: 16px 0 0;
   padding: 0;
   list-style: none;
   gap: 12px;
