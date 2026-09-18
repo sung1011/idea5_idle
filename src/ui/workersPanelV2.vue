@@ -272,6 +272,7 @@ function onDragEnd(ev: PointerEvent) {
     if (source && over && !sameDragEndpoint(source, over)) game.dragAssign(source, over)
     return
   }
+  if (source?.kind === 'rest') return
   if (worker) openSheet(worker)
 }
 
@@ -348,7 +349,7 @@ onUnmounted(unbindDrag)
             <button
               type="button"
               class="rest-face"
-              :aria-label="`${workerShortName(w)} ${sheetMeta(w)}`"
+              :aria-label="`拖动派驻 ${workerShortName(w)}`"
               @pointerdown="onWorkerPointerDown($event, w, null, null)"
             >
               <span class="avatar" :style="workerQualityTileStyle(w)">
@@ -368,9 +369,9 @@ onUnmounted(unbindDrag)
             <button
               type="button"
               class="rest-go"
-              :aria-label="`派驻 ${workerShortName(w)}`"
+              :aria-label="`${workerShortName(w)} 详情`"
               @pointerdown.stop
-              @click="openPick(w)"
+              @click="openSheet(w)"
             >
               ›
             </button>
