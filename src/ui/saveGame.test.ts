@@ -188,7 +188,7 @@ describe('save migration', () => {
     expect(legacy?.bank.tool).toBe(1)
   })
 
-  it('hydrates missing tech fields and keeps known old ids without granting slot majors', () => {
+  it('hydrates missing tech fields and drops unknown old ids without granting slot majors', () => {
     const raw = {
       ...createSave(),
       techPoints: 7.8,
@@ -197,8 +197,8 @@ describe('save migration', () => {
     const save = hydrateLoadedSave(raw)
     expect(save?.techPoints).toBe(7)
     expect(save?.knightLevel).toBe(1)
-    expect(save?.unlockedTechIds).toEqual(['workshopLog', 'artisanManual'])
-    expect(save?.techLevels).toEqual({ workshopLog: 1, artisanManual: 1 })
+    expect(save?.unlockedTechIds).toEqual([])
+    expect(save?.techLevels).toEqual({})
     expect(save?.encounters).toHaveLength(1)
 
     const old = {
@@ -217,19 +217,19 @@ describe('save migration', () => {
       ...createSave(),
       unlockedTechIds: ['apprenticeNotes'],
     })
-    expect(skipped?.unlockedTechIds).toEqual(['apprenticeNotes'])
-    expect(skipped?.techLevels).toEqual({ apprenticeNotes: 1 })
+    expect(skipped?.unlockedTechIds).toEqual([])
+    expect(skipped?.techLevels).toEqual({})
 
     const aliased = hydrateLoadedSave({
       ...createSave(),
       techPoints: undefined,
       inspiration: 4.2,
-      unlockedTechIds: ['workshopLog', 'apprenticeNotes'],
+      unlockedTechIds: ['workshopLog', 'apprenticeNotes', 'slagRecycle'],
     })
     expect(aliased?.techPoints).toBe(4)
     expect(aliased?.knightLevel).toBe(1)
-    expect(aliased?.unlockedTechIds).toEqual(['workshopLog', 'apprenticeNotes'])
-    expect(aliased?.techLevels).toEqual({ workshopLog: 1, apprenticeNotes: 1 })
+    expect(aliased?.unlockedTechIds).toEqual(['slagRecycle'])
+    expect(aliased?.techLevels).toEqual({ slagRecycle: 1 })
 
     const mappedSlot = hydrateLoadedSave({
       ...createSave(),
@@ -242,12 +242,12 @@ describe('save migration', () => {
     const store = memory()
     const leveled = createSave()
     leveled.techPoints = 12
-    leveled.techLevels = { workshopLog: 3 }
-    leveled.unlockedTechIds = ['workshopLog']
+    leveled.techLevels = { workshopCrest: 3 }
+    leveled.unlockedTechIds = ['workshopCrest']
     persistSave(leveled, store)
     const reloaded = loadSave(store)
-    expect(reloaded?.techLevels).toEqual({ workshopLog: 3 })
-    expect(reloaded?.unlockedTechIds).toEqual(['workshopLog'])
+    expect(reloaded?.techLevels).toEqual({ workshopCrest: 3 })
+    expect(reloaded?.unlockedTechIds).toEqual(['workshopCrest'])
 
     const backfill = hydrateLoadedSave({
       ...createSave(),

@@ -149,6 +149,20 @@
 
 ---
 
+## 10. 科技树按规划换位并实装效果（本期）
+
+- [x] `TECH_TABS` 按确认排位换占位名 / 新 id；保留工坊规章、工匠密录、探路哨岗～商队路引
+- [x] 生产：渣滓回炉 / 配方拓印 / 矿脉精选 / 工具保养 / 炉温调控 / 夜班油灯
+- [x] 战斗：木桩加训 / 护腕束紧 / 弱点札记 / 揭秘眼力 / 急行整队 / 再战补给 / 助战号角
+- [x] 事务：议价铜铃 / 急单优先 / 战利品分拣
+- [x] 不做：联排工位、货栈扩容、骑士募款、探路标记；生产 5～6、战斗 4～5、事务旁支 / 第 6 行仍占位
+- [x] `techEffectValue` 接线到 stations / combat / encounters / offline / assist / explore
+- [x] 旧占位 id hydrate 丢掉；Vitest 覆盖关键倍率
+
+过关：`npx vitest run`、`npx vue-tsc --noEmit`、`npx vite build` 通过。
+
+---
+
 ## 7. 站装工具 + 每站两人（本期）
 
 - [x] 生产工具改挂 `StationState.toolSlot`，工坊站卡装/卸；工人不再装工具

@@ -7,6 +7,9 @@ import {
   formatMarchClock,
   needEntries,
   pawnBlockReason,
+  bulkRewardGold,
+  combatSupplyNeeds,
+  enemyLootPayout,
   pawnRewardGold,
 } from '../sim/encounters'
 import { ITEM_DEF } from '../sim/tables'
@@ -29,12 +32,12 @@ function tokensFromNeedMap(map: EncounterNeedMap): DealToken[] {
   return needEntries(map).map(([itemId, qty]) => ({ kind: 'item', itemId, qty }))
 }
 
-export function encounterDeal(enc: Encounter): EncounterDeal {
+export function encounterDeal(enc: Encounter, save?: Save): EncounterDeal {
   switch (enc.kind) {
     case 'enemy':
       return {
-        consume: tokensFromNeedMap(enc.needs),
-        gain: [{ kind: 'gold', qty: enc.lootGold, note: '战斗后领' }],
+        consume: tokensFromNeedMap(save ? combatSupplyNeeds(save, enc) : enc.needs),
+        gain: [{ kind: 'gold', qty: enemyLootPayout(enc, save), note: '战斗后领' }],
       }
     case 'blackMerchant':
       return {
@@ -49,7 +52,7 @@ export function encounterDeal(enc: Encounter): EncounterDeal {
     case 'pawn':
       return {
         consume: tokensFromNeedMap(enc.pawnWants),
-        gain: [{ kind: 'gold', qty: pawnRewardGold(enc) }],
+        gain: [{ kind: 'gold', qty: pawnRewardGold(enc, save) }],
       }
     case 'artisan':
       return {
@@ -59,7 +62,7 @@ export function encounterDeal(enc: Encounter): EncounterDeal {
     case 'bulkBuy':
       return {
         consume: tokensFromNeedMap(enc.wants),
-        gain: [{ kind: 'gold', qty: enc.rewardGold }],
+        gain: [{ kind: 'gold', qty: bulkRewardGold(enc, save) }],
       }
   }
 }
@@ -123,8 +126,9 @@ export function isEncounterActionConsumeShort(save: Save, index: number): boolea
 export function formatEncounterDealLines(
   enc: Encounter,
   owned: Partial<Record<ItemId, number>> = {},
+  save?: Save,
 ): { consume: string; gain: string } {
-  const deal = encounterDeal(enc)
+  const deal = encounterDeal(enc, save)
   return {
     consume: deal.consume.length
       ? `消耗：${deal.consume

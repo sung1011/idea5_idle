@@ -15,7 +15,7 @@ import {
   stationSpeed,
   type IoRule,
 } from './tables'
-import { stationConflictMul, stationTechSpeedMul } from './tech'
+import { forgeCycleMul, slagCopperValue, stationConflictMul, stationTechSpeedMul } from './tech'
 import { assignedToolWeight, selectedForgeRecipe } from './tools'
 import type { Hint, ItemId, Save, StationId } from './types'
 
@@ -29,11 +29,16 @@ export function idleCount(save: Save): number {
   return save.workers.filter((w) => w.assignment === null && !isWorkerInCombat(save, w.id)).length
 }
 
+export function stationCycleS(save: Save, stationId: StationId): number {
+  const cycleS = selectedCategoryDef(save, stationId).cycleS
+  if (stationId === 'forging') return Math.max(1, cycleS * forgeCycleMul(save))
+  return cycleS
+}
+
 export function currentSpeed(save: Save, stationId: StationId, now = Date.now()): number {
   if (isGatherFrozen(save, stationId)) return 0
-  const cat = selectedCategoryDef(save, stationId)
   const weight = assignedToolWeight(save, stationId, now)
-  const base = stationSpeed(weight, cat.cycleS)
+  const base = stationSpeed(weight, stationCycleS(save, stationId))
   return base * workshopBuffMul(save, now) * stationTechSpeedMul(save, stationId) * stationConflictMul(save, stationId)
 }
 
@@ -46,7 +51,24 @@ export function consumeRuleSets(save: Save, stationId: StationId): IoRule[][] {
   const def = selectedCategoryDef(save, stationId)
   const sets: IoRule[][] = [def.costs]
   if (def.altCosts?.length) sets.push(def.altCosts)
+  const slagSet = slagCopperCostSet(save, def.costs)
+  if (slagSet && !sets.some((rules) => sameCostSet(rules, slagSet))) sets.push(slagSet)
   return sets
+}
+
+function sameCostSet(a: IoRule[], b: IoRule[]): boolean {
+  if (a.length !== b.length) return false
+  return a.every((io, i) => io.itemId === b[i]?.itemId && io.qty === b[i]?.qty)
+}
+
+/** 渣滓回炉：把铜矿按 0.5 铜等价换成渣滓（2 渣滓 = 1 铜矿）。 */
+export function slagCopperCostSet(save: Save, rules: IoRule[]): IoRule[] | null {
+  const value = slagCopperValue(save)
+  if (value <= 0) return null
+  if (!rules.some((io) => io.itemId === 'ore')) return null
+  return rules.map((io) =>
+    io.itemId === 'ore' ? { itemId: 'slag', qty: Math.max(1, Math.ceil(io.qty / value)) } : io,
+  )
 }
 
 export function pickConsume(save: Save, stationId: StationId): ConsumePick | null {

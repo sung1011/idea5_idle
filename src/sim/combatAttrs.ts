@@ -1,4 +1,5 @@
 import { roll01 } from './rng'
+import { revealExtraCount, weaknessCritBonus } from './tech'
 import type {
   CombatAttrId,
   EnemyEncounter,
@@ -98,8 +99,9 @@ export const INITIAL_REVEALED_WEAKNESS_COUNT: Readonly<Record<EnemyRank, number>
   boss: 0,
 }
 
-export function initialRevealedWeaknessCount(rank: EnemyRank): number {
-  return INITIAL_REVEALED_WEAKNESS_COUNT[rank]
+export function initialRevealedWeaknessCount(rank: EnemyRank, save?: Save): number {
+  const extra = rank === 'boss' ? 0 : save ? revealExtraCount(save) : 0
+  return INITIAL_REVEALED_WEAKNESS_COUNT[rank] + extra
 }
 
 /**
@@ -206,11 +208,13 @@ export function matchingWeaknesses(
   return out
 }
 
-/** 只按「这一个」工人命中数：0 → ×1，1 → ×1.2，2 → ×1.5。两人属性不合并。 */
-export function weaknessDamageMul(hitCount: number): number {
-  if (hitCount >= 2) return 1.5
-  if (hitCount >= 1) return 1.2
-  return 1
+/** 只按「这一个」工人命中数：0 → ×1，1 → ×1.2，2 → ×1.5。札记再 +10%。 */
+export function weaknessDamageMul(hitCount: number, save?: Save): number {
+  let mul = 1
+  if (hitCount >= 2) mul = 1.5
+  else if (hitCount >= 1) mul = 1.2
+  if (mul > 1 && save) mul += weaknessCritBonus(save)
+  return mul
 }
 
 export function scaledAttackDamage(atk: number, mul: number): number {
@@ -240,10 +244,11 @@ export function resolveWorkerAttack(
   enc: EnemyEncounter,
   attrs: readonly CombatAttrId[],
   atk: number,
+  save?: Save,
 ): { damage: number; mul: number; hits: CombatAttrId[]; newlyRevealed: CombatAttrId[] } {
   const hits = matchingWeaknesses(attrs, enc.weaknesses ?? [])
   const newlyRevealed = revealMatchedWeaknesses(enc, hits)
-  const mul = weaknessDamageMul(hits.length)
+  const mul = weaknessDamageMul(hits.length, save)
   return { damage: scaledAttackDamage(atk, mul), mul, hits, newlyRevealed }
 }
 
@@ -306,11 +311,11 @@ export function fighterRecommendLabel(
 }
 
 /** 已有揭示保留；不足阶级初始条数则按弱点表顺序补齐，不重掷。 */
-export function seedInitialRevealedWeaknesses(enc: EnemyEncounter): EnemyEncounter {
+export function seedInitialRevealedWeaknesses(enc: EnemyEncounter, save?: Save): EnemyEncounter {
   const rank = isEnemyRank(enc.enemyRank) ? enc.enemyRank : enemyRankFor(enc.quality)
   const weaknesses = uniqueCombatAttrs(enc.weaknesses)
   const have = uniqueCombatAttrs(enc.revealedWeaknesses).filter((id) => weaknesses.includes(id))
-  const need = Math.min(initialRevealedWeaknessCount(rank), weaknesses.length)
+  const need = Math.min(initialRevealedWeaknessCount(rank, save), weaknesses.length)
   const seen = new Set(have)
   for (const id of weaknesses) {
     if (have.length >= need) break
@@ -338,7 +343,7 @@ export function formatWeaknessCritTip(ids: readonly CombatAttrId[]): string {
 }
 
 /** 旧单缺弱点表则按 id 种子补；已有列表只补齐/截断，开战不另掷一份。再战保留已揭示，并按阶级补齐初始暴露。 */
-export function ensureEnemyIntel(enc: EnemyEncounter, seed = 0, slot = 0): EnemyEncounter {
+export function ensureEnemyIntel(enc: EnemyEncounter, seed = 0, slot = 0, save?: Save): EnemyEncounter {
   const rank = isEnemyRank(enc.enemyRank) ? enc.enemyRank : enemyRankFor(enc.quality)
   enc.enemyRank = rank
   const existing = uniqueCombatAttrs(enc.weaknesses)
@@ -363,5 +368,5 @@ export function ensureEnemyIntel(enc: EnemyEncounter, seed = 0, slot = 0): Enemy
   enc.revealedWeaknesses = uniqueCombatAttrs(enc.revealedWeaknesses).filter((id) =>
     enc.weaknesses.includes(id),
   )
-  return seedInitialRevealedWeaknesses(enc)
+  return seedInitialRevealedWeaknesses(enc, save)
 }

@@ -1,4 +1,5 @@
 import { syncKnightLevel } from './knightLevel'
+import { stationXpMul } from './tech'
 import { pushMessage } from './messages'
 import {
   asMiningCategoryId,
@@ -228,8 +229,10 @@ export function hydrateStations(raw?: Partial<Record<StationId, Partial<StationS
 
 export function grantStationXp(save: Save, stationId: StationId, xp: number): void {
   if (xp <= 0) return
+  const granted = xp * stationXpMul(save)
+  if (granted <= 0) return
   const station = save.stations[stationId]
-  station.stationXp += xp
+  station.stationXp += granted
   const unlockedNow: CategoryId[] = []
   let leveled = false
   while (station.stationXp >= xpToNextLevel(station.stationLevel)) {

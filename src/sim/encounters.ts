@@ -4,6 +4,7 @@ import {
   combatPartyBlockReason,
   combatStatus,
   grantWorkerCombatXp,
+  isCombatLost,
   isCombatWon,
   isEnemyCombat,
   isFighting,
@@ -43,7 +44,10 @@ import {
   ENCOUNTER_SLOT_MAX,
   ENCOUNTER_SLOT_MIN,
   encounterSlotCount,
-  exploreCostReduce,
+  exploreCostMul,
+  lootGoldMul,
+  rematchSupplyCut,
+  tradeGoldMul,
 } from './tech'
 import type {
   ActionResult,
@@ -587,9 +591,34 @@ export function bulkGoldForMap(map: EncounterNeedMap): number {
   return needEntries(map).reduce((sum, [itemId, qty]) => sum + bulkUnitGold(itemId) * qty, 0)
 }
 
-export function pawnRewardGold(enc: PawnEncounter): number {
-  if (typeof enc.rewardGold === 'number' && enc.rewardGold > 0) return enc.rewardGold
-  return scaleGold(pawnGoldForMap(enc.pawnWants), qualityDef(enc.quality).outputMul / qualityDef(enc.quality).demandMul)
+export function pawnRewardGold(enc: PawnEncounter, save?: Save): number {
+  const base =
+    typeof enc.rewardGold === 'number' && enc.rewardGold > 0
+      ? enc.rewardGold
+      : scaleGold(pawnGoldForMap(enc.pawnWants), qualityDef(enc.quality).outputMul / qualityDef(enc.quality).demandMul)
+  return save ? scaleGold(base, tradeGoldMul(save)) : base
+}
+
+export function bulkRewardGold(enc: BulkBuyEncounter, save?: Save): number {
+  const base = typeof enc.rewardGold === 'number' && enc.rewardGold > 0 ? enc.rewardGold : 0
+  return save ? scaleGold(base, tradeGoldMul(save)) : base
+}
+
+export function enemyLootPayout(enc: EnemyEncounter, save?: Save): number {
+  const base = typeof enc.lootGold === 'number' && enc.lootGold > 0 ? enc.lootGold : 0
+  return save ? scaleGold(base, lootGoldMul(save)) : base
+}
+
+/** 再战补给：败后再开时每项需求 −N，下限 0。 */
+export function combatSupplyNeeds(save: Save, enc: EnemyEncounter): EncounterNeedMap {
+  const cut = isCombatLost(enc) ? rematchSupplyCut(save) : 0
+  if (cut <= 0) return enc.needs
+  const out: EncounterNeedMap = {}
+  for (const [itemId, qty] of needEntries(enc.needs)) {
+    const next = Math.max(0, qty - cut)
+    if (next > 0) out[itemId] = next
+  }
+  return out
 }
 
 export function needLines(save: Save, map: EncounterNeedMap): EncounterLine[] {
@@ -663,7 +692,7 @@ export function boardSignature(encounters: readonly Encounter[]): string {
 export function exploreCost(save: Save): number {
   const count = Number.isFinite(save.exploreCount) && save.exploreCount > 0 ? Math.floor(save.exploreCount) : 0
   const index = Math.min(count, EXPLORE_COST_TABLE.length - 1)
-  return Math.max(1, EXPLORE_COST_TABLE[index] - exploreCostReduce(save))
+  return Math.max(1, Math.round(EXPLORE_COST_TABLE[index] * exploreCostMul(save)))
 }
 
 export function exploreBlockReason(save: Save): string | null {
@@ -742,6 +771,8 @@ export type EncounterSpawnOpts = {
   mainChapter?: number
   /** 新档 / 空板：第 0 格固定铜矿当铺，其余格走 filler。探索刷新不走此开关。 */
   starterCopperPawn?: boolean
+  /** 生成弱点初始暴露时读科技。 */
+  save?: Save
 }
 
 function encounterRng(seed: number, rng?: { rngState: number }): { rngState: number } {
@@ -757,6 +788,7 @@ function makeEnemy(
   forceChapterBoss = false,
   chapter = 1,
   rng?: { rngState: number },
+  save?: Save,
 ): EnemyEncounter {
   const resolvedQuality = forceChapterBoss ? clampChapterBossQuality(quality) : quality
   const name = ENEMY_NAME_DEFS[(seed + slot) % ENEMY_NAME_DEFS.length]
@@ -786,7 +818,7 @@ function makeEnemy(
     chapterBoss: forceChapterBoss,
     weaknesses: pickEnemyWeaknesses(seed, slot, enemyRank),
     revealedWeaknesses: [],
-  })
+  }, save)
 }
 
 function makeBlackMerchant(
@@ -935,8 +967,9 @@ function makeEncounter(
   forceChapterBoss = false,
   chapter = 1,
   rng?: { rngState: number },
+  save?: Save,
 ): Encounter {
-  if (kind === 'enemy') return makeEnemy(seed, slot, quality, forceChapterBoss, chapter, rng)
+  if (kind === 'enemy') return makeEnemy(seed, slot, quality, forceChapterBoss, chapter, rng, save)
   if (kind === 'blackMerchant') return makeBlackMerchant(seed, slot, quality, chapter)
   if (kind === 'passerby') return makePasserby(seed, slot, quality, chapter, rng)
   if (kind === 'pawn') return makePawn(seed, slot, quality, chapter, rng)
@@ -955,7 +988,7 @@ export function encounterFiller(seed: number, opts: EncounterSpawnOpts = {}): (s
     const forceBoss = !reserved && claims >= MAIN_LOOT_CLAIMS_GOAL
     const kind = forceBoss ? 'enemy' : pickEncounterKind(rng)
     if (forceBoss) reserved = true
-    return makeEncounter(safe, slot, quality, kind, forceBoss, chapter, rng)
+    return makeEncounter(safe, slot, quality, kind, forceBoss, chapter, rng, opts.save)
   }
 }
 
@@ -983,6 +1016,7 @@ function spawnOptsFor(save: Save, reserved: readonly Encounter[]): EncounterSpaw
     reservedChapterBoss: hasLiveChapterBoss(reserved),
     rng: save,
     mainChapter: normalizeMainChapter(save.mainChapter),
+    save,
   }
 }
 
@@ -1268,7 +1302,7 @@ export function combatSupplyBlockReason(save: Save, index: number): string | nul
   const status = enemyStatusReason(enc)
   if (status) return status
   if (suppliesAlreadyTaken(enc)) return null
-  const missing = missingLabels(save, enc.needs)
+  const missing = missingLabels(save, combatSupplyNeeds(save, enc))
   if (missing.length) return `货不够：${missing.join('、')}`
   return null
 }
@@ -1330,13 +1364,13 @@ export function startCombat(
     .filter((w): w is Worker => !!w)
   if (!party.length) return { ok: false, reason: '请选择出战工人' }
   if (!suppliesAlreadyTaken(enc)) {
-    const took = takeCosts(save, needMapToRules(enc.needs))
+    const took = takeCosts(save, needMapToRules(combatSupplyNeeds(save, enc)))
     if (!took.ok) return took
   }
   save.departCount += 1
   save.lastDepartAt = now
   delete enc.submitted
-  beginEnemyCombat(enc, party, now, normalizeMainChapter(save.mainChapter), onLog)
+  beginEnemyCombat(enc, party, now, normalizeMainChapter(save.mainChapter), onLog, save)
   return { ok: true }
 }
 
@@ -1394,7 +1428,7 @@ export function claimLoot(save: Save, index: number, now = Date.now()): ActionRe
   if (blocked) return { ok: false, reason: blocked }
   const enc = enemyAt(save, index)
   if (!enc || enc.kind !== 'enemy') return { ok: false, reason: '不是敌人偶遇' }
-  const lootGold = enc.lootGold
+  const lootGold = enemyLootPayout(enc, save)
   const grantedXp = grantCombatLootXp(save, enc)
   enc.lootClaimed = true
   save.starterCopperPawnDone = true
@@ -1526,7 +1560,7 @@ export function pawnMerchant(save: Save, index: number): ActionResult {
   if (blocked) return { ok: false, reason: blocked }
   const enc = pawnAt(save, index)
   if (!enc) return { ok: false, reason: '不是当铺偶遇' }
-  const gold = pawnRewardGold(enc)
+  const gold = pawnRewardGold(enc, save)
   const took = takeCosts(save, needMapToRules(enc.pawnWants))
   if (!took.ok) return took
   save.gold += gold
@@ -1582,10 +1616,11 @@ export function sellBulk(save: Save, index: number): ActionResult {
   if (!enc) return { ok: false, reason: '不是收购订单' }
   const took = takeCosts(save, needMapToRules(enc.wants))
   if (!took.ok) return took
-  save.gold += enc.rewardGold
+  const gold = bulkRewardGold(enc, save)
+  save.gold += gold
   enc.completed = true
   save.starterCopperPawnDone = true
-  return { ok: true, message: `收购成交。金币 +${enc.rewardGold}` }
+  return { ok: true, message: `收购成交。金币 +${gold}` }
 }
 
 /** 战斗中 / 胜可领 / 败可再战，以及未领的本章 Boss（含待战）占位保留；普通未开打 / 已领奖 / 其它格可换。 */
@@ -1891,7 +1926,7 @@ export function hydrateEncounterFields(save: Save): Save {
   resizeEncounterBoard(raw)
   ensureChapterBossSpawn(raw)
   for (const enc of raw.encounters) {
-    if (enc.kind === 'enemy') ensureEnemyIntel(enc)
+    if (enc.kind === 'enemy') ensureEnemyIntel(enc, 0, 0, raw)
   }
   delete raw.currentOrderId
   delete raw.orderIndex

@@ -17,7 +17,7 @@ const props = defineProps<{
 }>()
 
 const game = useGameStore()
-const deal = computed(() => encounterDeal(props.encounter))
+const deal = computed(() => encounterDeal(props.encounter, game.save))
 
 function tokenHave(token: DealToken) {
   return token.kind === 'item' ? itemQty(game.save, token.itemId) : 0

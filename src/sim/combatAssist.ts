@@ -1,6 +1,7 @@
 import { fillWorkerHp } from './combat'
 import { fillWorkerCombatAttrs } from './combatAttrs'
 import { classPoolForQuality, isQualityTier, pickClassFromPool, QUALITY_MIN, WORKER_NAME_POOL } from './tables'
+import { assistQualityFloor } from './tech'
 import type { QualityTier, Save, Worker } from './types'
 import { WORKER_LEVEL_MIN } from './workerLevel'
 
@@ -48,7 +49,8 @@ function pickAssistName(roll: AssistRoll): string {
 /** 点「邀请」才生成。不写入 save.workers，不推进 nextWorkerId。 */
 export function createAssistWorker(save: Save, roll: AssistRoll = Math.random): Worker {
   const { maxQuality, maxLevel } = playerAssistCaps(save)
-  const qualityRaw = rollInclusive(QUALITY_MIN, maxQuality, roll)
+  const minQuality = assistQualityFloor(save, maxQuality)
+  const qualityRaw = rollInclusive(minQuality, maxQuality, roll)
   const qualityTier: QualityTier = isQualityTier(qualityRaw) ? qualityRaw : QUALITY_MIN
   const level = rollInclusive(WORKER_LEVEL_MIN, maxLevel, roll)
   const classId = pickClassFromPool(classPoolForQuality(qualityTier), roll())

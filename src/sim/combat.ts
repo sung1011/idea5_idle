@@ -5,6 +5,7 @@ import {
   formatWeaknessLabels,
   resolveWorkerAttack,
 } from './combatAttrs'
+import { attackIntervalMul, workerAtkMul, workerHpMul } from './tech'
 import { chapterCombatMul } from './mainChapter'
 import {
   addWorkerXp,
@@ -121,6 +122,7 @@ export function workerCombatStats(
   qualityTier: QualityTier,
   classId?: ClassId | null,
   level = 1,
+  save?: Save,
 ): CombatStats {
   const base = WORKER_COMBAT_BY_TIER[qualityTier]
   const mod = classId ? CLASS_COMBAT_MOD[classId] : { hp: 0, atk: 0, spd: 0 }
@@ -129,7 +131,16 @@ export function workerCombatStats(
     atk: Math.max(1, base.atk + mod.atk),
     spd: Math.max(1, base.spd + mod.spd),
   }
-  return applyWorkerLevelStats(raw, level)
+  return applyCombatTechStats(applyWorkerLevelStats(raw, level), save)
+}
+
+function applyCombatTechStats(stats: CombatStats, save?: Save): CombatStats {
+  if (!save) return stats
+  return {
+    hp: Math.max(1, Math.round(stats.hp * workerHpMul(save))),
+    atk: Math.max(1, Math.round(stats.atk * workerAtkMul(save))),
+    spd: Math.max(1, stats.spd * attackIntervalMul(save)),
+  }
 }
 
 /** 在品质底版 + 职业修正之上叠等级加成。 */
@@ -145,8 +156,8 @@ export function applyWorkerLevelStats(base: CombatStats, level = 1): CombatStats
   }
 }
 
-export function workerLiveStats(worker: Worker): CombatStats {
-  return workerCombatStats(worker.qualityTier, worker.classId, worker.level ?? 1)
+export function workerLiveStats(worker: Worker, save?: Save): CombatStats {
+  return workerCombatStats(worker.qualityTier, worker.classId, worker.level ?? 1, save)
 }
 
 export function enemyCombatStats(
@@ -318,8 +329,9 @@ export function beginEnemyCombat(
   now: number,
   chapter = 1,
   onLog?: CombatLogSink,
+  save?: Save,
 ): EnemyCombat {
-  ensureEnemyIntel(enc)
+  ensureEnemyIntel(enc, 0, 0, save)
   const eStats = enemyCombatStats(enc.quality, enc.enemyRank, chapter)
   const enemyHp = rematchEnemyHp(enc, eStats.hp)
   const combat: EnemyCombat = {
@@ -327,8 +339,10 @@ export function beginEnemyCombat(
     timeoutAt: now + combatTimeoutS(enc.enemyRank) * 1000,
     workerIds: workers.map((w) => w.id),
     workers: workers.map((w) => {
-      const stats = workerLiveStats(w)
-      return makeFighter(w.id, w.name ?? w.id, { ...stats, hp: w.hpMax }, w.hp, now, w.combatAttrs)
+      const stats = workerLiveStats(w, save)
+      const hpMax = Math.max(1, stats.hp)
+      const hp = w.hpMax > 0 ? Math.round((w.hp / w.hpMax) * hpMax) : hpMax
+      return makeFighter(w.id, w.name ?? w.id, { ...stats, hp: hpMax }, hp, now, w.combatAttrs)
     }),
     enemy: makeFighter('enemy', enc.label, eStats, enemyHp, now),
     logs: [],
@@ -404,7 +418,7 @@ function strike(
 ): void {
   if (attacker.hp <= 0 || target.hp <= 0) return
   if (attacker.id !== 'enemy') {
-    const result = resolveWorkerAttack(enc, attacker.combatAttrs ?? [], attacker.atk)
+    const result = resolveWorkerAttack(enc, attacker.combatAttrs ?? [], attacker.atk, save)
     target.hp = Math.max(0, target.hp - result.damage)
     if (result.newlyRevealed.length) {
       emitLog(enc, combat, at, `揭示弱点：${formatWeaknessLabels(result.newlyRevealed)}`, 'ok', onLog)
@@ -502,7 +516,8 @@ export function applyRestHeal(save: Save): void {
   for (const worker of save.workers) {
     if (worker.assignment !== null) continue
     if (busy.has(worker.id)) continue
-    if (worker.hp < worker.hpMax) worker.hp = Math.min(worker.hpMax, worker.hp + REST_HEAL_HP)
+    const max = workerLiveStats(worker, save).hp
+    if (worker.hp < max) worker.hp = Math.min(max, worker.hp + REST_HEAL_HP)
   }
 }
 

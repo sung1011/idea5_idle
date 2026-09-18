@@ -1,4 +1,5 @@
 import { potionEffectValue } from './alchemy'
+import { toolUpkeepBonus } from './tech'
 import { addToBank, bankQty, takeFromBank } from './bank'
 import { foodEffectValue } from './food'
 import {
@@ -186,7 +187,8 @@ export function sanitizeAllStationTools(save: Save): void {
 
 export function stationToolSpeedMul(save: Save, stationId: StationId): number {
   const def = resolvedStationTool(save, stationId)
-  return def ? stationToolSpeedMulOf(def.index) : 1
+  if (!def) return 1
+  return stationToolSpeedMulOf(def.index) + toolUpkeepBonus(save)
 }
 
 /** 食物 / 炼金词条；站工具改为独立效率乘区，不再走 effectId。 */

@@ -1,5 +1,6 @@
 import { resizeEncounterBoard } from './encounters'
 import { syncKnightLevel } from './knightLevel'
+import { roll01 } from './rng'
 import { OFFLINE_CAP_S, RECRUIT_COST } from './tables'
 import type { ActionResult, Save, StationId, TechId } from './types'
 
@@ -12,6 +13,43 @@ export const NOOP_TECH_EFFECT = 'noop'
 export const IMPLEMENTED_TECH_MAX_LEVEL = 1
 /** 占位节点可连点，图标能看出 `1/5`。 */
 export const PLACEHOLDER_TECH_MAX_LEVEL = 5
+
+export const SLAG_COPPER_EFFECT = 'slagCopper'
+export const STATION_XP_EFFECT = 'stationXp'
+export const MINING_OUTPUT_EFFECT = 'miningOutput'
+export const TOOL_UPKEEP_EFFECT = 'toolUpkeep'
+export const FORGE_CYCLE_EFFECT = 'forgeCycle'
+export const OFFLINE_HOURS_EFFECT = 'offlineHours'
+export const WORKER_ATK_EFFECT = 'workerAtk'
+export const WORKER_HP_EFFECT = 'workerHp'
+export const WEAKNESS_CRIT_EFFECT = 'weaknessCrit'
+export const REVEAL_EXTRA_EFFECT = 'revealExtra'
+export const ATK_INTERVAL_EFFECT = 'atkInterval'
+export const REMATCH_SUPPLY_EFFECT = 'rematchSupply'
+export const ASSIST_FLOOR_EFFECT = 'assistFloor'
+export const TRADE_GOLD_EFFECT = 'tradeGold'
+export const EXPLORE_COST_EFFECT = 'exploreCost'
+export const LOOT_GOLD_EFFECT = 'lootGold'
+
+/** 已实装效果的默认数值。`techEffectValue` 按等级叠乘。 */
+export const TECH_EFFECT_BASE: Readonly<Record<string, number>> = {
+  [SLAG_COPPER_EFFECT]: 0.5,
+  [STATION_XP_EFFECT]: 0.15,
+  [MINING_OUTPUT_EFFECT]: 0.1,
+  [TOOL_UPKEEP_EFFECT]: 0.05,
+  [FORGE_CYCLE_EFFECT]: 0.1,
+  [OFFLINE_HOURS_EFFECT]: 2,
+  [WORKER_ATK_EFFECT]: 0.1,
+  [WORKER_HP_EFFECT]: 0.1,
+  [WEAKNESS_CRIT_EFFECT]: 0.1,
+  [REVEAL_EXTRA_EFFECT]: 1,
+  [ATK_INTERVAL_EFFECT]: 0.1,
+  [REMATCH_SUPPLY_EFFECT]: 1,
+  [ASSIST_FLOOR_EFFECT]: 1,
+  [TRADE_GOLD_EFFECT]: 0.15,
+  [EXPLORE_COST_EFFECT]: 0.2,
+  [LOOT_GOLD_EFFECT]: 0.15,
+}
 
 export const TECH_TAB_IDS = ['production', 'combat', 'affairs'] as const
 export type TechTabId = (typeof TECH_TAB_IDS)[number]
@@ -27,7 +65,7 @@ export type TechNodeDef = {
   name: string
   desc: string
   cost: number
-  /** 多数占位。事务订单格为 encounterSlot；工坊规章 / 工匠密录走 stationConflictMul。 */
+  /** 实装效果 id；占位为 noop。事务订单格为 encounterSlot；冲突仍走 stationConflictMul。 */
   effectId: string
   tab: TechTabId
   row: number
@@ -74,13 +112,40 @@ export const STATION_CONFLICT_CLEARED_MUL = 1
 
 const PLACEHOLDER = '效果尚未实现。扣灵感点亮后可占位。'
 
+function implemented(effectId: string, extra: Partial<OptionSeed> = {}): Pick<OptionSeed, 'effectId' | 'implemented' | 'maxLevel'> {
+  return {
+    effectId,
+    implemented: true,
+    maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
+    ...extra,
+  }
+}
+
 const PRODUCTION_ROWS: readonly RowSeed[] = [
   {
     cost: 2,
     options: [
-      { id: 'workshopLog', name: '工坊日志', desc: '记下每日吞吐与空转。', icon: '📋' },
-      { id: 'apprenticeNotes', name: '学徒笔记', desc: '学徒手抄的工序要点。', icon: '📝' },
-      { id: 'artisanManual', name: '匠人手册', desc: '各站配方的对照手册。', icon: '📘' },
+      {
+        id: 'slagRecycle',
+        name: '渣滓回炉',
+        desc: '回炉把渣滓当 0.5 铜等价，可替铜矿付账。',
+        icon: '♻️',
+        ...implemented(SLAG_COPPER_EFFECT),
+      },
+      {
+        id: 'recipeImprint',
+        name: '配方拓印',
+        desc: '工序拓印更清楚，站经验 +15%。',
+        icon: '📝',
+        ...implemented(STATION_XP_EFFECT),
+      },
+      {
+        id: 'veinSelect',
+        name: '矿脉精选',
+        desc: '挑富矿下手，采矿产出 +10%。',
+        icon: '⛏️',
+        ...implemented(MINING_OUTPUT_EFFECT),
+      },
     ],
   },
   {
@@ -94,7 +159,13 @@ const PRODUCTION_ROWS: readonly RowSeed[] = [
         implemented: true,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
       },
-      { id: 'pipelineChart', name: '流水线图', desc: '站与站之间的物流草图。', icon: '📊' },
+      {
+        id: 'toolUpkeep',
+        name: '工具保养',
+        desc: '保养到位，已选工具效率再 +5%（与现有工具加成叠）。',
+        icon: '🔧',
+        ...implemented(TOOL_UPKEEP_EFFECT),
+      },
     ],
   },
   {
@@ -108,15 +179,27 @@ const PRODUCTION_ROWS: readonly RowSeed[] = [
         implemented: true,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
       },
-      { id: 'knightEdict', name: '骑士训令', desc: '骑士对工坊的号令。', icon: '📯' },
+      {
+        id: 'forgeHeat',
+        name: '炉温调控',
+        desc: '把炉火稳住，锻造耗时 −10%。',
+        icon: '🔥',
+        ...implemented(FORGE_CYCLE_EFFECT),
+      },
     ],
   },
   {
     cost: 8,
     options: [
-      { id: 'crestDraft', name: '纹章底稿', desc: '纹章未上色的底稿。', icon: '✏️' },
-      { id: 'workshopCrest', name: '工坊纹章', desc: '工坊自己的徽记。', icon: '🛡️' },
-      { id: 'knightCrest', name: '骑士工坊纹章', desc: '正式授纹的底稿。', icon: '🏅' },
+      {
+        id: 'nightLamp',
+        name: '夜班油灯',
+        desc: '夜里也能接着干，离线上限 +2 小时。',
+        icon: '🪔',
+        ...implemented(OFFLINE_HOURS_EFFECT),
+      },
+      { id: 'workshopCrest', name: '工坊纹章', desc: PLACEHOLDER, icon: '🛡️' },
+      { id: 'knightCrest', name: '骑士工坊纹章', desc: PLACEHOLDER, icon: '🏅' },
     ],
   },
   {
@@ -140,23 +223,65 @@ const COMBAT_ROWS: readonly RowSeed[] = [
   {
     cost: 3,
     options: [
-      { id: 'combatPost', name: '训练木桩', desc: PLACEHOLDER, icon: '🪵' },
-      { id: 'combatBracer', name: '护腕试作', desc: PLACEHOLDER, icon: '🥊' },
+      {
+        id: 'dummyDrill',
+        name: '木桩加训',
+        desc: '加练出拳，工人 ATK +10%。',
+        icon: '🪵',
+        ...implemented(WORKER_ATK_EFFECT),
+      },
+      {
+        id: 'bracerTighten',
+        name: '护腕束紧',
+        desc: '护腕勒紧，工人 HP +10%。',
+        icon: '🥊',
+        ...implemented(WORKER_HP_EFFECT),
+      },
     ],
   },
   {
     cost: 5,
     options: [
-      { id: 'combatManual', name: '步战教范', desc: PLACEHOLDER, icon: '📖' },
-      { id: 'combatShield', name: '盾墙口令', desc: PLACEHOLDER, icon: '🛡️' },
-      { id: 'combatWeak', name: '弱点笔记', desc: PLACEHOLDER, icon: '🎯' },
+      {
+        id: 'weaknessNotes',
+        name: '弱点札记',
+        desc: '记下要害，弱点暴击伤再 +10%。',
+        icon: '🎯',
+        ...implemented(WEAKNESS_CRIT_EFFECT),
+      },
+      {
+        id: 'revealSight',
+        name: '揭秘眼力',
+        desc: '小兵 / 精英开战再多露 1 弱点（不超过总数）。',
+        icon: '👁️',
+        ...implemented(REVEAL_EXTRA_EFFECT),
+      },
+      {
+        id: 'rapidForm',
+        name: '急行整队',
+        desc: '整队更快出手，攻击间隔 ×0.9。',
+        icon: '🏃',
+        ...implemented(ATK_INTERVAL_EFFECT),
+      },
     ],
   },
   {
     cost: 7,
     options: [
-      { id: 'combatMarch', name: '急行号令', desc: PLACEHOLDER, icon: '🏃' },
-      { id: 'combatOath', name: '骑士誓词', desc: PLACEHOLDER, icon: '⚔️' },
+      {
+        id: 'rematchSupply',
+        name: '再战补给',
+        desc: '再战补给消耗 −1，下限 0。',
+        icon: '🎒',
+        ...implemented(REMATCH_SUPPLY_EFFECT),
+      },
+      {
+        id: 'assistHorn',
+        name: '助战号角',
+        desc: '邀请助战品质下限 = max(1, floor(自身最高品质 / 2))。',
+        icon: '📯',
+        ...implemented(ASSIST_FLOOR_EFFECT),
+      },
     ],
   },
   {
@@ -188,7 +313,13 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
         effectId: ENCOUNTER_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
       },
-      { id: 's04DraftB', name: '路碑拓片', desc: PLACEHOLDER, icon: '🪨' },
+      {
+        id: 'bargainBell',
+        name: '议价铜铃',
+        desc: '当铺 / 收购换金 +15%。',
+        icon: '🔔',
+        ...implemented(TRADE_GOLD_EFFECT),
+      },
     ],
   },
   {
@@ -202,7 +333,13 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
         effectId: ENCOUNTER_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
       },
-      { id: 's05DraftA', name: '货单副本', desc: PLACEHOLDER, icon: '📄' },
+      {
+        id: 'rushOrder',
+        name: '急单优先',
+        desc: '探路少绕弯，探索费用 −20%。',
+        icon: '📨',
+        ...implemented(EXPLORE_COST_EFFECT),
+      },
     ],
   },
   {
@@ -216,7 +353,13 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
         effectId: ENCOUNTER_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
       },
-      { id: 's05DraftB', name: '脚力名册', desc: PLACEHOLDER, icon: '📋' },
+      {
+        id: 'lootSort',
+        name: '战利品分拣',
+        desc: '主线战利品金币 +15%。',
+        icon: '📦',
+        ...implemented(LOOT_GOLD_EFFECT),
+      },
     ],
   },
   {
@@ -484,9 +627,91 @@ export function encounterSlotCount(save: Save): number {
   return Math.min(ENCOUNTER_SLOT_MAX, ENCOUNTER_SLOT_MIN + bonus)
 }
 
-/** 结算占位：科技效果本阶段恒为 0。主线订单格走 encounterSlotCount，不走这里。 */
-export function techEffectValue(_save: Save, _effectId: string): number {
-  return 0
+/** 已点节点按 effectId 叠等级 × 表值。订单格走 encounterSlotCount，冲突走 stationConflictMul。 */
+export function techEffectValue(save: Save, effectId: string): number {
+  if (!effectId || effectId === NOOP_TECH_EFFECT || effectId === ENCOUNTER_SLOT_EFFECT) return 0
+  const base = TECH_EFFECT_BASE[effectId]
+  if (typeof base !== 'number' || !Number.isFinite(base) || base === 0) return 0
+  let levels = 0
+  for (const node of TECH_TREE) {
+    if (node.effectId !== effectId) continue
+    levels += techLevel(save, node.id)
+  }
+  return levels > 0 ? base * levels : 0
+}
+
+export function stationXpMul(save: Save): number {
+  return 1 + techEffectValue(save, STATION_XP_EFFECT)
+}
+
+export function miningOutputMul(save: Save): number {
+  return 1 + techEffectValue(save, MINING_OUTPUT_EFFECT)
+}
+
+export function toolUpkeepBonus(save: Save): number {
+  return techEffectValue(save, TOOL_UPKEEP_EFFECT)
+}
+
+export function forgeCycleMul(save: Save): number {
+  return Math.max(0.1, 1 - techEffectValue(save, FORGE_CYCLE_EFFECT))
+}
+
+export function workerAtkMul(save: Save): number {
+  return 1 + techEffectValue(save, WORKER_ATK_EFFECT)
+}
+
+export function workerHpMul(save: Save): number {
+  return 1 + techEffectValue(save, WORKER_HP_EFFECT)
+}
+
+export function weaknessCritBonus(save: Save): number {
+  return techEffectValue(save, WEAKNESS_CRIT_EFFECT)
+}
+
+export function revealExtraCount(save: Save): number {
+  return Math.max(0, Math.floor(techEffectValue(save, REVEAL_EXTRA_EFFECT)))
+}
+
+export function attackIntervalMul(save: Save): number {
+  return Math.max(0.1, 1 - techEffectValue(save, ATK_INTERVAL_EFFECT))
+}
+
+export function rematchSupplyCut(save: Save): number {
+  return Math.max(0, Math.floor(techEffectValue(save, REMATCH_SUPPLY_EFFECT)))
+}
+
+export function tradeGoldMul(save: Save): number {
+  return 1 + techEffectValue(save, TRADE_GOLD_EFFECT)
+}
+
+export function lootGoldMul(save: Save): number {
+  return 1 + techEffectValue(save, LOOT_GOLD_EFFECT)
+}
+
+export function exploreCostMul(save: Save): number {
+  return Math.max(0, 1 - techEffectValue(save, EXPLORE_COST_EFFECT))
+}
+
+export function slagCopperValue(save: Save): number {
+  return techEffectValue(save, SLAG_COPPER_EFFECT)
+}
+
+export function assistQualityFloor(save: Save, maxQuality: number): number {
+  if (techEffectValue(save, ASSIST_FLOOR_EFFECT) <= 0) return 1
+  const cap = Math.max(1, Math.floor(maxQuality))
+  return Math.max(1, Math.min(cap, Math.floor(cap / 2)))
+}
+
+/** 按倍率放大整数产出；小数部分用存档 rng 掷一次。 */
+export function scaleQtyByMul(save: Save, qty: number, mul: number): number {
+  if (!Number.isFinite(qty) || qty <= 0) return 0
+  if (!Number.isFinite(mul) || mul <= 0) return 0
+  if (mul === 1) return Math.floor(qty)
+  const raw = qty * mul
+  const whole = Math.floor(raw + 1e-9)
+  const frac = raw - whole
+  if (frac <= 1e-9) return whole
+  return whole + (roll01(save) < frac ? 1 : 0)
 }
 
 /** 结算占位。恒 no-op。 */
@@ -497,14 +722,16 @@ export function recruitCost(_save: Save): number {
   return RECRUIT_COST
 }
 
-/** 探索费减免恒 0。 */
-export function exploreCostReduce(_save: Save): number {
-  return 0
+/** 探索费按比例减免；`exploreCost` 用 mul，这里只给旧调用一个整数差。 */
+export function exploreCostReduce(save: Save): number {
+  const cut = techEffectValue(save, EXPLORE_COST_EFFECT)
+  if (cut <= 0) return 0
+  return cut
 }
 
-/** 离线上限不受科技影响。 */
-export function offlineCapS(_save: Save): number {
-  return OFFLINE_CAP_S
+/** 离线上限：夜班油灯每级 +2 小时。 */
+export function offlineCapS(save: Save): number {
+  return OFFLINE_CAP_S + Math.round(techEffectValue(save, OFFLINE_HOURS_EFFECT) * 3600)
 }
 
 export function offlineCapHours(save: Save): number {

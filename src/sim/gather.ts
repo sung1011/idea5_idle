@@ -1,5 +1,5 @@
 import { addToBank, bankQty, takeFromBank } from './bank'
-import { pushRuleLots, type ItemLot } from './gains'
+import { pushLot, type ItemLot } from './gains'
 import { roll01 } from './rng'
 import { selectedCategoryDef } from './stationProgress'
 import {
@@ -19,6 +19,7 @@ import {
   type IoRule,
   type MiningCategoryId,
 } from './tables'
+import { miningOutputMul, scaleQtyByMul } from './tech'
 import { cycleOutputBonus } from './tools'
 import type {
   CategoryId,
@@ -161,12 +162,14 @@ function emitRules(
   into?: ItemLot[],
 ): boolean {
   const bonus = cycleOutputBonus(save, stationId, now)
+  const techMul = stationId === 'mining' ? miningOutputMul(save) : 1
   for (const io of rules) {
-    const qty = io.qty + (io === rules[0] ? bonus : 0)
+    const raw = io.qty + (io === rules[0] ? bonus : 0)
+    const qty = stationId === 'mining' ? scaleQtyByMul(save, raw, techMul) : raw
     const added = addToBank(save, io.itemId, qty)
     if (!added.ok) return false
+    pushLot(into, io.itemId, qty)
   }
-  pushRuleLots(into, rules, bonus)
   return true
 }
 

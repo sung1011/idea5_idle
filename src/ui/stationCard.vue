@@ -7,6 +7,7 @@ import {
   assignedWorkers,
   currentSpeed,
   stationBottleneckText,
+  stationCycleS,
   stationConsumeGroups,
   type StationConsumeToken,
 } from '../sim/query'
@@ -175,7 +176,7 @@ function consumeText(row: StationConsumeToken) {
         <h2>
           {{ def.label }} · Lv{{ station.stationLevel }}
         </h2>
-        <p class="meta">{{ cat.label }} {{ cat.cycleS }}s/次</p>
+        <p class="meta">{{ cat.label }} {{ stationCycleS(game.save, stationId) }}s/次</p>
       </div>
     </header>
     <ul class="crew" aria-label="在岗工人">

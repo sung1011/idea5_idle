@@ -56,7 +56,7 @@ function fighting(w: Worker) {
 }
 
 function combatTail(w: Worker) {
-  const stats = workerLiveStats(w)
+  const stats = workerLiveStats(w, game.save)
   const xp = workerXpProgress(w)
   return `Lv${w.level} · ATK ${stats.atk} · 攻速 ${formatAtkSpeed(stats.spd)} · XP ${xp.xp}/${xp.need}`
 }
