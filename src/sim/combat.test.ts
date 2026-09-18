@@ -203,6 +203,8 @@ describe('combat timeline', () => {
     const combat = beginEnemyCombat(enc, [a, b], now)
     combat.workers[0].hp = 20
     combat.workers[1].hp = 8
+    a.hp = 20
+    b.hp = 8
     const target = pickEnemyTarget(combat)
     expect(target?.id).toBe(b.id)
 
