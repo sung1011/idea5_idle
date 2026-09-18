@@ -756,8 +756,9 @@ describe('tech effect multipliers', () => {
     expect(stationCycleS(save, 'forging')).toBeCloseTo(stationCycleS(bareForge, 'forging') * 0.9)
     expect(stationCycleS(save, 'cooking')).toBe(stationCycleS(bareForge, 'cooking'))
 
-    grantStationXp(save, 'mining', 100)
-    expect(save.stations.mining.stationXp).toBeCloseTo(115)
+    const xpBefore = save.stations.mining.stationXp
+    grantStationXp(save, 'mining', 1)
+    expect(save.stations.mining.stationXp - xpBefore).toBeCloseTo(1.15)
 
     save.stations.mining.stationLevel = 5
     save.bank.miningTool01 = 1
