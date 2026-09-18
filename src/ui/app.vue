@@ -130,7 +130,7 @@ onUnmounted(() => {
 .hud {
   position: sticky;
   top: 0;
-  z-index: 4;
+  z-index: var(--z-hud);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -240,16 +240,16 @@ onUnmounted(() => {
 }
 
 .dock {
-  z-index: 3;
+  z-index: var(--z-dock);
   display: flex;
   gap: 6px;
   flex: 0 0 auto;
-  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  padding: var(--dock-pad-y) 8px calc(var(--dock-pad-y) + env(safe-area-inset-bottom, 0px));
   background:
     var(--paper-grain),
     linear-gradient(0deg, #fffdf6, var(--paper));
   background-blend-mode: multiply, normal;
-  border-top: 3px solid var(--gold);
+  border-top: var(--border) solid var(--gold);
   box-shadow: 0 -2px 0 var(--gold-deep);
 }
 
@@ -261,7 +261,7 @@ onUnmounted(() => {
   gap: 2px;
   flex: 1 1 0;
   min-width: 0;
-  min-height: 52px;
+  min-height: var(--dock-item-min-h);
   padding: 4px;
   font-family: var(--font-display);
   font-size: 12px;

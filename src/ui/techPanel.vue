@@ -123,33 +123,35 @@ function closeSheet() {
       </li>
     </ol>
 
-    <div v-if="selectedLive" class="modal" role="dialog" aria-modal="true" :aria-label="selectedLive.node.name" @click.self="closeSheet">
-      <div class="sheet">
-        <header>
-          <p class="sheet-ico" aria-hidden="true">{{ selectedLive.node.icon }}</p>
-          <h2 class="title">{{ selectedLive.node.name }}</h2>
-          <button type="button" class="close" @click="closeSheet">关闭</button>
-        </header>
-        <p class="ready">{{ selectedLive.readyLine }}</p>
-        <p class="desc">{{ selectedLive.node.desc }}</p>
-        <div class="actions">
-          <button
-            v-if="selectedLive.lit"
-            type="button"
-            disabled
-          >
-            已激活
-          </button>
-          <button
-            v-else
-            type="button"
-            @click="activate"
-          >
-            激活 · {{ selectedLive.node.cost }} 灵感
-          </button>
+    <Teleport to="body">
+      <div v-if="selectedLive" class="modal" role="dialog" aria-modal="true" :aria-label="selectedLive.node.name" @click.self="closeSheet">
+        <div class="sheet">
+          <header>
+            <p class="sheet-ico" aria-hidden="true">{{ selectedLive.node.icon }}</p>
+            <h2 class="title">{{ selectedLive.node.name }}</h2>
+            <button type="button" class="close" @click="closeSheet">关闭</button>
+          </header>
+          <p class="ready">{{ selectedLive.readyLine }}</p>
+          <p class="desc">{{ selectedLive.node.desc }}</p>
+          <div class="actions">
+            <button
+              v-if="selectedLive.lit"
+              type="button"
+              disabled
+            >
+              已激活
+            </button>
+            <button
+              v-else
+              type="button"
+              @click="activate"
+            >
+              激活 · {{ selectedLive.node.cost }} 灵感
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Teleport>
   </section>
 </template>
 
@@ -287,20 +289,22 @@ p,
 .modal {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: var(--z-sheet);
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: 16px 12px calc(16px + env(safe-area-inset-bottom));
+  padding: 16px 12px 0;
   background: rgba(40, 24, 8, 0.45);
 }
 
 .sheet {
   width: min(480px, 100%);
+  position: relative;
+  z-index: calc(var(--z-sheet) + 1);
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 16px;
+  padding: 16px 16px calc(16px + var(--dock-height));
   border: 3px solid var(--gold-deep);
   border-radius: 16px 16px 12px 12px;
   background: var(--plate);

@@ -41,6 +41,15 @@
   --bar-fill-moss: var(--bar-sheen), linear-gradient(90deg, #9ee65a, var(--moss-deep));
   --bar-fill-gold: var(--bar-sheen), linear-gradient(90deg, #f3d06a, var(--gold-deep));
   --bar-fill-hp: var(--bar-sheen), linear-gradient(90deg, #f0785a, var(--danger));
+  --z-dock: 3;
+  --z-hud: 4;
+  --z-sheet: 30;
+  --z-tips: 40;
+  --dock-pad-y: 6px;
+  --dock-item-min-h: 52px;
+  --dock-height: calc(
+    var(--border) + var(--dock-pad-y) + var(--dock-item-min-h) + var(--dock-pad-y) + env(safe-area-inset-bottom, 0px)
+  );
 }
 
 *,

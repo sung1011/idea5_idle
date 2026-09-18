@@ -24,7 +24,7 @@ const { tips } = useFloatTips()
 .layer {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: var(--z-tips);
   pointer-events: none;
 }
 
