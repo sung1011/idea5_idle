@@ -11,6 +11,7 @@ import WorkersPanel from './workersPanel.vue'
 import WorkshopPanel from './workshopPanel.vue'
 import FloatTips from './floatTips.vue'
 import GuideQuestFloat from './guideQuestFloat.vue'
+import GuideQuestSpotlight from './guideQuestSpotlight.vue'
 import UiIcon from './uiIcon.vue'
 
 const game = useGameStore()
@@ -112,6 +113,7 @@ onUnmounted(() => {
     </nav>
 
     <GuideQuestFloat />
+    <GuideQuestSpotlight />
     <MessagePanel v-if="mailOpen" @close="mailOpen = false" />
     <SettingsPanel v-if="settingsOpen" @close="settingsOpen = false" />
     <FloatTips />
