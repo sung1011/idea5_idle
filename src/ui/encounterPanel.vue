@@ -31,6 +31,7 @@ import EncounterDealLines from './encounterDealLines.vue'
 import EncounterTips from './encounterTips.vue'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
+import HpBar from './hpBar.vue'
 import {
   qualityOf,
   workerQualityBadgeStyle,
@@ -114,11 +115,6 @@ function statusText(enc: EnemyEncounter) {
   return COMBAT_STATUS_LABEL[combatStatus(enc)]
 }
 
-function hpPct(hp: number, hpMax: number) {
-  if (hpMax <= 0) return 0
-  return Math.max(0, Math.min(100, Math.round((hp / hpMax) * 100)))
-}
-
 function workerJob(w: Worker) {
   return w.classId ? CLASS_LABEL[w.classId] : '未标'
 }
@@ -197,15 +193,14 @@ function pickRecommend(w: Worker) {
           <template v-if="enc.combat">
             <div class="bars">
               <p class="bar-line">
-                敌 {{ enc.combat.enemy.hp }}/{{ enc.combat.enemy.hpMax }}
-                · ATK {{ enc.combat.enemy.atk }} · SPD {{ enc.combat.enemy.spd }}
+                敌 · ATK {{ enc.combat.enemy.atk }} · SPD {{ enc.combat.enemy.spd }}
               </p>
-              <i class="bar" aria-hidden="true"><b :style="{ width: hpPct(enc.combat.enemy.hp, enc.combat.enemy.hpMax) + '%' }" /></i>
+              <HpBar :hp="enc.combat.enemy.hp" :hp-max="enc.combat.enemy.hpMax" />
               <template v-for="w in enc.combat.workers" :key="w.id">
                 <p class="bar-line">
-                  {{ w.label }} {{ w.hp }}/{{ w.hpMax }} · ATK {{ w.atk }} · SPD {{ w.spd }}
+                  {{ w.label }} · ATK {{ w.atk }} · SPD {{ w.spd }}
                 </p>
-                <i class="bar ally" aria-hidden="true"><b :style="{ width: hpPct(w.hp, w.hpMax) + '%' }" /></i>
+                <HpBar :hp="w.hp" :hp-max="w.hpMax" />
               </template>
             </div>
           </template>
@@ -657,26 +652,6 @@ ul {
   margin: 0;
   font-family: var(--font-mono);
   font-size: 13px;
-}
-
-.bar {
-  display: block;
-  height: 8px;
-  border: 2px solid var(--gold-deep);
-  border-radius: 999px;
-  background: linear-gradient(180deg, #efe0b0, #efe4c4);
-  overflow: hidden;
-  box-shadow: inset 0 1px 2px rgba(106, 66, 24, 0.16);
-}
-
-.bar b {
-  display: block;
-  height: 100%;
-  background: var(--bar-fill-hp);
-}
-
-.bar.ally b {
-  background: var(--bar-fill-moss);
 }
 
 .modal {

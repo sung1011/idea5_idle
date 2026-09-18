@@ -19,7 +19,7 @@ import {
 import { recruitCost } from '../sim/tech'
 import type { StationId, Worker } from '../sim/types'
 import { useGameStore } from './gameStore'
-import { hpBarFill, hpBarLabel, hpBarTone } from './hpBar'
+import HpBar from './hpBar.vue'
 import {
   qualityOf,
   workerQualityBadgeStyle,
@@ -51,10 +51,6 @@ function combatTail(w: Worker) {
   const stats = workerLiveStats(w)
   const xp = workerXpProgress(w)
   return `Lv${w.level} · ATK ${stats.atk} · SPD ${stats.spd} · XP ${xp.xp}/${xp.need}`
-}
-
-function hpPct(w: Worker) {
-  return `${(hpBarFill(w.hp, w.hpMax) * 100).toFixed(2)}%`
 }
 
 function availableFoods() {
@@ -122,18 +118,7 @@ function onLoadFood(w: Worker) {
           {{ w.name ?? w.id }} · {{ w.classId ? CLASS_LABEL[w.classId] : '未标' }} · Lv{{ w.level }}
         </p>
         <div class="combat">
-          <div
-            class="hp"
-            :class="hpBarTone(w.hp, w.hpMax)"
-            role="progressbar"
-            :aria-valuenow="w.hp"
-            :aria-valuemin="0"
-            :aria-valuemax="w.hpMax"
-            :aria-label="`HP ${hpBarLabel(w.hp, w.hpMax)}`"
-          >
-            <i class="fill" :style="{ width: hpPct(w) }" />
-            <span>{{ hpBarLabel(w.hp, w.hpMax) }}</span>
-          </div>
+          <HpBar class="hp-slot" :hp="w.hp" :hp-max="w.hpMax" />
           <p class="hint">{{ combatTail(w) }}<template v-if="fighting(w)"> · 战斗中</template></p>
           <p class="attrs">
             <CombatAttrRow :attrs="w.combatAttrs" />
@@ -298,45 +283,10 @@ ul {
   aspect-ratio: 1;
 }
 
-.hp {
-  position: relative;
+.hp-slot {
   flex: 1 1 108px;
   min-width: 96px;
   max-width: 168px;
-  height: 22px;
-  overflow: hidden;
-  border: 2px solid var(--gold-deep);
-  border-radius: var(--radius-pill);
-  background: linear-gradient(180deg, #efe0b0, var(--bar-track));
-  box-shadow: inset 0 1px 2px rgba(106, 66, 24, 0.16);
-}
-
-.hp .fill {
-  display: block;
-  height: 100%;
-  background: var(--bar-fill-moss);
-}
-
-.hp.mid .fill {
-  background: var(--bar-fill-gold);
-}
-
-.hp.low .fill {
-  background: var(--bar-fill-hp);
-}
-
-.hp span {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--ink);
-  text-shadow: 0 0 3px #fff8ee, 0 1px 0 #fff8ee;
 }
 
 .tool-row {
