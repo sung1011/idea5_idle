@@ -323,6 +323,16 @@ export type Save = {
    * 旧档缺字段 hydrate 为 0。
    */
   mainLootClaims: number
+  /**
+   * 左下悬浮新手主线当前步。1～5 进行中；6 表示五步都已领取，浮层不渲染。
+   * 旧档缺字段：按现有进度落到第一未完成步，五步都齐则 6。
+   */
+  guideQuestStep: number
+  /**
+   * 开局铜矿当是否已成交。成交后即使探索刷掉该格也仍算完成。
+   * 旧档缺字段：板上已完成开局当则为 true；开局当已不在板且已探索过则推断 true。
+   */
+  starterCopperPawnDone: boolean
   /** 工匠委托留下的工坊产量加成；到期后不算。 */
   workshopBuff: WorkshopBuff | null
   /** 成功探索次数，驱动探索费用与下一板种子。 */

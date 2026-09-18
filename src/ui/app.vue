@@ -10,6 +10,7 @@ import TechPanel from './techPanel.vue'
 import WorkersPanel from './workersPanel.vue'
 import WorkshopPanel from './workshopPanel.vue'
 import FloatTips from './floatTips.vue'
+import GuideQuestFloat from './guideQuestFloat.vue'
 import UiIcon from './uiIcon.vue'
 
 const game = useGameStore()
@@ -110,6 +111,7 @@ onUnmounted(() => {
       </button>
     </nav>
 
+    <GuideQuestFloat />
     <MessagePanel v-if="mailOpen" @close="mailOpen = false" />
     <SettingsPanel v-if="settingsOpen" @close="settingsOpen = false" />
     <FloatTips />
@@ -118,6 +120,7 @@ onUnmounted(() => {
 
 <style scoped>
 .shell {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;

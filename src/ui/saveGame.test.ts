@@ -281,4 +281,15 @@ describe('save migration', () => {
     expect(oldOnePoint?.techPoints).toBe(1)
     expect(oldOnePoint?.techPoints).not.toBe(START_TECH_POINTS)
   })
+
+  it('keeps guide quest fields through persist / load', () => {
+    const store = memory()
+    const save = createSave()
+    save.guideQuestStep = 4
+    save.starterCopperPawnDone = true
+    persistSave(save, store)
+    const loaded = loadSave(store)
+    expect(loaded?.guideQuestStep).toBe(4)
+    expect(loaded?.starterCopperPawnDone).toBe(true)
+  })
 })

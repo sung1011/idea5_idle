@@ -727,6 +727,14 @@ export const STARTER_PAWN_QTY = 2
 export const STARTER_PAWN_LABEL = '铜矿当'
 export const STARTER_PAWN_QUALITY: EncounterQuality = 'green'
 
+export function isStarterCopperPawn(enc: Encounter): enc is PawnEncounter {
+  return (
+    enc.kind === 'pawn' &&
+    (enc.id.startsWith('merchantPawnCopper-') ||
+      (enc.label === STARTER_PAWN_LABEL && (enc.pawnWants.ore ?? 0) >= STARTER_PAWN_QTY))
+  )
+}
+
 /** 新档 / 空板第 0 格：绿档当铺，消耗铜矿 ×2，奖励按 pawnUnitGold / rewardGold。 */
 export function makeStarterCopperPawn(seed = 0, slot = 0): PawnEncounter {
   const quality = STARTER_PAWN_QUALITY
@@ -1352,6 +1360,7 @@ export function pawnMerchant(save: Save, index: number): ActionResult {
   if (!took.ok) return took
   save.gold += gold
   enc.completed = true
+  if (isStarterCopperPawn(enc)) save.starterCopperPawnDone = true
   return { ok: true, message: `以物换钱成交。金币 +${gold}` }
 }
 

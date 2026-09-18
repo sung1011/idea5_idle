@@ -61,5 +61,7 @@ describe('createSave seven stations', () => {
     }
     expect(save.mainChapter).toBe(1)
     expect(save.mainLootClaims).toBe(0)
+    expect(save.guideQuestStep).toBe(1)
+    expect(save.starterCopperPawnDone).toBe(false)
   })
 })

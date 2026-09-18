@@ -27,6 +27,8 @@ export function createSave(): Save {
     encounters: [],
     mainChapter: 1,
     mainLootClaims: 0,
+    guideQuestStep: 1,
+    starterCopperPawnDone: false,
     workshopBuff: null,
     exploreCount: 0,
     departCount: 0,

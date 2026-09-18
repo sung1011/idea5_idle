@@ -12,6 +12,7 @@ import {
   returnLegacyStationToolSlots,
   sanitizeAllStationTools,
 } from '../sim/tools'
+import { hydrateGuideQuestFields } from '../sim/guideQuest'
 import { hydrateTechFields } from '../sim/tech'
 import { WORKER_QUALITY_REV } from '../sim/tables'
 import type { Save } from '../sim/types'
@@ -90,7 +91,8 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
   }
   hydrateTechFields(merged as Save & { inspiration?: unknown })
   if (!Array.isArray(parsed.encounters)) merged.encounters = []
-  return hydrateEncounterFields(merged)
+  const loaded = hydrateEncounterFields(merged)
+  return hydrateGuideQuestFields(loaded, parsed)
 }
 
 export function loadSave(storage?: Storage | null): Save | null {
