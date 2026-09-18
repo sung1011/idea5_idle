@@ -5,9 +5,11 @@ import {
   TECH_TAB_LABELS,
   TECH_TREE,
   encounterSlotCount,
-  hasTech,
   isRowOpen,
   isTechComplete,
+  isTechMaxed,
+  techActivateLabel,
+  techProgressText,
   techReadyLabel,
   techTab,
   techTier,
@@ -34,7 +36,9 @@ const selectedLive = computed(() => {
   if (!node) return null
   return {
     node,
-    lit: hasTech(game.save, node.id),
+    maxed: isTechMaxed(game.save, node.id),
+    progress: techProgressText(game.save, node.id),
+    activateLabel: techActivateLabel(game.save, node.id),
     readyLine: techReadyLabel(node),
   }
 })
@@ -44,18 +48,22 @@ function selectTab(id: TechTabId) {
   selected.value = null
 }
 
-function lit(id: TechId) {
-  return hasTech(game.save, id)
+function maxed(id: TechId) {
+  return isTechMaxed(game.save, id)
+}
+
+function progress(id: TechId) {
+  return techProgressText(game.save, id)
 }
 
 function nodeClass(node: TechNodeDef) {
-  if (lit(node.id)) return 'on'
+  if (maxed(node.id)) return 'on'
   if (isRowOpen(game.save, node.tab, node.row)) return 'ready'
   return 'off'
 }
 
 function onNode(node: TechNodeDef) {
-  if (lit(node.id) || isRowOpen(game.save, node.tab, node.row)) {
+  if (maxed(node.id) || isRowOpen(game.save, node.tab, node.row)) {
     selected.value = node
     return
   }
@@ -64,7 +72,7 @@ function onNode(node: TechNodeDef) {
 
 function activate() {
   const node = selected.value
-  if (!node || lit(node.id)) return
+  if (!node || maxed(node.id)) return
   game.researchTech(node.id)
 }
 
@@ -78,7 +86,7 @@ function closeSheet() {
     <p class="kicker">骑士工坊 · 科技</p>
     <p class="title">科技树</p>
     <p class="hint">
-      三页签各自成串。任意工坊完成一个周期 +1 灵感，骑士升级也 +1。买任意 1 个开上一层，同行可稍后补买。工坊规章 / 工匠密录减轻同站冲突；事务订单格科技把主线 1→6。
+      三页签各自成串。任意工坊完成一个周期 +1 灵感，骑士升级也 +1。每个节点可点多次（图标 n/m），未满级且本层已开、灵感够可再点；买任意 1 次开上一层。工坊规章 / 工匠密录减轻同站冲突；事务订单格科技把主线 1→6。
     </p>
     <div class="chips">
       <span class="chip">骑士 {{ knightLevel }} 级</span>
@@ -117,7 +125,8 @@ function closeSheet() {
           >
             <span class="ico" aria-hidden="true">{{ node.icon }}</span>
             <strong>{{ node.name }}</strong>
-            <i v-if="lit(node.id)" class="mark" aria-hidden="true">✓</i>
+            <i class="prog">{{ progress(node.id) }}</i>
+            <i v-if="maxed(node.id)" class="mark" aria-hidden="true">✓</i>
           </button>
         </div>
       </li>
@@ -131,11 +140,11 @@ function closeSheet() {
             <h2 class="title">{{ selectedLive.node.name }}</h2>
             <button type="button" class="close" @click="closeSheet">关闭</button>
           </header>
-          <p class="ready">{{ selectedLive.readyLine }}</p>
+          <p class="ready">{{ selectedLive.readyLine }} · {{ selectedLive.progress }}</p>
           <p class="desc">{{ selectedLive.node.desc }}</p>
           <div class="actions">
             <button
-              v-if="selectedLive.lit"
+              v-if="selectedLive.maxed"
               type="button"
               disabled
             >
@@ -146,7 +155,7 @@ function closeSheet() {
               type="button"
               @click="activate"
             >
-              激活 · {{ selectedLive.node.cost }} 灵感
+              {{ selectedLive.activateLabel }}
             </button>
           </div>
         </div>
@@ -257,6 +266,17 @@ p,
 
 .node .ico {
   font-size: 22px;
+  line-height: 1;
+}
+
+.node .prog {
+  position: absolute;
+  left: 6px;
+  top: 4px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0;
   line-height: 1;
 }
 

@@ -182,6 +182,7 @@ describe('save migration', () => {
     expect(save?.techPoints).toBe(7)
     expect(save?.knightLevel).toBe(1)
     expect(save?.unlockedTechIds).toEqual(['workshopLog', 'artisanManual'])
+    expect(save?.techLevels).toEqual({ workshopLog: 1, artisanManual: 1 })
     expect(save?.encounters).toHaveLength(1)
 
     const old = {
@@ -194,12 +195,14 @@ describe('save migration', () => {
     expect(hydrated?.techPoints).toBe(0)
     expect(hydrated?.knightLevel).toBe(1)
     expect(hydrated?.unlockedTechIds).toEqual([])
+    expect(hydrated?.techLevels).toEqual({})
 
     const skipped = hydrateLoadedSave({
       ...createSave(),
       unlockedTechIds: ['apprenticeNotes'],
     })
     expect(skipped?.unlockedTechIds).toEqual(['apprenticeNotes'])
+    expect(skipped?.techLevels).toEqual({ apprenticeNotes: 1 })
 
     const aliased = hydrateLoadedSave({
       ...createSave(),
@@ -210,13 +213,25 @@ describe('save migration', () => {
     expect(aliased?.techPoints).toBe(4)
     expect(aliased?.knightLevel).toBe(1)
     expect(aliased?.unlockedTechIds).toEqual(['workshopLog', 'apprenticeNotes'])
+    expect(aliased?.techLevels).toEqual({ workshopLog: 1, apprenticeNotes: 1 })
 
     const mappedSlot = hydrateLoadedSave({
       ...createSave(),
       unlockedTechIds: ['pathOutpost', 'workshopRules'],
     })
     expect(mappedSlot?.unlockedTechIds).toEqual(['workshopRules', 'pathOutpost'])
+    expect(mappedSlot?.techLevels).toEqual({ workshopRules: 1, pathOutpost: 1 })
     expect(mappedSlot?.encounters).toHaveLength(2)
+
+    const store = memory()
+    const leveled = createSave()
+    leveled.techPoints = 12
+    leveled.techLevels = { workshopLog: 3 }
+    leveled.unlockedTechIds = ['workshopLog']
+    persistSave(leveled, store)
+    const reloaded = loadSave(store)
+    expect(reloaded?.techLevels).toEqual({ workshopLog: 3 })
+    expect(reloaded?.unlockedTechIds).toEqual(['workshopLog'])
 
     const backfill = hydrateLoadedSave({
       ...createSave(),

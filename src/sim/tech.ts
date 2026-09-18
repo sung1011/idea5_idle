@@ -10,9 +10,13 @@ export const CRAFT_TECH_POINTS = CYCLE_TECH_POINTS
 
 export const ENCOUNTER_SLOT_MIN = 1
 export const ENCOUNTER_SLOT_MAX = 6
-/** 主线订单格科技的 effectId。每点亮 1 个 +1 格，与初始 1 格相加，封顶 6。 */
+/** 主线订单格科技的 effectId。每级 +1 格，与初始 1 格相加，封顶 6。已实装节点先 `maxLevel=1`。 */
 export const ENCOUNTER_SLOT_EFFECT = 'encounterSlot'
 export const NOOP_TECH_EFFECT = 'noop'
+/** 已实装节点先保持单级，图标仍走 `0/1`→`1/1`。 */
+export const IMPLEMENTED_TECH_MAX_LEVEL = 1
+/** 占位节点可连点，图标能看出 `1/5`。 */
+export const PLACEHOLDER_TECH_MAX_LEVEL = 5
 
 export const TECH_TAB_IDS = ['production', 'combat', 'affairs'] as const
 export type TechTabId = (typeof TECH_TAB_IDS)[number]
@@ -34,6 +38,8 @@ export type TechNodeDef = {
   row: number
   icon: string
   implemented: boolean
+  /** 可点次数，≥1。已实装先 1；占位 5。 */
+  maxLevel: number
 }
 
 export type TechRowDef = {
@@ -56,6 +62,7 @@ type OptionSeed = {
   icon: string
   effectId?: string
   implemented?: boolean
+  maxLevel?: number
 }
 
 type RowSeed = {
@@ -90,6 +97,7 @@ const PRODUCTION_ROWS: readonly RowSeed[] = [
         desc: '排班规矩减轻同站两人冲突（效率 −25%）。',
         icon: '📜',
         implemented: true,
+        maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
       },
       { id: 'pipelineChart', name: '流水线图', desc: '站与站之间的物流草图。', icon: '📊' },
     ],
@@ -103,6 +111,7 @@ const PRODUCTION_ROWS: readonly RowSeed[] = [
         desc: '密录消除同站两人冲突，满员按人数全速。',
         icon: '📗',
         implemented: true,
+        maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
       },
       { id: 'knightEdict', name: '骑士训令', desc: '骑士对工坊的号令。', icon: '📯' },
     ],
@@ -182,6 +191,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
         desc: '在工坊外立一座哨岗，主线订单格 1→2。',
         icon: '🏕️',
         effectId: ENCOUNTER_SLOT_EFFECT,
+        maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
       },
       { id: 's04DraftB', name: '路碑拓片', desc: PLACEHOLDER, icon: '🪨' },
     ],
@@ -195,6 +205,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
         desc: '拿到摆摊文书，主线订单格 2→3。',
         icon: '🪪',
         effectId: ENCOUNTER_SLOT_EFFECT,
+        maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
       },
       { id: 's05DraftA', name: '货单副本', desc: PLACEHOLDER, icon: '📄' },
     ],
@@ -208,6 +219,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
         desc: '路书可传到更远，主线订单格 3→4。',
         icon: '🏇',
         effectId: ENCOUNTER_SLOT_EFFECT,
+        maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
       },
       { id: 's05DraftB', name: '脚力名册', desc: PLACEHOLDER, icon: '📋' },
     ],
@@ -221,6 +233,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
         desc: '夜里也能看见客商，主线订单格 4→5。',
         icon: '🗼',
         effectId: ENCOUNTER_SLOT_EFFECT,
+        maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
       },
       { id: 's04DraftC', name: '夜更口令', desc: PLACEHOLDER, icon: '🌙' },
     ],
@@ -234,6 +247,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
         desc: '大队可同时进场，主线订单格 5→6。',
         icon: '🐫',
         effectId: ENCOUNTER_SLOT_EFFECT,
+        maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
       },
       { id: 's05DraftC', name: '关卡印花', desc: PLACEHOLDER, icon: '💮' },
     ],
@@ -252,6 +266,13 @@ function isImplemented(seed: OptionSeed): boolean {
   return seed.implemented === true || seed.effectId === ENCOUNTER_SLOT_EFFECT
 }
 
+function resolveMaxLevel(seed: OptionSeed): number {
+  if (typeof seed.maxLevel === 'number' && Number.isFinite(seed.maxLevel) && seed.maxLevel >= 1) {
+    return Math.floor(seed.maxLevel)
+  }
+  return isImplemented(seed) ? IMPLEMENTED_TECH_MAX_LEVEL : PLACEHOLDER_TECH_MAX_LEVEL
+}
+
 function buildRow(tab: TechTabId, row: number, seed: RowSeed): TechRowDef {
   const options = seed.options.map((option) => ({
     id: option.id,
@@ -263,6 +284,7 @@ function buildRow(tab: TechTabId, row: number, seed: RowSeed): TechRowDef {
     row,
     icon: option.icon,
     implemented: isImplemented(option),
+    maxLevel: resolveMaxLevel(option),
   }))
   return { tab, row, cost: seed.cost, options }
 }
@@ -326,6 +348,12 @@ export function normalizeTechPoints(value: unknown): number {
   return Math.floor(value)
 }
 
+export function normalizeTechLevel(value: unknown, maxLevel: number): number {
+  const cap = Math.max(1, Math.floor(maxLevel))
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return 0
+  return Math.min(cap, Math.floor(value))
+}
+
 function unlockedSet(ids: readonly string[]): Set<TechId> {
   return new Set(ids.filter(isTechId))
 }
@@ -340,16 +368,71 @@ export function hydrateUnlockedTechIds(raw: unknown): TechId[] {
   return TECH_TREE.filter((node) => have.has(node.id)).map((node) => node.id)
 }
 
-export function hydrateTechFields(save: Save & { inspiration?: unknown }): void {
+export function hydrateTechLevels(raw: unknown, unlockedIds: readonly TechId[] = []): Partial<Record<TechId, number>> {
+  const levels: Partial<Record<TechId, number>> = {}
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    for (const node of TECH_TREE) {
+      const n = normalizeTechLevel((raw as Record<string, unknown>)[node.id], node.maxLevel)
+      if (n > 0) levels[node.id] = n
+    }
+  }
+  for (const id of unlockedIds) {
+    if (!isTechId(id)) continue
+    const node = techNode(id)
+    if ((levels[id] ?? 0) < 1) levels[id] = 1
+    if ((levels[id] ?? 0) > node.maxLevel) levels[id] = node.maxLevel
+  }
+  return levels
+}
+
+function syncUnlockedFromLevels(levels: Partial<Record<TechId, number>>): TechId[] {
+  return TECH_TREE.filter((node) => (levels[node.id] ?? 0) >= 1).map((node) => node.id)
+}
+
+/** 把旧档 / 测试里只写了 `unlockedTechIds` 的点落成 level=1，避免再点时冲掉。 */
+function materializeTechLevels(save: Save): Partial<Record<TechId, number>> {
+  const levels: Partial<Record<TechId, number>> = { ...save.techLevels }
+  for (const id of save.unlockedTechIds ?? []) {
+    if (!isTechId(id)) continue
+    if ((levels[id] ?? 0) < 1) levels[id] = 1
+  }
+  return levels
+}
+
+export function hydrateTechFields(save: Save & { inspiration?: unknown; techLevels?: unknown }): void {
   const hasPoints =
     typeof save.techPoints === 'number' && Number.isFinite(save.techPoints) && save.techPoints > 0
   save.techPoints = normalizeTechPoints(hasPoints ? save.techPoints : save.inspiration)
-  save.unlockedTechIds = hydrateUnlockedTechIds(save.unlockedTechIds)
+  const unlocked = hydrateUnlockedTechIds(save.unlockedTechIds)
+  save.techLevels = hydrateTechLevels(save.techLevels, unlocked)
+  save.unlockedTechIds = syncUnlockedFromLevels(save.techLevels)
   syncKnightLevel(save)
 }
 
+export function techLevel(save: Save, id: TechId): number {
+  const node = techNode(id)
+  const fromLevels = normalizeTechLevel(save.techLevels?.[id], node.maxLevel)
+  if (fromLevels > 0) return fromLevels
+  return save.unlockedTechIds.includes(id) ? 1 : 0
+}
+
+export function isTechMaxed(save: Save, id: TechId): boolean {
+  return techLevel(save, id) >= techNode(id).maxLevel
+}
+
+export function techProgressText(save: Save, id: TechId): string {
+  return `${techLevel(save, id)}/${techNode(id).maxLevel}`
+}
+
+export function techActivateLabel(save: Save, id: TechId): string {
+  const node = techNode(id)
+  if (isTechMaxed(save, id)) return '已激活'
+  if (techLevel(save, id) > 0) return `还可再点 · ${node.cost} 灵感`
+  return `激活 · ${node.cost} 灵感`
+}
+
 export function hasTech(save: Save, id: TechId): boolean {
-  return save.unlockedTechIds.includes(id)
+  return techLevel(save, id) >= 1
 }
 
 export function rowHasPurchase(save: Save, tab: TechTabId, row: number): boolean {
@@ -365,7 +448,7 @@ export function isRowOpen(save: Save, tab: TechTabId, row: number): boolean {
 
 export function researchBlockReason(save: Save, techId: string): string | null {
   if (!isTechId(techId)) return '未知科技'
-  if (hasTech(save, techId)) return '已经点亮'
+  if (isTechMaxed(save, techId)) return '已经点满'
   const node = techNode(techId)
   if (!isRowOpen(save, node.tab, node.row)) return '未解锁'
   if (normalizeTechPoints(save.techPoints) < node.cost) return '灵感不足'
@@ -378,7 +461,7 @@ export function researchableTechs(save: Save): TechNodeDef[] {
     for (const row of tab.rows) {
       if (!isRowOpen(save, tab.id, row.row)) continue
       for (const option of row.options) {
-        if (!hasTech(save, option.id)) out.push(option)
+        if (!isTechMaxed(save, option.id)) out.push(option)
       }
     }
   }
@@ -390,19 +473,18 @@ export function nextTech(save: Save): TechNodeDef | null {
 }
 
 export function isTechComplete(save: Save): boolean {
-  return TECH_TREE.every((node) => hasTech(save, node.id))
+  return TECH_TREE.every((node) => isTechMaxed(save, node.id))
 }
 
 export function techTier(save: Save): number {
-  return save.unlockedTechIds.filter(isTechId).length
+  return TECH_TREE.filter((node) => hasTech(save, node.id)).length
 }
 
-/** 当前主线订单格数。初始 1，每点亮一个主线订单格科技 +1，封顶 6。 */
+/** 当前主线订单格数。初始 1，每级订单格科技 +1，封顶 6。已实装节点 maxLevel=1，与「点亮 1 个 +1 格」相同。 */
 export function encounterSlotCount(save: Save): number {
-  const have = unlockedSet(save.unlockedTechIds ?? [])
   let bonus = 0
   for (const id of ENCOUNTER_SLOT_TECH_IDS) {
-    if (have.has(id)) bonus += 1
+    bonus += techLevel(save, id)
   }
   return Math.min(ENCOUNTER_SLOT_MAX, ENCOUNTER_SLOT_MIN + bonus)
 }
@@ -480,7 +562,9 @@ export function researchTech(save: Save, techId: string): ActionResult {
   if (blocked) return { ok: false, reason: blocked }
   const node = techNode(techId)
   save.techPoints = normalizeTechPoints(save.techPoints) - node.cost
-  save.unlockedTechIds = [...save.unlockedTechIds.filter(isTechId), node.id]
+  const nextLevel = techLevel(save, node.id) + 1
+  save.techLevels = { ...materializeTechLevels(save), [node.id]: nextLevel }
+  save.unlockedTechIds = syncUnlockedFromLevels(save.techLevels)
   if (node.effectId === ENCOUNTER_SLOT_EFFECT) {
     resizeEncounterBoard(save)
   }

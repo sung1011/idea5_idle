@@ -13,6 +13,8 @@ import {
   ENCOUNTER_SLOT_MAX,
   ENCOUNTER_SLOT_MIN,
   ENCOUNTER_SLOT_TECH_IDS,
+  IMPLEMENTED_TECH_MAX_LEVEL,
+  PLACEHOLDER_TECH_MAX_LEVEL,
   STATION_CONFLICT_BASE_MUL,
   STATION_CONFLICT_CLEARED_MUL,
   STATION_CONFLICT_RULES_MUL,
@@ -26,8 +28,10 @@ import {
   grantTechPoint,
   hasTech,
   hydrateTechFields,
+  hydrateTechLevels,
   hydrateUnlockedTechIds,
   isRowOpen,
+  isTechMaxed,
   nextTech,
   normalizeTechPoints,
   offlineCapHours,
@@ -39,7 +43,10 @@ import {
   stationConflictHint,
   stationConflictMul,
   stationTechSpeedMul,
+  techActivateLabel,
   techEffectValue,
+  techLevel,
+  techProgressText,
   techReadyLabel,
   techRow,
   techTab,
@@ -57,6 +64,11 @@ function buy(save: Save, id: string) {
   return researchTech(save, id)
 }
 
+function maxAllTechs(save: Save) {
+  save.techLevels = Object.fromEntries(TECH_TREE.map((node) => [node.id, node.maxLevel]))
+  save.unlockedTechIds = TECH_TREE.map((node) => node.id)
+}
+
 describe('tech tab row table', () => {
   it('is three independent tabs with 2-3 same-cost options per row', () => {
     expect(TECH_TABS.map((tab) => tab.id)).toEqual([...TECH_TAB_IDS])
@@ -66,9 +78,11 @@ describe('tech tab row table', () => {
       affairs: '事务',
     })
     expect(new Set(TECH_TREE.map((node) => node.id)).size).toBe(TECH_TREE.length)
-    expect(TECH_TREE.every((node) => node.cost > 0 && node.desc && node.effectId && node.row >= 1 && node.icon)).toBe(
-      true,
-    )
+    expect(
+      TECH_TREE.every(
+        (node) => node.cost > 0 && node.desc && node.effectId && node.row >= 1 && node.icon && node.maxLevel >= 1,
+      ),
+    ).toBe(true)
 
     for (const tab of TECH_TABS) {
       expect(tab.name).toBe(TECH_TAB_LABELS[tab.id])
@@ -99,14 +113,32 @@ describe('tech tab row table', () => {
 
     const rules = TECH_TREE.find((node) => node.id === 'workshopRules')
     const archive = TECH_TREE.find((node) => node.id === 'artisanArchive')
-    expect(rules).toMatchObject({ tab: 'production', row: 2, implemented: true })
-    expect(archive).toMatchObject({ tab: 'production', row: 3, implemented: true })
+    expect(rules).toMatchObject({
+      tab: 'production',
+      row: 2,
+      implemented: true,
+      maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
+    })
+    expect(archive).toMatchObject({
+      tab: 'production',
+      row: 3,
+      implemented: true,
+      maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
+    })
     expect(techReadyLabel(rules!)).toBe('已实装')
     expect(techReadyLabel(archive!)).toBe('已实装')
+    expect(ENCOUNTER_SLOT_TECH_IDS.every((id) => techNodeById(id).maxLevel === IMPLEMENTED_TECH_MAX_LEVEL)).toBe(true)
+    expect(TECH_TREE.filter((node) => !node.implemented).every((node) => node.maxLevel === PLACEHOLDER_TECH_MAX_LEVEL)).toBe(
+      true,
+    )
     expect(techTab('combat').rows.every((row) => row.options.every((option) => !option.implemented))).toBe(true)
     expect(techReadyLabel(techRow('combat', 1)!.options[0])).toBe('未实装（效果尚未实现）')
   })
 })
+
+function techNodeById(id: string) {
+  return TECH_TREE.find((node) => node.id === id)!
+}
 
 describe('hydrate tech fields', () => {
   it('keeps known old ids, drops junk, and does not require previous rows', () => {
@@ -136,9 +168,11 @@ describe('hydrate tech fields', () => {
     const save = createSave()
     delete (save as { techPoints?: number }).techPoints
     delete (save as { unlockedTechIds?: Save['unlockedTechIds'] }).unlockedTechIds
+    delete (save as { techLevels?: Save['techLevels'] }).techLevels
     hydrateTechFields(save as Save)
     expect(save.techPoints).toBe(0)
     expect(save.unlockedTechIds).toEqual([])
+    expect(save.techLevels).toEqual({})
   })
 
   it('reads inspiration as a techPoints alias and keeps points when mapping old ids', () => {
@@ -150,9 +184,23 @@ describe('hydrate tech fields', () => {
     hydrateTechFields(aliased)
     expect(aliased.techPoints).toBe(7)
     expect(aliased.unlockedTechIds).toEqual(['workshopRules', 'pathOutpost'])
+    expect(aliased.techLevels).toEqual({ workshopRules: 1, pathOutpost: 1 })
+    expect(techLevel(aliased, 'workshopRules')).toBe(1)
+    expect(techLevel(aliased, 'pathOutpost')).toBe(1)
     expect(encounterSlotCount(aliased)).toBe(2)
     expect(hasTech(aliased, 'workshopRules')).toBe(true)
     expect(hasTech(aliased, 'pathOutpost')).toBe(true)
+  })
+
+  it('maps old unlockedTechIds to level=1 and clamps stored levels to maxLevel', () => {
+    expect(hydrateTechLevels(undefined, ['workshopLog', 'notATech'])).toEqual({ workshopLog: 1 })
+    expect(hydrateTechLevels({ workshopLog: 9, skipMe: 3 }, [])).toEqual({
+      workshopLog: PLACEHOLDER_TECH_MAX_LEVEL,
+    })
+    expect(hydrateTechLevels({ workshopLog: 2, pathOutpost: 4 }, ['pathOutpost'])).toEqual({
+      workshopLog: 2,
+      pathOutpost: IMPLEMENTED_TECH_MAX_LEVEL,
+    })
   })
 })
 
@@ -262,14 +310,83 @@ describe('research unlock', () => {
     expect(isRowOpen(save, 'production', 2)).toBe(true)
     expect(researchTech(save, 'pipelineChart')).toEqual({ ok: true, message: '已点亮「流水线图」' })
     expect(save.techPoints).toBe(16)
+    expect(save.unlockedTechIds).toEqual(['workshopRules', 'pipelineChart'])
+    expect(save.techLevels).toEqual({ workshopRules: 1, pipelineChart: 1 })
   })
 
   it('fails when the tree is already full', () => {
     const save = createSave()
     save.techPoints = 999
-    save.unlockedTechIds = TECH_TREE.map((node) => node.id)
+    maxAllTechs(save)
     expect(researchNextTech(save)).toEqual({ ok: false, reason: '科技树已满' })
     expect(save.techPoints).toBe(999)
+  })
+})
+
+describe('tech multi-level', () => {
+  it('lets a placeholder be bought many times, each click spending the same row cost', () => {
+    const save = createSave()
+    save.techPoints = 20
+    expect(techProgressText(save, 'workshopLog')).toBe('0/5')
+    expect(techActivateLabel(save, 'workshopLog')).toBe('激活 · 2 灵感')
+    expect(researchTech(save, 'workshopLog')).toEqual({ ok: true, message: '已点亮「工坊日志」' })
+    expect(techLevel(save, 'workshopLog')).toBe(1)
+    expect(techProgressText(save, 'workshopLog')).toBe('1/5')
+    expect(techActivateLabel(save, 'workshopLog')).toBe('还可再点 · 2 灵感')
+    expect(save.techPoints).toBe(18)
+    expect(researchTech(save, 'workshopLog')).toEqual({ ok: true, message: '已点亮「工坊日志」' })
+    expect(techLevel(save, 'workshopLog')).toBe(2)
+    expect(save.techPoints).toBe(16)
+    expect(save.techLevels.workshopLog).toBe(2)
+    expect(save.unlockedTechIds).toEqual(['workshopLog'])
+  })
+
+  it('blocks a node after it reaches maxLevel', () => {
+    const save = createSave()
+    save.techPoints = 99
+    for (let i = 0; i < PLACEHOLDER_TECH_MAX_LEVEL; i += 1) {
+      expect(researchTech(save, 'workshopLog').ok).toBe(true)
+    }
+    expect(techLevel(save, 'workshopLog')).toBe(5)
+    expect(techProgressText(save, 'workshopLog')).toBe('5/5')
+    expect(isTechMaxed(save, 'workshopLog')).toBe(true)
+    expect(techActivateLabel(save, 'workshopLog')).toBe('已激活')
+    expect(researchTech(save, 'workshopLog')).toEqual({ ok: false, reason: '已经点满' })
+    expect(save.techPoints).toBe(99 - 2 * PLACEHOLDER_TECH_MAX_LEVEL)
+    expect(researchTech(save, 'pathOutpost').ok).toBe(true)
+    expect(researchTech(save, 'pathOutpost')).toEqual({ ok: false, reason: '已经点满' })
+    expect(techProgressText(save, 'pathOutpost')).toBe('1/1')
+  })
+
+  it('opens the next row after any node on the current row reaches level 1', () => {
+    const save = createSave()
+    expect(isRowOpen(save, 'production', 2)).toBe(false)
+    expect(isRowOpen(save, 'combat', 2)).toBe(false)
+    expect(buy(save, 'workshopLog')).toEqual({ ok: true, message: '已点亮「工坊日志」' })
+    expect(isRowOpen(save, 'production', 2)).toBe(true)
+    expect(isRowOpen(save, 'combat', 2)).toBe(false)
+    expect(buy(save, 'workshopLog').ok).toBe(true)
+    expect(techLevel(save, 'workshopLog')).toBe(2)
+    expect(isRowOpen(save, 'production', 2)).toBe(true)
+    expect(buy(save, 'workshopRules')).toEqual({ ok: true, message: '已点亮「工坊规章」' })
+    expect(techProgressText(save, 'workshopRules')).toBe('1/1')
+  })
+
+  it('hydrates old unlockedTechIds as level=1 without exceeding maxLevel', () => {
+    const save = createSave()
+    save.unlockedTechIds = ['workshopLog', 'workshopRules', 'pathOutpost', 'skipMe']
+    delete (save as { techLevels?: Save['techLevels'] }).techLevels
+    hydrateTechFields(save)
+    expect(save.unlockedTechIds).toEqual(['workshopLog', 'workshopRules', 'pathOutpost'])
+    expect(save.techLevels).toEqual({
+      workshopLog: 1,
+      workshopRules: 1,
+      pathOutpost: 1,
+    })
+    expect(techProgressText(save, 'workshopLog')).toBe('1/5')
+    expect(techProgressText(save, 'workshopRules')).toBe('1/1')
+    expect(isRowOpen(save, 'production', 2)).toBe(true)
+    expect(isRowOpen(save, 'affairs', 2)).toBe(true)
   })
 })
 

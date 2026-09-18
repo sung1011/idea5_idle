@@ -344,7 +344,7 @@ type ProductionBuff = {
 | 停产 | 只留 `emptyInput`；无满仓 |
 | 骑士等级 | `knightLevel`：`1 + sum(可玩站 stationLevel - 1)`，初始 1；每升 1 级 +1 灵感 |
 | 灵感 | `techPoints`（界面称灵感；别名 `inspiration` 仅 hydrate）。周期完成 +1；骑士升级 +1；图纸不当来源 |
-| 科技树 | `unlockedTechIds` 三页签行选：`TECH_TABS` 生产 / 战斗 / 事务，每层 2～3 选项同行同价；买 1 个开上一层，同行可补买。事务订单格科技 1→6；生产工坊规章 / 工匠密录接冲突。旧 id 能对上则保留效果，灵感不扣。`techEffectValue` 仍恒 0 |
+| 科技树 | `unlockedTechIds` + `techLevels`：三页签行选，每层同行同价；节点有 `maxLevel`，未满级可再点。该层任一点 `level≥1` 开上一层。已实装订单格 / 冲突先 `maxLevel=1`，占位 `5`。订单格按等级 +1 封顶 6；不新开冲突多级线。旧 id → `level=1`。`techEffectValue` 仍恒 0 |
 
 ---
 

@@ -321,8 +321,16 @@ export type Save = {
   knightLevel: number
   /** 账号级灵感。任意站完成周期 +1；骑士等级每升 1 级 +1。旧档缺字段 / 别名 `inspiration` hydrate 为点数，不无故重置成 1。 */
   techPoints: number
-  /** 已点亮的科技 id。三页签各自成串，买任意 1 个开上一层，同行可补买。旧档缺字段为 []。 */
+  /**
+   * 已点亮的科技 id（`techLevels[id] >= 1`）。三页签各自成串，买任意 1 个开上一层，同行可补买。
+   * 旧档缺字段为 []；hydrate 时原 id 会写成 `techLevels[id] = 1`。
+   */
   unlockedTechIds: TechId[]
+  /**
+   * 各科技已点次数。0 / 缺省 = 未买。hydrate 会按节点 `maxLevel` 夹紧。
+   * 旧档只有 `unlockedTechIds` 时，对得上的 id 记 1 级。
+   */
+  techLevels: Partial<Record<TechId, number>>
 }
 
 export type EncounterQuality = 'gray' | 'green' | 'blue' | 'purple' | 'orange'
