@@ -44,7 +44,7 @@ function claim() {
 .ck {
   position: absolute;
   left: 8px;
-  bottom: calc(var(--dock-height) + 8px);
+  bottom: calc(var(--dock-height) + 64px);
   z-index: 6;
   width: min(210px, calc(100% - 90px));
   overflow: hidden;
