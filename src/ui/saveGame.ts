@@ -5,6 +5,7 @@ import { hydrateMessages } from '../sim/messages'
 import { normalizeRngState } from '../sim/rng'
 import { hydrateStations } from '../sim/stationProgress'
 import { clampStationAssignments } from '../sim/assign'
+import { isAssistWorker } from '../sim/combatAssist'
 import { hydrateWorkers } from '../sim/recruit'
 import {
   hydrateForgedTools,
@@ -111,7 +112,8 @@ export function persistSave(save: Save, storage?: Storage | null): void {
   const store = storageOf(storage)
   if (!canUseStorage(store)) return
   try {
-    store.setItem(SAVE_KEY, JSON.stringify(save))
+    const workers = save.workers.filter((w) => !isAssistWorker(w))
+    store.setItem(SAVE_KEY, JSON.stringify({ ...save, workers }))
   } catch {
     // quota / private mode
   }

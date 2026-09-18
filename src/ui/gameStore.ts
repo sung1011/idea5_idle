@@ -33,7 +33,7 @@ import {
 import { claimGuideQuest } from '../sim/guideQuest'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
 import { tick } from '../sim/tick'
-import type { ActionResult, CategoryId, ItemId, Save, StationId, StationToolId, ToolTypeId } from '../sim/types'
+import type { ActionResult, CategoryId, ItemId, Save, StationId, StationToolId, ToolTypeId, Worker } from '../sim/types'
 import { pushCombatLogTip } from './encounterTips'
 import { pushFloatTip } from './floatTips'
 import { clearSave, loadSave, persistSave } from './saveGame'
@@ -156,8 +156,8 @@ export const useGameStore = defineStore('game', () => {
       apply((s) => selectStationCategory(s, stationId, categoryId)),
     explore: () => apply(exploreBoard),
     claimGuideQuest: () => apply(claimGuideQuest),
-    startCombat: (index: number, workerIds: string[]) =>
-      apply((s) => startCombat(s, index, workerIds, Date.now(), pushCombatLogTip)),
+    startCombat: (index: number, workerIds: string[], guests?: Worker[]) =>
+      apply((s) => startCombat(s, index, workerIds, Date.now(), pushCombatLogTip, guests)),
     claimLoot: (index: number) => apply((s) => claimLoot(s, index)),
     barter: (index: number) => apply((s) => barterMerchant(s, index)),
     buyMerchant: (index: number) => apply((s) => buyMerchant(s, index)),

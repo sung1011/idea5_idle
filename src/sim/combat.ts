@@ -227,7 +227,9 @@ export function isWorkerInCombat(save: Save, workerId: string): boolean {
 
 export function restCombatCandidates(save: Save): Worker[] {
   const busy = fightingWorkerIds(save)
-  return save.workers.filter((w) => w.assignment === null && !busy.has(w.id))
+  return save.workers.filter(
+    (w) => w.guest !== true && !w.id.startsWith('assist-') && w.assignment === null && !busy.has(w.id),
+  )
 }
 
 export function selectableCombatWorkers(save: Save): Worker[] {
@@ -237,7 +239,11 @@ export function selectableCombatWorkers(save: Save): Worker[] {
 export type CombatTipKind = 'ok' | 'err'
 export type CombatLogSink = (encounterId: string, text: string, kind: CombatTipKind) => void
 
-export function combatPartyBlockReason(save: Save, workerIds: readonly string[]): string | null {
+export function combatPartyBlockReason(
+  save: Save,
+  workerIds: readonly string[],
+  guests: readonly Worker[] = [],
+): string | null {
   if (!workerIds.length) return '请选择出战工人'
   if (workerIds.length > COMBAT_PARTY_MAX) return `最多选 ${COMBAT_PARTY_MAX} 人`
   const seen = new Set<string>()
@@ -245,7 +251,8 @@ export function combatPartyBlockReason(save: Save, workerIds: readonly string[])
   for (const id of workerIds) {
     if (seen.has(id)) return '不能重复选同一个人'
     seen.add(id)
-    const worker = save.workers.find((w) => w.id === id)
+    const roster = save.workers.find((w) => w.id === id && w.guest !== true && !w.id.startsWith('assist-'))
+    const worker = roster ?? guests.find((w) => w.id === id && (w.guest === true || w.id.startsWith('assist-')))
     if (!worker) return '没有这个工人'
     if (worker.assignment !== null) return `${worker.name ?? worker.id} 不在休息`
     if (busy.has(id)) return `${worker.name ?? worker.id} 正在战斗`

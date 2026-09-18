@@ -11,6 +11,7 @@ import {
   selectableCombatWorkers,
   type CombatLogSink,
 } from './combat'
+import { findCombatPartyWorker } from './combatAssist'
 import { workerLootXp } from './workerLevel'
 import { ensureEnemyIntel, isEnemyRank, pickEnemyWeaknesses, seedInitialRevealedWeaknesses } from './combatAttrs'
 import {
@@ -61,6 +62,7 @@ import type {
   PawnEncounter,
   Save,
   TradeEncounter,
+  Worker,
   WorkshopBuff,
 } from './types'
 
@@ -1272,22 +1274,42 @@ export function combatSupplyBlockReason(save: Save, index: number): string | nul
 }
 
 /** 开战：货不够则失败；货够（或旧档已扣过补给且尚未开过）则扣货并进入战斗。 */
-export function startCombatBlockReason(save: Save, index: number, workerIds: readonly string[]): string | null {
+export function startCombatBlockReason(
+  save: Save,
+  index: number,
+  workerIds: readonly string[],
+  guests: readonly Worker[] = [],
+): string | null {
   const supply = combatSupplyBlockReason(save, index)
   if (supply) return supply
-  return combatPartyBlockReason(save, workerIds)
+  return combatPartyBlockReason(save, workerIds, guests)
 }
 
-export function departBlockReason(save: Save, index: number, workerIds: readonly string[] = []): string | null {
-  return startCombatBlockReason(save, index, workerIds)
+export function departBlockReason(
+  save: Save,
+  index: number,
+  workerIds: readonly string[] = [],
+  guests: readonly Worker[] = [],
+): string | null {
+  return startCombatBlockReason(save, index, workerIds, guests)
 }
 
-export function canStartCombat(save: Save, index: number, workerIds: readonly string[] = []): boolean {
-  return startCombatBlockReason(save, index, workerIds) === null
+export function canStartCombat(
+  save: Save,
+  index: number,
+  workerIds: readonly string[] = [],
+  guests: readonly Worker[] = [],
+): boolean {
+  return startCombatBlockReason(save, index, workerIds, guests) === null
 }
 
-export function canDepartEncounter(save: Save, index: number, workerIds: readonly string[] = []): boolean {
-  return canStartCombat(save, index, workerIds)
+export function canDepartEncounter(
+  save: Save,
+  index: number,
+  workerIds: readonly string[] = [],
+  guests: readonly Worker[] = [],
+): boolean {
+  return canStartCombat(save, index, workerIds, guests)
 }
 
 /** 扣光补给、选人开战。不发金币。出战工人保持休息（assignment 仍为 null）。 */
@@ -1297,12 +1319,15 @@ export function startCombat(
   workerIds: readonly string[],
   now = Date.now(),
   onLog?: CombatLogSink,
+  guests: readonly Worker[] = [],
 ): ActionResult {
-  const blocked = startCombatBlockReason(save, index, workerIds)
+  const blocked = startCombatBlockReason(save, index, workerIds, guests)
   if (blocked) return { ok: false, reason: blocked }
   const enc = enemyAt(save, index)
   if (!enc) return { ok: false, reason: '不是敌人偶遇' }
-  const party = workerIds.map((id) => save.workers.find((w) => w.id === id)).filter((w): w is NonNullable<typeof w> => !!w)
+  const party = workerIds
+    .map((id) => findCombatPartyWorker(save, id, guests))
+    .filter((w): w is Worker => !!w)
   if (!party.length) return { ok: false, reason: '请选择出战工人' }
   if (!suppliesAlreadyTaken(enc)) {
     const took = takeCosts(save, needMapToRules(enc.needs))
@@ -1349,7 +1374,7 @@ function grantCombatLootXp(save: Save, enc: EnemyEncounter): boolean {
   const amount = workerLootXp(enc.enemyRank, chapter)
   let granted = false
   for (const id of combat.workerIds) {
-    const worker = save.workers.find((w) => w.id === id)
+    const worker = findCombatPartyWorker(save, id)
     if (!worker) continue
     grantWorkerCombatXp(worker, amount)
     granted = true

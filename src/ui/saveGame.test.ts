@@ -292,4 +292,35 @@ describe('save migration', () => {
     expect(loaded?.guideQuestStep).toBe(4)
     expect(loaded?.starterCopperPawnDone).toBe(true)
   })
+
+  it('drops leftover assist workers on persist and hydrate', () => {
+    const store = memory()
+    const save = createSave()
+    save.workers.push({
+      id: 'assist-guest',
+      name: '助战·阿木',
+      qualityTier: 3,
+      assignment: null,
+      foodSlot: null,
+      hp: 32,
+      hpMax: 32,
+      level: 2,
+      xp: 0,
+      combatAttrs: [],
+      guest: true,
+    })
+    persistSave(save, store)
+    expect(store.getItem(SAVE_KEY) ?? '').not.toContain('assist-guest')
+    const loaded = loadSave(store)
+    expect(loaded?.workers.some((w) => w.id === 'assist-guest')).toBe(false)
+
+    const sneaked = hydrateLoadedSave({
+      ...createSave(),
+      workers: [
+        { id: 'w-1', qualityTier: 1 },
+        { id: 'assist-guest', qualityTier: 4, guest: true },
+      ],
+    })
+    expect(sneaked?.workers.map((w) => w.id)).toEqual(['w-1'])
+  })
 })

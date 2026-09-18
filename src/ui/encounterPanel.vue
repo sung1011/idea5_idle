@@ -10,6 +10,7 @@ import {
   isFighting,
   restCombatCandidates,
 } from '../sim/combat'
+import { createAssistWorker, isAssistWorker, pickCombatCandidates } from '../sim/combatAssist'
 import {
   ENCOUNTER_KIND_LABEL,
   QUALITY_LABEL,
@@ -61,8 +62,11 @@ const buffLabel = computed(() => {
 })
 const pickIndex = ref<number | null>(null)
 const picked = ref<string[]>([])
+const assistWorker = ref<Worker | null>(null)
 const pickOpen = computed(() => pickIndex.value !== null)
-const pickCandidates = computed(() => restCombatCandidates(game.save))
+const pickCandidates = computed(() =>
+  pickCombatCandidates(restCombatCandidates(game.save), assistWorker.value),
+)
 
 function consumeShort(index: number) {
   return isEncounterActionConsumeShort(game.save, index)
@@ -84,11 +88,17 @@ function openPick(index: number) {
   }
   pickIndex.value = index
   picked.value = []
+  assistWorker.value = null
 }
 
 function closePick() {
   pickIndex.value = null
   picked.value = []
+  assistWorker.value = null
+}
+
+function inviteAssist() {
+  assistWorker.value = createAssistWorker(game.save)
 }
 
 function togglePick(worker: Worker) {
@@ -112,7 +122,8 @@ function confirmPick() {
     pushFloatTip(CONSUME_SHORT_TIP, 'err')
     return
   }
-  const result = game.startCombat(index, [...picked.value])
+  const guests = assistWorker.value ? [assistWorker.value] : []
+  const result = game.startCombat(index, [...picked.value], guests)
   if (result.ok) closePick()
 }
 
@@ -343,18 +354,19 @@ function pickRecommend(w: Worker) {
     <div v-if="pickOpen" class="modal" role="dialog" aria-label="选择出战工人" @click.self="closePick">
       <div class="sheet">
         <p>选择休息中工人（最多 {{ COMBAT_PARTY_MAX }} 人）</p>
-        <p class="hint">HP≤0 不可选。出战不算派驻工坊。</p>
+        <p class="hint">HP≤0 不可选。出战不算派驻工坊。点邀请才加入 1 名临时助战。</p>
         <ul class="pick-list">
           <li v-for="w in pickCandidates" :key="w.id">
             <button
               type="button"
               class="pick-worker"
-              :class="{ on: picked.includes(w.id) }"
+              :class="{ on: picked.includes(w.id), assist: isAssistWorker(w) }"
               :disabled="w.hp <= 0"
               @click="togglePick(w)"
             >
               <span class="pick-name">
                 <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
+                <i v-if="isAssistWorker(w)" class="pick-assist">助战</i>
                 <b class="pick-worker-name" :style="workerQualityNameStyle(w)">{{ w.name ?? w.id }}</b>
                 <span class="pick-meta">· Lv{{ w.level }} · {{ workerJob(w) }} · HP {{ w.hp }}/{{ w.hpMax }}</span>
                 <i
@@ -378,7 +390,7 @@ function pickRecommend(w: Worker) {
               开战
             </button>
           </span>
-          <button type="button" @click="closePick">取消</button>
+          <button type="button" @click="inviteAssist">邀请</button>
         </div>
       </div>
     </div>
@@ -751,6 +763,22 @@ ul {
 
 .pick-worker-name {
   font-weight: 700;
+}
+
+.pick-assist {
+  font-style: normal;
+  padding: 1px 7px;
+  border: 2px solid #1f7a4a;
+  border-radius: 999px;
+  background: #d8f3e4;
+  color: #14603a;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.pick-worker.assist {
+  box-shadow: inset 0 0 0 2px #1f7a4a;
 }
 
 .pick-rec {

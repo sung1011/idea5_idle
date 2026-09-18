@@ -232,6 +232,11 @@ export type Worker = {
    * 同工人不重复。旧档缺字段 hydrate 按品质掷点；白档空数组。
    */
   combatAttrs: CombatAttrId[]
+  /**
+   * 开战弹框临时助战。不进花名册、不入存档、不领持久 XP。
+   * 只活在本场选人 / 开战入参里。
+   */
+  guest?: boolean
 }
 
 export type MiningNodeState = {

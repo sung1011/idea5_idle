@@ -1,4 +1,5 @@
 import { fillWorkerHp } from './combat'
+import { isAssistWorker } from './combatAssist'
 import { hydrateWorkerCombatAttrs, spawnFillCombatAttrs, uniqueCombatAttrs } from './combatAttrs'
 import { normalizeWorkerProgress, WORKER_LEVEL_MIN } from './workerLevel'
 import {
@@ -137,7 +138,7 @@ export function hydrateWorker(raw: unknown, index = 0): Worker {
  */
 export function hydrateWorkers(raw: unknown, qualityRev?: unknown): Worker[] {
   if (!Array.isArray(raw)) return []
-  const workers = raw.map((row, index) => hydrateWorker(row, index))
+  const workers = raw.map((row, index) => hydrateWorker(row, index)).filter((w) => !isAssistWorker(w))
   if (needsGrayQualityMigration(qualityRev)) {
     for (const worker of workers) {
       worker.qualityTier = migrateQualityTierFromGrayTable(worker.qualityTier)
