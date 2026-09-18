@@ -15,8 +15,6 @@ import { useGameStore } from './gameStore'
 import HpBar from './hpBar.vue'
 import {
   canGoToAssignedWorkshop,
-  rosterDutyCounts,
-  rosterSlotCounts,
   unassignedWorkers,
   workerAssignChoices,
   workerDutyLabel,
@@ -39,8 +37,6 @@ const pickFoodQty = reactive<Record<string, number>>({})
 const selectedId = ref<string | null>(null)
 const pickId = ref<string | null>(null)
 
-const counts = computed(() => rosterDutyCounts(game.save))
-const slots = computed(() => rosterSlotCounts(game.save))
 const boards = computed(() => workshopStationBoards(game.save))
 const resting = computed(() => unassignedWorkers(game.save))
 const selected = computed(() => {
@@ -181,27 +177,13 @@ function openSheetThenPick(w: Worker) {
 
 <template>
   <section class="panel roster-v2">
-    <header class="top">
-      <h2 class="title">工人v2</h2>
-      <button type="button" class="recruit" @click="game.recruit()">抽工人（{{ recruitCost(game.save) }} 金）</button>
-    </header>
-    <div class="hud">
-      <span class="stat">工人 {{ counts.total }}</span>
-      <span class="stat">休息 {{ counts.rest }}</span>
-      <span class="stat">在岗 {{ counts.busy }}</span>
-    </div>
     <div class="board">
       <section class="col workshop" aria-label="在工坊">
-        <div class="section-head">
-          <strong>在工坊 · 派驻中</strong>
-          <span>{{ slots.stations }} 站 · {{ slots.filled }} / {{ slots.cap }}</span>
-        </div>
         <div class="station-list">
           <article v-for="board in boards" :key="board.stationId" class="station">
             <div class="station-title">
               <UiIcon :name="board.stationId" />
               <b>{{ board.label }}</b>
-              <small>{{ board.filled }} / {{ board.cap }}</small>
             </div>
             <div class="slots">
               <button
@@ -236,10 +218,6 @@ function openSheetThenPick(w: Worker) {
         </div>
       </section>
       <section class="col rest" aria-label="休息中">
-        <div class="section-head">
-          <strong>休息中</strong>
-          <span class="count">{{ resting.length }}</span>
-        </div>
         <div v-if="resting.length" class="rest-list">
           <div v-for="w in resting" :key="w.id" class="rest-row">
             <button
@@ -276,6 +254,13 @@ function openSheetThenPick(w: Worker) {
         <p v-else class="empty-rest">没有休息工人。点左侧空槽会派入空闲人；也可先抽人。</p>
       </section>
     </div>
+    <button type="button" class="recruit-fab" @click="game.recruit()">
+      <span class="recruit-plus" aria-hidden="true">＋</span>
+      <span class="recruit-copy">
+        <b>抽工人</b>
+        <small>{{ recruitCost(game.save) }} 金</small>
+      </span>
+    </button>
   </section>
 
   <Teleport to="body">
@@ -387,59 +372,19 @@ function openSheetThenPick(w: Worker) {
 
 <style scoped>
 .panel {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 6px;
   height: 100%;
   min-height: 0;
-  padding: 8px 6px 4px;
-}
-
-.top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.title {
-  margin: 0;
-  font-size: 18px;
-}
-
-.recruit {
-  min-height: 32px;
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.hud {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.stat,
-.count {
-  font-size: 11px;
-  font-weight: 800;
-  min-height: 26px;
-  padding: 2px 8px;
-  border: 2px solid var(--gold);
-  border-radius: 999px;
-  background: linear-gradient(#fffef8, #fff3d4);
-  box-shadow: 0 2px 0 var(--gold-deep);
+  padding: 0;
 }
 
 .board {
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
-  border: 2px solid var(--gold);
-  border-radius: 12px;
   overflow: hidden;
-  background: linear-gradient(#fffdf6, #fff4d6);
 }
 
 .col {
@@ -459,36 +404,17 @@ function openSheetThenPick(w: Worker) {
   background: linear-gradient(180deg, rgba(154, 112, 72, 0.06), rgba(255, 247, 216, 0.2));
 }
 
-.section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  flex: 0 0 auto;
-  height: 30px;
-  padding: 0 8px;
-  border-bottom: 1px solid rgba(212, 160, 23, 0.45);
-  background: rgba(255, 248, 222, 0.7);
-}
-
-.section-head strong {
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--ink);
-}
-
-.section-head span {
-  font-size: 10px;
-  font-weight: 800;
-  color: var(--muted);
-}
-
 .station-list,
 .rest-list {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  padding: 6px;
+  padding: 8px 6px;
+}
+
+.rest-list,
+.empty-rest {
+  padding-bottom: 72px;
 }
 
 .station {
@@ -515,13 +441,6 @@ function openSheetThenPick(w: Worker) {
 
 .station-title b {
   font-size: 11px;
-}
-
-.station-title small {
-  margin-left: auto;
-  font-size: 9px;
-  font-weight: 800;
-  color: var(--muted);
 }
 
 .slots {
@@ -681,6 +600,52 @@ function openSheetThenPick(w: Worker) {
   font-size: 11px;
   font-weight: 700;
   line-height: 1.45;
+}
+
+.recruit-fab {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 7px 14px 7px 10px;
+  border: 0;
+  border-radius: 16px;
+  background: linear-gradient(#ffe27a, #e2a31a);
+  color: #5a3010;
+  box-shadow: 0 4px 0 var(--gold-deep);
+}
+
+.recruit-plus {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.recruit-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  line-height: 1.1;
+}
+
+.recruit-copy b {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.recruit-copy small {
+  font-size: 10px;
+  font-weight: 800;
+  opacity: 0.78;
 }
 
 .hint {
