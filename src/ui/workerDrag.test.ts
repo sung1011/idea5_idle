@@ -48,7 +48,7 @@ describe('worker drag assign', () => {
     const extra = spawnWorkerWith(save, 1, 'wanderer')
     expect(applyWorkerDrag(save, { kind: 'rest', workerId: extra.id }, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toEqual({
       ok: false,
-      reason: '该站最多 2 人',
+      reason: '品质不同，不能合成',
     })
     expect(extra.assignment).toBeNull()
   })
@@ -121,6 +121,14 @@ describe('worker drag assign', () => {
     ).toEqual({ ok: false, reason: '已是最高品质' })
     expect(maxB.assignment).toBeNull()
     expect(slotOccupantId(save, 'mining', 0)).toBe(green.id)
+
+    const mate = spawnWorkerWith(save, 2, 'artisan')
+    const outsider = spawnWorkerWith(save, 2, 'cook')
+    assignWorker(save, mate.id, 'mining')
+    expect(
+      applyWorkerDrag(save, { kind: 'rest', workerId: outsider.id }, { kind: 'slot', stationId: 'mining', slotIndex: 0 }),
+    ).toEqual({ ok: false, reason: '该站最多 2 人' })
+    expect(outsider.assignment).toBeNull()
   })
 
   it('parses drop targets and keeps combat workers undraggable', () => {
