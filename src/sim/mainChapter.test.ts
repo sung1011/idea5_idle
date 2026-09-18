@@ -3,6 +3,8 @@ import { enemyCombatStats, isCombatLost } from './combat'
 import { createSave } from './createSave'
 import {
   claimLoot,
+  encounterFiller,
+  exploreBoard,
   generateEncounterBoard,
   hydrateEncounterFields,
   startCombat,
@@ -168,7 +170,18 @@ describe('loot claim counter and chapter boss spawn', () => {
     expect(save.mainLootClaims).toBe(MAIN_LOOT_CLAIMS_GOAL)
     expect(tenth.chapterBoss).toBe(false)
     expect(tenth.enemyRank).toBe('minion')
+    expect(tenth.lootClaimed).toBe(true)
     expect(save.mainChapter).toBe(1)
+
+    const recycled = save.encounters[0]
+    expect(recycled.kind).toBe('enemy')
+    if (recycled.kind === 'enemy') {
+      expect(recycled.id).not.toBe('tenth-minion')
+      expect(recycled.chapterBoss).toBe(true)
+      expect(recycled.enemyRank).toBe('boss')
+      expect(recycled.label).toContain('首领')
+      expect(recycled.lootClaimed).toBe(false)
+    }
 
     const next = firstEnemyOnBoard(save.mainLootClaims)
     expect(next.chapterBoss).toBe(true)
@@ -180,13 +193,80 @@ describe('loot claim counter and chapter boss spawn', () => {
     expect(before.enemyRank).not.toBe('boss')
   })
 
-  it('only forces one chapter boss among a freshly filled board', () => {
-    let board = generateEncounterBoard(0, 6, { mainLootClaims: 10 })
-    for (let seed = 1; seed < 80 && !board.some((enc) => enc.kind === 'enemy'); seed++) {
-      board = generateEncounterBoard(seed, 6, { mainLootClaims: 10 })
+  it('after 10 claims the next enemy order is always the chapter boss', () => {
+    for (let seed = 0; seed < 40; seed++) {
+      const one = generateEncounterBoard(seed, 1, { mainLootClaims: MAIN_LOOT_CLAIMS_GOAL })
+      expect(one).toHaveLength(1)
+      expect(one[0].kind).toBe('enemy')
+      if (one[0].kind === 'enemy') {
+        expect(one[0].chapterBoss).toBe(true)
+        expect(one[0].enemyRank).toBe('boss')
+      }
+
+      const fill = encounterFiller(seed, { mainLootClaims: MAIN_LOOT_CLAIMS_GOAL })
+      const first = fill(0)
+      expect(first.kind).toBe('enemy')
+      if (first.kind === 'enemy') {
+        expect(first.chapterBoss).toBe(true)
+        expect(first.enemyRank).toBe('boss')
+      }
+      const second = fill(1)
+      expect(second.kind === 'enemy' && second.chapterBoss === true).toBe(false)
     }
+  })
+
+  it('explore after 10 claims forces the next refreshable slot to be the chapter boss', () => {
+    for (let i = 0; i < 16; i++) {
+      const save = createSave()
+      save.mainLootClaims = MAIN_LOOT_CLAIMS_GOAL
+      save.gold = 10_000
+      save.encounters = [
+        {
+          kind: 'passerby',
+          id: `trade-block-${i}`,
+          label: '换货路人',
+          quality: 'green',
+          wants: { wood: 1 },
+          offers: { meal: 1 },
+          completed: false,
+        },
+      ]
+      expect(exploreBoard(save).ok).toBe(true)
+      const bosses = save.encounters.filter(
+        (enc): enc is EnemyEncounter => enc.kind === 'enemy' && enc.chapterBoss === true && !enc.lootClaimed,
+      )
+      expect(bosses).toHaveLength(1)
+      expect(bosses[0].enemyRank).toBe('boss')
+      expect(bosses[0].id).not.toBe(`trade-block-${i}`)
+    }
+  })
+
+  it('hydrates a stuck 10-claim board by recycling the claimed slot into the chapter boss', () => {
+    const claimed = testEnemy({
+      id: 'stuck-claimed',
+      lootClaimed: true,
+      chapterBoss: false,
+      enemyRank: 'minion',
+    })
+    const loaded = hydrateEncounterFields({
+      ...createSave(),
+      mainLootClaims: MAIN_LOOT_CLAIMS_GOAL,
+      encounters: [claimed],
+    })
+    expect(loaded.mainLootClaims).toBe(MAIN_LOOT_CLAIMS_GOAL)
+    expect(loaded.encounters[0].kind).toBe('enemy')
+    if (loaded.encounters[0].kind === 'enemy') {
+      expect(loaded.encounters[0].id).not.toBe('stuck-claimed')
+      expect(loaded.encounters[0].chapterBoss).toBe(true)
+      expect(loaded.encounters[0].enemyRank).toBe('boss')
+    }
+  })
+
+  it('only forces one chapter boss among a freshly filled board', () => {
+    const board = generateEncounterBoard(0, 6, { mainLootClaims: 10 })
     const bosses = board.filter((enc): enc is EnemyEncounter => enc.kind === 'enemy' && enc.chapterBoss === true)
     const extras = board.filter((enc): enc is EnemyEncounter => enc.kind === 'enemy' && enc.chapterBoss !== true)
+    expect(board[0].kind).toBe('enemy')
     expect(bosses).toHaveLength(1)
     expect(bosses[0].enemyRank).toBe('boss')
     expect(extras.every((enc) => enc.enemyRank !== 'boss')).toBe(true)

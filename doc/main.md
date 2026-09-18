@@ -42,7 +42,7 @@
 | `elapsedS` | 累计游戏秒。 |
 | `encounters` | 主线订单板。格数由 `encounterSlotCount(save)` 决定：初始 1，点亮主线订单格大科技逐步 +1，封顶 6。每格是现有订单之一（敌人 / 黑心商人 / 路人 / 当铺 / 工匠委托 / 收购），各带灰绿蓝紫橙品质。 |
 | `mainChapter` | 主线章节，从 1 起。敌人 HP / ATK 再乘章节倍率。旧档缺字段 hydrate 为 1。 |
-| `mainLootClaims` | 本章已成功领取的敌人格战利品次数。到 10 后下一张新刷出的敌人是本章 Boss；领 Boss 战后清零并 `mainChapter + 1`。再战 / 战败 / 未领不计数。旧档缺字段 hydrate 为 0。 |
+| `mainLootClaims` | 本章已成功领取的敌人格战利品次数。到 10 后下一次新刷（空位 / 探索 / 回收已领格）强制是本章 Boss 敌人；领 Boss 战后清零并 `mainChapter + 1`。再战 / 战败 / 未领不计数。旧档缺字段 hydrate 为 0。 |
 | `exploreCount` | 成功探索次数，驱动探索费用与下一板种子。 |
 | `departCount` | 成功出发次数。 |
 | `lastDepartAt` | 上次出发墙钟；没有出发过为 `null`。 |
@@ -185,14 +185,14 @@ progress >= 1 → 完成一次吞吐，progress -= 1
 ### 6.0 章节与本章 Boss
 
 - 存档：`mainChapter` 从 1 起；`mainLootClaims` 计**成功领取敌人格战利品**的次数（0 起）。再战 / 战败 / 未领不 +1。旧档缺字段 hydrate 成第 1 章、计数 0。
-- 本章普通敌人走杂兵 / 精英池（橙档品质不再单独当首领）。`mainLootClaims` 到 **10** 后，**下一张新刷出的敌人**是本章 Boss（不把第 10 次领取的那张单改成 Boss）。
+- 本章普通敌人走杂兵 / 精英池（橙档品质不再单独当首领）。`mainLootClaims` 到 **10** 后，**下一次新刷的订单强制是本章 Boss 敌人**（不把第 10 次领取的那张单改成 Boss，也不再等加权碰巧掷出敌人）。空位补板、探索替换可刷新格，都先落这只 Boss。领满 10 次后若板上有已领敌人格 / 已完成交易格，会立刻回收一格刷出 Boss，免得格子满、只刷交易单时永远轮不到。
 - 板上已有未领的本章 Boss 时不再强制刷第二只。Boss 战败 / 再战留在本章；计数保持 ≥10，继续把 Boss 当下一张 / 当前 Boss 单。
 - 领取本章 Boss 战利品后：`mainChapter + 1`、`mainLootClaims = 0`，清掉旧章剩余敌人格（交易单留下），按新章补板。
 - 敌人三围是单一战斗底版 × 品质倍率 × 阶级倍率 × `MAIN_CHAPTER_COMBAT_MUL`（HP / ATK，约每章 +8%）。品质代表强弱；时长由 HP / ATK / SPD / 超时 / 章节倍率决定，不再有近远 / 强弱。
 
 ### 6.1 探索
 
-`EXPLORE_COST_TABLE` 表驱动：`[8, 10, 12, 14, 16]`，按 `exploreCount` 取档，超出末档钉在 16。金币不够不能探索，不换板。成功则扣金、`exploreCount++`，用 `save.rngState` 按 `ENCOUNTER_KIND_WEIGHTS` / 品质权重**独立掷**种类与品质（不再用 `seed×槽位` 取模，空格都能刷出敌人），**只替换可刷新格**；保留格占原位。板子按当前科技格数生成；战斗中 / 胜可领 / 败可再战可暂超过目标格数，仍封顶 6。
+`EXPLORE_COST_TABLE` 表驱动：`[8, 10, 12, 14, 16]`，按 `exploreCount` 取档，超出末档钉在 16。金币不够不能探索，不换板。成功则扣金、`exploreCount++`，用 `save.rngState` 按 `ENCOUNTER_KIND_WEIGHTS` / 品质权重**独立掷**种类与品质（不再用 `seed×槽位` 取模，空格都能刷出敌人），**只替换可刷新格**；保留格占原位。`mainLootClaims ≥ 10` 且板上没有未领本章 Boss 时，**第一格新刷强制敌人本章 Boss**，不再走种类加权。板子按当前科技格数生成；战斗中 / 胜可领 / 败可再战可暂超过目标格数，仍封顶 6。
 
 敌人格：
 

@@ -23,6 +23,7 @@ import {
   mainlineEnemyRank,
   normalizeMainChapter,
   normalizeMainLootClaims,
+  shouldForceChapterBoss,
 } from './mainChapter'
 import { canAffordCosts, missingCostLabels, takeCosts } from './costs'
 import { normalizeRngState, roll01 } from './rng'
@@ -755,8 +756,8 @@ export function encounterFiller(seed: number, opts: EncounterSpawnOpts = {}): (s
   let reserved = opts.reservedChapterBoss === true
   return (slot: number) => {
     const quality = pickQuality(rng)
-    const kind = pickEncounterKind(rng)
-    const forceBoss = kind === 'enemy' && claims >= MAIN_LOOT_CLAIMS_GOAL && !reserved
+    const forceBoss = !reserved && claims >= MAIN_LOOT_CLAIMS_GOAL
+    const kind = forceBoss ? 'enemy' : pickEncounterKind(rng)
     if (forceBoss) reserved = true
     return makeEncounter(safe, slot, quality, kind, forceBoss, chapter, rng)
   }
@@ -963,6 +964,31 @@ export function resizeEncounterBoard(save: Save, now = Date.now()): Encounter[] 
   return save.encounters
 }
 
+function canRecycleForChapterBoss(enc: Encounter): boolean {
+  return isEncounterDone(enc)
+}
+
+/**
+ * 战利品已满 10 且板上没有未领本章 Boss 时，尽快落下 Boss：
+ * 先补空位；没空则回收已领敌人格 / 已完成交易格。
+ * 不改战斗中 / 胜可领 / 败可再战，也不把未完成交易单直接改成 Boss。
+ */
+export function ensureChapterBossSpawn(save: Save, now = Date.now()): void {
+  if (!shouldForceChapterBoss(save, save.encounters)) return
+  const current = Array.isArray(save.encounters) ? save.encounters.filter(isEncounter) : []
+  const size = boardSizeFor(save, now)
+  if (current.length < size) {
+    resizeEncounterBoard(save, now)
+    if (!shouldForceChapterBoss(save, save.encounters)) return
+  }
+  const idx = save.encounters.findIndex(canRecycleForChapterBoss)
+  if (idx < 0) return
+  const reserved = save.encounters.filter((_, i) => i !== idx)
+  const seed = Number.isFinite(save.exploreCount) && save.exploreCount > 0 ? Math.floor(save.exploreCount) : 0
+  const fill = encounterFiller(seed, spawnOptsFor(save, reserved))
+  save.encounters[idx] = fill(idx)
+}
+
 function missingLabels(save: Save, map: EncounterNeedMap): string[] {
   return needLines(save, map)
     .filter((line) => line.missing > 0)
@@ -1166,6 +1192,7 @@ export function claimLoot(save: Save, index: number, now = Date.now()): ActionRe
     advanceMainChapter(save, now)
     return { ok: true, message: lootClaimMessage(lootGold, grantedXp, `进入第 ${save.mainChapter} 章`) }
   }
+  ensureChapterBossSpawn(save, now)
   return { ok: true, message: lootClaimMessage(lootGold, grantedXp) }
 }
 
@@ -1641,6 +1668,7 @@ export function hydrateEncounterFields(save: Save): Save {
   }
 
   resizeEncounterBoard(raw)
+  ensureChapterBossSpawn(raw)
   for (const enc of raw.encounters) {
     if (enc.kind === 'enemy') ensureEnemyIntel(enc)
   }

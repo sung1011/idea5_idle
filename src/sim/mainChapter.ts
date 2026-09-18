@@ -68,7 +68,7 @@ export function hasLiveChapterBoss(encounters: readonly Encounter[]): boolean {
   return encounters.some((enc) => isChapterBoss(enc) && !enc.lootClaimed)
 }
 
-/** claims≥10 且板上还没有未领的本章 Boss 时，下一张新刷的敌人强制为 Boss。 */
+/** claims≥10 且板上还没有未领的本章 Boss 时，下一次新刷强制为本章 Boss 敌人。 */
 export function shouldForceChapterBoss(save: Pick<Save, 'mainLootClaims'>, encounters: readonly Encounter[]): boolean {
   return normalizeMainLootClaims(save.mainLootClaims) >= MAIN_LOOT_CLAIMS_GOAL && !hasLiveChapterBoss(encounters)
 }
