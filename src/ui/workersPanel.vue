@@ -167,6 +167,14 @@ function onPickStation(stationId: StationId | null) {
   if (result.ok) closePick()
 }
 
+function onFuseChoice(stationId: StationId | null) {
+  const w = picking.value
+  if (!w || !stationId) return
+  const result = game.fuseWorker(w.id, stationId)
+  if (!result.ok) return
+  pickId.value = game.save.workers.find((next) => next.assignment === stationId)?.id ?? null
+}
+
 function flipOrder() {
   groupOrder.value = saveWorkerGroupOrder(toggleWorkerGroupOrder(groupOrder.value))
 }
@@ -184,7 +192,7 @@ function flipOrder() {
       </button>
     </div>
     <p class="hint">
-      金币 {{ game.save.gold }} · 空闲 {{ idleCount(game.save) }} · 每站最多 {{ STATION_WORKER_CAP }} 人。同站满两人时，到工坊站卡合并升档。
+      金币 {{ game.save.gold }} · 空闲 {{ idleCount(game.save) }} · 每站最多 {{ STATION_WORKER_CAP }} 人。同站同档两人可在派驻弹层或工坊站卡合成升档。
     </p>
     <div class="row">
       <button type="button" :class="{ 'guide-flash': guideFlashRecruit }" @click="game.recruit()">
@@ -307,25 +315,33 @@ function flipOrder() {
           <h2 class="title">派驻 · {{ workerShortName(picking) }}</h2>
         </header>
         <div class="pick-list">
-          <button
-            v-for="choice in pickChoices"
-            :key="choice.stationId ?? 'rest'"
-            type="button"
-            :class="{ on: choice.current }"
-            :disabled="choice.disabled"
-            :aria-pressed="choice.current"
-            @click="onPickStation(choice.stationId)"
-          >
-            <span class="crew" aria-hidden="true">
-              <i
-                v-for="(dot, i) in choice.dots"
-                :key="i"
-                :class="{ empty: dot.empty }"
-                :style="{ background: dot.color }"
-              />
-            </span>
-            <span>{{ choice.label }}</span>
-          </button>
+          <div v-for="choice in pickChoices" :key="choice.stationId ?? 'rest'" class="pick-cell">
+            <button
+              type="button"
+              :class="{ on: choice.current }"
+              :disabled="choice.disabled"
+              :aria-pressed="choice.current"
+              @click="onPickStation(choice.stationId)"
+            >
+              <span class="crew" aria-hidden="true">
+                <i
+                  v-for="(dot, i) in choice.dots"
+                  :key="i"
+                  :class="{ empty: dot.empty }"
+                  :style="{ background: dot.color }"
+                />
+              </span>
+              <span>{{ choice.label }}</span>
+            </button>
+            <button
+              v-if="choice.canFuse"
+              type="button"
+              class="fuse-main"
+              @click="onFuseChoice(choice.stationId)"
+            >
+              合成
+            </button>
+          </div>
         </div>
         <div class="sheet-actions">
           <button type="button" class="go" :disabled="!canGoToAssignedWorkshop(picking)" @click="goWorkshop">
@@ -641,6 +657,13 @@ button {
   gap: 8px;
 }
 
+.pick-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
 .pick-list button {
   font: inherit;
   font-weight: 800;
@@ -653,6 +676,12 @@ button {
   align-items: center;
   justify-content: center;
   gap: 4px;
+}
+
+.pick-list .fuse-main {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
 }
 
 .pick-list button.on {

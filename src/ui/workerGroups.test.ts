@@ -154,6 +154,26 @@ describe('station crew dots and assign choices', () => {
     expect(canGoToAssignedWorkshop(rest)).toBe(false)
     expect(canGoToAssignedWorkshop(a)).toBe(true)
     expect(canGoToAssignedWorkshop(extra)).toBe(false)
+    expect(choices.every((c) => c.canFuse === false)).toBe(true)
+  })
+
+  it('marks a station fusable when the picker matches an existing same-tier worker', () => {
+    const save = createSave()
+    const idle = spawnWorkerWith(save, 1, 'laborer')
+    const mate = spawnWorkerWith(save, 1, 'artisan')
+    const other = spawnWorkerWith(save, 3, 'miner')
+    assignWorker(save, mate.id, 'fishing')
+    assignWorker(save, other.id, 'mining')
+
+    const idleChoices = workerAssignChoices(save, idle)
+    expect(idleChoices.find((c) => c.stationId === 'fishing')?.canFuse).toBe(true)
+    expect(idleChoices.find((c) => c.stationId === 'mining')?.canFuse).toBe(false)
+    expect(idleChoices.find((c) => c.stationId === null)?.canFuse).toBe(false)
+
+    assignWorker(save, idle.id, 'fishing')
+    const together = workerAssignChoices(save, idle)
+    expect(together.find((c) => c.stationId === 'fishing')?.canFuse).toBe(true)
+    expect(together.find((c) => c.stationId === 'mining')?.canFuse).toBe(false)
   })
 })
 

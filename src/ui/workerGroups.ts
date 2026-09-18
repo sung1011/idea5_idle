@@ -1,5 +1,6 @@
 import { assignedWorkers } from '../sim/assign'
 import { isWorkerInCombat } from '../sim/combat'
+import { canFuseWorkerWithStation } from '../sim/fuse'
 import { QUALITY_TIERS, STATION_DEF, STATION_WORKER_CAP, WORKER_QUALITY_TABLE } from '../sim/tables'
 import type { QualityTier, Save, StationId, Worker, WorkerQualityId } from '../sim/types'
 import { railWorkerDotColors } from './workshopRail'
@@ -134,6 +135,7 @@ export type WorkerAssignChoice = {
   dots: CrewDot[]
   current: boolean
   disabled: boolean
+  canFuse: boolean
 }
 
 export function stationCrewDots(save: Save, stationId: StationId | null): CrewDot[] {
@@ -179,5 +181,6 @@ export function workerAssignChoices(save: Save, worker: Worker): WorkerAssignCho
     dots: stationCrewDots(save, stationId),
     current: worker.assignment === stationId,
     disabled: !canAssignWorkerTo(save, worker, stationId),
+    canFuse: canFuseWorkerWithStation(save, worker.id, stationId),
   }))
 }

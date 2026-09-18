@@ -1,4 +1,4 @@
-import { assignedWorkers } from './assign'
+import { assignedWorkers, assignWorker } from './assign'
 import { fillWorkerHp } from './combat'
 import { unloadFood } from './food'
 import { findWorker, spawnWorkerWith } from './recruit'
@@ -10,6 +10,7 @@ import {
   isStationId,
   pickClassFromPool,
   QUALITY_MAX,
+  STATION_WORKER_CAP,
   workerQualityDef,
 } from './tables'
 import { fuseStayAssigned } from './tech'
@@ -54,12 +55,57 @@ export function fuseWorkers(save: Save, workerIdA: string, workerIdB: string): A
   return { ok: true, message: `合成出${worker.name ?? worker.id}（${quality.label}·${job}）` }
 }
 
+/** 该站两人同档且未满档，与 fuseStationWorkers 成功条件一致。 */
+export function canFuseStationWorkers(save: Save, stationId: StationId): boolean {
+  if (!isStationId(stationId)) return false
+  const pair = assignedWorkers(save, stationId)
+  if (pair.length < 2) return false
+  const a = pair[0]
+  const b = pair[1]
+  return a.qualityTier === b.qualityTier && a.qualityTier < QUALITY_MAX
+}
+
+/**
+ * 派驻弹层：当前工人与目标站已有工人（或同站另一人）同档且可合成。
+ * 人已在该站则按站上两人判定；否则目标站须有空位、且已有同档工人。
+ */
+export function canFuseWorkerWithStation(
+  save: Save,
+  workerId: string,
+  stationId: StationId | null,
+): boolean {
+  if (!stationId || !isStationId(stationId)) return false
+  const worker = findWorker(save, workerId)
+  if (!worker || worker.qualityTier >= QUALITY_MAX) return false
+  const crew = assignedWorkers(save, stationId)
+  const others = crew.filter((w) => w.id !== worker.id)
+  if (!others.some((w) => w.qualityTier === worker.qualityTier)) return false
+  if (worker.assignment === stationId) return crew.length >= 2
+  return crew.length < STATION_WORKER_CAP
+}
+
 /** 工坊站卡入口：该站正好 2 人才能合。品质规则走 fuseWorkers。 */
 export function fuseStationWorkers(save: Save, stationId: StationId): ActionResult {
   if (!isStationId(stationId)) return { ok: false, reason: '没有这个站点' }
   const pair = assignedWorkers(save, stationId)
   if (pair.length < 2) return { ok: false, reason: '该站需要 2 人才可合并' }
   return fuseWorkers(save, pair[0].id, pair[1].id)
+}
+
+/** 派驻弹层入口：人未在目标站则先派驻，再走 fuseStationWorkers。不可合成时不派驻。 */
+export function fuseWorkerWithStation(save: Save, workerId: string, stationId: StationId): ActionResult {
+  const worker = findWorker(save, workerId)
+  if (!worker) return { ok: false, reason: '没有这个工人' }
+  if (!canFuseWorkerWithStation(save, workerId, stationId)) {
+    if (worker.assignment === stationId) return fuseStationWorkers(save, stationId)
+    if (!isStationId(stationId)) return { ok: false, reason: '没有这个站点' }
+    return { ok: false, reason: '品质不同，不能合成' }
+  }
+  if (worker.assignment !== stationId) {
+    const assigned = assignWorker(save, workerId, stationId)
+    if (!assigned.ok) return assigned
+  }
+  return fuseStationWorkers(save, stationId)
 }
 
 export function stationMergeLabel(_save: Save, _stationId: StationId): string {

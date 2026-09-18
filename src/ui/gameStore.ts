@@ -16,7 +16,7 @@ import {
 import { hasUnread, listedMessages, markAllRead } from '../sim/messages'
 import { settleOffline } from '../sim/offline'
 import { eatFood, loadFood, unloadFood } from '../sim/food'
-import { fuseStationWorkers } from '../sim/fuse'
+import { fuseStationWorkers, fuseWorkerWithStation } from '../sim/fuse'
 import { recruitWorker } from '../sim/recruit'
 import { selectForgeOutput, selectForgingToolType, selectStationTool } from '../sim/tools'
 import { selectStationCategory } from '../sim/stationProgress'
@@ -139,6 +139,8 @@ export const useGameStore = defineStore('game', () => {
     stopClock,
     recruit: () => apply(recruitWorker),
     fuseStation: (stationId: StationId) => apply((s) => fuseStationWorkers(s, stationId)),
+    fuseWorker: (workerId: string, stationId: StationId) =>
+      apply((s) => fuseWorkerWithStation(s, workerId, stationId)),
     assignIdle: (stationId: StationId) => apply((s) => assignIdleWorker(s, stationId)),
     withdraw: (stationId: StationId) => apply((s) => withdrawWorker(s, stationId)),
     assign: (workerId: string, stationId: StationId | null) => apply((s) => assignWorker(s, workerId, stationId)),
