@@ -9,7 +9,6 @@ import {
   isFighting,
   legacyMarchAsWin,
   selectableCombatWorkers,
-  writeBackCombatWorkers,
   type CombatLogSink,
 } from './combat'
 import { workerLootXp } from './workerLevel'
@@ -959,7 +958,7 @@ export function resizeEncounterBoard(save: Save, now = Date.now()): Encounter[] 
   const size = boardSizeFor(save, now)
   const seed = Number.isFinite(save.exploreCount) && save.exploreCount > 0 ? Math.floor(save.exploreCount) : 0
   const kept = keptEncounters(previous, now)
-  const fill = encounterFiller(seed, spawnOptsFor(save, kept))
+  const fill = encounterFiller(seed, spawnOptsFor(save, previous))
   save.encounters = placeKeptThenFill(size, previous, kept, fill, true)
   return save.encounters
 }
@@ -1134,26 +1133,10 @@ export function canClaimLoot(save: Save, index: number, now = Date.now()): boole
   return claimLootBlockReason(save, index, now) === null
 }
 
-function dismissMainlineEnemies(save: Save): void {
-  const kept: Encounter[] = []
-  for (const enc of save.encounters) {
-    if (enc.kind !== 'enemy') {
-      kept.push(enc)
-      continue
-    }
-    if (enc.combat && !enc.combat.outcome) {
-      writeBackCombatWorkers(save, enc.combat)
-    }
-  }
-  save.encounters = kept
-}
-
-/** 领本章 Boss 战后进下一章：计数清零，清掉旧章敌人格，再按新章补板。 */
-export function advanceMainChapter(save: Save, now = Date.now()): void {
+/** 领本章 Boss 战后进下一章：计数清零，场上其它订单保持不动。 */
+export function advanceMainChapter(save: Save, _now = Date.now()): void {
   save.mainChapter = normalizeMainChapter(save.mainChapter) + 1
   save.mainLootClaims = 0
-  dismissMainlineEnemies(save)
-  resizeEncounterBoard(save, now)
 }
 
 function grantCombatLootXp(save: Save, enc: EnemyEncounter): boolean {
@@ -1371,14 +1354,15 @@ export function sellBulk(save: Save, index: number): ActionResult {
   return { ok: true, message: `收购成交。金币 +${enc.rewardGold}` }
 }
 
-/** 战斗中 / 胜可领 / 败可再战 的敌人占位保留；未开打 / 已领奖 / 其它格可换。 */
+/** 战斗中 / 胜可领 / 败可再战，以及未领的本章 Boss（含待战）占位保留；普通未开打 / 已领奖 / 其它格可换。 */
 export function shouldKeepOnExplore(enc: Encounter, now = Date.now()): boolean {
   if (enc.kind !== 'enemy') return false
   void now
+  if (isChapterBoss(enc) && !enc.lootClaimed) return true
   return isFighting(enc) || isCombatWon(enc) || combatStatus(enc) === 'lose'
 }
 
-/** 探索：扣金币，只替换可刷新格，保留格占位，板子按当前格数（战斗保留可暂超目标）。 */
+/** 探索：扣金币，只替换可刷新格，保留格占位，板子按当前格数（战斗 / 未领本章 Boss 保留可暂超目标）。 */
 export function exploreBoard(save: Save, now = Date.now()): ActionResult {
   const blocked = exploreBlockReason(save)
   if (blocked) return { ok: false, reason: blocked }
@@ -1388,7 +1372,7 @@ export function exploreBoard(save: Save, now = Date.now()): ActionResult {
   save.gold -= cost
   save.exploreCount += 1
   const size = Math.min(ENCOUNTER_SLOT_MAX, Math.max(encounterSlotCount(save), kept.length))
-  const fill = encounterFiller(save.exploreCount, spawnOptsFor(save, kept))
+  const fill = encounterFiller(save.exploreCount, spawnOptsFor(save, previous))
   save.encounters = placeKeptThenFill(size, previous, kept, fill, false)
   return { ok: true, message: `探索完成。花费 ${cost} 金币` }
 }

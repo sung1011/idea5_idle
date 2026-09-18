@@ -369,6 +369,12 @@ describe('exploreBoard', () => {
     expect(shouldKeepOnExplore(idle, now)).toBe(false)
     expect(shouldKeepOnExplore(claimed, now)).toBe(false)
     expect(shouldKeepOnExplore(passerby, now)).toBe(false)
+    expect(
+      shouldKeepOnExplore(
+        testEnemy({ id: 'keep-idle-boss', chapterBoss: true, departed: false, combat: null }),
+        now,
+      ),
+    ).toBe(true)
 
     const result = exploreBoard(save, now)
     expect(result.ok).toBe(true)

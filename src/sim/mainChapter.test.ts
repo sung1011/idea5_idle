@@ -7,6 +7,8 @@ import {
   exploreBoard,
   generateEncounterBoard,
   hydrateEncounterFields,
+  resizeEncounterBoard,
+  shouldKeepOnExplore,
   startCombat,
 } from './encounters'
 import {
@@ -26,8 +28,13 @@ import {
   shouldForceChapterBoss,
 } from './mainChapter'
 import { spawnWorker } from './recruit'
+import { ENCOUNTER_SLOT_TECH_IDS } from './tech'
 import { hydrateLoadedSave } from '../ui/saveGame'
 import type { EnemyEncounter, Save } from './types'
+
+function unlockMaxSlots(save: Save) {
+  save.unlockedTechIds = [...ENCOUNTER_SLOT_TECH_IDS]
+}
 
 function testEnemy(overrides: Partial<EnemyEncounter> = {}): EnemyEncounter {
   return {
@@ -241,6 +248,143 @@ describe('loot claim counter and chapter boss spawn', () => {
     }
   })
 
+  it('explore after 10 claims always leaves exactly one live chapter boss', () => {
+    for (let i = 0; i < 12; i++) {
+      const save = createSave()
+      unlockMaxSlots(save)
+      save.mainLootClaims = MAIN_LOOT_CLAIMS_GOAL
+      save.gold = 10_000
+      save.encounters = [
+        {
+          kind: 'passerby' as const,
+          id: `trade-a-${i}`,
+          label: '换货路人',
+          quality: 'green' as const,
+          wants: { wood: 1 },
+          offers: { meal: 1 },
+          completed: false,
+        },
+        {
+          kind: 'artisan' as const,
+          id: `trade-b-${i}`,
+          label: '灶头加餐',
+          quality: 'green' as const,
+          wants: { meal: 1 },
+          rewardGold: 0,
+          buffMul: 1.1,
+          buffDurationS: 60,
+          completed: false,
+        },
+        testEnemy({ id: `claimed-${i}`, lootClaimed: true, chapterBoss: false }),
+      ]
+      expect(exploreBoard(save).ok).toBe(true)
+      const bosses = save.encounters.filter(
+        (enc): enc is EnemyEncounter => enc.kind === 'enemy' && enc.chapterBoss === true,
+      )
+      expect(bosses).toHaveLength(1)
+      expect(bosses[0].lootClaimed).toBe(false)
+      expect(bosses[0].enemyRank).toBe('boss')
+    }
+  })
+
+  it('keeps the live chapter boss on explore and never spawns a second', () => {
+    const save = createSave()
+    unlockMaxSlots(save)
+    save.mainLootClaims = MAIN_LOOT_CLAIMS_GOAL
+    save.gold = 10_000
+    const idleBoss = testEnemy({
+      id: 'keep-idle-boss',
+      label: '试敌·首领',
+      enemyRank: 'boss',
+      chapterBoss: true,
+      departed: false,
+      combat: null,
+      lootClaimed: false,
+    })
+    const fightingBoss = testEnemy({
+      id: 'keep-fight-boss',
+      label: '试敌·首领',
+      enemyRank: 'boss',
+      chapterBoss: true,
+      departed: true,
+      combat: {
+        startedAt: 0,
+        timeoutAt: 120_000,
+        workerIds: ['w-1'],
+        workers: [{ id: 'w-1', label: '甲', hp: 10, hpMax: 24, atk: 4, spd: 5, nextActAt: 5_000 }],
+        enemy: { id: 'enemy', label: '首领', hp: 8, hpMax: 18, atk: 3, spd: 5, nextActAt: 5_000 },
+        logs: [],
+        outcome: null,
+      },
+    })
+    const claimableBoss = testEnemy({
+      id: 'keep-win-boss',
+      label: '试敌·首领',
+      enemyRank: 'boss',
+      chapterBoss: true,
+    })
+    expect(shouldKeepOnExplore(idleBoss)).toBe(true)
+    expect(shouldKeepOnExplore(fightingBoss)).toBe(true)
+    expect(shouldKeepOnExplore(claimableBoss)).toBe(true)
+
+    save.encounters = [
+      idleBoss,
+      {
+        kind: 'passerby',
+        id: 'swap-trade',
+        label: '换货路人',
+        quality: 'green',
+        wants: { wood: 1 },
+        offers: { meal: 1 },
+        completed: false,
+      },
+      testEnemy({
+        id: 'swap-minion',
+        chapterBoss: false,
+        departed: false,
+        combat: null,
+        lootClaimed: false,
+      }),
+    ]
+    expect(exploreBoard(save).ok).toBe(true)
+    expect(save.encounters[0].id).toBe('keep-idle-boss')
+    expect(save.encounters[0].kind === 'enemy' && save.encounters[0].chapterBoss).toBe(true)
+    expect(save.encounters.filter((enc) => enc.kind === 'enemy' && enc.chapterBoss)).toHaveLength(1)
+    expect(save.encounters[1].id).not.toBe('swap-trade')
+    expect(save.encounters[2].id).not.toBe('swap-minion')
+
+    save.encounters = [
+      fightingBoss,
+      {
+        kind: 'artisan',
+        id: 'swap-artisan',
+        label: '灶头加餐',
+        quality: 'green',
+        wants: { meal: 1 },
+        rewardGold: 0,
+        buffMul: 1.1,
+        buffDurationS: 60,
+        completed: false,
+      },
+    ]
+    expect(exploreBoard(save).ok).toBe(true)
+    expect(save.encounters[0].id).toBe('keep-fight-boss')
+    expect(save.encounters.filter((enc) => enc.kind === 'enemy' && enc.chapterBoss)).toHaveLength(1)
+
+    save.encounters = [claimableBoss]
+    expect(exploreBoard(save).ok).toBe(true)
+    expect(save.encounters[0].id).toBe('keep-win-boss')
+    expect(save.encounters.filter((enc) => enc.kind === 'enemy' && enc.chapterBoss)).toHaveLength(1)
+
+    const grown = createSave()
+    unlockMaxSlots(grown)
+    grown.mainLootClaims = MAIN_LOOT_CLAIMS_GOAL
+    grown.encounters = [idleBoss]
+    resizeEncounterBoard(grown)
+    expect(grown.encounters[0].id).toBe('keep-idle-boss')
+    expect(grown.encounters.filter((enc) => enc.kind === 'enemy' && enc.chapterBoss)).toHaveLength(1)
+  })
+
   it('hydrates a stuck 10-claim board by recycling the claimed slot into the chapter boss', () => {
     const claimed = testEnemy({
       id: 'stuck-claimed',
@@ -285,13 +429,20 @@ describe('loot claim counter and chapter boss spawn', () => {
 })
 
 describe('chapter advance on boss loot', () => {
-  it('advances chapter, resets claims, clears leftover enemies, and keeps trades', () => {
+  it('advances chapter, resets claims, and leaves other orders untouched', () => {
     const save = createSave()
     save.mainChapter = 1
     save.mainLootClaims = 10
     save.gold = 4
     const leftover = testEnemy({ id: 'old-minion', lootClaimed: true, chapterBoss: false })
     leftover.combat = { ...leftover.combat!, outcome: 'win', enemy: { ...leftover.combat!.enemy, hp: 0 } }
+    const idle = testEnemy({
+      id: 'idle-minion',
+      lootClaimed: false,
+      chapterBoss: false,
+      departed: false,
+      combat: null,
+    })
     const boss = testEnemy({
       id: 'chapter-boss',
       enemyRank: 'boss',
@@ -309,17 +460,22 @@ describe('chapter advance on boss loot', () => {
       buffDurationS: 150,
       completed: false,
     }
-    save.encounters = [leftover, boss, trade]
-    const result = claimLoot(save, 1)
+    save.encounters = [leftover, idle, boss, trade]
+    const beforeIds = save.encounters.map((enc) => enc.id)
+    const result = claimLoot(save, 2)
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.message).toContain('进入第 2 章')
     expect(save.mainChapter).toBe(2)
     expect(save.mainLootClaims).toBe(0)
     expect(save.gold).toBe(24)
-    expect(save.encounters.some((enc) => enc.id === 'old-minion')).toBe(false)
-    expect(save.encounters.some((enc) => enc.id === 'chapter-boss')).toBe(false)
-    expect(save.encounters.some((enc) => enc.kind === 'artisan' && enc.id === 'keep-artisan')).toBe(true)
-    expect(save.encounters.some((enc) => enc.kind === 'enemy' && enc.chapterBoss)).toBe(false)
+    expect(save.encounters.map((enc) => enc.id)).toEqual(beforeIds)
+    expect(save.encounters).toHaveLength(4)
+    expect(save.encounters[0].id).toBe('old-minion')
+    expect(save.encounters[1].id).toBe('idle-minion')
+    expect(save.encounters[1].kind === 'enemy' && save.encounters[1].lootClaimed).toBe(false)
+    expect(save.encounters[2].id).toBe('chapter-boss')
+    expect(save.encounters[2].kind === 'enemy' && save.encounters[2].lootClaimed).toBe(true)
+    expect(save.encounters[3].kind === 'artisan' && save.encounters[3].id).toBe('keep-artisan')
     expect(mainChapterTitle(save)).toBe('第 2 章')
     expect(mainLootClaimBarLabel(save)).toBe('本章战利品 0/10')
     expect(mainLootClaimFillPct(save)).toBe(0)
