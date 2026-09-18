@@ -36,6 +36,7 @@ import {
   workerShortName,
   type WorkerGroupOrder,
 } from './workerGroups'
+import { formatAtkSpeed } from './formatAtkSpeed'
 import { qualityOf, workerQualityDotStyle, workerQualityTileStyle } from './workerQuality'
 
 const game = useGameStore()
@@ -72,7 +73,7 @@ function fighting(w: Worker) {
 function combatTail(w: Worker) {
   const stats = workerLiveStats(w)
   const xp = workerXpProgress(w)
-  return `Lv${w.level} · ATK ${stats.atk} · SPD ${stats.spd} · XP ${xp.xp}/${xp.need}`
+  return `Lv${w.level} · ATK ${stats.atk} · 攻速 ${formatAtkSpeed(stats.spd)} · XP ${xp.xp}/${xp.need}`
 }
 
 function availableFoods() {

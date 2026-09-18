@@ -29,6 +29,7 @@ import type { Encounter, EncounterKind, EnemyEncounter, Worker } from '../sim/ty
 import EncounterDealLines from './encounterDealLines.vue'
 import EncounterTips from './encounterTips.vue'
 import { CONSUME_SHORT_TIP, isEncounterActionConsumeShort } from './encounterDeal'
+import { formatAtkSpeed } from './formatAtkSpeed'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
 import HpBar from './hpBar.vue'
@@ -206,12 +207,12 @@ function pickRecommend(w: Worker) {
           <template v-if="enc.combat">
             <div class="bars">
               <p class="bar-line">
-                敌 · ATK {{ enc.combat.enemy.atk }} · SPD {{ enc.combat.enemy.spd }}
+                敌 · ATK {{ enc.combat.enemy.atk }} · 攻速 {{ formatAtkSpeed(enc.combat.enemy.spd) }}
               </p>
               <HpBar :hp="enc.combat.enemy.hp" :hp-max="enc.combat.enemy.hpMax" />
               <template v-for="w in enc.combat.workers" :key="w.id">
                 <p class="bar-line">
-                  {{ w.label }} · ATK {{ w.atk }} · SPD {{ w.spd }}
+                  {{ w.label }} · ATK {{ w.atk }} · 攻速 {{ formatAtkSpeed(w.spd) }}
                 </p>
                 <HpBar :hp="w.hp" :hp-max="w.hpMax" />
               </template>
