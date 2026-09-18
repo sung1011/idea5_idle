@@ -3,11 +3,6 @@ import { syncKnightLevel } from './knightLevel'
 import { OFFLINE_CAP_S, RECRUIT_COST } from './tables'
 import type { ActionResult, Save, StationId, TechId } from './types'
 
-/** 任意站完成 1 次周期给 1 点灵感。 */
-export const CYCLE_TECH_POINTS = 1
-/** @deprecated 旧名，等同 CYCLE_TECH_POINTS */
-export const CRAFT_TECH_POINTS = CYCLE_TECH_POINTS
-
 export const ENCOUNTER_SLOT_MIN = 1
 export const ENCOUNTER_SLOT_MAX = 6
 /** 主线订单格科技的 effectId。每级 +1 格，与初始 1 格相加，封顶 6。已实装节点先 `maxLevel=1`。 */
@@ -548,14 +543,6 @@ export function stationConflictHint(save: Save, stationId: StationId): string | 
   const cutPct = Math.round((1 - mul) * 100)
   return `冲突：效率 −${cutPct}%`
 }
-
-/** 任意站完成一次吞吐后给灵感。 */
-export function grantTechPoint(save: Save, _stationId?: StationId): void {
-  save.techPoints = normalizeTechPoints(save.techPoints) + CYCLE_TECH_POINTS
-}
-
-/** @deprecated 旧名，现对任意站生效。 */
-export const grantCraftTechPoint = grantTechPoint
 
 export function researchTech(save: Save, techId: string): ActionResult {
   const blocked = researchBlockReason(save, techId)

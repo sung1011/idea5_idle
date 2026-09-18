@@ -8,7 +8,6 @@ import { recruitWorker, spawnWorker } from './recruit'
 import { setRollOverride } from './rng'
 import { completeCycle } from './stations'
 import {
-  CYCLE_TECH_POINTS,
   ENCOUNTER_SLOT_EFFECT,
   ENCOUNTER_SLOT_MAX,
   ENCOUNTER_SLOT_MIN,
@@ -25,7 +24,6 @@ import {
   applyTechEffects,
   encounterSlotCount,
   fuseStayAssigned,
-  grantTechPoint,
   hasTech,
   hydrateTechFields,
   hydrateTechLevels,
@@ -207,20 +205,13 @@ describe('hydrate tech fields', () => {
 })
 
 describe('inspiration grant', () => {
-  it('adds a point from grantTechPoint', () => {
-    const save = createSave()
-    grantTechPoint(save, 'mining')
-    grantTechPoint(save, 'forging')
-    expect(save.techPoints).toBe(1 + 2 * CYCLE_TECH_POINTS)
-  })
-
-  it('gives +1 inspiration when any station finishes a cycle', () => {
+  it('does not add inspiration when any station finishes a cycle', () => {
     const mine = createSave()
     spawnWorker(mine)
     assignWorker(mine, mine.workers[0].id, 'mining')
     const mined = ticks(mine, 20)
     expect(mined.stations.mining.completed).toBe(1)
-    expect(mined.techPoints).toBe(1 + CYCLE_TECH_POINTS)
+    expect(mined.techPoints).toBe(1)
 
     setRollOverride(() => 0.99)
     const forge = createSave()
@@ -229,10 +220,10 @@ describe('inspiration grant', () => {
     forge.bank.ore = 1
     const forged = ticks(forge, 32)
     expect(forged.stations.forging.completed).toBe(1)
-    expect(forged.techPoints).toBe(1 + CYCLE_TECH_POINTS)
+    expect(forged.techPoints).toBe(1)
   })
 
-  it('still grants a point on a forging soft-fail cycle', () => {
+  it('does not grant inspiration on a forging soft-fail cycle', () => {
     setRollOverride(() => 0)
     const save = createSave()
     spawnWorker(save)
@@ -240,7 +231,7 @@ describe('inspiration grant', () => {
     save.bank.ore = 1
     expect(completeCycle(save, 'forging')).toBe(true)
     expect(save.stations.forging.craftNotice).toContain('软失败')
-    expect(save.techPoints).toBe(1 + CYCLE_TECH_POINTS)
+    expect(save.techPoints).toBe(1)
   })
 })
 

@@ -163,7 +163,7 @@ export const MERCHANT_KIND_WEIGHTS: Readonly<Record<MerchantKind, number>> = {
 }
 
 /** 战利品只发金币。绿档基准，品质再乘产出倍率。 */
-export const LOOT_GOLD_BASE = 12
+export const LOOT_GOLD_BASE = 6
 /** 本章 Boss 战利品相对同品质普通敌人。 */
 export const CHAPTER_BOSS_LOOT_MUL = 1.5
 

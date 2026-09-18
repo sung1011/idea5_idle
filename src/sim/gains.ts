@@ -1,4 +1,4 @@
-import { ITEM_DEF, type IoRule } from './tables'
+import { ITEM_DEF, itemCraftGold, type IoRule } from './tables'
 import type { ItemId, StationId } from './types'
 
 export type ItemLot = {
@@ -10,6 +10,7 @@ export type CycleGain = {
   stationId: StationId
   lots: ItemLot[]
   notice: string | null
+  gold?: number
 }
 
 export type GainSink = (gain: CycleGain) => void
@@ -41,17 +42,33 @@ export function pushRuleLots(into: ItemLot[] | undefined, rules: IoRule[], bonus
   }
 }
 
-/** 一次吞吐的获得文案。无产出则 null，不刷「获得」tips。 */
-export function formatGainTip(lots: ItemLot[]): string | null {
+/** 一次吞吐按产出数量结算的工坊金币。无产出 / craftGold 为 0 则 0。 */
+export function craftGoldForLots(lots: ItemLot[]): number {
+  let gold = 0
+  for (const lot of mergeLots(lots)) {
+    gold += itemCraftGold(lot.itemId) * lot.qty
+  }
+  return gold
+}
+
+function normalizeGold(gold: number | undefined): number {
+  if (typeof gold !== 'number' || !Number.isFinite(gold) || gold <= 0) return 0
+  return Math.floor(gold)
+}
+
+/** 一次吞吐的获得文案。无产出且无金币则 null，不刷「获得」tips。 */
+export function formatGainTip(lots: ItemLot[], gold = 0): string | null {
   const merged = mergeLots(lots)
-  if (!merged.length) return null
+  const goldQty = normalizeGold(gold)
+  if (!merged.length && goldQty <= 0) return null
   const parts = merged.map((lot) => `${ITEM_DEF[lot.itemId].label} ×${lot.qty}`)
+  if (goldQty > 0) parts.push(`金币 +${goldQty}`)
   return `获得 ${parts.join('、')}`
 }
 
-/** 有产出优先「获得」；空杆 / 软失败 / 遇险等无产出才漂站内 notice。 */
+/** 有产出或工坊金币优先「获得」；空杆 / 软失败 / 遇险等无产出才漂站内 notice。 */
 export function formatCycleTip(gain: CycleGain): { text: string; kind: CycleTipKind } | null {
-  const text = formatGainTip(gain.lots)
+  const text = formatGainTip(gain.lots, gain.gold)
   if (text) return { text, kind: 'ok' }
   const notice = gain.notice?.trim()
   if (!notice) return null
@@ -63,10 +80,12 @@ export function emitGain(
   lots: ItemLot[],
   stationId: StationId,
   notice: string | null = null,
+  gold = 0,
 ): void {
   if (!onGain) return
   const merged = mergeLots(lots)
   const tipNotice = notice?.trim() || null
-  if (!merged.length && !tipNotice) return
-  onGain({ stationId, lots: merged, notice: tipNotice })
+  const goldQty = normalizeGold(gold)
+  if (!merged.length && !tipNotice && goldQty <= 0) return
+  onGain({ stationId, lots: merged, notice: tipNotice, gold: goldQty })
 }

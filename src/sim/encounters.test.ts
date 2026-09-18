@@ -24,6 +24,7 @@ import {
   claimLootBlockReason,
   combatSupplyBlockReason,
   chapterNeedMul,
+  LOOT_GOLD_BASE,
   enemyLootGoldFor,
   enemyNeedsFor,
   MAIN_NEED_ITEM_POOL,
@@ -273,6 +274,8 @@ describe('encounter board', () => {
     expect(boss.meal ?? 0).toBeGreaterThan(green.meal ?? 0)
     expect(boss.roast).toBeUndefined()
     expect(enemyNeedsFor()).toEqual(scaledMainNeed('meal', 'green', 1))
+    expect(LOOT_GOLD_BASE).toBe(6)
+    expect(enemyLootGoldFor()).toBe(6)
     expect(enemyLootGoldFor(true)).toBeGreaterThan(enemyLootGoldFor())
     expect(scaleGold(enemyLootGoldFor(), QUALITY_TABLE.orange.outputMul)).toBeGreaterThan(enemyLootGoldFor())
 

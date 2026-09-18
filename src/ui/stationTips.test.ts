@@ -20,6 +20,17 @@ describe('stationTips', () => {
     expect(useFloatTips().tips.value).toEqual([])
   })
 
+  it('merges workshop gold into the station 获得 tip', () => {
+    pushCycleGain({
+      stationId: 'forging',
+      lots: [{ itemId: 'tool', qty: 1 }],
+      notice: '锻成初级工具',
+      gold: 2,
+    })
+    expect(stationTipList('forging').map((tip) => tip.text)).toEqual(['获得 初级工具 ×1、金币 +2'])
+    expect(useFloatTips().tips.value).toEqual([])
+  })
+
   it('pins empty-rod / soft-fail notices to that station', () => {
     pushCycleGain({ stationId: 'fishing', lots: [], notice: '空杆' })
     pushCycleGain({ stationId: 'forging', lots: [], notice: '软失败，矿石损耗' })

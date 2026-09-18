@@ -21,6 +21,8 @@ import {
   STATION_DEF,
   TOOL_DEF,
   TOOL_TYPE_DEF,
+  ITEM_DEF,
+  itemCraftGold,
 } from './tables'
 
 describe('production phase-1 tables', () => {
@@ -155,5 +157,22 @@ describe('production phase-1 tables', () => {
     expect(itemProducerStation('wood')).toBeNull()
     expect(itemProducerStation('weapon')).toBeNull()
     expect(itemProducerStation('slag')).toBeNull()
+  })
+
+  it('gives workshop craftGold of 0–1 for gathers and 1–3 for finished goods', () => {
+    const gathers = ['ore', 'ironOre', 'mithrilOre', 'fish', 'junk', 'meat', 'blood', 'tooth', 'eye', 'herb', 'spice'] as const
+    const finished = ['meal', 'roast', 'stew', 'potion', 'tool', 'ironTool', 'mithrilTool'] as const
+    for (const id of gathers) {
+      expect(ITEM_DEF[id].craftGold).toBeGreaterThanOrEqual(0)
+      expect(ITEM_DEF[id].craftGold).toBeLessThanOrEqual(1)
+      expect(itemCraftGold(id)).toBe(ITEM_DEF[id].craftGold)
+    }
+    for (const id of finished) {
+      expect(ITEM_DEF[id].craftGold).toBeGreaterThanOrEqual(1)
+      expect(ITEM_DEF[id].craftGold).toBeLessThanOrEqual(3)
+      expect(itemCraftGold(id)).toBe(ITEM_DEF[id].craftGold)
+    }
+    expect(itemCraftGold('ore')).toBe(0)
+    expect(itemCraftGold('weapon')).toBe(0)
   })
 })

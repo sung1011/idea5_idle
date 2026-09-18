@@ -2,12 +2,13 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
-import { formatCycleTip, formatGainTip, mergeLots, type CycleGain } from './gains'
+import { craftGoldForLots, formatCycleTip, formatGainTip, mergeLots, type CycleGain } from './gains'
 import { recruitWorker } from './recruit'
 import { setRollOverride } from './rng'
 import { completeCycle } from './stations'
 import { grantStationXp, selectStationCategory } from './stationProgress'
-import { xpToNextLevel } from './tables'
+import { ITEM_DEF, xpToNextLevel } from './tables'
+import { equipStationTool } from './tools'
 import { ticks } from './tick'
 
 function roster(n: number) {
@@ -52,6 +53,8 @@ describe('formatGainTip', () => {
       ]),
     ).toBe('获得 肉 ×1、血 ×1、眼 ×1')
     expect(formatGainTip([])).toBeNull()
+    expect(formatGainTip([{ itemId: 'tool', qty: 1 }], 2)).toBe('获得 初级工具 ×1、金币 +2')
+    expect(formatGainTip([], 3)).toBe('获得 金币 +3')
     expect(mergeLots([{ itemId: 'ore', qty: 1 }, { itemId: 'ore', qty: 2 }])).toEqual([{ itemId: 'ore', qty: 3 }])
   })
 })
@@ -100,7 +103,7 @@ describe('completeCycle gain tips', () => {
     assignWorker(hunt, hunt.workers[0].id, 'hunting')
     const huntGain = collectGain(hunt, 'hunting')
     expect(huntGain.events[0]?.stationId).toBe('hunting')
-    expect(huntGain.tips).toEqual(['获得 肉 ×1、血 ×1、眼 ×1'])
+    expect(huntGain.tips).toEqual(['获得 肉 ×1、血 ×1、眼 ×1、金币 +2'])
 
     setRollOverride(() => 0)
     const empty = roster(1)
@@ -108,7 +111,7 @@ describe('completeCycle gain tips', () => {
     const emptyGain = collectGain(empty, 'fishing')
     expect(emptyGain.ok).toBe(true)
     expect(empty.stations.fishing.gatherNotice).toBe('空杆')
-    expect(emptyGain.events).toEqual([{ stationId: 'fishing', lots: [], notice: '空杆' }])
+    expect(emptyGain.events).toEqual([{ stationId: 'fishing', lots: [], notice: '空杆', gold: 0 }])
     expect(emptyGain.tips).toEqual(['空杆'])
 
     const hazard = roster(1)
@@ -127,7 +130,7 @@ describe('completeCycle gain tips', () => {
     expect(failGain.ok).toBe(true)
     expect(fail.stations.forging.craftNotice).toContain('软失败')
     expect(bankQty(fail, 'tool')).toBe(0)
-    expect(failGain.events).toEqual([{ stationId: 'forging', lots: [], notice: '软失败，矿石损耗' }])
+    expect(failGain.events).toEqual([{ stationId: 'forging', lots: [], notice: '软失败，矿石损耗', gold: 0 }])
     expect(failGain.tips).toEqual(['软失败，矿石损耗'])
   })
 
@@ -138,14 +141,14 @@ describe('completeCycle gain tips', () => {
     assignWorker(forge, forge.workers[0].id, 'forging')
     const forgeGain = collectGain(forge, 'forging')
     expect(forgeGain.events[0]?.stationId).toBe('forging')
-    expect(forgeGain.tips).toEqual(['获得 初级工具 ×1'])
+    expect(forgeGain.tips).toEqual(['获得 初级工具 ×1、金币 +2'])
 
     const brew = roster(1)
     brew.bank.blood = 1
     assignWorker(brew, brew.workers[0].id, 'alchemy')
     const brewGain = collectGain(brew, 'alchemy')
     expect(brewGain.events[0]?.stationId).toBe('alchemy')
-    expect(brewGain.tips).toEqual(['获得 药剂 ×1'])
+    expect(brewGain.tips).toEqual(['获得 药剂 ×1、金币 +2'])
   })
 
   it('forwards onGain through live ticks with stationId', () => {
@@ -160,5 +163,65 @@ describe('completeCycle gain tips', () => {
     expect(events).toHaveLength(1)
     expect(events[0].stationId).toBe('mining')
     expect(formatCycleTip(events[0])?.text).toBe('获得 铜矿 ×1')
+  })
+})
+
+describe('completeCycle craft gold', () => {
+  it('pays craftGold by output qty and skips empty / zero-gold cycles', () => {
+    expect(craftGoldForLots([{ itemId: 'ore', qty: 1 }])).toBe(0)
+    expect(craftGoldForLots([{ itemId: 'tool', qty: 1 }])).toBe(ITEM_DEF.tool.craftGold)
+    expect(craftGoldForLots([{ itemId: 'tool', qty: 2 }])).toBe(ITEM_DEF.tool.craftGold * 2)
+    expect(craftGoldForLots([{ itemId: 'meat', qty: 1 }, { itemId: 'blood', qty: 1 }, { itemId: 'eye', qty: 1 }])).toBe(2)
+
+    const mine = roster(1)
+    const mineGold = mine.gold
+    assignWorker(mine, mine.workers[0].id, 'mining')
+    const mined = collectGain(mine, 'mining')
+    expect(mined.ok).toBe(true)
+    expect(mine.gold).toBe(mineGold)
+    expect(mined.events[0]?.gold).toBe(0)
+
+    setRollOverride(() => 0.99)
+    const forge = roster(1)
+    const forgeGold = forge.gold
+    forge.bank.ore = 1
+    assignWorker(forge, forge.workers[0].id, 'forging')
+    const forged = collectGain(forge, 'forging')
+    expect(forged.ok).toBe(true)
+    expect(forge.gold).toBe(forgeGold + 2)
+    expect(forged.events[0]?.gold).toBe(2)
+    expect(forged.tips).toEqual(['获得 初级工具 ×1、金币 +2'])
+
+    const cook = roster(1)
+    const cookGold = cook.gold
+    cook.bank.fish = 1
+    assignWorker(cook, cook.workers[0].id, 'cooking')
+    const cooked = collectGain(cook, 'cooking')
+    expect(cooked.ok).toBe(true)
+    expect(cook.gold).toBe(cookGold + 1)
+    expect(cooked.events[0]?.gold).toBe(1)
+
+    setRollOverride(() => 0)
+    const empty = roster(1)
+    const emptyGold = empty.gold
+    assignWorker(empty, empty.workers[0].id, 'fishing')
+    const emptyGain = collectGain(empty, 'fishing')
+    expect(emptyGain.ok).toBe(true)
+    expect(empty.gold).toBe(emptyGold)
+    expect(emptyGain.events[0]?.gold).toBe(0)
+  })
+
+  it('scales workshop gold when extraOutput doubles the lots', () => {
+    const save = roster(1)
+    const before = save.gold
+    save.bank.fish = 1
+    save.bank.ironTool = 1
+    assignWorker(save, save.workers[0].id, 'cooking')
+    expect(equipStationTool(save, 'cooking', 'ironTool').ok).toBe(true)
+    const cooked = collectGain(save, 'cooking')
+    expect(cooked.ok).toBe(true)
+    expect(cooked.events[0]?.lots).toEqual([{ itemId: 'meal', qty: 2 }])
+    expect(save.gold).toBe(before + 2)
+    expect(cooked.tips).toEqual(['获得 熟食 ×2、金币 +2'])
   })
 })

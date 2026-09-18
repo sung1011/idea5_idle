@@ -3,11 +3,10 @@ import { addToBank } from './bank'
 import { takeCosts } from './costs'
 import { completeForgingCycle } from './forging'
 import { applyGatherOutputs, applyHuntingPauseTick, applyMiningRecovery, isGatherFrozen, isGatherStation } from './gather'
-import { emitGain, pushLot, type GainSink, type ItemLot } from './gains'
+import { craftGoldForLots, emitGain, pushLot, type GainSink, type ItemLot } from './gains'
 import { assignedCount, canConsume, currentSpeed, pickConsume } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
 import { ITEM_DEF, isPotionItemId } from './tables'
-import { grantCraftTechPoint } from './tech'
 import { cycleOutputBonus } from './tools'
 import type { Save, StationId } from './types'
 
@@ -63,13 +62,11 @@ export function completeCycle(
   const lots: ItemLot[] = []
   if (stationId === 'forging') {
     const ok = completeForgingCycle(save, now, lots)
-    if (ok) grantCraftTechPoint(save, 'forging')
     if (ok) emitCycleGain(save, stationId, lots, onGain)
     return ok
   }
   if (stationId === 'alchemy') {
     const ok = completeAlchemyCycle(save, now, lots)
-    if (ok) grantCraftTechPoint(save, 'alchemy')
     if (ok) emitCycleGain(save, stationId, lots, onGain)
     return ok
   }
@@ -82,14 +79,20 @@ export function completeCycle(
   }
   station.completed += 1
   grantStationXp(save, stationId, selectedCategoryDef(save, stationId).xpPerCycle)
-  grantCraftTechPoint(save, stationId)
   emitCycleGain(save, stationId, lots, onGain)
   return true
 }
 
+function grantCycleCraftGold(save: Save, lots: ItemLot[]): number {
+  const gold = craftGoldForLots(lots)
+  if (gold > 0) save.gold += gold
+  return gold
+}
+
 function emitCycleGain(save: Save, stationId: StationId, lots: ItemLot[], onGain?: GainSink): void {
+  const gold = grantCycleCraftGold(save, lots)
   const station = save.stations[stationId]
-  emitGain(onGain, lots, stationId, station.gatherNotice ?? station.craftNotice ?? null)
+  emitGain(onGain, lots, stationId, station.gatherNotice ?? station.craftNotice ?? null, gold)
 }
 
 export function stepStation(save: Save, stationId: StationId, now = Date.now(), onGain?: GainSink): void {

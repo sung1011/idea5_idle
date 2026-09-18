@@ -35,33 +35,41 @@ export type ItemDef = {
   id: ItemId
   label: string
   sellGold: number
+  /** 工坊吞吐按产出数量结算的金币；当铺 / 收购仍用 sellGold。 */
+  craftGold: number
 }
 
 export const ITEM_DEF: Record<ItemId, ItemDef> = {
-  wood: { id: 'wood', label: '木头', sellGold: 2 },
-  ore: { id: 'ore', label: '铜矿', sellGold: 3 },
-  ironOre: { id: 'ironOre', label: '铁矿', sellGold: 5 },
-  mithrilOre: { id: 'mithrilOre', label: '秘银矿', sellGold: 8 },
-  slag: { id: 'slag', label: '渣滓', sellGold: 1 },
-  fish: { id: 'fish', label: '鱼', sellGold: 3 },
-  junk: { id: 'junk', label: '杂物', sellGold: 1 },
-  meal: { id: 'meal', label: '熟食', sellGold: 8 },
-  roast: { id: 'roast', label: '烤肉', sellGold: 10 },
-  stew: { id: 'stew', label: '香料炖', sellGold: 14 },
-  potion: { id: 'potion', label: '药剂', sellGold: 10 },
-  weapon: { id: 'weapon', label: '铜器', sellGold: 12 },
-  ironWeapon: { id: 'ironWeapon', label: '铁器', sellGold: 18 },
-  mithrilWeapon: { id: 'mithrilWeapon', label: '秘银器', sellGold: 28 },
-  blueprint: { id: 'blueprint', label: '图纸', sellGold: 20 },
-  meat: { id: 'meat', label: '肉', sellGold: 4 },
-  blood: { id: 'blood', label: '血', sellGold: 3 },
-  tooth: { id: 'tooth', label: '牙', sellGold: 3 },
-  eye: { id: 'eye', label: '眼', sellGold: 4 },
-  herb: { id: 'herb', label: '草', sellGold: 2 },
-  spice: { id: 'spice', label: '香料', sellGold: 3 },
-  tool: { id: 'tool', label: '初级工具', sellGold: 12 },
-  ironTool: { id: 'ironTool', label: '中阶工具', sellGold: 18 },
-  mithrilTool: { id: 'mithrilTool', label: '高阶工具', sellGold: 28 },
+  wood: { id: 'wood', label: '木头', sellGold: 2, craftGold: 0 },
+  ore: { id: 'ore', label: '铜矿', sellGold: 3, craftGold: 0 },
+  ironOre: { id: 'ironOre', label: '铁矿', sellGold: 5, craftGold: 1 },
+  mithrilOre: { id: 'mithrilOre', label: '秘银矿', sellGold: 8, craftGold: 1 },
+  slag: { id: 'slag', label: '渣滓', sellGold: 1, craftGold: 0 },
+  fish: { id: 'fish', label: '鱼', sellGold: 3, craftGold: 0 },
+  junk: { id: 'junk', label: '杂物', sellGold: 1, craftGold: 0 },
+  meal: { id: 'meal', label: '熟食', sellGold: 8, craftGold: 1 },
+  roast: { id: 'roast', label: '烤肉', sellGold: 10, craftGold: 2 },
+  stew: { id: 'stew', label: '香料炖', sellGold: 14, craftGold: 3 },
+  potion: { id: 'potion', label: '药剂', sellGold: 10, craftGold: 2 },
+  weapon: { id: 'weapon', label: '铜器', sellGold: 12, craftGold: 0 },
+  ironWeapon: { id: 'ironWeapon', label: '铁器', sellGold: 18, craftGold: 0 },
+  mithrilWeapon: { id: 'mithrilWeapon', label: '秘银器', sellGold: 28, craftGold: 0 },
+  blueprint: { id: 'blueprint', label: '图纸', sellGold: 20, craftGold: 0 },
+  meat: { id: 'meat', label: '肉', sellGold: 4, craftGold: 1 },
+  blood: { id: 'blood', label: '血', sellGold: 3, craftGold: 0 },
+  tooth: { id: 'tooth', label: '牙', sellGold: 3, craftGold: 0 },
+  eye: { id: 'eye', label: '眼', sellGold: 4, craftGold: 1 },
+  herb: { id: 'herb', label: '草', sellGold: 2, craftGold: 0 },
+  spice: { id: 'spice', label: '香料', sellGold: 3, craftGold: 1 },
+  tool: { id: 'tool', label: '初级工具', sellGold: 12, craftGold: 2 },
+  ironTool: { id: 'ironTool', label: '中阶工具', sellGold: 18, craftGold: 2 },
+  mithrilTool: { id: 'mithrilTool', label: '高阶工具', sellGold: 28, craftGold: 3 },
+}
+
+export function itemCraftGold(itemId: ItemId): number {
+  const unit = ITEM_DEF[itemId]?.craftGold
+  if (typeof unit !== 'number' || !Number.isFinite(unit) || unit <= 0) return 0
+  return Math.floor(unit)
 }
 
 export const ITEM_IDS = Object.keys(ITEM_DEF) as ItemId[]
