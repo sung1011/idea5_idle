@@ -1,6 +1,9 @@
+import { assignedWorkers } from '../sim/assign'
 import { isWorkerInCombat } from '../sim/combat'
-import { QUALITY_TIERS, STATION_DEF, WORKER_QUALITY_TABLE } from '../sim/tables'
-import type { QualityTier, Save, Worker, WorkerQualityId } from '../sim/types'
+import { QUALITY_TIERS, STATION_DEF, STATION_WORKER_CAP, WORKER_QUALITY_TABLE } from '../sim/tables'
+import type { QualityTier, Save, StationId, Worker, WorkerQualityId } from '../sim/types'
+import { railWorkerDotColors } from './workshopRail'
+import { WORKSHOP_TAB_IDS } from './workshopTabs'
 
 export type WorkerGroupOrder = 'highFirst' | 'lowFirst'
 
@@ -115,4 +118,61 @@ export function rosterDutyCounts(save: Save) {
     else fight += 1
   }
   return { total: save.workers.length, rest, busy, fight }
+}
+
+/** 空位灰点，对齐工坊竖签「有人亮品质色」；休息站两颗都空。 */
+export const CREW_DOT_EMPTY = '#e8e0d0'
+
+export type CrewDot = {
+  empty: boolean
+  color: string
+}
+
+export type WorkerAssignChoice = {
+  stationId: StationId | null
+  label: string
+  dots: CrewDot[]
+  current: boolean
+  disabled: boolean
+}
+
+export function stationCrewDots(save: Save, stationId: StationId | null): CrewDot[] {
+  const filled = stationId ? railWorkerDotColors(save, stationId) : []
+  const dots: CrewDot[] = []
+  for (let i = 0; i < STATION_WORKER_CAP; i += 1) {
+    const color = filled[i]
+    dots.push(color ? { empty: false, color } : { empty: true, color: CREW_DOT_EMPTY })
+  }
+  return dots
+}
+
+export function stationAssignCaption(save: Save, stationId: StationId | null): string {
+  if (stationId === null) return '休息'
+  const n = assignedWorkers(save, stationId).length
+  return `${STATION_DEF[stationId].label} · ${n}/${STATION_WORKER_CAP}`
+}
+
+/** 图标下工坊钮：休息只写站名；在岗带该站 0/1/2。 */
+export function workerShopCaption(save: Save, worker: Worker): string {
+  return stationAssignCaption(save, worker.assignment)
+}
+
+/** 满员不可再派；当前站 / 休息钮选中即不可点；战斗中全不可派。沿用 assignWorker。 */
+export function canAssignWorkerTo(save: Save, worker: Worker, stationId: StationId | null): boolean {
+  if (isWorkerInCombat(save, worker.id)) return false
+  if (worker.assignment === stationId) return false
+  if (stationId === null) return true
+  return assignedWorkers(save, stationId).length < STATION_WORKER_CAP
+}
+
+/** 七站按工坊竖签序，末项休息。 */
+export function workerAssignChoices(save: Save, worker: Worker): WorkerAssignChoice[] {
+  const ids: Array<StationId | null> = [...WORKSHOP_TAB_IDS, null]
+  return ids.map((stationId) => ({
+    stationId,
+    label: stationAssignCaption(save, stationId),
+    dots: stationCrewDots(save, stationId),
+    current: worker.assignment === stationId,
+    disabled: !canAssignWorkerTo(save, worker, stationId),
+  }))
 }

@@ -5,6 +5,7 @@ import { hpBarFill, hpBarLabel, hpBarTone } from './hpBar'
 const props = defineProps<{
   hp: number
   hpMax: number
+  compact?: boolean
 }>()
 
 const fillPct = computed(() => `${(hpBarFill(props.hp, props.hpMax) * 100).toFixed(2)}%`)
@@ -15,12 +16,12 @@ const tone = computed(() => hpBarTone(props.hp, props.hpMax))
 <template>
   <div
     class="hp"
-    :class="tone"
+    :class="[tone, { compact }]"
     role="progressbar"
     :aria-valuenow="hp"
     :aria-valuemin="0"
     :aria-valuemax="hpMax"
-    :aria-label="`HP ${label}`"
+    :aria-label="label"
   >
     <i class="fill" :style="{ width: fillPct }" />
     <span>{{ label }}</span>
@@ -65,5 +66,14 @@ const tone = computed(() => hpBarTone(props.hp, props.hpMax))
   letter-spacing: 0.02em;
   color: var(--ink);
   text-shadow: 0 0 3px #fff8ee, 0 1px 0 #fff8ee;
+}
+
+.hp.compact {
+  height: 16px;
+}
+
+.hp.compact span {
+  font-size: 9px;
+  font-weight: 900;
 }
 </style>

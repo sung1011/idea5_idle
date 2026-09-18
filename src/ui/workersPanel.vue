@@ -11,8 +11,6 @@ import {
   CLASS_LABEL,
   FOOD_ITEM_IDS,
   ITEM_DEF,
-  PLAYABLE_STATION_IDS,
-  STATION_DEF,
   STATION_WORKER_CAP,
   type FoodItemId,
 } from '../sim/tables'
@@ -20,16 +18,18 @@ import { recruitCost } from '../sim/tech'
 import type { ClassId, StationId, Worker } from '../sim/types'
 import ClassIcon from './classIcon.vue'
 import { useGameStore } from './gameStore'
-import { hpBarFill } from './hpBar'
 import HpBar from './hpBar.vue'
 import {
   groupWorkersByQuality,
   loadWorkerGroupOrder,
   rosterDutyCounts,
   saveWorkerGroupOrder,
+  stationCrewDots,
   toggleWorkerGroupOrder,
+  workerAssignChoices,
   workerDutyKind,
   workerDutyLabel,
+  workerShopCaption,
   workerShortName,
   type WorkerGroupOrder,
 } from './workerGroups'
@@ -44,6 +44,7 @@ const pickFood = reactive<Record<string, FoodItemId>>({})
 const pickFoodQty = reactive<Record<string, number>>({})
 const groupOrder = ref<WorkerGroupOrder>(loadWorkerGroupOrder())
 const selectedId = ref<string | null>(null)
+const pickId = ref<string | null>(null)
 
 const counts = computed(() => rosterDutyCounts(game.save))
 const groups = computed(() => groupWorkersByQuality(game.save.workers, groupOrder.value))
@@ -52,15 +53,13 @@ const selected = computed(() => {
   if (!id) return null
   return game.save.workers.find((w) => w.id === id) ?? null
 })
+const picking = computed(() => {
+  const id = pickId.value
+  if (!id) return null
+  return game.save.workers.find((w) => w.id === id) ?? null
+})
+const pickChoices = computed(() => (picking.value ? workerAssignChoices(game.save, picking.value) : []))
 const orderLabel = computed(() => (groupOrder.value === 'highFirst' ? '高→低' : '低→高'))
-
-function atStation(w: Worker, id: StationId) {
-  return w.assignment === id
-}
-
-function resting(w: Worker) {
-  return w.assignment === null && !isWorkerInCombat(game.save, w.id)
-}
 
 function fighting(w: Worker) {
   return isWorkerInCombat(game.save, w.id)
@@ -125,8 +124,12 @@ function isBusyTile(w: Worker) {
   return workerDutyKind(game.save, w) !== 'rest'
 }
 
-function hurtFill(w: Worker) {
-  return `${(hpBarFill(w.hp, w.hpMax) * 100).toFixed(2)}%`
+function shopCaption(w: Worker) {
+  return workerShopCaption(game.save, w)
+}
+
+function shopDots(w: Worker) {
+  return stationCrewDots(game.save, w.assignment)
 }
 
 function openSheet(w: Worker) {
@@ -135,6 +138,21 @@ function openSheet(w: Worker) {
 
 function closeSheet() {
   selectedId.value = null
+}
+
+function openPick(w: Worker) {
+  pickId.value = w.id
+}
+
+function closePick() {
+  pickId.value = null
+}
+
+function onPickStation(stationId: StationId | null) {
+  const w = picking.value
+  if (!w) return
+  const result = game.assign(w.id, stationId)
+  if (result.ok) closePick()
 }
 
 function flipOrder() {
@@ -167,27 +185,44 @@ function flipOrder() {
           <span class="count">· {{ g.workers.length }}</span>
         </h3>
         <div class="grid">
-          <button
-            v-for="w in g.workers"
-            :key="w.id"
-            type="button"
-            class="ico"
-            :class="{ busy: isBusyTile(w), hurt: w.hp < w.hpMax }"
-            :style="workerQualityTileStyle(w)"
-            :aria-label="`${workerShortName(w)} ${sheetMeta(w)}`"
-            @click="openSheet(w)"
-          >
-            <ClassIcon :name="classIconOf(w)" />
-            <span class="nm">{{ workerShortName(w) }}</span>
-            <span class="lv">Lv{{ w.level }}</span>
-            <i v-if="w.hp < w.hpMax" class="hurt-track" aria-hidden="true">
-              <i class="hurt-fill" :style="{ width: hurtFill(w) }" />
-            </i>
-          </button>
+          <div v-for="w in g.workers" :key="w.id" class="cell">
+            <button
+              type="button"
+              class="ico"
+              :class="{ busy: isBusyTile(w) }"
+              :style="workerQualityTileStyle(w)"
+              :aria-label="`${workerShortName(w)} ${sheetMeta(w)}`"
+              @click="openSheet(w)"
+            >
+              <span class="lv">Lv{{ w.level }}</span>
+              <ClassIcon :name="classIconOf(w)" />
+              <span class="nm">{{ workerShortName(w) }}</span>
+              <HpBar class="ico-hp" compact :hp="w.hp" :hp-max="w.hpMax" />
+            </button>
+            <button
+              type="button"
+              class="shop"
+              :aria-label="`切换工坊 ${shopCaption(w)}`"
+              @click="openPick(w)"
+            >
+              <span class="crew" aria-hidden="true">
+                <i
+                  v-for="(dot, i) in shopDots(w)"
+                  :key="i"
+                  :class="{ empty: dot.empty }"
+                  :style="{ background: dot.color }"
+                />
+              </span>
+              <span class="lab">{{ shopCaption(w) }}</span>
+            </button>
+          </div>
         </div>
       </section>
     </div>
-    <p v-else class="hint">还没有工人。先抽人，再点开小图标派驻。</p>
+    <p v-else class="hint">还没有工人。先抽人，再点图标看详情，点下方钮换工坊。</p>
+    <p v-if="groups.length" class="hint fine">
+      色点对齐工坊左侧竖签：有人亮品质色，空位灰点。点下方钮选工坊。
+    </p>
   </section>
 
   <Teleport to="body">
@@ -240,26 +275,43 @@ function flipOrder() {
           </template>
           <span v-else-if="!selected.foodSlot" class="hint">物资里没有食物</span>
         </div>
-        <div class="row">
+      </div>
+    </div>
+  </Teleport>
+
+  <Teleport to="body">
+    <div
+      v-if="picking"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="`派驻 · ${workerShortName(picking)}`"
+      @click.self="closePick"
+    >
+      <div class="sheet">
+        <header>
+          <h2 class="title">派驻 · {{ workerShortName(picking) }}</h2>
+          <button type="button" class="close" @click="closePick">关闭</button>
+        </header>
+        <div class="pick-list">
           <button
-            v-for="id in PLAYABLE_STATION_IDS"
-            :key="id"
+            v-for="choice in pickChoices"
+            :key="choice.stationId ?? 'rest'"
             type="button"
-            :class="{ on: atStation(selected, id) }"
-            :disabled="atStation(selected, id) || fighting(selected)"
-            :aria-pressed="atStation(selected, id)"
-            @click="game.assign(selected.id, id)"
+            :class="{ on: choice.current }"
+            :disabled="choice.disabled"
+            :aria-pressed="choice.current"
+            @click="onPickStation(choice.stationId)"
           >
-            {{ STATION_DEF[id].label }}
-          </button>
-          <button
-            type="button"
-            :class="{ on: resting(selected) }"
-            :disabled="resting(selected) || fighting(selected)"
-            :aria-pressed="resting(selected)"
-            @click="game.assign(selected.id, null)"
-          >
-            休息
+            <span class="crew" aria-hidden="true">
+              <i
+                v-for="(dot, i) in choice.dots"
+                :key="i"
+                :class="{ empty: dot.empty }"
+                :style="{ background: dot.color }"
+              />
+            </span>
+            <span>{{ choice.label }}</span>
           </button>
         </div>
       </div>
@@ -324,10 +376,16 @@ button {
   font-size: 14px;
 }
 
+.hint.fine {
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
 .groups {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .group {
@@ -360,33 +418,47 @@ button {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 10px;
 }
 
-.ico {
-  aspect-ratio: 1;
+.cell {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
+}
+
+.ico {
+  width: 96px;
+  height: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
   gap: 2px;
-  padding: 4px;
+  padding: 8px 6px 24px;
   min-height: 0;
   border-width: 3px;
-  border-radius: 14px;
-  box-shadow: 0 2px 0 var(--gold-deep);
+  border-radius: 18px;
+  box-shadow: 0 3px 0 var(--gold-deep);
   position: relative;
+}
+
+.ico :deep(.class-ico) {
+  width: 28px;
+  height: 28px;
+  margin-top: 2px;
 }
 
 .ico.busy {
   outline: 2px dashed #c07020;
-  outline-offset: -1px;
+  outline-offset: 1px;
 }
 
 .nm {
   max-width: 100%;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
   overflow: hidden;
@@ -395,30 +467,63 @@ button {
 
 .lv {
   position: absolute;
-  right: 3px;
-  bottom: 2px;
-  font-size: 9px;
+  top: 4px;
+  right: 5px;
+  font-size: 10px;
   font-weight: 900;
-  padding: 0 3px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.85);
+  padding: 1px 4px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--ink);
 }
 
-.hurt-track {
+.ico-hp {
   position: absolute;
-  left: 4px;
-  right: 4px;
-  bottom: 14px;
-  height: 3px;
-  overflow: hidden;
-  border-radius: 2px;
-  background: #e8c8a0;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  width: auto;
 }
 
-.hurt-fill {
+.shop {
+  width: 96px;
+  min-height: 36px;
+  padding: 4px 6px;
+  border: 3px solid var(--gold-deep);
+  border-radius: 12px;
+  background: linear-gradient(#fffbeb, #fff7d8);
+  box-shadow: 0 2px 0 var(--gold-deep);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.shop .lab {
+  letter-spacing: 0.04em;
+}
+
+.crew {
+  display: flex;
+  gap: 4px;
+  min-height: 8px;
+  align-items: center;
+}
+
+.crew i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid #8a6410;
   display: block;
-  height: 100%;
-  background: #c0392b;
+}
+
+.crew i.empty {
+  opacity: 0.55;
 }
 
 .modal {
@@ -501,5 +606,33 @@ button {
 .qty-input {
   min-width: 64px;
   width: 72px;
+}
+
+.pick-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.pick-list button {
+  font: inherit;
+  font-weight: 800;
+  min-height: 48px;
+  border: 3px solid var(--gold-deep);
+  border-radius: 12px;
+  background: linear-gradient(#fffbeb, #fff7d8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.pick-list button.on {
+  background: linear-gradient(#ffe27a, #f0b83a);
+}
+
+.pick-list button:disabled:not(.on) {
+  opacity: 0.55;
 }
 </style>
