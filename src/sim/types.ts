@@ -18,6 +18,31 @@ export type StationAlias = 'smithing'
 /** 站内品类。采矿 / 锻造多档；其它站单一品类兼容。 */
 export type CategoryId = 'copper' | 'iron' | 'mithril' | 'default'
 
+export type StationToolIndexCode =
+  | '01'
+  | '02'
+  | '03'
+  | '04'
+  | '05'
+  | '06'
+  | '07'
+  | '08'
+  | '09'
+  | '10'
+  | '11'
+  | '12'
+  | '13'
+  | '14'
+  | '15'
+  | '16'
+  | '17'
+  | '18'
+  | '19'
+  | '20'
+
+/** 每站 20 种专属工具，如 `miningTool01`。 */
+export type StationToolId = `${StationId}Tool${StationToolIndexCode}`
+
 export type ItemId =
   | 'wood'
   | 'ore'
@@ -43,6 +68,7 @@ export type ItemId =
   | 'tool'
   | 'ironTool'
   | 'mithrilTool'
+  | StationToolId
 
 export type ClassId =
   | 'laborer'
@@ -239,8 +265,11 @@ export type StationState = {
   selectedToolType?: ToolTypeId | null
   /** 最近一次制造结算文案（软失败 / 锻成）。 */
   craftNotice?: string | null
-  /** 装在该站的生产工具；增效按站结算，不跟工人走。 */
-  toolSlot: ToolSlot | null
+  /**
+   * 该站下拉选中的专属工具。`null` = 无。
+   * 只生效一把；未解锁或库存见底时 hydrate / 结算会清回无。
+   */
+  selectedToolId: StationToolId | null
 }
 
 export type FisheryTier = 'beginner' | 'mid' | 'high'

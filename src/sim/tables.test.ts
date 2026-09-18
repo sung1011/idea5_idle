@@ -23,6 +23,7 @@ import {
   TOOL_TYPE_DEF,
   ITEM_DEF,
   itemCraftGold,
+  stationToolsOf,
 } from './tables'
 
 describe('production phase-1 tables', () => {
@@ -110,31 +111,31 @@ describe('production phase-1 tables', () => {
 
   it('lists each station\'s related costs and outputs for leftover classification', () => {
     expect(stationRelatedItems('mining')).toEqual({
-      costs: [],
+      costs: stationToolsOf('mining').map((row) => row.id),
       outputs: ['ore', 'ironOre', 'mithrilOre'],
     })
     expect(stationRelatedItems('forging')).toEqual({
-      costs: ['ore', 'slag', 'ironOre', 'mithrilOre'],
+      costs: ['ore', 'slag', 'ironOre', 'mithrilOre', ...stationToolsOf('forging').map((row) => row.id)],
       outputs: ['tool', 'ironTool', 'mithrilTool', 'blueprint'],
     })
     expect(stationRelatedItems('fishing')).toEqual({
-      costs: [],
+      costs: stationToolsOf('fishing').map((row) => row.id),
       outputs: ['fish', 'junk'],
     })
     expect(stationRelatedItems('hunting')).toEqual({
-      costs: [],
+      costs: stationToolsOf('hunting').map((row) => row.id),
       outputs: ['meat', 'tooth', 'blood', 'eye'],
     })
     expect(stationRelatedItems('cooking')).toEqual({
-      costs: ['fish', 'meat', 'spice'],
+      costs: ['fish', 'meat', 'spice', ...stationToolsOf('cooking').map((row) => row.id)],
       outputs: ['meal', 'roast', 'stew'],
     })
     expect(stationRelatedItems('herbalism')).toEqual({
-      costs: [],
+      costs: stationToolsOf('herbalism').map((row) => row.id),
       outputs: ['herb', 'spice'],
     })
     expect(stationRelatedItems('alchemy')).toEqual({
-      costs: ['herb', 'blood', 'tooth', 'eye'],
+      costs: ['herb', 'blood', 'tooth', 'eye', ...stationToolsOf('alchemy').map((row) => row.id)],
       outputs: ['potion'],
     })
     expect(leftoverStockItems()).toEqual(['wood', 'weapon', 'ironWeapon', 'mithrilWeapon'])

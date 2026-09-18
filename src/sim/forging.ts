@@ -12,7 +12,7 @@ import {
   ITEM_DEF,
   type IoRule,
 } from './tables'
-import { cycleOutputBonus, forgingMatchStation, pushForgedTools } from './tools'
+import { cycleOutputBonus, forgingMatchStation, grantForgedStationTool, pushForgedTools } from './tools'
 import type { CategoryId, Save, SoftFailRoll } from './types'
 
 export function resolveSoftFail(chance: number, roll: number): SoftFailRoll {
@@ -62,7 +62,9 @@ export function completeForgingCycle(save: Save, now = Date.now(), into?: ItemLo
   }
   const out = def.outputs[0]
   if (out && isToolItemId(out.itemId)) {
-    pushForgedTools(save, out.itemId, forgingMatchStation(save), out.qty + bonus)
+    const made = out.qty + bonus
+    pushForgedTools(save, out.itemId, forgingMatchStation(save), made)
+    grantForgedStationTool(save, made)
   }
   station.completed += 1
   grantStationXp(save, 'forging', def.xpPerCycle)

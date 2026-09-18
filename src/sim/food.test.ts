@@ -8,7 +8,7 @@ import { recruitWorker } from './recruit'
 import { selectStationCategory } from './stationProgress'
 import { EFFECT_ID, FOOD_BUFF_DEF } from './tables'
 import { applyTick, ticks } from './tick'
-import { equipStationTool, matchingToolEffectMax, workerEffectValue, workerToolSpeedMul } from './tools'
+import { matchingToolEffectMax, selectStationTool, stationToolSpeedMul, workerEffectValue, workerToolSpeedMul } from './tools'
 import type { Save } from './types'
 
 function roster(n: number): Save {
@@ -124,44 +124,47 @@ describe('food slot buff', () => {
     expect(save.workers[0].foodSlot?.expiresAt).toBe(t0 + 5_000 + FOOD_BUFF_DEF.roast.durationS * 1000)
   })
 
-  it('takes the stronger same effectId from tool affix and food buff', () => {
+  it('stacks station tool speed with the stronger food prodSpeed', () => {
     const t0 = 4_000_000
     const save = roster(1)
-    save.bank.tool = 1
+    save.stations.mining.stationLevel = 5
+    save.bank.miningTool01 = 1
     save.bank.meal = 1
     save.bank.stew = 1
     assignWorker(save, save.workers[0].id, 'mining')
-    expect(equipStationTool(save, 'mining', 'tool').ok).toBe(true)
-    const toolOnly = workerToolSpeedMul(save, save.workers[0], 'mining', t0)
-    expect(toolOnly).toBeCloseTo(1.25)
+    expect(selectStationTool(save, 'mining', 'miningTool01').ok).toBe(true)
+    expect(workerToolSpeedMul(save, save.workers[0], 'mining', t0)).toBe(1)
+    expect(stationToolSpeedMul(save, 'mining')).toBeCloseTo(1.03)
 
     expect(loadFood(save, save.workers[0].id, 'meal', 1, t0).ok).toBe(true)
-    expect(workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.prodSpeed, t0)).toBeCloseTo(1.25)
-    expect(workerToolSpeedMul(save, save.workers[0], 'mining', t0)).toBeCloseTo(1.25)
+    expect(workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.prodSpeed, t0)).toBeCloseTo(1.15)
+    expect(workerToolSpeedMul(save, save.workers[0], 'mining', t0)).toBeCloseTo(1.15)
 
     expect(unloadFood(save, save.workers[0].id).ok).toBe(true)
     expect(loadFood(save, save.workers[0].id, 'stew', 1, t0).ok).toBe(true)
     expect(workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.prodSpeed, t0)).toBeCloseTo(1.35)
     expect(workerToolSpeedMul(save, save.workers[0], 'mining', t0)).toBeCloseTo(1.35)
-    expect(currentSpeed(save, 'mining', t0)).toBeCloseTo((1 / 20) * 1.35)
+    expect(currentSpeed(save, 'mining', t0)).toBeCloseTo((1 / 20) * 1.35 * 1.03)
   })
 
-  it('keeps different effectIds from tool and food together', () => {
+  it('keeps food extraOutput while the station tool only multiplies speed', () => {
     const t0 = 5_000_000
     const save = roster(1)
-    save.bank.tool = 1
+    save.stations.mining.stationLevel = 5
+    save.bank.miningTool01 = 4
     save.bank.roast = 1
     assignWorker(save, save.workers[0].id, 'mining')
-    expect(equipStationTool(save, 'mining', 'tool').ok).toBe(true)
+    expect(selectStationTool(save, 'mining', 'miningTool01').ok).toBe(true)
     expect(loadFood(save, save.workers[0].id, 'roast', 1, t0).ok).toBe(true)
 
-    expect(workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.prodSpeed, t0)).toBeCloseTo(1.25)
+    expect(workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.prodSpeed, t0)).toBe(0)
     expect(workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.extraOutput, t0)).toBe(1)
     expect(matchingToolEffectMax(save, 'mining', EFFECT_ID.extraOutput, t0)).toBe(1)
 
-    const next = ticks(save, 16, { now: t0 })
+    const next = ticks(save, 20, { now: t0 })
     expect(bankQty(next, 'ore')).toBe(2)
     expect(next.stations.mining.completed).toBe(1)
+    expect(bankQty(next, 'miningTool01')).toBe(3)
   })
 })
 

@@ -18,7 +18,7 @@ import {
   WORKER_QUALITY_REV,
   WORKER_QUALITY_TABLE,
 } from './tables'
-import { equipStationTool } from './tools'
+import { selectStationTool } from './tools'
 
 afterEach(() => {
   setRollOverride(null)
@@ -146,23 +146,23 @@ describe('fuseWorkers', () => {
     expect(save.workers[0].classId).not.toBe('laborer')
   })
 
-  it('returns leftover food to the bank; station tool stays; new worker stays assigned', () => {
+  it('returns leftover food to the bank; selected station tool stays; new worker stays assigned', () => {
     const save = createSave()
     const a = spawnWorker(save)
     const b = spawnWorker(save)
-    save.bank.tool = 1
+    save.stations.mining.stationLevel = 5
+    save.bank.miningTool01 = 1
     save.bank.meal = 2
-    save.forgedTools.push({ itemId: 'tool', matchStationId: 'mining' })
-    expect(equipStationTool(save, 'mining', 'tool').ok).toBe(true)
+    expect(selectStationTool(save, 'mining', 'miningTool01').ok).toBe(true)
     expect(loadFood(save, a.id, 'meal', 2).ok).toBe(true)
     expect(assignWorker(save, a.id, 'mining').ok).toBe(true)
     expect(assignWorker(save, b.id, 'mining').ok).toBe(true)
-    expect(bankQty(save, 'tool')).toBe(0)
+    expect(bankQty(save, 'miningTool01')).toBe(1)
     expect(bankQty(save, 'meal')).toBe(0)
 
     expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
-    expect(bankQty(save, 'tool')).toBe(0)
-    expect(save.stations.mining.toolSlot?.itemId).toBe('tool')
+    expect(bankQty(save, 'miningTool01')).toBe(1)
+    expect(save.stations.mining.selectedToolId).toBe('miningTool01')
     expect(bankQty(save, 'meal')).toBe(1)
     expect(save.workers[0].assignment).toBe('mining')
     expect(save.workers.every((w) => w.assignment === 'mining')).toBe(true)

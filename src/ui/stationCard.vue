@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { bankQty } from '../sim/bank'
+import { computed } from 'vue'
 import { stationMergeLabel } from '../sim/fuse'
 import { gatherStatusText, isGatherFrozen } from '../sim/gather'
 import {
@@ -15,17 +14,14 @@ import {
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
 import { stationConflictHint } from '../sim/tech'
 import {
-  ITEM_DEF,
   STATION_DEF,
   STATION_WORKER_CAP,
-  TOOL_ITEM_IDS,
   TOOL_TYPE_DEF,
   TOOL_TYPE_IDS,
-  toolTypeByStation,
   xpToNextLevel,
-  type ToolItemId,
 } from '../sim/tables'
-import type { CategoryId, StationId, ToolTypeId } from '../sim/types'
+import { stationToolPickOptions, stationToolSpeedMul, type StationToolPickOption } from '../sim/tools'
+import type { CategoryId, StationId, StationToolId, ToolTypeId } from '../sim/types'
 import ConsumeJumpItem from './consumeJumpItem.vue'
 import { formatConsumeToken } from './encounterDeal'
 import { useGameStore } from './gameStore'
@@ -49,13 +45,12 @@ const crew = computed(() => assignedWorkers(game.save, props.stationId))
 const canMerge = computed(() => crew.value.length >= STATION_WORKER_CAP)
 const mergeLabel = computed(() => stationMergeLabel(game.save, props.stationId))
 const station = computed(() => game.save.stations[props.stationId])
-const pickTool = ref<ToolItemId | ''>('')
-const availableTools = computed(() => TOOL_ITEM_IDS.filter((id) => bankQty(game.save, id) > 0))
+const toolOptions = computed(() => stationToolPickOptions(game.save, props.stationId))
 const toolLine = computed(() => {
-  const slot = station.value.toolSlot
-  if (!slot) return '未装工具 · 裸效率'
-  const type = TOOL_TYPE_DEF[toolTypeByStation(slot.matchStationId)]
-  return `${ITEM_DEF[slot.itemId].label}（${type.label}）· 本站增效`
+  const selected = toolOptions.value.find((row) => row.id === station.value.selectedToolId)
+  if (!selected?.id) return '未选工具 · 裸效率'
+  const pct = Math.round(selected.id ? stationToolSpeedMul(game.save, props.stationId) * 100 - 100 : 0)
+  return `${selected.label} ×${selected.qty} · +${pct}%`
 })
 const cat = computed(() => selectedCategoryDef(game.save, props.stationId))
 const speed = computed(() => currentSpeed(game.save, props.stationId))
@@ -102,14 +97,15 @@ function onToolType(ev: Event) {
   game.selectToolType(value)
 }
 
-function onEquipTool() {
-  const itemId = pickTool.value || availableTools.value[0]
-  if (!itemId) return
-  game.equipStationTool(props.stationId, itemId)
+function onSelectTool(ev: Event) {
+  const value = (ev.target as HTMLSelectElement).value
+  game.selectStationTool(props.stationId, value ? (value as StationToolId) : null)
 }
 
-function onUnequipTool() {
-  game.unequipStationTool(props.stationId)
+function toolOptionLabel(row: StationToolPickOption) {
+  if (!row.id) return row.label
+  if (!row.unlocked) return `${row.label}（Lv${row.unlockLevel}）`
+  return `${row.label} ×${row.qty}`
 }
 
 function onMerge() {
@@ -199,24 +195,19 @@ function consumeText(row: StationConsumeToken) {
         </select>
       </label>
       <p class="stat">{{ toolLine }}</p>
-      <div class="row tool-row">
-        <template v-if="station.toolSlot">
-          <button type="button" @click="onUnequipTool">卸下工具</button>
-        </template>
-        <template v-if="availableTools.length">
-          <select
-            class="cat-select"
-            :value="pickTool || availableTools[0]"
-            @change="pickTool = ($event.target as HTMLSelectElement).value as ToolItemId"
+      <label class="cats">
+        <span class="sr">工具</span>
+        <select class="cat-select" :value="station.selectedToolId ?? ''" @change="onSelectTool">
+          <option
+            v-for="row in toolOptions"
+            :key="row.id ?? 'none'"
+            :value="row.id ?? ''"
+            :disabled="!!row.id && (!row.unlocked || row.qty < 1)"
           >
-            <option v-for="id in availableTools" :key="id" :value="id">
-              {{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}
-            </option>
-          </select>
-          <button type="button" @click="onEquipTool">{{ station.toolSlot ? '换装' : '装备' }}</button>
-        </template>
-        <span v-else-if="!station.toolSlot" class="hint">物资里没有工具</span>
-      </div>
+            {{ toolOptionLabel(row) }}
+          </option>
+        </select>
+      </label>
     </div>
     <div class="actions">
       <button type="button" @click="game.assignIdle(stationId)">派入</button>

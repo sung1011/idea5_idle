@@ -19,7 +19,7 @@
 | 站 | `stationId` | `kind` | 核心差异 | 产出 → 去向 |
 | --- | --- | --- | --- | --- |
 | 挖矿 | `mining` | gather | 节点生命，挖空等恢复 | 矿石 → 锻造 |
-| 锻造 | `forging` | craft | 配方 + 软失败 | 生产工具 → 工坊 `toolSlot`（武器线搁置） |
+| 锻造 | `forging` | craft | 配方 + 软失败 | 通用工具 + 专属工具 → 工坊下拉（武器线搁置） |
 | 狩猎 | `hunting` | gather | 遇险检定（非战斗） | 肉 → 烹饪；血 / 牙 / 眼 → 炼金 |
 | 烹饪 | `cooking` | craft | 产出食物 | 食物 → 工人 `foodSlot` → 生产 Buff |
 | 采药 | `herbalism` | gather | 无限稳采 | 草 → 炼金；香料 → 烹饪 |
@@ -68,7 +68,7 @@ type MiningNodeState = {
 
 表驱动 `costs`（及可选 `altCosts`）+ **软失败**：周期走完后做一次失败检定。成功按现规则扣光并出工具。失败扣部分原料（`FORGING_SOFT_FAIL_TAKE_RATIO` 0.5，不足 1 按 1；铜档 1 矿失败也扣 1），无成品，给少量 XP（`xpPerCycle * 0.5`，至少 1）。不炸炉、不停站、不额外扣工人。成功率见 `FORGING_SOFT_FAIL_CHANCE`。
 
-产出是**生产工具**，进物资后再装进工坊 `StationState.toolSlot`。武器线（`weapon` / `ironWeapon` / `mithrilWeapon`）搁置，本阶段不当锻造主产物。
+产出是**通用生产工具**（铜/铁/秘银档），进物资；成功时另按锻造站 `floor(level/5)`（至少 1）写入目标站专属工具。工坊站卡用下拉选 `selectedToolId`，不再装进 `toolSlot`。武器线（`weapon` / `ironWeapon` / `mithrilWeapon`）搁置，本阶段不当锻造主产物。
 
 ```ts
 type SoftFailRoll = {
@@ -85,7 +85,7 @@ type SoftFailRoll = {
 | `ironTool` | 中阶 |
 | `mithrilTool` | 高阶 |
 
-每件工具带 `matchStationId`（锻造队列 / 旧档迁移用）。现玩法把工具装在工坊上，该站已装则本站结算吃满增效与词条；没装 = 裸效率，仍可派。不再看工人 assignment 是否匹配。锻造站可选 `selectedToolType`（镐/锤/猎具/锅/镰/瓶架/竿），成品写入 `forgedTools` 队列并进物资。T1 可无词条只加速度；T2+ 至少接 `extraOutput`（额外产出）与 `cycleShorten`（缩短时间），常驻被动，不占食物 Buff 栏。旧档工人 `toolSlot` / `toolId` hydrate：优先迁到 match 站（该站还空才装），否则回物资。
+通用工具仍带 `matchStationId`（锻造队列 / 旧档回物资用）。现玩法每站表驱动 20 种专属工具（`miningTool01`…，名称可占位），下拉首项「无」。解锁 `min(20, floor(stationLevel/5))`，Lv1–4 只能「无」；未解锁即使有库存也不可选。选中那一把：`speed × (1 + 序号 × 0.03)`，只生效一把；每次成功吞吐耗 1，「无」不耗，耗尽回「无」。没选 = 裸效率，仍可派。不再看工人 assignment 是否匹配。锻造站可选 `selectedToolType`（镐/锤/猎具/锅/镰/瓶架/竿），通用成品写入 `forgedTools` 并进物资，专属工具只进物资。旧档工人 / 站上 `toolSlot` / `toolId` hydrate：一律回物资，不自动选中。
 
 ### 2.3 狩猎 `hunting`（采集）
 
@@ -160,7 +160,7 @@ type ItemId /* 钓鱼相关 */ = 'fish' | 'junk'
 站间仍共用 `save.bank`（字段名沿用，**无容量**，堆再多也不停产）。
 
 ```
-挖矿 ──矿石──► 锻造 ──工具──► 工坊 toolSlot
+挖矿 ──矿石──► 锻造 ──通用工具 + 专属工具──► 工坊 selectedToolId
 狩猎 ──肉────► 烹饪 ──食物──► 工人 foodSlot ──► 生产 Buff
 狩猎 ──血/牙/眼──► 炼金（占位）
 采药 ──草────► 炼金（占位）
@@ -249,14 +249,13 @@ type ProductionBuff = {
 
 品质 `qualityTier` 1～10，色表 `WORKER_QUALITY_TABLE`（白绿蓝青紫橙粉红金彩，无灰）。抽人默认白档 1；**同一工坊**同档两人可在工坊站卡合并升一档（消耗两人产出 1 人），满档不可；不同档 / 不同站 / 不满 2 人不允许。合并时工人食物回物资、站上工具留下、新人留在原站。职业按新档池随机。品质不改吞吐。战斗属性随品质开槽，合成保留已有、只补新槽。旧灰表存档靠 `workerQualityRev` 迁一次。每站最多 2 人（`STATION_WORKER_CAP`）。偶遇敌人弱点与揭示见 [main.md](main.md) 6.2。
 
-### 5.1 工坊工具槽
+### 5.1 工坊工具下拉
 
-- 装在 `StationState.toolSlot`，工坊站卡装/卸，不跟工人走。
-- 常驻增效（速度等），不靠倒计时维持。该站已装则本站结算吃满。
-- 高阶工具可带 `affixes`。
-- 没装 = 裸效率，**仍可派**。
-- 卸下回物资；没有工具也能干活。
-- 旧档工人 `toolSlot` / `toolId`：优先迁到 match 站（站空才装），否则回物资。
+- 记在 `StationState.selectedToolId`，工坊站卡下拉（首项「无」），不跟工人走，没有装备/换装/卸下。
+- 每站 20 种专属工具，表驱动；解锁 `floor(stationLevel/5)`，上限 20。
+- 选中那一把：`1 + 序号 × 3%` 速度乘区，只生效一把。每次成功吞吐耗 1；「无」不耗；耗尽回「无」。
+- 未解锁即使有库存也不可选。没选 = 裸效率，**仍可派**。
+- 旧档工人 / 站上 `toolSlot` / `toolId`：一律回物资。工人页没有工具装配。
 
 ### 5.2 食物槽
 
@@ -267,10 +266,10 @@ type ProductionBuff = {
 
 ### 5.3 特效叠加
 
-- 特效可来自工具或食物。
-- 同 `effectId` 取最强（`value` 较大者），不叠乘。
+- 站工具只走速度乘区，不占 `effectId`。
+- 食物特效同 `effectId` 取最强（`value` 较大者），不叠乘。
 - 不同 `effectId` 并存。
-- 工具词条、食物 Buff、炼金共用同一套 `effectId` 解析；炼金解析口已挂上，本阶段不填数值。
+- 食物 Buff、炼金共用同一套 `effectId` 解析；炼金解析口已挂上，本阶段不填数值。
 
 工匠委托留下的整坊 `workshopBuff` 仍是账号级临时乘区，与工人双槽分开；是否并入 `effectId` 后补。
 
@@ -322,7 +321,7 @@ type ProductionBuff = {
 | 猎 | `meat` `blood` `tooth` `eye` |
 | 药 | `herb` `spice` |
 | 食 | `meal` `roast` `stew` |
-| 工具 | `tool` `ironTool` `mithrilTool` |
+| 工具 | `tool` `ironTool` `mithrilTool`；专属 `miningTool01`… 每站 20 种 |
 | 炼金占位 | `potion` |
 | 搁置武器 | `weapon` `ironWeapon` `mithrilWeapon` |
 | 旧木 | `wood` |
@@ -331,7 +330,7 @@ type ProductionBuff = {
 | 猎遇险 | `hazard` |
 | 渔场墙 | `fisheryTier` `catchTier` 空杆 `empty` |
 | 工人槽 | `foodSlot`（工具已改挂站） |
-| 站工具 | `StationState.toolSlot` |
+| 站工具 | `StationState.selectedToolId` |
 | 派驻上限 | `STATION_WORKER_CAP = 2` |
 | 工人品质 | `qualityTier` 1～10；表 `WORKER_QUALITY_TABLE`（白绿蓝青紫橙粉红金彩）；`workerQualityRev` |
 | 工人合成 | 同档两人 → 高一档 1 人；满档不可；职业按新档池随机 |

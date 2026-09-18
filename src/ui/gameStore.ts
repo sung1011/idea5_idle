@@ -18,7 +18,7 @@ import { settleOffline } from '../sim/offline'
 import { eatFood, loadFood, unloadFood } from '../sim/food'
 import { fuseStationWorkers } from '../sim/fuse'
 import { recruitWorker } from '../sim/recruit'
-import { equipStationTool, selectForgingToolType, unequipStationTool } from '../sim/tools'
+import { selectForgingToolType, selectStationTool } from '../sim/tools'
 import { selectStationCategory } from '../sim/stationProgress'
 import {
   barterMerchant,
@@ -32,7 +32,7 @@ import {
 } from '../sim/encounters'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
 import { tick } from '../sim/tick'
-import type { ActionResult, CategoryId, ItemId, Save, StationId, ToolTypeId } from '../sim/types'
+import type { ActionResult, CategoryId, ItemId, Save, StationId, StationToolId, ToolTypeId } from '../sim/types'
 import { pushCombatLogTip } from './encounterTips'
 import { pushFloatTip } from './floatTips'
 import { clearSave, loadSave, persistSave } from './saveGame'
@@ -141,14 +141,8 @@ export const useGameStore = defineStore('game', () => {
     assignIdle: (stationId: StationId) => apply((s) => assignIdleWorker(s, stationId)),
     withdraw: (stationId: StationId) => apply((s) => withdrawWorker(s, stationId)),
     assign: (workerId: string, stationId: StationId | null) => apply((s) => assignWorker(s, workerId, stationId)),
-    equipStationTool: (stationId: StationId, itemId: ItemId) =>
-      apply((s) => {
-        if (itemId !== 'tool' && itemId !== 'ironTool' && itemId !== 'mithrilTool') {
-          return { ok: false, reason: '不是生产工具' }
-        }
-        return equipStationTool(s, stationId, itemId)
-      }),
-    unequipStationTool: (stationId: StationId) => apply((s) => unequipStationTool(s, stationId)),
+    selectStationTool: (stationId: StationId, toolId: StationToolId | null) =>
+      apply((s) => selectStationTool(s, stationId, toolId)),
     loadFood: (workerId: string, itemId: ItemId, qty: number) =>
       apply((s) => loadFood(s, workerId, itemId, qty)),
     unloadFood: (workerId: string) => apply((s) => unloadFood(s, workerId)),

@@ -7,7 +7,7 @@ import { craftGoldForLots, emitGain, pushLot, type GainSink, type ItemLot } from
 import { assignedCount, canConsume, currentSpeed, pickConsume } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
 import { ITEM_DEF, isPotionItemId } from './tables'
-import { cycleOutputBonus } from './tools'
+import { consumeSelectedStationTool, cycleOutputBonus } from './tools'
 import type { Save, StationId } from './types'
 
 /** 1/6、1/7 这类 cycle 累加会卡在 0.999…，差一丁点到 1。 */
@@ -62,12 +62,18 @@ export function completeCycle(
   const lots: ItemLot[] = []
   if (stationId === 'forging') {
     const ok = completeForgingCycle(save, now, lots)
-    if (ok) emitCycleGain(save, stationId, lots, onGain)
+    if (ok) {
+      consumeSelectedStationTool(save, stationId)
+      emitCycleGain(save, stationId, lots, onGain)
+    }
     return ok
   }
   if (stationId === 'alchemy') {
     const ok = completeAlchemyCycle(save, now, lots)
-    if (ok) emitCycleGain(save, stationId, lots, onGain)
+    if (ok) {
+      consumeSelectedStationTool(save, stationId)
+      emitCycleGain(save, stationId, lots, onGain)
+    }
     return ok
   }
   if (!consumeInputs(save, stationId)) return false
@@ -79,6 +85,7 @@ export function completeCycle(
   }
   station.completed += 1
   grantStationXp(save, stationId, selectedCategoryDef(save, stationId).xpPerCycle)
+  consumeSelectedStationTool(save, stationId)
   emitCycleGain(save, stationId, lots, onGain)
   return true
 }

@@ -6,7 +6,12 @@ import { normalizeRngState } from '../sim/rng'
 import { hydrateStations } from '../sim/stationProgress'
 import { clampStationAssignments } from '../sim/assign'
 import { hydrateWorkers } from '../sim/recruit'
-import { hydrateForgedTools, migrateWorkerToolsToStations } from '../sim/tools'
+import {
+  hydrateForgedTools,
+  migrateWorkerToolsToStations,
+  returnLegacyStationToolSlots,
+  sanitizeAllStationTools,
+} from '../sim/tools'
 import { hydrateTechFields } from '../sim/tech'
 import { WORKER_QUALITY_REV } from '../sim/tables'
 import type { Save } from '../sim/types'
@@ -73,6 +78,8 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
     forgedTools: hydrateForgedTools((parsed as { forgedTools?: unknown }).forgedTools),
   }
   migrateWorkerToolsToStations(merged, parsed.workers)
+  returnLegacyStationToolSlots(merged, parsed.stations)
+  sanitizeAllStationTools(merged)
   clampStationAssignments(merged)
   // createSave 新档默认灵感 START_TECH_POINTS；旧档缺字段时先拿掉，交给 hydrate 读点数 / 别名，避免无故变成新档初始值。
   if (!Object.prototype.hasOwnProperty.call(parsed, 'techPoints')) {

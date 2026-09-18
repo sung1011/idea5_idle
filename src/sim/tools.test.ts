@@ -10,18 +10,27 @@ import { completeCycle } from './stations'
 import {
   EFFECT_ID,
   FORGING_SOFT_FAIL_CHANCE,
+  STATION_IDS,
+  STATION_TOOL_COUNT,
+  STATION_TOOL_SPEED_STEP,
+  STATION_TOOL_UNLOCK_EVERY,
   TOOL_DEF,
   TOOL_TYPE_DEF,
   TOOL_TYPE_IDS,
+  isStationToolUnlocked,
+  stationToolItemId,
+  stationToolSpeedMulOf,
+  stationToolUnlockCount,
+  stationToolsOf,
 } from './tables'
 import { ticks } from './tick'
 import {
   assignedToolWeight,
-  equipStationTool,
-  makeToolSlot,
-  matchingToolEffectMax,
+  consumeSelectedStationTool,
   selectForgingToolType,
-  unequipStationTool,
+  selectStationTool,
+  stationToolPickOptions,
+  stationToolSpeedMul,
   workerToolSpeedMul,
 } from './tools'
 import type { Save } from './types'
@@ -60,71 +69,161 @@ describe('tool type table', () => {
   })
 })
 
-describe('equip / unequip', () => {
-  it('equips a station from bank and unequips back', () => {
-    const save = roster(1)
-    save.bank.tool = 1
-    expect(equipStationTool(save, 'cooking', 'tool').ok).toBe(true)
-    expect(bankQty(save, 'tool')).toBe(0)
-    expect(save.stations.cooking.toolSlot?.itemId).toBe('tool')
-    expect(save.stations.cooking.toolSlot?.matchStationId).toBe('cooking')
-    expect(save.stations.cooking.toolSlot?.affixes).toEqual([])
-    expect(save.workers[0].foodSlot).toBeNull()
-    expect(unequipStationTool(save, 'cooking').ok).toBe(true)
-    expect(save.stations.cooking.toolSlot).toBeNull()
-    expect(bankQty(save, 'tool')).toBe(1)
+describe('station exclusive tools', () => {
+  it('lists 20 placeholder tools per station', () => {
+    expect(STATION_TOOL_COUNT).toBe(20)
+    expect(STATION_TOOL_UNLOCK_EVERY).toBe(5)
+    for (const stationId of STATION_IDS) {
+      const rows = stationToolsOf(stationId)
+      expect(rows).toHaveLength(20)
+      expect(rows[0]).toMatchObject({ id: stationToolItemId(stationId, 1), index: 1 })
+      expect(rows[19]).toMatchObject({ id: stationToolItemId(stationId, 20), index: 20 })
+      expect(new Set(rows.map((row) => row.id)).size).toBe(20)
+    }
   })
 
-  it('does not apply another station\'s tool', () => {
+  it('unlocks floor(stationLevel/5) tools, capped at 20; Lv1-4 none', () => {
+    expect(stationToolUnlockCount(1)).toBe(0)
+    expect(stationToolUnlockCount(4)).toBe(0)
+    expect(stationToolUnlockCount(5)).toBe(1)
+    expect(stationToolUnlockCount(9)).toBe(1)
+    expect(stationToolUnlockCount(10)).toBe(2)
+    expect(stationToolUnlockCount(100)).toBe(20)
+    expect(stationToolUnlockCount(105)).toBe(20)
+    expect(isStationToolUnlocked(4, 1)).toBe(false)
+    expect(isStationToolUnlocked(5, 1)).toBe(true)
+    expect(isStationToolUnlocked(5, 2)).toBe(false)
+    expect(stationToolSpeedMulOf(1)).toBeCloseTo(1 + STATION_TOOL_SPEED_STEP)
+    expect(stationToolSpeedMulOf(20)).toBeCloseTo(1 + 20 * STATION_TOOL_SPEED_STEP)
+  })
+})
+
+describe('select station tool', () => {
+  it('starts at 无 and rejects locked tools even with stock', () => {
     const save = roster(1)
-    save.bank.tool = 1
-    const id = save.workers[0].id
-    expect(assignWorker(save, id, 'mining').ok).toBe(true)
-    expect(equipStationTool(save, 'cooking', 'tool').ok).toBe(true)
-    expect(save.workers[0].assignment).toBe('mining')
-    expect(workerToolSpeedMul(save, save.workers[0], 'mining')).toBe(1)
-    expect(currentSpeed(save, 'mining')).toBeCloseTo(1 / 20)
+    save.bank.miningTool01 = 3
+    save.bank.miningTool02 = 1
+    expect(save.stations.mining.selectedToolId).toBeNull()
+    expect(selectStationTool(save, 'mining', 'miningTool01')).toEqual({
+      ok: false,
+      reason: '未解锁（需 Lv5）',
+    })
+    save.stations.mining.stationLevel = 5
+    expect(selectStationTool(save, 'mining', 'miningTool01').ok).toBe(true)
+    expect(save.stations.mining.selectedToolId).toBe('miningTool01')
+    expect(bankQty(save, 'miningTool01')).toBe(3)
+    expect(selectStationTool(save, 'mining', 'miningTool02')).toEqual({
+      ok: false,
+      reason: '未解锁（需 Lv10）',
+    })
+    expect(save.stations.mining.selectedToolId).toBe('miningTool01')
+  })
+
+  it('rejects another station\'s tool and empty stock', () => {
+    const save = roster(1)
+    save.stations.mining.stationLevel = 5
+    save.bank.cookingTool01 = 1
+    expect(selectStationTool(save, 'mining', 'cookingTool01')).toEqual({
+      ok: false,
+      reason: '不是本站工具',
+    })
+    expect(selectStationTool(save, 'mining', 'miningTool01')).toEqual({
+      ok: false,
+      reason: '采矿工具1见底',
+    })
+  })
+
+  it('dropdown starts with 无 and marks locked rows', () => {
+    const save = roster(1)
+    save.stations.mining.stationLevel = 5
+    save.bank.miningTool01 = 2
+    const opts = stationToolPickOptions(save, 'mining')
+    expect(opts[0]).toMatchObject({ id: null, label: '无', unlocked: true })
+    expect(opts).toHaveLength(21)
+    expect(opts[1]).toMatchObject({ id: 'miningTool01', unlocked: true, qty: 2, unlockLevel: 5 })
+    expect(opts[2]).toMatchObject({ id: 'miningTool02', unlocked: false, unlockLevel: 10 })
+  })
+
+  it('clears back to 无', () => {
+    const save = roster(1)
+    save.stations.cooking.stationLevel = 5
+    save.bank.cookingTool01 = 1
+    expect(selectStationTool(save, 'cooking', 'cookingTool01').ok).toBe(true)
+    expect(selectStationTool(save, 'cooking', null).ok).toBe(true)
+    expect(save.stations.cooking.selectedToolId).toBeNull()
   })
 })
 
 describe('matching tool speed', () => {
-  it('matching T1 is clearly faster than bare work', () => {
+  it('selected tool is a small station mul and does not apply to other stations', () => {
+    const save = roster(1)
+    save.stations.mining.stationLevel = 5
+    save.bank.miningTool01 = 1
+    const id = save.workers[0].id
+    expect(assignWorker(save, id, 'mining').ok).toBe(true)
+    expect(selectStationTool(save, 'mining', 'miningTool01').ok).toBe(true)
+    expect(workerToolSpeedMul(save, save.workers[0], 'mining')).toBe(1)
+    expect(stationToolSpeedMul(save, 'mining')).toBeCloseTo(1.03)
+    expect(assignedToolWeight(save, 'mining')).toBeCloseTo(1.03)
+    expect(currentSpeed(save, 'mining')).toBeCloseTo((1 / 20) * 1.03)
+
+    expect(assignWorker(save, id, 'cooking').ok).toBe(true)
+    expect(workerToolSpeedMul(save, save.workers[0], 'cooking')).toBe(1)
+    expect(stationToolSpeedMul(save, 'cooking')).toBe(1)
+    expect(currentSpeed(save, 'cooking')).toBeCloseTo(1 / 28)
+  })
+
+  it('matching first tool is slightly faster than bare work', () => {
     const bare = roster(1)
     assignWorker(bare, bare.workers[0].id, 'mining')
     const tooled = roster(1)
-    tooled.bank.tool = 1
+    tooled.stations.mining.stationLevel = 5
+    tooled.bank.miningTool01 = 8
     assignWorker(tooled, tooled.workers[0].id, 'mining')
-    expect(equipStationTool(tooled, 'mining', 'tool').ok).toBe(true)
+    expect(selectStationTool(tooled, 'mining', 'miningTool01').ok).toBe(true)
 
     expect(assignedToolWeight(bare, 'mining')).toBe(1)
-    expect(assignedToolWeight(tooled, 'mining')).toBeCloseTo(1.25)
+    expect(assignedToolWeight(tooled, 'mining')).toBeCloseTo(1.03)
     expect(currentSpeed(tooled, 'mining')).toBeGreaterThan(currentSpeed(bare, 'mining'))
 
-    const a = ticks(bare, 16)
-    const b = ticks(tooled, 16)
-    expect(a.stations.mining.completed).toBe(0)
-    expect(bankQty(b, 'ore')).toBe(1)
+    const a = ticks(bare, 20)
+    const b = ticks(tooled, 20)
+    expect(a.stations.mining.completed).toBe(1)
     expect(b.stations.mining.completed).toBe(1)
+    expect(bankQty(b, 'miningTool01')).toBe(7)
   })
 
-  it('T2 extraOutput is a permanent tool effect, not a food buff', () => {
-    const save = roster(1)
-    save.bank.ironTool = 1
-    assignWorker(save, save.workers[0].id, 'cooking')
-    expect(equipStationTool(save, 'cooking', 'ironTool').ok).toBe(true)
-    expect(save.workers[0].foodSlot).toBeNull()
-    expect(matchingToolEffectMax(save, 'cooking', EFFECT_ID.extraOutput)).toBe(1)
-    expect(workerToolSpeedMul(save, save.workers[0], 'cooking')).toBeCloseTo(1.2 / 0.8)
-  })
-
-  it('one station tool speeds both assigned workers', () => {
+  it('one selected tool speeds both assigned workers', () => {
     const save = roster(2)
-    save.bank.tool = 1
+    save.stations.mining.stationLevel = 5
+    save.bank.miningTool01 = 1
     assignWorker(save, save.workers[0].id, 'mining')
     assignWorker(save, save.workers[1].id, 'mining')
-    expect(equipStationTool(save, 'mining', 'tool').ok).toBe(true)
-    expect(assignedToolWeight(save, 'mining')).toBeCloseTo(2.5)
-    expect(currentSpeed(save, 'mining')).toBeCloseTo((1 / 20) * 2.5 * 0.5)
+    expect(selectStationTool(save, 'mining', 'miningTool01').ok).toBe(true)
+    expect(assignedToolWeight(save, 'mining')).toBeCloseTo(2.06)
+    expect(currentSpeed(save, 'mining')).toBeCloseTo((1 / 20) * 2.06 * 0.5)
+  })
+
+  it('consumes 1 on successful cycle and returns to 无 when empty', () => {
+    const save = roster(1)
+    save.stations.mining.stationLevel = 5
+    save.bank.miningTool01 = 1
+    assignWorker(save, save.workers[0].id, 'mining')
+    expect(selectStationTool(save, 'mining', 'miningTool01').ok).toBe(true)
+    expect(completeCycle(save, 'mining')).toBe(true)
+    expect(bankQty(save, 'miningTool01')).toBe(0)
+    expect(save.stations.mining.selectedToolId).toBeNull()
+    expect(stationToolSpeedMul(save, 'mining')).toBe(1)
+  })
+
+  it('无 does not consume stock', () => {
+    const save = roster(1)
+    save.stations.mining.stationLevel = 5
+    save.bank.miningTool01 = 2
+    expect(completeCycle(save, 'mining')).toBe(true)
+    expect(bankQty(save, 'miningTool01')).toBe(2)
+    consumeSelectedStationTool(save, 'mining')
+    expect(bankQty(save, 'miningTool01')).toBe(2)
   })
 })
 
@@ -161,15 +260,8 @@ describe('forging soft fail', () => {
     expect(completeCycle(save, 'forging')).toBe(true)
     expect(bankQty(save, 'tool')).toBe(1)
     expect(bankQty(save, 'weapon')).toBe(0)
+    expect(bankQty(save, 'cookingTool01')).toBe(1)
     expect(save.forgedTools[0]).toEqual({ itemId: 'tool', matchStationId: 'cooking' })
     expect(save.stations.forging.craftNotice).toContain('初级工具')
-  })
-})
-
-describe('makeToolSlot', () => {
-  it('copies T2 affixes onto the slot', () => {
-    const slot = makeToolSlot('ironTool', 'alchemy')
-    expect(slot.matchStationId).toBe('alchemy')
-    expect(slot.affixes.map((a) => a.effectId).sort()).toEqual([EFFECT_ID.cycleShorten, EFFECT_ID.extraOutput])
   })
 })

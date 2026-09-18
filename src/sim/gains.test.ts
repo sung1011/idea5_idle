@@ -8,7 +8,7 @@ import { setRollOverride } from './rng'
 import { completeCycle } from './stations'
 import { grantStationXp, selectStationCategory } from './stationProgress'
 import { ITEM_DEF, xpToNextLevel } from './tables'
-import { equipStationTool } from './tools'
+import { loadFood } from './food'
 import { ticks } from './tick'
 
 function roster(n: number) {
@@ -215,9 +215,9 @@ describe('completeCycle craft gold', () => {
     const save = roster(1)
     const before = save.gold
     save.bank.fish = 1
-    save.bank.ironTool = 1
+    save.bank.roast = 1
     assignWorker(save, save.workers[0].id, 'cooking')
-    expect(equipStationTool(save, 'cooking', 'ironTool').ok).toBe(true)
+    expect(loadFood(save, save.workers[0].id, 'roast', 1).ok).toBe(true)
     const cooked = collectGain(save, 'cooking')
     expect(cooked.ok).toBe(true)
     expect(cooked.events[0]?.lots).toEqual([{ itemId: 'meal', qty: 2 }])

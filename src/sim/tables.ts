@@ -12,6 +12,8 @@ import type {
   ProductionBuff,
   StationId,
   StationKind,
+  StationToolId,
+  StationToolIndexCode,
   ToolTypeId,
 } from './types'
 
@@ -41,7 +43,7 @@ export type ItemDef = {
   craftGold: number
 }
 
-export const ITEM_DEF: Record<ItemId, ItemDef> = {
+const BASE_ITEM_DEF: Record<Exclude<ItemId, StationToolId>, ItemDef> = {
   wood: { id: 'wood', label: '木头', sellGold: 2, craftGold: 0 },
   ore: { id: 'ore', label: '铜矿', sellGold: 3, craftGold: 0 },
   ironOre: { id: 'ironOre', label: '铁矿', sellGold: 5, craftGold: 1 },
@@ -74,7 +76,7 @@ export function itemCraftGold(itemId: ItemId): number {
   return Math.floor(unit)
 }
 
-export const ITEM_IDS = Object.keys(ITEM_DEF) as ItemId[]
+export const ITEM_DEF: Record<ItemId, ItemDef> = { ...BASE_ITEM_DEF } as Record<ItemId, ItemDef>
 
 export type IoRule = { itemId: ItemId; qty: number }
 
@@ -551,6 +553,113 @@ export function toolTypeByStation(stationId: StationId): ToolTypeId {
   return found ?? 'pick'
 }
 
+/** 每站专属工具种数。 */
+export const STATION_TOOL_COUNT = 20
+/** 站等级每 5 级解锁 1 种：`floor(stationLevel/5)`，上限 20。 */
+export const STATION_TOOL_UNLOCK_EVERY = 5
+/** 选中第 n 把：效率 ×(1 + n × 3%)。只生效一把。 */
+export const STATION_TOOL_SPEED_STEP = 0.03
+
+export const STATION_TOOL_INDEX_CODES = [
+  '01',
+  '02',
+  '03',
+  '04',
+  '05',
+  '06',
+  '07',
+  '08',
+  '09',
+  '10',
+  '11',
+  '12',
+  '13',
+  '14',
+  '15',
+  '16',
+  '17',
+  '18',
+  '19',
+  '20',
+] as const satisfies readonly StationToolIndexCode[]
+
+export type StationToolDef = {
+  id: StationToolId
+  stationId: StationId
+  index: number
+  label: string
+}
+
+export function padStationToolIndex(index: number): StationToolIndexCode {
+  return String(Math.max(1, Math.min(STATION_TOOL_COUNT, Math.floor(index)))).padStart(
+    2,
+    '0',
+  ) as StationToolIndexCode
+}
+
+export function stationToolItemId(stationId: StationId, index: number): StationToolId {
+  return `${stationId}Tool${padStationToolIndex(index)}`
+}
+
+export function stationToolUnlockCount(stationLevel: number): number {
+  const level = Number.isFinite(stationLevel) ? Math.floor(stationLevel) : 1
+  return Math.min(STATION_TOOL_COUNT, Math.max(0, Math.floor(level / STATION_TOOL_UNLOCK_EVERY)))
+}
+
+export function stationToolUnlockLevel(index: number): number {
+  return Math.max(1, Math.floor(index)) * STATION_TOOL_UNLOCK_EVERY
+}
+
+export function isStationToolUnlocked(stationLevel: number, index: number): boolean {
+  return index >= 1 && index <= stationToolUnlockCount(stationLevel)
+}
+
+export function stationToolSpeedMulOf(index: number): number {
+  if (!Number.isFinite(index) || index < 1) return 1
+  return 1 + Math.floor(index) * STATION_TOOL_SPEED_STEP
+}
+
+function buildStationToolTable(): {
+  byStation: Record<StationId, StationToolDef[]>
+  byId: Record<StationToolId, StationToolDef>
+} {
+  const byStation = {} as Record<StationId, StationToolDef[]>
+  const byId = {} as Record<StationToolId, StationToolDef>
+  for (const stationId of STATION_IDS) {
+    const rows: StationToolDef[] = []
+    for (let index = 1; index <= STATION_TOOL_COUNT; index++) {
+      const id = stationToolItemId(stationId, index)
+      const row: StationToolDef = {
+        id,
+        stationId,
+        index,
+        label: `${STATION_DEF[stationId].label}工具${index}`,
+      }
+      rows.push(row)
+      byId[id] = row
+      ITEM_DEF[id] = { id, label: row.label, sellGold: 8, craftGold: 1 }
+    }
+    byStation[stationId] = rows
+  }
+  return { byStation, byId }
+}
+
+const STATION_TOOL_TABLE = buildStationToolTable()
+
+export const STATION_TOOL_DEF = STATION_TOOL_TABLE.byStation
+export const STATION_TOOL_BY_ID = STATION_TOOL_TABLE.byId
+export const STATION_TOOL_IDS = Object.keys(STATION_TOOL_BY_ID) as StationToolId[]
+
+export function isStationToolId(id: unknown): id is StationToolId {
+  return typeof id === 'string' && Object.prototype.hasOwnProperty.call(STATION_TOOL_BY_ID, id)
+}
+
+export function stationToolsOf(stationId: StationId): StationToolDef[] {
+  return STATION_TOOL_DEF[stationId] ?? []
+}
+
+export const ITEM_IDS = Object.keys(ITEM_DEF) as ItemId[]
+
 export type ToolDef = {
   itemId: ToolItemId
   /** hydrate / 旧档缺 match 时的回落，不表示只能装这一站。 */
@@ -718,6 +827,7 @@ export function stationRelatedItems(stationId: StationId): StationRelatedItems {
     }
   }
   if (stationId === 'forging') pushUniqueItem(outputs, 'blueprint')
+  for (const tool of stationToolsOf(stationId)) pushUniqueItem(costs, tool.id)
   return { costs, outputs }
 }
 

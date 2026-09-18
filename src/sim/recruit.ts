@@ -132,7 +132,7 @@ export function hydrateWorker(raw: unknown, index = 0): Worker {
 
 /**
  * 旧档缺食物槽补 null；已派伐木 / 未知站撤到休息；`smithing` 映到 forging。
- * 工人身上的旧 toolSlot 不在这里落地，由 hydrate 迁到站或回物资。
+ * 工人身上的旧 toolSlot 不在这里落地，由 hydrate 一律回物资。
  * `qualityRev` 缺或小于当前色表版本时，按旧灰表迁一次 `qualityTier`。
  */
 export function hydrateWorkers(raw: unknown, qualityRev?: unknown): Worker[] {

@@ -8,6 +8,7 @@ import {
   QUALITY_MAX,
   STATION_DEF,
   STATION_IDS,
+  STATION_TOOL_IDS,
   classPoolForQuality,
   pickClassFromPool,
 } from './tables'
@@ -87,6 +88,7 @@ export function gmMaxStations(save: Save, level = GM_MAX_STATION_LEVEL): ActionR
 
 export function gmFillBankBasics(save: Save): ActionResult {
   for (const id of GM_BASIC_ITEMS) save.bank[id] = GM_BASIC_ITEM_QTY
+  for (const id of STATION_TOOL_IDS) save.bank[id] = GM_BASIC_ITEM_QTY
   return { ok: true, message: '已加基础物资' }
 }
 

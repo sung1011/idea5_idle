@@ -4,17 +4,39 @@ import { foodEffectValue } from './food'
 import {
   EFFECT_ID,
   isStationId,
+  isStationToolId,
+  isStationToolUnlocked,
   isToolItemId,
   isToolTypeId,
   ITEM_DEF,
   resolveStationId,
   STATION_DEF,
+  STATION_IDS,
+  STATION_TOOL_BY_ID,
+  stationToolItemId,
+  stationToolsOf,
+  stationToolSpeedMulOf,
+  stationToolUnlockCount,
+  stationToolUnlockLevel,
   TOOL_DEF,
   TOOL_TYPE_DEF,
   toolTypeByStation,
+  type StationToolDef,
   type ToolItemId,
 } from './tables'
-import type { ActionResult, Affix, EffectId, EffectInstance, ForgedTool, Save, StationId, ToolSlot, ToolTypeId, Worker } from './types'
+import type {
+  ActionResult,
+  Affix,
+  EffectId,
+  EffectInstance,
+  ForgedTool,
+  Save,
+  StationId,
+  StationToolId,
+  ToolSlot,
+  ToolTypeId,
+  Worker,
+} from './types'
 
 export function toolEffectValue(slot: ToolSlot | null | undefined, effectId: EffectId): number {
   if (!slot) return 0
@@ -30,10 +52,6 @@ export function toolEffectValue(slot: ToolSlot | null | undefined, effectId: Eff
 
 export function isToolMatched(slot: ToolSlot | null | undefined, stationId: StationId): boolean {
   return !!slot && slot.matchStationId === stationId
-}
-
-export function stationToolSlot(save: Save, stationId: StationId): ToolSlot | null {
-  return save.stations[stationId]?.toolSlot ?? null
 }
 
 export function makeToolSlot(itemId: ToolItemId, matchStationId: StationId): ToolSlot {
@@ -100,14 +118,20 @@ export function hydrateToolSlot(rawSlot: unknown, rawLegacy: Record<string, unkn
   return null
 }
 
+export function hydrateSelectedToolId(raw: unknown, stationId: StationId): StationToolId | null {
+  if (!isStationToolId(raw)) return null
+  const def = STATION_TOOL_BY_ID[raw]
+  if (def.stationId !== stationId) return null
+  return raw
+}
+
 function returnToolToBank(save: Save, slot: ToolSlot): void {
   addToBank(save, slot.itemId, 1)
   if (isToolItemId(slot.itemId)) pushForgedTools(save, slot.itemId, slot.matchStationId, 1)
 }
 
 /**
- * 旧档工人 toolSlot / toolId：优先迁到 match 站（该站还空才装），否则回物资。
- * 站上已有 toolSlot 时不覆盖。
+ * 旧档工人 toolSlot / toolId：一律回物资，不再装到站上。
  */
 export function migrateWorkerToolsToStations(save: Save, rawWorkers: unknown): void {
   if (!Array.isArray(rawWorkers)) return
@@ -116,22 +140,55 @@ export function migrateWorkerToolsToStations(save: Save, rawWorkers: unknown): v
     const src = row as Record<string, unknown>
     const slot = hydrateToolSlot(src.toolSlot, src)
     if (!slot || !isToolItemId(slot.itemId)) continue
-    const stationId = slot.matchStationId
-    const station = save.stations[stationId]
-    if (station && !station.toolSlot) {
-      station.toolSlot = slot
-    } else {
-      returnToolToBank(save, slot)
-    }
+    returnToolToBank(save, slot)
   }
 }
 
-/** 工具词条与食物 Buff 同 effectId 取最强；炼金解析口本阶段为 0。工具读该站槽。 */
+/** 旧档站 `toolSlot` 卸回物资；新玩法不再装备槽。 */
+export function returnLegacyStationToolSlots(save: Save, rawStations: unknown): void {
+  if (!rawStations || typeof rawStations !== 'object') return
+  const src = rawStations as Partial<Record<StationId, { toolSlot?: unknown }>>
+  for (const stationId of STATION_IDS) {
+    const slot = hydrateToolSlot(src[stationId]?.toolSlot)
+    if (!slot || !isToolItemId(slot.itemId)) continue
+    returnToolToBank(save, slot)
+  }
+}
+
+export function resolvedStationTool(save: Save, stationId: StationId): StationToolDef | null {
+  if (!isStationId(stationId)) return null
+  const station = save.stations[stationId]
+  const selected = station?.selectedToolId
+  if (!selected || !isStationToolId(selected)) return null
+  const def = STATION_TOOL_BY_ID[selected]
+  if (!def || def.stationId !== stationId) return null
+  if (!isStationToolUnlocked(station.stationLevel, def.index)) return null
+  if (bankQty(save, def.id) < 1) return null
+  return def
+}
+
+export function sanitizeStationTool(save: Save, stationId: StationId): void {
+  const station = save.stations[stationId]
+  if (!station) return
+  if (!station.selectedToolId) return
+  if (resolvedStationTool(save, stationId)) return
+  station.selectedToolId = null
+}
+
+export function sanitizeAllStationTools(save: Save): void {
+  for (const stationId of STATION_IDS) sanitizeStationTool(save, stationId)
+}
+
+export function stationToolSpeedMul(save: Save, stationId: StationId): number {
+  const def = resolvedStationTool(save, stationId)
+  return def ? stationToolSpeedMulOf(def.index) : 1
+}
+
+/** 食物 / 炼金词条；站工具改为独立效率乘区，不再走 effectId。 */
 export function workerEffectValue(save: Save, worker: Worker, stationId: StationId, effectId: EffectId, now = Date.now()): number {
-  const fromTool = toolEffectValue(stationToolSlot(save, stationId), effectId)
   const fromFood = foodEffectValue(worker.foodSlot, effectId, now)
   const fromPotion = potionEffectValue(null, effectId)
-  return Math.max(fromTool, fromFood, fromPotion)
+  return Math.max(fromFood, fromPotion)
 }
 
 export function workerToolSpeedMul(save: Save, worker: Worker, stationId: StationId, now = Date.now()): number {
@@ -143,11 +200,12 @@ export function workerToolSpeedMul(save: Save, worker: Worker, stationId: Statio
 }
 
 export function assignedToolWeight(save: Save, stationId: StationId, now = Date.now()): number {
-  return save.workers.reduce(
+  const crew = save.workers.reduce(
     (sum, worker) =>
       worker.assignment === stationId ? sum + workerToolSpeedMul(save, worker, stationId, now) : sum,
     0,
   )
+  return crew * stationToolSpeedMul(save, stationId)
 }
 
 export function matchingToolEffectMax(
@@ -156,7 +214,7 @@ export function matchingToolEffectMax(
   effectId: EffectId,
   now = Date.now(),
 ): number {
-  let best = toolEffectValue(stationToolSlot(save, stationId), effectId)
+  let best = 0
   for (const worker of save.workers) {
     if (worker.assignment !== stationId) continue
     const value = workerEffectValue(save, worker, stationId, effectId, now)
@@ -200,14 +258,6 @@ export function pushForgedTools(save: Save, itemId: ToolItemId, matchStationId: 
   for (let i = 0; i < copies; i++) save.forgedTools.push({ itemId, matchStationId })
 }
 
-function takeForgedTool(save: Save, itemId: ToolItemId, preferStationId: StationId): ForgedTool | undefined {
-  if (!save.forgedTools) return undefined
-  let index = save.forgedTools.findIndex((row) => row.itemId === itemId && row.matchStationId === preferStationId)
-  if (index < 0) index = save.forgedTools.findIndex((row) => row.itemId === itemId)
-  if (index < 0) return undefined
-  return save.forgedTools.splice(index, 1)[0]
-}
-
 export function forgingMatchStation(save: Save): StationId {
   const selected = save.stations.forging.selectedToolType
   if (isToolTypeId(selected)) return TOOL_TYPE_DEF[selected].matchStationId
@@ -222,30 +272,76 @@ export function selectForgingToolType(save: Save, toolTypeId: ToolTypeId): Actio
   return { ok: true, message: `锻造改为${TOOL_TYPE_DEF[toolTypeId].label}` }
 }
 
-/** 把生产工具装到工坊。该站已有工具则先卸回物资。 */
-export function equipStationTool(save: Save, stationId: StationId, itemId: ToolItemId): ActionResult {
-  if (!isToolItemId(itemId)) return { ok: false, reason: '不是生产工具' }
-  if (!isStationId(stationId)) return { ok: false, reason: '没有这个工坊' }
-  const station = save.stations[stationId]
-  if (bankQty(save, itemId) < 1) return { ok: false, reason: `${ITEM_DEF[itemId].label}见底` }
-  if (station.toolSlot) {
-    returnToolToBank(save, station.toolSlot)
-    station.toolSlot = null
-  }
-  const took = takeFromBank(save, itemId, 1)
-  if (!took.ok) return took
-  takeForgedTool(save, itemId, stationId)
-  station.toolSlot = makeToolSlot(itemId, stationId)
-  const type = toolTypeByStation(stationId)
-  return { ok: true, message: `${STATION_DEF[stationId].label}装备${ITEM_DEF[itemId].label}（${TOOL_TYPE_DEF[type].label}）` }
+/** 锻造成功时按锻造站等级写入对应站专属工具（至少第 1 种）。 */
+export function grantForgedStationTool(save: Save, qty: number): StationToolId | null {
+  const copies = Math.max(0, Math.floor(qty))
+  if (copies <= 0) return null
+  const match = forgingMatchStation(save)
+  const index = Math.max(1, stationToolUnlockCount(save.stations.forging.stationLevel))
+  const itemId = stationToolItemId(match, index)
+  addToBank(save, itemId, copies)
+  return itemId
 }
 
-export function unequipStationTool(save: Save, stationId: StationId): ActionResult {
+export type StationToolPickOption = {
+  id: StationToolId | null
+  label: string
+  unlocked: boolean
+  unlockLevel: number
+  qty: number
+}
+
+export function stationToolPickOptions(save: Save, stationId: StationId): StationToolPickOption[] {
+  const level = save.stations[stationId]?.stationLevel ?? 1
+  const rows: StationToolPickOption[] = [
+    { id: null, label: '无', unlocked: true, unlockLevel: 1, qty: 0 },
+  ]
+  for (const def of stationToolsOf(stationId)) {
+    const unlocked = isStationToolUnlocked(level, def.index)
+    rows.push({
+      id: def.id,
+      label: def.label,
+      unlocked,
+      unlockLevel: stationToolUnlockLevel(def.index),
+      qty: bankQty(save, def.id),
+    })
+  }
+  return rows
+}
+
+/** 工坊下拉选工具。首项「无」；未解锁即使有库存也不可选。 */
+export function selectStationTool(
+  save: Save,
+  stationId: StationId,
+  toolId: StationToolId | null,
+): ActionResult {
   if (!isStationId(stationId)) return { ok: false, reason: '没有这个工坊' }
   const station = save.stations[stationId]
-  if (!station.toolSlot) return { ok: false, reason: '没有装备工具' }
-  const label = ITEM_DEF[station.toolSlot.itemId].label
-  returnToolToBank(save, station.toolSlot)
-  station.toolSlot = null
-  return { ok: true, message: `已从${STATION_DEF[stationId].label}卸下${label}` }
+  if (!toolId) {
+    if (!station.selectedToolId) return { ok: true }
+    station.selectedToolId = null
+    return { ok: true, message: `${STATION_DEF[stationId].label}改为无` }
+  }
+  if (!isStationToolId(toolId)) return { ok: false, reason: '没有这种工具' }
+  const def = STATION_TOOL_BY_ID[toolId]
+  if (def.stationId !== stationId) return { ok: false, reason: '不是本站工具' }
+  if (!isStationToolUnlocked(station.stationLevel, def.index)) {
+    return { ok: false, reason: `未解锁（需 Lv${stationToolUnlockLevel(def.index)}）` }
+  }
+  if (bankQty(save, def.id) < 1) return { ok: false, reason: `${def.label}见底` }
+  if (station.selectedToolId === def.id) return { ok: true }
+  station.selectedToolId = def.id
+  const type = toolTypeByStation(stationId)
+  return { ok: true, message: `${STATION_DEF[stationId].label}选用${def.label}（${TOOL_TYPE_DEF[type].label}）` }
+}
+
+/** 成功吞吐耗 1；无则不耗；耗尽回无。 */
+export function consumeSelectedStationTool(save: Save, stationId: StationId): void {
+  const def = resolvedStationTool(save, stationId)
+  if (!def) {
+    sanitizeStationTool(save, stationId)
+    return
+  }
+  takeFromBank(save, def.id, 1)
+  if (bankQty(save, def.id) < 1) save.stations[stationId].selectedToolId = null
 }
