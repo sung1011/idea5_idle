@@ -143,14 +143,18 @@ function claim() {
   box-shadow: none;
 }
 
-.collapsed .goal,
-.collapsed .prog,
+.collapsed {
+  width: auto;
+}
+
+.collapsed .txt,
 .collapsed .bar,
 .collapsed .act {
   display: none;
 }
 
 .collapsed .row {
-  padding-bottom: 8px;
+  padding: 6px;
+  gap: 0;
 }
 </style>
