@@ -20,8 +20,6 @@ import {
   formatMarchClock,
   isEncounterDone,
   isWorkshopBuffActive,
-  needLines,
-  pawnQuoteLines,
   stampLabel,
   workshopBuffMul,
   workshopBuffRemainS,
@@ -95,21 +93,6 @@ function confirmPick() {
   if (index == null) return
   const result = game.startCombat(index, [...picked.value])
   if (result.ok) closePick()
-}
-
-function enemyLines(enc: Encounter) {
-  return enc.kind === 'enemy' ? needLines(game.save, enc.needs) : []
-}
-
-function wantLines(enc: Encounter) {
-  if (enc.kind === 'passerby' || enc.kind === 'artisan' || enc.kind === 'bulkBuy') {
-    return needLines(game.save, enc.wants)
-  }
-  return []
-}
-
-function pawnLines(enc: Encounter) {
-  return enc.kind === 'pawn' ? pawnQuoteLines(game.save, enc.pawnWants) : []
 }
 
 function kindTitle(kind: EncounterKind) {
@@ -211,12 +194,6 @@ function pickRecommend(w: Worker) {
             />
           </p>
           <p class="ready">{{ statusText(enc) }}</p>
-          <ul>
-            <li v-for="line in enemyLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
-              {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}
-              <span v-if="line.missing > 0"> · 差 {{ line.missing }}</span>
-            </li>
-          </ul>
           <template v-if="enc.combat">
             <div class="bars">
               <p class="bar-line">
@@ -288,12 +265,6 @@ function pickRecommend(w: Worker) {
           </template>
 
           <template v-else-if="enc.kind === 'passerby'">
-            <ul>
-              <li v-for="line in wantLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
-                {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}
-                <span v-if="line.missing > 0"> · 差 {{ line.missing }}</span>
-              </li>
-            </ul>
             <p v-if="enc.completed" class="ready">这笔买卖已成交</p>
             <div class="row">
               <button type="button" :disabled="enc.completed" @click="game.barter(i)">
@@ -303,13 +274,6 @@ function pickRecommend(w: Worker) {
           </template>
 
           <template v-else-if="enc.kind === 'pawn'">
-            <ul>
-              <li v-for="line in pawnLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
-                {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}
-                <span> · 报价 {{ line.gold }} 金</span>
-                <span v-if="line.missing > 0"> · 差 {{ line.missing }}</span>
-              </li>
-            </ul>
             <p v-if="enc.completed" class="ready">这笔买卖已成交</p>
             <div class="row">
               <button type="button" :disabled="enc.completed" @click="game.pawn(i)">
@@ -319,12 +283,6 @@ function pickRecommend(w: Worker) {
           </template>
 
           <template v-else-if="enc.kind === 'artisan'">
-            <ul>
-              <li v-for="line in wantLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
-                {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}
-                <span v-if="line.missing > 0"> · 差 {{ line.missing }}</span>
-              </li>
-            </ul>
             <p v-if="enc.completed" class="ready">委托已完成</p>
             <div class="row">
               <button
@@ -338,12 +296,6 @@ function pickRecommend(w: Worker) {
           </template>
 
           <template v-else-if="enc.kind === 'bulkBuy'">
-            <ul>
-              <li v-for="line in wantLines(enc)" :key="line.itemId" :class="{ short: line.missing > 0 }">
-                {{ line.label }} <strong>{{ line.have }}</strong> / {{ line.need }}
-                <span v-if="line.missing > 0"> · 差 {{ line.missing }}</span>
-              </li>
-            </ul>
             <p v-if="enc.completed" class="ready">这笔收购已成交</p>
             <div class="row">
               <button type="button" :disabled="enc.completed" @click="game.sellBulk(i)">
@@ -667,10 +619,6 @@ ul {
 .hint {
   color: var(--muted);
   font-size: 14px;
-}
-
-.short {
-  color: var(--danger);
 }
 
 .ready {

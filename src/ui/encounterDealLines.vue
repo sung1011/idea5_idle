@@ -1,15 +1,36 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { itemQty } from '../sim/bank'
 import { itemProducerStation } from '../sim/tables'
 import type { Encounter } from '../sim/types'
 import { openItemWorkshop } from './appNav'
-import { encounterDeal, formatDealToken, type DealToken } from './encounterDeal'
+import {
+  encounterDeal,
+  formatConsumeToken,
+  formatDealToken,
+  isConsumeShort,
+  type DealToken,
+} from './encounterDeal'
+import { useGameStore } from './gameStore'
 
 const props = defineProps<{
   encounter: Encounter
 }>()
 
+const game = useGameStore()
 const deal = computed(() => encounterDeal(props.encounter))
+
+function tokenHave(token: DealToken) {
+  return token.kind === 'item' ? itemQty(game.save, token.itemId) : 0
+}
+
+function consumeText(token: DealToken) {
+  return formatConsumeToken(token, tokenHave(token))
+}
+
+function consumeShort(token: DealToken) {
+  return isConsumeShort(token, tokenHave(token))
+}
 
 function canJump(token: DealToken) {
   return token.kind === 'item' && itemProducerStation(token.itemId) != null
@@ -30,12 +51,13 @@ function jump(token: DealToken) {
         v-if="canJump(token)"
         type="button"
         class="item-jump"
+        :class="{ short: consumeShort(token) }"
         :aria-label="`前往生产${formatDealToken(token)}的工坊`"
         @click="jump(token)"
       >
-        {{ formatDealToken(token) }}
+        {{ consumeText(token) }}
       </button>
-      <span v-else>{{ formatDealToken(token) }}</span>
+      <span v-else :class="{ short: consumeShort(token) }">{{ consumeText(token) }}</span>
     </template>
   </p>
   <p v-if="deal.gain.length" class="deal">
@@ -91,5 +113,17 @@ function jump(token: DealToken) {
 .item-jump:active:not(:disabled) {
   transform: none;
   box-shadow: none;
+}
+
+.short {
+  color: var(--muted);
+}
+
+.item-jump.short {
+  color: var(--muted);
+}
+
+.item-jump.short:hover:not(:disabled) {
+  color: var(--copper);
 }
 </style>

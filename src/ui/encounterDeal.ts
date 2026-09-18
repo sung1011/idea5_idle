@@ -66,10 +66,27 @@ export function formatDealTokens(tokens: DealToken[]): string {
   return tokens.map(formatDealToken).join('、')
 }
 
-export function formatEncounterDealLines(enc: Encounter): { consume: string; gain: string } {
+/** 消耗行：物品名 ×消耗 / 拥有。金币 / Buff 仍用原格式。 */
+export function formatConsumeToken(token: DealToken, have = 0): string {
+  if (token.kind === 'item') return `${ITEM_DEF[token.itemId].label} ×${token.qty} / ${have}`
+  return formatDealToken(token)
+}
+
+export function isConsumeShort(token: DealToken, have: number): boolean {
+  return token.kind === 'item' && have < token.qty
+}
+
+export function formatEncounterDealLines(
+  enc: Encounter,
+  owned: Partial<Record<ItemId, number>> = {},
+): { consume: string; gain: string } {
   const deal = encounterDeal(enc)
   return {
-    consume: deal.consume.length ? `消耗：${formatDealTokens(deal.consume)}` : '',
+    consume: deal.consume.length
+      ? `消耗：${deal.consume
+          .map((token) => formatConsumeToken(token, token.kind === 'item' ? (owned[token.itemId] ?? 0) : 0))
+          .join('、')}`
+      : '',
     gain: deal.gain.length ? `获得：${formatDealTokens(deal.gain)}` : '',
   }
 }
