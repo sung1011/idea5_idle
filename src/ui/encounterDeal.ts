@@ -1,6 +1,19 @@
-import { formatMarchClock, needEntries, pawnRewardGold } from '../sim/encounters'
+import {
+  artisanBlockReason,
+  barterBlockReason,
+  bulkBuyBlockReason,
+  buyMerchantBlockReason,
+  combatSupplyBlockReason,
+  formatMarchClock,
+  needEntries,
+  pawnBlockReason,
+  pawnRewardGold,
+} from '../sim/encounters'
 import { ITEM_DEF } from '../sim/tables'
-import type { Encounter, EncounterNeedMap, ItemId } from '../sim/types'
+import type { Encounter, EncounterNeedMap, ItemId, Save } from '../sim/types'
+
+/** 消耗不足时主按钮点击漂字。与具体缺哪样无关。 */
+export const CONSUME_SHORT_TIP = '物资不足'
 
 export type DealToken =
   | { kind: 'item'; itemId: ItemId; qty: number }
@@ -74,6 +87,37 @@ export function formatConsumeToken(token: DealToken, have = 0): string {
 
 export function isConsumeShort(token: DealToken, have: number): boolean {
   return token.kind === 'item' && have < token.qty
+}
+
+const CONSUME_SHORT_RE = /^(货不够|金币不够|成品不够)/
+
+/** 已有拦截文案里，只有缺消耗算置灰（战斗中 / 已完成等不算）。 */
+export function isConsumeShortageReason(reason: string | null | undefined): boolean {
+  return !!reason && CONSUME_SHORT_RE.test(reason)
+}
+
+export function encounterActionBlockReason(save: Save, index: number): string | null {
+  const enc = save.encounters[index]
+  if (!enc) return null
+  switch (enc.kind) {
+    case 'enemy':
+      return combatSupplyBlockReason(save, index)
+    case 'blackMerchant':
+      return buyMerchantBlockReason(save, index)
+    case 'passerby':
+      return barterBlockReason(save, index)
+    case 'pawn':
+      return pawnBlockReason(save, index)
+    case 'artisan':
+      return artisanBlockReason(save, index)
+    case 'bulkBuy':
+      return bulkBuyBlockReason(save, index)
+  }
+}
+
+/** 开战 / 交付 / 交易等主操作因消耗不足不能执行。 */
+export function isEncounterActionConsumeShort(save: Save, index: number): boolean {
+  return isConsumeShortageReason(encounterActionBlockReason(save, index))
 }
 
 export function formatEncounterDealLines(

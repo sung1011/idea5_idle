@@ -29,6 +29,7 @@ import { CLASS_LABEL } from '../sim/tables'
 import type { Encounter, EncounterKind, EnemyEncounter, Worker } from '../sim/types'
 import EncounterDealLines from './encounterDealLines.vue'
 import EncounterTips from './encounterTips.vue'
+import { CONSUME_SHORT_TIP, isEncounterActionConsumeShort } from './encounterDeal'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
 import HpBar from './hpBar.vue'
@@ -60,7 +61,19 @@ const picked = ref<string[]>([])
 const pickOpen = computed(() => pickIndex.value !== null)
 const pickCandidates = computed(() => restCombatCandidates(game.save))
 
+function consumeShort(index: number) {
+  return isEncounterActionConsumeShort(game.save, index)
+}
+
+function warnConsumeShort(index: number) {
+  if (consumeShort(index)) pushFloatTip(CONSUME_SHORT_TIP, 'err')
+}
+
 function openPick(index: number) {
+  if (consumeShort(index)) {
+    pushFloatTip(CONSUME_SHORT_TIP, 'err')
+    return
+  }
   const blocked = combatSupplyBlockReason(game.save, index)
   if (blocked) {
     pushFloatTip(blocked, 'err')
@@ -92,6 +105,10 @@ function togglePick(worker: Worker) {
 function confirmPick() {
   const index = pickIndex.value
   if (index == null) return
+  if (consumeShort(index)) {
+    pushFloatTip(CONSUME_SHORT_TIP, 'err')
+    return
+  }
   const result = game.startCombat(index, [...picked.value])
   if (result.ok) closePick()
 }
@@ -226,13 +243,15 @@ function pickRecommend(w: Worker) {
             >
               战利品
             </button>
-            <button
-              v-else
-              type="button"
-              @click="openPick(i)"
-            >
-              {{ isCombatLost(enc) ? '再战' : '战斗' }}
-            </button>
+            <span v-else class="act-hit" @click="warnConsumeShort(i)">
+              <button
+                type="button"
+                :disabled="consumeShort(i)"
+                @click.stop="openPick(i)"
+              >
+                {{ isCombatLost(enc) ? '再战' : '战斗' }}
+              </button>
+            </span>
           </div>
         </template>
 
@@ -249,53 +268,75 @@ function pickRecommend(w: Worker) {
           <template v-if="enc.kind === 'blackMerchant'">
             <p v-if="enc.completed" class="ready">这笔买卖已成交</p>
             <div class="row">
-              <button
-                type="button"
-                :disabled="enc.completed"
-                @click="game.buyMerchant(i)"
-              >
-                {{ enc.completed ? '成交' : '金币购买' }}
-              </button>
+              <span class="act-hit" @click="warnConsumeShort(i)">
+                <button
+                  type="button"
+                  :disabled="enc.completed || consumeShort(i)"
+                  @click.stop="game.buyMerchant(i)"
+                >
+                  {{ enc.completed ? '成交' : '金币购买' }}
+                </button>
+              </span>
             </div>
           </template>
 
           <template v-else-if="enc.kind === 'passerby'">
             <p v-if="enc.completed" class="ready">这笔买卖已成交</p>
             <div class="row">
-              <button type="button" :disabled="enc.completed" @click="game.barter(i)">
-                {{ enc.completed ? '成交' : '以物易物' }}
-              </button>
+              <span class="act-hit" @click="warnConsumeShort(i)">
+                <button
+                  type="button"
+                  :disabled="enc.completed || consumeShort(i)"
+                  @click.stop="game.barter(i)"
+                >
+                  {{ enc.completed ? '成交' : '以物易物' }}
+                </button>
+              </span>
             </div>
           </template>
 
           <template v-else-if="enc.kind === 'pawn'">
             <p v-if="enc.completed" class="ready">这笔买卖已成交</p>
             <div class="row">
-              <button type="button" :disabled="enc.completed" @click="game.pawn(i)">
-                {{ enc.completed ? '成交' : '以物换钱' }}
-              </button>
+              <span class="act-hit" @click="warnConsumeShort(i)">
+                <button
+                  type="button"
+                  :disabled="enc.completed || consumeShort(i)"
+                  @click.stop="game.pawn(i)"
+                >
+                  {{ enc.completed ? '成交' : '以物换钱' }}
+                </button>
+              </span>
             </div>
           </template>
 
           <template v-else-if="enc.kind === 'artisan'">
             <p v-if="enc.completed" class="ready">委托已完成</p>
             <div class="row">
-              <button
-                type="button"
-                :disabled="enc.completed"
-                @click="game.submitArtisan(i)"
-              >
-                {{ enc.completed ? '完成' : '交付成品' }}
-              </button>
+              <span class="act-hit" @click="warnConsumeShort(i)">
+                <button
+                  type="button"
+                  :disabled="enc.completed || consumeShort(i)"
+                  @click.stop="game.submitArtisan(i)"
+                >
+                  {{ enc.completed ? '完成' : '交付成品' }}
+                </button>
+              </span>
             </div>
           </template>
 
           <template v-else-if="enc.kind === 'bulkBuy'">
             <p v-if="enc.completed" class="ready">这笔收购已成交</p>
             <div class="row">
-              <button type="button" :disabled="enc.completed" @click="game.sellBulk(i)">
-                {{ enc.completed ? '成交' : '高价出售' }}
-              </button>
+              <span class="act-hit" @click="warnConsumeShort(i)">
+                <button
+                  type="button"
+                  :disabled="enc.completed || consumeShort(i)"
+                  @click.stop="game.sellBulk(i)"
+                >
+                  {{ enc.completed ? '成交' : '高价出售' }}
+                </button>
+              </span>
             </div>
           </template>
         </template>
@@ -333,7 +374,15 @@ function pickRecommend(w: Worker) {
           <li v-if="!pickCandidates.length" class="hint">没有休息中的工人</li>
         </ul>
         <div class="row">
-          <button type="button" :disabled="!picked.length" @click="confirmPick">开战</button>
+          <span class="act-hit" @click="pickIndex != null && warnConsumeShort(pickIndex)">
+            <button
+              type="button"
+              :disabled="!picked.length || (pickIndex != null && consumeShort(pickIndex))"
+              @click.stop="confirmPick"
+            >
+              开战
+            </button>
+          </span>
           <button type="button" @click="closePick">取消</button>
         </div>
       </div>
@@ -609,6 +658,14 @@ ul {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.act-hit {
+  display: inline-flex;
+}
+
+.act-hit > :disabled {
+  pointer-events: none;
 }
 
 .hint {

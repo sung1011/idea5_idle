@@ -1,19 +1,25 @@
 import { describe, expect, it } from 'vitest'
+import { createSave } from '../sim/createSave'
 import { pawnRewardGold } from '../sim/encounters'
 import { itemProducerStation } from '../sim/tables'
 import type {
   ArtisanEncounter,
   BlackMerchantEncounter,
   BulkBuyEncounter,
+  Encounter,
   EnemyEncounter,
   PasserbyEncounter,
   PawnEncounter,
+  Save,
 } from '../sim/types'
 import {
+  CONSUME_SHORT_TIP,
   encounterDeal,
   formatConsumeToken,
   formatEncounterDealLines,
+  isConsumeShortageReason,
   isConsumeShort,
+  isEncounterActionConsumeShort,
 } from './encounterDeal'
 
 function enemy(overrides: Partial<EnemyEncounter> = {}): EnemyEncounter {
@@ -139,5 +145,115 @@ describe('encounterDeal', () => {
     expect(isConsumeShort(iron, 12)).toBe(false)
     expect(isConsumeShort(iron, 2)).toBe(true)
     expect(formatConsumeToken({ kind: 'gold', qty: 8 })).toBe('8 金')
+  })
+})
+
+function withEnc(enc: Encounter, gold = 0, bank: Save['bank'] = {}): Save {
+  const save = createSave()
+  save.gold = gold
+  save.bank = { ...bank }
+  save.encounters = [enc]
+  return save
+}
+
+describe('encounter consume lock', () => {
+  it('reuses existing shortage reasons and keeps a single tip', () => {
+    expect(CONSUME_SHORT_TIP).toBe('物资不足')
+    expect(isConsumeShortageReason('货不够：熟食')).toBe(true)
+    expect(isConsumeShortageReason('金币不够：购买要 8')).toBe(true)
+    expect(isConsumeShortageReason('成品不够：烤肉')).toBe(true)
+    expect(isConsumeShortageReason('战斗中')).toBe(false)
+    expect(isConsumeShortageReason('这笔买卖已完成')).toBe(false)
+    expect(isConsumeShortageReason(null)).toBe(false)
+  })
+
+  it('locks fight / trade / deliver when consume is short, and unlocks when enough', () => {
+    expect(isEncounterActionConsumeShort(withEnc(enemy({ needs: { meal: 2 } })), 0)).toBe(true)
+    expect(isEncounterActionConsumeShort(withEnc(enemy({ needs: { meal: 2 } }), 0, { meal: 2 }), 0)).toBe(
+      false,
+    )
+    expect(
+      isEncounterActionConsumeShort(withEnc(enemy({ submitted: true, needs: { meal: 2 } })), 0),
+    ).toBe(false)
+    expect(
+      isEncounterActionConsumeShort(
+        withEnc(
+          enemy({
+            combat: {
+              startedAt: 1,
+              timeoutAt: 2,
+              workerIds: ['w1'],
+              workers: [{ id: 'w1', label: '甲', hp: 8, hpMax: 8, atk: 2, spd: 5, nextActAt: 1 }],
+              enemy: { id: 'e', label: '敌', hp: 8, hpMax: 8, atk: 2, spd: 5, nextActAt: 1 },
+              logs: [],
+              outcome: null,
+            },
+          }),
+        ),
+        0,
+      ),
+    ).toBe(false)
+
+    const merchant: BlackMerchantEncounter = {
+      kind: 'blackMerchant',
+      id: 'm1',
+      label: '干粮贩',
+      quality: 'green',
+      buyGold: 8,
+      buyOffers: { meal: 1 },
+      completed: false,
+    }
+    expect(isEncounterActionConsumeShort(withEnc(merchant, 0), 0)).toBe(true)
+    expect(isEncounterActionConsumeShort(withEnc(merchant, 8), 0)).toBe(false)
+    expect(isEncounterActionConsumeShort(withEnc({ ...merchant, completed: true }, 0), 0)).toBe(false)
+
+    const passerby: PasserbyEncounter = {
+      kind: 'passerby',
+      id: 'p1',
+      label: '换货路人',
+      quality: 'green',
+      wants: { ore: 2 },
+      offers: { fish: 1 },
+      completed: false,
+    }
+    expect(isEncounterActionConsumeShort(withEnc(passerby), 0)).toBe(true)
+    expect(isEncounterActionConsumeShort(withEnc(passerby, 0, { ore: 2 }), 0)).toBe(false)
+
+    const pawn: PawnEncounter = {
+      kind: 'pawn',
+      id: 'w1',
+      label: '工具当',
+      quality: 'green',
+      pawnWants: { tool: 1 },
+      completed: false,
+    }
+    expect(isEncounterActionConsumeShort(withEnc(pawn), 0)).toBe(true)
+    expect(isEncounterActionConsumeShort(withEnc(pawn, 0, { tool: 1 }), 0)).toBe(false)
+
+    const artisan: ArtisanEncounter = {
+      kind: 'artisan',
+      id: 'a1',
+      label: '灶头加餐',
+      quality: 'green',
+      wants: { meal: 2 },
+      rewardGold: 0,
+      buffMul: 1.15,
+      buffDurationS: 180,
+      completed: false,
+    }
+    expect(isEncounterActionConsumeShort(withEnc(artisan), 0)).toBe(true)
+    expect(isEncounterActionConsumeShort(withEnc(artisan, 0, { meal: 2 }), 0)).toBe(false)
+
+    const bulk: BulkBuyEncounter = {
+      kind: 'bulkBuy',
+      id: 'b1',
+      label: '成品收购',
+      quality: 'green',
+      wants: { roast: 1 },
+      rewardGold: 12,
+      completed: false,
+    }
+    expect(isEncounterActionConsumeShort(withEnc(bulk), 0)).toBe(true)
+    expect(isEncounterActionConsumeShort(withEnc(bulk, 0, { roast: 1 }), 0)).toBe(false)
   })
 })
