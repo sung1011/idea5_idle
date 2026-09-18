@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createSave } from './createSave'
-import { leftoverStockRows, stationStockRows } from './query'
+import { leftoverStockRows, stationConsumeGroups, stationStockRows } from './query'
 import { grantStationXp, selectStationCategory } from './stationProgress'
 import { xpToNextLevel } from './tables'
 
@@ -57,6 +57,25 @@ describe('station stock rows', () => {
       { itemId: 'spice', label: '香料', qty: 4 },
       { itemId: 'fish', label: '鱼', qty: 2 },
     ])
+  })
+
+  it('lists consume groups with need / have and shortage flags', () => {
+    const save = createSave()
+    save.bank.ore = 0
+    save.bank.slag = 2
+    expect(stationConsumeGroups(save, 'forging')).toEqual([
+      [{ itemId: 'ore', label: '铜矿', need: 1, have: 0, short: true }],
+      [{ itemId: 'slag', label: '渣滓', need: 1, have: 2, short: false }],
+    ])
+    expect(stationConsumeGroups(save, 'mining')).toEqual([])
+    save.bank.herb = 0
+    save.bank.blood = 0
+    save.bank.tooth = 0
+    save.bank.eye = 1
+    const alchemy = stationConsumeGroups(save, 'alchemy')
+    expect(alchemy.map((group) => group[0].itemId)).toEqual(['herb', 'blood', 'tooth', 'eye'])
+    expect(alchemy[0][0]).toMatchObject({ have: 0, short: true })
+    expect(alchemy[3][0]).toMatchObject({ label: '眼', have: 1, short: false })
   })
 
   it('only lists leftover wood or shelved weapons when they have qty', () => {

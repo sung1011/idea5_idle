@@ -109,7 +109,7 @@ speed = (1 / 当前品类 cycleS) * n * stationConflictMul
 
 满 2 人未研究冲突 ×0.5，工坊规章 ×0.75，工匠密录 ×1.0。1 人无冲突。
 
-完成周期后 `grantStationXp`。升级时把 `unlockLevel <= 新等级` 的品类写入 `unlockedCategories`，并写 `progressNotice`（如「采矿升到 Lv5，解锁铁矿」）。UI 不展示该升级文案；停产只靠卡片红框。
+完成周期后 `grantStationXp`。升级时把 `unlockLevel <= 新等级` 的品类写入 `unlockedCategories`，并写 `progressNotice`（如「采矿升到 Lv5，解锁铁矿」）。UI 不展示该升级文案；停产不再整卡描边，缺料看消耗轻闪与堵点句。
 
 `selectStationCategory`：未解锁返回失败（文案含 Lv 需求），不改选中。切换成功则进度清零。挖矿切换会换 `miningNode`，其它矿的恢复倒计时留在 `miningNodes`。
 

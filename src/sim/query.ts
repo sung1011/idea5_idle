@@ -1,7 +1,7 @@
 import { assignedWorkers } from './assign'
 import { isWorkerInCombat } from './combat'
 import { itemQty } from './bank'
-import { canAffordCosts, missingCostLabels } from './costs'
+import { canAffordCosts, collapseCosts, missingCostLabels } from './costs'
 import { workshopBuffMul } from './encounters'
 import { isGatherFrozen, isMiningNodeRecovering } from './gather'
 import { selectedCategoryDef } from './stationProgress'
@@ -91,6 +91,32 @@ export type StationStockRow = {
   itemId: ItemId
   label: string
   qty: number
+}
+
+export type StationConsumeToken = {
+  itemId: ItemId
+  label: string
+  need: number
+  have: number
+  short: boolean
+}
+
+/** 工坊「消耗」行：配方组之间用 /，组内物品带 ×需求 / 拥有，缺的标 short。 */
+export function stationConsumeGroups(save: Save, stationId: StationId): StationConsumeToken[][] {
+  return consumeRuleSets(save, stationId)
+    .map((rules) =>
+      collapseCosts(rules).map((io) => {
+        const have = itemQty(save, io.itemId)
+        return {
+          itemId: io.itemId,
+          label: ITEM_DEF[io.itemId].label,
+          need: io.qty,
+          have,
+          short: have < io.qty,
+        }
+      }),
+    )
+    .filter((group) => group.length > 0)
 }
 
 function currentConsumeItemIds(save: Save, stationId: StationId): ItemId[] {

@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { bankQty } from '../sim/bank'
-import { formatCostOptions } from '../sim/costs'
 import { stationMergeLabel } from '../sim/fuse'
 import { gatherStatusText, isGatherFrozen } from '../sim/gather'
 import {
   assignedCount,
   assignedWorkers,
-  consumeRuleSets,
   currentSpeed,
   stationBottleneckText,
+  stationConsumeGroups,
   stationStockRows,
+  type StationConsumeToken,
 } from '../sim/query'
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
 import { stationConflictHint } from '../sim/tech'
@@ -26,6 +26,8 @@ import {
   type ToolItemId,
 } from '../sim/tables'
 import type { CategoryId, StationId, ToolTypeId } from '../sim/types'
+import ConsumeJumpItem from './consumeJumpItem.vue'
+import { formatConsumeToken } from './encounterDeal'
 import { useGameStore } from './gameStore'
 import StationTips from './stationTips.vue'
 import UiIcon from './uiIcon.vue'
@@ -79,8 +81,7 @@ const pctLabel = computed(() => Math.round(pct.value))
 const xpNeed = computed(() => xpToNextLevel(station.value.stationLevel))
 const xpPct = computed(() => Math.min(100, Math.round((station.value.stationXp / xpNeed.value) * 100)))
 const pickOptions = computed(() => categoryPickOptions(game.save, props.stationId))
-const costText = computed(() => formatCostOptions(consumeRuleSets(game.save, props.stationId)))
-const hasCosts = computed(() => costText.value !== '—')
+const consumeGroups = computed(() => stationConsumeGroups(game.save, props.stationId))
 const stallLine = computed(() => stationBottleneckText(game.save, props.stationId))
 const conflictLine = computed(() => stationConflictHint(game.save, props.stationId))
 const stock = computed(() => stationStockRows(game.save, props.stationId))
@@ -114,10 +115,14 @@ function onUnequipTool() {
 function onMerge() {
   game.fuseStation(props.stationId)
 }
+
+function consumeText(row: StationConsumeToken) {
+  return formatConsumeToken({ kind: 'item', itemId: row.itemId, qty: row.need }, row.have)
+}
 </script>
 
 <template>
-  <article class="card" :class="{ stall: !!stall, wait: frozen && !stall }">
+  <article class="card" :class="{ wait: frozen && !stall }">
     <StationTips :station-id="stationId" />
     <header>
       <span class="badge">
@@ -155,7 +160,16 @@ function onMerge() {
       <p v-if="gatherLine" class="stat gather">{{ gatherLine }}</p>
       <p v-if="station.craftNotice" class="stat gather">{{ station.craftNotice }}</p>
       <p v-if="stallLine" class="stat jam">{{ stallLine }}</p>
-      <p v-if="hasCosts" class="stat">消耗 {{ costText }}</p>
+      <p v-if="consumeGroups.length" class="stat consume">
+        <span>消耗 </span>
+        <template v-for="(group, gi) in consumeGroups" :key="gi">
+          <span v-if="gi" class="sep"> / </span>
+          <template v-for="(row, i) in group" :key="row.itemId">
+            <span v-if="i" class="sep">、</span>
+            <ConsumeJumpItem :item-id="row.itemId" :text="consumeText(row)" :short="row.short" />
+          </template>
+        </template>
+      </p>
       <div v-if="stock.costs.length" class="stock">
         <p class="stock-row">
           <span class="stock-k">消耗库存</span>
@@ -226,6 +240,10 @@ function onMerge() {
 
 .jam {
   color: var(--danger);
+}
+
+.consume {
+  font-family: var(--font-mono);
 }
 
 header {
