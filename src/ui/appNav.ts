@@ -38,11 +38,16 @@ export function syncWorkshopTab(storage?: Storage | null): StationId {
   return workshopTab.value
 }
 
+/** 切到底栏工坊并选中该站。无效 id 回落到默认工坊签。 */
+export function openWorkshopStation(stationId: unknown, storage?: Storage | null): StationId {
+  const next = selectWorkshopStation(stationId, storage)
+  selectAppTab('workshop')
+  return next
+}
+
 /** 切到底栏工坊，并选中该物资主产站。金币 / Buff / 旧物返回 null。 */
 export function openItemWorkshop(itemId: ItemId, storage?: Storage | null): StationId | null {
   const stationId = itemProducerStation(itemId)
   if (!stationId) return null
-  selectWorkshopStation(stationId, storage)
-  selectAppTab('workshop')
-  return stationId
+  return openWorkshopStation(stationId, storage)
 }

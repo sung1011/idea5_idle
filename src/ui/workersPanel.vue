@@ -17,9 +17,11 @@ import {
 import { recruitCost } from '../sim/tech'
 import type { ClassId, StationId, Worker } from '../sim/types'
 import ClassIcon from './classIcon.vue'
+import { openWorkshopStation } from './appNav'
 import { useGameStore } from './gameStore'
 import HpBar from './hpBar.vue'
 import {
+  canGoToAssignedWorkshop,
   groupWorkersByQuality,
   loadWorkerGroupOrder,
   rosterDutyCounts,
@@ -146,6 +148,13 @@ function openPick(w: Worker) {
 
 function closePick() {
   pickId.value = null
+}
+
+function goWorkshop() {
+  const w = picking.value
+  if (!w?.assignment) return
+  openWorkshopStation(w.assignment)
+  closePick()
 }
 
 function onPickStation(stationId: StationId | null) {
@@ -291,7 +300,6 @@ function flipOrder() {
       <div class="sheet">
         <header>
           <h2 class="title">派驻 · {{ workerShortName(picking) }}</h2>
-          <button type="button" class="close" @click="closePick">关闭</button>
         </header>
         <div class="pick-list">
           <button
@@ -313,6 +321,12 @@ function flipOrder() {
             </span>
             <span>{{ choice.label }}</span>
           </button>
+        </div>
+        <div class="sheet-actions">
+          <button type="button" class="go" :disabled="!canGoToAssignedWorkshop(picking)" @click="goWorkshop">
+            前往
+          </button>
+          <button type="button" class="close" @click="closePick">关闭</button>
         </div>
       </div>
     </div>
@@ -564,6 +578,14 @@ button {
   font-size: 18px;
 }
 
+.sheet-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.go,
 .close {
   min-height: 32px;
   padding: 4px 10px;

@@ -9,6 +9,7 @@ import {
   DEFAULT_WORKER_GROUP_ORDER,
   WORKER_GROUP_ORDER_KEY,
   canAssignWorkerTo,
+  canGoToAssignedWorkshop,
   groupWorkersByQuality,
   loadWorkerGroupOrder,
   rosterDutyCounts,
@@ -150,6 +151,9 @@ describe('station crew dots and assign choices', () => {
     expect(restChoice?.label).toBe('休息')
     expect(choices.find((c) => c.stationId === 'forging')?.disabled).toBe(false)
     expect(canAssignWorkerTo(save, rest, 'forging')).toBe(true)
+    expect(canGoToAssignedWorkshop(rest)).toBe(false)
+    expect(canGoToAssignedWorkshop(a)).toBe(true)
+    expect(canGoToAssignedWorkshop(extra)).toBe(false)
   })
 })
 

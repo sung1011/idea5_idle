@@ -157,6 +157,11 @@ export function workerShopCaption(save: Save, worker: Worker): string {
   return stationAssignCaption(save, worker.assignment)
 }
 
+/** 有派驻站才可前往工坊；休息（assignment null）置灰。出战不算派驻，同样不可点。 */
+export function canGoToAssignedWorkshop(worker: Worker): boolean {
+  return worker.assignment !== null
+}
+
 /** 满员不可再派；当前站 / 休息钮选中即不可点；战斗中全不可派。沿用 assignWorker。 */
 export function canAssignWorkerTo(save: Save, worker: Worker, stationId: StationId | null): boolean {
   if (isWorkerInCombat(save, worker.id)) return false

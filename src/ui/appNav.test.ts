@@ -4,6 +4,7 @@ import {
   DEFAULT_APP_TAB,
   appTab,
   openItemWorkshop,
+  openWorkshopStation,
   selectAppTab,
   selectWorkshopStation,
   workshopTab,
@@ -51,6 +52,15 @@ describe('appNav', () => {
     expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('cooking')
     expect(selectAppTab('nope')).toBe(DEFAULT_APP_TAB)
     expect(appTab.value).toBe('encounters')
+  })
+
+  it('opens a station on the workshop dock', () => {
+    selectAppTab('workers')
+    const store = memory()
+    expect(openWorkshopStation('fishing', store)).toBe('fishing')
+    expect(appTab.value).toBe('workshop')
+    expect(workshopTab.value).toBe('fishing')
+    expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('fishing')
   })
 
   it('opens a producible item on the workshop dock and its producer station', () => {
