@@ -8,7 +8,7 @@ defineProps<{
 </script>
 
 <template>
-  <span v-if="!attrs.length" class="empty">无战斗属性</span>
+  <span v-if="!attrs.length" class="empty">无克制属性</span>
   <span v-else class="row">
     <CombatAttrIcon v-for="id in attrs" :key="id" :attr="id" />
   </span>

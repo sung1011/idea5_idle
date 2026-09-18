@@ -323,7 +323,7 @@ export function seedInitialRevealedWeaknesses(enc: EnemyEncounter): EnemyEncount
 }
 
 export function formatCombatAttrs(attrs: readonly CombatAttrId[]): string {
-  if (!attrs.length) return '无战斗属性'
+  if (!attrs.length) return '无克制属性'
   return attrs.map((id) => COMBAT_ATTR_LABEL[id]).join(' ')
 }
 

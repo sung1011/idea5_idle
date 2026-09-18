@@ -8,7 +8,6 @@ import {
   currentSpeed,
   stationBottleneckText,
   stationConsumeGroups,
-  stationStockRows,
   type StationConsumeToken,
 } from '../sim/query'
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
@@ -88,7 +87,6 @@ const pickOptions = computed(() => categoryPickOptions(game.save, props.stationI
 const consumeGroups = computed(() => stationConsumeGroups(game.save, props.stationId))
 const stallLine = computed(() => stationBottleneckText(game.save, props.stationId))
 const conflictLine = computed(() => stationConflictHint(game.save, props.stationId))
-const stock = computed(() => stationStockRows(game.save, props.stationId))
 const guideFlashMining = computed(
   () => props.stationId === 'mining' && isGuideQuestFlash(game.save, 'mining'),
 )
@@ -190,18 +188,6 @@ function consumeText(row: StationConsumeToken) {
           </template>
         </template>
       </p>
-      <div v-if="stock.costs.length" class="stock">
-        <p class="stock-row">
-          <span
-            v-for="row in stock.costs"
-            :key="row.itemId"
-            class="stock-item"
-            :class="{ empty: row.qty === 0 }"
-          >
-            {{ row.label }} {{ row.qty }}
-          </span>
-        </p>
-      </div>
       <label v-if="stationId === 'forging'" class="cats">
         <span class="sr">工具类型</span>
         <select class="cat-select" :value="station.selectedToolType ?? 'pick'" @change="onToolType">
@@ -422,35 +408,6 @@ h2 {
 
 .card.wait {
   box-shadow: inset 0 0 0 3px #d4a017;
-}
-
-.stock,
-.stock-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.stock {
-  flex-direction: column;
-}
-
-.stock-row {
-  margin: 0;
-}
-
-.stock-item {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  padding: 2px 8px;
-  border: 2px solid var(--seam);
-  border-radius: 8px;
-  background: var(--slot);
-}
-
-.stock-item.empty {
-  color: var(--danger);
 }
 
 .cats,

@@ -12,6 +12,7 @@ import {
   ensureEnemyIntel,
   fighterRecommendLabel,
   fillWorkerCombatAttrs,
+  formatCombatAttrs,
   formatWeaknessCritTip,
   hydrateWorkerCombatAttrs,
   initialRevealedWeaknessCount,
@@ -274,6 +275,8 @@ describe('damage multiplier per acting worker', () => {
 
 describe('weakness crit float copy', () => {
   it('joins hit attr labels then 暴击, without 弱点×', () => {
+    expect(formatCombatAttrs([])).toBe('无克制属性')
+    expect(formatCombatAttrs(['polearm', 'fire'])).toBe('枪 火')
     expect(formatWeaknessCritTip([])).toBe('')
     expect(formatWeaknessCritTip(['polearm'])).toBe('枪 暴击')
     expect(formatWeaknessCritTip(['polearm', 'fire'])).toBe('枪 火 暴击')
