@@ -37,6 +37,8 @@ import {
   type WorkerGroupOrder,
 } from './workerGroups'
 import { formatAtkSpeed } from './formatAtkSpeed'
+import UiSelect from './uiSelect.vue'
+import type { UiSelectOption } from './uiSelect'
 import { qualityOf, workerQualityDotStyle, workerQualityTileStyle } from './workerQuality'
 
 const game = useGameStore()
@@ -78,6 +80,19 @@ function combatTail(w: Worker) {
 
 function availableFoods() {
   return FOOD_ITEM_IDS.filter((id) => bankQty(game.save, id) > 0)
+}
+
+const foodPickOptions = computed<UiSelectOption[]>(() =>
+  availableFoods().map((id) => ({
+    value: id,
+    label: `${ITEM_DEF[id].label} ×${bankQty(game.save, id)}`,
+  })),
+)
+
+function onPickFood(value: string) {
+  const w = selected.value
+  if (!w) return
+  pickFood[w.id] = value as FoodItemId
 }
 
 function foodLine(w: Worker) {
@@ -274,15 +289,12 @@ function flipOrder() {
             <button type="button" @click="game.unloadFood(selected.id)">卸下食物</button>
           </template>
           <template v-if="availableFoods().length">
-            <select
-              class="tool-select"
-              :value="pickFood[selected.id] ?? availableFoods()[0]"
-              @change="pickFood[selected.id] = ($event.target as HTMLSelectElement).value as FoodItemId"
-            >
-              <option v-for="id in availableFoods()" :key="id" :value="id">
-                {{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}
-              </option>
-            </select>
+            <UiSelect
+              :model-value="pickFood[selected.id] ?? availableFoods()[0]"
+              :options="foodPickOptions"
+              aria-label="食物"
+              @update:model-value="onPickFood"
+            />
             <input
               class="qty-input"
               type="number"
@@ -633,7 +645,11 @@ button {
   align-items: center;
 }
 
-.tool-select,
+.tool-row :deep(.ui-select) {
+  min-width: 132px;
+  flex: 1 1 132px;
+}
+
 .qty-input {
   font: inherit;
   color: var(--ink);

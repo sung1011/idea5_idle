@@ -286,24 +286,32 @@ export function selectedForgeRecipe(save: Save): ForgeToolRecipe | null {
   return forgeToolRecipeOf(selected)
 }
 
+/** 已解锁全列 + 最多 1 条下一档置灰预览，更后面的未开档不列出。 */
+export function unlockedPlusNextPreview<T extends { unlocked: boolean }>(rows: readonly T[]): T[] {
+  const open: T[] = []
+  let nextLocked: T | null = null
+  for (const row of rows) {
+    if (row.unlocked) open.push(row)
+    else if (!nextLocked) nextLocked = row
+  }
+  return nextLocked ? [...open, nextLocked] : open
+}
+
 export function forgeToolPickOptions(save: Save): StationToolPickOption[] {
   const match = forgingMatchStation(save)
   const level = forgingStationLevel(save)
   const rows: StationToolPickOption[] = []
-  let nextLocked: StationToolPickOption | null = null
   for (const def of stationToolsOf(match)) {
     const open = isForgeToolUnlocked(level, def.index)
-    const row: StationToolPickOption = {
+    rows.push({
       id: def.id,
       label: def.label,
       unlocked: open,
       unlockLevel: forgeToolUnlockLevel(def.index),
       qty: bankQty(save, def.id),
-    }
-    if (open) rows.push(row)
-    else if (!nextLocked) nextLocked = row
+    })
   }
-  return nextLocked ? [...rows, nextLocked] : rows
+  return unlockedPlusNextPreview(rows)
 }
 
 export function sanitizeForgeSelection(save: Save): void {
@@ -358,9 +366,7 @@ export type StationToolPickOption = {
 
 export function stationToolPickOptions(save: Save, stationId: StationId): StationToolPickOption[] {
   const level = save.stations[stationId]?.stationLevel ?? 1
-  const rows: StationToolPickOption[] = [
-    { id: null, label: '无', unlocked: true, unlockLevel: 1, qty: 0 },
-  ]
+  const rows: StationToolPickOption[] = []
   for (const def of stationToolsOf(stationId)) {
     const unlocked = isStationToolUnlocked(level, def.index)
     rows.push({
@@ -371,7 +377,10 @@ export function stationToolPickOptions(save: Save, stationId: StationId): Statio
       qty: bankQty(save, def.id),
     })
   }
-  return rows
+  return [
+    { id: null, label: '无', unlocked: true, unlockLevel: 1, qty: 0 },
+    ...unlockedPlusNextPreview(rows),
+  ]
 }
 
 /** 工坊下拉选工具。首项「无」；未解锁即使有库存也不可选。 */

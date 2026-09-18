@@ -35,12 +35,30 @@ import {
   selectStationTool,
   stationToolPickOptions,
   stationToolSpeedMul,
+  unlockedPlusNextPreview,
   workerToolSpeedMul,
 } from './tools'
 import type { Save } from './types'
 
 afterEach(() => {
   setRollOverride(null)
+})
+
+describe('unlockedPlusNextPreview', () => {
+  it('keeps unlocked rows and only the next locked preview', () => {
+    expect(
+      unlockedPlusNextPreview([
+        { id: 1, unlocked: true },
+        { id: 2, unlocked: true },
+        { id: 3, unlocked: false },
+        { id: 4, unlocked: false },
+      ]),
+    ).toEqual([
+      { id: 1, unlocked: true },
+      { id: 2, unlocked: true },
+      { id: 3, unlocked: false },
+    ])
+  })
 })
 
 function roster(n: number): Save {
@@ -145,15 +163,20 @@ describe('select station tool', () => {
     })
   })
 
-  it('dropdown starts with 无 and marks locked rows', () => {
+  it('dropdown starts with 无 and only previews the next locked tier', () => {
     const save = roster(1)
+    expect(stationToolPickOptions(save, 'mining')).toEqual([
+      expect.objectContaining({ id: null, label: '无', unlocked: true }),
+      expect.objectContaining({ id: 'miningTool01', unlocked: false, unlockLevel: 5 }),
+    ])
     save.stations.mining.stationLevel = 5
     save.bank.miningTool01 = 2
     const opts = stationToolPickOptions(save, 'mining')
     expect(opts[0]).toMatchObject({ id: null, label: '无', unlocked: true })
-    expect(opts).toHaveLength(21)
+    expect(opts).toHaveLength(3)
     expect(opts[1]).toMatchObject({ id: 'miningTool01', unlocked: true, qty: 2, unlockLevel: 5 })
     expect(opts[2]).toMatchObject({ id: 'miningTool02', unlocked: false, unlockLevel: 10 })
+    expect(opts.some((row) => row.id === 'miningTool03')).toBe(false)
   })
 
   it('clears back to 无', () => {
@@ -296,6 +319,14 @@ describe('forging soft fail', () => {
       ok: false,
       reason: '未解锁（需 锻造 Lv2）',
     })
+    save.stations.forging.stationLevel = 3
+    expect(forgeToolPickOptions(save).map((row) => row.id)).toEqual([
+      'miningTool01',
+      'miningTool02',
+      'miningTool03',
+      'miningTool04',
+    ])
+    expect(forgeToolPickOptions(save)[3]).toMatchObject({ unlocked: false, unlockLevel: 4 })
     save.stations.forging.stationLevel = 5
     const opts = forgeToolPickOptions(save)
     expect(opts).toHaveLength(6)

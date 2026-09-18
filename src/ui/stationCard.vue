@@ -32,6 +32,8 @@ import { formatConsumeToken } from './encounterDeal'
 import { useGameStore } from './gameStore'
 import StationTips from './stationTips.vue'
 import UiIcon from './uiIcon.vue'
+import UiSelect from './uiSelect.vue'
+import type { UiSelectOption } from './uiSelect'
 import { useVisualProgress } from './visualProgress'
 import {
   qualityOf,
@@ -90,30 +92,53 @@ const conflictLine = computed(() => stationConflictHint(game.save, props.station
 const guideFlashMining = computed(
   () => props.stationId === 'mining' && isGuideQuestFlash(game.save, 'mining'),
 )
+const toolTypeOptions = computed<UiSelectOption[]>(() =>
+  TOOL_TYPE_IDS.map((id) => ({
+    value: id,
+    label: `${TOOL_TYPE_DEF[id].label}（${STATION_DEF[TOOL_TYPE_DEF[id].matchStationId].label}）`,
+  })),
+)
+const forgeSelectOptions = computed<UiSelectOption[]>(() =>
+  forgeOptions.value.map((row) => ({
+    value: row.id ?? '',
+    label: forgeOptionLabel(row),
+    disabled: !row.unlocked,
+  })),
+)
+const categorySelectOptions = computed<UiSelectOption[]>(() =>
+  pickOptions.value.map((c) => ({
+    value: c.id,
+    label: c.unlocked ? c.label : `${c.label}（Lv${c.unlockLevel}）`,
+    disabled: !c.unlocked,
+  })),
+)
+const toolSelectOptions = computed<UiSelectOption[]>(() =>
+  toolOptions.value.map((row) => ({
+    value: row.id ?? '',
+    label: toolOptionLabel(row),
+    disabled: !!row.id && (!row.unlocked || row.qty < 1),
+  })),
+)
 
 function pick(id: CategoryId) {
   game.selectCategory(props.stationId, id)
 }
 
-function onPick(ev: Event) {
-  const value = (ev.target as HTMLSelectElement).value as CategoryId
+function onPick(value: string) {
   const opt = pickOptions.value.find((c) => c.id === value)
   if (!opt?.unlocked) return
-  pick(value)
+  pick(value as CategoryId)
 }
 
-function onToolType(ev: Event) {
-  const value = (ev.target as HTMLSelectElement).value as ToolTypeId
-  game.selectToolType(value)
+function onToolType(value: string) {
+  game.selectToolType(value as ToolTypeId)
 }
 
-function onSelectTool(ev: Event) {
-  const value = (ev.target as HTMLSelectElement).value
+function onSelectTool(value: string) {
   game.selectStationTool(props.stationId, value ? (value as StationToolId) : null)
 }
 
-function onForgeOutput(ev: Event) {
-  const value = (ev.target as HTMLSelectElement).value
+function onForgeOutput(value: string) {
   if (!value) return
   game.selectForgeOutput(value as StationToolId)
 }
@@ -190,46 +215,40 @@ function consumeText(row: StationConsumeToken) {
       </p>
       <label v-if="stationId === 'forging'" class="cats">
         <span class="sr">工具类型</span>
-        <select class="cat-select" :value="station.selectedToolType ?? 'pick'" @change="onToolType">
-          <option v-for="id in TOOL_TYPE_IDS" :key="id" :value="id">
-            {{ TOOL_TYPE_DEF[id].label }}（{{ STATION_DEF[TOOL_TYPE_DEF[id].matchStationId].label }}）
-          </option>
-        </select>
+        <UiSelect
+          :model-value="station.selectedToolType ?? 'pick'"
+          :options="toolTypeOptions"
+          aria-label="工具类型"
+          @update:model-value="onToolType"
+        />
       </label>
       <label v-if="stationId === 'forging'" class="cats">
         <span class="sr">制造</span>
-        <select class="cat-select" :value="station.selectedForgeToolId ?? ''" @change="onForgeOutput">
-          <option
-            v-for="row in forgeOptions"
-            :key="row.id ?? 'none'"
-            :value="row.id ?? ''"
-            :disabled="!row.unlocked"
-          >
-            {{ forgeOptionLabel(row) }}
-          </option>
-        </select>
+        <UiSelect
+          :model-value="station.selectedForgeToolId ?? ''"
+          :options="forgeSelectOptions"
+          aria-label="制造"
+          @update:model-value="onForgeOutput"
+        />
       </label>
       <label v-if="stationId !== 'forging' && pickOptions.length > 1" class="cats">
         <span class="sr">{{ pickCaption }}</span>
-        <select class="cat-select" :value="station.selectedCategory" @change="onPick">
-          <option v-for="c in pickOptions" :key="c.id" :value="c.id" :disabled="!c.unlocked">
-            {{ c.unlocked ? c.label : `${c.label}（Lv${c.unlockLevel}）` }}
-          </option>
-        </select>
+        <UiSelect
+          :model-value="station.selectedCategory"
+          :options="categorySelectOptions"
+          :aria-label="pickCaption"
+          @update:model-value="onPick"
+        />
       </label>
       <p class="stat">{{ toolLine }}</p>
       <label class="cats">
         <span class="sr">工具</span>
-        <select class="cat-select" :value="station.selectedToolId ?? ''" @change="onSelectTool">
-          <option
-            v-for="row in toolOptions"
-            :key="row.id ?? 'none'"
-            :value="row.id ?? ''"
-            :disabled="!!row.id && (!row.unlocked || row.qty < 1)"
-          >
-            {{ toolOptionLabel(row) }}
-          </option>
-        </select>
+        <UiSelect
+          :model-value="station.selectedToolId ?? ''"
+          :options="toolSelectOptions"
+          aria-label="工具"
+          @update:model-value="onSelectTool"
+        />
       </label>
     </div>
     <div class="actions">
@@ -416,6 +435,7 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  width: 100%;
 }
 
 .sr {
@@ -424,18 +444,6 @@ h2 {
   height: 1px;
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
-}
-
-.cat-select {
-  font: inherit;
-  color: var(--ink);
-  min-height: 36px;
-  min-width: 120px;
-  padding: 4px 10px;
-  border: 3px solid var(--gold-deep);
-  border-radius: 12px;
-  background: linear-gradient(#fffbeb, var(--btn));
-  box-shadow: 0 3px 0 var(--shadow);
 }
 
 .tool-row {
