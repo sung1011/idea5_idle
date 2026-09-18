@@ -55,6 +55,27 @@ export const COMBAT_ATTR_KIND: Record<CombatAttrId, 'physical' | 'elemental'> = 
   dark: 'elemental',
 }
 
+/** 芯片字色 / 底色。元素必须互不相同，避免火（水滴形）被看成冰蓝。 */
+export const COMBAT_ATTR_TONE: Record<CombatAttrId, { ink: string; fill: string }> = {
+  sword: { ink: '#6b3f12', fill: '#f3e2c0' },
+  polearm: { ink: '#6b3f12', fill: '#f3e2c0' },
+  dagger: { ink: '#6b3f12', fill: '#f3e2c0' },
+  axe: { ink: '#6b3f12', fill: '#f3e2c0' },
+  bow: { ink: '#6b3f12', fill: '#f3e2c0' },
+  staff: { ink: '#6b3f12', fill: '#f3e2c0' },
+  fire: { ink: '#c0392b', fill: '#ffe0cc' },
+  ice: { ink: '#1a7a9a', fill: '#d4f1fa' },
+  lightning: { ink: '#b8860b', fill: '#fff3c4' },
+  wind: { ink: '#2e7d4f', fill: '#d8f3e4' },
+  light: { ink: '#8a6d1f', fill: '#fff6d0' },
+  dark: { ink: '#4a2f7a', fill: '#ebe4f8' },
+}
+
+export function combatAttrChipStyle(id: CombatAttrId): { color: string; backgroundColor: string } {
+  const tone = COMBAT_ATTR_TONE[id]
+  return { color: tone.ink, backgroundColor: tone.fill }
+}
+
 export const ENEMY_RANKS = ['minion', 'elite', 'boss'] as const satisfies readonly EnemyRank[]
 
 export const ENEMY_RANK_LABEL: Record<EnemyRank, string> = {
@@ -233,9 +254,23 @@ export function pickEnemyWeaknesses(seed: number, slot: number, rank: EnemyRank)
   return out
 }
 
+/** 卡面与克制共用：只读战斗态 weaknesses / revealedWeaknesses。 */
+export function enemyWeaknessView(enc: EnemyEncounter): {
+  weaknesses: CombatAttrId[]
+  revealed: CombatAttrId[]
+  slots: Array<CombatAttrId | null>
+} {
+  const weaknesses = uniqueCombatAttrs(enc.weaknesses)
+  const revealed = uniqueCombatAttrs(enc.revealedWeaknesses).filter((id) => weaknesses.includes(id))
+  return {
+    weaknesses,
+    revealed,
+    slots: weaknesses.map((id) => (revealed.includes(id) ? id : null)),
+  }
+}
+
 export function visibleWeaknessSlots(enc: EnemyEncounter): Array<CombatAttrId | null> {
-  const revealed = new Set(enc.revealedWeaknesses ?? [])
-  return (enc.weaknesses ?? []).map((id) => (revealed.has(id) ? id : null))
+  return enemyWeaknessView(enc).slots
 }
 
 export function formatCombatAttrs(attrs: readonly CombatAttrId[]): string {
@@ -247,14 +282,26 @@ export function formatWeaknessLabels(ids: readonly CombatAttrId[]): string {
   return ids.map((id) => COMBAT_ATTR_LABEL[id]).join('、')
 }
 
-/** 旧单缺弱点表则按 id 种子补；再战保留已揭示。新单 revealed 为空。 */
+/** 旧单缺弱点表则按 id 种子补；已有列表只补齐/截断，开战不另掷一份。再战保留已揭示。 */
 export function ensureEnemyIntel(enc: EnemyEncounter, seed = 0, slot = 0): EnemyEncounter {
   const rank = isEnemyRank(enc.enemyRank) ? enc.enemyRank : enemyRankFor(enc.quality)
   enc.enemyRank = rank
   const existing = uniqueCombatAttrs(enc.weaknesses)
   const { min, max } = ENEMY_WEAKNESS_COUNT[rank]
-  if (existing.length < min || existing.length > max) {
-    enc.weaknesses = pickEnemyWeaknesses(seed || hashString(enc.id), slot, rank)
+  const rollSeed = seed || hashString(enc.id)
+  if (existing.length === 0) {
+    enc.weaknesses = pickEnemyWeaknesses(rollSeed, slot, rank)
+  } else if (existing.length < min) {
+    enc.weaknesses = [
+      ...existing,
+      ...pickDistinctAttrs(min - existing.length, roll01Bag(rollSeed + slot * 17 + 3), existing),
+    ]
+  } else if (existing.length > max) {
+    const revealed = new Set(uniqueCombatAttrs(enc.revealedWeaknesses))
+    enc.weaknesses = uniqueCombatAttrs([
+      ...existing.filter((id) => revealed.has(id)),
+      ...existing.filter((id) => !revealed.has(id)),
+    ]).slice(0, max)
   } else {
     enc.weaknesses = existing
   }

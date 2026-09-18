@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   COMBAT_ATTR_IDS,
   COMBAT_ATTR_LABEL,
+  COMBAT_ATTR_TONE,
   ENEMY_WEAKNESS_COUNT,
+  combatAttrChipStyle,
   combatAttrSlotCount,
   enemyRankFor,
+  enemyWeaknessView,
   ensureEnemyIntel,
   fillWorkerCombatAttrs,
   hydrateWorkerCombatAttrs,
@@ -168,6 +171,55 @@ describe('reveal and rematch', () => {
     expect(visibleWeaknessSlots(enc)[0]).toBe('fire')
     expect(enc.combat?.enemy.hp).toBe(leftoverHp)
   })
+
+  it('keeps panel weakness slots aligned with combat before fight, after start, and on rematch', () => {
+    const save = createSave()
+    const worker = spawnWorkerWith(save, 2, 'hunter', ['fire'])
+    const enc = testEnemy({
+      id: 'hillBrigand-orange-11-0',
+      label: '山贼',
+      quality: 'orange',
+      enemyRank: 'elite',
+      weaknesses: ['sword', 'fire', 'bow', 'dark'],
+      revealedWeaknesses: [],
+      needs: { potion: 4 },
+    })
+    save.encounters[0] = enc
+    save.bank.potion = 18
+    const before = enemyWeaknessView(enc)
+    expect(before.weaknesses).toEqual(['sword', 'fire', 'bow', 'dark'])
+    expect(before.slots).toEqual([null, null, null, null])
+
+    const now = 70_000
+    expect(startCombat(save, 0, [worker.id], now).ok).toBe(true)
+    expect(enc.weaknesses).toEqual(before.weaknesses)
+    expect(enemyWeaknessView(enc).slots).toEqual(before.slots)
+
+    const combat = enc.combat!
+    combat.workers[0].nextActAt = now + 1_000
+    combat.enemy.nextActAt = now + 9_000
+    stepEnemyCombat(save, enc, now + 1_000)
+    expect(enc.revealedWeaknesses).toEqual(['fire'])
+    expect(enemyWeaknessView(enc)).toEqual({
+      weaknesses: ['sword', 'fire', 'bow', 'dark'],
+      revealed: ['fire'],
+      slots: [null, 'fire', null, null],
+    })
+    expect(combat.logs.some((row) => row.text.includes('揭示弱点：火'))).toBe(true)
+    expect(enemyWeaknessView(enc).slots).not.toContain('ice')
+
+    enc.combat = {
+      ...combat,
+      outcome: 'lose',
+      enemy: { ...combat.enemy, hp: Math.max(1, combat.enemy.hp) },
+    }
+    expect(startCombat(save, 0, [worker.id], now + 2_000).ok).toBe(true)
+    expect(enemyWeaknessView(enc)).toMatchObject({
+      weaknesses: ['sword', 'fire', 'bow', 'dark'],
+      revealed: ['fire'],
+      slots: [null, 'fire', null, null],
+    })
+  })
 })
 
 describe('damage multiplier per acting worker', () => {
@@ -236,5 +288,23 @@ describe('enemy weakness tables', () => {
     })
     expect(old.weaknesses.length).toBeGreaterThanOrEqual(2)
     expect(old.revealedWeaknesses.every((id) => old.weaknesses.includes(id))).toBe(true)
+
+    const short = ensureEnemyIntel({
+      ...testEnemy({ quality: 'orange', enemyRank: 'elite' }),
+      weaknesses: ['ice', 'sword'],
+      revealedWeaknesses: ['ice'],
+    })
+    expect(short.weaknesses.slice(0, 2)).toEqual(['ice', 'sword'])
+    expect(short.weaknesses.length).toBeGreaterThanOrEqual(3)
+    expect(short.revealedWeaknesses).toEqual(['ice'])
+    expect(visibleWeaknessSlots(short)[0]).toBe('ice')
+    expect(short.weaknesses[0]).not.toBe('fire')
+  })
+
+  it('gives fire a red chip and ice a cyan chip so they cannot share the old blue drop look', () => {
+    expect(COMBAT_ATTR_TONE.fire.ink).not.toBe(COMBAT_ATTR_TONE.ice.ink)
+    expect(COMBAT_ATTR_TONE.fire.fill).not.toBe(COMBAT_ATTR_TONE.ice.fill)
+    expect(combatAttrChipStyle('fire').color).toBe('#c0392b')
+    expect(combatAttrChipStyle('ice').color).toBe('#1a7a9a')
   })
 })

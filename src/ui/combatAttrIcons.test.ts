@@ -13,4 +13,10 @@ describe('combat attr icons', () => {
     expect(total).toBeGreaterThan(200)
     expect(total).toBeLessThan(4000)
   })
+
+  it('does not map fire to the ice snowflake or a shared drop path', () => {
+    expect(COMBAT_ATTR_ICON_PATHS.fire).not.toEqual(COMBAT_ATTR_ICON_PATHS.ice)
+    expect(COMBAT_ATTR_ICON_PATHS.ice.length).toBeGreaterThan(1)
+    expect(COMBAT_ATTR_ICON_PATHS.fire.join('')).not.toBe(COMBAT_ATTR_ICON_PATHS.ice.join(''))
+  })
 })

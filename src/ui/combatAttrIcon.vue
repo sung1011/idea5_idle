@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { COMBAT_ATTR_KIND, COMBAT_ATTR_LABEL } from '../sim/combatAttrs'
+import { COMBAT_ATTR_KIND, COMBAT_ATTR_LABEL, combatAttrChipStyle } from '../sim/combatAttrs'
 import type { CombatAttrId } from '../sim/types'
 import { combatAttrIconPaths } from './combatAttrIcons'
 
@@ -12,6 +12,7 @@ defineProps<{
   <i
     class="chip"
     :class="attr ? COMBAT_ATTR_KIND[attr] : 'unknown'"
+    :style="attr ? combatAttrChipStyle(attr) : undefined"
     :title="attr ? COMBAT_ATTR_LABEL[attr] : '未揭示'"
     :aria-label="attr ? COMBAT_ATTR_LABEL[attr] : '未揭示'"
     role="img"
@@ -61,16 +62,6 @@ defineProps<{
   height: 14px;
   fill: currentColor;
   animation: reveal-in var(--motion) ease;
-}
-
-.chip.physical {
-  color: #6b3f12;
-  background: #f3e2c0;
-}
-
-.chip.elemental {
-  color: #1f56b0;
-  background: #dcebff;
 }
 
 .chip.unknown {

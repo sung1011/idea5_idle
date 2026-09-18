@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { ENEMY_RANK_LABEL, visibleWeaknessSlots } from '../sim/combatAttrs'
+import { ENEMY_RANK_LABEL, enemyWeaknessView } from '../sim/combatAttrs'
 import CombatAttrIcon from './combatAttrIcon.vue'
 import CombatAttrRow from './combatAttrRow.vue'
 import {
@@ -141,7 +141,7 @@ function workerJob(w: Worker) {
 }
 
 function weaknessSlots(enc: EnemyEncounter) {
-  return visibleWeaknessSlots(enc)
+  return enemyWeaknessView(enc).slots
 }
 
 </script>
