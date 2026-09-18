@@ -9,6 +9,7 @@ import {
   selectWorkshopStation,
   workshopTab,
 } from './appNav'
+import { APP_TAB_KEY } from './appTabs'
 import { WORKSHOP_TAB_KEY } from './workshopTabs'
 
 function memory(): Storage {
@@ -39,36 +40,40 @@ describe('appNav', () => {
   it('keeps the dock order 工坊 | 工人 | 主线 | 科技 and falls back to 主线', () => {
     expect(APP_TABS.map((tab) => tab.id)).toEqual(['workshop', 'workers', 'encounters', 'tech'])
     expect(DEFAULT_APP_TAB).toBe('encounters')
-    expect(selectAppTab('nope')).toBe('encounters')
+    expect(selectAppTab('nope', memory())).toBe('encounters')
     expect(appTab.value).toBe('encounters')
   })
 
-  it('switches the dock tab and remembers a workshop station', () => {
-    selectAppTab('workshop')
-    expect(appTab.value).toBe('workshop')
+  it('persists the last dock tab and a workshop station', () => {
     const store = memory()
+    expect(selectAppTab('workshop', store)).toBe('workshop')
+    expect(appTab.value).toBe('workshop')
+    expect(store.getItem(APP_TAB_KEY)).toBe('workshop')
     expect(selectWorkshopStation('cooking', store)).toBe('cooking')
     expect(workshopTab.value).toBe('cooking')
     expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('cooking')
-    expect(selectAppTab('nope')).toBe(DEFAULT_APP_TAB)
+    expect(selectAppTab('nope', store)).toBe(DEFAULT_APP_TAB)
     expect(appTab.value).toBe('encounters')
+    expect(store.getItem(APP_TAB_KEY)).toBe('encounters')
   })
 
   it('opens a station on the workshop dock', () => {
-    selectAppTab('workers')
     const store = memory()
+    selectAppTab('workers', store)
     expect(openWorkshopStation('fishing', store)).toBe('fishing')
     expect(appTab.value).toBe('workshop')
     expect(workshopTab.value).toBe('fishing')
+    expect(store.getItem(APP_TAB_KEY)).toBe('workshop')
     expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('fishing')
   })
 
   it('opens a producible item on the workshop dock and its producer station', () => {
-    selectAppTab('encounters')
     const store = memory()
+    selectAppTab('encounters', store)
     expect(openItemWorkshop('meal', store)).toBe('cooking')
     expect(appTab.value).toBe('workshop')
     expect(workshopTab.value).toBe('cooking')
+    expect(store.getItem(APP_TAB_KEY)).toBe('workshop')
     expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('cooking')
     expect(openItemWorkshop('potion', store)).toBe('alchemy')
     expect(workshopTab.value).toBe('alchemy')
