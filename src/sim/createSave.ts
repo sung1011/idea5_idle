@@ -47,6 +47,7 @@ export function createSave(): Save {
   save.encounters = generateEncounterBoard(0, encounterSlotCount(save), {
     rng: save,
     mainChapter: save.mainChapter,
+    starterCopperPawn: true,
   })
   return save
 }

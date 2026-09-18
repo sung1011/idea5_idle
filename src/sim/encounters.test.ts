@@ -36,6 +36,11 @@ import {
   exploreCost,
   generateEncounterBoard,
   hydrateEncounterFields,
+  makeStarterCopperPawn,
+  STARTER_PAWN_ITEM_ID,
+  STARTER_PAWN_LABEL,
+  STARTER_PAWN_QTY,
+  STARTER_PAWN_QUALITY,
   pickEncounterKind,
   isEncounterDone,
   isMerchantKind,
@@ -59,7 +64,7 @@ import { isCombatWon, isFighting } from './combat'
 import { assignWorker } from './assign'
 import { currentSpeed } from './query'
 import { recruitWorker, spawnWorker } from './recruit'
-import { bulkUnitGold, pawnUnitGold } from './tables'
+import { bulkUnitGold, ITEM_DEF, pawnUnitGold } from './tables'
 import { ENCOUNTER_SLOT_TECH_IDS, encounterSlotCount } from './tech'
 import { ticks } from './tick'
 import type {
@@ -202,6 +207,34 @@ function needSnapshot(save: Save, map: EncounterNeedMap): Record<ItemId, number>
 }
 
 describe('encounter board', () => {
+  it('new save starts with a green copper pawn wanting ore ×2', () => {
+    expect(ITEM_DEF[STARTER_PAWN_ITEM_ID].label).toBe('铜矿')
+    const save = createSave()
+    expect(save.encounters).toHaveLength(1)
+    const enc = save.encounters[0]
+    expect(enc.kind).toBe('pawn')
+    if (enc.kind !== 'pawn') return
+    expect(enc.label).toBe(STARTER_PAWN_LABEL)
+    expect(enc.quality).toBe(STARTER_PAWN_QUALITY)
+    expect(enc.pawnWants).toEqual({ [STARTER_PAWN_ITEM_ID]: STARTER_PAWN_QTY })
+    expect(enc.pawnWants).toEqual({ ore: 2 })
+    expect(enc.rewardGold).toBe(pawnRewardGold(enc))
+    expect(enc.rewardGold).toBe(scaleGold(pawnUnitGold('ore') * STARTER_PAWN_QTY, 1))
+    expect(shouldKeepOnExplore(enc)).toBe(false)
+  })
+
+  it('puts the starter copper pawn on slot 0 and fills the rest', () => {
+    const board = generateEncounterBoard(3, 3, { starterCopperPawn: true })
+    expect(board).toHaveLength(3)
+    expect(board[0]).toEqual(makeStarterCopperPawn(3, 0))
+    expect(board[0].kind).toBe('pawn')
+    if (board[0].kind === 'pawn') {
+      expect(board[0].pawnWants).toEqual({ ore: 2 })
+    }
+    expect(board[1].id).not.toBe(board[0].id)
+    expect(board[2].id).not.toBe(board[0].id)
+  })
+
   it('starts at 1 slot; full rolls still cover all 6 kinds without gray', () => {
     const save = createSave()
     expect(save.encounters).toHaveLength(1)
@@ -748,6 +781,25 @@ describe('merchant kinds', () => {
 })
 
 describe('hydrateEncounterFields', () => {
+  it('builds a starter copper pawn when the board is empty', () => {
+    const save = createSave()
+    save.encounters = []
+    hydrateEncounterFields(save)
+    expect(save.encounters).toHaveLength(1)
+    expect(save.encounters[0].kind).toBe('pawn')
+    if (save.encounters[0].kind !== 'pawn') return
+    expect(save.encounters[0].pawnWants).toEqual({ ore: 2 })
+    expect(save.encounters[0].label).toBe('铜矿当')
+  })
+
+  it('does not force a starter copper pawn onto an existing old board', () => {
+    const save = createSave()
+    save.encounters = [testEnemy({ id: 'legacy-keep' })]
+    hydrateEncounterFields(save)
+    expect(save.encounters[0].id).toBe('legacy-keep')
+    expect(save.encounters.some((enc) => enc.kind === 'pawn' && enc.label === '铜矿当')).toBe(false)
+  })
+
   it('builds a 1-slot board and migrates a legacy order into the first enemy', () => {
     const save = createSave() as Save & {
       currentOrderId?: string

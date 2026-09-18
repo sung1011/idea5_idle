@@ -254,7 +254,7 @@ chapterNeedMul(chapter) = 1 + (chapter - 1) * 0.15
 
 ### 6.4 开局与旧存档
 
-新档生成初始 1 格主线订单，章节 1、战利品计数 0。hydrate / 探索按 `encounterSlotCount` 收或补格；旧 6 格板若还没点主线订单格大科技，会收到 1 格，但战斗中 / 胜可领 / 败可再战优先留下。旧存档若仍是单格出发（`currentOrderId` / `orderIndex` / `orderSubmitted`），按当前格数生成并把旧需求迁进第 0 格敌人（旧档已扣货则内部记一笔，开战不再扣）。
+新档生成初始 1 格主线订单（第 0 格固定绿档当铺「铜矿当」，消耗铜矿 `ore` ×2，奖励按 `pawnUnitGold` / `rewardGold`；探索可刷掉），章节 1、战利品计数 0。空板 hydrate 同样补这张；旧档已有板不强制插入。hydrate / 探索按 `encounterSlotCount` 收或补格；旧 6 格板若还没点主线订单格大科技，会收到 1 格，但战斗中 / 胜可领 / 败可再战优先留下。旧存档若仍是单格出发（`currentOrderId` / `orderIndex` / `orderSubmitted`），按当前格数生成并把旧需求迁进第 0 格敌人（旧档已扣货则内部记一笔，开战不再扣）。
 
 ---
 

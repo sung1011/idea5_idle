@@ -630,6 +630,8 @@ export type EncounterSpawnOpts = {
   /** 有则推进这份 rng；无则用 seed+1 开一份局部骰。 */
   rng?: { rngState: number }
   mainChapter?: number
+  /** 新档 / 空板：第 0 格固定铜矿当铺，其余格走 filler。探索刷新不走此开关。 */
+  starterCopperPawn?: boolean
 }
 
 function encounterRng(seed: number, rng?: { rngState: number }): { rngState: number } {
@@ -719,6 +721,28 @@ function makePawn(seed: number, slot: number, quality: EncounterQuality, chapter
   }
 }
 
+/** 铜矿在 ITEM_DEF 的 id。新档当铺消耗用这个。 */
+export const STARTER_PAWN_ITEM_ID: ItemId = 'ore'
+export const STARTER_PAWN_QTY = 2
+export const STARTER_PAWN_LABEL = '铜矿当'
+export const STARTER_PAWN_QUALITY: EncounterQuality = 'green'
+
+/** 新档 / 空板第 0 格：绿档当铺，消耗铜矿 ×2，奖励按 pawnUnitGold / rewardGold。 */
+export function makeStarterCopperPawn(seed = 0, slot = 0): PawnEncounter {
+  const quality = STARTER_PAWN_QUALITY
+  const q = qualityDef(quality)
+  const pawnWants: EncounterNeedMap = { [STARTER_PAWN_ITEM_ID]: STARTER_PAWN_QTY }
+  return {
+    kind: 'pawn',
+    id: `merchantPawnCopper-${quality}-${seed}-${slot}`,
+    label: STARTER_PAWN_LABEL,
+    quality,
+    pawnWants,
+    rewardGold: scaleGold(pawnGoldForMap(pawnWants), q.outputMul / q.demandMul),
+    completed: false,
+  }
+}
+
 function makeArtisan(seed: number, slot: number, quality: EncounterQuality, chapter = 1): ArtisanEncounter {
   const def = ARTISAN_DEFS[(seed + slot) % ARTISAN_DEFS.length]
   const q = qualityDef(quality)
@@ -792,7 +816,12 @@ export function generateEncounterBoard(
     Math.max(ENCOUNTER_SLOT_MIN, Number.isFinite(slotCount) ? Math.floor(slotCount) : ENCOUNTER_SLOT_MIN),
   )
   const fill = encounterFiller(seed, opts)
-  return Array.from({ length: n }, (_, slot) => fill(slot))
+  const board = Array.from({ length: n }, (_, slot) => fill(slot))
+  if (opts.starterCopperPawn && n >= 1) {
+    const safe = Number.isFinite(seed) && seed >= 0 ? Math.floor(seed) : 0
+    board[0] = makeStarterCopperPawn(safe, 0)
+  }
+  return board
 }
 
 function spawnOptsFor(save: Save, reserved: readonly Encounter[]): EncounterSpawnOpts {
@@ -1668,7 +1697,10 @@ export function hydrateEncounterFields(save: Save): Save {
 
   const migrated = Array.isArray(raw.encounters) ? raw.encounters.filter(isEncounter) : []
   if (migrated.length === 0) {
-    raw.encounters = generateEncounterBoard(raw.exploreCount, encounterSlotCount(raw), spawnOptsFor(raw, []))
+    raw.encounters = generateEncounterBoard(raw.exploreCount, encounterSlotCount(raw), {
+      ...spawnOptsFor(raw, []),
+      starterCopperPawn: true,
+    })
     migrateLegacyOrder(raw)
   } else {
     raw.encounters = migrated
