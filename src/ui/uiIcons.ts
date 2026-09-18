@@ -1,5 +1,5 @@
 /** 底栏页签 + 工坊竖签：16×16 单色 path，与战斗属性图标同语言（currentColor）。 */
-export const DOCK_ICON_IDS = ['encounters', 'workshop', 'workers', 'tech'] as const
+export const DOCK_ICON_IDS = ['encounters', 'workshop', 'workers', 'workersV2', 'tech'] as const
 export const STATION_ICON_IDS = [
   'mining',
   'forging',
@@ -19,6 +19,12 @@ export const UI_ICON_PATHS: Record<UiIconId, readonly string[]> = {
   workers: [
     'M8 1.55A2.4 2.4 0 1 1 8 6.35 2.4 2.4 0 1 1 8 1.55',
     'M3.15 14.55C3.45 10.95 5.35 9.05 8 9.05s4.55 1.9 4.85 5.5Z',
+  ],
+  workersV2: [
+    'M5.15 1.7A1.95 1.95 0 1 1 5.15 5.6 1.95 1.95 0 1 1 5.15 1.7',
+    'M10.85 1.7A1.95 1.95 0 1 1 10.85 5.6 1.95 1.95 0 1 1 10.85 1.7',
+    'M1.7 14.4C1.95 11.55 3.35 10 5.15 10s3.2 1.55 3.45 4.4Z',
+    'M7.4 14.4C7.65 11.55 9.05 10 10.85 10s3.2 1.55 3.45 4.4Z',
   ],
   encounters: ['M8 1.4 9.2 6.8 14.6 8 9.2 9.2 8 14.6 6.8 9.2 1.4 8 6.8 6.8Z'],
   tech: ['M8 1.15 13.75 4.4V11.6L8 14.85 2.25 11.6V4.4Z'],

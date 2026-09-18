@@ -37,8 +37,14 @@ function memory(): Storage {
 }
 
 describe('appNav', () => {
-  it('keeps the dock order 工坊 | 工人 | 主线 | 科技 and falls back to 主线', () => {
-    expect(APP_TABS.map((tab) => tab.id)).toEqual(['workshop', 'workers', 'encounters', 'tech'])
+  it('keeps the dock order 工坊 | 工人 | 工人v2 | 主线 | 科技 and falls back to 主线', () => {
+    expect(APP_TABS.map((tab) => tab.id)).toEqual([
+      'workshop',
+      'workers',
+      'workersV2',
+      'encounters',
+      'tech',
+    ])
     expect(DEFAULT_APP_TAB).toBe('encounters')
     expect(selectAppTab('nope', memory())).toBe('encounters')
     expect(appTab.value).toBe('encounters')
@@ -49,6 +55,9 @@ describe('appNav', () => {
     expect(selectAppTab('workshop', store)).toBe('workshop')
     expect(appTab.value).toBe('workshop')
     expect(store.getItem(APP_TAB_KEY)).toBe('workshop')
+    expect(selectAppTab('workersV2', store)).toBe('workersV2')
+    expect(appTab.value).toBe('workersV2')
+    expect(store.getItem(APP_TAB_KEY)).toBe('workersV2')
     expect(selectWorkshopStation('cooking', store)).toBe('cooking')
     expect(workshopTab.value).toBe('cooking')
     expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('cooking')

@@ -13,16 +13,19 @@ import {
   groupWorkersByQuality,
   loadWorkerGroupOrder,
   rosterDutyCounts,
+  rosterSlotCounts,
   saveWorkerGroupOrder,
   stationAssignCaption,
   stationCrewDots,
   toggleWorkerGroupOrder,
+  unassignedWorkers,
   workerAssignChoices,
   workerDutyKind,
   workerDutyLabel,
   workerGroupOrderOf,
   workerShopCaption,
   workerShortName,
+  workshopStationBoards,
 } from './workerGroups'
 
 function memory(): Storage {
@@ -174,6 +177,32 @@ describe('station crew dots and assign choices', () => {
     const together = workerAssignChoices(save, idle)
     expect(together.find((c) => c.stationId === 'fishing')?.canFuse).toBe(true)
     expect(together.find((c) => c.stationId === 'mining')?.canFuse).toBe(false)
+  })
+})
+
+describe('workshop station boards', () => {
+  it('lists seven stations with two padded slots and unassigned rest list', () => {
+    const save = createSave()
+    const rest = spawnWorkerWith(save, 1, 'laborer')
+    const miner = spawnWorkerWith(save, 2, 'miner')
+    const cook = spawnWorkerWith(save, 3, 'cook')
+    assignWorker(save, miner.id, 'mining')
+    assignWorker(save, cook.id, 'cooking')
+
+    const boards = workshopStationBoards(save)
+    expect(boards.map((board) => board.stationId)).toEqual([...WORKSHOP_TAB_IDS])
+    expect(boards).toHaveLength(7)
+    const mining = boards.find((board) => board.stationId === 'mining')
+    const cooking = boards.find((board) => board.stationId === 'cooking')
+    const fishing = boards.find((board) => board.stationId === 'fishing')
+    expect(mining?.label).toBe('采矿')
+    expect(mining?.filled).toBe(1)
+    expect(mining?.cap).toBe(STATION_WORKER_CAP)
+    expect(mining?.slots).toEqual([miner, null])
+    expect(cooking?.slots).toEqual([cook, null])
+    expect(fishing?.slots).toEqual([null, null])
+    expect(rosterSlotCounts(save)).toEqual({ stations: 7, filled: 2, cap: 14 })
+    expect(unassignedWorkers(save).map((worker) => worker.id)).toEqual([rest.id])
   })
 })
 

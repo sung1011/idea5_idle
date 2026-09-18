@@ -184,3 +184,41 @@ export function workerAssignChoices(save: Save, worker: Worker): WorkerAssignCho
     canFuse: canFuseWorkerWithStation(save, worker.id, stationId),
   }))
 }
+
+export type WorkshopStationBoard = {
+  stationId: StationId
+  label: string
+  filled: number
+  cap: number
+  slots: Array<Worker | null>
+}
+
+/** 七站按工坊竖签序，每站固定 2 槽，空位 null 占位。 */
+export function workshopStationBoards(save: Save): WorkshopStationBoard[] {
+  return WORKSHOP_TAB_IDS.map((stationId) => {
+    const crew = assignedWorkers(save, stationId)
+    const slots: Array<Worker | null> = []
+    for (let i = 0; i < STATION_WORKER_CAP; i += 1) {
+      slots.push(crew[i] ?? null)
+    }
+    return {
+      stationId,
+      label: STATION_DEF[stationId].label,
+      filled: crew.length,
+      cap: STATION_WORKER_CAP,
+      slots,
+    }
+  })
+}
+
+export function rosterSlotCounts(save: Save) {
+  const boards = workshopStationBoards(save)
+  let filled = 0
+  for (const board of boards) filled += board.filled
+  return { stations: boards.length, filled, cap: boards.length * STATION_WORKER_CAP }
+}
+
+/** 未派驻工人（含出战）。名册原序。 */
+export function unassignedWorkers(save: Save): Worker[] {
+  return save.workers.filter((worker) => worker.assignment === null)
+}

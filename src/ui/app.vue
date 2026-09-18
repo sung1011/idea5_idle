@@ -8,6 +8,7 @@ import MessagePanel from './messagePanel.vue'
 import SettingsPanel from './settingsPanel.vue'
 import TechPanel from './techPanel.vue'
 import WorkersPanel from './workersPanel.vue'
+import WorkersPanelV2 from './workersPanelV2.vue'
 import WorkshopPanel from './workshopPanel.vue'
 import FloatTips from './floatTips.vue'
 import GuideQuestFloat from './guideQuestFloat.vue'
@@ -93,6 +94,7 @@ onUnmounted(() => {
     <main class="page" :class="tab">
       <WorkshopPanel v-if="tab === 'workshop'" />
       <WorkersPanel v-else-if="tab === 'workers'" />
+      <WorkersPanelV2 v-else-if="tab === 'workersV2'" />
       <EncounterPanel v-else-if="tab === 'encounters'" />
       <TechPanel v-else />
     </main>
@@ -240,14 +242,15 @@ onUnmounted(() => {
   }
 }
 
-.page.workshop > * {
+.page.workshop > *,
+.page.workersV2 > * {
   overflow: hidden;
 }
 
 .dock {
   z-index: var(--z-dock);
   display: flex;
-  gap: 6px;
+  gap: 4px;
   flex: 0 0 auto;
   padding: var(--dock-pad-y) 8px calc(var(--dock-pad-y) + env(safe-area-inset-bottom, 0px));
   background:
@@ -267,10 +270,10 @@ onUnmounted(() => {
   flex: 1 1 0;
   min-width: 0;
   min-height: var(--dock-item-min-h);
-  padding: 4px;
+  padding: 4px 2px;
   font-family: var(--font-display);
-  font-size: 12px;
-  letter-spacing: 0.08em;
+  font-size: 11px;
+  letter-spacing: 0.02em;
 }
 
 .dock button.on {

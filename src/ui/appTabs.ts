@@ -1,6 +1,7 @@
 export const APP_TABS = [
   { id: 'workshop', label: '工坊' },
   { id: 'workers', label: '工人' },
+  { id: 'workersV2', label: '工人v2' },
   { id: 'encounters', label: '主线' },
   { id: 'tech', label: '科技' },
 ] as const
