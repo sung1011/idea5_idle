@@ -38,6 +38,7 @@ import { pushCombatLogTip } from './encounterTips'
 import { pushFloatTip } from './floatTips'
 import { clearSave, loadSave, persistSave } from './saveGame'
 import { pushCycleGain } from './stationTips'
+import { applyWorkerDrag, type WorkerDragSource, type WorkerDropTarget } from './workerDrag'
 
 export const useGameStore = defineStore('game', () => {
   // 整份 Save 替换，不用深层响应式，避免 structuredClone 撞上 Proxy。
@@ -144,6 +145,7 @@ export const useGameStore = defineStore('game', () => {
     assignIdle: (stationId: StationId) => apply((s) => assignIdleWorker(s, stationId)),
     withdraw: (stationId: StationId) => apply((s) => withdrawWorker(s, stationId)),
     assign: (workerId: string, stationId: StationId | null) => apply((s) => assignWorker(s, workerId, stationId)),
+    dragAssign: (source: WorkerDragSource, target: WorkerDropTarget) => apply((s) => applyWorkerDrag(s, source, target)),
     selectStationTool: (stationId: StationId, toolId: StationToolId | null) =>
       apply((s) => selectStationTool(s, stationId, toolId)),
     loadFood: (workerId: string, itemId: ItemId, qty: number) =>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onUnmounted, reactive, ref } from 'vue'
 import { bankQty } from '../sim/bank'
 import { formatMarchClock } from '../sim/encounters'
 import { foodBuffRemainS, isFoodBuffActive } from '../sim/food'
@@ -26,6 +26,16 @@ import UiIcon from './uiIcon.vue'
 import UiSelect from './uiSelect.vue'
 import type { UiSelectOption } from './uiSelect'
 import { qualityOf, workerQualityDotStyle, workerQualityNameStyle, workerQualityTileStyle } from './workerQuality'
+import {
+  canDragWorker,
+  canDropWorker,
+  dropTargetEquals,
+  dropTargetFromDataset,
+  sameDragEndpoint,
+  shouldStartWorkerDrag,
+  type WorkerDragSource,
+  type WorkerDropTarget,
+} from './workerDrag'
 
 const game = useGameStore()
 const now = computed(() => {
@@ -166,6 +176,7 @@ function onFuseChoice(stationId: StationId | null) {
 }
 
 function onEmptySlot(stationId: StationId) {
+  if (drag.value?.active) return
   game.assignIdle(stationId)
 }
 
@@ -173,10 +184,124 @@ function openSheetThenPick(w: Worker) {
   closeSheet()
   openPick(w)
 }
+
+type DragSession = {
+  workerId: string
+  name: string
+  source: WorkerDragSource | null
+  startX: number
+  startY: number
+  x: number
+  y: number
+  active: boolean
+  pointerId: number
+  over: WorkerDropTarget | null
+}
+
+const drag = ref<DragSession | null>(null)
+
+function sourceOf(w: Worker, stationId: StationId | null, slotIndex: number | null): WorkerDragSource | null {
+  if (!canDragWorker(game.save, w.id)) return null
+  if (stationId && slotIndex != null) return { kind: 'slot', workerId: w.id, stationId, slotIndex }
+  if (w.assignment === null) return { kind: 'rest', workerId: w.id }
+  return null
+}
+
+function unbindDrag() {
+  window.removeEventListener('pointermove', onDragMove)
+  window.removeEventListener('pointerup', onDragEnd)
+  window.removeEventListener('pointercancel', onDragEnd)
+}
+
+function hitTarget(x: number, y: number): WorkerDropTarget | null {
+  const el = document.elementFromPoint(x, y)
+  const node = el instanceof Element ? el.closest('[data-drop]') : null
+  return node instanceof HTMLElement ? dropTargetFromDataset(node.dataset) : null
+}
+
+function onWorkerPointerDown(ev: PointerEvent, w: Worker, stationId: StationId | null, slotIndex: number | null) {
+  if (ev.pointerType === 'mouse' && ev.button !== 0) return
+  unbindDrag()
+  drag.value = {
+    workerId: w.id,
+    name: workerShortName(w),
+    source: sourceOf(w, stationId, slotIndex),
+    startX: ev.clientX,
+    startY: ev.clientY,
+    x: ev.clientX,
+    y: ev.clientY,
+    active: false,
+    pointerId: ev.pointerId,
+    over: null,
+  }
+  window.addEventListener('pointermove', onDragMove, { passive: false })
+  window.addEventListener('pointerup', onDragEnd)
+  window.addEventListener('pointercancel', onDragEnd)
+}
+
+function onDragMove(ev: PointerEvent) {
+  const session = drag.value
+  if (!session || session.pointerId !== ev.pointerId) return
+  session.x = ev.clientX
+  session.y = ev.clientY
+  if (!session.active) {
+    if (!session.source) return
+    const dx = session.x - session.startX
+    const dy = session.y - session.startY
+    if (!shouldStartWorkerDrag(session.source, dx, dy)) return
+    session.active = true
+    const handle = ev.target
+    if (handle instanceof Element && handle.setPointerCapture) {
+      try {
+        handle.setPointerCapture(ev.pointerId)
+      } catch {
+        // already released
+      }
+    }
+  }
+  ev.preventDefault()
+  session.over = hitTarget(ev.clientX, ev.clientY)
+}
+
+function onDragEnd(ev: PointerEvent) {
+  const session = drag.value
+  if (!session || session.pointerId !== ev.pointerId) return
+  unbindDrag()
+  const worker = game.save.workers.find((row) => row.id === session.workerId) ?? null
+  const source = session.source
+  const over = session.over ?? hitTarget(ev.clientX, ev.clientY)
+  const wasActive = session.active
+  drag.value = null
+  if (wasActive) {
+    if (source && over && !sameDragEndpoint(source, over)) game.dragAssign(source, over)
+    return
+  }
+  if (worker) openSheet(worker)
+}
+
+function slotDropClass(stationId: StationId, slotIndex: number): string {
+  const session = drag.value
+  if (!session?.active || !session.source) return ''
+  const target: WorkerDropTarget = { kind: 'slot', stationId, slotIndex }
+  if (canDropWorker(game.save, session.source, target)) return 'drop-ok'
+  if (dropTargetEquals(session.over, target)) return 'drop-no'
+  return ''
+}
+
+function restDropClass(): string {
+  const session = drag.value
+  if (!session?.active || !session.source) return ''
+  const target: WorkerDropTarget = { kind: 'rest' }
+  if (canDropWorker(game.save, session.source, target)) return 'drop-ok'
+  if (dropTargetEquals(session.over, target)) return 'drop-no'
+  return ''
+}
+
+onUnmounted(unbindDrag)
 </script>
 
 <template>
-  <section class="panel roster-v2">
+  <section class="panel roster-v2" :class="{ dragging: drag?.active }">
     <div class="board">
       <section class="col workshop" aria-label="在工坊">
         <div class="station-list">
@@ -191,9 +316,13 @@ function openSheetThenPick(w: Worker) {
                 :key="`${board.stationId}-${i}`"
                 type="button"
                 class="slot"
-                :class="{ empty: !w }"
+                :class="[{ empty: !w }, slotDropClass(board.stationId, i)]"
+                :data-drop="'slot'"
+                :data-station="board.stationId"
+                :data-slot="i"
                 :aria-label="w ? `${workerShortName(w)} ${sheetMeta(w)}` : `${board.label}空槽 · 派驻`"
-                @click="w ? openSheet(w) : onEmptySlot(board.stationId)"
+                @pointerdown="w ? onWorkerPointerDown($event, w, board.stationId, i) : undefined"
+                @click="w ? undefined : onEmptySlot(board.stationId)"
               >
                 <template v-if="w">
                   <span class="avatar" :style="workerQualityTileStyle(w)">
@@ -217,14 +346,14 @@ function openSheetThenPick(w: Worker) {
           </article>
         </div>
       </section>
-      <section class="col rest" aria-label="休息中">
+      <section class="col rest" :class="restDropClass()" aria-label="休息中" data-drop="rest">
         <div v-if="resting.length" class="rest-list">
           <div v-for="w in resting" :key="w.id" class="rest-row">
             <button
               type="button"
               class="rest-face"
               :aria-label="`${workerShortName(w)} ${sheetMeta(w)}`"
-              @click="openSheet(w)"
+              @pointerdown="onWorkerPointerDown($event, w, null, null)"
             >
               <span class="avatar" :style="workerQualityTileStyle(w)">
                 <ClassIcon :name="classIconOf(w)" />
@@ -245,6 +374,7 @@ function openSheetThenPick(w: Worker) {
               type="button"
               class="rest-go"
               :aria-label="`派驻 ${workerShortName(w)}`"
+              @pointerdown.stop
               @click="openPick(w)"
             >
               ›
@@ -254,6 +384,11 @@ function openSheetThenPick(w: Worker) {
         <p v-else class="empty-rest">没有休息工人。点左侧空槽会派入空闲人；也可先抽人。</p>
       </section>
     </div>
+    <Teleport to="body">
+      <div v-if="drag?.active" class="drag-ghost" :style="{ left: `${drag.x}px`, top: `${drag.y}px` }">
+        {{ drag.name }}
+      </div>
+    </Teleport>
     <button type="button" class="recruit-fab" @click="game.recruit()">
       <span class="recruit-plus" aria-hidden="true">＋</span>
       <span class="recruit-copy">
@@ -380,6 +515,11 @@ function openSheetThenPick(w: Worker) {
   padding: 0;
 }
 
+.panel.dragging {
+  user-select: none;
+  cursor: grabbing;
+}
+
 .board {
   display: flex;
   flex: 1 1 auto;
@@ -461,6 +601,7 @@ function openSheetThenPick(w: Worker) {
   border-radius: 7px;
   background: rgba(255, 247, 212, 0.8);
   box-shadow: none;
+  touch-action: none;
 }
 
 .slot.empty {
@@ -470,6 +611,17 @@ function openSheetThenPick(w: Worker) {
   border-style: dashed;
   background: rgba(255, 241, 190, 0.35);
   color: #a77840;
+  touch-action: manipulation;
+}
+
+.slot.drop-ok,
+.rest.drop-ok {
+  box-shadow: 0 0 0 2px var(--moss);
+}
+
+.slot.drop-no,
+.rest.drop-no {
+  box-shadow: 0 0 0 2px var(--danger);
 }
 
 .empty-mark {
@@ -573,6 +725,7 @@ function openSheetThenPick(w: Worker) {
   border: 0;
   background: transparent;
   box-shadow: none;
+  touch-action: pan-y;
 }
 
 .rest-top {
@@ -600,6 +753,22 @@ function openSheetThenPick(w: Worker) {
   font-size: 11px;
   font-weight: 700;
   line-height: 1.45;
+}
+
+.drag-ghost {
+  position: fixed;
+  z-index: 80;
+  pointer-events: none;
+  transform: translate(-50%, -120%);
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 2px solid var(--gold-deep);
+  border-radius: 10px;
+  background: linear-gradient(#fff8dc, #f0c14a);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: 0 4px 0 var(--gold-deep);
 }
 
 .recruit-fab {
