@@ -13,7 +13,7 @@ import {
   type CombatLogSink,
 } from './combat'
 import { workerLootXp } from './workerLevel'
-import { ensureEnemyIntel, isEnemyRank, pickEnemyWeaknesses } from './combatAttrs'
+import { ensureEnemyIntel, isEnemyRank, pickEnemyWeaknesses, seedInitialRevealedWeaknesses } from './combatAttrs'
 import {
   MAIN_CHAPTER_START,
   MAIN_LOOT_CLAIMS_GOAL,
@@ -633,7 +633,7 @@ function makeEnemy(
   const itemId = rng
     ? pickMainNeedItem(rng)
     : MAIN_NEED_ITEM_POOL[(seed + slot) % MAIN_NEED_ITEM_POOL.length]
-  return {
+  return seedInitialRevealedWeaknesses({
     kind: 'enemy',
     id: `${name.id}-${quality}-${seed}-${slot}`,
     label: forceChapterBoss ? `${name.label}·首领` : name.label,
@@ -647,7 +647,7 @@ function makeEnemy(
     chapterBoss: forceChapterBoss,
     weaknesses: pickEnemyWeaknesses(seed, slot, enemyRank),
     revealedWeaknesses: [],
-  }
+  })
 }
 
 function makeBlackMerchant(

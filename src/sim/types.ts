@@ -363,9 +363,9 @@ export type EnemyEncounter = EncounterBase & {
   enemyRank: EnemyRank
   /** 本章主线 Boss。领取战利品后进下一章。旧档 / 普通敌缺字段视为 false。 */
   chapterBoss?: boolean
-  /** 真实弱点。卡面先全是 ?，命中再揭示对应项。 */
+  /** 真实弱点。卡面开战前按阶级预暴露（杂兵 2 / 精英 1 / 首领 0），命中未暴露项再揭示。 */
   weaknesses: CombatAttrId[]
-  /** 已揭示弱点。再战同一单保留；换新敌 / 刷掉本单清空。 */
+  /** 已揭示弱点（含阶级初始暴露）。再战同一单保留；换新敌 / 刷掉本单清空。 */
   revealedWeaknesses: CombatAttrId[]
 }
 

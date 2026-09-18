@@ -4,17 +4,21 @@ import {
   COMBAT_ATTR_LABEL,
   COMBAT_ATTR_TONE,
   ENEMY_WEAKNESS_COUNT,
+  INITIAL_REVEALED_WEAKNESS_COUNT,
   combatAttrChipStyle,
   combatAttrSlotCount,
   enemyRankFor,
   enemyWeaknessView,
   ensureEnemyIntel,
+  fighterRecommendLabel,
   fillWorkerCombatAttrs,
   hydrateWorkerCombatAttrs,
+  initialRevealedWeaknessCount,
   matchingWeaknesses,
   pickDistinctAttrs,
   pickEnemyWeaknesses,
   resolveWorkerAttack,
+  seedInitialRevealedWeaknesses,
   uniqueCombatAttrs,
   visibleWeaknessSlots,
   weaknessDamageMul,
@@ -148,7 +152,9 @@ describe('reveal and rematch', () => {
     const worker = spawnWorker(save)
     worker.combatAttrs = ['fire']
     const enc = testEnemy({
-      weaknesses: ['fire', 'sword'],
+      quality: 'purple',
+      enemyRank: 'elite',
+      weaknesses: ['fire', 'sword', 'bow'],
       revealedWeaknesses: ['fire'],
       needs: { meal: 1 },
     })
@@ -186,9 +192,11 @@ describe('reveal and rematch', () => {
     })
     save.encounters[0] = enc
     save.bank.potion = 18
+    ensureEnemyIntel(enc)
     const before = enemyWeaknessView(enc)
     expect(before.weaknesses).toEqual(['sword', 'fire', 'bow', 'dark'])
-    expect(before.slots).toEqual([null, null, null, null])
+    expect(before.revealed).toEqual(['sword'])
+    expect(before.slots).toEqual(['sword', null, null, null])
 
     const now = 70_000
     expect(startCombat(save, 0, [worker.id], now).ok).toBe(true)
@@ -199,11 +207,11 @@ describe('reveal and rematch', () => {
     combat.workers[0].nextActAt = now + 1_000
     combat.enemy.nextActAt = now + 9_000
     stepEnemyCombat(save, enc, now + 1_000)
-    expect(enc.revealedWeaknesses).toEqual(['fire'])
+    expect(enc.revealedWeaknesses).toEqual(['sword', 'fire'])
     expect(enemyWeaknessView(enc)).toEqual({
       weaknesses: ['sword', 'fire', 'bow', 'dark'],
-      revealed: ['fire'],
-      slots: [null, 'fire', null, null],
+      revealed: ['sword', 'fire'],
+      slots: ['sword', 'fire', null, null],
     })
     expect(combat.logs.some((row) => row.text.includes('揭示弱点：火'))).toBe(true)
     expect(enemyWeaknessView(enc).slots).not.toContain('ice')
@@ -216,8 +224,8 @@ describe('reveal and rematch', () => {
     expect(startCombat(save, 0, [worker.id], now + 2_000).ok).toBe(true)
     expect(enemyWeaknessView(enc)).toMatchObject({
       weaknesses: ['sword', 'fire', 'bow', 'dark'],
-      revealed: ['fire'],
-      slots: [null, 'fire', null, null],
+      revealed: ['sword', 'fire'],
+      slots: ['sword', 'fire', null, null],
     })
   })
 })
@@ -239,7 +247,11 @@ describe('damage multiplier per acting worker', () => {
     const b = spawnWorkerWith(save, 2, 'miner', ['ice'])
     a.name = '甲'
     b.name = '乙'
-    const fight = testEnemy({ weaknesses: ['fire', 'ice'] })
+    const fight = testEnemy({
+      quality: 'purple',
+      enemyRank: 'elite',
+      weaknesses: ['dark', 'fire', 'ice'],
+    })
     save.encounters[0] = fight
     const now = 50_000
     const combat = beginEnemyCombat(fight, [a, b], now)
@@ -252,7 +264,7 @@ describe('damage multiplier per acting worker', () => {
     const hp1 = combat.enemy.hp
     stepEnemyCombat(save, fight, now + 2_000)
     expect(combat.enemy.hp).toBe(hp1 - Math.round(combat.workers[1].atk * 1.2))
-    expect(fight.revealedWeaknesses).toEqual(['fire', 'ice'])
+    expect(fight.revealedWeaknesses).toEqual(['dark', 'fire', 'ice'])
     expect(combat.logs.some((row) => row.text.includes('揭示弱点'))).toBe(true)
   })
 })
@@ -288,6 +300,8 @@ describe('enemy weakness tables', () => {
     })
     expect(old.weaknesses.length).toBeGreaterThanOrEqual(2)
     expect(old.revealedWeaknesses.every((id) => old.weaknesses.includes(id))).toBe(true)
+    expect(old.revealedWeaknesses).toHaveLength(Math.min(2, old.weaknesses.length))
+    if (old.weaknesses.includes('fire')) expect(old.revealedWeaknesses).toContain('fire')
 
     const short = ensureEnemyIntel({
       ...testEnemy({ quality: 'orange', enemyRank: 'elite' }),
@@ -299,6 +313,88 @@ describe('enemy weakness tables', () => {
     expect(short.revealedWeaknesses).toEqual(['ice'])
     expect(visibleWeaknessSlots(short)[0]).toBe('ice')
     expect(short.weaknesses[0]).not.toBe('fire')
+  })
+
+  it('seeds initial revealed 2/1/0 for minion/elite/boss without rerolling weaknesses', () => {
+    expect(INITIAL_REVEALED_WEAKNESS_COUNT).toEqual({ minion: 2, elite: 1, boss: 0 })
+    expect(initialRevealedWeaknessCount('minion')).toBe(2)
+    expect(initialRevealedWeaknessCount('elite')).toBe(1)
+    expect(initialRevealedWeaknessCount('boss')).toBe(0)
+
+    const minion = ensureEnemyIntel(
+      testEnemy({
+        enemyRank: 'minion',
+        weaknesses: ['fire', 'ice', 'dark'],
+        revealedWeaknesses: [],
+      }),
+    )
+    expect(minion.weaknesses).toEqual(['fire', 'ice', 'dark'])
+    expect(minion.revealedWeaknesses).toEqual(['fire', 'ice'])
+
+    const elite = ensureEnemyIntel(
+      testEnemy({
+        quality: 'purple',
+        enemyRank: 'elite',
+        weaknesses: ['sword', 'fire', 'bow'],
+        revealedWeaknesses: [],
+      }),
+    )
+    expect(elite.weaknesses).toEqual(['sword', 'fire', 'bow'])
+    expect(elite.revealedWeaknesses).toEqual(['sword'])
+
+    const boss = ensureEnemyIntel(
+      testEnemy({
+        quality: 'orange',
+        enemyRank: 'boss',
+        weaknesses: ['axe', 'wind', 'light', 'dark'],
+        revealedWeaknesses: [],
+      }),
+    )
+    expect(boss.weaknesses).toEqual(['axe', 'wind', 'light', 'dark'])
+    expect(boss.revealedWeaknesses).toEqual([])
+    expect(visibleWeaknessSlots(boss)).toEqual([null, null, null, null])
+  })
+
+  it('reveals more on hit and keeps intel after hydrate / rematch', () => {
+    const boss = testEnemy({
+      quality: 'orange',
+      enemyRank: 'boss',
+      weaknesses: ['fire', 'ice', 'dark'],
+      revealedWeaknesses: [],
+    })
+    ensureEnemyIntel(boss)
+    expect(boss.revealedWeaknesses).toEqual([])
+    const hit = resolveWorkerAttack(boss, ['ice', 'bow'], 10)
+    expect(hit.hits).toEqual(['ice'])
+    expect(hit.newlyRevealed).toEqual(['ice'])
+    expect(boss.revealedWeaknesses).toEqual(['ice'])
+    ensureEnemyIntel(boss)
+    expect(boss.weaknesses).toEqual(['fire', 'ice', 'dark'])
+    expect(boss.revealedWeaknesses).toEqual(['ice'])
+
+    const minion = testEnemy({
+      weaknesses: ['fire', 'ice', 'dark'],
+      revealedWeaknesses: ['dark'],
+    })
+    seedInitialRevealedWeaknesses(minion)
+    expect(minion.revealedWeaknesses).toEqual(['dark', 'fire'])
+    expect(minion.weaknesses).toEqual(['fire', 'ice', 'dark'])
+  })
+
+  it('labels pick list 推荐 / 强烈推荐 from revealed hits only', () => {
+    const enc = testEnemy({
+      weaknesses: ['fire', 'ice', 'dark'],
+      revealedWeaknesses: ['fire'],
+    })
+    expect(fighterRecommendLabel(['bow'], enc)).toBeNull()
+    expect(fighterRecommendLabel(['fire'], enc)).toBe('推荐')
+    expect(fighterRecommendLabel(['fire', 'ice'], enc)).toBe('推荐')
+    expect(fighterRecommendLabel(['ice', 'dark'], enc)).toBeNull()
+    enc.revealedWeaknesses = ['fire', 'ice']
+    expect(fighterRecommendLabel(['fire', 'ice'], enc)).toBe('强烈推荐')
+    expect(fighterRecommendLabel(['ice'], enc)).toBe('推荐')
+    expect(fighterRecommendLabel(['dark'], enc)).toBeNull()
+    expect(fighterRecommendLabel([], enc)).toBeNull()
   })
 
   it('gives fire a red chip and ice a cyan chip so they cannot share the old blue drop look', () => {

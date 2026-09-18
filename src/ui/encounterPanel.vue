@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { ENEMY_RANK_LABEL, enemyWeaknessView } from '../sim/combatAttrs'
+import { ENEMY_RANK_LABEL, enemyWeaknessView, fighterRecommendLabel } from '../sim/combatAttrs'
 import CombatAttrIcon from './combatAttrIcon.vue'
 import CombatAttrRow from './combatAttrRow.vue'
 import {
@@ -142,6 +142,18 @@ function workerJob(w: Worker) {
 
 function weaknessSlots(enc: EnemyEncounter) {
   return enemyWeaknessView(enc).slots
+}
+
+function pickEnemy(): EnemyEncounter | null {
+  const i = pickIndex.value
+  if (i == null) return null
+  const enc = game.save.encounters[i]
+  return enc?.kind === 'enemy' ? enc : null
+}
+
+function pickRecommend(w: Worker) {
+  const enc = pickEnemy()
+  return enc ? fighterRecommendLabel(w.combatAttrs, enc) : null
 }
 
 </script>
@@ -362,6 +374,11 @@ function weaknessSlots(enc: EnemyEncounter) {
                 <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
                 <b class="pick-worker-name" :style="workerQualityNameStyle(w)">{{ w.name ?? w.id }}</b>
                 <span class="pick-meta">· Lv{{ w.level }} · {{ workerJob(w) }} · HP {{ w.hp }}/{{ w.hpMax }}</span>
+                <i
+                  v-if="pickRecommend(w)"
+                  class="pick-rec"
+                  :class="{ hot: pickRecommend(w) === '强烈推荐' }"
+                >{{ pickRecommend(w) }}</i>
               </span>
               <CombatAttrRow :attrs="w.combatAttrs" />
             </button>
@@ -763,6 +780,23 @@ ul {
 
 .pick-worker-name {
   font-weight: 700;
+}
+
+.pick-rec {
+  font-style: normal;
+  padding: 1px 7px;
+  border: 2px solid var(--gold-deep);
+  border-radius: 999px;
+  background: #ffe9a0;
+  color: #6b4218;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.pick-rec.hot {
+  background: #f0c14a;
+  color: #4a2c0a;
 }
 
 .pick-list .qmark {

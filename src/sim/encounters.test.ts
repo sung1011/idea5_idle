@@ -50,6 +50,7 @@ import {
   submitArtisan,
   workshopBuffMul,
 } from './encounters'
+import { initialRevealedWeaknessCount } from './combatAttrs'
 import { isCombatWon, isFighting } from './combat'
 import { assignWorker } from './assign'
 import { currentSpeed } from './query'
@@ -217,7 +218,9 @@ describe('encounter board', () => {
           expect(enc.weaknesses.length).toBeGreaterThanOrEqual(2)
           expect(enc.weaknesses.length).toBeLessThanOrEqual(4)
           expect(new Set(enc.weaknesses).size).toBe(enc.weaknesses.length)
-          expect(enc.revealedWeaknesses).toEqual([])
+          expect(enc.revealedWeaknesses).toEqual(
+            enc.weaknesses.slice(0, initialRevealedWeaknessCount(enc.enemyRank)),
+          )
           expect((enc as { distance?: unknown }).distance).toBeUndefined()
           expect((enc as { power?: unknown }).power).toBeUndefined()
           if (enc.chapterBoss) expect(enc.enemyRank).toBe('boss')
@@ -820,6 +823,23 @@ describe('hydrateEncounterFields', () => {
       expect(save.encounters[1].quality).toBe('green')
       expect(save.encounters[1].pawnWants).toEqual({ weapon: 1 })
     }
+  })
+
+  it('fills old enemy revealedWeaknesses by rank without rerolling weaknesses', () => {
+    const save = createSave()
+    save.encounters = [
+      testEnemy({
+        id: 'old-minion',
+        enemyRank: 'minion',
+        weaknesses: ['fire', 'ice', 'dark'],
+        revealedWeaknesses: [],
+      }),
+    ]
+    hydrateEncounterFields(save)
+    expect(save.encounters[0].kind).toBe('enemy')
+    if (save.encounters[0].kind !== 'enemy') return
+    expect(save.encounters[0].weaknesses).toEqual(['fire', 'ice', 'dark'])
+    expect(save.encounters[0].revealedWeaknesses).toEqual(['fire', 'ice'])
   })
 
   it('keeps a leftover fighting enemy when shrinking an old 5-slot board to 1', () => {

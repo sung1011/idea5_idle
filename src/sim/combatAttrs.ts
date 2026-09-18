@@ -91,6 +91,17 @@ export const ENEMY_WEAKNESS_COUNT: Readonly<Record<EnemyRank, { min: number; max
   boss: { min: 3, max: 4 },
 }
 
+/** 开战前卡面预暴露：杂兵 2、精英 1、首领 0。打中未暴露的仍可再揭。 */
+export const INITIAL_REVEALED_WEAKNESS_COUNT: Readonly<Record<EnemyRank, number>> = {
+  minion: 2,
+  elite: 1,
+  boss: 0,
+}
+
+export function initialRevealedWeaknessCount(rank: EnemyRank): number {
+  return INITIAL_REVEALED_WEAKNESS_COUNT[rank]
+}
+
 /**
  * 灰绿蓝 → 杂兵；紫橙 → 精英。橙不自动当首领。
  * 决定弱点条数、战斗超时，以及 HP / ATK / SPD 阶级倍率。
@@ -273,6 +284,44 @@ export function visibleWeaknessSlots(enc: EnemyEncounter): Array<CombatAttrId | 
   return enemyWeaknessView(enc).slots
 }
 
+/** 只读已揭示弱点与工人属性的命中。隐藏弱点不计入选人推荐。 */
+export function revealedWeaknessHits(
+  attrs: readonly CombatAttrId[],
+  enc: EnemyEncounter,
+): CombatAttrId[] {
+  return matchingWeaknesses(attrs, enemyWeaknessView(enc).revealed)
+}
+
+export type FighterRecommendLabel = '推荐' | '强烈推荐'
+
+/** 命中 1 条已揭示 → 推荐；2 条 → 强烈推荐；0 条不标。 */
+export function fighterRecommendLabel(
+  attrs: readonly CombatAttrId[],
+  enc: EnemyEncounter,
+): FighterRecommendLabel | null {
+  const n = revealedWeaknessHits(attrs, enc).length
+  if (n >= 2) return '强烈推荐'
+  if (n >= 1) return '推荐'
+  return null
+}
+
+/** 已有揭示保留；不足阶级初始条数则按弱点表顺序补齐，不重掷。 */
+export function seedInitialRevealedWeaknesses(enc: EnemyEncounter): EnemyEncounter {
+  const rank = isEnemyRank(enc.enemyRank) ? enc.enemyRank : enemyRankFor(enc.quality)
+  const weaknesses = uniqueCombatAttrs(enc.weaknesses)
+  const have = uniqueCombatAttrs(enc.revealedWeaknesses).filter((id) => weaknesses.includes(id))
+  const need = Math.min(initialRevealedWeaknessCount(rank), weaknesses.length)
+  const seen = new Set(have)
+  for (const id of weaknesses) {
+    if (have.length >= need) break
+    if (seen.has(id)) continue
+    seen.add(id)
+    have.push(id)
+  }
+  enc.revealedWeaknesses = have
+  return enc
+}
+
 export function formatCombatAttrs(attrs: readonly CombatAttrId[]): string {
   if (!attrs.length) return '无战斗属性'
   return attrs.map((id) => COMBAT_ATTR_LABEL[id]).join(' ')
@@ -282,7 +331,7 @@ export function formatWeaknessLabels(ids: readonly CombatAttrId[]): string {
   return ids.map((id) => COMBAT_ATTR_LABEL[id]).join('、')
 }
 
-/** 旧单缺弱点表则按 id 种子补；已有列表只补齐/截断，开战不另掷一份。再战保留已揭示。 */
+/** 旧单缺弱点表则按 id 种子补；已有列表只补齐/截断，开战不另掷一份。再战保留已揭示，并按阶级补齐初始暴露。 */
 export function ensureEnemyIntel(enc: EnemyEncounter, seed = 0, slot = 0): EnemyEncounter {
   const rank = isEnemyRank(enc.enemyRank) ? enc.enemyRank : enemyRankFor(enc.quality)
   enc.enemyRank = rank
@@ -308,5 +357,5 @@ export function ensureEnemyIntel(enc: EnemyEncounter, seed = 0, slot = 0): Enemy
   enc.revealedWeaknesses = uniqueCombatAttrs(enc.revealedWeaknesses).filter((id) =>
     enc.weaknesses.includes(id),
   )
-  return enc
+  return seedInitialRevealedWeaknesses(enc)
 }
