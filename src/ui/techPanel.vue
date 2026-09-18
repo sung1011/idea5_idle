@@ -11,7 +11,7 @@ import {
   techActivateLabel,
   techProgressText,
   techReadyLabel,
-  techTab,
+  techTab as techTabDef,
   techTier,
   type TechNodeDef,
   type TechTabId,
@@ -19,11 +19,10 @@ import {
 import { isGuideQuestFlash, PATH_OUTPOST_TECH_ID } from '../sim/guideQuest'
 import type { TechId } from '../sim/types'
 import { useGameStore } from './gameStore'
-import { loadTechTab, saveTechTab } from './techTabs'
+import { selectTechTab, techTab } from './techTabs'
 
 const game = useGameStore()
 const guideFlashPathOutpost = computed(() => isGuideQuestFlash(game.save, 'pathOutpost'))
-const tab = ref<TechTabId>(loadTechTab())
 const selected = ref<TechNodeDef | null>(null)
 const points = computed(() => game.save.techPoints)
 const knightLevel = computed(() => game.save.knightLevel)
@@ -31,7 +30,7 @@ const slots = computed(() => encounterSlotCount(game.save))
 const done = computed(() => isTechComplete(game.save))
 const unlockedCount = computed(() => techTier(game.save))
 const progressPct = computed(() => Math.round((unlockedCount.value / TECH_TREE.length) * 100))
-const currentTab = computed(() => techTab(tab.value))
+const currentTab = computed(() => techTabDef(techTab.value))
 const displayRows = computed(() => [...currentTab.value.rows].reverse())
 const selectedLive = computed(() => {
   const node = selected.value
@@ -44,7 +43,7 @@ const selectedLive = computed(() => {
 })
 
 function selectTab(id: TechTabId) {
-  tab.value = saveTechTab(id)
+  selectTechTab(id)
   selected.value = null
 }
 
@@ -100,8 +99,8 @@ function closeSheet() {
         :key="id"
         type="button"
         role="tab"
-        :aria-selected="tab === id"
-        :class="{ on: tab === id, 'guide-flash': guideFlashPathOutpost && id === 'affairs' }"
+        :aria-selected="techTab === id"
+        :class="{ on: techTab === id, 'guide-flash': guideFlashPathOutpost && id === 'affairs' }"
         @click="selectTab(id)"
       >
         {{ TECH_TAB_LABELS[id] }}

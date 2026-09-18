@@ -1,3 +1,4 @@
+import { ref } from 'vue'
 import { isTechTabId, TECH_TAB_IDS, type TechTabId } from '../sim/tech'
 
 export const TECH_TAB_KEY = 'idea5IdleTechTab'
@@ -32,5 +33,13 @@ export function saveTechTab(id: unknown, storage?: Storage | null): TechTabId {
   } catch {
     // quota / private mode
   }
+  return next
+}
+
+export const techTab = ref(loadTechTab())
+
+export function selectTechTab(id: unknown, storage?: Storage | null): TechTabId {
+  const next = saveTechTab(id, storage)
+  techTab.value = next
   return next
 }

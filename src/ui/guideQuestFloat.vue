@@ -2,13 +2,25 @@
 import { computed, ref } from 'vue'
 import { guideQuestView } from '../sim/guideQuest'
 import { useGameStore } from './gameStore'
+import { openGuideQuestStep } from './guideQuestNav'
 
 const game = useGameStore()
 const collapsed = ref(false)
 const view = computed(() => guideQuestView(game.save))
 
-function toggleFold() {
-  collapsed.value = !collapsed.value
+function jump() {
+  const step = view.value?.step
+  if (!step) return
+  openGuideQuestStep(step)
+}
+
+function onBadge() {
+  if (collapsed.value) {
+    collapsed.value = false
+    jump()
+    return
+  }
+  collapsed.value = true
 }
 
 function claim() {
@@ -23,9 +35,9 @@ function claim() {
     :class="{ collapsed }"
     aria-label="新手主线"
   >
-    <div class="row" @click="toggleFold">
-      <div class="ico">{{ view.step }}</div>
-      <div class="txt">
+    <div class="row">
+      <div class="ico" role="button" :aria-label="collapsed ? '打开对应模块' : '折叠任务'" @click.stop="onBadge">{{ view.step }}</div>
+      <div class="txt" role="button" aria-label="打开对应模块" @click.stop="jump">
         <p class="name">{{ view.title }}</p>
         <p class="goal">{{ view.goal }}</p>
         <p class="prog" :class="{ ok: view.claimable }">{{ view.progressLabel }}</p>
@@ -80,6 +92,7 @@ function claim() {
 .txt {
   flex: 1;
   min-width: 0;
+  cursor: pointer;
 }
 
 .name {

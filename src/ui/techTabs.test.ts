@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_TECH_TAB, loadTechTab, saveTechTab, TECH_TAB_KEY, techTabOf } from './techTabs'
+import { DEFAULT_TECH_TAB, loadTechTab, saveTechTab, selectTechTab, TECH_TAB_KEY, techTab, techTabOf } from './techTabs'
 
 function memory(): Storage {
   const bag = new Map<string, string>()
@@ -42,5 +42,12 @@ describe('techTabs', () => {
     expect(loadTechTab(store)).toBe('affairs')
     expect(saveTechTab('bad', store)).toBe('production')
     expect(loadTechTab(store)).toBe('production')
+  })
+
+  it('selectTechTab updates the shared tab ref', () => {
+    const store = memory()
+    expect(selectTechTab('combat', store)).toBe('combat')
+    expect(techTab.value).toBe('combat')
+    expect(store.getItem(TECH_TAB_KEY)).toBe('combat')
   })
 })
