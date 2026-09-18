@@ -7,6 +7,7 @@ import {
   workshopBuffRemainS,
 } from '../sim/encounters'
 import { leftoverStockRows } from '../sim/query'
+import { isGuideQuestFlash } from '../sim/guideQuest'
 import type { StationId } from '../sim/types'
 import { useGameStore } from './gameStore'
 import StationCard from './stationCard.vue'
@@ -20,6 +21,7 @@ import {
 } from './workshopTabs'
 
 const game = useGameStore()
+const guideFlashMining = computed(() => isGuideQuestFlash(game.save, 'mining'))
 const now = computed(() => {
   void game.save.elapsedS
   return Date.now()
@@ -66,7 +68,7 @@ function selectTab(id: StationId) {
           type="button"
           role="tab"
           :aria-selected="activeTab === id"
-          :class="{ on: activeTab === id, halt: railById[id].halted }"
+          :class="{ on: activeTab === id, halt: railById[id].halted, 'guide-flash': id === 'mining' && guideFlashMining }"
           @click="selectTab(id)"
         >
           <span class="fill-clip" aria-hidden="true">

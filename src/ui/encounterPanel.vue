@@ -17,11 +17,13 @@ import {
   exploreCost,
   formatMarchClock,
   isEncounterDone,
+  isStarterCopperPawn,
   isWorkshopBuffActive,
   stampLabel,
   workshopBuffMul,
   workshopBuffRemainS,
 } from '../sim/encounters'
+import { isGuideQuestFlash } from '../sim/guideQuest'
 import { mainChapterTitle, mainLootClaimBarLabel, mainLootClaimFillPct } from '../sim/mainChapter'
 import { CLASS_LABEL } from '../sim/tables'
 import type { Encounter, EncounterKind, EnemyEncounter, Worker } from '../sim/types'
@@ -38,6 +40,8 @@ import {
 } from './workerQuality'
 
 const game = useGameStore()
+const guideFlashExplore = computed(() => isGuideQuestFlash(game.save, 'explore'))
+const guideFlashStarterPawn = computed(() => isGuideQuestFlash(game.save, 'starterPawn'))
 const cost = computed(() => exploreCost(game.save))
 const chapterTitle = computed(() => mainChapterTitle(game.save))
 const lootBarLabel = computed(() => mainLootClaimBarLabel(game.save))
@@ -166,7 +170,7 @@ function pickRecommend(w: Worker) {
       </div>
     </div>
     <div class="row">
-      <button type="button" @click="game.explore()">
+      <button type="button" :class="{ 'guide-flash': guideFlashExplore }" @click="game.explore()">
         探索（{{ cost }} 金）
       </button>
     </div>
@@ -289,6 +293,7 @@ function pickRecommend(w: Worker) {
               <span class="act-hit" @click="warnConsumeShort(i)">
                 <button
                   type="button"
+                  :class="{ 'guide-flash': guideFlashStarterPawn && isStarterCopperPawn(enc) }"
                   :disabled="enc.completed || consumeShort(i)"
                   @click.stop="game.pawn(i)"
                 >

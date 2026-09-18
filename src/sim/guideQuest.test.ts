@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createSave } from './createSave'
 import {
+  isStarterCopperPawn,
   makeStarterCopperPawn,
   pawnMerchant,
   STARTER_PAWN_ITEM_ID,
@@ -12,9 +13,11 @@ import {
   GUIDE_QUEST_STEPS,
   claimGuideQuest,
   firstIncompleteGuideQuestStep,
+  guideQuestFlashId,
   guideQuestProgressAt,
   guideQuestView,
   hydrateGuideQuestFields,
+  isGuideQuestFlash,
   isGuideQuestVisible,
   normalizeGuideQuestStep,
 } from './guideQuest'
@@ -207,5 +210,58 @@ describe('guideQuest steps and claim', () => {
     ]
     expect(guideQuestProgressAt(save, 3)).toBe(0)
     expect(firstIncompleteGuideQuestStep(save)).toBe(1)
+  })
+})
+
+describe('guideQuest flash target', () => {
+  it('flashes only the current unfinished step and stops when claimable', () => {
+    const save = createSave()
+    expect(guideQuestFlashId(save)).toBe('recruit')
+    expect(isGuideQuestFlash(save, 'recruit')).toBe(true)
+    expect(isGuideQuestFlash(save, 'mining')).toBe(false)
+
+    expect(recruitWorker(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBeNull()
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBe('mining')
+
+    save.stations.mining.completed = 1
+    expect(guideQuestFlashId(save)).toBeNull()
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBe('starterPawn')
+    expect(isStarterCopperPawn(save.encounters[0])).toBe(true)
+
+    pawnStep(save)
+    expect(guideQuestFlashId(save)).toBeNull()
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBe('explore')
+
+    save.exploreCount = 1
+    expect(guideQuestFlashId(save)).toBeNull()
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBe('pathOutpost')
+
+    save.techLevels = { pathOutpost: 1 }
+    save.unlockedTechIds = ['pathOutpost']
+    expect(guideQuestFlashId(save)).toBeNull()
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBeNull()
+  })
+
+  it('does not flash a regular pawn as the opening copper deal', () => {
+    const save = createSave()
+    save.guideQuestStep = 3
+    save.encounters = [
+      {
+        kind: 'pawn',
+        id: 'merchantPawn-other',
+        label: '兵器当',
+        quality: 'green',
+        pawnWants: { weapon: 1 },
+        completed: false,
+      },
+    ]
+    expect(guideQuestFlashId(save)).toBe('starterPawn')
+    expect(isStarterCopperPawn(save.encounters[0])).toBe(false)
   })
 })

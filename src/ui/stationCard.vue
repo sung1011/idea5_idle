@@ -12,6 +12,7 @@ import {
   type StationConsumeToken,
 } from '../sim/query'
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
+import { isGuideQuestFlash } from '../sim/guideQuest'
 import { stationConflictHint } from '../sim/tech'
 import {
   STATION_DEF,
@@ -88,6 +89,9 @@ const consumeGroups = computed(() => stationConsumeGroups(game.save, props.stati
 const stallLine = computed(() => stationBottleneckText(game.save, props.stationId))
 const conflictLine = computed(() => stationConflictHint(game.save, props.stationId))
 const stock = computed(() => stationStockRows(game.save, props.stationId))
+const guideFlashMining = computed(
+  () => props.stationId === 'mining' && isGuideQuestFlash(game.save, 'mining'),
+)
 
 function pick(id: CategoryId) {
   game.selectCategory(props.stationId, id)
@@ -138,7 +142,7 @@ function consumeText(row: StationConsumeToken) {
 </script>
 
 <template>
-  <article class="card" :class="{ wait: frozen && !stall }">
+  <article class="card" :class="{ wait: frozen && !stall, 'guide-flash': guideFlashMining }">
     <StationTips :station-id="stationId" />
     <header>
       <span class="badge">

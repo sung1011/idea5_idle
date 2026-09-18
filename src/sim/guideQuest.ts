@@ -76,6 +76,32 @@ export function isGuideQuestVisible(save: Save): boolean {
   return !isGuideQuestDone(save)
 }
 
+/** 当前未完成步要闪的目标。可领 / 已完成 / 浮层关闭则为 null。 */
+export type GuideQuestFlashId = 'recruit' | 'mining' | 'starterPawn' | 'explore' | 'pathOutpost'
+
+export function guideQuestFlashId(save: Save): GuideQuestFlashId | null {
+  const view = guideQuestView(save)
+  if (!view || view.claimable) return null
+  switch (view.step) {
+    case 1:
+      return 'recruit'
+    case 2:
+      return 'mining'
+    case 3:
+      return 'starterPawn'
+    case 4:
+      return 'explore'
+    case 5:
+      return 'pathOutpost'
+    default:
+      return null
+  }
+}
+
+export function isGuideQuestFlash(save: Save, id: GuideQuestFlashId): boolean {
+  return guideQuestFlashId(save) === id
+}
+
 export function guideQuestView(save: Save): GuideQuestView | null {
   const step = normalizeGuideQuestStep(save.guideQuestStep)
   if (step >= GUIDE_QUEST_DONE_STEP) return null

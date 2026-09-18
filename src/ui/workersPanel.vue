@@ -14,6 +14,7 @@ import {
   STATION_WORKER_CAP,
   type FoodItemId,
 } from '../sim/tables'
+import { isGuideQuestFlash } from '../sim/guideQuest'
 import { recruitCost } from '../sim/tech'
 import type { ClassId, StationId, Worker } from '../sim/types'
 import ClassIcon from './classIcon.vue'
@@ -38,6 +39,7 @@ import {
 import { qualityOf, workerQualityDotStyle, workerQualityTileStyle } from './workerQuality'
 
 const game = useGameStore()
+const guideFlashRecruit = computed(() => isGuideQuestFlash(game.save, 'recruit'))
 const now = computed(() => {
   void game.save.elapsedS
   return Date.now()
@@ -184,7 +186,9 @@ function flipOrder() {
       金币 {{ game.save.gold }} · 空闲 {{ idleCount(game.save) }} · 每站最多 {{ STATION_WORKER_CAP }} 人。同站满两人时，到工坊站卡合并升档。
     </p>
     <div class="row">
-      <button type="button" @click="game.recruit()">抽工人（{{ recruitCost(game.save) }} 金）</button>
+      <button type="button" :class="{ 'guide-flash': guideFlashRecruit }" @click="game.recruit()">
+        抽工人（{{ recruitCost(game.save) }} 金）
+      </button>
     </div>
     <div v-if="groups.length" class="groups">
       <section v-for="g in groups" :key="g.tier" class="group">

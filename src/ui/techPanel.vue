@@ -16,11 +16,13 @@ import {
   type TechNodeDef,
   type TechTabId,
 } from '../sim/tech'
+import { isGuideQuestFlash, PATH_OUTPOST_TECH_ID } from '../sim/guideQuest'
 import type { TechId } from '../sim/types'
 import { useGameStore } from './gameStore'
 import { loadTechTab, saveTechTab } from './techTabs'
 
 const game = useGameStore()
+const guideFlashPathOutpost = computed(() => isGuideQuestFlash(game.save, 'pathOutpost'))
 const tab = ref<TechTabId>(loadTechTab())
 const selected = ref<TechNodeDef | null>(null)
 const points = computed(() => game.save.techPoints)
@@ -99,7 +101,7 @@ function closeSheet() {
         type="button"
         role="tab"
         :aria-selected="tab === id"
-        :class="{ on: tab === id }"
+        :class="{ on: tab === id, 'guide-flash': guideFlashPathOutpost && id === 'affairs' }"
         @click="selectTab(id)"
       >
         {{ TECH_TAB_LABELS[id] }}
@@ -114,7 +116,7 @@ function closeSheet() {
             :key="node.id"
             type="button"
             class="node"
-            :class="nodeClass(node)"
+            :class="[nodeClass(node), { 'guide-flash': guideFlashPathOutpost && node.id === PATH_OUTPOST_TECH_ID }]"
             :title="node.name"
             @click="onNode(node)"
           >
