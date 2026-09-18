@@ -367,6 +367,7 @@ function pickRecommend(w: Worker) {
               <span class="pick-name">
                 <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
                 <i v-if="isAssistWorker(w)" class="pick-assist">助战</i>
+                <CombatAttrRow class="pick-attrs" :attrs="w.combatAttrs" />
                 <b class="pick-worker-name" :style="workerQualityNameStyle(w)">{{ w.name ?? w.id }}</b>
                 <span class="pick-meta">· Lv{{ w.level }} · {{ workerJob(w) }} · HP {{ w.hp }}/{{ w.hpMax }}</span>
                 <i
@@ -375,7 +376,6 @@ function pickRecommend(w: Worker) {
                   :class="{ hot: pickRecommend(w) === '强烈推荐' }"
                 >{{ pickRecommend(w) }}</i>
               </span>
-              <CombatAttrRow :attrs="w.combatAttrs" />
             </button>
           </li>
           <li v-if="!pickCandidates.length" class="hint">没有休息中的工人</li>
@@ -745,7 +745,7 @@ ul {
 .pick-list button {
   width: 100%;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-start;
   gap: 6px;
@@ -759,6 +759,10 @@ ul {
   gap: 8px;
   font-family: var(--font-mono);
   color: var(--copper);
+}
+
+.pick-attrs {
+  flex: none;
 }
 
 .pick-worker-name {
