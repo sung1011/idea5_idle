@@ -13,7 +13,7 @@ export const GUIDE_QUEST_GOALS = [
   '在工坊中完成一次采矿产出',
   '在主线中成交开局铜矿当铺单',
   '在主线中成功探索一次',
-  '在科技中点亮探路哨岗',
+  '在科技的事务中点亮探路哨岗',
 ] as const
 
 export type GuideQuestView = {

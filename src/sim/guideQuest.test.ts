@@ -186,7 +186,7 @@ describe('guideQuest steps and claim', () => {
 
     save.techLevels = { pathOutpost: 1 }
     save.unlockedTechIds = ['pathOutpost']
-    expect(guideQuestView(save)?.goal).toBe('在科技中点亮探路哨岗')
+    expect(guideQuestView(save)?.goal).toBe('在科技的事务中点亮探路哨岗')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(GUIDE_QUEST_DONE_STEP)
     expect(save.gold).toBe(goldAfterPawn + GUIDE_QUEST_GOLD * 3)
