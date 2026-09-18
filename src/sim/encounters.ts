@@ -107,6 +107,25 @@ export const QUALITY_LABEL: Record<EncounterQuality, string> = {
   orange: QUALITY_TABLE.orange.label,
 }
 
+/** 本章 Boss 品质下限：低于橙抬到橙，橙及以上按原表保留。 */
+export const CHAPTER_BOSS_MIN_QUALITY: EncounterQuality = 'orange'
+
+export function qualityRank(quality: EncounterQuality): number {
+  const idx = QUALITY_IDS.indexOf(quality)
+  return idx >= 0 ? idx : 0
+}
+
+export function clampChapterBossQuality(quality: EncounterQuality): EncounterQuality {
+  return qualityRank(quality) < qualityRank(CHAPTER_BOSS_MIN_QUALITY) ? CHAPTER_BOSS_MIN_QUALITY : quality
+}
+
+/** 旧档低于橙的本章 Boss 抬到橙；小兵 / 精英不改。 */
+export function ensureChapterBossQuality(enc: Encounter): Encounter {
+  if (!isChapterBoss(enc)) return enc
+  enc.quality = clampChapterBossQuality(enc.quality)
+  return enc
+}
+
 /** 六种订单刷出权重。槽位仍是 5，类型按此袋抽。 */
 export const ENCOUNTER_KIND_WEIGHTS: Readonly<Record<EncounterKind, number>> = {
   enemy: 4,
@@ -627,18 +646,19 @@ function makeEnemy(
   chapter = 1,
   rng?: { rngState: number },
 ): EnemyEncounter {
+  const resolvedQuality = forceChapterBoss ? clampChapterBossQuality(quality) : quality
   const name = ENEMY_NAME_DEFS[(seed + slot) % ENEMY_NAME_DEFS.length]
-  const q = qualityDef(quality)
-  const enemyRank = mainlineEnemyRank(quality, forceChapterBoss)
+  const q = qualityDef(resolvedQuality)
+  const enemyRank = mainlineEnemyRank(resolvedQuality, forceChapterBoss)
   const itemId = rng
     ? pickMainNeedItem(rng)
     : MAIN_NEED_ITEM_POOL[(seed + slot) % MAIN_NEED_ITEM_POOL.length]
   return seedInitialRevealedWeaknesses({
     kind: 'enemy',
-    id: `${name.id}-${quality}-${seed}-${slot}`,
+    id: `${name.id}-${resolvedQuality}-${seed}-${slot}`,
     label: forceChapterBoss ? `${name.label}·首领` : name.label,
-    quality,
-    needs: scaledMainNeed(itemId, quality, chapter, forceChapterBoss),
+    quality: resolvedQuality,
+    needs: scaledMainNeed(itemId, resolvedQuality, chapter, forceChapterBoss),
     lootGold: scaleGold(enemyLootGoldFor(forceChapterBoss), q.outputMul),
     departed: false,
     combat: null,
@@ -973,6 +993,9 @@ function canRecycleForChapterBoss(enc: Encounter): boolean {
  * 不改战斗中 / 胜可领 / 败可再战，也不把未完成交易单直接改成 Boss。
  */
 export function ensureChapterBossSpawn(save: Save, now = Date.now()): void {
+  if (Array.isArray(save.encounters)) {
+    for (const enc of save.encounters) ensureChapterBossQuality(enc)
+  }
   if (!shouldForceChapterBoss(save, save.encounters)) return
   const current = Array.isArray(save.encounters) ? save.encounters.filter(isEncounter) : []
   const size = boardSizeFor(save, now)
@@ -1459,8 +1482,8 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
   // 旧档远近 / 强弱只读一遍：有 loot/needs 则原样留下，缺字段按品质表补。随后不再写入。
   void raw.distance
   void raw.power
-  const quality = readQuality(raw.quality)
   const chapterBoss = raw.chapterBoss === true
+  const quality = chapterBoss ? clampChapterBossQuality(readQuality(raw.quality)) : readQuality(raw.quality)
   const lootGold =
     typeof raw.lootGold === 'number'
       ? raw.lootGold

@@ -3,10 +3,14 @@ import { enemyCombatStats, isCombatLost } from './combat'
 import { createSave } from './createSave'
 import {
   claimLoot,
+  CHAPTER_BOSS_MIN_QUALITY,
+  clampChapterBossQuality,
   encounterFiller,
+  ensureChapterBossSpawn,
   exploreBoard,
   generateEncounterBoard,
   hydrateEncounterFields,
+  qualityRank,
   resizeEncounterBoard,
   shouldKeepOnExplore,
   startCombat,
@@ -425,6 +429,96 @@ describe('loot claim counter and chapter boss spawn', () => {
     expect(mainlineEnemyRank('purple', false)).toBe('elite')
     expect(mainlineEnemyRank('orange', false)).toBe('elite')
     expect(mainlineEnemyRank('green', true)).toBe('boss')
+  })
+
+  it('clamps chapter-boss quality to at least orange and leaves minion / elite rolls alone', () => {
+    expect(CHAPTER_BOSS_MIN_QUALITY).toBe('orange')
+    expect(clampChapterBossQuality('green')).toBe('orange')
+    expect(clampChapterBossQuality('orange')).toBe('orange')
+
+    for (let seed = 0; seed < 80; seed++) {
+      const board = generateEncounterBoard(seed, 6, { mainLootClaims: MAIN_LOOT_CLAIMS_GOAL })
+      for (const enc of board) {
+        if (enc.kind !== 'enemy') continue
+        if (enc.chapterBoss) {
+          expect(qualityRank(enc.quality)).toBeGreaterThanOrEqual(qualityRank('orange'))
+          expect(enc.enemyRank).toBe('boss')
+        } else {
+          expect(enc.enemyRank).not.toBe('boss')
+        }
+      }
+    }
+
+    const minion = firstEnemyOnBoard(0)
+    expect(minion.chapterBoss).not.toBe(true)
+    expect(['green', 'blue', 'purple', 'orange']).toContain(minion.quality)
+
+    const save = createSave()
+    const leftover = testEnemy({
+      id: 'keep-green-minion',
+      quality: 'green',
+      enemyRank: 'minion',
+      chapterBoss: false,
+      departed: false,
+      combat: null,
+      lootClaimed: false,
+    })
+    const elite = testEnemy({
+      id: 'keep-purple-elite',
+      quality: 'purple',
+      enemyRank: 'elite',
+      chapterBoss: false,
+      departed: false,
+      combat: null,
+      lootClaimed: false,
+    })
+    save.encounters = [leftover, elite]
+    ensureChapterBossSpawn(save)
+    expect(save.encounters[0].quality).toBe('green')
+    expect(save.encounters[1].quality).toBe('purple')
+  })
+
+  it('raises an old below-orange chapter boss to orange on hydrate and ensure', () => {
+    const lowBoss = testEnemy({
+      id: 'old-green-boss',
+      quality: 'green',
+      enemyRank: 'boss',
+      chapterBoss: true,
+      departed: false,
+      combat: null,
+      lootClaimed: false,
+    })
+    const loaded = hydrateEncounterFields({
+      ...createSave(),
+      mainLootClaims: MAIN_LOOT_CLAIMS_GOAL,
+      encounters: [lowBoss],
+    })
+    expect(loaded.encounters[0].kind).toBe('enemy')
+    if (loaded.encounters[0].kind === 'enemy') {
+      expect(loaded.encounters[0].id).toBe('old-green-boss')
+      expect(loaded.encounters[0].chapterBoss).toBe(true)
+      expect(loaded.encounters[0].quality).toBe('orange')
+    }
+
+    const save = createSave()
+    save.mainLootClaims = MAIN_LOOT_CLAIMS_GOAL
+    const blueBoss = testEnemy({
+      id: 'old-blue-boss',
+      quality: 'blue',
+      enemyRank: 'boss',
+      chapterBoss: true,
+      departed: false,
+      combat: null,
+      lootClaimed: false,
+    })
+    save.encounters = [blueBoss]
+    ensureChapterBossSpawn(save)
+    expect(save.encounters[0].kind).toBe('enemy')
+    if (save.encounters[0].kind === 'enemy') {
+      expect(save.encounters[0].id).toBe('old-blue-boss')
+      expect(save.encounters[0].chapterBoss).toBe(true)
+      expect(save.encounters[0].quality).toBe('orange')
+    }
   })
 })
 

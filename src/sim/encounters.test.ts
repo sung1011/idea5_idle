@@ -9,8 +9,11 @@ import {
   EXPLORE_COST_TABLE,
   PAWN_DEFS,
   PASSERBY_DEFS,
+  CHAPTER_BOSS_MIN_QUALITY,
   QUALITY_IDS,
   QUALITY_TABLE,
+  clampChapterBossQuality,
+  qualityRank,
   barterMerchant,
   boardSignature,
   buyMerchant,
@@ -870,6 +873,17 @@ describe('hydrateEncounterFields', () => {
 })
 
 describe('encounter quality', () => {
+  it('clamps chapter-boss quality up to orange and keeps orange-or-higher', () => {
+    expect(CHAPTER_BOSS_MIN_QUALITY).toBe('orange')
+    expect(QUALITY_TABLE.orange.id).toBe('orange')
+    expect(clampChapterBossQuality('gray')).toBe('orange')
+    expect(clampChapterBossQuality('green')).toBe('orange')
+    expect(clampChapterBossQuality('blue')).toBe('orange')
+    expect(clampChapterBossQuality('purple')).toBe('orange')
+    expect(clampChapterBossQuality('orange')).toBe('orange')
+    expect(qualityRank('orange')).toBeGreaterThan(qualityRank('purple'))
+  })
+
   it('keeps gray in the table but never rolls it, and value ratio rises with quality', () => {
     expect(QUALITY_TABLE.gray.weight).toBe(0)
     expect(QUALITY_IDS).toEqual(['gray', 'green', 'blue', 'purple', 'orange'])
