@@ -21,6 +21,8 @@ export const OFFLINE_CAP_S = 8 * 60 * 60
 export const START_GOLD = 80
 /** 高级代币占位。新档 0，本轮没有获得途径。 */
 export const START_DIAMONDS = 0
+/** 新档初始灵感。旧档 hydrate 不改写成这个数。 */
+export const START_TECH_POINTS = 20
 export const RECRUIT_COST = 15
 
 /** 每站派驻上限。第 3 人派入失败；旧档超出的人 hydrate 撤到休息。 */

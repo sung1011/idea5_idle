@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createSave } from '../sim/createSave'
+import { START_TECH_POINTS } from '../sim/tables'
 import { hydrateLoadedSave, loadSave, persistSave, SAVE_KEY } from './saveGame'
 
 function memory(): Storage {
@@ -102,7 +103,7 @@ describe('save migration', () => {
     expect(save?.stations.hunting.selectedCategory).toBe('copper')
     expect(save?.workerQualityRev).toBe(2)
     expect(save?.knightLevel).toBe(1)
-    expect(save?.techPoints).toBe(1)
+    expect(save?.techPoints).toBe(START_TECH_POINTS)
     expect(save?.unlockedTechIds).toEqual([])
   })
 
@@ -257,5 +258,12 @@ describe('save migration', () => {
     const legacy = hydrateLoadedSave(legacyPlayed)
     expect(legacy?.knightLevel).toBe(5)
     expect(legacy?.techPoints).toBe(9)
+
+    const oldOnePoint = hydrateLoadedSave({
+      ...createSave(),
+      techPoints: 1,
+    })
+    expect(oldOnePoint?.techPoints).toBe(1)
+    expect(oldOnePoint?.techPoints).not.toBe(START_TECH_POINTS)
   })
 })

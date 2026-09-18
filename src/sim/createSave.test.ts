@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createSave, normalizeDiamonds } from './createSave'
 import { spawnWorker } from './recruit'
-import { PLAYABLE_STATION_IDS, START_DIAMONDS, START_GOLD, STATION_IDS, WORKER_QUALITY_REV } from './tables'
+import { PLAYABLE_STATION_IDS, START_DIAMONDS, START_GOLD, START_TECH_POINTS, STATION_IDS, WORKER_QUALITY_REV } from './tables'
 
 describe('createSave diamonds', () => {
   it('starts diamonds at 0 as a premium-token placeholder', () => {
@@ -47,7 +47,8 @@ describe('createSave seven stations', () => {
     expect(worker.xp).toBe(0)
     expect(save.workerQualityRev).toBe(WORKER_QUALITY_REV)
     expect(save.knightLevel).toBe(1)
-    expect(save.techPoints).toBe(1)
+    expect(save.techPoints).toBe(START_TECH_POINTS)
+    expect(save.techPoints).toBe(20)
     expect(save.unlockedTechIds).toEqual([])
     expect(save.techLevels).toEqual({})
     expect(save.encounters).toHaveLength(1)

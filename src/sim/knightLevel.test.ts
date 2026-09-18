@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createSave } from './createSave'
 import { computeKnightLevel, normalizeKnightLevel, syncKnightLevel } from './knightLevel'
 import { grantStationXp } from './stationProgress'
-import { PLAYABLE_STATION_IDS, xpToNextLevel } from './tables'
+import { PLAYABLE_STATION_IDS, START_TECH_POINTS, xpToNextLevel } from './tables'
 import { hydrateTechFields } from './tech'
 import type { Save } from './types'
 
@@ -13,7 +13,7 @@ describe('knight level formula', () => {
     expect(PLAYABLE_STATION_IDS.every((id) => save.stations[id].stationLevel === 1)).toBe(true)
     expect(computeKnightLevel(save)).toBe(1)
     expect(save.knightLevel).toBe(1)
-    expect(save.techPoints).toBe(1)
+    expect(save.techPoints).toBe(START_TECH_POINTS)
   })
 
   it('uses 1 + sum(stationLevel - 1), not the raw level sum', () => {
@@ -36,12 +36,12 @@ describe('knight level grants inspiration', () => {
   it('gives +1 inspiration when a station upgrade raises knight level by 1', () => {
     const save = createSave()
     expect(save.knightLevel).toBe(1)
-    expect(save.techPoints).toBe(1)
+    expect(save.techPoints).toBe(START_TECH_POINTS)
 
     grantStationXp(save, 'mining', xpToNextLevel(1))
     expect(save.stations.mining.stationLevel).toBe(2)
     expect(save.knightLevel).toBe(2)
-    expect(save.techPoints).toBe(2)
+    expect(save.techPoints).toBe(START_TECH_POINTS + 1)
     expect(save.messages[0]?.title).toBe('骑士升级')
     expect(save.stations.mining.progressNotice).toContain('骑士升到 Lv2')
   })
@@ -49,11 +49,11 @@ describe('knight level grants inspiration', () => {
   it('does not grant again when the snapshot already matches', () => {
     const save = createSave()
     grantStationXp(save, 'mining', xpToNextLevel(1))
-    expect(save.techPoints).toBe(2)
+    expect(save.techPoints).toBe(START_TECH_POINTS + 1)
     syncKnightLevel(save)
     syncKnightLevel(save)
     expect(save.knightLevel).toBe(2)
-    expect(save.techPoints).toBe(2)
+    expect(save.techPoints).toBe(START_TECH_POINTS + 1)
   })
 })
 

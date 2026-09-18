@@ -319,7 +319,7 @@ export type Save = {
    * 旧档缺字段按公式写入快照，不把缺字段当成 1 去灌差额。
    */
   knightLevel: number
-  /** 账号级灵感。任意站完成周期 +1；骑士等级每升 1 级 +1。旧档缺字段 / 别名 `inspiration` hydrate 为点数，不无故重置成 1。 */
+  /** 账号级灵感。新档 START_TECH_POINTS；骑士等级每升 1 级 +1。旧档缺字段 / 别名 `inspiration` hydrate 为点数，不无故重置成新档初始值。 */
   techPoints: number
   /**
    * 已点亮的科技 id（`techLevels[id] >= 1`）。三页签各自成串，买任意 1 个开上一层，同行可补买。

@@ -335,7 +335,7 @@ export function techRow(tab: TechTabId, row: number): TechRowDef | undefined {
 }
 
 export function techReadyLabel(node: TechNodeDef): string {
-  return node.implemented ? '已实装' : '未实装（效果尚未实现）'
+  return node.implemented ? '已实装' : '未实装'
 }
 
 export function normalizeTechPoints(value: unknown): number {

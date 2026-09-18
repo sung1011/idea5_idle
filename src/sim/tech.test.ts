@@ -132,7 +132,7 @@ describe('tech tab row table', () => {
       true,
     )
     expect(techTab('combat').rows.every((row) => row.options.every((option) => !option.implemented))).toBe(true)
-    expect(techReadyLabel(techRow('combat', 1)!.options[0])).toBe('未实装（效果尚未实现）')
+    expect(techReadyLabel(techRow('combat', 1)!.options[0])).toBe('未实装')
   })
 })
 
@@ -211,7 +211,7 @@ describe('inspiration grant', () => {
     assignWorker(mine, mine.workers[0].id, 'mining')
     const mined = ticks(mine, 20)
     expect(mined.stations.mining.completed).toBe(1)
-    expect(mined.techPoints).toBe(1)
+    expect(mined.techPoints).toBe(20)
 
     setRollOverride(() => 0.99)
     const forge = createSave()
@@ -220,7 +220,7 @@ describe('inspiration grant', () => {
     forge.bank.ore = 1
     const forged = ticks(forge, 32)
     expect(forged.stations.forging.completed).toBe(1)
-    expect(forged.techPoints).toBe(1)
+    expect(forged.techPoints).toBe(20)
   })
 
   it('does not grant inspiration on a forging soft-fail cycle', () => {
@@ -231,7 +231,7 @@ describe('inspiration grant', () => {
     save.bank.ore = 1
     expect(completeCycle(save, 'forging')).toBe(true)
     expect(save.stations.forging.craftNotice).toContain('软失败')
-    expect(save.techPoints).toBe(1)
+    expect(save.techPoints).toBe(20)
   })
 })
 

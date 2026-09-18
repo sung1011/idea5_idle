@@ -37,9 +37,7 @@ const selectedLive = computed(() => {
   return {
     node,
     maxed: isTechMaxed(game.save, node.id),
-    progress: techProgressText(game.save, node.id),
     activateLabel: techActivateLabel(game.save, node.id),
-    readyLine: techReadyLabel(node),
   }
 })
 
@@ -122,6 +120,7 @@ function closeSheet() {
           >
             <span class="ico" aria-hidden="true">{{ node.icon }}</span>
             <strong>{{ node.name }}</strong>
+            <i class="impl" :class="node.implemented ? 'yes' : 'no'">{{ techReadyLabel(node) }}</i>
             <i class="prog">{{ progress(node.id) }}</i>
             <i v-if="maxed(node.id)" class="mark" aria-hidden="true">✓</i>
           </button>
@@ -137,7 +136,6 @@ function closeSheet() {
             <h2 class="title">{{ selectedLive.node.name }}</h2>
             <button type="button" class="close" @click="closeSheet">关闭</button>
           </header>
-          <p class="ready">{{ selectedLive.readyLine }} · {{ selectedLive.progress }}</p>
           <p class="desc">{{ selectedLive.node.desc }}</p>
           <div class="actions">
             <button
@@ -182,8 +180,7 @@ p,
 
 .kicker,
 .hint,
-.desc,
-.ready {
+.desc {
   color: var(--muted);
   font-size: 13px;
 }
@@ -284,8 +281,8 @@ p,
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-height: 72px;
-  padding: 8px 6px;
+  min-height: 80px;
+  padding: 10px 6px 8px;
 }
 
 .node strong {
@@ -298,6 +295,37 @@ p,
 .node .ico {
   font-size: 22px;
   line-height: 1;
+}
+
+.node .impl {
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.node .impl.yes {
+  color: #245c10;
+  background: rgba(47, 107, 18, 0.16);
+}
+
+.node .impl.no {
+  color: #7a5a38;
+  background: rgba(80, 48, 12, 0.1);
+}
+
+.node.on .impl.yes {
+  color: #f3ffe4;
+  background: rgba(255, 253, 248, 0.22);
+}
+
+.node.on .impl.no {
+  color: #fff3d4;
+  background: rgba(40, 24, 8, 0.18);
 }
 
 .node .prog {
@@ -383,11 +411,6 @@ p,
 .close {
   min-height: 32px;
   padding: 4px 10px;
-}
-
-.ready {
-  color: var(--ink);
-  font-weight: 700;
 }
 
 .actions {

@@ -74,7 +74,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
   }
   migrateWorkerToolsToStations(merged, parsed.workers)
   clampStationAssignments(merged)
-  // createSave 新档默认灵感 1；旧档缺字段时先拿掉，交给 hydrate 读点数 / 别名，避免无故变成 1。
+  // createSave 新档默认灵感 START_TECH_POINTS；旧档缺字段时先拿掉，交给 hydrate 读点数 / 别名，避免无故变成新档初始值。
   if (!Object.prototype.hasOwnProperty.call(parsed, 'techPoints')) {
     delete (merged as { techPoints?: number }).techPoints
   }
