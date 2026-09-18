@@ -5,8 +5,6 @@ import CombatAttrIcon from './combatAttrIcon.vue'
 import CombatAttrRow from './combatAttrRow.vue'
 import {
   COMBAT_PARTY_MAX,
-  COMBAT_STATUS_LABEL,
-  combatStatus,
   isCombatLost,
   isCombatWon,
   isFighting,
@@ -128,10 +126,6 @@ function cardClass(enc: Encounter) {
   }
 }
 
-function statusText(enc: EnemyEncounter) {
-  return COMBAT_STATUS_LABEL[combatStatus(enc)]
-}
-
 function workerJob(w: Worker) {
   return w.classId ? CLASS_LABEL[w.classId] : '未标'
 }
@@ -206,7 +200,6 @@ function pickRecommend(w: Worker) {
               :attr="slot"
             />
           </p>
-          <p class="ready">{{ statusText(enc) }}</p>
           <template v-if="enc.combat">
             <div class="bars">
               <p class="bar-line">
@@ -266,7 +259,6 @@ function pickRecommend(w: Worker) {
           <EncounterDealLines :encounter="enc" />
 
           <template v-if="enc.kind === 'blackMerchant'">
-            <p v-if="enc.completed" class="ready">这笔买卖已成交</p>
             <div class="row">
               <span class="act-hit" @click="warnConsumeShort(i)">
                 <button
@@ -281,7 +273,6 @@ function pickRecommend(w: Worker) {
           </template>
 
           <template v-else-if="enc.kind === 'passerby'">
-            <p v-if="enc.completed" class="ready">这笔买卖已成交</p>
             <div class="row">
               <span class="act-hit" @click="warnConsumeShort(i)">
                 <button
@@ -296,7 +287,6 @@ function pickRecommend(w: Worker) {
           </template>
 
           <template v-else-if="enc.kind === 'pawn'">
-            <p v-if="enc.completed" class="ready">这笔买卖已成交</p>
             <div class="row">
               <span class="act-hit" @click="warnConsumeShort(i)">
                 <button
@@ -311,7 +301,6 @@ function pickRecommend(w: Worker) {
           </template>
 
           <template v-else-if="enc.kind === 'artisan'">
-            <p v-if="enc.completed" class="ready">委托已完成</p>
             <div class="row">
               <span class="act-hit" @click="warnConsumeShort(i)">
                 <button
@@ -326,7 +315,6 @@ function pickRecommend(w: Worker) {
           </template>
 
           <template v-else-if="enc.kind === 'bulkBuy'">
-            <p v-if="enc.completed" class="ready">这笔收购已成交</p>
             <div class="row">
               <span class="act-hit" @click="warnConsumeShort(i)">
                 <button
@@ -671,10 +659,6 @@ ul {
 .hint {
   color: var(--muted);
   font-size: 14px;
-}
-
-.ready {
-  color: var(--moss);
 }
 
 .weak {

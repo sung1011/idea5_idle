@@ -178,6 +178,8 @@ describe('combat timeline', () => {
 
     stepEnemyCombat(save, enc, now + 32_000)
     expect(enc.combat?.workers.some((w) => w.hp < w.hpMax)).toBe(true)
+    expect(a.hp).toBe(enc.combat?.workers.find((w) => w.id === a.id)?.hp)
+    expect(b.hp).toBe(enc.combat?.workers.find((w) => w.id === b.id)?.hp)
 
     if (enc.combat) enc.combat.enemy.hp = 1
     stepEnemyCombat(save, enc, now + 35_000)
@@ -212,6 +214,30 @@ describe('combat timeline', () => {
     stepEnemyCombat(save, enc, now + 1_000)
     expect(combat.workers[1].hp).toBe(beforeB - combat.enemy.atk)
     expect(combat.workers[0].hp).toBe(beforeA)
+    expect(b.hp).toBe(combat.workers[1].hp)
+    expect(a.hp).toBe(combat.workers[0].hp)
+  })
+
+  it('writes enemy hits back to save.workers hp while the fight is still going', () => {
+    const save = createSave()
+    const worker = spawnWorkerWith(save, 1, 'laborer')
+    const enc = testEnemy()
+    putEnemy(save, enc)
+    const now = 20_000
+    const combat = beginEnemyCombat(enc, [worker], now)
+    const startHp = worker.hp
+    combat.workers[0].nextActAt = now + 9_000
+    combat.enemy.nextActAt = now + 1_000
+    stepEnemyCombat(save, enc, now + 1_000)
+    expect(isFighting(enc)).toBe(true)
+    expect(combat.outcome).toBeNull()
+    expect(combat.workers[0].hp).toBe(startHp - combat.enemy.atk)
+    expect(worker.hp).toBe(combat.workers[0].hp)
+    expect(worker.hp).toBeLessThan(startHp)
+
+    save.elapsedS = REST_HEAL_EVERY_S
+    applyRestHeal(save)
+    expect(worker.hp).toBe(combat.workers[0].hp)
   })
 
   it('times out as a loss, writes wounds, and lets a rematch take supplies again', () => {
@@ -469,5 +495,7 @@ describe('rest heal', () => {
     expect(restAfter?.hp).toBeGreaterThan(5)
     const busyAfter = healed.workers.find((w) => w.id === busy.id)
     expect(busyAfter?.hp).toBe(4)
+    const fightAfter = healed.workers.find((w) => w.id === fight.id)
+    expect(fightAfter?.hp).toBe(4)
   })
 })

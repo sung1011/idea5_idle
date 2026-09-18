@@ -35,8 +35,8 @@ function memory(): Storage {
 }
 
 describe('appNav', () => {
-  it('keeps the dock order 主线 | 工坊 | 工人 | 科技 and falls back to 主线', () => {
-    expect(APP_TABS.map((tab) => tab.id)).toEqual(['encounters', 'workshop', 'workers', 'tech'])
+  it('keeps the dock order 工坊 | 工人 | 主线 | 科技 and falls back to 主线', () => {
+    expect(APP_TABS.map((tab) => tab.id)).toEqual(['workshop', 'workers', 'encounters', 'tech'])
     expect(DEFAULT_APP_TAB).toBe('encounters')
     expect(selectAppTab('nope')).toBe('encounters')
     expect(appTab.value).toBe('encounters')

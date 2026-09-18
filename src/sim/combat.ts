@@ -357,11 +357,17 @@ export function pickEnemyTarget(combat: EnemyCombat): CombatFighter | undefined 
   return best
 }
 
+function writeBackFighterHp(save: Save, fighter: CombatFighter): void {
+  const worker = save.workers.find((w) => w.id === fighter.id)
+  if (!worker) return
+  worker.hp = clampInt(fighter.hp, 0, worker.hpMax)
+}
+
 function writeBackWorkers(save: Save, combat: EnemyCombat): void {
   for (const fighter of combat.workers) {
     const worker = save.workers.find((w) => w.id === fighter.id)
     if (!worker) continue
-    worker.hp = clampInt(fighter.hp, 0, worker.hpMax)
+    writeBackFighterHp(save, fighter)
     if (worker.assignment !== null) worker.assignment = null
   }
 }
@@ -381,6 +387,7 @@ function finishCombat(
 }
 
 function strike(
+  save: Save,
   enc: EnemyEncounter,
   combat: EnemyCombat,
   at: number,
@@ -402,6 +409,7 @@ function strike(
     return
   }
   target.hp = Math.max(0, target.hp - attacker.atk)
+  writeBackFighterHp(save, target)
   emitLog(
     enc,
     combat,
@@ -466,9 +474,9 @@ export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number, on
           finishCombat(save, enc, combat, nextAt, 'lose', '全员倒下，战败', onLog)
           break
         }
-        strike(enc, combat, nextAt, actor, target, onLog)
+        strike(save, enc, combat, nextAt, actor, target, onLog)
       } else {
-        strike(enc, combat, nextAt, actor, combat.enemy, onLog)
+        strike(save, enc, combat, nextAt, actor, combat.enemy, onLog)
       }
       actor.nextActAt = nextAt + actor.spd * 1000
     }
