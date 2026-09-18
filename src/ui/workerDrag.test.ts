@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { assignWorker } from '../sim/assign'
 import { createSave } from '../sim/createSave'
 import { spawnWorkerWith } from '../sim/recruit'
-import { STATION_WORKER_CAP } from '../sim/tables'
+import { QUALITY_MAX, STATION_WORKER_CAP } from '../sim/tables'
 import {
   applyWorkerDrag,
   canDragWorker,
@@ -63,33 +63,64 @@ describe('worker drag assign', () => {
     expect(busy.assignment).toBeNull()
   })
 
-  it('moves between stations when the target has room and swaps slots on the same station', () => {
+  it('moves onto an empty slot of another station when that station has room', () => {
     const save = createSave()
-    const miner = spawnWorkerWith(save, 2, 'miner')
-    const mate = spawnWorkerWith(save, 3, 'laborer')
     const cook = spawnWorkerWith(save, 1, 'cook')
-    assignWorker(save, miner.id, 'mining')
-    assignWorker(save, mate.id, 'mining')
     assignWorker(save, cook.id, 'cooking')
-    expect(slotOccupantId(save, 'mining', 0)).toBe(miner.id)
-    expect(slotOccupantId(save, 'mining', 1)).toBe(mate.id)
-
-    expect(
-      applyWorkerDrag(
-        save,
-        { kind: 'slot', workerId: miner.id, stationId: 'mining', slotIndex: 0 },
-        { kind: 'slot', stationId: 'mining', slotIndex: 1 },
-      ),
-    ).toEqual({ ok: true })
-    expect(slotOccupantId(save, 'mining', 0)).toBe(mate.id)
-    expect(slotOccupantId(save, 'mining', 1)).toBe(miner.id)
-    expect(miner.assignment).toBe('mining')
-    expect(mate.assignment).toBe('mining')
-
     const fromCook = { kind: 'slot' as const, workerId: cook.id, stationId: 'cooking' as const, slotIndex: 0 }
-    expect(canDropWorker(save, fromCook, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toBe(false)
     expect(applyWorkerDrag(save, fromCook, { kind: 'slot', stationId: 'forging', slotIndex: 0 })).toEqual({ ok: true })
     expect(cook.assignment).toBe('forging')
+  })
+
+  it('fuses when dropped onto a same-tier occupant and keeps the new worker at the station', () => {
+    const save = createSave()
+    const idle = spawnWorkerWith(save, 1, 'laborer')
+    const busy = spawnWorkerWith(save, 1, 'artisan')
+    assignWorker(save, busy.id, 'mining')
+    const restToMate = { kind: 'rest' as const, workerId: idle.id }
+    expect(canDropWorker(save, restToMate, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toBe(true)
+    const fused = applyWorkerDrag(save, restToMate, { kind: 'slot', stationId: 'mining', slotIndex: 0 })
+    expect(fused.ok).toBe(true)
+    if (fused.ok) expect(fused.message).toMatch(/^合成出/)
+    expect(save.workers).toHaveLength(1)
+    expect(save.workers[0]?.qualityTier).toBe(2)
+    expect(save.workers[0]?.assignment).toBe('mining')
+
+    const left = spawnWorkerWith(save, 2, 'miner')
+    const right = spawnWorkerWith(save, 2, 'hunter')
+    assignWorker(save, left.id, 'forging')
+    assignWorker(save, right.id, 'forging')
+    const sameStation = applyWorkerDrag(
+      save,
+      { kind: 'slot', workerId: left.id, stationId: 'forging', slotIndex: 0 },
+      { kind: 'slot', stationId: 'forging', slotIndex: 1 },
+    )
+    expect(sameStation.ok).toBe(true)
+    const forged = save.workers.filter((w) => w.assignment === 'forging')
+    expect(forged).toHaveLength(1)
+    expect(forged[0]?.qualityTier).toBe(3)
+  })
+
+  it('rejects occupied drops that cannot fuse', () => {
+    const save = createSave()
+    const idle = spawnWorkerWith(save, 1, 'laborer')
+    const green = spawnWorkerWith(save, 2, 'miner')
+    const maxA = spawnWorkerWith(save, QUALITY_MAX, 'knight')
+    const maxB = spawnWorkerWith(save, QUALITY_MAX, 'steward')
+    assignWorker(save, green.id, 'mining')
+    assignWorker(save, maxA.id, 'alchemy')
+    expect(canDropWorker(save, { kind: 'rest', workerId: idle.id }, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toBe(
+      false,
+    )
+    expect(
+      applyWorkerDrag(save, { kind: 'rest', workerId: idle.id }, { kind: 'slot', stationId: 'mining', slotIndex: 0 }),
+    ).toEqual({ ok: false, reason: '品质不同，不能合成' })
+    expect(idle.assignment).toBeNull()
+    expect(
+      applyWorkerDrag(save, { kind: 'rest', workerId: maxB.id }, { kind: 'slot', stationId: 'alchemy', slotIndex: 0 }),
+    ).toEqual({ ok: false, reason: '已是最高品质' })
+    expect(maxB.assignment).toBeNull()
+    expect(slotOccupantId(save, 'mining', 0)).toBe(green.id)
   })
 
   it('parses drop targets and keeps combat workers undraggable', () => {

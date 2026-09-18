@@ -1,7 +1,8 @@
 import { assignedWorkers, assignWorker } from '../sim/assign'
 import { isWorkerInCombat } from '../sim/combat'
+import { canFuseWorkerWithStation, fuseWorkerWithStation } from '../sim/fuse'
 import { findWorker } from '../sim/recruit'
-import { isStationId, STATION_WORKER_CAP } from '../sim/tables'
+import { isStationId, QUALITY_MAX, STATION_WORKER_CAP } from '../sim/tables'
 import type { ActionResult, Save, StationId } from '../sim/types'
 import { workshopStationBoards } from './workerGroups'
 
@@ -54,6 +55,13 @@ export function sameDragEndpoint(source: WorkerDragSource, target: WorkerDropTar
   )
 }
 
+export function canFuseDragOnSlot(save: Save, source: WorkerDragSource, target: WorkerDropTarget): boolean {
+  if (target.kind !== 'slot') return false
+  const occupantId = slotOccupantId(save, target.stationId, target.slotIndex)
+  if (!occupantId || occupantId === source.workerId) return false
+  return canFuseWorkerWithStation(save, source.workerId, target.stationId)
+}
+
 export function canDropWorker(save: Save, source: WorkerDragSource, target: WorkerDropTarget): boolean {
   const worker = findWorker(save, source.workerId)
   if (!worker || isWorkerInCombat(save, worker.id)) return false
@@ -62,22 +70,30 @@ export function canDropWorker(save: Save, source: WorkerDragSource, target: Work
   if (target.kind === 'rest') return source.kind === 'slot'
 
   const occupantId = slotOccupantId(save, target.stationId, target.slotIndex)
-  const filled = assignedWorkers(save, target.stationId).length
-  if (worker.assignment === target.stationId) return occupantId !== null && occupantId !== worker.id
-  if (source.kind === 'rest') return occupantId === null && filled < STATION_WORKER_CAP
-  return filled < STATION_WORKER_CAP
+  if (occupantId) return canFuseDragOnSlot(save, source, target)
+  if (worker.assignment === target.stationId) return false
+  return assignedWorkers(save, target.stationId).length < STATION_WORKER_CAP
 }
 
-function swapWorkerOrder(save: Save, aId: string, bId: string): ActionResult {
-  const i = save.workers.findIndex((w) => w.id === aId)
-  const j = save.workers.findIndex((w) => w.id === bId)
-  if (i < 0 || j < 0 || i === j) return { ok: false, reason: '不能换槽' }
-  const left = save.workers[i]
-  const right = save.workers[j]
-  if (!left || !right) return { ok: false, reason: '不能换槽' }
-  save.workers[i] = right
-  save.workers[j] = left
-  return { ok: true }
+function rejectOccupiedDrop(save: Save, source: WorkerDragSource, target: Extract<WorkerDropTarget, { kind: 'slot' }>): ActionResult {
+  const worker = findWorker(save, source.workerId)
+  const occupant = findWorker(save, slotOccupantId(save, target.stationId, target.slotIndex) ?? '')
+  if (worker && occupant) {
+    if (worker.qualityTier >= QUALITY_MAX || occupant.qualityTier >= QUALITY_MAX) {
+      return { ok: false, reason: '已是最高品质' }
+    }
+    if (worker.qualityTier !== occupant.qualityTier) {
+      return { ok: false, reason: '品质不同，不能合成' }
+    }
+  }
+  if (
+    worker &&
+    worker.assignment !== target.stationId &&
+    assignedWorkers(save, target.stationId).length >= STATION_WORKER_CAP
+  ) {
+    return { ok: false, reason: '该站最多 2 人' }
+  }
+  return { ok: false, reason: '不能派驻到这里' }
 }
 
 export function applyWorkerDrag(save: Save, source: WorkerDragSource, target: WorkerDropTarget): ActionResult {
@@ -86,6 +102,9 @@ export function applyWorkerDrag(save: Save, source: WorkerDragSource, target: Wo
   if (!worker) return { ok: false, reason: '没有这个 worker' }
   if (isWorkerInCombat(save, worker.id)) return { ok: false, reason: '正在战斗' }
   if (!canDropWorker(save, source, target)) {
+    if (target.kind === 'slot' && slotOccupantId(save, target.stationId, target.slotIndex)) {
+      return rejectOccupiedDrop(save, source, target)
+    }
     if (
       target.kind === 'slot' &&
       worker.assignment !== target.stationId &&
@@ -96,10 +115,8 @@ export function applyWorkerDrag(save: Save, source: WorkerDragSource, target: Wo
     return { ok: false, reason: '不能派驻到这里' }
   }
   if (target.kind === 'rest') return assignWorker(save, source.workerId, null)
-  if (source.kind === 'slot' && worker.assignment === target.stationId) {
-    const otherId = slotOccupantId(save, target.stationId, target.slotIndex)
-    if (!otherId) return { ok: true }
-    return swapWorkerOrder(save, source.workerId, otherId)
+  if (canFuseDragOnSlot(save, source, target)) {
+    return fuseWorkerWithStation(save, source.workerId, target.stationId)
   }
   return assignWorker(save, source.workerId, target.stationId)
 }

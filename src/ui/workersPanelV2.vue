@@ -133,10 +133,6 @@ function sheetMeta(w: Worker) {
   return `${qualityOf(w).label} · ${jobLabel(w)} · Lv${w.level} · ${workerDutyLabel(game.save, w)}`
 }
 
-function restMeta(w: Worker) {
-  return fighting(w) ? '战斗中' : '休息中'
-}
-
 function openSheet(w: Worker) {
   selectedId.value = w.id
 }
@@ -366,7 +362,6 @@ onUnmounted(unbindDrag)
                     Lv{{ w.level }}
                   </small>
                 </span>
-                <span class="rest-meta">{{ restMeta(w) }} · HP {{ w.hp }}/{{ w.hpMax }}</span>
                 <HpBar compact :hp="w.hp" :hp-max="w.hpMax" />
               </span>
             </button>
@@ -675,8 +670,7 @@ onUnmounted(unbindDrag)
 }
 
 .slot-main small,
-.rest-top small,
-.rest-meta {
+.rest-top small {
   display: block;
   color: var(--muted);
   font-size: 9px;
