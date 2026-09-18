@@ -1,4 +1,4 @@
-import { isStarterCopperPawn } from './encounters'
+import { isEncounterDone, isStarterCopperPawn } from './encounters'
 import { techLevel } from './tech'
 import type { ActionResult, Encounter, Save } from './types'
 
@@ -11,7 +11,7 @@ export const PATH_OUTPOST_TECH_ID = 'pathOutpost'
 export const GUIDE_QUEST_GOALS = [
   '在工人中抽取工人（≥1）',
   '在工坊中完成一次采矿产出',
-  '在主线中成交开局铜矿当铺单',
+  '在主线中完成订单',
   '在主线中成功探索一次',
   '在科技的事务中点亮探路哨岗',
 ] as const
@@ -39,6 +39,27 @@ export function hasCompletedStarterCopperPawn(encounters: readonly Encounter[]):
   return encounters.some((enc) => isStarterCopperPawn(enc) && enc.completed)
 }
 
+export function hasCompletedMainlineOrder(save: Pick<Save, 'encounters' | 'starterCopperPawnDone'>): boolean {
+  if (save.starterCopperPawnDone) return true
+  return save.encounters.some((enc) => isEncounterDone(enc))
+}
+
+export function openDealEncounters(encounters: readonly Encounter[]): Encounter[] {
+  return encounters.filter((enc) => enc.kind !== 'enemy' && !enc.completed)
+}
+
+/** 步骤 3 要闪的那笔可成交单：开局铜矿当还在则优先，否则第一笔未成交交易。 */
+export function guideQuestDealFlashEncounter(save: Save): Encounter | null {
+  if (!isGuideQuestFlash(save, 'deal')) return null
+  const open = openDealEncounters(save.encounters)
+  return open.find((enc) => isStarterCopperPawn(enc)) ?? open[0] ?? null
+}
+
+export function isGuideQuestDealFlash(save: Save, enc: Encounter): boolean {
+  const target = guideQuestDealFlashEncounter(save)
+  return !!target && target.id === enc.id
+}
+
 export function hasStarterCopperPawn(encounters: readonly Encounter[]): boolean {
   return encounters.some((enc) => isStarterCopperPawn(enc))
 }
@@ -50,7 +71,7 @@ export function guideQuestProgressAt(save: Save, step: number): 0 | 1 {
     case 2:
       return (save.stations.mining?.completed ?? 0) >= 1 ? 1 : 0
     case 3:
-      return save.starterCopperPawnDone || hasCompletedStarterCopperPawn(save.encounters) ? 1 : 0
+      return hasCompletedMainlineOrder(save) ? 1 : 0
     case 4:
       return (Number.isFinite(save.exploreCount) ? save.exploreCount : 0) >= 1 ? 1 : 0
     case 5:
@@ -77,7 +98,7 @@ export function isGuideQuestVisible(save: Save): boolean {
 }
 
 /** 当前未完成步要闪的目标。可领 / 已完成 / 浮层关闭则为 null。 */
-export type GuideQuestFlashId = 'recruit' | 'mining' | 'starterPawn' | 'explore' | 'pathOutpost'
+export type GuideQuestFlashId = 'recruit' | 'mining' | 'deal' | 'explore' | 'pathOutpost'
 
 export function guideQuestFlashId(save: Save): GuideQuestFlashId | null {
   const view = guideQuestView(save)
@@ -88,7 +109,7 @@ export function guideQuestFlashId(save: Save): GuideQuestFlashId | null {
     case 2:
       return 'mining'
     case 3:
-      return 'starterPawn'
+      return 'deal'
     case 4:
       return 'explore'
     case 5:
@@ -132,7 +153,7 @@ export function hydrateGuideQuestFields(save: Save, raw?: object): Save {
   const hadPawn = !!raw && Object.prototype.hasOwnProperty.call(raw, 'starterCopperPawnDone')
   const incoming = save as Save & { starterCopperPawnDone?: unknown; guideQuestStep?: unknown }
 
-  if (hasCompletedStarterCopperPawn(save.encounters)) {
+  if (save.encounters.some((enc) => isEncounterDone(enc)) || hasCompletedStarterCopperPawn(save.encounters)) {
     incoming.starterCopperPawnDone = true
   } else if (hadPawn) {
     incoming.starterCopperPawnDone = normalizeStarterCopperPawnDone(incoming.starterCopperPawnDone)

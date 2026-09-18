@@ -17,13 +17,12 @@ import {
   exploreCost,
   formatMarchClock,
   isEncounterDone,
-  isStarterCopperPawn,
   isWorkshopBuffActive,
   stampLabel,
   workshopBuffMul,
   workshopBuffRemainS,
 } from '../sim/encounters'
-import { isGuideQuestFlash } from '../sim/guideQuest'
+import { isGuideQuestDealFlash, isGuideQuestFlash } from '../sim/guideQuest'
 import { mainChapterTitle, mainLootClaimBarLabel, mainLootClaimFillPct } from '../sim/mainChapter'
 import { CLASS_LABEL } from '../sim/tables'
 import type { Encounter, EncounterKind, EnemyEncounter, Worker } from '../sim/types'
@@ -41,7 +40,9 @@ import {
 
 const game = useGameStore()
 const guideFlashExplore = computed(() => isGuideQuestFlash(game.save, 'explore'))
-const guideFlashStarterPawn = computed(() => isGuideQuestFlash(game.save, 'starterPawn'))
+function guideFlashDeal(enc: Encounter) {
+  return isGuideQuestDealFlash(game.save, enc)
+}
 const cost = computed(() => exploreCost(game.save))
 const chapterTitle = computed(() => mainChapterTitle(game.save))
 const lootBarLabel = computed(() => mainLootClaimBarLabel(game.save))
@@ -265,6 +266,7 @@ function pickRecommend(w: Worker) {
               <span class="act-hit" @click="warnConsumeShort(i)">
                 <button
                   type="button"
+                  :class="{ 'guide-flash': guideFlashDeal(enc) }"
                   :disabled="enc.completed || consumeShort(i)"
                   @click.stop="game.buyMerchant(i)"
                 >
@@ -279,6 +281,7 @@ function pickRecommend(w: Worker) {
               <span class="act-hit" @click="warnConsumeShort(i)">
                 <button
                   type="button"
+                  :class="{ 'guide-flash': guideFlashDeal(enc) }"
                   :disabled="enc.completed || consumeShort(i)"
                   @click.stop="game.barter(i)"
                 >
@@ -293,7 +296,7 @@ function pickRecommend(w: Worker) {
               <span class="act-hit" @click="warnConsumeShort(i)">
                 <button
                   type="button"
-                  :class="{ 'guide-flash': guideFlashStarterPawn && isStarterCopperPawn(enc) }"
+                  :class="{ 'guide-flash': guideFlashDeal(enc) }"
                   :disabled="enc.completed || consumeShort(i)"
                   @click.stop="game.pawn(i)"
                 >
@@ -308,6 +311,7 @@ function pickRecommend(w: Worker) {
               <span class="act-hit" @click="warnConsumeShort(i)">
                 <button
                   type="button"
+                  :class="{ 'guide-flash': guideFlashDeal(enc) }"
                   :disabled="enc.completed || consumeShort(i)"
                   @click.stop="game.submitArtisan(i)"
                 >
@@ -322,6 +326,7 @@ function pickRecommend(w: Worker) {
               <span class="act-hit" @click="warnConsumeShort(i)">
                 <button
                   type="button"
+                  :class="{ 'guide-flash': guideFlashDeal(enc) }"
                   :disabled="enc.completed || consumeShort(i)"
                   @click.stop="game.sellBulk(i)"
                 >

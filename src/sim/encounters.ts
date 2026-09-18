@@ -1229,6 +1229,7 @@ export function claimLoot(save: Save, index: number, now = Date.now()): ActionRe
   const lootGold = enc.lootGold
   const grantedXp = grantCombatLootXp(save, enc)
   enc.lootClaimed = true
+  save.starterCopperPawnDone = true
   save.gold += lootGold
   save.mainLootClaims = normalizeMainLootClaims(save.mainLootClaims) + 1
   if (isChapterBoss(enc)) {
@@ -1335,6 +1336,7 @@ export function barterMerchant(save: Save, index: number): ActionResult {
   const added = addNeedMap(save, enc.offers)
   if (!added.ok) return added
   enc.completed = true
+  save.starterCopperPawnDone = true
   return { ok: true, message: '以物易物成交' }
 }
 
@@ -1347,6 +1349,7 @@ export function buyMerchant(save: Save, index: number): ActionResult {
   const added = addNeedMap(save, enc.buyOffers)
   if (!added.ok) return added
   enc.completed = true
+  save.starterCopperPawnDone = true
   return { ok: true, message: '金币购买成交' }
 }
 
@@ -1360,7 +1363,7 @@ export function pawnMerchant(save: Save, index: number): ActionResult {
   if (!took.ok) return took
   save.gold += gold
   enc.completed = true
-  if (isStarterCopperPawn(enc)) save.starterCopperPawnDone = true
+  save.starterCopperPawnDone = true
   return { ok: true, message: `以物换钱成交。金币 +${gold}` }
 }
 
@@ -1396,6 +1399,7 @@ export function submitArtisan(save: Save, index: number, now = Date.now()): Acti
   if (!took.ok) return took
   applyWorkshopBuff(save, enc.buffMul, enc.buffDurationS, now)
   enc.completed = true
+  save.starterCopperPawnDone = true
   const pct = Math.round((enc.buffMul - 1) * 100)
   return {
     ok: true,
@@ -1412,6 +1416,7 @@ export function sellBulk(save: Save, index: number): ActionResult {
   if (!took.ok) return took
   save.gold += enc.rewardGold
   enc.completed = true
+  save.starterCopperPawnDone = true
   return { ok: true, message: `收购成交。金币 +${enc.rewardGold}` }
 }
 

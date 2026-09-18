@@ -12,11 +12,12 @@ import {
   GUIDE_QUEST_GOLD,
   GUIDE_QUEST_STEPS,
   claimGuideQuest,
-  firstIncompleteGuideQuestStep,
   guideQuestFlashId,
   guideQuestProgressAt,
   guideQuestView,
+  hasCompletedMainlineOrder,
   hydrateGuideQuestFields,
+  isGuideQuestDealFlash,
   isGuideQuestFlash,
   isGuideQuestVisible,
   normalizeGuideQuestStep,
@@ -169,7 +170,7 @@ describe('guideQuest steps and claim', () => {
 
     pawnStep(save)
     expect(save.starterCopperPawnDone).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('在主线中成交开局铜矿当铺单')
+    expect(guideQuestView(save)?.goal).toBe('在主线中完成订单')
     const goldAfterPawn = save.gold
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(4)
@@ -195,7 +196,7 @@ describe('guideQuest steps and claim', () => {
     expect(claimGuideQuest(save)).toEqual({ ok: false, reason: '新手任务已完成' })
   })
 
-  it('does not treat a regular pawn as the opening copper pawn', () => {
+  it('completes step 3 on any finished mainline order, not only the opening copper pawn', () => {
     const save = createSave()
     save.guideQuestStep = 3
     save.encounters = [
@@ -208,8 +209,23 @@ describe('guideQuest steps and claim', () => {
         completed: true,
       },
     ]
-    expect(guideQuestProgressAt(save, 3)).toBe(0)
-    expect(firstIncompleteGuideQuestStep(save)).toBe(1)
+    expect(guideQuestProgressAt(save, 3)).toBe(1)
+    expect(hasCompletedMainlineOrder(save)).toBe(true)
+
+    const trade = createSave()
+    trade.guideQuestStep = 3
+    trade.encounters = [
+      {
+        kind: 'passerby',
+        id: 'merchantBarter-done',
+        label: '换货路人',
+        quality: 'green',
+        wants: { wood: 1 },
+        offers: { meal: 1 },
+        completed: true,
+      },
+    ]
+    expect(guideQuestProgressAt(trade, 3)).toBe(1)
   })
 })
 
@@ -228,8 +244,9 @@ describe('guideQuest flash target', () => {
     save.stations.mining.completed = 1
     expect(guideQuestFlashId(save)).toBeNull()
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestFlashId(save)).toBe('starterPawn')
+    expect(guideQuestFlashId(save)).toBe('deal')
     expect(isStarterCopperPawn(save.encounters[0])).toBe(true)
+    expect(isGuideQuestDealFlash(save, save.encounters[0])).toBe(true)
 
     pawnStep(save)
     expect(guideQuestFlashId(save)).toBeNull()
@@ -248,20 +265,24 @@ describe('guideQuest flash target', () => {
     expect(guideQuestFlashId(save)).toBeNull()
   })
 
-  it('does not flash a regular pawn as the opening copper deal', () => {
+  it('prefers the opening copper pawn when flashing, otherwise any open deal', () => {
     const save = createSave()
     save.guideQuestStep = 3
-    save.encounters = [
-      {
-        kind: 'pawn',
-        id: 'merchantPawn-other',
-        label: '兵器当',
-        quality: 'green',
-        pawnWants: { weapon: 1 },
-        completed: false,
-      },
-    ]
-    expect(guideQuestFlashId(save)).toBe('starterPawn')
-    expect(isStarterCopperPawn(save.encounters[0])).toBe(false)
+    const other = {
+      kind: 'pawn' as const,
+      id: 'merchantPawn-other',
+      label: '兵器当',
+      quality: 'green' as const,
+      pawnWants: { weapon: 1 },
+      completed: false,
+    }
+    save.encounters = [other]
+    expect(guideQuestFlashId(save)).toBe('deal')
+    expect(isGuideQuestDealFlash(save, other)).toBe(true)
+
+    const starter = makeStarterCopperPawn(0, 0)
+    save.encounters = [other, starter]
+    expect(isGuideQuestDealFlash(save, starter)).toBe(true)
+    expect(isGuideQuestDealFlash(save, other)).toBe(false)
   })
 })
