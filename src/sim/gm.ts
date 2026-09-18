@@ -3,6 +3,7 @@ import { syncKnightLevel } from './knightLevel'
 import { spawnWorker, spawnWorkerWith } from './recruit'
 import { roll01 } from './rng'
 import { syncUnlockedCategories } from './stationProgress'
+import { normalizeTechPoints } from './tech'
 import {
   QUALITY_MAX,
   STATION_DEF,
@@ -14,6 +15,7 @@ import type { ActionResult, ItemId, Save } from './types'
 
 export const GM_GOLD_GRANT = 10000
 export const GM_DIAMOND_GRANT = 10000
+export const GM_TECH_POINTS_GRANT = 10000
 export const GM_WORKER_GRANT = 5
 export const GM_MAX_STATION_LEVEL = 10
 export const GM_BASIC_ITEM_QTY = 999
@@ -86,4 +88,10 @@ export function gmMaxStations(save: Save, level = GM_MAX_STATION_LEVEL): ActionR
 export function gmFillBankBasics(save: Save): ActionResult {
   for (const id of GM_BASIC_ITEMS) save.bank[id] = GM_BASIC_ITEM_QTY
   return { ok: true, message: '已加基础物资' }
+}
+
+export function gmAddTechPoints(save: Save, amount = GM_TECH_POINTS_GRANT): ActionResult {
+  const qty = Math.max(0, Math.floor(amount))
+  save.techPoints = normalizeTechPoints(save.techPoints) + qty
+  return { ok: true, message: `灵感 +${qty}` }
 }

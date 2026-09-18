@@ -97,6 +97,7 @@ onUnmounted(() => {
           <button type="button" @click="game.gmAddMaxQualityWorker()">满品质工人</button>
           <button type="button" @click="game.gmMaxStations()">站点全满级</button>
           <button type="button" @click="game.gmFillBankBasics()">加基础物资</button>
+          <button type="button" @click="game.gmAddTechPoints()">加灵感 1万</button>
           <button type="button" @click="game.gmResetTech()">重置科技</button>
         </div>
       </div>

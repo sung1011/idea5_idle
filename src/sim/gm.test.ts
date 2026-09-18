@@ -6,10 +6,12 @@ import {
   GM_BASIC_ITEM_QTY,
   GM_DIAMOND_GRANT,
   GM_GOLD_GRANT,
+  GM_TECH_POINTS_GRANT,
   GM_WORKER_GRANT,
   gmAddDiamonds,
   gmAddGold,
   gmAddMaxQualityWorker,
+  gmAddTechPoints,
   gmAddWorkers,
   gmFillBankBasics,
   gmMaxStations,
@@ -102,5 +104,13 @@ describe('gm debug grants', () => {
     expect(gmFillBankBasics(save).ok).toBe(true)
     for (const id of GM_BASIC_ITEMS) expect(bankQty(save, id)).toBe(GM_BASIC_ITEM_QTY)
     expect(bankQty(save, 'weapon')).toBe(0)
+  })
+
+  it('adds 10000 tech points', () => {
+    const save = createSave()
+    const before = save.techPoints
+    expect(gmAddTechPoints(save)).toEqual({ ok: true, message: '灵感 +10000' })
+    expect(save.techPoints).toBe(before + GM_TECH_POINTS_GRANT)
+    expect(save.techPoints).toBe(before + 10000)
   })
 })
