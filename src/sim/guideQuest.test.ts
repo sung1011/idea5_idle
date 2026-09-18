@@ -40,7 +40,7 @@ describe('guideQuest normalize and hydrate', () => {
     expect(view).toEqual({
       step: 1,
       title: '主线 · 1/5',
-      goal: '抽一名工人',
+      goal: '在工人中抽取工人（≥1）',
       progress: 0,
       progressLabel: '进度 0/1',
       claimable: false,
@@ -159,14 +159,14 @@ describe('guideQuest steps and claim', () => {
     expect(guideQuestProgressAt(save, 2)).toBe(0)
     expect(claimGuideQuest(save).ok).toBe(false)
     save.stations.mining.completed = 1
-    expect(guideQuestView(save)?.goal).toBe('采矿一次')
+    expect(guideQuestView(save)?.goal).toBe('在工坊中完成一次采矿产出')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(3)
     expect(save.gold).toBe(gold0 - RECRUIT_COST + GUIDE_QUEST_GOLD * 2)
 
     pawnStep(save)
     expect(save.starterCopperPawnDone).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('成交开局铜矿当')
+    expect(guideQuestView(save)?.goal).toBe('在主线中成交开局铜矿当铺单')
     const goldAfterPawn = save.gold
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(4)
@@ -177,13 +177,13 @@ describe('guideQuest steps and claim', () => {
     expect(guideQuestProgressAt(save, 3)).toBe(1)
 
     save.exploreCount = 1
-    expect(guideQuestView(save)?.goal).toBe('探索一次')
+    expect(guideQuestView(save)?.goal).toBe('在主线中成功探索一次')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(5)
 
     save.techLevels = { pathOutpost: 1 }
     save.unlockedTechIds = ['pathOutpost']
-    expect(guideQuestView(save)?.goal).toBe('点亮探路哨岗')
+    expect(guideQuestView(save)?.goal).toBe('在科技中点亮探路哨岗')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(GUIDE_QUEST_DONE_STEP)
     expect(save.gold).toBe(goldAfterPawn + GUIDE_QUEST_GOLD * 3)

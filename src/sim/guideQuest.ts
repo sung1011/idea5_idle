@@ -9,11 +9,11 @@ export const GUIDE_QUEST_DONE_STEP = 6
 export const PATH_OUTPOST_TECH_ID = 'pathOutpost'
 
 export const GUIDE_QUEST_GOALS = [
-  '抽一名工人',
-  '采矿一次',
-  '成交开局铜矿当',
-  '探索一次',
-  '点亮探路哨岗',
+  '在工人中抽取工人（≥1）',
+  '在工坊中完成一次采矿产出',
+  '在主线中成交开局铜矿当铺单',
+  '在主线中成功探索一次',
+  '在科技中点亮探路哨岗',
 ] as const
 
 export type GuideQuestView = {
