@@ -6,6 +6,7 @@ import {
   resolveWorkerAttack,
 } from './combatAttrs'
 import { attackIntervalMul, workerAtkMul, workerHpMul } from './tech'
+import { restHealAmount } from './workshopHp'
 import { chapterCombatMul } from './mainChapter'
 import {
   addWorkerXp,
@@ -41,7 +42,6 @@ export const COMBAT_TIMEOUT_BY_RANK: Readonly<Record<EnemyRank, number>> = {
 export const COMBAT_TIMEOUT_S = COMBAT_TIMEOUT_BY_RANK.boss
 export const COMBAT_LOG_CAP = 8
 export const REST_HEAL_EVERY_S = 10
-export const REST_HEAL_HP = 1
 
 export function combatTimeoutS(rank: EnemyRank): number {
   return COMBAT_TIMEOUT_BY_RANK[rank]
@@ -517,7 +517,7 @@ export function applyRestHeal(save: Save): void {
     if (worker.assignment !== null) continue
     if (busy.has(worker.id)) continue
     const max = workerLiveStats(worker, save).hp
-    if (worker.hp < max) worker.hp = Math.min(max, worker.hp + REST_HEAL_HP)
+    if (worker.hp < max) worker.hp = Math.min(max, worker.hp + restHealAmount(worker.hpMax))
   }
 }
 

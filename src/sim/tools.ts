@@ -1,4 +1,5 @@
 import { potionEffectValue } from './alchemy'
+import { workshopHpWorkMul } from './workshopHp'
 import { toolUpkeepBonus } from './tech'
 import { addToBank, bankQty, takeFromBank } from './bank'
 import { foodEffectValue } from './food'
@@ -209,7 +210,9 @@ export function workerToolSpeedMul(save: Save, worker: Worker, stationId: Statio
 export function assignedToolWeight(save: Save, stationId: StationId, now = Date.now()): number {
   const crew = save.workers.reduce(
     (sum, worker) =>
-      worker.assignment === stationId ? sum + workerToolSpeedMul(save, worker, stationId, now) : sum,
+      worker.assignment === stationId
+        ? sum + workerToolSpeedMul(save, worker, stationId, now) * workshopHpWorkMul(worker)
+        : sum,
     0,
   )
   return crew * stationToolSpeedMul(save, stationId)

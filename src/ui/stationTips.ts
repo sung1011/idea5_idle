@@ -34,6 +34,7 @@ export function pushStationTip(stationId: StationId, text: string, kind: FloatTi
 export function pushCycleGain(gain: CycleGain) {
   const tip = formatCycleTip(gain)
   if (tip) pushStationTip(gain.stationId, tip.text, tip.kind)
+  if (gain.weak) pushStationTip(gain.stationId, '虚弱', 'err')
 }
 
 export function stationTipList(stationId: StationId): StationTip[] {

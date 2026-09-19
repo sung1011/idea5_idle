@@ -11,6 +11,8 @@ export type CycleGain = {
   lots: ItemLot[]
   notice: string | null
   gold?: number
+  /** 本次成功产出时，该站有在岗工人已虚弱（HP 效率 < 1）。 */
+  weak?: boolean
 }
 
 export type GainSink = (gain: CycleGain) => void
@@ -81,11 +83,18 @@ export function emitGain(
   stationId: StationId,
   notice: string | null = null,
   gold = 0,
+  weak = false,
 ): void {
   if (!onGain) return
   const merged = mergeLots(lots)
   const tipNotice = notice?.trim() || null
   const goldQty = normalizeGold(gold)
   if (!merged.length && !tipNotice && goldQty <= 0) return
-  onGain({ stationId, lots: merged, notice: tipNotice, gold: goldQty })
+  onGain({
+    stationId,
+    lots: merged,
+    notice: tipNotice,
+    gold: goldQty,
+    ...(weak ? { weak: true } : {}),
+  })
 }

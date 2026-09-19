@@ -94,6 +94,8 @@ describe('mining node recover', () => {
     const save = roster(1)
     unlockTo(save, 'mining', 5)
     assignWorker(save, save.workers[0].id, 'mining')
+    save.workers[0].hpMax = 10_000
+    save.workers[0].hp = 10_000
     const depleted = ticks(save, 20 * 20)
     expect(bankQty(depleted, 'ore')).toBe(20)
     expect(depleted.stations.mining.miningNode?.nodeHp).toBe(0)

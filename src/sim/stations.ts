@@ -3,7 +3,8 @@ import { addToBank } from './bank'
 import { takeCosts } from './costs'
 import { completeForgingCycle } from './forging'
 import { applyGatherOutputs, applyHuntingPauseTick, applyMiningRecovery, isGatherFrozen, isGatherStation } from './gather'
-import { craftGoldForLots, emitGain, pushLot, type GainSink, type ItemLot } from './gains'
+import { craftGoldForLots, emitGain, mergeLots, pushLot, type GainSink, type ItemLot } from './gains'
+import { applyWorkshopCycleDrain } from './workshopHp'
 import { assignedCount, canConsume, currentSpeed, pickConsume } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
 import { ITEM_DEF, isPotionItemId } from './tables'
@@ -64,7 +65,7 @@ export function completeCycle(
     const ok = completeForgingCycle(save, now, lots)
     if (ok) {
       consumeSelectedStationTool(save, stationId)
-      emitCycleGain(save, stationId, lots, onGain)
+      emitCycleGain(save, stationId, lots, onGain, now)
     }
     return ok
   }
@@ -72,7 +73,7 @@ export function completeCycle(
     const ok = completeAlchemyCycle(save, now, lots)
     if (ok) {
       consumeSelectedStationTool(save, stationId)
-      emitCycleGain(save, stationId, lots, onGain)
+      emitCycleGain(save, stationId, lots, onGain, now)
     }
     return ok
   }
@@ -86,7 +87,7 @@ export function completeCycle(
   station.completed += 1
   grantStationXp(save, stationId, selectedCategoryDef(save, stationId).xpPerCycle)
   consumeSelectedStationTool(save, stationId)
-  emitCycleGain(save, stationId, lots, onGain)
+  emitCycleGain(save, stationId, lots, onGain, now)
   return true
 }
 
@@ -96,10 +97,18 @@ function grantCycleCraftGold(save: Save, lots: ItemLot[]): number {
   return gold
 }
 
-function emitCycleGain(save: Save, stationId: StationId, lots: ItemLot[], onGain?: GainSink): void {
+function emitCycleGain(
+  save: Save,
+  stationId: StationId,
+  lots: ItemLot[],
+  onGain: GainSink | undefined,
+  now: number,
+): void {
   const gold = grantCycleCraftGold(save, lots)
   const station = save.stations[stationId]
-  emitGain(onGain, lots, stationId, station.gatherNotice ?? station.craftNotice ?? null, gold)
+  const produced = mergeLots(lots).length > 0
+  const weak = produced ? applyWorkshopCycleDrain(save, stationId, now) : false
+  emitGain(onGain, lots, stationId, station.gatherNotice ?? station.craftNotice ?? null, gold, weak)
 }
 
 export function stepStation(save: Save, stationId: StationId, now = Date.now(), onGain?: GainSink): void {

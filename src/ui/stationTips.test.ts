@@ -9,6 +9,17 @@ describe('stationTips', () => {
     useFloatTips().tips.value = []
   })
 
+  it('pins 虚弱 to the producing station when workers are worn down', () => {
+    pushCycleGain({
+      stationId: 'mining',
+      lots: [{ itemId: 'ore', qty: 1 }],
+      notice: '矿脉 4/5',
+      weak: true,
+    })
+    expect(stationTipList('mining').map((tip) => tip.text)).toEqual(['获得 铜矿 ×1', '虚弱'])
+    expect(useFloatTips().tips.value).toEqual([])
+  })
+
   it('keeps 获得 on the producing station and does not use global floatTips', () => {
     pushCycleGain({
       stationId: 'mining',

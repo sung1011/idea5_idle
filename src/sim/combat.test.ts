@@ -469,7 +469,7 @@ describe('rematch leftover enemy hp', () => {
 })
 
 describe('rest heal', () => {
-  it('heals only resting workers who are not fighting, +1 every 10s', () => {
+  it('heals only resting workers who are not fighting, every 10s by hpMax ratio', () => {
     const save = createSave()
     const rest = spawnWorker(save)
     const busy = spawnWorkerWith(save, 1, 'artisan')
