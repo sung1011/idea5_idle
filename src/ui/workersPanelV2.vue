@@ -303,7 +303,7 @@ onUnmounted(unbindDrag)
       <section class="col workshop" aria-label="在工坊">
         <div class="station-list">
           <article v-for="board in boards" :key="board.stationId" class="station">
-            <div class="station-title">
+            <div class="station-name">
               <UiIcon :name="board.stationId" />
               <b>{{ board.label }}</b>
             </div>
@@ -540,55 +540,75 @@ onUnmounted(unbindDrag)
   background: linear-gradient(180deg, rgba(154, 112, 72, 0.06), rgba(255, 247, 216, 0.2));
 }
 
-.station-list,
+.station-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 6px;
+  gap: var(--workshop-rail-row-gap);
+}
+
 .rest-list {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  padding: 8px 6px;
-}
-
-.rest-list,
-.empty-rest {
-  padding-bottom: 72px;
+  padding: 8px 6px 72px;
 }
 
 .station {
-  margin-bottom: 6px;
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 0;
+  min-height: var(--workshop-rail-row-min);
+  min-width: 0;
   border: 2px solid var(--gold);
   border-radius: 8px;
   background: linear-gradient(145deg, #fff9de, #f3ddaa);
   box-shadow: 0 2px 0 var(--gold-deep);
 }
 
-.station-title {
+.station-name {
+  flex: 0 0 28px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  height: 24px;
-  padding: 0 6px;
-  border-bottom: 1px solid rgba(212, 160, 23, 0.4);
+  justify-content: center;
+  gap: 1px;
+  min-width: 0;
+  padding: 2px 1px;
+  background: linear-gradient(180deg, #6a3218, #4a2214);
+  color: #fff4d8;
 }
 
-.station-title :deep(.ui-ico) {
+.station-name :deep(.ui-ico) {
   width: 13px;
   height: 13px;
+  color: #fff4d8;
 }
 
-.station-title b {
-  font-size: 11px;
+.station-name b {
+  font-size: 10px;
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+  writing-mode: vertical-rl;
 }
 
 .slots {
   display: flex;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
   gap: 4px;
-  padding: 5px;
+  padding: 4px;
 }
 
 .slot {
   flex: 1;
   min-width: 0;
-  min-height: 42px;
+  min-height: 0;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -649,7 +669,15 @@ onUnmounted(unbindDrag)
 .slot-main,
 .rest-main {
   min-width: 0;
+  min-height: 0;
   flex: 1;
+}
+
+.slot-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  overflow: hidden;
 }
 
 .slot-main b,
@@ -672,11 +700,14 @@ onUnmounted(unbindDrag)
 
 .slot-main small,
 .rest-top small {
-  display: block;
   color: var(--muted);
   font-size: 9px;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.rest-top small {
+  display: block;
 }
 
 .qdot {
@@ -691,6 +722,11 @@ onUnmounted(unbindDrag)
   height: 8px;
   margin-top: 3px;
   border-width: 1px;
+}
+
+.slot :deep(.hp) {
+  flex: 1 1 100%;
+  margin-top: 2px;
 }
 
 .slot :deep(.hp span),
@@ -744,6 +780,7 @@ onUnmounted(unbindDrag)
 
 .empty-rest {
   margin: 10px 8px;
+  padding-bottom: 72px;
   color: var(--muted);
   font-size: 11px;
   font-weight: 700;
