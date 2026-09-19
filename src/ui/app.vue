@@ -7,7 +7,6 @@ import EncounterPanel from './encounterPanel.vue'
 import MessagePanel from './messagePanel.vue'
 import SettingsPanel from './settingsPanel.vue'
 import TechPanel from './techPanel.vue'
-import WorkersPanel from './workersPanel.vue'
 import WorkersPanelV2 from './workersPanelV2.vue'
 import WorkshopPanel from './workshopPanel.vue'
 import FloatTips from './floatTips.vue'
@@ -93,8 +92,7 @@ onUnmounted(() => {
 
     <main class="page" :class="tab">
       <WorkshopPanel v-if="tab === 'workshop'" />
-      <WorkersPanel v-else-if="tab === 'workers'" />
-      <WorkersPanelV2 v-else-if="tab === 'workersV2'" />
+      <WorkersPanelV2 v-else-if="tab === 'workers'" />
       <EncounterPanel v-else-if="tab === 'encounters'" />
       <TechPanel v-else />
     </main>
@@ -243,7 +241,7 @@ onUnmounted(() => {
 }
 
 .page.workshop > *,
-.page.workersV2 > * {
+.page.workers > * {
   overflow: hidden;
 }
 

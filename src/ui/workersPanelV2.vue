@@ -7,6 +7,7 @@ import { isWorkerInCombat, workerLiveStats } from '../sim/combat'
 import { workerXpProgress } from '../sim/workerLevel'
 import CombatAttrRow from './combatAttrRow.vue'
 import { CLASS_LABEL, FOOD_ITEM_IDS, ITEM_DEF, type FoodItemId } from '../sim/tables'
+import { isGuideQuestFlash } from '../sim/guideQuest'
 import { recruitCost } from '../sim/tech'
 import type { ClassId, StationId, Worker } from '../sim/types'
 import ClassIcon from './classIcon.vue'
@@ -39,6 +40,7 @@ import {
 } from './workerDrag'
 
 const game = useGameStore()
+const guideFlashRecruit = computed(() => isGuideQuestFlash(game.save, 'recruit'))
 const now = computed(() => {
   void game.save.elapsedS
   return Date.now()
@@ -394,7 +396,7 @@ onUnmounted(unbindDrag)
         {{ drag.name }}
       </div>
     </Teleport>
-    <button type="button" class="recruit-fab" @click="game.recruit()">
+    <button type="button" class="recruit-fab" :class="{ 'guide-flash': guideFlashRecruit }" @click="game.recruit()">
       <span class="recruit-plus" aria-hidden="true">＋</span>
       <span class="recruit-copy">
         <b>抽工人</b>

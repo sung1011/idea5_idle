@@ -1,7 +1,6 @@
 export const APP_TABS = [
   { id: 'workshop', label: '工坊' },
   { id: 'workers', label: '工人' },
-  { id: 'workersV2', label: '工人v2' },
   { id: 'encounters', label: '主线' },
   { id: 'tech', label: '科技' },
 ] as const
@@ -10,6 +9,7 @@ export type AppTabId = (typeof APP_TABS)[number]['id']
 
 export const APP_TAB_KEY = 'idea5IdleAppTab'
 export const DEFAULT_APP_TAB: AppTabId = 'encounters'
+const LEGACY_APP_TAB: Record<string, AppTabId> = { workersV2: 'workers' }
 
 function storageOf(storage?: Storage | null): Storage | null {
   if (storage) return storage
@@ -22,14 +22,21 @@ export function isAppTabId(id: unknown): id is AppTabId {
 }
 
 export function appTabOf(id: unknown): AppTabId {
-  return isAppTabId(id) ? id : DEFAULT_APP_TAB
+  if (isAppTabId(id)) return id
+  if (typeof id === 'string' && Object.prototype.hasOwnProperty.call(LEGACY_APP_TAB, id)) {
+    return LEGACY_APP_TAB[id]
+  }
+  return DEFAULT_APP_TAB
 }
 
 export function loadAppTab(storage?: Storage | null): AppTabId {
   const store = storageOf(storage)
   if (!store) return DEFAULT_APP_TAB
   try {
-    return appTabOf(store.getItem(APP_TAB_KEY))
+    const raw = store.getItem(APP_TAB_KEY)
+    const next = appTabOf(raw)
+    if (raw === 'workersV2') store.setItem(APP_TAB_KEY, next)
+    return next
   } catch {
     return DEFAULT_APP_TAB
   }
