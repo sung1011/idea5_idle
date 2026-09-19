@@ -13,6 +13,7 @@ import ClassIcon from './classIcon.vue'
 import { openWorkshopStation } from './appNav'
 import { useGameStore } from './gameStore'
 import HpBar from './hpBar.vue'
+import { hpBarFill, hpBarTone } from './hpBar'
 import {
   canGoToAssignedWorkshop,
   unassignedWorkers,
@@ -131,6 +132,14 @@ function classIconOf(w: Worker): ClassId {
 
 function sheetMeta(w: Worker) {
   return `${qualityOf(w).label} · ${jobLabel(w)} · Lv${w.level} · ${workerDutyLabel(game.save, w)}`
+}
+
+function hpFillStyle(w: Worker) {
+  return { width: `${(hpBarFill(w.hp, w.hpMax) * 100).toFixed(2)}%` }
+}
+
+function hpToneClass(w: Worker) {
+  return `hp-${hpBarTone(w.hp, w.hpMax)}`
 }
 
 function openSheet(w: Worker) {
@@ -313,7 +322,7 @@ onUnmounted(unbindDrag)
                 :key="`${board.stationId}-${i}`"
                 type="button"
                 class="slot"
-                :class="[{ empty: !w }, slotDropClass(board.stationId, i)]"
+                :class="[{ empty: !w }, w ? hpToneClass(w) : '', slotDropClass(board.stationId, i)]"
                 :data-drop="'slot'"
                 :data-station="board.stationId"
                 :data-slot="i"
@@ -321,6 +330,7 @@ onUnmounted(unbindDrag)
                 @pointerdown="w ? onWorkerPointerDown($event, w, board.stationId, i) : undefined"
                 @click="w ? undefined : onEmptySlot(board.stationId)"
               >
+                <i v-if="w" class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
                 <template v-if="w">
                   <span class="avatar" :style="workerQualityTileStyle(w)">
                     <ClassIcon :name="classIconOf(w)" />
@@ -331,7 +341,6 @@ onUnmounted(unbindDrag)
                       <em :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</em>
                     </b>
                     <small>Lv{{ w.level }}</small>
-                    <HpBar compact :hp="w.hp" :hp-max="w.hpMax" />
                   </span>
                 </template>
                 <template v-else>
@@ -345,7 +354,8 @@ onUnmounted(unbindDrag)
       </section>
       <section class="col rest" :class="restDropClass()" aria-label="休息中" data-drop="rest">
         <div v-if="resting.length" class="rest-list">
-          <div v-for="w in resting" :key="w.id" class="rest-row">
+          <div v-for="w in resting" :key="w.id" class="rest-row" :class="hpToneClass(w)">
+            <i class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
             <button
               type="button"
               class="rest-face"
@@ -363,7 +373,6 @@ onUnmounted(unbindDrag)
                     Lv{{ w.level }}
                   </small>
                 </span>
-                <HpBar compact :hp="w.hp" :hp-max="w.hpMax" />
               </span>
             </button>
             <button
@@ -531,12 +540,12 @@ onUnmounted(unbindDrag)
 }
 
 .workshop {
-  flex: 0 0 52%;
+  flex: 0 0 62%;
   border-right: 2px solid rgba(212, 160, 23, 0.55);
 }
 
 .rest {
-  flex: 1 1 0;
+  flex: 0 0 38%;
   background: linear-gradient(180deg, rgba(154, 112, 72, 0.06), rgba(255, 247, 216, 0.2));
 }
 
@@ -606,6 +615,9 @@ onUnmounted(unbindDrag)
 }
 
 .slot {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -615,7 +627,7 @@ onUnmounted(unbindDrag)
   padding: 3px;
   border: 1px solid #d4a84a;
   border-radius: 7px;
-  background: rgba(255, 247, 212, 0.8);
+  background: rgba(255, 247, 212, 0.45);
   box-shadow: none;
   touch-action: none;
 }
@@ -651,7 +663,27 @@ onUnmounted(unbindDrag)
   font-weight: 800;
 }
 
+.hp-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--bar-fill-gold);
+}
+
+.hp-full .hp-fill {
+  background: var(--bar-fill-moss);
+}
+
+.hp-low .hp-fill {
+  background: var(--bar-fill-hp);
+}
+
 .avatar {
+  position: relative;
+  z-index: 1;
   flex: none;
   width: 24px;
   height: 24px;
@@ -668,6 +700,8 @@ onUnmounted(unbindDrag)
 
 .slot-main,
 .rest-main {
+  position: relative;
+  z-index: 1;
   min-width: 0;
   min-height: 0;
   flex: 1;
@@ -717,35 +751,23 @@ onUnmounted(unbindDrag)
   border: 1px solid #8a6410;
 }
 
-.slot :deep(.hp),
-.rest-face :deep(.hp) {
-  height: 8px;
-  margin-top: 3px;
-  border-width: 1px;
-}
-
-.slot :deep(.hp) {
-  flex: 1 1 100%;
-  margin-top: 2px;
-}
-
-.slot :deep(.hp span),
-.rest-face :deep(.hp span) {
-  font-size: 7px;
-}
-
 .rest-row {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: 2px;
   margin-bottom: 5px;
   border: 1px solid #d4a84a;
   border-radius: 9px;
-  background: linear-gradient(140deg, #fff8dc, #efd49b);
+  background: rgba(255, 247, 212, 0.45);
   box-shadow: 0 2px 0 rgba(170, 108, 31, 0.28);
 }
 
 .rest-face {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -766,6 +788,8 @@ onUnmounted(unbindDrag)
 }
 
 .rest-go {
+  position: relative;
+  z-index: 1;
   flex: none;
   width: 28px;
   min-height: 36px;
