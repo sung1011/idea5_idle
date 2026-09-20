@@ -72,6 +72,11 @@ function hydrateQty(raw: unknown): number {
   return Math.floor(raw)
 }
 
+function hydrateFatigueDebt(raw: unknown): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return 0
+  return raw
+}
+
 function hydrateFoodSlot(rawSlot: unknown, rawWorker: Record<string, unknown>): FoodSlot | null {
   if (rawSlot && typeof rawSlot === 'object') {
     const slot = rawSlot as Partial<FoodSlot> & { foodCount?: unknown }
@@ -121,6 +126,7 @@ export function hydrateWorker(raw: unknown, index = 0): Worker {
       qualityTier: hydrateQualityTier(src.qualityTier),
       assignment: resolveStationId(src.assignment),
       foodSlot: hydrateFoodSlot(src.foodSlot, src),
+      fatigueDebt: hydrateFatigueDebt(src.fatigueDebt),
       hp: 0,
       hpMax: 1,
       level: progress.level,
@@ -171,6 +177,7 @@ export function spawnWorkerWith(
       qualityTier,
       assignment: null,
       foodSlot: null,
+      fatigueDebt: 0,
       hp: 0,
       hpMax: 1,
       level: WORKER_LEVEL_MIN,

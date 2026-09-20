@@ -762,12 +762,21 @@ export function isToolItemId(id: unknown): id is ToolItemId {
 
 export type FoodItemId = 'meal' | 'roast' | 'stew'
 
-/** 食物 → 生产 Buff。装槽后续期 / 换食覆盖 / 可手动吃 1。 */
+/** 食物槽仍续期；主职是回血，生产加速压到很弱。 */
 export const FOOD_BUFF_DEF: Record<FoodItemId, ProductionBuff> = {
-  meal: { effectId: EFFECT_ID.prodSpeed, mul: 1.15, durationS: 180 },
-  roast: { effectId: EFFECT_ID.extraOutput, mul: 1, durationS: 180 },
-  stew: { effectId: EFFECT_ID.prodSpeed, mul: 1.35, durationS: 240 },
+  meal: { effectId: EFFECT_ID.prodSpeed, mul: 1.02, durationS: 180 },
+  roast: { effectId: EFFECT_ID.extraOutput, mul: 0, durationS: 180 },
+  stew: { effectId: EFFECT_ID.prodSpeed, mul: 1.03, durationS: 240 },
 }
+
+/** 战斗结算 / 手动吃 1：按 hpMax 向上取整回血。 */
+export const FOOD_HEAL_RATIO: Record<FoodItemId, number> = {
+  meal: 0.25,
+  roast: 0.4,
+  stew: 0.55,
+}
+
+export const POTION_HEAL_RATIO = 0.7
 
 export const FOOD_ITEM_IDS = Object.keys(FOOD_BUFF_DEF) as FoodItemId[]
 

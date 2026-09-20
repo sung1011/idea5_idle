@@ -15,6 +15,7 @@ import {
   stationSpeed,
   type IoRule,
 } from './tables'
+import { stationEnrageSpeedMul } from './enrage'
 import { forgeCycleMul, slagCopperValue, stationConflictMul, stationTechSpeedMul } from './tech'
 import { assignedToolWeight, selectedForgeRecipe } from './tools'
 import type { Hint, ItemId, Save, StationId } from './types'
@@ -39,7 +40,13 @@ export function currentSpeed(save: Save, stationId: StationId, now = Date.now())
   if (isGatherFrozen(save, stationId)) return 0
   const weight = assignedToolWeight(save, stationId, now)
   const base = stationSpeed(weight, stationCycleS(save, stationId))
-  return base * workshopBuffMul(save, now) * stationTechSpeedMul(save, stationId) * stationConflictMul(save, stationId)
+  return (
+    base *
+    workshopBuffMul(save, now) *
+    stationTechSpeedMul(save, stationId) *
+    stationConflictMul(save, stationId) *
+    stationEnrageSpeedMul(save, stationId, now)
+  )
 }
 
 export type ConsumePick = { kind: 'none' | 'primary' | 'alt'; rules: IoRule[] }

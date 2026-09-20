@@ -233,6 +233,11 @@ export type Worker = {
    */
   combatAttrs: CombatAttrId[]
   /**
+   * 工坊劳损累计。成功产出按公式加债，≥1 时扣 floor 血并减债。
+   * 旧档缺字段 hydrate 为 0。
+   */
+  fatigueDebt: number
+  /**
    * 开战弹框临时助战。不进花名册、不入存档、不领持久 XP。
    * 只活在本场选人 / 开战入参里。
    */
@@ -277,6 +282,28 @@ export type StationState = {
    * 只生效一把；未解锁或库存见底时 hydrate / 结算会清回无。
    */
   selectedToolId: StationToolId | null
+  /**
+   * 狂暴结束墙钟。进行中 `now < enrageUntil`。旧档缺字段 hydrate 为 null。
+   */
+  enrageUntil: number | null
+  /**
+   * 狂暴可再开的墙钟。CD 从结束后起算 300s。旧档缺字段 hydrate 为 null。
+   */
+  enrageReadyAt: number | null
+  /** 站内连招 / 毒雾 / 挫败。旧档缺字段 hydrate 为零。 */
+  fatigueCombo: StationFatigueCombo
+}
+
+/** 站内劳损连招。不跨站。 */
+export type StationFatigueCombo = {
+  /** 采药倦意 / 同菜连锅 / 深挖 / 连竿 */
+  streak: number
+  /** 烹饪当前菜（selectedCategory）；其它站可空 */
+  key: string | null
+  /** 锻造软失败挫败层，下次成功清算 */
+  frustration: number
+  /** 炼金站级毒雾层，停产衰减 */
+  fog: number
 }
 
 export type FisheryTier = 'beginner' | 'mid' | 'high'

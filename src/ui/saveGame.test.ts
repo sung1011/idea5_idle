@@ -302,6 +302,7 @@ describe('save migration', () => {
       qualityTier: 3,
       assignment: null,
       foodSlot: null,
+      fatigueDebt: 0,
       hp: 32,
       hpMax: 32,
       level: 2,

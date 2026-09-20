@@ -201,6 +201,7 @@ export function applyHuntingPauseTick(save: Save): void {
 }
 
 /** 写出采集产物 / 挖空 / 遇险。调用方再记 completed 与 XP。失败则整单作废。 */
+/** 狩猎真战斗本轮不做（TODO）；现遇险扣血接到劳损，不另开战斗。 */
 export function applyGatherOutputs(
   save: Save,
   stationId: StationId,
@@ -260,6 +261,7 @@ function completeHuntingCycle(save: Save, now: number, into?: ItemLot[]): boolea
   const prey = huntingPreyByCategory(save.stations.hunting.selectedCategory)
   const hazard = resolveHazard(prey.hazardChance, roll01(save))
   if (hazard.outcome === 'hazard') {
+    // TODO: 狩猎真战斗不做；现遇险无即时掉血，劳损由 completeCycle 按 hazard 写入。
     const station = save.stations.hunting
     station.gatherPauseUntil = save.elapsedS + HUNTING_HAZARD_PAUSE_S
     if (bankQty(save, HUNTING_HAZARD_CONSUME.itemId) >= HUNTING_HAZARD_CONSUME.qty) {

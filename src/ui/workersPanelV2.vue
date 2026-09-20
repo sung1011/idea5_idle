@@ -6,7 +6,7 @@ import { foodBuffRemainS, isFoodBuffActive } from '../sim/food'
 import { isWorkerInCombat, workerLiveStats } from '../sim/combat'
 import { workerXpProgress } from '../sim/workerLevel'
 import CombatAttrRow from './combatAttrRow.vue'
-import { CLASS_LABEL, FOOD_ITEM_IDS, ITEM_DEF, type FoodItemId } from '../sim/tables'
+import { CLASS_LABEL, FOOD_HEAL_RATIO, FOOD_ITEM_IDS, ITEM_DEF, isFoodItemId, type FoodItemId } from '../sim/tables'
 import { isGuideQuestFlash } from '../sim/guideQuest'
 import { recruitCost } from '../sim/tech'
 import type { ClassId, StationId, Worker } from '../sim/types'
@@ -99,14 +99,13 @@ function foodLine(w: Worker) {
     return `${item.label} ×${slot.qty} · Buff 已到期`
   }
   const remain = formatMarchClock(foodBuffRemainS(slot, now.value))
-  if (slot.buff.effectId === 'prodSpeed') {
-    const pct = Math.round((slot.buff.mul - 1) * 100)
-    return `${item.label} ×${slot.qty} · 加速 +${pct}% · 剩余 ${remain}`
-  }
-  if (slot.buff.effectId === 'extraOutput') {
-    return `${item.label} ×${slot.qty} · 额外产 +${slot.buff.mul} · 剩余 ${remain}`
-  }
-  return `${item.label} ×${slot.qty} · 剩余 ${remain}`
+  const healPct = isFoodItemId(slot.itemId) ? Math.round(FOOD_HEAL_RATIO[slot.itemId] * 100) : 0
+  const heal = healPct > 0 ? `回血 ${healPct}%` : '随身粮'
+  return `${item.label} ×${slot.qty} · ${heal} · 剩余 ${remain}`
+}
+
+function canUsePotion(w: Worker) {
+  return bankQty(game.save, 'potion') >= 1 && w.hp < w.hpMax
 }
 
 function foodQtyMax(id: FoodItemId) {
@@ -428,6 +427,9 @@ onUnmounted(unbindDrag)
         <p class="hint">{{ foodLine(selected) }}</p>
         <div class="row tool-row">
           <button type="button" :disabled="!canEat(selected)" @click="game.eatFood(selected.id)">吃 1</button>
+          <button type="button" :disabled="!canUsePotion(selected)" @click="game.usePotion(selected.id)">
+            用药
+          </button>
           <template v-if="selected.foodSlot">
             <button type="button" @click="game.unloadFood(selected.id)">卸下食物</button>
           </template>

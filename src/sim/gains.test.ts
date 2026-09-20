@@ -215,7 +215,7 @@ describe('completeCycle craft gold', () => {
     expect(emptyGain.events[0]?.gold).toBe(0)
   })
 
-  it('scales workshop gold when extraOutput doubles the lots', () => {
+  it('does not let roast food double workshop lots anymore', () => {
     const save = roster(1)
     const before = save.gold
     save.bank.fish = 1
@@ -224,8 +224,8 @@ describe('completeCycle craft gold', () => {
     expect(loadFood(save, save.workers[0].id, 'roast', 1).ok).toBe(true)
     const cooked = collectGain(save, 'cooking')
     expect(cooked.ok).toBe(true)
-    expect(cooked.events[0]?.lots).toEqual([{ itemId: 'meal', qty: 2 }])
-    expect(save.gold).toBe(before + 2)
-    expect(cooked.tips).toEqual(['获得 熟食 ×2、金币 +2'])
+    expect(cooked.events[0]?.lots).toEqual([{ itemId: 'meal', qty: 1 }])
+    expect(save.gold).toBe(before + 1)
+    expect(cooked.tips).toEqual(['获得 熟食 ×1、金币 +1'])
   })
 })

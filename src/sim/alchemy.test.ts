@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { potionEffectValue, potionEffects } from './alchemy'
+import { potionEffectValue, potionEffects, potionHealAmount, usePotion } from './alchemy'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
@@ -87,5 +87,20 @@ describe('alchemy placeholder', () => {
     expect((STATION_DEF as Record<string, unknown>).leatherworking).toBeUndefined()
     expect(SELLABLE_GOODS).not.toContain('weapon')
     expect(SELLABLE_GOODS).toEqual(['tool', 'ironTool', 'mithrilTool', 'meal', 'roast', 'stew'])
+  })
+
+  it('uses one potion to heal about 70% hpMax and never speeds the factory', () => {
+    const save = roster(1)
+    const worker = save.workers[0]
+    assignWorker(save, worker.id, 'mining')
+    const bare = currentSpeed(save, 'mining')
+    save.bank.potion = 1
+    worker.hp = 1
+    expect(potionHealAmount(worker.hpMax)).toBe(Math.ceil(worker.hpMax * 0.7))
+    expect(usePotion(save, worker.id).ok).toBe(true)
+    expect(worker.hp).toBe(1 + Math.ceil(worker.hpMax * 0.7))
+    expect(bankQty(save, 'potion')).toBe(0)
+    expect(currentSpeed(save, 'mining')).toBe(bare)
+    expect(usePotion(save, worker.id)).toEqual({ ok: false, reason: '没有药剂' })
   })
 })

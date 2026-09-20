@@ -26,6 +26,7 @@ import {
   workerCombatStats,
 } from './combat'
 import { createSave } from './createSave'
+import { loadFood } from './food'
 import { claimLoot, startCombat } from './encounters'
 import { hydrateWorker, spawnWorker, spawnWorkerWith } from './recruit'
 import { settleOffline } from './offline'
@@ -499,5 +500,27 @@ describe('rest heal', () => {
     expect(busyAfter?.hp).toBe(4)
     const fightAfter = healed.workers.find((w) => w.id === fight.id)
     expect(fightAfter?.hp).toBe(4)
+  })
+})
+
+describe('combat food heal', () => {
+  it('auto-eats one food after settlement when HP===1', () => {
+    const save = createSave()
+    const worker = spawnWorker(save)
+    save.bank.meal = 2
+    const t0 = 20_000
+    expect(loadFood(save, worker.id, 'meal', 2, t0).ok).toBe(true)
+    worker.hp = 1
+    const enc = testEnemy()
+    putEnemy(save, enc)
+    beginEnemyCombat(enc, [worker], t0)
+    if (enc.combat) {
+      enc.combat.workers[0].hp = 1
+      enc.combat.enemy.hp = 0
+    }
+    stepEnemyCombat(save, enc, t0 + 1_000)
+    expect(isCombatWon(enc)).toBe(true)
+    expect(worker.hp).toBeGreaterThan(1)
+    expect(worker.foodSlot?.qty).toBe(0)
   })
 })

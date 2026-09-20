@@ -1,6 +1,6 @@
 import { addToBank, bankQty, takeFromBank } from './bank'
 import { findWorker } from './recruit'
-import { foodBuffDef, isFoodItemId, ITEM_DEF, type FoodItemId } from './tables'
+import { FOOD_HEAL_RATIO, foodBuffDef, isFoodItemId, ITEM_DEF, type FoodItemId } from './tables'
 import type {
   ActionResult,
   EffectId,
@@ -126,16 +126,53 @@ export function unloadFood(save: Save, workerId: string): ActionResult {
   return { ok: true, message: '已卸下食物' }
 }
 
-/** 槽内再吃 1 份：扣 qty，按当前食物从 now 重计 expiresAt，刷新同一 Buff。不回血。 */
+function safeHpMax(hpMax: number): number {
+  return Math.max(1, Math.floor(hpMax))
+}
+
+/** 回血量：ceil(hpMax * 比例)，至少使 HP>1。 */
+export function foodHealAmount(itemId: ItemId, hpMax: number, hp: number): number {
+  const ratio = isFoodItemId(itemId) ? FOOD_HEAL_RATIO[itemId] : 0
+  let amount = Math.max(1, Math.ceil(safeHpMax(hpMax) * ratio))
+  if (hp + amount <= 1) amount = Math.max(1, 2 - hp)
+  return amount
+}
+
+export function applyFoodHeal(worker: Worker, itemId: ItemId): number {
+  const amount = foodHealAmount(itemId, worker.hpMax, worker.hp)
+  const next = Math.min(worker.hpMax, worker.hp + amount)
+  const healed = next - worker.hp
+  worker.hp = next
+  return healed
+}
+
+function canEatSlot(slot: NonNullable<Worker['foodSlot']>): boolean {
+  return slot.qty >= 1
+}
+
+/** 槽内再吃 1 份：扣 qty，按当前食物重计 Buff，并按食物回血。 */
 export function eatFood(save: Save, workerId: string, now = Date.now()): ActionResult {
   const worker = findWorker(save, workerId)
   if (!worker) return { ok: false, reason: '没有这个工人' }
   const slot = worker.foodSlot
   if (!slot) return { ok: false, reason: '没有装食物' }
-  if (slot.qty < 1) return { ok: false, reason: '没有余粮' }
+  if (!canEatSlot(slot)) return { ok: false, reason: '没有余粮' }
+  const itemId = slot.itemId
   slot.qty -= 1
   applyFreshBuff(slot, now)
-  return { ok: true, message: `吃了1份${ITEM_DEF[slot.itemId].label}` }
+  const healed = applyFoodHeal(worker, itemId)
+  const label = ITEM_DEF[itemId].label
+  return { ok: true, message: healed > 0 ? `吃了1份${label}，HP+${healed}` : `吃了1份${label}` }
+}
+
+/** 主线战斗结算后：HP===1 且槽内有余粮则自动吃 1 回血。 */
+export function tryAutoEatAfterCombat(save: Save, workerIds: readonly string[], now = Date.now()): void {
+  for (const id of workerIds) {
+    const worker = findWorker(save, id)
+    if (!worker || worker.hp !== 1) continue
+    if (!worker.foodSlot || worker.foodSlot.qty < 1) continue
+    eatFood(save, id, now)
+  }
 }
 
 /** 测试 / hydrate：按表重写当前 Buff 截止。 */

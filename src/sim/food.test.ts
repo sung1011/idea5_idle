@@ -119,7 +119,7 @@ describe('food slot buff', () => {
     expect(bankQty(save, 'roast')).toBe(0)
     expect(save.workers[0].foodSlot?.itemId).toBe('roast')
     expect(save.workers[0].foodSlot?.buff.effectId).toBe(EFFECT_ID.extraOutput)
-    expect(save.workers[0].foodSlot?.buff.mul).toBe(1)
+    expect(save.workers[0].foodSlot?.buff.mul).toBe(0)
     expect(save.workers[0].foodSlot?.qty).toBe(0)
     expect(save.workers[0].foodSlot?.expiresAt).toBe(t0 + 5_000 + FOOD_BUFF_DEF.roast.durationS * 1000)
   })
@@ -137,14 +137,14 @@ describe('food slot buff', () => {
     expect(stationToolSpeedMul(save, 'mining')).toBeCloseTo(1.03)
 
     expect(loadFood(save, save.workers[0].id, 'meal', 1, t0).ok).toBe(true)
-    expect(workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.prodSpeed, t0)).toBeCloseTo(1.15)
-    expect(workerToolSpeedMul(save, save.workers[0], 'mining', t0)).toBeCloseTo(1.15)
+    expect(workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.prodSpeed, t0)).toBeCloseTo(1.02)
+    expect(workerToolSpeedMul(save, save.workers[0], 'mining', t0)).toBeCloseTo(1.02)
 
     expect(unloadFood(save, save.workers[0].id).ok).toBe(true)
     expect(loadFood(save, save.workers[0].id, 'stew', 1, t0).ok).toBe(true)
-    expect(workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.prodSpeed, t0)).toBeCloseTo(1.35)
-    expect(workerToolSpeedMul(save, save.workers[0], 'mining', t0)).toBeCloseTo(1.35)
-    expect(currentSpeed(save, 'mining', t0)).toBeCloseTo((1 / 20) * 1.35 * 1.03)
+    expect(workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.prodSpeed, t0)).toBeCloseTo(1.03)
+    expect(workerToolSpeedMul(save, save.workers[0], 'mining', t0)).toBeCloseTo(1.03)
+    expect(currentSpeed(save, 'mining', t0)).toBeCloseTo((1 / 20) * 1.03 * 1.03)
   })
 
   it('keeps food extraOutput while the station tool only multiplies speed', () => {
@@ -158,11 +158,11 @@ describe('food slot buff', () => {
     expect(loadFood(save, save.workers[0].id, 'roast', 1, t0).ok).toBe(true)
 
     expect(workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.prodSpeed, t0)).toBe(0)
-    expect(workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.extraOutput, t0)).toBe(1)
-    expect(matchingToolEffectMax(save, 'mining', EFFECT_ID.extraOutput, t0)).toBe(1)
+    expect(workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.extraOutput, t0)).toBe(0)
+    expect(matchingToolEffectMax(save, 'mining', EFFECT_ID.extraOutput, t0)).toBe(0)
 
     const next = ticks(save, 20, { now: t0 })
-    expect(bankQty(next, 'ore')).toBe(2)
+    expect(bankQty(next, 'ore')).toBe(1)
     expect(next.stations.mining.completed).toBe(1)
     expect(bankQty(next, 'miningTool01')).toBe(3)
   })
@@ -224,5 +224,17 @@ describe('eatFood', () => {
     expect(save.workers[0].foodSlot?.qty).toBe(0)
     expect(save.workers[0].foodSlot?.expiresAt).toBe(t0 + 10_000 + FOOD_BUFF_DEF.meal.durationS * 2000)
     expect(save.workers[0].foodSlot?.buff.mul).toBe(FOOD_BUFF_DEF.meal.mul)
+  })
+
+  it('heals about 25% hpMax when eating at low HP, at least above 1', () => {
+    const t0 = 9_000_000
+    const save = roster(1)
+    save.bank.meal = 2
+    const worker = save.workers[0]
+    worker.hp = 1
+    expect(loadFood(save, worker.id, 'meal', 2, t0).ok).toBe(true)
+    expect(eatFood(save, worker.id, t0 + 1_000).ok).toBe(true)
+    expect(worker.hp).toBe(1 + Math.ceil(worker.hpMax * 0.25))
+    expect(worker.hp).toBeGreaterThan(1)
   })
 })

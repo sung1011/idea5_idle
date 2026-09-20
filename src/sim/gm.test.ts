@@ -29,6 +29,7 @@ describe('gm debug grants', () => {
       assignment: 'mining',
       qualityTier: 1,
       foodSlot: null,
+      fatigueDebt: 0,
       hp: 24,
       hpMax: 24,
       level: 1,

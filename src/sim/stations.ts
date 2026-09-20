@@ -4,7 +4,7 @@ import { takeCosts } from './costs'
 import { completeForgingCycle } from './forging'
 import { applyGatherOutputs, applyHuntingPauseTick, applyMiningRecovery, isGatherFrozen, isGatherStation } from './gather'
 import { craftGoldForLots, emitGain, mergeLots, pushLot, type GainSink, type ItemLot } from './gains'
-import { applyWorkshopCycleDrain } from './workshopHp'
+import { applyWorkshopFatigue, decayAlchemyFog, type FatigueKind } from './workshopHp'
 import { assignedCount, canConsume, currentSpeed, pickConsume } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
 import { ITEM_DEF, isPotionItemId } from './tables'
@@ -65,7 +65,8 @@ export function completeCycle(
     const ok = completeForgingCycle(save, now, lots)
     if (ok) {
       consumeSelectedStationTool(save, stationId)
-      emitCycleGain(save, stationId, lots, onGain, now)
+      const fatigue: FatigueKind = lots.length > 0 ? 'success' : 'softFail'
+      emitCycleGain(save, stationId, lots, onGain, now, fatigue)
     }
     return ok
   }
@@ -73,7 +74,7 @@ export function completeCycle(
     const ok = completeAlchemyCycle(save, now, lots)
     if (ok) {
       consumeSelectedStationTool(save, stationId)
-      emitCycleGain(save, stationId, lots, onGain, now)
+      emitCycleGain(save, stationId, lots, onGain, now, 'success')
     }
     return ok
   }
@@ -87,8 +88,15 @@ export function completeCycle(
   station.completed += 1
   grantStationXp(save, stationId, selectedCategoryDef(save, stationId).xpPerCycle)
   consumeSelectedStationTool(save, stationId)
-  emitCycleGain(save, stationId, lots, onGain, now)
+  emitCycleGain(save, stationId, lots, onGain, now, gatherFatigueKind(stationId, lots, station.gatherNotice))
   return true
+}
+
+function gatherFatigueKind(stationId: StationId, lots: ItemLot[], notice: string | null | undefined): FatigueKind {
+  if (stationId === 'fishing' && notice === '空杆') return 'emptyRod'
+  if (stationId === 'hunting' && (notice ?? '').includes('遇险')) return 'hazard'
+  if (lots.length > 0) return 'success'
+  return 'none'
 }
 
 function grantCycleCraftGold(save: Save, lots: ItemLot[]): number {
@@ -103,11 +111,11 @@ function emitCycleGain(
   lots: ItemLot[],
   onGain: GainSink | undefined,
   now: number,
+  fatigue: FatigueKind,
 ): void {
   const gold = grantCycleCraftGold(save, lots)
   const station = save.stations[stationId]
-  const produced = mergeLots(lots).length > 0
-  const weak = produced ? applyWorkshopCycleDrain(save, stationId, now) : false
+  const weak = applyWorkshopFatigue(save, stationId, now, fatigue)
   emitGain(onGain, lots, stationId, station.gatherNotice ?? station.craftNotice ?? null, gold, weak)
 }
 
@@ -121,14 +129,17 @@ export function stepStation(save: Save, stationId: StationId, now = Date.now(), 
   if (n <= 0) {
     station.progress = 0
     station.stallReason = null
+    if (stationId === 'alchemy') decayAlchemyFog(save)
     return
   }
   if (isGatherFrozen(save, stationId)) {
     station.stallReason = null
+    if (stationId === 'alchemy') decayAlchemyFog(save)
     return
   }
   if (!canConsume(save, stationId)) {
     station.stallReason = 'emptyInput'
+    if (stationId === 'alchemy') decayAlchemyFog(save)
     return
   }
 

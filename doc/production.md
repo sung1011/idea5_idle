@@ -21,9 +21,9 @@
 | 挖矿 | `mining` | gather | 节点生命，挖空等恢复 | 矿石 → 锻造 |
 | 锻造 | `forging` | craft | 配方 + 软失败 | 各站专属工具 → 工坊下拉（武器线搁置） |
 | 狩猎 | `hunting` | gather | 遇险检定（非战斗） | 肉 → 烹饪；血 / 牙 / 眼 → 炼金 |
-| 烹饪 | `cooking` | craft | 产出食物 | 食物 → 工人 `foodSlot` → 生产 Buff |
+| 烹饪 | `cooking` | craft | 产出食物 | 食物 → 工人 `foodSlot` → 回血 |
 | 采药 | `herbalism` | gather | 无限稳采 | 草 → 炼金；香料 → 烹饪 |
-| 炼金 | `alchemy` | craft | 一次性消耗草 / 猎副产（效果未定） | `potion` 占位，效果后补 |
+| 炼金 | `alchemy` | craft | 一次性消耗草 / 猎副产 | `potion` → 用药回血（不加工厂） |
 | 钓鱼 | `fishing` | gather | 可空杆；期望更慢；随机；渔场品阶墙 | 鱼 → 烹饪；杂物低权 |
 
 ```ts
@@ -83,7 +83,7 @@ type SoftFailRoll = {
 
 ### 2.3 狩猎 `hunting`（采集）
 
-周期结束做 **遇险检定**，不是战斗：无伤害、无回合、无死亡、不接 `classId` 成长。遇险：掉本周期产出、短暂停手 `HUNTING_HAZARD_PAUSE_S`（8s），库存有熟食则再耗 1 份；仍给站 XP。成功出货。猎物按品类：野猪 / 狼 / 鹿（Lv1 / Lv5 / Lv10）。
+周期结束做 **遇险检定**，不是战斗：无回合、无死亡、不接 `classId` 成长。遇险：掉本周期产出、短暂停手 `HUNTING_HAZARD_PAUSE_S`（8s），库存有熟食则再耗 1 份；仍给站 XP；扣血接到劳损（轻债）。成功出货并记基准劳损。猎物按品类：野猪 / 狼 / 鹿（Lv1 / Lv5 / Lv10）。**狩猎真战斗 TODO，本轮不做。**
 
 ```ts
 type HazardRoll = {
@@ -106,7 +106,7 @@ type HazardRoll = {
 
 ### 2.4 烹饪 `cooking`（制造）
 
-配方消耗鱼 / 肉 / 香料等，产出食物。食物主去向是工人 `foodSlot`，给**生产 Buff**（加速吞吐），不是战斗补给成品（偶遇补给另见第 8 节）。
+配方消耗鱼 / 肉 / 香料等，产出食物。食物主去向是工人 `foodSlot`，主职是**回血**（meal 25% / roast 40% / stew 55% hpMax，向上取整，至少 HP>1）。生产加速压到很弱（熟食 ×1.02 / 炖 ×1.03，烤肉不再额外产），以免和狂暴抢效率。主线战斗结算后若 HP===1 且槽内有余粮，自动吃 1。偶遇补给另见第 8 节。
 
 第 1 档 `meal` 烤鱼（耗鱼）；第 2 档 `roast` 烤肉（耗肉，开局可做）；第 3 档 `stew` 香料炖（肉+香料，或鱼+香料，Lv5）。不换皮。
 
@@ -121,7 +121,7 @@ type HazardRoll = {
 
 ### 2.6 炼金 `alchemy`（制造）
 
-一次性消耗：做成即从配方扣光原料，产物进物资。效果（饮用 / 涂装 / 工坊一次性）**本阶段不定**，只留占位 `itemId`（现档 `potion` 可继续当标签）。不在本阶段写 `effectId` 数值。解析口是 `potionEffects` / `potionEffectValue`，恒为空 / 0；药剂不能装 `foodSlot`。
+一次性消耗：做成即从配方扣光原料，产物进物资。`potion` 是工人详情「用药」主动应急加血：扣 1 瓶回约 70% hpMax。解析口 `potionEffects` / `potionEffectValue` 恒为空 / 0，**不加工厂效率**；药剂不能装 `foodSlot`。
 
 原料走 `ALCHEMY_COST_OPTIONS`：草或猎副产（`blood` / `tooth` / `eye`）任一 1 个即可，优先扣草。旧「耗木出药剂 + 渣滓」已废。
 
@@ -155,9 +155,9 @@ type ItemId /* 钓鱼相关 */ = 'fish' | 'junk'
 
 ```
 挖矿 ──矿石──► 锻造 ──各站专属工具──► 工坊 selectedToolId
-狩猎 ──肉────► 烹饪 ──食物──► 工人 foodSlot ──► 生产 Buff
-狩猎 ──血/牙/眼──► 炼金（占位）
-采药 ──草────► 炼金（占位）
+狩猎 ──肉────► 烹饪 ──食物──► 工人 foodSlot ──► 回血
+狩猎 ──血/牙/眼──► 炼金（药剂）
+采药 ──草────► 炼金（药剂）
 采药 ──香料──► 烹饪
 钓鱼 ──鱼────► 烹饪
 钓鱼 ──杂物──► 物资（低权，可在偶遇出手）
@@ -183,7 +183,11 @@ type ItemId /* 钓鱼相关 */ = 'fish' | 'junk'
 | 解锁「工坊规章」`workshopRules` | ×0.75 |
 | 再解锁「工匠密录」`artisanArchive` | ×1.0（消除冲突） |
 
-1 人或 0 人无冲突。站卡满 2 人且倍率小于 1 时显示「冲突：效率 −50% / −25%」；倍率 = 1 不显示。不做随机吵架、拆队；冲突本身不掉血。工坊成功产出掉血与休息回血见 [main.md](main.md) 第 2.2 / 3 / 6.2 节，不影响战斗出手。
+1 人或 0 人无冲突。站卡满 2 人且倍率小于 1 时显示「冲突：效率 −50% / −25%」；倍率 = 1 不显示。不做随机吵架、拆队；冲突本身不掉血。工坊劳损 / 残血 / 狂暴 / 休息回血见 [main.md](main.md) 第 2.2 / 3 / 6.2 节，不影响战斗出手。不做跨站 combo。
+
+### 4.2 劳损与狂暴
+
+成功产出才加劳损：`fatigueDebt += hpMax * 0.0015 * stationMul * comboMul * enrageMul`。`debt≥1` 扣 `floor` 血并减债。HP 锁 1。`stationMul` 约 0.4（锻造成功 0.55）。残血仅 `HP===1` 贡献 ×0.5。站卡右上角狂暴：60s 速度 ×2.5、劳损 ×6，结束后 CD 300s，字段 `enrageUntil` / `enrageReadyAt`。连招只站内，见 [main.md](main.md) 2.2。
 
 ---
 
@@ -197,6 +201,7 @@ type Worker = {
   qualityTier: QualityTier // 1～10
   assignment: StationId | null // 每站最多 2 人
   foodSlot: FoodSlot | null
+  fatigueDebt: number
   combatAttrs: CombatAttrId[] // 白 0 / 绿蓝青 1 / 紫+ 2；同人不重复
 }
 
@@ -256,8 +261,9 @@ type ProductionBuff = {
 
 - 只装烹饪产物。UI 选食物与数量，从 `bank` 扣进槽。
 - 同时仅 1 个生产 Buff；换食立即覆盖（未吃完的旧食退回 `bank`，按新食物重计 `expiresAt`）。
-- 装入时立刻吃 1 份开 Buff，`qty` 是槽内剩余份数。到期若 `qty >= 1`：再吃 1 份刷新同一 Buff；否则槽清空、Buff 消失，工人继续裸效率。工人页可手动吃 1：槽内 `qty >= 1` 时扣 1 份，立刻按当前食物重计 `expiresAt` / 刷新同一 Buff，不回血。
+- 装入时立刻吃 1 份开很弱的生产 Buff，`qty` 是槽内剩余份数。到期若 `qty >= 1`：再吃 1 份刷新同一 Buff；否则槽清空。工人页可手动吃 1：槽内 `qty >= 1` 时扣 1 份，立刻按当前食物重计 `expiresAt` 并按食物回血。
 - 同种食物再装是加 `qty`，不重计当前 Buff。
+- 主线战斗结算后：`HP===1` 且 `qty>=1` 自动吃 1 回血。
 
 ### 5.3 特效叠加
 
@@ -276,10 +282,11 @@ type ProductionBuff = {
 | --- | --- |
 | 银行与容量停产 | 已去掉；物资无容量，不满仓停产。不恢复。 |
 | 锻造武器 | 暂搁置。`weapon` / `ironWeapon` / `mithrilWeapon` 不当新主产物。 |
-| 狩猎真战斗 | 只有遇险检定。无伤害、回合、死亡。 |
+| 狩猎真战斗 | 只有遇险检定。现遇险扣血接到劳损。真战斗 TODO 本轮不做。 |
+| 跨站 combo | 劳损连招只站内。 |
 | 制皮 | 本版不做。无 `leatherworking`，狩猎不出皮。 |
 
-沿用第一期不做：战斗成长树、后端账号、医院那套房间 / 污染 / 病人。偶遇敌人已有时间轴战斗（见 [main.md](main.md) 6.2），狩猎仍只做遇险检定。
+沿用第一期不做：战斗成长树、后端账号、医院那套房间 / 污染 / 病人。偶遇敌人已有时间轴战斗（见 [main.md](main.md) 6.2），狩猎仍只做遇险检定（真战斗 TODO）。
 
 ---
 
@@ -317,7 +324,10 @@ type ProductionBuff = {
 | 药 | `herb` `spice` |
 | 食 | `meal` `roast` `stew` |
 | 工具 | 锻造 / 新订单用专属 `miningTool01`… 每站 20 种；旧档通用 `tool` `ironTool` `mithrilTool` 可留、不再产出或新刷要 |
-| 炼金占位 | `potion` |
+| 炼金药剂 | `potion`（用药回血，不加工厂） |
+| 工人劳损 | `Worker.fatigueDebt` |
+| 站狂暴 | `enrageUntil` `enrageReadyAt` |
+| 站连招 | `fatigueCombo`（streak / key / frustration / fog） |
 | 搁置武器 | `weapon` `ironWeapon` `mithrilWeapon` |
 | 旧木 | `wood` |
 | 矿节点 | `nodeHp` `nodeHpMax` `recoverAt` |
@@ -353,8 +363,9 @@ type ProductionBuff = {
 | 狩猎遇险检定（停手 / 减产 / 可耗熟食） | — |
 | 采药无限稳采，必出草 / 香料 | — |
 | 锻造出工具；软失败掷骰；工具槽匹配才加速 | — |
-| 烹饪烤鱼 / 烤肉 / 香料炖；`foodSlot` 续期 / 换食覆盖 / 可手动吃 1 | — |
-| 工具词条与食物 Buff 同 `effectId` 取最强 | — |
-| 炼金耗草 / 猎副产出 `potion`；`potionEffectValue` 恒 0 | 药剂效果数值（饮用 / 涂装 / 工坊一次性） |
+| 烹饪烤鱼 / 烤肉 / 香料炖；`foodSlot` 续期 / 换食覆盖 / 可手动吃 1 回血；战斗结算残血自动吃 | — |
+| 工具词条与食物 Buff 同 `effectId` 取最强；食物加速已弱化 | — |
+| 炼金耗草 / 猎副产出 `potion`；用药回约 70% hpMax；`potionEffectValue` 恒 0 | — |
+| 劳损累计 + 残血 ×0.5 + 站狂暴 60s/CD300s | 狩猎真战斗；跨站 combo |
 | 主界面不再卖货；制造站卡片只列当前消耗库存；产出用工坊站卡本地「获得」漂字（带 `stationId`，不走全局 `floatTips`）；`sellFromBank` / `sellAllGoods` 仅调试 / 单测 | — |
 | 偶遇货单含烤肉 / 香料炖 / 药剂 | 炼金效果后再调 |

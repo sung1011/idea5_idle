@@ -15,7 +15,25 @@ import {
   type MiningCategoryId,
 } from './tables'
 import { hydrateSelectedForgeToolId, hydrateSelectedToolId, selectedForgeRecipe } from './tools'
-import type { ActionResult, CategoryId, MiningNodeState, Save, StationId, StationState } from './types'
+import type { ActionResult, CategoryId, MiningNodeState, Save, StationFatigueCombo, StationId, StationState } from './types'
+import { blankFatigueCombo } from './workshopHp'
+
+function hydrateWallMs(raw: unknown): number | null {
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return null
+  return raw
+}
+
+function hydrateFatigueCombo(raw: unknown): StationFatigueCombo {
+  const src = raw && typeof raw === 'object' ? (raw as Partial<StationFatigueCombo>) : {}
+  const num = (value: unknown): number =>
+    typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
+  return {
+    streak: Math.floor(num(src.streak)),
+    key: typeof src.key === 'string' && src.key ? src.key : null,
+    frustration: Math.floor(num(src.frustration)),
+    fog: num(src.fog),
+  }
+}
 
 export function blankMiningNode(categoryId: CategoryId = 'copper'): MiningNodeState {
   const def = miningNodeDef(categoryId)
@@ -161,6 +179,9 @@ export function blankStation(stationId: StationId): StationState {
     selectedForgeToolId: null,
     craftNotice: null,
     selectedToolId: null,
+    enrageUntil: null,
+    enrageReadyAt: null,
+    fatigueCombo: blankFatigueCombo(),
     ...(stationId === 'mining'
       ? (() => {
           const bundle = hydrateMiningNodes(undefined, first.id)
@@ -210,6 +231,9 @@ export function hydrateStationState(stationId: StationId, incoming?: Partial<Sta
       (incoming as { selectedToolId?: unknown }).selectedToolId,
       stationId,
     ),
+    enrageUntil: hydrateWallMs(incoming.enrageUntil),
+    enrageReadyAt: hydrateWallMs(incoming.enrageReadyAt),
+    fatigueCombo: hydrateFatigueCombo(incoming.fatigueCombo),
     ...(stationId === 'mining'
       ? hydrateMiningNodes(incoming, incoming.selectedCategory ?? blank.selectedCategory)
       : {}),

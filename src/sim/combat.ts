@@ -6,6 +6,7 @@ import {
   resolveWorkerAttack,
 } from './combatAttrs'
 import { attackIntervalMul, workerAtkMul, workerHpMul } from './tech'
+import { tryAutoEatAfterCombat } from './food'
 import { restHealAmount } from './workshopHp'
 import { chapterCombatMul } from './mainChapter'
 import {
@@ -405,6 +406,7 @@ function finishCombat(
   combat.outcome = outcome
   emitLog(enc, combat, at, text, outcome === 'win' ? 'ok' : 'err', onLog)
   writeBackWorkers(save, combat)
+  tryAutoEatAfterCombat(save, combat.workerIds, at)
 }
 
 function strike(

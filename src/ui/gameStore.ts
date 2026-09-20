@@ -15,6 +15,8 @@ import {
 } from '../sim/gm'
 import { hasUnread, listedMessages, markAllRead } from '../sim/messages'
 import { settleOffline } from '../sim/offline'
+import { usePotion } from '../sim/alchemy'
+import { startStationEnrage } from '../sim/enrage'
 import { eatFood, loadFood, unloadFood } from '../sim/food'
 import { fuseStationWorkers, fuseWorkerWithStation } from '../sim/fuse'
 import { recruitWorker } from '../sim/recruit'
@@ -152,6 +154,8 @@ export const useGameStore = defineStore('game', () => {
       apply((s) => loadFood(s, workerId, itemId, qty)),
     unloadFood: (workerId: string) => apply((s) => unloadFood(s, workerId)),
     eatFood: (workerId: string) => apply((s) => eatFood(s, workerId)),
+    usePotion: (workerId: string) => apply((s) => usePotion(s, workerId)),
+    startEnrage: (stationId: StationId) => apply((s) => startStationEnrage(s, stationId)),
     selectToolType: (toolTypeId: ToolTypeId) => apply((s) => selectForgingToolType(s, toolTypeId)),
     selectForgeOutput: (toolId: StationToolId) => apply((s) => selectForgeOutput(s, toolId)),
     selectCategory: (stationId: StationId, categoryId: CategoryId) =>
