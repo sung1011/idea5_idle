@@ -18,7 +18,8 @@ import { hpBarFill, hpBarTone } from './hpBar'
 import { workerWearHp } from '../sim/workshopHp'
 import {
   canGoToAssignedWorkshop,
-  unassignedWorkers,
+  mainlineCombatWorkers,
+  restingWorkers,
   workerAssignChoices,
   workerDutyLabel,
   workerShortName,
@@ -52,7 +53,8 @@ const selectedId = ref<string | null>(null)
 const pickId = ref<string | null>(null)
 
 const boards = computed(() => workshopStationBoards(game.save))
-const resting = computed(() => unassignedWorkers(game.save))
+const fightingRoster = computed(() => mainlineCombatWorkers(game.save))
+const resting = computed(() => restingWorkers(game.save))
 const selected = computed(() => {
   const id = selectedId.value
   if (!id) return null
@@ -204,8 +206,10 @@ type DragSession = {
 const drag = ref<DragSession | null>(null)
 
 function sourceOf(w: Worker, stationId: StationId | null, slotIndex: number | null): WorkerDragSource | null {
-  if (!canDragWorker(game.save, w.id)) return null
-  if (stationId && slotIndex != null) return { kind: 'slot', workerId: w.id, stationId, slotIndex }
+  if (stationId && slotIndex != null) {
+    if (!canDragWorker(game.save, w.id)) return null
+    return { kind: 'slot', workerId: w.id, stationId, slotIndex }
+  }
   if (w.assignment === null) return { kind: 'rest', workerId: w.id }
   return null
 }
@@ -249,6 +253,7 @@ function onDragMove(ev: PointerEvent) {
   session.y = ev.clientY
   if (!session.active) {
     if (!session.source) return
+    if (!canDragWorker(game.save, session.workerId)) return
     const dx = session.x - session.startX
     const dy = session.y - session.startY
     if (!shouldStartWorkerDrag(session.source, dx, dy)) return
@@ -350,42 +355,81 @@ onUnmounted(unbindDrag)
           </article>
         </div>
       </section>
-      <section class="col rest" :class="restDropClass()" aria-label="休息中" data-drop="rest">
-        <div v-if="resting.length" class="rest-list">
-          <div v-for="w in resting" :key="w.id" class="rest-row" :class="hpToneClass(w)">
-            <i class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
-            <button
-              type="button"
-              class="rest-face"
-              :aria-label="`拖动派驻 ${workerShortName(w)}`"
-              @pointerdown="onWorkerPointerDown($event, w, null, null)"
-            >
-              <span class="avatar" :style="workerQualityTileStyle(w)">
-                <ClassIcon :name="classIconOf(w)" />
-              </span>
-              <span class="rest-main">
-                <span class="rest-top">
-                  <b :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</b>
-                  <small>
-                    <i class="qdot" :style="workerQualityDotStyle(w.qualityTier)" />
-                    Lv{{ w.level }}
-                  </small>
+      <div class="col side">
+        <section class="zone combat" :class="{ empty: !fightingRoster.length }" aria-label="战斗中">
+          <header class="zone-head">战斗中 · {{ fightingRoster.length }}</header>
+          <div v-if="fightingRoster.length" class="zone-list">
+            <div v-for="w in fightingRoster" :key="w.id" class="rest-row" :class="hpToneClass(w)">
+              <i class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
+              <button
+                type="button"
+                class="rest-face"
+                :aria-label="`战斗中 ${workerShortName(w)}`"
+                @pointerdown="onWorkerPointerDown($event, w, null, null)"
+              >
+                <span class="avatar" :style="workerQualityTileStyle(w)">
+                  <ClassIcon :name="classIconOf(w)" />
                 </span>
-              </span>
-            </button>
-            <button
-              type="button"
-              class="rest-go"
-              :aria-label="`${workerShortName(w)} 详情`"
-              @pointerdown.stop
-              @click="openSheet(w)"
-            >
-              ›
-            </button>
+                <span class="rest-main">
+                  <span class="rest-top">
+                    <b :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</b>
+                    <small>
+                      <i class="qdot" :style="workerQualityDotStyle(w.qualityTier)" />
+                      Lv{{ w.level }}
+                    </small>
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                class="rest-go"
+                :aria-label="`${workerShortName(w)} 详情`"
+                @pointerdown.stop
+                @click="openSheet(w)"
+              >
+                ›
+              </button>
+            </div>
           </div>
-        </div>
-        <p v-else class="empty-rest">没有休息工人。点左侧空槽会派入空闲人；也可先抽人。</p>
-      </section>
+        </section>
+        <section class="zone rest" :class="restDropClass()" aria-label="休息" data-drop="rest">
+          <header class="zone-head">休息 · {{ resting.length }}</header>
+          <div v-if="resting.length" class="zone-list rest-list">
+            <div v-for="w in resting" :key="w.id" class="rest-row" :class="hpToneClass(w)">
+              <i class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
+              <button
+                type="button"
+                class="rest-face"
+                :aria-label="`拖动派驻 ${workerShortName(w)}`"
+                @pointerdown="onWorkerPointerDown($event, w, null, null)"
+              >
+                <span class="avatar" :style="workerQualityTileStyle(w)">
+                  <ClassIcon :name="classIconOf(w)" />
+                </span>
+                <span class="rest-main">
+                  <span class="rest-top">
+                    <b :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</b>
+                    <small>
+                      <i class="qdot" :style="workerQualityDotStyle(w.qualityTier)" />
+                      Lv{{ w.level }}
+                    </small>
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                class="rest-go"
+                :aria-label="`${workerShortName(w)} 详情`"
+                @pointerdown.stop
+                @click="openSheet(w)"
+              >
+                ›
+              </button>
+            </div>
+          </div>
+          <p v-else class="empty-rest">没有休息工人。点左侧空槽会派入空闲人；也可先抽人。</p>
+        </section>
+      </div>
     </div>
     <Teleport to="body">
       <div v-if="drag?.active" class="drag-ghost" :style="{ left: `${drag.x}px`, top: `${drag.y}px` }">
@@ -544,9 +588,53 @@ onUnmounted(unbindDrag)
   border-right: 2px solid rgba(212, 160, 23, 0.55);
 }
 
-.rest {
+.side {
   flex: 0 0 38%;
+}
+
+.zone {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.combat {
+  flex: 0 1 auto;
+  max-height: 62%;
+  background: linear-gradient(180deg, rgba(176, 62, 58, 0.14), rgba(255, 214, 196, 0.28));
+  border-bottom: 2px solid rgba(176, 72, 64, 0.32);
+}
+
+.combat.empty {
+  flex: 0 0 auto;
+  max-height: none;
+}
+
+.rest {
+  flex: 1 1 auto;
   background: linear-gradient(180deg, rgba(154, 112, 72, 0.06), rgba(255, 247, 216, 0.2));
+}
+
+.zone-head {
+  flex: 0 0 auto;
+  padding: 5px 8px 3px;
+  color: #7a4a22;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
+.combat .zone-head {
+  color: #8a3228;
+}
+
+.zone-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 6px 8px;
 }
 
 .station-list {
@@ -560,10 +648,7 @@ onUnmounted(unbindDrag)
 }
 
 .rest-list {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-  padding: 8px 6px 72px;
+  padding: 4px 6px 72px;
 }
 
 .station {

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { assignWorker } from '../sim/assign'
+import { beginEnemyCombat } from '../sim/combat'
 import { createSave } from '../sim/createSave'
 import { spawnWorkerWith } from '../sim/recruit'
 import { QUALITY_MAX, STATION_WORKER_CAP } from '../sim/tables'
+import type { EnemyEncounter } from '../sim/types'
 import {
   applyWorkerDrag,
   canDragWorker,
@@ -150,5 +152,40 @@ describe('worker drag assign', () => {
     })
     expect(dropTargetFromDataset({ drop: 'slot', station: 'nope', slot: '0' })).toBeNull()
     expect(STATION_WORKER_CAP).toBe(2)
+  })
+
+  it('blocks dragging a mainline fighter away until the fight settles', () => {
+    const save = createSave()
+    const fighter = spawnWorkerWith(save, 1, 'laborer')
+    const enc: EnemyEncounter = {
+      kind: 'enemy',
+      id: 'test-enemy',
+      label: '试敌',
+      quality: 'green',
+      needs: { meal: 1 },
+      lootGold: 8,
+      departed: false,
+      combat: null,
+      lootClaimed: false,
+      enemyRank: 'minion',
+      weaknesses: ['fire'],
+      revealedWeaknesses: [],
+    }
+    save.encounters[0] = enc
+    beginEnemyCombat(enc, [fighter], 1_000)
+    const fromRest = { kind: 'rest' as const, workerId: fighter.id }
+    expect(canDragWorker(save, fighter.id)).toBe(false)
+    expect(canDropWorker(save, fromRest, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toBe(false)
+    expect(applyWorkerDrag(save, fromRest, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toEqual({
+      ok: false,
+      reason: '正在战斗',
+    })
+    expect(fighter.assignment).toBeNull()
+
+    if (enc.combat) enc.combat.outcome = 'win'
+    expect(canDragWorker(save, fighter.id)).toBe(true)
+    expect(canDropWorker(save, fromRest, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toBe(true)
+    expect(applyWorkerDrag(save, fromRest, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toEqual({ ok: true })
+    expect(fighter.assignment).toBe('mining')
   })
 })

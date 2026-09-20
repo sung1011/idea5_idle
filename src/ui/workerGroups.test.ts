@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { assignWorker } from '../sim/assign'
+import { beginEnemyCombat } from '../sim/combat'
 import { spawnWorkerWith } from '../sim/recruit'
 import { createSave } from '../sim/createSave'
 import { STATION_WORKER_CAP, WORKER_QUALITY_TABLE } from '../sim/tables'
+import type { EnemyEncounter } from '../sim/types'
 import { WORKSHOP_TAB_IDS } from './workshopTabs'
 import {
   CREW_DOT_EMPTY,
@@ -19,6 +21,8 @@ import {
   stationCrewDots,
   toggleWorkerGroupOrder,
   unassignedWorkers,
+  mainlineCombatWorkers,
+  restingWorkers,
   workerAssignChoices,
   workerDutyKind,
   workerDutyLabel,
@@ -203,6 +207,42 @@ describe('workshop station boards', () => {
     expect(fishing?.slots).toEqual([null, null])
     expect(rosterSlotCounts(save)).toEqual({ stations: 7, filled: 2, cap: 14 })
     expect(unassignedWorkers(save).map((worker) => worker.id)).toEqual([rest.id])
+  })
+
+  it('splits unassigned roster into mainline fighters and rest, and never duplicates workshop crew', () => {
+    const save = createSave()
+    const rest = spawnWorkerWith(save, 1, 'laborer')
+    const fighter = spawnWorkerWith(save, 1, 'wanderer')
+    const shop = spawnWorkerWith(save, 2, 'miner')
+    assignWorker(save, shop.id, 'mining')
+    const enc: EnemyEncounter = {
+      kind: 'enemy',
+      id: 'test-enemy',
+      label: '试敌',
+      quality: 'green',
+      needs: { meal: 1 },
+      lootGold: 8,
+      departed: false,
+      combat: null,
+      lootClaimed: false,
+      enemyRank: 'minion',
+      weaknesses: ['fire'],
+      revealedWeaknesses: [],
+    }
+    save.encounters[0] = enc
+    beginEnemyCombat(enc, [fighter], 1_000)
+
+    expect(mainlineCombatWorkers(save).map((worker) => worker.id)).toEqual([fighter.id])
+    expect(restingWorkers(save).map((worker) => worker.id)).toEqual([rest.id])
+    expect(unassignedWorkers(save).map((worker) => worker.id)).toEqual([rest.id, fighter.id])
+
+    enc.combat?.workerIds.push(shop.id)
+    expect(mainlineCombatWorkers(save).map((worker) => worker.id)).toEqual([fighter.id])
+    expect(workshopStationBoards(save).find((board) => board.stationId === 'mining')?.slots[0]?.id).toBe(shop.id)
+
+    if (enc.combat) enc.combat.outcome = 'win'
+    expect(mainlineCombatWorkers(save)).toEqual([])
+    expect(restingWorkers(save).map((worker) => worker.id)).toEqual([rest.id, fighter.id])
   })
 })
 

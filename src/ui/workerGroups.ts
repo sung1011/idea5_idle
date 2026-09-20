@@ -1,5 +1,5 @@
 import { assignedWorkers } from '../sim/assign'
-import { isWorkerInCombat } from '../sim/combat'
+import { fightingWorkerIds, isWorkerInCombat } from '../sim/combat'
 import { canFuseWorkerWithStation } from '../sim/fuse'
 import { QUALITY_TIERS, STATION_DEF, STATION_WORKER_CAP, WORKER_QUALITY_TABLE } from '../sim/tables'
 import type { QualityTier, Save, StationId, Worker, WorkerQualityId } from '../sim/types'
@@ -221,4 +221,15 @@ export function rosterSlotCounts(save: Save) {
 /** 未派驻工人（含出战）。名册原序。 */
 export function unassignedWorkers(save: Save): Worker[] {
   return save.workers.filter((worker) => worker.assignment === null)
+}
+
+/** 主线进行中出战名单（`combat.workerIds` 且 `isFighting`）。工坊在岗即使被波及也不进此列。 */
+export function mainlineCombatWorkers(save: Save): Worker[] {
+  const fighting = fightingWorkerIds(save)
+  return save.workers.filter((worker) => worker.assignment === null && fighting.has(worker.id))
+}
+
+/** 未派驻且未在主线战斗。名册原序。 */
+export function restingWorkers(save: Save): Worker[] {
+  return save.workers.filter((worker) => worker.assignment === null && !isWorkerInCombat(save, worker.id))
 }
