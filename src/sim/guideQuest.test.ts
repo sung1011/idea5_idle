@@ -13,7 +13,7 @@ import {
   guideQuestFlashId,
   guideQuestProgressAt,
   guideQuestView,
-  hasFinishedBattlefieldCombat,
+  hasStartedBattlefieldCombat,
   hydrateGuideQuestFields,
   isGuideQuestCombatFlash,
   isGuideQuestFlash,
@@ -27,7 +27,7 @@ import { RECRUIT_COST } from './tables'
 import { hydrateLoadedSave } from '../ui/saveGame'
 import type { EnemyEncounter, Save } from './types'
 
-function markCombatWon(save: Save) {
+function markCombatStarted(save: Save) {
   const enc = save.encounters[0] as EnemyEncounter
   enc.departed = true
   enc.combat = {
@@ -35,9 +35,9 @@ function markCombatWon(save: Save) {
     timeoutAt: 10,
     workerIds: [],
     workers: [],
-    enemy: { id: 'e', label: '敌', hp: 0, hpMax: 20, atk: 1, spd: 10, nextActAt: 2 },
+    enemy: { id: 'e', label: '敌', hp: 20, hpMax: 20, atk: 1, spd: 10, nextActAt: 2 },
     logs: [],
-    outcome: 'win',
+    outcome: null,
   }
   enc.lootClaimed = false
 }
@@ -96,7 +96,7 @@ describe('guideQuest normalize and hydrate', () => {
     veteran.workers[0].assignment = 'herbalism'
     spawnWorker(veteran)
     veteran.workers[1].qualityTier = 2
-    markCombatWon(veteran)
+    markCombatStarted(veteran)
     veteran.stations.alchemy.completed = 1
     veteran.potionSlots[0] = 'salve'
     veteran.guideQuestPotionUsed = true
@@ -165,9 +165,9 @@ describe('guideQuest steps and claim', () => {
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(4)
 
-    expect(guideQuestView(save)?.goal).toBe('在主线战场完成一次战斗')
-    markCombatWon(save)
-    expect(hasFinishedBattlefieldCombat(save)).toBe(true)
+    expect(guideQuestView(save)?.goal).toBe('在主线中点击战斗')
+    markCombatStarted(save)
+    expect(hasStartedBattlefieldCombat(save)).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(5)
     expect(guideQuestView(save)).toBeNull()
@@ -193,10 +193,19 @@ describe('guideQuest steps and claim', () => {
     expect(claimGuideQuest(save)).toEqual({ ok: false, reason: '新手任务已完成' })
   })
 
-  it('counts a lost battlefield fight as finished', () => {
+  it('counts clicking fight / starting combat without a result', () => {
     const save = createSave()
     save.guideQuestStep = 4
-    const enc = save.encounters[0] as EnemyEncounter
+    expect(guideQuestProgressAt(save, 4)).toBe(0)
+    expect(hasStartedBattlefieldCombat(save)).toBe(false)
+
+    save.departCount = 1
+    expect(guideQuestProgressAt(save, 4)).toBe(1)
+    expect(hasStartedBattlefieldCombat(save)).toBe(true)
+
+    const fighting = createSave()
+    fighting.guideQuestStep = 4
+    const enc = fighting.encounters[0] as EnemyEncounter
     enc.combat = {
       startedAt: 1,
       timeoutAt: 10,
@@ -204,9 +213,9 @@ describe('guideQuest steps and claim', () => {
       workers: [],
       enemy: { id: 'e', label: '敌', hp: 8, hpMax: 20, atk: 1, spd: 10, nextActAt: 2 },
       logs: [],
-      outcome: 'lose',
+      outcome: null,
     }
-    expect(guideQuestProgressAt(save, 4)).toBe(1)
+    expect(guideQuestProgressAt(fighting, 4)).toBe(1)
   })
 })
 
@@ -233,7 +242,7 @@ describe('guideQuest flash target', () => {
     expect(guideQuestFlashId(save)).toBe('combat')
     expect(isGuideQuestCombatFlash(save, save.encounters[0])).toBe(true)
 
-    markCombatWon(save)
+    markCombatStarted(save)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBeNull()
     save.knightLevel = 2

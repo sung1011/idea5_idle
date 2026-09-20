@@ -20,7 +20,7 @@ export const GUIDE_QUEST_GOALS = [
   '在工人中抽取工人（≥1）',
   '把工人派入采药',
   '合成两名同品质工人',
-  '在主线战场完成一次战斗',
+  '在主线中点击战斗',
   '在炼金站炼成药剂',
   '把药剂装进技能槽',
   '点药剂槽产生效果',
@@ -85,14 +85,14 @@ export function hasFusedWorkers(save: Save): boolean {
   return save.workers.some((w) => w.qualityTier >= 2)
 }
 
-/** 开战并分出胜负，或已领战利品。败战也算走完一场。 */
-export function hasFinishedBattlefieldCombat(save: Save): boolean {
+/** 主线点过战斗/开战即可。不要求分出胜负或领战利品。旧档已出发/已有战斗态也算。 */
+export function hasStartedBattlefieldCombat(save: Save): boolean {
+  if ((save.departCount ?? 0) >= 1) return true
   if ((save.mainLootClaims ?? 0) >= 1) return true
   return save.encounters.some((enc) => {
     if (enc.kind !== 'enemy') return false
-    if (enc.lootClaimed) return true
-    const outcome = enc.combat?.outcome
-    return outcome === 'win' || outcome === 'lose'
+    if (enc.lootClaimed || enc.departed) return true
+    return enc.combat != null
   })
 }
 
@@ -131,7 +131,7 @@ export function guideQuestProgressAt(save: Save, step: number): 0 | 1 {
     case 3:
       return hasFusedWorkers(save) ? 1 : 0
     case 4:
-      return hasFinishedBattlefieldCombat(save) ? 1 : 0
+      return hasStartedBattlefieldCombat(save) ? 1 : 0
     case 5:
       return hasProducedAlchemyPotion(save) ? 1 : 0
     case 6:
@@ -195,7 +195,7 @@ export function isGuideQuestFlash(save: Save, id: GuideQuestFlashId): boolean {
   return guideQuestFlashId(save) === id
 }
 
-/** 步骤 4 要闪的那张战场敌：已胜待领优先，否则第一张未领。 */
+/** 步骤 4 要闪的那张战场敌：未开战可点「战斗」的优先，否则第一张未领。 */
 export function guideQuestCombatFlashEncounter(save: Save): Encounter | null {
   if (!isGuideQuestFlash(save, 'combat')) return null
   const board = save.encounters.filter((enc) => enc.kind === 'enemy')
