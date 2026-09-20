@@ -19,8 +19,12 @@ import {
   FATIGUE_NEAR_FULL_PIP,
   FATIGUE_SIX_HOUR_S,
   FATIGUE_STATION_MUL,
+  HP_EMPTY_RATIO,
+  HP_WOUNDED_RATIO,
   restHealAmount,
   workerWearHp,
+  WORKSHOP_EMPTY_WORK_MUL,
+  WORKSHOP_WOUNDED_WORK_MUL,
   workshopHpWorkMul,
 } from './workshopHp'
 
@@ -51,9 +55,13 @@ function stubWorker(hp: number, hpMax: number): Worker {
 }
 
 describe('workshop HP formulas', () => {
-  it('locks HP at 1 and only halves work when HP===1', () => {
-    expect(workshopHpWorkMul(stubWorker(2, 100))).toBe(1)
-    expect(workshopHpWorkMul(stubWorker(1, 100))).toBe(0.5)
+  it('locks HP at 1 and scales work by empty / wounded / normal bands', () => {
+    expect(HP_EMPTY_RATIO).toBe(0.01)
+    expect(HP_WOUNDED_RATIO).toBe(0.3)
+    expect(workshopHpWorkMul(stubWorker(1, 100))).toBe(WORKSHOP_EMPTY_WORK_MUL)
+    expect(workshopHpWorkMul(stubWorker(2, 100))).toBe(WORKSHOP_WOUNDED_WORK_MUL)
+    expect(workshopHpWorkMul(stubWorker(30, 100))).toBe(WORKSHOP_WOUNDED_WORK_MUL)
+    expect(workshopHpWorkMul(stubWorker(31, 100))).toBe(1)
     expect(workshopHpWorkMul(stubWorker(26, 26))).toBe(1)
 
     const save = roster(1)
@@ -115,7 +123,7 @@ describe('workshop HP formulas', () => {
     expect(fail.stations.forging.fatigueCombo.frustration).toBe(1)
   })
 
-  it('does not use food to cut workshop drain, and only HP===1 slows the station', () => {
+  it('does not use food to cut workshop drain; empty/wounded bands slow the station', () => {
     const t0 = 8_000_000
     const save = roster(1)
     save.bank.meal = 1
@@ -124,10 +132,11 @@ describe('workshop HP formulas', () => {
     const slow = roster(1)
     assignWorker(slow, slow.workers[0].id, 'mining')
     const full = currentSpeed(slow, 'mining', t0)
-    slow.workers[0].hp = Math.floor(slow.workers[0].hpMax * 0.2)
-    expect(currentSpeed(slow, 'mining', t0)).toBeCloseTo(full)
+    slow.workers[0].hpMax = 100
+    slow.workers[0].hp = 20
+    expect(currentSpeed(slow, 'mining', t0)).toBeCloseTo(full * WORKSHOP_WOUNDED_WORK_MUL)
     slow.workers[0].hp = 1
-    expect(currentSpeed(slow, 'mining', t0)).toBeCloseTo(full * 0.5)
+    expect(currentSpeed(slow, 'mining', t0)).toBeCloseTo(full * WORKSHOP_EMPTY_WORK_MUL)
   })
 
   it('adds fatigue to each assigned worker on that station only', () => {
@@ -143,13 +152,14 @@ describe('workshop HP formulas', () => {
     expect(save.workers[2].fatigueDebt).toBeGreaterThan(0)
   })
 
-  it('marks weak at HP===1 and rest-heals max(1, floor(hpMax * 0.05))', () => {
+  it('marks weak at wounded HP and rest-heals max(1, floor(hpMax * 0.05))', () => {
     expect(restHealAmount(24)).toBe(1)
     expect(restHealAmount(100)).toBe(5)
     const save = roster(1)
     const worker = save.workers[0]
     assignWorker(save, worker.id, 'mining')
-    worker.hp = 1
+    worker.hpMax = 100
+    worker.hp = 20
     expect(applyWorkshopCycleDrain(save, 'mining', 0)).toBe(true)
 
     const rest = roster(1)
@@ -158,6 +168,21 @@ describe('workshop HP formulas', () => {
     rest.elapsedS = REST_HEAL_EVERY_S
     applyRestHeal(rest)
     expect(rest.workers[0].hp).toBe(15)
+  })
+
+  it('auto-eats one leftover after a cycle when an assigned worker is wounded', () => {
+    const t0 = 9_000_000
+    const save = roster(1)
+    const worker = save.workers[0]
+    assignWorker(save, worker.id, 'mining')
+    save.bank.meal = 2
+    expect(loadFood(save, worker.id, 'meal', 2, t0).ok).toBe(true)
+    worker.hpMax = 100
+    worker.hp = 20
+    expect(worker.foodSlot?.qty).toBe(1)
+    expect(completeCycle(save, 'mining', t0)).toBe(true)
+    expect(worker.hp).toBe(20 + Math.ceil(100 * 0.25))
+    expect(worker.foodSlot?.qty).toBe(0)
   })
 })
 

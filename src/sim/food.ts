@@ -1,6 +1,7 @@
 import { addToBank, bankQty, takeFromBank } from './bank'
 import { findWorker } from './recruit'
 import { FOOD_HEAL_RATIO, foodBuffDef, isFoodItemId, ITEM_DEF, type FoodItemId } from './tables'
+import { isWoundedHp } from './workshopHp'
 import type {
   ActionResult,
   EffectId,
@@ -8,6 +9,7 @@ import type {
   ItemId,
   ProductionBuff,
   Save,
+  StationId,
   Worker,
 } from './types'
 
@@ -165,14 +167,25 @@ export function eatFood(save: Save, workerId: string, now = Date.now()): ActionR
   return { ok: true, message: healed > 0 ? `吃了1份${label}，HP+${healed}` : `吃了1份${label}` }
 }
 
-/** 主线战斗结算后：HP===1 且槽内有余粮则自动吃 1 回血。 */
-export function tryAutoEatAfterCombat(save: Save, workerIds: readonly string[], now = Date.now()): void {
-  for (const id of workerIds) {
-    const worker = findWorker(save, id)
-    if (!worker || worker.hp !== 1) continue
-    if (!worker.foodSlot || worker.foodSlot.qty < 1) continue
-    eatFood(save, id, now)
+/** 残血（≤30%）且槽内有余粮则自动吃 1 回血。 */
+export function tryAutoEatWhenWounded(save: Save, workerId: string, now = Date.now()): ActionResult | null {
+  const worker = findWorker(save, workerId)
+  if (!worker || !isWoundedHp(worker)) return null
+  const slot = worker.foodSlot
+  if (!slot || !canEatSlot(slot)) return null
+  return eatFood(save, workerId, now)
+}
+
+export function tryAutoEatAssigned(save: Save, stationId: StationId, now = Date.now()): void {
+  for (const worker of save.workers) {
+    if (worker.assignment !== stationId) continue
+    tryAutoEatWhenWounded(save, worker.id, now)
   }
+}
+
+/** 主线战斗结算后：残血（≤30%）且槽内有余粮则自动吃 1 回血。 */
+export function tryAutoEatAfterCombat(save: Save, workerIds: readonly string[], now = Date.now()): void {
+  for (const id of workerIds) tryAutoEatWhenWounded(save, id, now)
 }
 
 /** 测试 / hydrate：按表重写当前 Buff 截止。 */

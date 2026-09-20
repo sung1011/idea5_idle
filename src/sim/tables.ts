@@ -769,7 +769,7 @@ export const FOOD_BUFF_DEF: Record<FoodItemId, ProductionBuff> = {
   stew: { effectId: EFFECT_ID.prodSpeed, mul: 1.03, durationS: 240 },
 }
 
-/** 战斗结算 / 手动吃 1：按 hpMax 向上取整回血。 */
+/** 残血自动吃 1：按 hpMax 向上取整回血。 */
 export const FOOD_HEAL_RATIO: Record<FoodItemId, number> = {
   meal: 0.25,
   roast: 0.4,

@@ -21,9 +21,12 @@ export const FATIGUE_STATION_MUL: Readonly<Record<StationId, number>> = {
 /** 6h 等价产出（裸效率单人周期次数）用此时长。 */
 export const FATIGUE_SIX_HOUR_S = 6 * 3600
 export const WORKSHOP_REST_HEAL_RATIO = 0.05
-/** 残血：仅 HP===1 时贡献 ×0.5。 */
-export const WORKSHOP_CRIT_HP = 1
-export const WORKSHOP_CRIT_WORK_MUL = 0.5
+/** hp/hpMax ≤1%：空血，生产 ×0.5。 */
+export const HP_EMPTY_RATIO = 0.01
+/** hp/hpMax ≤30%：残血，生产 ×0.8。 */
+export const HP_WOUNDED_RATIO = 0.3
+export const WORKSHOP_EMPTY_WORK_MUL = 0.5
+export const WORKSHOP_WOUNDED_WORK_MUL = 0.8
 
 export type FatigueKind = 'success' | 'softFail' | 'hazard' | 'emptyRod' | 'none'
 
@@ -52,9 +55,21 @@ function nearFullPip(worker: Worker): number {
   return worker.hp >= worker.hpMax - 1 ? FATIGUE_NEAR_FULL_PIP : 0
 }
 
-/** 仅 HP===1 时 ×0.5，其余 ×1。 */
+export function isEmptyHp(worker: Worker): boolean {
+  return workerHpRatio(worker) <= HP_EMPTY_RATIO
+}
+
+/** 残血含空血：hp/hpMax ≤30%。 */
+export function isWoundedHp(worker: Worker): boolean {
+  return workerHpRatio(worker) <= HP_WOUNDED_RATIO
+}
+
+/** 空血 ×0.5 / 残血 ×0.8 / 其余 ×1。 */
 export function workshopHpWorkMul(worker: Worker): number {
-  return worker.hp === WORKSHOP_CRIT_HP ? WORKSHOP_CRIT_WORK_MUL : 1
+  const ratio = workerHpRatio(worker)
+  if (ratio <= HP_EMPTY_RATIO) return WORKSHOP_EMPTY_WORK_MUL
+  if (ratio <= HP_WOUNDED_RATIO) return WORKSHOP_WOUNDED_WORK_MUL
+  return 1
 }
 
 export function restHealAmount(hpMax: number): number {
@@ -193,7 +208,7 @@ export function fatigueDebtDelta(
 
 /**
  * 按产出结果写劳损。空转 / 空杆不扣。
- * 返回是否有人已虚弱（HP===1）。
+ * 返回是否有人已虚弱（生产效率 < 1，即残血或空血）。
  */
 export function applyWorkshopFatigue(save: Save, stationId: StationId, now: number, kind: FatigueKind): boolean {
   const crew = assignedOf(save, stationId)

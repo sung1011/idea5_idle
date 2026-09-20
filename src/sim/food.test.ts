@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
-import { eatFood, loadFood, unloadFood } from './food'
+import { eatFood, loadFood, tryAutoEatWhenWounded, unloadFood } from './food'
 import { currentSpeed } from './query'
 import { recruitWorker } from './recruit'
 import { selectStationCategory } from './stationProgress'
@@ -169,7 +169,7 @@ describe('food slot buff', () => {
 })
 
 describe('eatFood', () => {
-  it('manually eats one leftover and restarts the same buff from now', () => {
+  it('eats one leftover and restarts the same buff from now', () => {
     const t0 = 6_000_000
     const save = roster(1)
     save.bank.meal = 3
@@ -209,7 +209,7 @@ describe('eatFood', () => {
     expect(save.workers[0].foodSlot).toBeNull()
   })
 
-  it('still auto-eats leftover after a manual eat', () => {
+  it('still refreshes leftover after an extra eat', () => {
     const t0 = 8_000_000
     const save = roster(1)
     save.bank.meal = 3
@@ -236,5 +236,23 @@ describe('eatFood', () => {
     expect(eatFood(save, worker.id, t0 + 1_000).ok).toBe(true)
     expect(worker.hp).toBe(1 + Math.ceil(worker.hpMax * 0.25))
     expect(worker.hp).toBeGreaterThan(1)
+  })
+
+  it('auto-eats at residual HP ≤30% and skips above that', () => {
+    const t0 = 10_000_000
+    const save = roster(1)
+    const worker = save.workers[0]
+    save.bank.meal = 3
+    expect(loadFood(save, worker.id, 'meal', 3, t0).ok).toBe(true)
+    worker.hpMax = 100
+    worker.hp = 31
+    expect(tryAutoEatWhenWounded(save, worker.id, t0 + 1_000)).toBeNull()
+    expect(worker.foodSlot?.qty).toBe(2)
+    expect(worker.hp).toBe(31)
+
+    worker.hp = 30
+    expect(tryAutoEatWhenWounded(save, worker.id, t0 + 2_000)?.ok).toBe(true)
+    expect(worker.hp).toBe(30 + Math.ceil(100 * 0.25))
+    expect(worker.foodSlot?.qty).toBe(1)
   })
 })

@@ -113,10 +113,6 @@ function foodQtyMax(id: FoodItemId) {
   return Math.max(1, bankQty(game.save, id))
 }
 
-function canEat(w: Worker) {
-  return !!w.foodSlot && w.foodSlot.qty >= 1
-}
-
 function onLoadFood(w: Worker) {
   const itemId = pickFood[w.id] ?? availableFoods()[0]
   if (!itemId) return
@@ -427,7 +423,6 @@ onUnmounted(unbindDrag)
         </p>
         <p class="hint">{{ foodLine(selected) }}</p>
         <div class="row tool-row">
-          <button type="button" :disabled="!canEat(selected)" @click="game.eatFood(selected.id)">吃 1</button>
           <button type="button" :disabled="!canUsePotion(selected)" @click="game.usePotion(selected.id)">
             用药
           </button>

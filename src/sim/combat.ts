@@ -7,9 +7,9 @@ import {
 } from './combatAttrs'
 import { attackIntervalMul, workerAtkMul, workerHpMul } from './tech'
 import { drawEnemyTargetRule, pickEnemyTargets, type CombatTarget } from './combatTarget'
-import { tryAutoEatAfterCombat } from './food'
+import { tryAutoEatAfterCombat, tryAutoEatWhenWounded } from './food'
 import { roll01 } from './rng'
-import { restHealAmount } from './workshopHp'
+import { isWoundedHp, restHealAmount } from './workshopHp'
 import { chapterCombatMul } from './mainChapter'
 import {
   addWorkerXp,
@@ -455,7 +455,7 @@ function strike(
   )
 }
 
-/** 工坊在岗：扣同一 hp，锁 1；刚打到残血则复用战后自动吃食。 */
+/** 工坊在岗：扣同一 hp，锁 1；进入/处于残血（≤30%）则自动吃 1。 */
 function strikeWorkshop(
   save: Save,
   enc: EnemyEncounter,
@@ -468,7 +468,6 @@ function strikeWorkshop(
   if (attacker.hp <= 0) return
   const worker = save.workers.find((w) => w.id === target.id)
   if (!worker || worker.hp <= 0) return
-  const before = worker.hp
   worker.hp = Math.max(1, worker.hp - attacker.atk)
   emitLog(
     enc,
@@ -478,7 +477,7 @@ function strikeWorkshop(
     'err',
     onLog,
   )
-  if (before > 1 && worker.hp === 1) tryAutoEatAfterCombat(save, [worker.id], at)
+  if (isWoundedHp(worker)) tryAutoEatWhenWounded(save, worker.id, at)
 }
 
 function resolveEnemyStrikeTargets(

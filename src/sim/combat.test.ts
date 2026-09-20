@@ -569,7 +569,7 @@ describe('enemy hits workshop crew', () => {
     expect(shop.assignment).toBe('mining')
   })
 
-  it('auto-eats workshop food when a hit drops hp to 1', () => {
+  it('auto-eats workshop food when a hit leaves residual HP', () => {
     const save = createSave()
     const front = spawnWorkerWith(save, 1, 'laborer')
     const shop = spawnWorkerWith(save, 1, 'miner')
@@ -593,23 +593,25 @@ describe('enemy hits workshop crew', () => {
 })
 
 describe('combat food heal', () => {
-  it('auto-eats one food after settlement when HP===1', () => {
+  it('auto-eats one food after settlement when residual HP ≤30%', () => {
     const save = createSave()
     const worker = spawnWorker(save)
     save.bank.meal = 2
     const t0 = 20_000
     expect(loadFood(save, worker.id, 'meal', 2, t0).ok).toBe(true)
-    worker.hp = 1
+    worker.hpMax = 100
+    worker.hp = 25
     const enc = testEnemy()
     putEnemy(save, enc)
     beginEnemyCombat(enc, [worker], t0)
     if (enc.combat) {
-      enc.combat.workers[0].hp = 1
+      enc.combat.workers[0].hp = 25
+      enc.combat.workers[0].hpMax = 100
       enc.combat.enemy.hp = 0
     }
     stepEnemyCombat(save, enc, t0 + 1_000)
     expect(isCombatWon(enc)).toBe(true)
-    expect(worker.hp).toBeGreaterThan(1)
+    expect(worker.hp).toBe(25 + Math.ceil(100 * 0.25))
     expect(worker.foodSlot?.qty).toBe(0)
   })
 })

@@ -4,7 +4,8 @@ import { takeCosts } from './costs'
 import { completeForgingCycle } from './forging'
 import { applyGatherOutputs, applyHuntingPauseTick, applyMiningRecovery, isGatherFrozen, isGatherStation } from './gather'
 import { craftGoldForLots, emitGain, mergeLots, pushLot, type GainSink, type ItemLot } from './gains'
-import { applyWorkshopFatigue, decayAlchemyFog, type FatigueKind } from './workshopHp'
+import { tryAutoEatAssigned } from './food'
+import { applyWorkshopFatigue, decayAlchemyFog, workshopHpWorkMul, type FatigueKind } from './workshopHp'
 import { assignedCount, canConsume, currentSpeed, pickConsume } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
 import { ITEM_DEF, isPotionItemId } from './tables'
@@ -115,7 +116,9 @@ function emitCycleGain(
 ): void {
   const gold = grantCycleCraftGold(save, lots)
   const station = save.stations[stationId]
-  const weak = applyWorkshopFatigue(save, stationId, now, fatigue)
+  applyWorkshopFatigue(save, stationId, now, fatigue)
+  tryAutoEatAssigned(save, stationId, now)
+  const weak = save.workers.some((worker) => worker.assignment === stationId && workshopHpWorkMul(worker) < 1)
   emitGain(onGain, lots, stationId, station.gatherNotice ?? station.craftNotice ?? null, gold, weak)
 }
 

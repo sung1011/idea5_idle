@@ -150,7 +150,7 @@ export type FoodSlot = {
   qty: number
   /** 同时仅 1 个生产 Buff */
   buff: ProductionBuff
-  /** 到期墙钟；到期若 qty>=1 则自动吃 1 份刷新，否则清空；也可手动吃 1 */
+  /** 到期墙钟；到期若 qty>=1 则自动吃 1 份刷新，否则清空；残血自动吃 1 回血 */
   expiresAt: number
   effects: EffectInstance[]
 }
