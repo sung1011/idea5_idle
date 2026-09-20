@@ -551,20 +551,8 @@ function pickRecommend(w: Worker) {
 
 .board {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-}
-
-@media (min-width: 560px) {
-  .board {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (min-width: 900px) {
-  .board {
-    grid-template-columns: 1fr 1fr 1fr;
-  }
 }
 
 .card {
