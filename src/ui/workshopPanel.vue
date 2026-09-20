@@ -177,6 +177,12 @@ watch(activeStation, async () => {
   font-family: var(--font-display);
   font-size: 11px;
   letter-spacing: 0.04em;
+  color: var(--ink);
+  background: linear-gradient(#fffdf6, #fff7d8);
+  border-color: var(--gold);
+  box-shadow: 0 2px 0 var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  opacity: 1;
+  filter: none;
 }
 
 .rail .fills {
@@ -254,15 +260,30 @@ watch(activeStation, async () => {
   box-shadow: 0 0 0 1px rgba(90, 58, 16, 0.28);
 }
 
-.rail button.on {
-  color: var(--ink);
-  background: linear-gradient(#fffbeb, var(--btn));
-  box-shadow:
-    0 3px 0 var(--shadow),
-    inset 0 0 0 2px #ffe27a,
-    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+.rail button.on,
+.rail button.on:hover:not(:disabled),
+.rail button.on:active:not(:disabled) {
+  color: #3f2208;
+  font-weight: 700;
+  background: #e0a21c;
+  border-width: 4px;
+  border-color: #8f6a0c;
+  box-shadow: 0 3px 0 #8f6a0c;
   opacity: 1;
   filter: none;
+}
+
+.rail button.on::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 3;
+  width: 6px;
+  pointer-events: none;
+  background: #8f6a0c;
+  border-radius: 8px 0 0 8px;
 }
 
 .rail button.on::after {
@@ -272,7 +293,7 @@ watch(activeStation, async () => {
   z-index: 2;
   pointer-events: none;
   border-radius: inherit;
-  box-shadow: inset 0 0 0 2px rgba(255, 226, 122, 0.95);
+  box-shadow: inset 0 0 0 3px #c48a14;
 }
 
 .rail .ui-ico {
