@@ -59,7 +59,15 @@ export function pushEncounterTip(encounterId: string, text: string, kind: FloatT
 export function formatCombatTip(text: string): string {
   const raw = text.trim()
   if (!raw) return ''
-  if (raw.includes('揭示弱点') || raw.includes('胜利') || raw.includes('战败') || raw.includes('超时') || raw.includes('出战')) {
+  if (
+    raw.includes('揭示弱点') ||
+    raw.includes('胜利') ||
+    raw.includes('战败') ||
+    raw.includes('超时') ||
+    raw.includes('出战') ||
+    raw.includes('破防') ||
+    raw.includes('增援')
+  ) {
     return raw
   }
   const hit = raw.match(/^(.+?) 对 .+? 造成 (\d+)(?:（(?!\d+\/)([^）]+)）)?/)
@@ -76,7 +84,7 @@ export function formatCombatTip(text: string): string {
 
 export function combatTipKind(text: string): FloatTipKind {
   if (/战败|超时|倒下/.test(text)) return 'err'
-  if (/揭示弱点|胜利|出战/.test(text)) return 'ok'
+  if (/揭示弱点|胜利|出战|破防|增援/.test(text)) return 'ok'
   return 'ok'
 }
 

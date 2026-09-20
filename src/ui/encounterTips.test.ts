@@ -35,6 +35,7 @@ describe('encounterTips', () => {
     expect(formatCombatTip('全员倒下，战败')).toBe('全员倒下，战败')
     expect(formatCombatTip('超时判败')).toBe('超时判败')
     expect(formatCombatTip('甲、乙 出战')).toBe('甲、乙 出战')
+    expect(formatCombatTip('破防！')).toBe('破防！')
     expect(formatCombatTip('试敌 对 在岗乙 造成 2（工坊）（22/24）')).toBe('试敌 造成 2（工坊）')
   })
 
@@ -48,6 +49,7 @@ describe('encounterTips', () => {
     expect(combatTipKind('超时判败')).toBe('err')
     expect(combatTipKind('战斗胜利')).toBe('ok')
     expect(combatTipKind('揭示弱点：剑')).toBe('ok')
+    expect(combatTipKind('破防！')).toBe('ok')
     expect(combatTipKind('甲 对 试敌 造成 8（2400/2400）')).toBe('ok')
   })
 

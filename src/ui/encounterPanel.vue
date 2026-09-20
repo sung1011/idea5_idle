@@ -7,6 +7,7 @@ import {
   COMBAT_PARTY_MAX,
   canReinforceCombat,
   fieldFighterCount,
+  isCombatStunned,
   isCombatWon,
   isFighting,
   isFullCombatHp,
@@ -176,7 +177,13 @@ function cardClass(enc: Encounter) {
   return {
     [`q-${enc.quality}`]: true,
     done: isEncounterDone(enc, now.value),
+    stunned: enc.kind === 'enemy' && !!enc.combat && isCombatStunned(enc.combat, now.value),
   }
+}
+
+function combatShield(enc: EnemyEncounter): number | null {
+  if (!enc.combat || typeof enc.combat.shield !== 'number') return null
+  return enc.combat.shield
 }
 
 function workerJob(w: Worker) {
@@ -264,6 +271,9 @@ function pickRecommend(w: Worker) {
               :key="`${enc.id}-w-${si}`"
               :attr="slot"
             />
+            <i v-if="combatShield(enc) != null" class="shield" :class="{ broke: cardClass(enc).stunned }">
+              {{ cardClass(enc).stunned ? '破防中' : `盾 ${combatShield(enc)}` }}
+            </i>
           </p>
           <template v-if="enc.combat">
             <div class="bars">
@@ -781,6 +791,32 @@ ul {
   gap: 6px;
   margin: 0;
   font-size: 13px;
+}
+
+.shield {
+  font-style: normal;
+  padding: 1px 7px;
+  border: 2px solid var(--gold-deep);
+  border-radius: 999px;
+  background: #fff3d4;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.shield.broke {
+  border-color: #c0392b;
+  background: #ffe0cc;
+  color: #c0392b;
+}
+
+.card.stunned {
+  box-shadow: 0 3px 0 #c0392b, inset 0 0 0 2px #ffd0b8;
+}
+
+.card.stunned .bars {
+  filter: saturate(1.15);
 }
 
 .weak :deep(.chip) {

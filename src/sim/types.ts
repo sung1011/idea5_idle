@@ -251,6 +251,12 @@ export type EnemyCombat = {
   enemy: CombatFighter
   logs: CombatLogEntry[]
   outcome: CombatOutcome | null
+  /** 开战时掷出的破防盾上限。旧档缺字段开战 / 步进时补。 */
+  shieldMax?: number
+  /** 当前剩余盾。命中几种弱点扣几；到 0 破防。 */
+  shield?: number
+  /** 破防硬直结束墙钟。未破防或缺字段为 null。 */
+  stunnedUntil?: number | null
 }
 
 export type Worker = {

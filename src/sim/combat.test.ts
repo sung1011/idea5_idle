@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   CLASS_COMBAT_MOD,
+  BREAK_TIP,
+  BREAK_VULN_MUL,
   COMBAT_PARTY_MAX,
   COMBAT_TIMEOUT_BY_RANK,
   COMBAT_TIMEOUT_S,
   ENEMY_COMBAT_BASE,
+  ENEMY_SHIELD_COUNT,
+  ENEMY_STUN_S,
   ENEMY_COMBAT_POWER_MUL,
   ENEMY_COMBAT_QUALITY_MUL,
   ENEMY_COMBAT_RANK_MUL,
@@ -17,7 +21,10 @@ import {
   canReinforceCombat,
   combatPartyBlockReason,
   combatTimeoutS,
+  enemyStunMs,
   enemyCombatStats,
+  isCombatStunned,
+  rollEnemyShield,
   fieldFighterCount,
   fillWorkerHp,
   isCombatLost,
@@ -805,5 +812,202 @@ describe('death leave and reinforce', () => {
     expect(canReinforceCombat(enc)).toBe(false)
     expect(reinforceCombat(save, 0, [extra.id], 2_000).ok).toBe(false)
     expect(save.bank.meal).toBe(1)
+  })
+})
+
+describe('weakness break shields', () => {
+  it('rolls shield by rank and keeps the fight-start max', () => {
+    expect(ENEMY_SHIELD_COUNT).toEqual({
+      minion: { min: 2, max: 3 },
+      elite: { min: 4, max: 5 },
+      boss: { min: 6, max: 8 },
+    })
+    expect(ENEMY_STUN_S).toEqual({ minion: 3, elite: 4, boss: 5 })
+    expect(rollEnemyShield('minion', () => 0)).toBe(2)
+    expect(rollEnemyShield('minion', () => 0.99)).toBe(3)
+    expect(rollEnemyShield('elite', () => 0)).toBe(4)
+    expect(rollEnemyShield('elite', () => 0.99)).toBe(5)
+    expect(rollEnemyShield('boss', () => 0)).toBe(6)
+    expect(rollEnemyShield('boss', () => 0.99)).toBe(8)
+    expect(enemyStunMs('minion')).toBe(3_000)
+    expect(enemyStunMs('elite')).toBe(4_000)
+    expect(enemyStunMs('boss')).toBe(5_000)
+
+    const save = createSave()
+    const worker = spawnWorker(save)
+    const minion = testEnemy({ enemyRank: 'minion' })
+    const elite = testEnemy({ id: 'elite-enemy', enemyRank: 'elite', quality: 'purple' })
+    const boss = testEnemy({ id: 'boss-enemy', enemyRank: 'boss', quality: 'orange' })
+    const now = 10_000
+    const minionCombat = beginEnemyCombat(minion, [worker], now)
+    const eliteCombat = beginEnemyCombat(elite, [worker], now)
+    const bossCombat = beginEnemyCombat(boss, [worker], now)
+    expect(minionCombat.shieldMax).toBeGreaterThanOrEqual(2)
+    expect(minionCombat.shieldMax).toBeLessThanOrEqual(3)
+    expect(minionCombat.shield).toBe(minionCombat.shieldMax)
+    expect(eliteCombat.shieldMax).toBeGreaterThanOrEqual(4)
+    expect(eliteCombat.shieldMax).toBeLessThanOrEqual(5)
+    expect(bossCombat.shieldMax).toBeGreaterThanOrEqual(6)
+    expect(bossCombat.shieldMax).toBeLessThanOrEqual(8)
+    expect(minionCombat.stunnedUntil).toBeNull()
+  })
+
+  it('deducts one shield per unique matched attr in that strike', () => {
+    const save = createSave()
+    const worker = spawnWorkerWith(save, 5, 'artisan', ['fire', 'ice', 'fire'])
+    const enc = testEnemy({ weaknesses: ['fire', 'ice'], revealedWeaknesses: ['fire', 'ice'] })
+    putEnemy(save, enc)
+    const now = 20_000
+    const combat = beginEnemyCombat(enc, [worker], now)
+    combat.shieldMax = 5
+    combat.shield = 5
+    combat.stunnedUntil = null
+    combat.workers[0].nextActAt = now + 1_000
+    combat.enemy.nextActAt = now + 9_000
+    stepEnemyCombat(save, enc, now + 1_000)
+    expect(combat.shield).toBe(3)
+    expect(isCombatStunned(combat, now + 1_000)).toBe(false)
+    expect(combat.logs.some((row) => row.text === BREAK_TIP)).toBe(false)
+  })
+
+  it('reveals an unrevealed match then deducts on the same strike', () => {
+    const save = createSave()
+    const worker = spawnWorkerWith(save, 5, 'artisan', ['dark'])
+    const enc = testEnemy({
+      weaknesses: ['fire', 'dark'],
+      revealedWeaknesses: ['fire'],
+    })
+    putEnemy(save, enc)
+    const now = 30_000
+    const combat = beginEnemyCombat(enc, [worker], now)
+    enc.revealedWeaknesses = ['fire']
+    combat.shieldMax = 4
+    combat.shield = 4
+    combat.stunnedUntil = null
+    combat.workers[0].nextActAt = now + 1_000
+    combat.enemy.nextActAt = now + 9_000
+    stepEnemyCombat(save, enc, now + 1_000)
+    expect(enc.revealedWeaknesses).toEqual(['fire', 'dark'])
+    expect(combat.shield).toBe(3)
+    expect(combat.logs.some((row) => row.text.includes('揭示弱点：暗'))).toBe(true)
+  })
+
+  it('does not deduct shield on a miss', () => {
+    const save = createSave()
+    const worker = spawnWorkerWith(save, 5, 'artisan', ['bow'])
+    const enc = testEnemy({ weaknesses: ['fire', 'ice'], revealedWeaknesses: ['fire'] })
+    putEnemy(save, enc)
+    const now = 40_000
+    const combat = beginEnemyCombat(enc, [worker], now)
+    combat.shieldMax = 3
+    combat.shield = 3
+    combat.stunnedUntil = null
+    combat.workers[0].nextActAt = now + 1_000
+    combat.enemy.nextActAt = now + 9_000
+    const hp0 = combat.enemy.hp
+    stepEnemyCombat(save, enc, now + 1_000)
+    expect(combat.shield).toBe(3)
+    expect(combat.enemy.hp).toBe(hp0 - combat.workers[0].atk)
+    expect(isCombatStunned(combat, now + 1_000)).toBe(false)
+  })
+
+  it('stuns for rank duration, applies vuln, and floats 破防！', () => {
+    const cases: { rank: 'minion' | 'elite' | 'boss'; quality: 'green' | 'purple' | 'orange' }[] = [
+      { rank: 'minion', quality: 'green' },
+      { rank: 'elite', quality: 'purple' },
+      { rank: 'boss', quality: 'orange' },
+    ]
+    for (const { rank, quality } of cases) {
+      const save = createSave()
+      const worker = spawnWorkerWith(save, 5, 'artisan', ['fire'])
+      worker.name = '甲'
+      const enc = testEnemy({
+        id: `break-${rank}`,
+        quality,
+        enemyRank: rank,
+        weaknesses: ['fire'],
+        revealedWeaknesses: ['fire'],
+      })
+      putEnemy(save, enc)
+      const now = 50_000
+      const combat = beginEnemyCombat(enc, [worker], now)
+      combat.shieldMax = 1
+      combat.shield = 1
+      combat.stunnedUntil = null
+      combat.workers[0].nextActAt = now + 1_000
+      combat.enemy.nextActAt = now + 20_000
+      const hp0 = combat.enemy.hp
+      stepEnemyCombat(save, enc, now + 1_000)
+      expect(combat.shield).toBe(0)
+      expect(combat.stunnedUntil).toBe(now + 1_000 + enemyStunMs(rank))
+      expect(isCombatStunned(combat, now + 1_000)).toBe(true)
+      expect(isCombatStunned(combat, combat.stunnedUntil! - 1)).toBe(true)
+      expect(isCombatStunned(combat, combat.stunnedUntil!)).toBe(false)
+      expect(combat.logs.some((row) => row.text === BREAK_TIP)).toBe(true)
+      expect(combat.enemy.hp).toBe(hp0 - Math.round(combat.workers[0].atk * 1.2 * BREAK_VULN_MUL))
+      expect(combat.enemy.nextActAt).toBeGreaterThanOrEqual(combat.stunnedUntil ?? 0)
+    }
+  })
+
+  it('does not deduct while stunned and resets shield after stun ends', () => {
+    const save = createSave()
+    const worker = spawnWorkerWith(save, 5, 'artisan', ['fire'])
+    const enc = testEnemy({ weaknesses: ['fire'], revealedWeaknesses: ['fire'] })
+    putEnemy(save, enc)
+    const now = 60_000
+    const combat = beginEnemyCombat(enc, [worker], now)
+    combat.shieldMax = 2
+    combat.shield = 2
+    combat.stunnedUntil = null
+    combat.workers[0].nextActAt = now + 1_000
+    combat.enemy.nextActAt = now + 30_000
+    stepEnemyCombat(save, enc, now + 1_000)
+    expect(combat.shield).toBe(1)
+
+    combat.workers[0].nextActAt = now + 2_000
+    stepEnemyCombat(save, enc, now + 2_000)
+    expect(combat.shield).toBe(0)
+    expect(combat.logs.filter((row) => row.text === BREAK_TIP)).toHaveLength(1)
+    const stunUntil = combat.stunnedUntil
+    expect(stunUntil).toBe(now + 2_000 + enemyStunMs('minion'))
+
+    combat.workers[0].nextActAt = now + 3_000
+    const hpBeforeStunHit = combat.enemy.hp
+    stepEnemyCombat(save, enc, now + 3_000)
+    expect(combat.shield).toBe(0)
+    expect(isCombatStunned(combat, now + 3_000)).toBe(true)
+    expect(combat.enemy.hp).toBe(hpBeforeStunHit - Math.round(combat.workers[0].atk * 1.2 * BREAK_VULN_MUL))
+    expect(combat.logs.filter((row) => row.text === BREAK_TIP)).toHaveLength(1)
+    expect(combat.enemy.nextActAt).toBeGreaterThanOrEqual(stunUntil ?? 0)
+
+    stepEnemyCombat(save, enc, stunUntil! - 1)
+    expect(combat.shield).toBe(0)
+    expect(combat.stunnedUntil).toBe(stunUntil)
+
+    combat.workers[0].nextActAt = stunUntil! + 1_000
+    combat.enemy.nextActAt = stunUntil! + 8_000
+    stepEnemyCombat(save, enc, stunUntil!)
+    expect(combat.shield).toBe(2)
+    expect(combat.shieldMax).toBe(2)
+    expect(combat.stunnedUntil).toBeNull()
+    expect(isCombatStunned(combat, stunUntil!)).toBe(false)
+  })
+
+  it('fills missing shield fields on an old mid-fight save', () => {
+    const save = createSave()
+    const worker = spawnWorker(save)
+    const enc = testEnemy()
+    putEnemy(save, enc)
+    const now = 70_000
+    const combat = beginEnemyCombat(enc, [worker], now)
+    delete combat.shieldMax
+    delete combat.shield
+    delete combat.stunnedUntil
+    combat.workers[0].nextActAt = now + 9_000
+    combat.enemy.nextActAt = now + 8_000
+    stepEnemyCombat(save, enc, now + 1)
+    expect(combat.shieldMax).toBeGreaterThanOrEqual(2)
+    expect(combat.shieldMax).toBeLessThanOrEqual(3)
+    expect(combat.shield).toBe(combat.shieldMax)
   })
 })

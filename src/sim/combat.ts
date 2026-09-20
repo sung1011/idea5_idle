@@ -3,7 +3,10 @@ import {
   ensureEnemyIntel,
   formatWeaknessCritTip,
   formatWeaknessLabels,
+  hashString,
   resolveWorkerAttack,
+  roll01Bag,
+  scaledAttackDamage,
 } from './combatAttrs'
 import { attackIntervalMul, workerAtkMul, workerHpMul } from './tech'
 import { drawEnemyTargetRule, pickEnemyTargets, type CombatTarget } from './combatTarget'
@@ -46,6 +49,35 @@ export const COMBAT_TIMEOUT_BY_RANK: Readonly<Record<EnemyRank, number>> = {
 export const COMBAT_TIMEOUT_S = COMBAT_TIMEOUT_BY_RANK.boss
 export const COMBAT_LOG_CAP = 8
 export const REST_HEAL_EVERY_S = 10
+/** 开战掷盾：杂兵 2～3、精英 4～5、首领 6～8。 */
+export const ENEMY_SHIELD_COUNT: Readonly<Record<EnemyRank, { min: number; max: number }>> = {
+  minion: { min: 2, max: 3 },
+  elite: { min: 4, max: 5 },
+  boss: { min: 6, max: 8 },
+}
+/** 破防硬直秒数。 */
+export const ENEMY_STUN_S: Readonly<Record<EnemyRank, number>> = {
+  minion: 3,
+  elite: 4,
+  boss: 5,
+}
+/** 破防期间受伤倍率。 */
+export const BREAK_VULN_MUL = 1.5
+export const BREAK_TIP = '破防！'
+
+export function rollEnemyShield(rank: EnemyRank, roll: () => number): number {
+  const { min, max } = ENEMY_SHIELD_COUNT[rank]
+  const span = max - min + 1
+  return min + Math.min(span - 1, Math.max(0, Math.floor(roll() * span)))
+}
+
+export function enemyStunMs(rank: EnemyRank): number {
+  return ENEMY_STUN_S[rank] * 1000
+}
+
+export function isCombatStunned(combat: EnemyCombat, at: number): boolean {
+  return typeof combat.stunnedUntil === 'number' && at < combat.stunnedUntil
+}
 
 export function combatTimeoutS(rank: EnemyRank): number {
   return COMBAT_TIMEOUT_BY_RANK[rank]
@@ -371,6 +403,51 @@ function fighterFromWorker(worker: Worker, now: number, save?: Save): CombatFigh
   return makeFighter(worker.id, worker.name ?? worker.id, { ...stats, hp: hpMax }, hp, now, worker.combatAttrs, false, save)
 }
 
+function shieldRoll(enc: EnemyEncounter, now: number, save?: Save): () => number {
+  if (save) return () => roll01(save)
+  return roll01Bag(hashString(`${enc.id}:${now}`))
+}
+
+export function ensureCombatShield(enc: EnemyEncounter, now: number, save?: Save): void {
+  const combat = enc.combat
+  if (!combat) return
+  const max = combat.shieldMax
+  if (typeof max === 'number' && Number.isFinite(max) && max >= 1) {
+    if (typeof combat.shield !== 'number' || !Number.isFinite(combat.shield)) {
+      combat.shield = max
+    } else {
+      combat.shield = clampInt(combat.shield, 0, max)
+    }
+    if (combat.stunnedUntil === undefined) combat.stunnedUntil = null
+    return
+  }
+  const rolled = rollEnemyShield(enc.enemyRank, shieldRoll(enc, now, save))
+  combat.shieldMax = rolled
+  combat.shield = rolled
+  combat.stunnedUntil = null
+}
+
+function wakeCombatShield(combat: EnemyCombat): void {
+  const max = Math.max(1, Math.floor(combat.shieldMax ?? 1))
+  combat.shieldMax = max
+  combat.shield = max
+  combat.stunnedUntil = null
+}
+
+function applyBreak(
+  enc: EnemyEncounter,
+  combat: EnemyCombat,
+  at: number,
+  onLog?: CombatLogSink,
+): void {
+  combat.shield = 0
+  combat.stunnedUntil = at + enemyStunMs(enc.enemyRank)
+  if (combat.enemy.nextActAt < combat.stunnedUntil) {
+    combat.enemy.nextActAt = combat.stunnedUntil
+  }
+  emitLog(enc, combat, at, BREAK_TIP, 'ok', onLog)
+}
+
 export function beginEnemyCombat(
   enc: EnemyEncounter,
   workers: Worker[],
@@ -389,9 +466,13 @@ export function beginEnemyCombat(
     enemy: makeFighter('enemy', enc.label, eStats, eStats.hp, now, undefined, true),
     logs: [],
     outcome: null,
+    stunnedUntil: null,
   }
-  emitLog(enc, combat, now, `${workers.map((w) => w.name ?? w.id).join('、')} 出战`, 'ok', onLog)
   enc.combat = combat
+  const rolled = rollEnemyShield(enc.enemyRank, shieldRoll(enc, now, save))
+  combat.shieldMax = rolled
+  combat.shield = rolled
+  emitLog(enc, combat, now, `${workers.map((w) => w.name ?? w.id).join('、')} 出战`, 'ok', onLog)
   enc.departed = true
   enc.lootClaimed = false
   if (save) stepEnemyCombat(save, enc, now, onLog)
@@ -504,14 +585,22 @@ function strike(
   if (attacker.hp <= 0 || target.hp <= 0) return
   if (attacker.id !== 'enemy') {
     const result = resolveWorkerAttack(enc, attacker.combatAttrs ?? [], attacker.atk, save)
-    target.hp = Math.max(0, target.hp - result.damage)
     if (result.newlyRevealed.length) {
       emitLog(enc, combat, at, `揭示弱点：${formatWeaknessLabels(result.newlyRevealed)}`, 'ok', onLog)
     }
-    const mulText = result.mul > 1 ? ` ×${result.mul}` : ''
+    const hits = result.hits.length
+    if (hits > 0 && !isCombatStunned(combat, at) && (combat.shield ?? 0) > 0) {
+      combat.shield = Math.max(0, (combat.shield ?? 0) - hits)
+      if (combat.shield <= 0) applyBreak(enc, combat, at, onLog)
+    }
+    const vuln = isCombatStunned(combat, at) ? BREAK_VULN_MUL : 1
+    const mul = result.mul * vuln
+    const damage = scaledAttackDamage(attacker.atk, mul)
+    target.hp = Math.max(0, target.hp - damage)
+    const mulText = mul > 1 ? ` ×${mul}` : ''
     const hitText = result.hits.length ? `${formatWeaknessCritTip(result.hits)}${mulText}` : ''
     const tail = hitText ? `（${hitText}）（${target.hp}/${target.hpMax}）` : `（${target.hp}/${target.hpMax}）`
-    emitLog(enc, combat, at, `${attacker.label} 对 ${target.label} 造成 ${result.damage}${tail}`, 'ok', onLog)
+    emitLog(enc, combat, at, `${attacker.label} 对 ${target.label} 造成 ${damage}${tail}`, 'ok', onLog)
     return
   }
   if (isWardActive(save)) {
@@ -590,14 +679,24 @@ function actorSort(a: CombatFighter, b: CombatFighter): number {
 }
 
 function nextActionAt(combat: EnemyCombat): number | null {
-  const actors = [...livingWorkers(combat), combat.enemy].filter((f) => f.hp > 0)
-  if (!actors.length) return null
-  return Math.min(...actors.map((f) => f.nextActAt))
+  const times = livingWorkers(combat).map((f) => f.nextActAt)
+  if (combat.enemy.hp > 0) {
+    const stunUntil = combat.stunnedUntil
+    if (typeof stunUntil === 'number' && stunUntil > 0 && (combat.shield ?? 0) <= 0) {
+      times.push(stunUntil)
+      if (combat.enemy.nextActAt >= stunUntil) times.push(combat.enemy.nextActAt)
+    } else {
+      times.push(combat.enemy.nextActAt)
+    }
+  }
+  if (!times.length) return null
+  return Math.min(...times)
 }
 
 export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number, onLog?: CombatLogSink): void {
   const combat = enc.combat
   if (!combat || combat.outcome || enc.lootClaimed) return
+  ensureCombatShield(enc, combat.startedAt, save)
 
   let lastAt = combat.startedAt
   while (combat.outcome === null) {
@@ -622,8 +721,11 @@ export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number, on
     if (nextAt > now) return
 
     lastAt = nextAt
+    if (isCombatStunned(combat, nextAt) === false && (combat.shield ?? 0) <= 0 && typeof combat.stunnedUntil === 'number') {
+      wakeCombatShield(combat)
+    }
     const actors = [...living, combat.enemy]
-      .filter((f) => f.hp > 0 && f.nextActAt === nextAt)
+      .filter((f) => f.hp > 0 && f.nextActAt === nextAt && (f.id !== 'enemy' || !isCombatStunned(combat, nextAt)))
       .sort(actorSort)
 
     for (const actor of actors) {

@@ -8,6 +8,7 @@ import {
   combatStatus,
   fieldFighterCount,
   grantWorkerCombatXp,
+  ensureCombatShield,
   isCombatWon,
   isEnemyCombat,
   isFighting,
@@ -2237,7 +2238,11 @@ export function hydrateEncounterFields(save: Save): Save {
   resizeEncounterBoard(raw)
   ensureChapterBossSpawn(raw)
   for (const enc of raw.encounters) {
-    if (enc.kind === 'enemy') ensureEnemyIntel(enc, 0, 0, raw)
+    if (enc.kind !== 'enemy') continue
+    ensureEnemyIntel(enc, 0, 0, raw)
+    if (enc.combat && enc.combat.outcome === null) {
+      ensureCombatShield(enc, enc.combat.startedAt, raw)
+    }
   }
   remapBoardLegacyNeeds(raw.encounters, raw.mainChapter)
   remapBoardLegacyNeeds(raw.marketEncounters, raw.mainChapter)

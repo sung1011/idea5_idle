@@ -1227,6 +1227,53 @@ describe('hydrateEncounterFields', () => {
     expect(isLegacyGenericToolNeed(pawnId)).toBe(false)
     expect(itemProducerStation(pawnId)).toBe('forging')
   })
+
+  it('fills missing break-shield fields on a mid-fight enemy', () => {
+    const save = createSave()
+    const worker = spawnWorker(save)
+    save.encounters = [
+      testEnemy({
+        id: 'old-fight',
+        departed: true,
+        combat: {
+          startedAt: 1_000,
+          timeoutAt: 901_000,
+          workerIds: [worker.id],
+          workers: [
+            {
+              id: worker.id,
+              label: worker.name ?? worker.id,
+              hp: worker.hp,
+              hpMax: worker.hpMax,
+              atk: 4,
+              spd: 5,
+              nextActAt: 6_000,
+            },
+          ],
+          enemy: {
+            id: 'enemy',
+            label: '试敌',
+            hp: 2_000,
+            hpMax: 2_400,
+            atk: 3,
+            spd: 20,
+            nextActAt: 1_000,
+          },
+          logs: [],
+          outcome: null,
+        },
+      }),
+    ]
+    save.marketEncounters = []
+    hydrateEncounterFields(save)
+    const after = save.encounters.find((enc) => enc.id === 'old-fight')
+    expect(after?.kind).toBe('enemy')
+    if (after?.kind !== 'enemy') return
+    expect(after.combat?.shieldMax).toBeGreaterThanOrEqual(2)
+    expect(after.combat?.shieldMax).toBeLessThanOrEqual(3)
+    expect(after.combat?.shield).toBe(after.combat?.shieldMax)
+    expect(after.combat?.stunnedUntil).toBeNull()
+  })
 })
 
 describe('encounter quality', () => {
