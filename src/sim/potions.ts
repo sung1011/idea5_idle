@@ -233,7 +233,8 @@ function applyPotionEffect(save: Save, itemId: PotionItemId, now: number): strin
     if (!was) rescaleWarDrumActs(save, now, WAR_DRUM_INTERVAL_MUL)
     return '战鼓：出战工人攻击间隔 ×0.85，持续 2 分钟'
   }
-  return ITEM_DEF[itemId].label
+  const _unreachable: never = itemId
+  return _unreachable
 }
 
 /** 点已装配槽：扣物资 1 瓶并立刻生效。无 CD。库存为 0 仍保留装配。 */
