@@ -81,7 +81,7 @@ xpToNext(L) = Math.round(100 * Math.pow(1.45, L - 1) * 0.175)  // L >= 1
 | 烹饪 | 烤肉 `iron` | 1 | 28s | `[{ meat, 1 }]` | `roast` | 1 |
 | 烹饪 | 香料炖 `mithril` | 5 | 32s | `[{ meat, 1 }, { spice, 1 }]`（或鱼+香料） | `stew` | 2 |
 | 采药 | `default` | 1 | 20s | — | 权重：草 / 香料（必出） | 1 |
-| 炼金 | `default` | 1 | 40s | `ALCHEMY_COST_OPTIONS`：草 / 血 / 牙 / 眼任一 | 8 种药剂随机批次 | 1 |
+| 炼金 | `default` | 1 | 40s | `ALCHEMY_COST_OPTIONS`：草 / 血 / 牙 / 眼任一 | 7 种药剂随机批次 | 1 |
 
 ### 验算手感
 

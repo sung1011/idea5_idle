@@ -61,7 +61,6 @@ export type ItemId =
   | 'wardElixir'
   | 'focusDraft'
   | 'clearMind'
-  | 'warDrum'
   | 'weapon'
   | 'ironWeapon'
   | 'mithrilWeapon'
@@ -77,7 +76,7 @@ export type ItemId =
   | 'mithrilTool'
   | StationToolId
 
-/** 8 种可用药剂。旧档通用 `potion` 不算在内。 */
+/** 7 种可用药剂。旧档通用 `potion` / `warDrum` 不算在内。 */
 export type PotionItemId =
   | 'stim'
   | 'salve'
@@ -86,7 +85,6 @@ export type PotionItemId =
   | 'wardElixir'
   | 'focusDraft'
   | 'clearMind'
-  | 'warDrum'
 
 /** 药剂时效。字段都是 `elapsedS`；到期或未开为 null。 */
 export type PotionBuffs = {
@@ -96,7 +94,6 @@ export type PotionBuffs = {
   wardUntil: number | null
   focusUntil: number | null
   focusConsumed: StationId[]
-  warDrumUntil: number | null
 }
 
 export type ClassId =

@@ -4,6 +4,7 @@ import { roll01 } from './rng'
 import {
   BRINK_HEAL_BASE,
   BRINK_HEAL_MISSING,
+  CLEAR_MIND_HEAL_RATIO,
   CLEAR_MIND_LEAVE_RATIO,
   FOCUS_DURATION_S,
   ITEM_DEF,
@@ -16,10 +17,9 @@ import {
   STIM_DURATION_S,
   STIM_SPEED_MUL,
   STATION_IDS,
-  WAR_DRUM_DURATION_S,
-  WAR_DRUM_INTERVAL_MUL,
   WARD_DURATION_S,
 } from './tables'
+import { isWoundedHp } from './workshopHp'
 import type {
   ActionResult,
   EncounterNeedMap,
@@ -43,7 +43,6 @@ export function blankPotionBuffs(): PotionBuffs {
     wardUntil: null,
     focusUntil: null,
     focusConsumed: [],
-    warDrumUntil: null,
   }
 }
 
@@ -90,16 +89,8 @@ export function isWardActive(save: Save): boolean {
   return isActiveUntil(buffsOf(save).wardUntil, save.elapsedS)
 }
 
-export function isWarDrumActive(save: Save): boolean {
-  return isActiveUntil(buffsOf(save).warDrumUntil, save.elapsedS)
-}
-
 export function isFocusActive(save: Save): boolean {
   return isActiveUntil(buffsOf(save).focusUntil, save.elapsedS)
-}
-
-export function warDrumIntervalMul(save: Save): number {
-  return isWarDrumActive(save) ? WAR_DRUM_INTERVAL_MUL : 1
 }
 
 export function focusOutputBonus(save: Save, stationId: StationId): number {
@@ -169,20 +160,7 @@ function healAll(save: Save, amountOf: (worker: Worker) => number, livingOnly = 
   return total
 }
 
-function rescaleWarDrumActs(save: Save, now: number, mul: number): void {
-  if (!(mul > 0) || !Number.isFinite(now)) return
-  for (const enc of save.encounters) {
-    if (enc.kind !== 'enemy' || !enc.combat || enc.combat.outcome) continue
-    for (const fighter of enc.combat.workers) {
-      if (fighter.hp <= 0) continue
-      const remain = fighter.nextActAt - now
-      if (!(remain > 0)) continue
-      fighter.nextActAt = now + remain * mul
-    }
-  }
-}
-
-function applyPotionEffect(save: Save, itemId: PotionItemId, now: number): string {
+function applyPotionEffect(save: Save, itemId: PotionItemId): string {
   const buffs = buffsOf(save)
   const t = save.elapsedS
   if (itemId === 'stim') {
@@ -214,38 +192,33 @@ function applyPotionEffect(save: Save, itemId: PotionItemId, now: number): strin
   if (itemId === 'clearMind') {
     let woke = 0
     for (const worker of allWorkers(save)) {
-      worker.fatigueDebt = 0
-      const hpMax = Math.max(1, Math.floor(worker.hpMax))
-      if (worker.hp / hpMax <= 0.3) {
+      if (isWoundedHp(worker)) {
+        const hpMax = Math.max(1, Math.floor(worker.hpMax))
         const floorHp = Math.ceil(CLEAR_MIND_LEAVE_RATIO * hpMax)
         if (worker.hp < floorHp) {
-          worker.hp = floorHp
+          worker.hp = Math.min(hpMax, floorHp)
           syncCombatHp(save, worker)
         }
+      } else {
+        applyHeal(save, worker, healAmount(worker.hpMax, CLEAR_MIND_HEAL_RATIO))
       }
       woke += 1
     }
-    return woke > 0 ? `醒神：清除劳损 ${woke} 人` : '没有工人'
-  }
-  if (itemId === 'warDrum') {
-    const was = isWarDrumActive(save)
-    buffs.warDrumUntil = t + WAR_DRUM_DURATION_S
-    if (!was) rescaleWarDrumActs(save, now, WAR_DRUM_INTERVAL_MUL)
-    return '战鼓：出战工人攻击间隔 ×0.85，持续 2 分钟'
+    return woke > 0 ? '醒神：残血抬至 40%，其余立刻回 10%' : '没有工人'
   }
   const _unreachable: never = itemId
   return _unreachable
 }
 
 /** 点已装配槽：扣物资 1 瓶并立刻生效。无 CD。库存为 0 仍保留装配。 */
-export function usePotionSlot(save: Save, index: number, now = Date.now()): ActionResult {
+export function usePotionSlot(save: Save, index: number, _now = Date.now()): ActionResult {
   if (index < 0 || index >= POTION_SLOT_COUNT) return { ok: false, reason: '没有这个槽' }
   const itemId = slotsOf(save)[index]
   if (!itemId) return { ok: false, reason: '空槽' }
   if (bankQty(save, itemId) < 1) return { ok: false, reason: `${ITEM_DEF[itemId].label}见底` }
   const took = takeFromBank(save, itemId, 1)
   if (!took.ok) return took
-  const detail = applyPotionEffect(save, itemId, now)
+  const detail = applyPotionEffect(save, itemId)
   return { ok: true, message: `用了${ITEM_DEF[itemId].label}：${detail}` }
 }
 
@@ -272,7 +245,6 @@ export function applyPotionTicks(save: Save): void {
   }
   if (buffs.stimUntil != null && t >= buffs.stimUntil) buffs.stimUntil = null
   if (buffs.wardUntil != null && t >= buffs.wardUntil) buffs.wardUntil = null
-  if (buffs.warDrumUntil != null && t >= buffs.warDrumUntil) buffs.warDrumUntil = null
   if (buffs.focusUntil != null && t >= buffs.focusUntil) {
     buffs.focusUntil = null
     buffs.focusConsumed = []
@@ -301,16 +273,18 @@ function hydrateBuffs(raw: unknown, elapsedS: number): PotionBuffs {
     wardUntil: until(src.wardUntil),
     focusUntil,
     focusConsumed: focusUntil ? consumed : [],
-    warDrumUntil: until(src.warDrumUntil),
   }
 }
 
 function remapNeedMap(map: EncounterNeedMap | undefined): void {
   if (!map) return
-  const qty = map.potion
-  if (!(typeof qty === 'number' && qty > 0)) return
-  delete map.potion
-  map.salve = (map.salve ?? 0) + Math.floor(qty)
+  const bag = map as Record<string, number | undefined>
+  const qty = bag.potion
+  if (typeof qty === 'number' && qty > 0) {
+    delete bag.potion
+    bag.salve = (bag.salve ?? 0) + Math.floor(qty)
+  }
+  delete bag.warDrum
 }
 
 /** 旧档通用 `potion` 并进初级药膏；清空站上残留狂暴字段（类型已删）。 */

@@ -158,7 +158,7 @@ describe('production phase-1 tables', () => {
     expect(itemProducerStation('potion')).toBe('alchemy')
     expect(itemProducerStation('stim')).toBe('alchemy')
     expect(itemProducerStation('salve')).toBe('alchemy')
-    expect(itemProducerStation('warDrum')).toBe('alchemy')
+    expect(itemProducerStation('clearMind')).toBe('alchemy')
     expect(itemProducerStation('wood')).toBeNull()
     expect(itemProducerStation('weapon')).toBeNull()
     expect(itemProducerStation('slag')).toBeNull()

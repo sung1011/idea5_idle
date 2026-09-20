@@ -16,7 +16,7 @@ export function hydratePotionSlots(raw: unknown): PotionSlots {
   if (!Array.isArray(raw)) return slots
   for (let i = 0; i < POTION_SLOT_COUNT; i++) {
     const id = raw[i] === 'potion' ? 'salve' : raw[i]
-    if (!isPotionItemId(id)) continue
+    if (id === 'warDrum' || !isPotionItemId(id)) continue
     if (slots.some((taken) => taken === id)) continue
     slots[i] = id
   }

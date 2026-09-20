@@ -12,6 +12,7 @@ import {
   FOOD_HEAL_RATIO,
   FOOD_ITEM_IDS,
   ITEM_DEF,
+  POTION_EFFECT_TEXT,
   isFoodItemId,
   isPotionItemId,
   type FoodItemId,
@@ -20,9 +21,15 @@ import {
   isFocusActive,
   isStimActive,
   isWardActive,
-  isWarDrumActive,
   potionRemainS,
 } from '../sim/potions'
+import {
+  POTION_EMPTY_HOLD_TIP,
+  POTION_EQUIP_HINT,
+  POTION_SLOT_HOLD_MS,
+  potionSlotPressMoved,
+  resolvePotionSlotRelease,
+} from './potionSlotPress'
 import type { ItemId } from '../sim/types'
 import { isGuideQuestFlash } from '../sim/guideQuest'
 import { recruitCost } from '../sim/tech'
@@ -136,7 +143,6 @@ const potionBuffLine = computed(() => {
   }
   if (isWardActive(save)) parts.push(`护命 ${formatMarchClock(potionRemainS(save.potionBuffs.wardUntil, t))}`)
   if (isFocusActive(save)) parts.push(`凝神 ${formatMarchClock(potionRemainS(save.potionBuffs.focusUntil, t))}`)
-  if (isWarDrumActive(save)) parts.push(`战鼓 ${formatMarchClock(potionRemainS(save.potionBuffs.warDrumUntil, t))}`)
   return parts.join(' · ')
 })
 const potionPickOptions = computed(() => availablePotionInstallIds(game.save))
@@ -145,14 +151,119 @@ function potionSlotQty(id: PotionItemId | null) {
   return id ? bankQty(game.save, id) : 0
 }
 
-function onPotionSlot(index: number) {
-  const id = game.save.potionSlots[index]
-  if (!id) {
+type PotionPressSession = {
+  index: number
+  pointerId: number
+  startX: number
+  startY: number
+  timer: number
+  held: boolean
+  moved: boolean
+}
+
+const potionPress = ref<PotionPressSession | null>(null)
+const potionDetailIndex = ref<number | null>(null)
+const potionEmptyHold = ref(false)
+
+function clearPotionPress() {
+  const session = potionPress.value
+  if (session) window.clearTimeout(session.timer)
+  potionPress.value = null
+}
+
+function applyPotionPressAction(index: number, action: ReturnType<typeof resolvePotionSlotRelease>) {
+  if (action === 'install') {
     pickPotionIndex.value = index
     return
   }
-  game.usePotionSlot(index)
+  if (action === 'use') {
+    game.usePotionSlot(index)
+    return
+  }
+  if (action === 'detail') {
+    potionDetailIndex.value = index
+    return
+  }
+  if (action === 'emptyHint') potionEmptyHold.value = true
 }
+
+function onPotionPointerDown(ev: PointerEvent, index: number) {
+  if (ev.pointerType === 'mouse' && ev.button !== 0) return
+  clearPotionPress()
+  const timer = window.setTimeout(() => {
+    const session = potionPress.value
+    if (!session || session.index !== index) return
+    session.held = true
+    applyPotionPressAction(
+      index,
+      resolvePotionSlotRelease({
+        filled: !!game.save.potionSlots[index],
+        held: true,
+        moved: session.moved,
+      }),
+    )
+  }, POTION_SLOT_HOLD_MS)
+  potionPress.value = {
+    index,
+    pointerId: ev.pointerId,
+    startX: ev.clientX,
+    startY: ev.clientY,
+    timer,
+    held: false,
+    moved: false,
+  }
+}
+
+function onPotionPointerMove(ev: PointerEvent, index: number) {
+  const session = potionPress.value
+  if (!session || session.pointerId !== ev.pointerId || session.index !== index) return
+  if (session.moved) return
+  if (potionSlotPressMoved(ev.clientX - session.startX, ev.clientY - session.startY)) {
+    session.moved = true
+    window.clearTimeout(session.timer)
+  }
+}
+
+function onPotionPointerUp(ev: PointerEvent, index: number) {
+  const session = potionPress.value
+  if (!session || session.pointerId !== ev.pointerId || session.index !== index) return
+  const held = session.held
+  const moved = session.moved
+  clearPotionPress()
+  if (held) return
+  applyPotionPressAction(
+    index,
+    resolvePotionSlotRelease({
+      filled: !!game.save.potionSlots[index],
+      held: false,
+      moved,
+    }),
+  )
+}
+
+function onPotionPointerCancel() {
+  clearPotionPress()
+}
+
+function closePotionDetail() {
+  potionDetailIndex.value = null
+}
+
+function closePotionEmptyHold() {
+  potionEmptyHold.value = false
+}
+
+const potionDetail = computed(() => {
+  const index = potionDetailIndex.value
+  if (index == null) return null
+  const id = game.save.potionSlots[index]
+  if (!id || !isPotionItemId(id)) return null
+  return {
+    label: ITEM_DEF[id].label,
+    effect: POTION_EFFECT_TEXT[id],
+    qty: bankQty(game.save, id),
+  }
+})
 
 function onInstallPotion(itemId: PotionItemId) {
   const index = pickPotionIndex.value
@@ -365,7 +476,10 @@ function restDropClass(): string {
   return ''
 }
 
-onUnmounted(unbindDrag)
+onUnmounted(() => {
+  unbindDrag()
+  clearPotionPress()
+})
 </script>
 
 <template>
@@ -419,8 +533,11 @@ onUnmounted(unbindDrag)
               type="button"
               class="potion-slot"
               :class="{ empty: !itemId, dry: !!itemId && potionSlotQty(itemId) <= 0 }"
-              :aria-label="itemId ? `${potionSlotLabel(itemId)} · 点击使用` : `装入药剂槽 ${i + 1}`"
-              @click="onPotionSlot(i)"
+              :aria-label="itemId ? `${potionSlotLabel(itemId)} · 短按使用，按住看效果` : `装入药剂槽 ${i + 1}`"
+              @pointerdown="onPotionPointerDown($event, i)"
+              @pointermove="onPotionPointerMove($event, i)"
+              @pointerup="onPotionPointerUp($event, i)"
+              @pointercancel="onPotionPointerCancel"
             >
               <template v-if="itemId">
                 <UiIcon name="alchemy" />
@@ -429,6 +546,8 @@ onUnmounted(unbindDrag)
                   class="unequip"
                   role="button"
                   :aria-label="`卸下 ${ITEM_DEF[itemId].label}`"
+                  @pointerdown.stop
+                  @pointerup.stop
                   @click.stop="game.clearPotionSlot(i)"
                 >×</span>
               </template>
@@ -650,7 +769,7 @@ onUnmounted(unbindDrag)
           <h2 class="title">装配药剂</h2>
           <button type="button" class="close" @click="closePotionPick">关闭</button>
         </header>
-        <p class="hint">点已装槽立刻用药，无冷却。库存为 0 仍留着装配。</p>
+        <p class="hint">{{ POTION_EQUIP_HINT }}</p>
         <div class="pick-list">
           <div v-for="id in potionPickOptions" :key="id" class="pick-cell">
             <button type="button" @click="onInstallPotion(id)">
@@ -659,6 +778,45 @@ onUnmounted(unbindDrag)
           </div>
         </div>
         <p v-if="!potionPickOptions.length" class="hint">没有可装的药剂</p>
+      </div>
+    </div>
+  </Teleport>
+
+  <Teleport to="body">
+    <div
+      v-if="potionDetail"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="药剂效果"
+      @click.self="closePotionDetail"
+    >
+      <div class="sheet">
+        <header>
+          <h2 class="title">{{ potionDetail.label }}</h2>
+          <button type="button" class="close" @click="closePotionDetail">关闭</button>
+        </header>
+        <p class="hint">{{ potionDetail.effect }}</p>
+        <p class="meta">库存 ×{{ potionDetail.qty }}</p>
+      </div>
+    </div>
+  </Teleport>
+
+  <Teleport to="body">
+    <div
+      v-if="potionEmptyHold"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="空药剂槽"
+      @click.self="closePotionEmptyHold"
+    >
+      <div class="sheet">
+        <header>
+          <h2 class="title">空槽</h2>
+          <button type="button" class="close" @click="closePotionEmptyHold">关闭</button>
+        </header>
+        <p class="hint">{{ POTION_EMPTY_HOLD_TIP }}</p>
       </div>
     </div>
   </Teleport>
@@ -821,6 +979,7 @@ onUnmounted(unbindDrag)
   border-radius: 8px;
   background: linear-gradient(145deg, #fff9de, #f3ddaa);
   box-shadow: 0 2px 0 var(--gold-deep);
+  touch-action: none;
 }
 
 .potion-slot.empty,

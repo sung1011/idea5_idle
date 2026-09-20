@@ -6,6 +6,7 @@ import { createSave } from './createSave'
 import {
   BRINK_HEAL_BASE,
   BRINK_HEAL_MISSING,
+  CLEAR_MIND_HEAL_RATIO,
   CLEAR_MIND_LEAVE_RATIO,
   FOCUS_DURATION_S,
   POTION_BATCH_RANGE,
@@ -16,7 +17,6 @@ import {
   SALVE_HEAL_RATIO,
   STIM_DURATION_S,
   STIM_SPEED_MUL,
-  WAR_DRUM_INTERVAL_MUL,
 } from './tables'
 import {
   applyPotionTicks,
@@ -65,7 +65,7 @@ afterEach(() => {
 })
 
 describe('alchemy batch roll', () => {
-  it('covers the eight potion ids and their batch ranges', () => {
+  it('covers the seven potion ids and their batch ranges', () => {
     expect(POTION_ITEM_IDS).toEqual([
       'stim',
       'salve',
@@ -74,7 +74,6 @@ describe('alchemy batch roll', () => {
       'wardElixir',
       'focusDraft',
       'clearMind',
-      'warDrum',
     ])
     for (const id of POTION_ITEM_IDS) {
       const range = POTION_BATCH_RANGE[id]
@@ -114,7 +113,7 @@ describe('potion slots', () => {
   })
 })
 
-describe('eight potion effects', () => {
+describe('seven potion effects', () => {
   it('stim speeds on-duty stations for 3 minutes of sim time', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'mining')
@@ -211,32 +210,24 @@ describe('eight potion effects', () => {
     expect(bankQty(later, 'herb') + bankQty(later, 'spice')).toBe(1)
   })
 
-  it('clearMind clears fatigue and lifts residual HP', () => {
-    const save = roster(1)
-    const worker = save.workers[0]
-    worker.fatigueDebt = 2.4
-    worker.hp = 1
+  it('clearMind lifts residual HP to 40% and heals others by 10% without clearing fatigue', () => {
+    const save = roster(2)
+    const residual = save.workers[0]
+    const healthy = save.workers[1]
+    residual.fatigueDebt = 2.4
+    residual.hp = 1
+    healthy.fatigueDebt = 1.1
+    healthy.hp = Math.ceil(healthy.hpMax * 0.6)
     save.bank.clearMind = 1
     expect(installPotionSlot(save, 0, 'clearMind').ok).toBe(true)
     expect(usePotionSlot(save, 0).ok).toBe(true)
-    expect(worker.fatigueDebt).toBe(0)
-    expect(worker.hp).toBe(Math.ceil(CLEAR_MIND_LEAVE_RATIO * worker.hpMax))
-    expect(worker.hp / worker.hpMax).toBeGreaterThan(0.3)
-  })
-
-  it('warDrum shortens combat worker attack interval', () => {
-    const save = roster(1)
-    const worker = save.workers[0]
-    const enc = testEnemy()
-    save.encounters[0] = enc
-    save.bank.warDrum = 1
-    expect(installPotionSlot(save, 0, 'warDrum').ok).toBe(true)
-    expect(usePotionSlot(save, 0).ok).toBe(true)
-    const now = 2_000_000
-    beginEnemyCombat(enc, [worker], now, 1, undefined, save)
-    const fighter = enc.combat!.workers[0]
-    const expected = fighter.spd * 1000 * WAR_DRUM_INTERVAL_MUL
-    expect(fighter.nextActAt - now).toBeCloseTo(expected)
+    expect(residual.fatigueDebt).toBe(2.4)
+    expect(residual.hp).toBe(Math.ceil(CLEAR_MIND_LEAVE_RATIO * residual.hpMax))
+    expect(residual.hp / residual.hpMax).toBeGreaterThan(0.3)
+    expect(healthy.fatigueDebt).toBe(1.1)
+    expect(healthy.hp).toBe(
+      Math.min(healthy.hpMax, Math.ceil(healthy.hpMax * 0.6) + Math.ceil(healthy.hpMax * CLEAR_MIND_HEAL_RATIO)),
+    )
   })
 })
 
@@ -277,6 +268,18 @@ describe('hydrate potions', () => {
     const enc = save?.encounters.find((row) => row.id === 'old-potion')
     expect(enc?.kind === 'enemy' && enc.needs).toEqual({ salve: 3 })
     expect((save?.stations.mining as { enrageUntil?: unknown }).enrageUntil).toBeUndefined()
+  })
+
+  it('clears leftover warDrum slots and drops leftover warDrum stock', () => {
+    const save = hydrateLoadedSave({
+      ...createSave(),
+      bank: { salve: 2, warDrum: 3 },
+      potionSlots: ['warDrum', 'salve', null, null],
+      potionBuffs: { warDrumUntil: 999 },
+    } as never)
+    expect(save?.potionSlots).toEqual([null, 'salve', null, null])
+    expect((save?.bank as { warDrum?: number }).warDrum).toBeUndefined()
+    expect((save?.potionBuffs as { warDrumUntil?: unknown }).warDrumUntil).toBeUndefined()
   })
 
   it('keeps timed buffs that still have sim time left', () => {

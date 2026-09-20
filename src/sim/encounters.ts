@@ -303,7 +303,7 @@ const LEGACY_ORDER_DEFS: ReadonlyArray<{
 /**
  * 主线消耗种类池。新刷交物单先从这里掷 1 种。
  * `tool` 只是种类标记：落地时改抽 `MAIN_NEED_TOOL_POOL`（锻造可造的各站专属工具）。
- * `potion` 同样是种类标记：落地时改抽 8 种药剂之一。
+ * `potion` 同样是种类标记：落地时改抽 7 种药剂之一。
  */
 export const MAIN_NEED_ITEM_POOL: readonly ItemId[] = ['meal', 'ore', 'fish', 'tool', 'roast', 'stew', 'potion']
 
@@ -515,7 +515,7 @@ export function pickMainNeedTool(
   return stationToolItemId(stationId, index)
 }
 
-/** 种类池掷到通用工具时改抽专属工具；掷到 `potion` 改抽 8 种药剂。 */
+/** 种类池掷到通用工具时改抽专属工具；掷到 `potion` 改抽 7 种药剂。 */
 export function resolveMainNeedItem(
   itemId: ItemId,
   quality: EncounterQuality,

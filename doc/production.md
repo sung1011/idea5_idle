@@ -23,7 +23,7 @@
 | 狩猎 | `hunting` | gather | 遇险检定（非战斗） | 肉 / 鱼 → 烹饪；血 / 牙 / 眼 → 炼金；杂物低权 |
 | 烹饪 | `cooking` | craft | 产出食物 | 食物 → 工人 `foodSlot` → 回血 |
 | 采药 | `herbalism` | gather | 无限稳采 | 草 → 炼金；香料 → 烹饪 |
-| 炼金 | `alchemy` | craft | 一次性消耗草 / 猎副产 | 8 种药剂随机批次 → 工人页 4 槽点用 |
+| 炼金 | `alchemy` | craft | 一次性消耗草 / 猎副产 | 7 种药剂随机批次 → 工人页 4 槽短按点用 |
 
 ```ts
 type StationId =
@@ -121,7 +121,7 @@ type HazardRoll = {
 
 ### 2.6 炼金 `alchemy`（制造）
 
-一次性消耗：做成即从配方扣光原料。每次成功从 8 种药剂池随机一种，按 `POTION_BATCH_RANGE` 给一批进物资（初级药膏 8–14、兴奋剂 4–8、续命汤 5–10、绝境膏 4–8、护命符药 2–5、凝神剂 3–6、醒神散 3–6、战鼓药 3–6）。工人、工具、站 XP 仍按原站规则。药剂不能装 `foodSlot`，必须装进账号 `potionSlots`（4 槽）后点击使用，无 CD。`potionEffectValue` 仍恒 0；效率 / 额外产出改走 `potionBuffs`（兴奋剂、凝神剂）。旧档通用 `potion` hydrate 成 `salve`。
+一次性消耗：做成即从配方扣光原料。每次成功从 7 种药剂池随机一种，按 `POTION_BATCH_RANGE` 给一批进物资（初级药膏 8–14、兴奋剂 4–8、续命汤 5–10、绝境膏 4–8、护命符药 2–5、凝神剂 3–6、醒神散 3–6）。工人、工具、站 XP 仍按原站规则。药剂不能装 `foodSlot`，必须装进账号 `potionSlots`（4 槽）后短按使用，无 CD；装配面板只写名字和数量，按住已装槽看效果。`potionEffectValue` 仍恒 0；效率 / 额外产出改走 `potionBuffs`（兴奋剂、凝神剂）。旧档通用 `potion` hydrate 成 `salve`；旧档 `warDrum` 槽清空。醒神散：残血抬到 40% hpMax，非残血立刻 +10% hpMax，不清劳损。
 
 原料走 `ALCHEMY_COST_OPTIONS`：草或猎副产（`blood` / `tooth` / `eye`）任一 1 个即可，优先扣草。旧「耗木出药剂 + 渣滓」已废。
 
@@ -142,7 +142,7 @@ type HazardRoll = {
 狩猎 ──杂物──► 物资（低权，可在偶遇出手）
 采药 ──草────► 炼金（药剂）
 采药 ──香料──► 烹饪
-工人页 `potionSlots[4]` ──装配后点用（无 CD）
+工人页 `potionSlots[4]` ──装配后短按点用（无 CD；按住看效果）
 ```
 
 制造站缺料 → `stallReason: 'emptyInput'`，现规则不变：先看齐再扣，缺任一不扣。采集站不因库存数量停工。
@@ -169,7 +169,7 @@ type HazardRoll = {
 
 ### 4.2 劳损与药剂
 
-成功产出才加劳损：`fatigueDebt += (hpMax * 0.0015 + nearFullPip) * stationMul * comboMul`。`nearFullPip` 仅近满血（`hp >= hpMax-1`）加 `0.18`。`debt≥1` 扣 `floor` 血并减债。HP 锁 1。`stationMul` 约 0.4（锻造成功 0.55）。血线三档（`hp/hpMax`）：≤1% 空血 ×0.5，≤30% 残血 ×0.8，＞30% 正常 ×1。工人界面底色读 `hp - fatigueDebt`。已删除站狂暴。工人页 4 槽点用 8 种药剂（兴奋剂加速、护命挡劳损/战斗伤、凝神下一次 +1 等），时效按 `elapsedS`。连招只站内，见 [main.md](main.md) 2.2。
+成功产出才加劳损：`fatigueDebt += (hpMax * 0.0015 + nearFullPip) * stationMul * comboMul`。`nearFullPip` 仅近满血（`hp >= hpMax-1`）加 `0.18`。`debt≥1` 扣 `floor` 血并减债。HP 锁 1。`stationMul` 约 0.4（锻造成功 0.55）。血线三档（`hp/hpMax`）：≤1% 空血 ×0.5，≤30% 残血 ×0.8，＞30% 正常 ×1。工人界面底色读 `hp - fatigueDebt`。已删除站狂暴与战鼓药。工人页 4 槽短按点用 7 种药剂（兴奋剂加速、护命挡劳损/战斗伤、凝神下一次 +1 等），时效按 `elapsedS`。连招只站内，见 [main.md](main.md) 2.2。
 
 ---
 
@@ -307,7 +307,7 @@ type ProductionBuff = {
 | 药 | `herb` `spice` |
 | 食 | `meal` `roast` `stew` |
 | 工具 | 锻造 / 新订单用专属 `miningTool01`… 每站 20 种；旧档通用 `tool` `ironTool` `mithrilTool` 可留、不再产出或新刷要 |
-| 炼金药剂 | `stim` `salve` `renewSoup` `brinkSalve` `wardElixir` `focusDraft` `clearMind` `warDrum`；旧 `potion` hydrate→`salve` |
+| 炼金药剂 | `stim` `salve` `renewSoup` `brinkSalve` `wardElixir` `focusDraft` `clearMind`；旧 `potion` hydrate→`salve`；旧 `warDrum` 槽清空 |
 | 工人劳损 | `Worker.fatigueDebt` |
 | 药剂槽 / 时效 | `potionSlots` `potionBuffs`（`elapsedS`） |
 | 站连招 | `fatigueCombo`（streak / key / frustration / fog） |
@@ -342,13 +342,13 @@ type ProductionBuff = {
 | --- | --- |
 | 六站主列；伐木 / 钓鱼藏入口 / 撤派；竖签仍按 7 行高度 | — |
 | 挖矿挖空等恢复；可换其它已解锁矿 | — |
-| 工人页 4 药剂技能槽（装配后点用，无 CD） | — |
+| 工人页 4 药剂技能槽（短按点用，按住看效果，无 CD） | — |
 | 狩猎遇险检定（停手 / 减产 / 可耗熟食）；成功出肉/鱼，低权杂物 | 狩猎真战斗 |
 | 采药无限稳采，必出草 / 香料 | — |
 | 锻造出工具；软失败掷骰；工具槽匹配才加速 | — |
 | 烹饪烤鱼 / 烤肉 / 香料炖；`foodSlot` 续期 / 换食覆盖；残血（≤30%）自动吃 1，无手动喂 | — |
 | 工具词条与食物 Buff 同 `effectId` 取最强；食物加速已弱化 | — |
-| 炼金耗草 / 猎副产，随机 8 种药剂批次；工人页 4 槽点用 | — |
+| 炼金耗草 / 猎副产，随机 7 种药剂批次；工人页 4 槽短按点用 | — |
 | 劳损累计 + 血线三档（空血 ×0.5 / 残血 ×0.8 / 正常 ×1）；已删狂暴 | 狩猎真战斗；跨站 combo |
 | 主界面不再卖货；制造站卡片只列当前消耗库存；产出用工坊站卡本地「获得」漂字（带 `stationId`，不走全局 `floatTips`）；`sellFromBank` / `sellAllGoods` 仅调试 / 单测 | — |
 | 偶遇货单含烤肉 / 香料炖 / 药剂 | 炼金效果后再调 |

@@ -61,7 +61,6 @@ const BASE_ITEM_DEF: Record<Exclude<ItemId, StationToolId>, ItemDef> = {
   wardElixir: { id: 'wardElixir', label: '护命符药', sellGold: 16, craftGold: 3 },
   focusDraft: { id: 'focusDraft', label: '凝神剂', sellGold: 12, craftGold: 2 },
   clearMind: { id: 'clearMind', label: '醒神散', sellGold: 10, craftGold: 2 },
-  warDrum: { id: 'warDrum', label: '战鼓药', sellGold: 12, craftGold: 2 },
   weapon: { id: 'weapon', label: '铜器', sellGold: 12, craftGold: 0 },
   ironWeapon: { id: 'ironWeapon', label: '铁器', sellGold: 18, craftGold: 0 },
   mithrilWeapon: { id: 'mithrilWeapon', label: '秘银器', sellGold: 28, craftGold: 0 },
@@ -415,7 +414,7 @@ export const HERBALISM_DROP_TABLE: HerbalismDropWeight[] = [
   { itemId: 'spice', weight: 30 },
 ]
 
-/** 炼金一次扣光其中一组：草或猎副产。产物从 8 种药剂池随机出一批。 */
+/** 炼金一次扣光其中一组：草或猎副产。产物从 7 种药剂池随机出一批。 */
 export const ALCHEMY_COST_OPTIONS: IoRule[][] = [
   [{ itemId: 'herb', qty: 1 }],
   [{ itemId: 'blood', qty: 1 }],
@@ -437,7 +436,6 @@ export const POTION_ITEM_IDS: readonly PotionItemId[] = [
   'wardElixir',
   'focusDraft',
   'clearMind',
-  'warDrum',
 ]
 
 export type PotionBatchRange = { min: number; max: number }
@@ -451,7 +449,16 @@ export const POTION_BATCH_RANGE: Readonly<Record<PotionItemId, PotionBatchRange>
   wardElixir: { min: 2, max: 5 },
   focusDraft: { min: 3, max: 6 },
   clearMind: { min: 3, max: 6 },
-  warDrum: { min: 3, max: 6 },
+}
+
+export const POTION_EFFECT_TEXT: Readonly<Record<PotionItemId, string>> = {
+  stim: '全体在岗工人工作速度 ×1.5，持续 3 分钟',
+  salve: '全体工人立刻回复 20% 最大生命',
+  renewSoup: '全体存活工人每 10 秒回复 5% 最大生命，持续 2 分钟',
+  brinkSalve: '全体回血，满血约 10%、空血约 45% 最大生命',
+  wardElixir: '1 分钟内不受工坊劳损与战斗伤害（已有伤口保留）',
+  focusDraft: '5 分钟内每站下一次成功吞吐额外 +1',
+  clearMind: '残血（≤30%）抬到 40% 最大生命；非残血立刻回复 10% 最大生命',
 }
 
 export function isPotionItemId(id: unknown): id is PotionItemId {
@@ -462,8 +469,7 @@ export function isPotionItemId(id: unknown): id is PotionItemId {
     id === 'brinkSalve' ||
     id === 'wardElixir' ||
     id === 'focusDraft' ||
-    id === 'clearMind' ||
-    id === 'warDrum'
+    id === 'clearMind'
   )
 }
 
@@ -777,15 +783,14 @@ export const SALVE_HEAL_RATIO = 0.2
 export const RENEW_HEAL_RATIO = 0.05
 export const BRINK_HEAL_BASE = 0.1
 export const BRINK_HEAL_MISSING = 0.35
-export const CLEAR_MIND_LEAVE_RATIO = 0.31
+export const CLEAR_MIND_LEAVE_RATIO = 0.4
+export const CLEAR_MIND_HEAL_RATIO = 0.1
 export const STIM_SPEED_MUL = 1.5
 export const STIM_DURATION_S = 180
 export const RENEW_DURATION_S = 120
 export const RENEW_TICK_S = 10
 export const WARD_DURATION_S = 60
 export const FOCUS_DURATION_S = 300
-export const WAR_DRUM_DURATION_S = 120
-export const WAR_DRUM_INTERVAL_MUL = 0.85
 
 export const FOOD_ITEM_IDS = Object.keys(FOOD_BUFF_DEF) as FoodItemId[]
 

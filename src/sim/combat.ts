@@ -8,7 +8,7 @@ import {
 import { attackIntervalMul, workerAtkMul, workerHpMul } from './tech'
 import { drawEnemyTargetRule, pickEnemyTargets, type CombatTarget } from './combatTarget'
 import { tryAutoEatAfterCombat, tryAutoEatWhenWounded } from './food'
-import { isWardActive, warDrumIntervalMul } from './potions'
+import { isWardActive } from './potions'
 import { roll01 } from './rng'
 import { isWoundedHp, restHealAmount } from './workshopHp'
 import { chapterCombatMul } from './mainChapter'
@@ -314,10 +314,8 @@ export function recentCombatLogs(enc: EnemyEncounter, n = 4): CombatLogEntry[] {
   return logs.slice(-n)
 }
 
-function actIntervalMs(save: Save | undefined, fighterId: string, spd: number): number {
-  const base = Math.max(1, spd) * 1000
-  if (!save || fighterId === 'enemy') return base
-  return base * warDrumIntervalMul(save)
+function actIntervalMs(spd: number): number {
+  return Math.max(1, spd) * 1000
 }
 
 function makeFighter(
@@ -331,7 +329,7 @@ function makeFighter(
   save?: Save,
 ): CombatFighter {
   const hpMax = Math.max(1, stats.hp)
-  const intervalMs = actIntervalMs(save, id, stats.spd)
+  const intervalMs = actIntervalMs(stats.spd)
   return {
     id,
     label,
@@ -591,7 +589,7 @@ export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number, on
       } else {
         strike(save, enc, combat, nextAt, actor, combat.enemy, onLog)
       }
-      actor.nextActAt = nextAt + actIntervalMs(save, actor.id, actor.spd)
+      actor.nextActAt = nextAt + actIntervalMs(actor.spd)
     }
   }
 }

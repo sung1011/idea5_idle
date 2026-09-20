@@ -20,6 +20,7 @@ describe('potion skill slots', () => {
       null,
       null,
     ])
+    expect(hydratePotionSlots(['warDrum', 'salve', null, null])).toEqual([null, 'salve', null, null])
   })
 
   it('installs a unique potion type from inventory and can clear the slot', () => {

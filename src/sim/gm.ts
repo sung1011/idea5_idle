@@ -41,7 +41,6 @@ export const GM_BASIC_ITEMS: ItemId[] = [
   'wardElixir',
   'focusDraft',
   'clearMind',
-  'warDrum',
   'tool',
   'ironTool',
   'mithrilTool',
