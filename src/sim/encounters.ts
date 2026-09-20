@@ -12,6 +12,7 @@ import {
   selectableCombatWorkers,
   type CombatLogSink,
 } from './combat'
+import { isEnemyTargetRuleId } from './combatTarget'
 import { findCombatPartyWorker } from './combatAssist'
 import { workerLootXp } from './workerLevel'
 import { ensureEnemyIntel, isEnemyRank, pickEnemyWeaknesses, seedInitialRevealedWeaknesses } from './combatAttrs'
@@ -368,6 +369,7 @@ type LegacyEnemy = {
   distance?: unknown
   /** 旧档强弱，hydrate 读完即丢。 */
   power?: unknown
+  targetRuleId?: unknown
 }
 
 type LegacyTrade = {
@@ -1787,6 +1789,7 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
     revealedWeaknesses: Array.isArray(raw.revealedWeaknesses)
       ? (raw.revealedWeaknesses as EnemyEncounter['revealedWeaknesses'])
       : [],
+    ...(isEnemyTargetRuleId(raw.targetRuleId) ? { targetRuleId: raw.targetRuleId } : {}),
     ...(raw.submitted === true && !departed && !combat ? { submitted: true } : {}),
   })
 }

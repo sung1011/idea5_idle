@@ -66,7 +66,9 @@ export function formatCombatTip(text: string): string {
   if (hit) {
     const who = hit[1]
     const dmg = hit[2]
-    const crit = hit[3] ? formatHitNote(hit[3]) : null
+    const note = hit[3]
+    if (note === '工坊' || note?.startsWith('工坊')) return `${who} 造成 ${dmg}（工坊）`
+    const crit = note ? formatHitNote(note) : null
     return crit ? `${who} 造成 ${dmg}（${crit}）` : `${who} 造成 ${dmg}`
   }
   return raw

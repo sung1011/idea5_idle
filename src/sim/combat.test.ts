@@ -198,7 +198,7 @@ describe('combat timeline', () => {
     const b = spawnWorkerWith(save, 1, 'laborer')
     a.name = '甲'
     b.name = '乙'
-    const enc = testEnemy()
+    const enc = testEnemy({ targetRuleId: 'lowestHp' })
     putEnemy(save, enc)
     const now = 20_000
     const combat = beginEnemyCombat(enc, [a, b], now)
@@ -224,7 +224,7 @@ describe('combat timeline', () => {
   it('writes enemy hits back to save.workers hp while the fight is still going', () => {
     const save = createSave()
     const worker = spawnWorkerWith(save, 1, 'laborer')
-    const enc = testEnemy()
+    const enc = testEnemy({ targetRuleId: 'lowestHp' })
     putEnemy(save, enc)
     const now = 20_000
     const combat = beginEnemyCombat(enc, [worker], now)
@@ -360,6 +360,7 @@ describe('combat duration targets', () => {
     const save = createSave()
     putEnemy(save, enc)
     const party = midArtisans(save, attrs)
+    enc.targetRuleId = 'lowestHp'
     const combat = beginEnemyCombat(enc, party, now)
     expect(combat.timeoutAt - combat.startedAt).toBe(combatTimeoutS(enc.enemyRank) * 1000)
     stepEnemyCombat(save, enc, combat.timeoutAt)
@@ -500,6 +501,64 @@ describe('rest heal', () => {
     expect(busyAfter?.hp).toBe(4)
     const fightAfter = healed.workers.find((w) => w.id === fight.id)
     expect(fightAfter?.hp).toBe(4)
+  })
+})
+
+describe('enemy hits workshop crew', () => {
+  it('damages stationed workers, skips rest, and locks workshop hp at 1', () => {
+    const save = createSave()
+    const front = spawnWorkerWith(save, 1, 'laborer')
+    const shop = spawnWorkerWith(save, 1, 'miner')
+    const rest = spawnWorkerWith(save, 1, 'wanderer')
+    front.name = '出战甲'
+    shop.name = '在岗乙'
+    rest.name = '休息丙'
+    assignWorker(save, shop.id, 'mining')
+    const enc = testEnemy({ targetRuleId: 'all' })
+    putEnemy(save, enc)
+    const now = 50_000
+    const combat = beginEnemyCombat(enc, [front], now)
+    const frontHp = combat.workers[0].hp
+    const shopHp = shop.hp
+    const restHp = rest.hp
+    combat.workers[0].nextActAt = now + 9_000
+    combat.enemy.nextActAt = now + 1_000
+    stepEnemyCombat(save, enc, now + 1_000)
+    expect(combat.workers[0].hp).toBe(frontHp - combat.enemy.atk)
+    expect(front.hp).toBe(combat.workers[0].hp)
+    expect(shop.hp).toBe(shopHp - combat.enemy.atk)
+    expect(shop.assignment).toBe('mining')
+    expect(rest.hp).toBe(restHp)
+    expect(enc.combat?.logs.some((row) => row.text.includes('工坊'))).toBe(true)
+
+    shop.hp = 2
+    combat.enemy.nextActAt = now + 33_000
+    combat.workers[0].nextActAt = now + 40_000
+    stepEnemyCombat(save, enc, now + 33_000)
+    expect(shop.hp).toBe(1)
+    expect(shop.assignment).toBe('mining')
+  })
+
+  it('auto-eats workshop food when a hit drops hp to 1', () => {
+    const save = createSave()
+    const front = spawnWorkerWith(save, 1, 'laborer')
+    const shop = spawnWorkerWith(save, 1, 'miner')
+    assignWorker(save, shop.id, 'mining')
+    save.bank.meal = 2
+    const t0 = 60_000
+    expect(loadFood(save, shop.id, 'meal', 2, t0).ok).toBe(true)
+    shop.hp = 3
+    const enc = testEnemy({ targetRuleId: 'workshopBias' })
+    putEnemy(save, enc)
+    const combat = beginEnemyCombat(enc, [front], t0)
+    combat.workers[0].nextActAt = t0 + 9_000
+    combat.enemy.nextActAt = t0 + 1_000
+    combat.enemy.atk = 2
+    stepEnemyCombat(save, enc, t0 + 1_000)
+    expect(shop.hp).toBeGreaterThan(1)
+    expect(shop.foodSlot?.qty).toBe(0)
+    expect(shop.assignment).toBe('mining')
+    expect(combat.workers[0].hp).toBe(combat.workers[0].hpMax)
   })
 })
 

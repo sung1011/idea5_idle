@@ -180,6 +180,19 @@ export type CombatAttrId =
 /** 杂兵 2～3 弱点；精英 / 首领 3～4。由品质映射（本章 Boss 强制首领）。 */
 export type EnemyRank = 'minion' | 'elite' | 'boss'
 
+/** 主线敌人选目标规则。表在 `combatTarget.ts`，每次出手按阶级权重抽，订单可钉死。 */
+export type EnemyTargetRuleId =
+  | 'all'
+  | 'rand1'
+  | 'rand2'
+  | 'rand3'
+  | 'lowestHp'
+  | 'highestHp'
+  | 'workshopBias'
+  | 'frontlineBias'
+  | 'sameStation'
+  | 'cleave2'
+
 export type CombatFighter = CombatStats & {
   id: string
   label: string
@@ -448,6 +461,11 @@ export type EnemyEncounter = EncounterBase & {
   weaknesses: CombatAttrId[]
   /** 已揭示弱点（含阶级初始暴露）。再战同一单保留；换新敌 / 刷掉本单清空。 */
   revealedWeaknesses: CombatAttrId[]
+  /**
+   * 钉死本单选目标规则。缺省则每次出手按阶级 + 品质权重表抽。
+   * 旧档缺字段不补，开战现抽。
+   */
+  targetRuleId?: EnemyTargetRuleId
 }
 
 export type BlackMerchantEncounter = EncounterBase & {

@@ -937,6 +937,24 @@ describe('hydrateEncounterFields', () => {
     }
   })
 
+  it('keeps a pinned targetRuleId and drops an unknown one', () => {
+    const pinnedSave = createSave()
+    pinnedSave.encounters = [testEnemy({ id: 'pin-cleave', targetRuleId: 'cleave2' })]
+    hydrateEncounterFields(pinnedSave)
+    expect(pinnedSave.encounters[0].kind).toBe('enemy')
+    if (pinnedSave.encounters[0].kind === 'enemy') {
+      expect(pinnedSave.encounters[0].targetRuleId).toBe('cleave2')
+    }
+
+    const dirtySave = createSave()
+    dirtySave.encounters = [testEnemy({ id: 'bad-rule', targetRuleId: 'rand4' as EnemyEncounter['targetRuleId'] })]
+    hydrateEncounterFields(dirtySave)
+    expect(dirtySave.encounters[0].kind).toBe('enemy')
+    if (dirtySave.encounters[0].kind === 'enemy') {
+      expect(dirtySave.encounters[0].targetRuleId).toBeUndefined()
+    }
+  })
+
   it('fills old enemy revealedWeaknesses by rank without rerolling weaknesses', () => {
     const save = createSave()
     save.encounters = [

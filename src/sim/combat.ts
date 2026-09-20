@@ -6,7 +6,9 @@ import {
   resolveWorkerAttack,
 } from './combatAttrs'
 import { attackIntervalMul, workerAtkMul, workerHpMul } from './tech'
+import { drawEnemyTargetRule, pickEnemyTargets, type CombatTarget } from './combatTarget'
 import { tryAutoEatAfterCombat } from './food'
+import { roll01 } from './rng'
 import { restHealAmount } from './workshopHp'
 import { chapterCombatMul } from './mainChapter'
 import {
@@ -443,6 +445,54 @@ function strike(
   )
 }
 
+/** 工坊在岗：扣同一 hp，锁 1；刚打到残血则复用战后自动吃食。 */
+function strikeWorkshop(
+  save: Save,
+  enc: EnemyEncounter,
+  combat: EnemyCombat,
+  at: number,
+  attacker: CombatFighter,
+  target: CombatTarget,
+  onLog?: CombatLogSink,
+): void {
+  if (attacker.hp <= 0) return
+  const worker = save.workers.find((w) => w.id === target.id)
+  if (!worker || worker.hp <= 0) return
+  const before = worker.hp
+  worker.hp = Math.max(1, worker.hp - attacker.atk)
+  emitLog(
+    enc,
+    combat,
+    at,
+    `${attacker.label} 对 ${target.label} 造成 ${attacker.atk}（工坊）（${worker.hp}/${worker.hpMax}）`,
+    'err',
+    onLog,
+  )
+  if (before > 1 && worker.hp === 1) tryAutoEatAfterCombat(save, [worker.id], at)
+}
+
+function resolveEnemyStrikeTargets(
+  save: Save,
+  enc: EnemyEncounter,
+  combat: EnemyCombat,
+): CombatTarget[] {
+  const rule = drawEnemyTargetRule(save, enc)
+  const picked = pickEnemyTargets(save, combat, rule, () => roll01(save))
+  if (picked.length) return picked
+  const fallback = pickEnemyTarget(combat)
+  if (!fallback) return []
+  return [
+    {
+      id: fallback.id,
+      label: fallback.label,
+      hp: fallback.hp,
+      hpMax: fallback.hpMax,
+      lane: 'frontline',
+      stationId: null,
+    },
+  ]
+}
+
 function actorSort(a: CombatFighter, b: CombatFighter): number {
   const aEnemy = a.id === 'enemy' ? 1 : 0
   const bEnemy = b.id === 'enemy' ? 1 : 0
@@ -492,12 +542,20 @@ export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number, on
       if (combat.outcome) break
       if (actor.hp <= 0) continue
       if (actor.id === 'enemy') {
-        const target = pickEnemyTarget(combat)
-        if (!target) {
+        const targets = resolveEnemyStrikeTargets(save, enc, combat)
+        if (!targets.length) {
           finishCombat(save, enc, combat, nextAt, 'lose', '全员倒下，战败', onLog)
           break
         }
-        strike(save, enc, combat, nextAt, actor, target, onLog)
+        for (const target of targets) {
+          if (combat.outcome) break
+          if (target.lane === 'workshop') {
+            strikeWorkshop(save, enc, combat, nextAt, actor, target, onLog)
+            continue
+          }
+          const fighter = combat.workers.find((w) => w.id === target.id)
+          if (fighter) strike(save, enc, combat, nextAt, actor, fighter, onLog)
+        }
       } else {
         strike(save, enc, combat, nextAt, actor, combat.enemy, onLog)
       }
