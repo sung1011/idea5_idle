@@ -103,15 +103,18 @@ describe('hunting / herbalism / alchemy', () => {
     expect(next.stations.herbalism.completed).toBe(1)
   })
 
-  it('alchemy consumes herb and deposits a potion placeholder', () => {
+  it('alchemy consumes herb and deposits a random potion batch', () => {
+    setRollOverride(() => 0)
     const save = roster(1)
     save.bank.herb = 1
     assignWorker(save, save.workers[0].id, 'alchemy')
     const next = ticks(save, 40)
     expect(bankQty(next, 'herb')).toBe(0)
-    expect(bankQty(next, 'potion')).toBe(1)
+    expect(bankQty(next, 'stim')).toBe(4)
+    expect(bankQty(next, 'potion')).toBe(0)
     expect(next.stations.alchemy.completed).toBe(1)
     expect(next.stations.alchemy.craftNotice).toContain('草')
+    expect(next.stations.alchemy.craftNotice).toContain('兴奋剂')
   })
 })
 

@@ -8,6 +8,7 @@ import {
 import { attackIntervalMul, workerAtkMul, workerHpMul } from './tech'
 import { drawEnemyTargetRule, pickEnemyTargets, type CombatTarget } from './combatTarget'
 import { tryAutoEatAfterCombat, tryAutoEatWhenWounded } from './food'
+import { isWardActive, warDrumIntervalMul } from './potions'
 import { roll01 } from './rng'
 import { isWoundedHp, restHealAmount } from './workshopHp'
 import { chapterCombatMul } from './mainChapter'
@@ -313,6 +314,12 @@ export function recentCombatLogs(enc: EnemyEncounter, n = 4): CombatLogEntry[] {
   return logs.slice(-n)
 }
 
+function actIntervalMs(save: Save | undefined, fighterId: string, spd: number): number {
+  const base = Math.max(1, spd) * 1000
+  if (!save || fighterId === 'enemy') return base
+  return base * warDrumIntervalMul(save)
+}
+
 function makeFighter(
   id: string,
   label: string,
@@ -321,9 +328,10 @@ function makeFighter(
   now: number,
   combatAttrs?: CombatAttrId[],
   actImmediately = false,
+  save?: Save,
 ): CombatFighter {
   const hpMax = Math.max(1, stats.hp)
-  const intervalMs = Math.max(1, stats.spd) * 1000
+  const intervalMs = actIntervalMs(save, id, stats.spd)
   return {
     id,
     label,
@@ -361,7 +369,7 @@ export function beginEnemyCombat(
       const stats = workerLiveStats(w, save)
       const hpMax = Math.max(1, stats.hp)
       const hp = w.hpMax > 0 ? Math.round((w.hp / w.hpMax) * hpMax) : hpMax
-      return makeFighter(w.id, w.name ?? w.id, { ...stats, hp: hpMax }, hp, now, w.combatAttrs)
+      return makeFighter(w.id, w.name ?? w.id, { ...stats, hp: hpMax }, hp, now, w.combatAttrs, false, save)
     }),
     enemy: makeFighter('enemy', enc.label, eStats, enemyHp, now, undefined, true),
     logs: [],
@@ -450,6 +458,10 @@ function strike(
     emitLog(enc, combat, at, `${attacker.label} 对 ${target.label} 造成 ${result.damage}${tail}`, 'ok', onLog)
     return
   }
+  if (isWardActive(save)) {
+    emitLog(enc, combat, at, `${attacker.label} 对 ${target.label} 的伤害被护命抵消`, 'ok', onLog)
+    return
+  }
   target.hp = Math.max(0, target.hp - attacker.atk)
   writeBackFighterHp(save, target)
   emitLog(
@@ -475,6 +487,10 @@ function strikeWorkshop(
   if (attacker.hp <= 0) return
   const worker = save.workers.find((w) => w.id === target.id)
   if (!worker || worker.hp <= 0) return
+  if (isWardActive(save)) {
+    emitLog(enc, combat, at, `${attacker.label} 对 ${target.label} 的伤害被护命抵消（工坊）`, 'ok', onLog)
+    return
+  }
   worker.hp = Math.max(1, worker.hp - attacker.atk)
   emitLog(
     enc,
@@ -575,7 +591,7 @@ export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number, on
       } else {
         strike(save, enc, combat, nextAt, actor, combat.enemy, onLog)
       }
-      actor.nextActAt = nextAt + actor.spd * 1000
+      actor.nextActAt = nextAt + actIntervalMs(save, actor.id, actor.spd)
     }
   }
 }

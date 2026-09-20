@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { stationEnrageStatus } from '../sim/enrage'
 import { stationMergeLabel } from '../sim/fuse'
 import { gatherStatusText, isGatherFrozen } from '../sim/gather'
 import {
@@ -90,12 +89,6 @@ const pickOptions = computed(() => categoryPickOptions(game.save, props.stationI
 const consumeGroups = computed(() => stationConsumeGroups(game.save, props.stationId))
 const stallLine = computed(() => stationBottleneckText(game.save, props.stationId))
 const conflictLine = computed(() => stationConflictHint(game.save, props.stationId))
-const enrage = computed(() => stationEnrageStatus(game.save, props.stationId, Date.now()))
-const enrageLabel = computed(() => {
-  if (enrage.value.active) return `狂暴 ${enrage.value.remainS}s`
-  if (!enrage.value.ready) return `冷却 ${enrage.value.cooldownS}s`
-  return '狂暴'
-})
 const guideFlashMining = computed(
   () => props.stationId === 'mining' && isGuideQuestFlash(game.save, 'mining'),
 )
@@ -184,16 +177,6 @@ function consumeText(row: StationConsumeToken) {
         </h2>
         <p class="meta">{{ cat.label }} {{ stationCycleS(game.save, stationId) }}s/次</p>
       </div>
-      <button
-        type="button"
-        class="enrage"
-        :class="{ on: enrage.active, wait: !enrage.ready && !enrage.active }"
-        :disabled="!enrage.ready"
-        :aria-label="enrageLabel"
-        @click="game.startEnrage(stationId)"
-      >
-        {{ enrageLabel }}
-      </button>
     </header>
     <ul class="crew" aria-label="在岗工人">
       <li v-if="crew.length" class="crew-row">
@@ -324,25 +307,6 @@ header {
   gap: 2px;
   min-width: 0;
   flex: 1 1 auto;
-}
-
-.enrage {
-  flex: 0 0 auto;
-  margin-left: auto;
-  align-self: flex-start;
-  min-height: 32px;
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-}
-
-.enrage.on {
-  color: #7a2208;
-}
-
-.enrage.wait {
-  opacity: 0.7;
 }
 
 h2,

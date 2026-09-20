@@ -288,11 +288,22 @@ describe('save migration', () => {
   it('keeps installed potion slots through persist / load', () => {
     const store = memory()
     const save = createSave()
-    save.bank.potion = 2
-    save.potionSlots = ['potion', null, null, null]
+    save.bank.salve = 2
+    save.potionSlots = ['salve', null, null, null]
     persistSave(save, store)
     const loaded = loadSave(store)
-    expect(loaded?.potionSlots).toEqual(['potion', null, null, null])
+    expect(loaded?.potionSlots).toEqual(['salve', null, null, null])
+  })
+
+  it('maps leftover generic potion stock and slots to salve', () => {
+    const save = hydrateLoadedSave({
+      ...createSave(),
+      bank: { potion: 4 },
+      potionSlots: ['potion', null, null, null],
+    })
+    expect(save?.bank.potion).toBeUndefined()
+    expect(save?.bank.salve).toBe(4)
+    expect(save?.potionSlots).toEqual(['salve', null, null, null])
   })
 
   it('keeps guide quest fields through persist / load', () => {

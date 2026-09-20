@@ -18,11 +18,6 @@ import { hydrateSelectedForgeToolId, hydrateSelectedToolId, selectedForgeRecipe 
 import type { ActionResult, CategoryId, MiningNodeState, Save, StationFatigueCombo, StationId, StationState } from './types'
 import { blankFatigueCombo } from './workshopHp'
 
-function hydrateWallMs(raw: unknown): number | null {
-  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return null
-  return raw
-}
-
 function hydrateFatigueCombo(raw: unknown): StationFatigueCombo {
   const src = raw && typeof raw === 'object' ? (raw as Partial<StationFatigueCombo>) : {}
   const num = (value: unknown): number =>
@@ -179,8 +174,6 @@ export function blankStation(stationId: StationId): StationState {
     selectedForgeToolId: null,
     craftNotice: null,
     selectedToolId: null,
-    enrageUntil: null,
-    enrageReadyAt: null,
     fatigueCombo: blankFatigueCombo(),
     ...(stationId === 'mining'
       ? (() => {
@@ -231,8 +224,6 @@ export function hydrateStationState(stationId: StationId, incoming?: Partial<Sta
       (incoming as { selectedToolId?: unknown }).selectedToolId,
       stationId,
     ),
-    enrageUntil: hydrateWallMs(incoming.enrageUntil),
-    enrageReadyAt: hydrateWallMs(incoming.enrageReadyAt),
     fatigueCombo: hydrateFatigueCombo(incoming.fatigueCombo),
     ...(stationId === 'mining'
       ? hydrateMiningNodes(incoming, incoming.selectedCategory ?? blank.selectedCategory)

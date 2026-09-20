@@ -8,6 +8,7 @@ import type {
   EffectInstance,
   ItemId,
   ProductionBuff,
+  PotionItemId,
   StationId,
   StationKind,
   StationToolId,
@@ -53,6 +54,14 @@ const BASE_ITEM_DEF: Record<Exclude<ItemId, StationToolId>, ItemDef> = {
   roast: { id: 'roast', label: '烤肉', sellGold: 10, craftGold: 2 },
   stew: { id: 'stew', label: '香料炖', sellGold: 14, craftGold: 3 },
   potion: { id: 'potion', label: '药剂', sellGold: 10, craftGold: 2 },
+  stim: { id: 'stim', label: '兴奋剂', sellGold: 10, craftGold: 2 },
+  salve: { id: 'salve', label: '初级药膏', sellGold: 8, craftGold: 1 },
+  renewSoup: { id: 'renewSoup', label: '续命汤', sellGold: 10, craftGold: 2 },
+  brinkSalve: { id: 'brinkSalve', label: '绝境膏', sellGold: 12, craftGold: 2 },
+  wardElixir: { id: 'wardElixir', label: '护命符药', sellGold: 16, craftGold: 3 },
+  focusDraft: { id: 'focusDraft', label: '凝神剂', sellGold: 12, craftGold: 2 },
+  clearMind: { id: 'clearMind', label: '醒神散', sellGold: 10, craftGold: 2 },
+  warDrum: { id: 'warDrum', label: '战鼓药', sellGold: 12, craftGold: 2 },
   weapon: { id: 'weapon', label: '铜器', sellGold: 12, craftGold: 0 },
   ironWeapon: { id: 'ironWeapon', label: '铁器', sellGold: 18, craftGold: 0 },
   mithrilWeapon: { id: 'mithrilWeapon', label: '秘银器', sellGold: 28, craftGold: 0 },
@@ -406,7 +415,7 @@ export const HERBALISM_DROP_TABLE: HerbalismDropWeight[] = [
   { itemId: 'spice', weight: 30 },
 ]
 
-/** 炼金一次扣光其中一组：草或猎副产。产物仍是占位 `potion`。 */
+/** 炼金一次扣光其中一组：草或猎副产。产物从 8 种药剂池随机出一批。 */
 export const ALCHEMY_COST_OPTIONS: IoRule[][] = [
   [{ itemId: 'herb', qty: 1 }],
   [{ itemId: 'blood', qty: 1 }],
@@ -420,7 +429,45 @@ export function isAlchemyInputId(id: unknown): id is AlchemyInputId {
   return id === 'herb' || id === 'blood' || id === 'tooth' || id === 'eye'
 }
 
-export function isPotionItemId(id: unknown): id is 'potion' {
+export const POTION_ITEM_IDS: readonly PotionItemId[] = [
+  'stim',
+  'salve',
+  'renewSoup',
+  'brinkSalve',
+  'wardElixir',
+  'focusDraft',
+  'clearMind',
+  'warDrum',
+]
+
+export type PotionBatchRange = { min: number; max: number }
+
+/** 炼金一次成功随机一种，数量落在该区间（含端点）。 */
+export const POTION_BATCH_RANGE: Readonly<Record<PotionItemId, PotionBatchRange>> = {
+  salve: { min: 8, max: 14 },
+  stim: { min: 4, max: 8 },
+  renewSoup: { min: 5, max: 10 },
+  brinkSalve: { min: 4, max: 8 },
+  wardElixir: { min: 2, max: 5 },
+  focusDraft: { min: 3, max: 6 },
+  clearMind: { min: 3, max: 6 },
+  warDrum: { min: 3, max: 6 },
+}
+
+export function isPotionItemId(id: unknown): id is PotionItemId {
+  return (
+    id === 'stim' ||
+    id === 'salve' ||
+    id === 'renewSoup' ||
+    id === 'brinkSalve' ||
+    id === 'wardElixir' ||
+    id === 'focusDraft' ||
+    id === 'clearMind' ||
+    id === 'warDrum'
+  )
+}
+
+export function isLegacyPotionItemId(id: unknown): id is 'potion' {
   return id === 'potion'
 }
 
@@ -724,7 +771,21 @@ export const FOOD_HEAL_RATIO: Record<FoodItemId, number> = {
   stew: 0.55,
 }
 
-export const POTION_HEAL_RATIO = 0.7
+/** 旧通用药剂用药比例；现已不用。初级药膏改 20%。 */
+export const POTION_HEAL_RATIO = 0.2
+export const SALVE_HEAL_RATIO = 0.2
+export const RENEW_HEAL_RATIO = 0.05
+export const BRINK_HEAL_BASE = 0.1
+export const BRINK_HEAL_MISSING = 0.35
+export const CLEAR_MIND_LEAVE_RATIO = 0.31
+export const STIM_SPEED_MUL = 1.5
+export const STIM_DURATION_S = 180
+export const RENEW_DURATION_S = 120
+export const RENEW_TICK_S = 10
+export const WARD_DURATION_S = 60
+export const FOCUS_DURATION_S = 300
+export const WAR_DRUM_DURATION_S = 120
+export const WAR_DRUM_INTERVAL_MUL = 0.85
 
 export const FOOD_ITEM_IDS = Object.keys(FOOD_BUFF_DEF) as FoodItemId[]
 
@@ -809,6 +870,7 @@ export function stationRelatedItems(stationId: StationId): StationRelatedItems {
     for (const rules of ALCHEMY_COST_OPTIONS) {
       for (const io of rules) pushUniqueItem(costs, io.itemId)
     }
+    for (const id of POTION_ITEM_IDS) pushUniqueItem(outputs, id)
   }
   if (stationId === 'herbalism') {
     for (const row of HERBALISM_DROP_TABLE) pushUniqueItem(outputs, row.itemId)

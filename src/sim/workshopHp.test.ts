@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import { applyRestHeal, REST_HEAL_EVERY_S } from './combat'
 import { createSave } from './createSave'
-import { startStationEnrage } from './enrage'
 import { loadFood } from './food'
 import { currentSpeed } from './query'
 import { recruitWorker } from './recruit'
@@ -13,7 +12,6 @@ import type { Save, Worker } from './types'
 import { hpBarFill, hpBarTone } from '../ui/hpBar'
 import {
   applyWorkshopCycleDrain,
-  applyWorkshopFatigue,
   equivalentCyclesIn,
   FATIGUE_DEBT_RATIO,
   FATIGUE_NEAR_FULL_PIP,
@@ -289,7 +287,7 @@ describe('6h equivalent production', () => {
     const save = roster(1)
     const worker = save.workers[0]
     assignWorker(save, worker.id, 'herbalism')
-    expect(save.stations.herbalism.enrageUntil).toBeNull()
+    expect(save.potionBuffs.stimUntil).toBeNull()
     const cycles = equivalentCyclesIn(FATIGUE_SIX_HOUR_S, 20)
     expect(cycles).toBe(1080)
     for (let i = 0; i < cycles; i++) expect(completeCycle(save, 'herbalism')).toBe(true)
@@ -299,19 +297,3 @@ describe('6h equivalent production', () => {
   })
 })
 
-describe('enrage multiplies fatigue', () => {
-  it('multiplies fatigue by 6 while enraged', () => {
-    const save = roster(1)
-    assignWorker(save, save.workers[0].id, 'herbalism')
-    const t0 = 1_000_000
-    expect(startStationEnrage(save, 'herbalism', t0).ok).toBe(true)
-    applyWorkshopFatigue(save, 'herbalism', t0 + 1_000, 'success')
-    expect(save.workers[0].fatigueDebt).toBeCloseTo(
-      (save.workers[0].hpMax * FATIGUE_DEBT_RATIO + FATIGUE_NEAR_FULL_PIP) *
-        FATIGUE_STATION_MUL.herbalism *
-        1.008 *
-        6,
-      5,
-    )
-  })
-})

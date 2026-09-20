@@ -81,7 +81,7 @@ xpToNext(L) = Math.round(100 * Math.pow(1.45, L - 1) * 0.175)  // L >= 1
 | 烹饪 | 烤肉 `iron` | 1 | 28s | `[{ meat, 1 }]` | `roast` | 1 |
 | 烹饪 | 香料炖 `mithril` | 5 | 32s | `[{ meat, 1 }, { spice, 1 }]`（或鱼+香料） | `stew` | 2 |
 | 采药 | `default` | 1 | 20s | — | 权重：草 / 香料（必出） | 1 |
-| 炼金 | `default` | 1 | 40s | `ALCHEMY_COST_OPTIONS`：草 / 血 / 牙 / 眼任一 | `potion`（效果不填） | 1 |
+| 炼金 | `default` | 1 | 40s | `ALCHEMY_COST_OPTIONS`：草 / 血 / 牙 / 眼任一 | 8 种药剂随机批次 | 1 |
 
 ### 验算手感
 
@@ -113,7 +113,7 @@ speed = (1 / 当前品类 cycleS) * n * stationConflictMul
 
 采集结算（第 2 期）：挖矿每次吞吐扣 1 `nodeHp`，挖空后按 `recoverS` 冻结该矿；钓鱼按 `FISHING_DROP_TABLE` 掷骰，空杆也给 XP；采药按 `HERBALISM_DROP_TABLE` 必出货；狩猎先 `hazard` 检定，遇险掉本周期产出并短暂停手。
 
-炼金结算（第 5 期）：按 `ALCHEMY_COST_OPTIONS` 先草后猎副产扣 1，出 `potion`。`potionEffects` 为空，不能生效。缺四料则 `stallReason: emptyInput`，卡面写堵点句。
+炼金结算：按 `ALCHEMY_COST_OPTIONS` 先草后猎副产扣 1，随机一种药剂并按批次区间入库。缺四料则 `stallReason: emptyInput`，卡面写堵点句。药剂效果见 [main.md](main.md) / [production.md](production.md)。
 
 ---
 

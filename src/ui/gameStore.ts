@@ -15,9 +15,8 @@ import {
 } from '../sim/gm'
 import { hasUnread, listedMessages, markAllRead } from '../sim/messages'
 import { settleOffline } from '../sim/offline'
-import { usePotion } from '../sim/alchemy'
 import { clearPotionSlot, installPotionSlot } from '../sim/potionSlots'
-import { startStationEnrage } from '../sim/enrage'
+import { usePotionSlot } from '../sim/potions'
 import { loadFood, unloadFood } from '../sim/food'
 import { fuseStationWorkers, fuseWorkerWithStation } from '../sim/fuse'
 import { recruitWorker } from '../sim/recruit'
@@ -36,7 +35,7 @@ import {
 import { claimGuideQuest } from '../sim/guideQuest'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
 import { tick } from '../sim/tick'
-import type { ActionResult, CategoryId, ItemId, Save, StationId, StationToolId, ToolTypeId, Worker } from '../sim/types'
+import type { ActionResult, CategoryId, ItemId, PotionItemId, Save, StationId, StationToolId, ToolTypeId, Worker } from '../sim/types'
 import { pushCombatLogTip } from './encounterTips'
 import { pushFloatTip } from './floatTips'
 import { clearSave, loadSave, persistSave } from './saveGame'
@@ -154,10 +153,11 @@ export const useGameStore = defineStore('game', () => {
     loadFood: (workerId: string, itemId: ItemId, qty: number) =>
       apply((s) => loadFood(s, workerId, itemId, qty)),
     unloadFood: (workerId: string) => apply((s) => unloadFood(s, workerId)),
-    usePotion: (workerId: string) => apply((s) => usePotion(s, workerId)),
     installPotionSlot: (index: number, itemId: ItemId) => apply((s) => installPotionSlot(s, index, itemId)),
+    installPotion: (index: number, itemId: PotionItemId) => apply((s) => installPotionSlot(s, index, itemId)),
     clearPotionSlot: (index: number) => apply((s) => clearPotionSlot(s, index)),
-    startEnrage: (stationId: StationId) => apply((s) => startStationEnrage(s, stationId)),
+    unequipPotion: (index: number) => apply((s) => clearPotionSlot(s, index)),
+    usePotionSlot: (index: number) => apply((s) => usePotionSlot(s, index)),
     selectToolType: (toolTypeId: ToolTypeId) => apply((s) => selectForgingToolType(s, toolTypeId)),
     selectForgeOutput: (toolId: StationToolId) => apply((s) => selectForgeOutput(s, toolId)),
     selectCategory: (stationId: StationId, categoryId: CategoryId) =>

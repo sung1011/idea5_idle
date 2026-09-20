@@ -1,6 +1,7 @@
 import { generateEncounterBoard } from './encounters'
 import { encounterSlotCount } from './tech'
 import { computeKnightLevel } from './knightLevel'
+import { blankPotionBuffs } from './potions'
 import { hydrateStations } from './stationProgress'
 import { blankPotionSlots } from './potionSlots'
 import { START_DIAMONDS, START_GOLD, START_TECH_POINTS, WORKER_QUALITY_REV } from './tables'
@@ -46,6 +47,7 @@ export function createSave(): Save {
     unlockedTechIds: [],
     techLevels: {},
     potionSlots: blankPotionSlots(),
+    potionBuffs: blankPotionBuffs(),
   }
   save.knightLevel = computeKnightLevel(save)
   save.encounters = generateEncounterBoard(0, encounterSlotCount(save), {

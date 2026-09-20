@@ -54,6 +54,14 @@ export type ItemId =
   | 'roast'
   | 'stew'
   | 'potion'
+  | 'stim'
+  | 'salve'
+  | 'renewSoup'
+  | 'brinkSalve'
+  | 'wardElixir'
+  | 'focusDraft'
+  | 'clearMind'
+  | 'warDrum'
   | 'weapon'
   | 'ironWeapon'
   | 'mithrilWeapon'
@@ -68,6 +76,28 @@ export type ItemId =
   | 'ironTool'
   | 'mithrilTool'
   | StationToolId
+
+/** 8 种可用药剂。旧档通用 `potion` 不算在内。 */
+export type PotionItemId =
+  | 'stim'
+  | 'salve'
+  | 'renewSoup'
+  | 'brinkSalve'
+  | 'wardElixir'
+  | 'focusDraft'
+  | 'clearMind'
+  | 'warDrum'
+
+/** 药剂时效。字段都是 `elapsedS`；到期或未开为 null。 */
+export type PotionBuffs = {
+  stimUntil: number | null
+  renewUntil: number | null
+  renewNextAt: number | null
+  wardUntil: number | null
+  focusUntil: number | null
+  focusConsumed: StationId[]
+  warDrumUntil: number | null
+}
 
 export type ClassId =
   | 'laborer'
@@ -111,10 +141,10 @@ export type EffectId = string
 /** 工具类型。按表匹配工坊：镐/锤/猎具/锅/镰/瓶架。 */
 export type ToolTypeId = 'pick' | 'hammer' | 'spear' | 'pot' | 'sickle' | 'rack'
 
-/** 工人页药剂技能槽数。只装 / 卸 / 展示，本轮不自动喝。 */
+/** 工人页药剂技能槽数。只记种类，点用才扣库存。 */
 export const POTION_SLOT_COUNT = 4
 
-export type PotionSlotId = ItemId | null
+export type PotionSlotId = PotionItemId | null
 export type PotionSlots = [PotionSlotId, PotionSlotId, PotionSlotId, PotionSlotId]
 
 /** 锻造产出队列：进物资的同时记下 matchStationId，装备时默认按此匹配。 */
@@ -300,14 +330,6 @@ export type StationState = {
    * 只生效一把；未解锁或库存见底时 hydrate / 结算会清回无。
    */
   selectedToolId: StationToolId | null
-  /**
-   * 狂暴结束墙钟。进行中 `now < enrageUntil`。旧档缺字段 hydrate 为 null。
-   */
-  enrageUntil: number | null
-  /**
-   * 狂暴可再开的墙钟。CD 从结束后起算 300s。旧档缺字段 hydrate 为 null。
-   */
-  enrageReadyAt: number | null
   /** 站内连招 / 毒雾 / 挫败。旧档缺字段 hydrate 为零。 */
   fatigueCombo: StationFatigueCombo
 }
@@ -415,10 +437,15 @@ export type Save = {
    */
   techLevels: Partial<Record<TechId, number>>
   /**
-   * 工人页药剂技能槽。只记物品 id，不扣库存、不自动喝。
-   * 旧档缺字段 hydrate 为 `[null, null, null, null]`。
+   * 工人页 4 个药剂装配槽。只记种类，数量读物资。
+   * 旧档缺字段 hydrate 为空槽。
    */
   potionSlots: PotionSlots
+  /**
+   * 账号级药剂时效。时间轴用 `elapsedS`（与离线追赶同一套 sim 秒）。
+   * 旧档缺字段 hydrate 为空。
+   */
+  potionBuffs: PotionBuffs
 }
 
 export type EncounterQuality = 'gray' | 'green' | 'blue' | 'purple' | 'orange'

@@ -13,6 +13,7 @@ import {
   MINING_NODE_DEF,
   leftoverStockItems,
   itemProducerStation,
+  POTION_ITEM_IDS,
   PLAYABLE_STATION_IDS,
   SELLABLE_GOODS,
   SKELETON_STATION_IDS,
@@ -126,7 +127,7 @@ describe('production phase-1 tables', () => {
     })
     expect(stationRelatedItems('alchemy')).toEqual({
       costs: ['herb', 'blood', 'tooth', 'eye', ...stationToolsOf('alchemy').map((row) => row.id)],
-      outputs: ['potion'],
+      outputs: ['potion', ...POTION_ITEM_IDS],
     })
     expect(leftoverStockItems()).toEqual([
       'wood',
@@ -155,6 +156,9 @@ describe('production phase-1 tables', () => {
     expect(itemProducerStation('herb')).toBe('herbalism')
     expect(itemProducerStation('spice')).toBe('herbalism')
     expect(itemProducerStation('potion')).toBe('alchemy')
+    expect(itemProducerStation('stim')).toBe('alchemy')
+    expect(itemProducerStation('salve')).toBe('alchemy')
+    expect(itemProducerStation('warDrum')).toBe('alchemy')
     expect(itemProducerStation('wood')).toBeNull()
     expect(itemProducerStation('weapon')).toBeNull()
     expect(itemProducerStation('slag')).toBeNull()
@@ -162,7 +166,7 @@ describe('production phase-1 tables', () => {
 
   it('gives workshop craftGold of 0–1 for gathers and 1–3 for finished goods', () => {
     const gathers = ['ore', 'ironOre', 'mithrilOre', 'fish', 'junk', 'meat', 'blood', 'tooth', 'eye', 'herb', 'spice'] as const
-    const finished = ['meal', 'roast', 'stew', 'potion', 'tool', 'ironTool', 'mithrilTool'] as const
+    const finished = ['meal', 'roast', 'stew', 'potion', ...POTION_ITEM_IDS, 'tool', 'ironTool', 'mithrilTool'] as const
     for (const id of gathers) {
       expect(ITEM_DEF[id].craftGold).toBeGreaterThanOrEqual(0)
       expect(ITEM_DEF[id].craftGold).toBeLessThanOrEqual(1)

@@ -1,4 +1,5 @@
 import { potionEffectValue } from './alchemy'
+import { takeFocusOutputBonus } from './potions'
 import { workshopHpWorkMul } from './workshopHp'
 import { toolUpkeepBonus } from './tech'
 import { addToBank, bankQty, takeFromBank } from './bank'
@@ -234,7 +235,7 @@ export function matchingToolEffectMax(
 }
 
 export function cycleOutputBonus(save: Save, stationId: StationId, now = Date.now()): number {
-  return Math.floor(matchingToolEffectMax(save, stationId, EFFECT_ID.extraOutput, now))
+  return Math.floor(matchingToolEffectMax(save, stationId, EFFECT_ID.extraOutput, now)) + takeFocusOutputBonus(save, stationId)
 }
 
 export function hydrateForgedTools(raw: unknown): ForgedTool[] {

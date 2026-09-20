@@ -1,4 +1,4 @@
-import { stationEnrageFatigueMul } from './enrage'
+import { isWardActive } from './potions'
 import type { Save, StationFatigueCombo, StationId, Worker } from './types'
 
 /** 每次成功产出写入的劳损比例。禁止再走 max(1, floor(hpMax*0.02))。 */
@@ -158,7 +158,7 @@ function debtAmount(
   worker: Worker,
   stationId: StationId,
   kind: FatigueKind,
-  now: number,
+  _now: number,
   extraMul = 1,
 ): number {
   const comboMul = stationFatigueComboMul(save, stationId, kind)
@@ -167,7 +167,6 @@ function debtAmount(
     FATIGUE_STATION_MUL[stationId] *
     comboMul *
     kindMul(kind) *
-    stationEnrageFatigueMul(save, stationId, now) *
     extraMul
   )
 }
@@ -206,14 +205,16 @@ export function applyWorkshopFatigue(save: Save, stationId: StationId, now: numb
   noteCombo(save, stationId, kind)
   if (kind === 'emptyRod') return markWeak(crew)
   let weak = markWeak(crew)
-  for (const worker of crew) {
-    addDebt(worker, debtAmount(save, worker, stationId, kind, now))
-    if (workshopHpWorkMul(worker) < 1) weak = true
-  }
-  if (stationId === 'mining' && kind === 'success' && miningJustEmptied(save)) {
+  if (!isWardActive(save)) {
     for (const worker of crew) {
-      addDebt(worker, debtAmount(save, worker, stationId, kind, now, 1))
+      addDebt(worker, debtAmount(save, worker, stationId, kind, now))
       if (workshopHpWorkMul(worker) < 1) weak = true
+    }
+    if (stationId === 'mining' && kind === 'success' && miningJustEmptied(save)) {
+      for (const worker of crew) {
+        addDebt(worker, debtAmount(save, worker, stationId, kind, now, 1))
+        if (workshopHpWorkMul(worker) < 1) weak = true
+      }
     }
   }
   if (stationId === 'forging' && kind === 'success') comboOf(save, 'forging').frustration = 0

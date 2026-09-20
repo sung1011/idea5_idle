@@ -7,11 +7,26 @@ import { isWorkerInCombat, workerLiveStats } from '../sim/combat'
 import { workerXpProgress } from '../sim/workerLevel'
 import CombatAttrRow from './combatAttrRow.vue'
 import { availablePotionInstallIds } from '../sim/potionSlots'
-import { CLASS_LABEL, FOOD_HEAL_RATIO, FOOD_ITEM_IDS, ITEM_DEF, isFoodItemId, isPotionItemId, type FoodItemId } from '../sim/tables'
+import {
+  CLASS_LABEL,
+  FOOD_HEAL_RATIO,
+  FOOD_ITEM_IDS,
+  ITEM_DEF,
+  isFoodItemId,
+  isPotionItemId,
+  type FoodItemId,
+} from '../sim/tables'
+import {
+  isFocusActive,
+  isStimActive,
+  isWardActive,
+  isWarDrumActive,
+  potionRemainS,
+} from '../sim/potions'
 import type { ItemId } from '../sim/types'
 import { isGuideQuestFlash } from '../sim/guideQuest'
 import { recruitCost } from '../sim/tech'
-import type { ClassId, StationId, Worker } from '../sim/types'
+import type { ClassId, PotionItemId, StationId, Worker } from '../sim/types'
 import ClassIcon from './classIcon.vue'
 import { openWorkshopStation } from './appNav'
 import { useGameStore } from './gameStore'
@@ -53,12 +68,11 @@ const pickFood = reactive<Record<string, FoodItemId>>({})
 const pickFoodQty = reactive<Record<string, number>>({})
 const selectedId = ref<string | null>(null)
 const pickId = ref<string | null>(null)
+const pickPotionIndex = ref<number | null>(null)
 
 const boards = computed(() => workshopStationBoards(game.save))
 const fightingRoster = computed(() => mainlineCombatWorkers(game.save))
 const resting = computed(() => restingWorkers(game.save))
-const potionSlots = computed(() => game.save.potionSlots)
-const potionPick = computed(() => availablePotionInstallIds(game.save))
 const selected = computed(() => {
   const id = selectedId.value
   if (!id) return null
@@ -111,8 +125,44 @@ function foodLine(w: Worker) {
   return `${item.label} ×${slot.qty} · ${heal} · 剩余 ${remain}`
 }
 
-function canUsePotion(w: Worker) {
-  return bankQty(game.save, 'potion') >= 1 && w.hp < w.hpMax
+const potionSlots = computed(() => game.save.potionSlots)
+const potionBuffLine = computed(() => {
+  const save = game.save
+  const t = save.elapsedS
+  const parts: string[] = []
+  if (isStimActive(save)) parts.push(`兴奋 ${formatMarchClock(potionRemainS(save.potionBuffs.stimUntil, t))}`)
+  if (save.potionBuffs.renewUntil != null && t < save.potionBuffs.renewUntil) {
+    parts.push(`续命 ${formatMarchClock(potionRemainS(save.potionBuffs.renewUntil, t))}`)
+  }
+  if (isWardActive(save)) parts.push(`护命 ${formatMarchClock(potionRemainS(save.potionBuffs.wardUntil, t))}`)
+  if (isFocusActive(save)) parts.push(`凝神 ${formatMarchClock(potionRemainS(save.potionBuffs.focusUntil, t))}`)
+  if (isWarDrumActive(save)) parts.push(`战鼓 ${formatMarchClock(potionRemainS(save.potionBuffs.warDrumUntil, t))}`)
+  return parts.join(' · ')
+})
+const potionPickOptions = computed(() => availablePotionInstallIds(game.save))
+
+function potionSlotQty(id: PotionItemId | null) {
+  return id ? bankQty(game.save, id) : 0
+}
+
+function onPotionSlot(index: number) {
+  const id = game.save.potionSlots[index]
+  if (!id) {
+    pickPotionIndex.value = index
+    return
+  }
+  game.usePotionSlot(index)
+}
+
+function onInstallPotion(itemId: PotionItemId) {
+  const index = pickPotionIndex.value
+  if (index == null) return
+  const result = game.installPotion(index, itemId)
+  if (result.ok) pickPotionIndex.value = null
+}
+
+function closePotionPick() {
+  pickPotionIndex.value = null
 }
 
 function foodQtyMax(id: FoodItemId) {
@@ -192,17 +242,6 @@ function onEmptySlot(stationId: StationId) {
 function potionSlotLabel(itemId: ItemId | null) {
   if (!itemId || !isPotionItemId(itemId)) return '空'
   return `${ITEM_DEF[itemId].label} ×${bankQty(game.save, itemId)}`
-}
-
-function onPotionSlot(index: number) {
-  const filled = potionSlots.value[index]
-  if (filled) {
-    game.clearPotionSlot(index)
-    return
-  }
-  const next = potionPick.value[0]
-  if (!next) return
-  game.installPotionSlot(index, next)
 }
 
 function openSheetThenPick(w: Worker) {
@@ -379,13 +418,19 @@ onUnmounted(unbindDrag)
               :key="`potion-${i}`"
               type="button"
               class="potion-slot"
-              :class="{ empty: !itemId }"
-              :aria-label="itemId ? `卸下 ${potionSlotLabel(itemId)}` : `装入药剂槽 ${i + 1}`"
+              :class="{ empty: !itemId, dry: !!itemId && potionSlotQty(itemId) <= 0 }"
+              :aria-label="itemId ? `${potionSlotLabel(itemId)} · 点击使用` : `装入药剂槽 ${i + 1}`"
               @click="onPotionSlot(i)"
             >
               <template v-if="itemId">
                 <UiIcon name="alchemy" />
                 <span class="potion-lab">{{ potionSlotLabel(itemId) }}</span>
+                <span
+                  class="unequip"
+                  role="button"
+                  :aria-label="`卸下 ${ITEM_DEF[itemId].label}`"
+                  @click.stop="game.clearPotionSlot(i)"
+                >×</span>
               </template>
               <template v-else>
                 <span class="empty-mark" aria-hidden="true">＋</span>
@@ -393,6 +438,7 @@ onUnmounted(unbindDrag)
               </template>
             </button>
           </div>
+          <p v-if="potionBuffLine" class="potion-buffs">{{ potionBuffLine }}</p>
         </div>
       </section>
       <div class="col side">
@@ -507,9 +553,6 @@ onUnmounted(unbindDrag)
         </p>
         <p class="hint">{{ foodLine(selected) }}</p>
         <div class="row tool-row">
-          <button type="button" :disabled="!canUsePotion(selected)" @click="game.usePotion(selected.id)">
-            用药
-          </button>
           <template v-if="selected.foodSlot">
             <button type="button" @click="game.unloadFood(selected.id)">卸下食物</button>
           </template>
@@ -589,6 +632,33 @@ onUnmounted(unbindDrag)
           </button>
           <button type="button" class="close" @click="closePick">关闭</button>
         </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <Teleport to="body">
+    <div
+      v-if="pickPotionIndex != null"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="装配药剂"
+      @click.self="closePotionPick"
+    >
+      <div class="sheet">
+        <header>
+          <h2 class="title">装配药剂</h2>
+          <button type="button" class="close" @click="closePotionPick">关闭</button>
+        </header>
+        <p class="hint">点已装槽立刻用药，无冷却。库存为 0 仍留着装配。</p>
+        <div class="pick-list">
+          <div v-for="id in potionPickOptions" :key="id" class="pick-cell">
+            <button type="button" @click="onInstallPotion(id)">
+              <span>{{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}</span>
+            </button>
+          </div>
+        </div>
+        <p v-if="!potionPickOptions.length" class="hint">没有可装的药剂</p>
       </div>
     </div>
   </Teleport>
@@ -737,6 +807,7 @@ onUnmounted(unbindDrag)
 }
 
 .potion-slot {
+  position: relative;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -752,11 +823,34 @@ onUnmounted(unbindDrag)
   box-shadow: 0 2px 0 var(--gold-deep);
 }
 
-.potion-slot.empty {
+.potion-slot.empty,
+.potion-slot.dry {
   border-style: dashed;
   background: rgba(255, 241, 190, 0.35);
   color: #a77840;
   box-shadow: none;
+}
+
+.potion-slot .unequip {
+  position: absolute;
+  top: -4px;
+  right: -2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #8a3228;
+  color: #fff8ee;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.potion-buffs {
+  margin: 0;
+  padding: 0 2px;
+  color: #7a4a22;
+  font-size: 10px;
+  font-weight: 800;
 }
 
 .potion-slot :deep(.ui-ico) {

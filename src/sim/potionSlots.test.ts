@@ -11,11 +11,11 @@ import {
 } from './potionSlots'
 
 describe('potion skill slots', () => {
-  it('hydrates missing or dirty slots to four empties', () => {
+  it('hydrates missing or dirty slots to four empties and maps old potion to salve', () => {
     expect(blankPotionSlots()).toEqual([null, null, null, null])
     expect(hydratePotionSlots(undefined)).toEqual([null, null, null, null])
-    expect(hydratePotionSlots(['potion', 'meal', 'potion', 'potion', 'potion'])).toEqual([
-      'potion',
+    expect(hydratePotionSlots(['potion', 'meal', 'potion', 'salve', 'stim'])).toEqual([
+      'salve',
       null,
       null,
       null,
@@ -24,28 +24,28 @@ describe('potion skill slots', () => {
 
   it('installs a unique potion type from inventory and can clear the slot', () => {
     const save = createSave()
-    expect(installPotionSlot(save, 0, 'potion').ok).toBe(false)
-    save.bank.potion = 3
-    expect(availablePotionInstallIds(save)).toEqual(['potion'])
-    expect(installPotionSlot(save, 0, 'potion').ok).toBe(true)
-    expect(save.potionSlots).toEqual(['potion', null, null, null])
-    expect(potionSlotItem(save, 0)).toBe('potion')
-    expect(save.bank.potion).toBe(3)
+    expect(installPotionSlot(save, 0, 'salve').ok).toBe(false)
+    save.bank.salve = 3
+    expect(availablePotionInstallIds(save)).toEqual(['salve'])
+    expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
+    expect(save.potionSlots).toEqual(['salve', null, null, null])
+    expect(potionSlotItem(save, 0)).toBe('salve')
+    expect(save.bank.salve).toBe(3)
     expect(availablePotionInstallIds(save)).toEqual([])
-    expect(installPotionSlot(save, 1, 'potion').ok).toBe(false)
+    expect(installPotionSlot(save, 1, 'salve').ok).toBe(false)
     expect(clearPotionSlot(save, 0).ok).toBe(true)
     expect(save.potionSlots).toEqual([null, null, null, null])
-    expect(availablePotionInstallIds(save)).toEqual(['potion'])
+    expect(availablePotionInstallIds(save)).toEqual(['salve'])
   })
 
   it('keeps potion slots through persist / load', () => {
     const raw = {
       ...createSave(),
-      potionSlots: ['potion', null, null, null],
-      bank: { potion: 2 },
+      potionSlots: ['salve', null, null, null],
+      bank: { salve: 2 },
     }
     const save = hydrateLoadedSave(raw)
-    expect(save?.potionSlots).toEqual(['potion', null, null, null])
+    expect(save?.potionSlots).toEqual(['salve', null, null, null])
     const again = hydrateLoadedSave({
       ...createSave(),
       potionSlots: undefined,

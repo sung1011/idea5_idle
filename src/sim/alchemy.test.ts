@@ -1,15 +1,16 @@
-import { describe, expect, it } from 'vitest'
-import { potionEffectValue, potionEffects, potionHealAmount, usePotion } from './alchemy'
+import { afterEach, describe, expect, it } from 'vitest'
+import { potionEffectValue, potionEffects } from './alchemy'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
 import { loadFood } from './food'
 import { collectHints, currentSpeed, stationBottleneckText } from './query'
 import { recruitWorker } from './recruit'
-import { EFFECT_ID, PLAYABLE_STATION_IDS, SELLABLE_GOODS, STATION_DEF } from './tables'
+import { setRollOverride } from './rng'
+import { EFFECT_ID, PLAYABLE_STATION_IDS, POTION_BATCH_RANGE, POTION_ITEM_IDS, SELLABLE_GOODS, STATION_DEF } from './tables'
 import { ticks } from './tick'
 import { workerEffectValue } from './tools'
-import type { ItemId, Save } from './types'
+import type { ItemId, PotionItemId, Save } from './types'
 
 function roster(n: number): Save {
   const save = createSave()
@@ -18,8 +19,20 @@ function roster(n: number): Save {
   return save
 }
 
-describe('alchemy placeholder', () => {
-  it('consumes herb or a hunting byproduct and deposits a potion', () => {
+function craftedPotion(save: Save): { id: PotionItemId; qty: number } | null {
+  for (const id of POTION_ITEM_IDS) {
+    const qty = bankQty(save, id)
+    if (qty > 0) return { id, qty }
+  }
+  return null
+}
+
+afterEach(() => {
+  setRollOverride(null)
+})
+
+describe('alchemy random potion batches', () => {
+  it('consumes herb or a hunting byproduct and deposits a random potion batch', () => {
     const cases: Array<{ itemId: ItemId; label: string }> = [
       { itemId: 'herb', label: '草' },
       { itemId: 'blood', label: '血' },
@@ -27,18 +40,23 @@ describe('alchemy placeholder', () => {
       { itemId: 'eye', label: '眼' },
     ]
     for (const row of cases) {
+      setRollOverride(() => 0)
       const save = roster(1)
       save.bank[row.itemId] = 1
       assignWorker(save, save.workers[0].id, 'alchemy')
       const next = ticks(save, 40)
       expect(bankQty(next, row.itemId)).toBe(0)
-      expect(bankQty(next, 'potion')).toBe(1)
+      expect(bankQty(next, 'potion')).toBe(0)
+      expect(bankQty(next, 'stim')).toBe(POTION_BATCH_RANGE.stim.min)
       expect(next.stations.alchemy.completed).toBe(1)
-      expect(next.stations.alchemy.craftNotice).toBe(`炼成药剂（耗${row.label}）`)
+      expect(next.stations.alchemy.craftNotice).toBe(
+        `炼成兴奋剂×${POTION_BATCH_RANGE.stim.min}（耗${row.label}）`,
+      )
     }
   })
 
   it('prefers herb when several alchemy inputs are in stock', () => {
+    setRollOverride(() => 0)
     const save = roster(1)
     save.bank.herb = 1
     save.bank.blood = 1
@@ -46,14 +64,14 @@ describe('alchemy placeholder', () => {
     const next = ticks(save, 40)
     expect(bankQty(next, 'herb')).toBe(0)
     expect(bankQty(next, 'blood')).toBe(1)
-    expect(bankQty(next, 'potion')).toBe(1)
+    expect(craftedPotion(next)?.id).toBe('stim')
   })
 
   it('idles with a bottleneck naming herb and hunting parts', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'alchemy')
     const next = ticks(save, 40)
-    expect(bankQty(next, 'potion')).toBe(0)
+    expect(craftedPotion(next)).toBeNull()
     expect(next.stations.alchemy.completed).toBe(0)
     expect(next.stations.alchemy.stallReason).toBe('emptyInput')
     const text = stationBottleneckText(next, 'alchemy')
@@ -65,15 +83,15 @@ describe('alchemy placeholder', () => {
     expect(collectHints(next).some((h) => h.kind === 'bottleneck' && h.text.includes('炼金'))).toBe(true)
   })
 
-  it('keeps potion effects empty so crafted potions do not apply', () => {
+  it('keeps potion effectId empty so factory speed still comes from stim buff only', () => {
     const save = roster(1)
-    save.bank.potion = 3
+    save.bank.stim = 3
     assignWorker(save, save.workers[0].id, 'mining')
-    expect(potionEffects('potion')).toEqual([])
-    expect(potionEffectValue('potion', EFFECT_ID.prodSpeed)).toBe(0)
-    expect(potionEffectValue('potion', EFFECT_ID.extraOutput)).toBe(0)
-    expect(potionEffectValue('potion', EFFECT_ID.cycleShorten)).toBe(0)
-    expect(loadFood(save, save.workers[0].id, 'potion', 1).ok).toBe(false)
+    expect(potionEffects('stim')).toEqual([])
+    expect(potionEffectValue('stim', EFFECT_ID.prodSpeed)).toBe(0)
+    expect(potionEffectValue('stim', EFFECT_ID.extraOutput)).toBe(0)
+    expect(potionEffectValue('stim', EFFECT_ID.cycleShorten)).toBe(0)
+    expect(loadFood(save, save.workers[0].id, 'stim', 1).ok).toBe(false)
     const bare = currentSpeed(save, 'mining')
     const withPotion = workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.prodSpeed)
     expect(withPotion).toBe(0)
@@ -87,20 +105,5 @@ describe('alchemy placeholder', () => {
     expect((STATION_DEF as Record<string, unknown>).leatherworking).toBeUndefined()
     expect(SELLABLE_GOODS).not.toContain('weapon')
     expect(SELLABLE_GOODS).toEqual(['tool', 'ironTool', 'mithrilTool', 'meal', 'roast', 'stew'])
-  })
-
-  it('uses one potion to heal about 70% hpMax and never speeds the factory', () => {
-    const save = roster(1)
-    const worker = save.workers[0]
-    assignWorker(save, worker.id, 'mining')
-    const bare = currentSpeed(save, 'mining')
-    save.bank.potion = 1
-    worker.hp = 1
-    expect(potionHealAmount(worker.hpMax)).toBe(Math.ceil(worker.hpMax * 0.7))
-    expect(usePotion(save, worker.id).ok).toBe(true)
-    expect(worker.hp).toBe(1 + Math.ceil(worker.hpMax * 0.7))
-    expect(bankQty(save, 'potion')).toBe(0)
-    expect(currentSpeed(save, 'mining')).toBe(bare)
-    expect(usePotion(save, worker.id)).toEqual({ ok: false, reason: '没有药剂' })
   })
 })

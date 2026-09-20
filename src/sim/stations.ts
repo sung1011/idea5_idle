@@ -1,4 +1,4 @@
-import { alchemyCostLabel } from './alchemy'
+import { alchemyCostLabel, rollAlchemyPotionBatch } from './alchemy'
 import { addToBank } from './bank'
 import { takeCosts } from './costs'
 import { completeForgingCycle } from './forging'
@@ -8,7 +8,7 @@ import { tryAutoEatAssigned } from './food'
 import { applyWorkshopFatigue, decayAlchemyFog, workshopHpWorkMul, type FatigueKind } from './workshopHp'
 import { assignedCount, canConsume, currentSpeed, pickConsume } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
-import { ITEM_DEF, isPotionItemId } from './tables'
+import { ITEM_DEF } from './tables'
 import { consumeSelectedStationTool, cycleOutputBonus, sanitizeForgeSelection } from './tools'
 import type { Save, StationId } from './types'
 
@@ -27,17 +27,13 @@ function completeAlchemyCycle(save: Save, now: number, into?: ItemLot[]): boolea
   if (!takeCosts(save, pick.rules).ok) return false
   const station = save.stations.alchemy
   const def = selectedCategoryDef(save, 'alchemy')
-  const bonus = cycleOutputBonus(save, 'alchemy', now)
-  for (const io of def.outputs) {
-    const qty = io.qty + (io === def.outputs[0] ? bonus : 0)
-    if (!addToBank(save, io.itemId, qty).ok) return false
-    pushLot(into, io.itemId, qty)
-  }
+  const rolled = rollAlchemyPotionBatch(save)
+  const qty = rolled.qty + cycleOutputBonus(save, 'alchemy', now)
+  if (!addToBank(save, rolled.itemId, qty).ok) return false
+  pushLot(into, rolled.itemId, qty)
   station.completed += 1
   grantStationXp(save, 'alchemy', def.xpPerCycle)
-  const out = def.outputs[0]
-  const made = out && isPotionItemId(out.itemId) ? '药剂' : out ? ITEM_DEF[out.itemId].label : '成品'
-  station.craftNotice = `炼成${made}（耗${alchemyCostLabel(pick.rules)}）`
+  station.craftNotice = `炼成${ITEM_DEF[rolled.itemId].label}×${qty}（耗${alchemyCostLabel(pick.rules)}）`
   return true
 }
 

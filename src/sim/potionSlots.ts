@@ -1,6 +1,6 @@
 import { bankQty } from './bank'
-import { ITEM_DEF, isPotionItemId } from './tables'
-import { POTION_SLOT_COUNT, type ActionResult, type ItemId, type PotionSlotId, type PotionSlots, type Save } from './types'
+import { ITEM_DEF, isPotionItemId, POTION_ITEM_IDS } from './tables'
+import { POTION_SLOT_COUNT, type ActionResult, type ItemId, type PotionItemId, type PotionSlotId, type PotionSlots, type Save } from './types'
 
 export function blankPotionSlots(): PotionSlots {
   return [null, null, null, null]
@@ -15,7 +15,7 @@ export function hydratePotionSlots(raw: unknown): PotionSlots {
   const slots = blankPotionSlots()
   if (!Array.isArray(raw)) return slots
   for (let i = 0; i < POTION_SLOT_COUNT; i++) {
-    const id = raw[i]
+    const id = raw[i] === 'potion' ? 'salve' : raw[i]
     if (!isPotionItemId(id)) continue
     if (slots.some((taken) => taken === id)) continue
     slots[i] = id
@@ -29,10 +29,9 @@ export function potionSlotItem(save: Save, index: number): PotionSlotId {
 }
 
 /** 库存里还没装进槽的药剂种类。不扣数量。 */
-export function availablePotionInstallIds(save: Save): ItemId[] {
-  const taken = new Set(save.potionSlots.filter((id): id is ItemId => id != null))
-  if (taken.has('potion')) return []
-  return bankQty(save, 'potion') > 0 ? ['potion'] : []
+export function availablePotionInstallIds(save: Save): PotionItemId[] {
+  const taken = new Set(save.potionSlots.filter((id): id is PotionItemId => id != null))
+  return POTION_ITEM_IDS.filter((id) => bankQty(save, id) > 0 && !taken.has(id))
 }
 
 export function installPotionSlot(save: Save, index: number, itemId: ItemId): ActionResult {
@@ -54,3 +53,5 @@ export function clearPotionSlot(save: Save, index: number): ActionResult {
   save.potionSlots[i] = null
   return { ok: true, message: '已卸下药剂' }
 }
+
+export const unequipPotionSlot = clearPotionSlot

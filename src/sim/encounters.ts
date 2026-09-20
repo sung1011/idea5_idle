@@ -35,12 +35,14 @@ import {
   STATION_TOOL_COUNT,
   STATION_TOOL_IDS,
   bulkUnitGold,
+  isPotionItemId,
   isStationToolId,
   isToolItemId,
   pawnUnitGold,
   stationToolItemId,
   type IoRule,
 } from './tables'
+import { pickMainNeedPotion } from './potions'
 import {
   ENCOUNTER_SLOT_MAX,
   ENCOUNTER_SLOT_MIN,
@@ -272,14 +274,14 @@ export const ARTISAN_DEFS: readonly ArtisanDef[] = [
   { id: 'artisanBlade', label: '修工具委托', wants: { tool: 1 }, buffMul: 1.15, buffDurationS: 180 },
   { id: 'artisanMeal', label: '灶头加餐', wants: { meal: 2 }, buffMul: 1.12, buffDurationS: 150 },
   { id: 'artisanStew', label: '炖锅加餐', wants: { stew: 1 }, buffMul: 1.16, buffDurationS: 180 },
-  { id: 'artisanPotion', label: '药剂试制', wants: { potion: 1 }, buffMul: 1.18, buffDurationS: 210 },
+  { id: 'artisanPotion', label: '药剂试制', wants: { salve: 1 }, buffMul: 1.18, buffDurationS: 210 },
 ]
 
 export const BULK_BUY_DEFS: readonly BulkBuyDef[] = [
   { id: 'bulkBlade', label: '工具收购', wants: { tool: 1 } },
   { id: 'bulkMeal', label: '熟食收购', wants: { meal: 2 } },
   { id: 'bulkRoast', label: '烤肉收购', wants: { roast: 2 } },
-  { id: 'bulkPotion', label: '药剂收购', wants: { potion: 1 } },
+  { id: 'bulkPotion', label: '药剂收购', wants: { salve: 1 } },
   { id: 'bulkCooked', label: '干粮收购', wants: { meal: 1 } },
 ]
 
@@ -301,6 +303,7 @@ const LEGACY_ORDER_DEFS: ReadonlyArray<{
 /**
  * 主线消耗种类池。新刷交物单先从这里掷 1 种。
  * `tool` 只是种类标记：落地时改抽 `MAIN_NEED_TOOL_POOL`（锻造可造的各站专属工具）。
+ * `potion` 同样是种类标记：落地时改抽 8 种药剂之一。
  */
 export const MAIN_NEED_ITEM_POOL: readonly ItemId[] = ['meal', 'ore', 'fish', 'tool', 'roast', 'stew', 'potion']
 
@@ -439,7 +442,7 @@ export function scaleGold(gold: number, mul: number): number {
 }
 
 export function itemNeedBase(itemId: ItemId): number {
-  const key = isStationToolId(itemId) ? 'tool' : itemId
+  const key = isStationToolId(itemId) ? 'tool' : isPotionItemId(itemId) ? 'potion' : itemId
   const base = MAIN_NEED_BASE[key]
   return typeof base === 'number' && base > 0 ? base : MAIN_NEED_BASE_DEFAULT
 }
@@ -453,6 +456,7 @@ export function isMainNeedItem(id: unknown): id is ItemId {
   if (typeof id !== 'string') return false
   if (isLegacyGenericToolNeed(id)) return false
   if ((MAIN_NEED_ITEM_POOL as readonly string[]).includes(id)) return true
+  if (isPotionItemId(id)) return true
   return isStationToolId(id)
 }
 
@@ -511,7 +515,7 @@ export function pickMainNeedTool(
   return stationToolItemId(stationId, index)
 }
 
-/** 种类池掷到通用工具时，改抽专属工具；其它物品原样。 */
+/** 种类池掷到通用工具时改抽专属工具；掷到 `potion` 改抽 8 种药剂。 */
 export function resolveMainNeedItem(
   itemId: ItemId,
   quality: EncounterQuality,
@@ -520,6 +524,10 @@ export function resolveMainNeedItem(
   rng?: { rngState: number },
   salt = 0,
 ): ItemId {
+  if (itemId === 'potion') {
+    const roll = rng ? rollRng(rng) : fracFromSalt(salt, 29)
+    return pickMainNeedPotion(roll)
+  }
   if (!isLegacyGenericToolNeed(itemId)) return itemId
   return pickMainNeedTool(quality, chapter, chapterBoss, rng, salt)
 }
