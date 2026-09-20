@@ -129,7 +129,7 @@ describe('enemy target pool and rules', () => {
     const b = target('b', 'frontline', 20, 20)
     const c = target('c', 'workshop', 4, 20, 'mining')
     const d = target('d', 'workshop', 18, 20, 'mining')
-    const e = target('e', 'workshop', 12, 20, 'fishing')
+    const e = target('e', 'workshop', 12, 20, 'hunting')
     const pool = [a, b, c, d, e]
     const zero = () => 0
 

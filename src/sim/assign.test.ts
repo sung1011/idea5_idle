@@ -74,11 +74,11 @@ describe('station worker cap', () => {
 
   it('rests overflow workers on hydrate clamp', () => {
     const save = roster(3)
-    save.workers[0].assignment = 'fishing'
-    save.workers[1].assignment = 'fishing'
-    save.workers[2].assignment = 'fishing'
+    save.workers[0].assignment = 'hunting'
+    save.workers[1].assignment = 'hunting'
+    save.workers[2].assignment = 'hunting'
     clampStationAssignments(save)
-    expect(save.workers.map((w) => w.assignment)).toEqual(['fishing', 'fishing', null])
+    expect(save.workers.map((w) => w.assignment)).toEqual(['hunting', 'hunting', null])
   })
 })
 

@@ -7,10 +7,9 @@ export type StationId =
   | 'cooking'
   | 'herbalism'
   | 'alchemy'
-  | 'fishing'
 
-/** 旧站。仍可能出现在旧档，不当七站之一。 */
-export type DeprecatedStationId = 'woodcutting'
+/** 旧站。仍可能出现在旧档，不当现玩法站。 */
+export type DeprecatedStationId = 'woodcutting' | 'fishing'
 
 /** 锻造别称，只作文案 / 旧档映射，不是 id。 */
 export type StationAlias = 'smithing'
@@ -109,8 +108,14 @@ export type ActionResult = { ok: true; message?: string } | { ok: false; reason:
 export type EffectSource = 'tool' | 'food'
 export type EffectId = string
 
-/** 工具类型。按表匹配工坊：镐/锤/猎具/锅/镰/瓶架/竿。 */
-export type ToolTypeId = 'pick' | 'hammer' | 'spear' | 'pot' | 'sickle' | 'rack' | 'rod'
+/** 工具类型。按表匹配工坊：镐/锤/猎具/锅/镰/瓶架。 */
+export type ToolTypeId = 'pick' | 'hammer' | 'spear' | 'pot' | 'sickle' | 'rack'
+
+/** 工人页药剂技能槽数。只装 / 卸 / 展示，本轮不自动喝。 */
+export const POTION_SLOT_COUNT = 4
+
+export type PotionSlotId = ItemId | null
+export type PotionSlots = [PotionSlotId, PotionSlotId, PotionSlotId, PotionSlotId]
 
 /** 锻造产出队列：进物资的同时记下 matchStationId，装备时默认按此匹配。 */
 export type ForgedTool = {
@@ -319,14 +324,6 @@ export type StationFatigueCombo = {
   fog: number
 }
 
-export type FisheryTier = 'beginner' | 'mid' | 'high'
-export type FishingCatchOutcome = 'empty' | 'fish' | 'junk'
-export type FishingCatch = {
-  outcome: FishingCatchOutcome
-  /** 有货时不超过当前渔场品阶 */
-  catchTier?: FisheryTier
-}
-
 export type SoftFailRoll = {
   chance: number
   outcome: 'ok' | 'softFail'
@@ -417,6 +414,11 @@ export type Save = {
    * 旧档只有 `unlockedTechIds` 时，对得上的 id 记 1 级。
    */
   techLevels: Partial<Record<TechId, number>>
+  /**
+   * 工人页药剂技能槽。只记物品 id，不扣库存、不自动喝。
+   * 旧档缺字段 hydrate 为 `[null, null, null, null]`。
+   */
+  potionSlots: PotionSlots
 }
 
 export type EncounterQuality = 'gray' | 'green' | 'blue' | 'purple' | 'orange'

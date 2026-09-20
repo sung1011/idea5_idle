@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_WORKSHOP_TAB,
   LEGACY_WORKSHOP_LINE_KEY,
+  WORKSHOP_RAIL_ROW_COUNT,
   WORKSHOP_TAB_IDS,
   WORKSHOP_TAB_KEY,
   isWorkshopTabId,
@@ -36,7 +37,7 @@ function memory(): Storage {
 }
 
 describe('workshopTabs', () => {
-  it('lists seven station tabs with fishing last', () => {
+  it('lists six station tabs without fishing', () => {
     expect(WORKSHOP_TAB_IDS).toEqual([
       'mining',
       'forging',
@@ -44,7 +45,6 @@ describe('workshopTabs', () => {
       'cooking',
       'herbalism',
       'alchemy',
-      'fishing',
     ])
     expect(WORKSHOP_TAB_IDS.map(workshopTabLabel)).toEqual([
       '采矿',
@@ -53,19 +53,21 @@ describe('workshopTabs', () => {
       '烹饪',
       '采药',
       '炼金',
-      '钓鱼',
     ])
+    expect(WORKSHOP_RAIL_ROW_COUNT).toBe(7)
   })
 
   it('resolves unknown and legacy line ids', () => {
     expect(isWorkshopTabId('mining')).toBe(true)
     expect(isWorkshopTabId('woodcutting')).toBe(false)
+    expect(isWorkshopTabId('fishing')).toBe(false)
     expect(isWorkshopTabId('smelt')).toBe(false)
     expect(workshopTabOf('nope')).toBe(DEFAULT_WORKSHOP_TAB)
     expect(workshopTabOf('smelt')).toBe('mining')
     expect(workshopTabOf('hunt')).toBe('hunting')
     expect(workshopTabOf('brew')).toBe('herbalism')
-    expect(workshopTabOf('fish')).toBe('fishing')
+    expect(workshopTabOf('fish')).toBe('hunting')
+    expect(workshopTabOf('fishing')).toBe('hunting')
     expect(workshopTabOf('alchemy')).toBe('alchemy')
   })
 

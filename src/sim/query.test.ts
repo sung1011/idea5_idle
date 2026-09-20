@@ -37,7 +37,6 @@ describe('station stock rows', () => {
     save.bank.blood = 0
     expect(stationStockRows(save, 'alchemy').costs).toEqual([])
     expect(stationStockRows(save, 'mining').costs).toEqual([])
-    expect(stationStockRows(save, 'fishing').costs).toEqual([])
     expect(stationStockRows(save, 'hunting').costs).toEqual([])
     expect(stationStockRows(save, 'herbalism').costs).toEqual([])
   })

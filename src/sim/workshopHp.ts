@@ -16,7 +16,6 @@ export const FATIGUE_STATION_MUL: Readonly<Record<StationId, number>> = {
   cooking: 0.4,
   herbalism: 0.4,
   alchemy: 0.4,
-  fishing: 0.4,
 }
 /** 6h 等价产出（裸效率单人周期次数）用此时长。 */
 export const FATIGUE_SIX_HOUR_S = 6 * 3600
@@ -107,7 +106,6 @@ export function stationFatigueComboMul(save: Save, stationId: StationId, kind: F
     return same * stew
   }
   if (stationId === 'mining') return 1 + 0.02 * Math.min(combo.streak, 28)
-  if (stationId === 'fishing') return 1 + 0.03 * Math.min(Math.max(0, combo.streak - 1), 15)
   if (stationId === 'forging') {
     if (kind === 'success') return 1.2 + combo.frustration * 0.12
     return 1
@@ -137,14 +135,6 @@ function noteCombo(save: Save, stationId: StationId, kind: FatigueKind): void {
     if (kind !== 'success') return
     const node = station.miningNode
     combo.streak = node ? Math.max(0, node.nodeHpMax - node.nodeHp) : combo.streak + 1
-    return
-  }
-  if (stationId === 'fishing') {
-    if (kind === 'emptyRod') {
-      combo.streak = 0
-      return
-    }
-    if (kind === 'success') combo.streak += 1
     return
   }
   if (stationId === 'forging') {

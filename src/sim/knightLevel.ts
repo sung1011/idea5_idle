@@ -6,7 +6,7 @@ export const KNIGHT_LEVEL_TECH_POINTS = 1
 
 /**
  * 骑士等级 = 各可玩工坊 `stationLevel` 之和的换算结果，初始显示 1 级。
- * 七站开局都是 Lv1，裸求和=7，因此不用裸加：
+ * 六站开局都是 Lv1，裸求和=6，因此不用裸加：
  *   knightLevel = 1 + sum(stationLevel - 1)
  * 等价于 `sum(level) - (站数 - 1)`。
  */

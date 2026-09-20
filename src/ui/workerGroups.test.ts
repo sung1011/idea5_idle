@@ -131,7 +131,7 @@ describe('station crew dots and assign choices', () => {
     expect(stationAssignCaption(save, 'hunting')).toBe(`狩猎 · 2/${STATION_WORKER_CAP}`)
   })
 
-  it('lists seven workshop tabs plus rest; full stations cannot take another worker', () => {
+  it('lists workshop tabs plus rest; full stations cannot take another worker', () => {
     const save = createSave()
     const rest = spawnWorkerWith(save, 1, 'laborer')
     const a = spawnWorkerWith(save, 2, 'miner')
@@ -148,7 +148,7 @@ describe('station crew dots and assign choices', () => {
 
     const choices = workerAssignChoices(save, extra)
     expect(choices.map((c) => c.stationId)).toEqual([...WORKSHOP_TAB_IDS, null])
-    expect(choices).toHaveLength(8)
+    expect(choices).toHaveLength(7)
     const mining = choices.find((c) => c.stationId === 'mining')
     const restChoice = choices.find((c) => c.stationId === null)
     expect(mining?.disabled).toBe(true)
@@ -169,23 +169,23 @@ describe('station crew dots and assign choices', () => {
     const idle = spawnWorkerWith(save, 1, 'laborer')
     const mate = spawnWorkerWith(save, 1, 'artisan')
     const other = spawnWorkerWith(save, 3, 'miner')
-    assignWorker(save, mate.id, 'fishing')
+    assignWorker(save, mate.id, 'hunting')
     assignWorker(save, other.id, 'mining')
 
     const idleChoices = workerAssignChoices(save, idle)
-    expect(idleChoices.find((c) => c.stationId === 'fishing')?.canFuse).toBe(true)
+    expect(idleChoices.find((c) => c.stationId === 'hunting')?.canFuse).toBe(true)
     expect(idleChoices.find((c) => c.stationId === 'mining')?.canFuse).toBe(false)
     expect(idleChoices.find((c) => c.stationId === null)?.canFuse).toBe(false)
 
-    assignWorker(save, idle.id, 'fishing')
+    assignWorker(save, idle.id, 'hunting')
     const together = workerAssignChoices(save, idle)
-    expect(together.find((c) => c.stationId === 'fishing')?.canFuse).toBe(true)
+    expect(together.find((c) => c.stationId === 'hunting')?.canFuse).toBe(true)
     expect(together.find((c) => c.stationId === 'mining')?.canFuse).toBe(false)
   })
 })
 
 describe('workshop station boards', () => {
-  it('lists seven stations with two padded slots and unassigned rest list', () => {
+  it('lists playable stations with two padded slots and unassigned rest list', () => {
     const save = createSave()
     const rest = spawnWorkerWith(save, 1, 'laborer')
     const miner = spawnWorkerWith(save, 2, 'miner')
@@ -195,17 +195,17 @@ describe('workshop station boards', () => {
 
     const boards = workshopStationBoards(save)
     expect(boards.map((board) => board.stationId)).toEqual([...WORKSHOP_TAB_IDS])
-    expect(boards).toHaveLength(7)
+    expect(boards).toHaveLength(6)
     const mining = boards.find((board) => board.stationId === 'mining')
     const cooking = boards.find((board) => board.stationId === 'cooking')
-    const fishing = boards.find((board) => board.stationId === 'fishing')
+    const hunting = boards.find((board) => board.stationId === 'hunting')
     expect(mining?.label).toBe('采矿')
     expect(mining?.filled).toBe(1)
     expect(mining?.cap).toBe(STATION_WORKER_CAP)
     expect(mining?.slots).toEqual([miner, null])
     expect(cooking?.slots).toEqual([cook, null])
-    expect(fishing?.slots).toEqual([null, null])
-    expect(rosterSlotCounts(save)).toEqual({ stations: 7, filled: 2, cap: 14 })
+    expect(hunting?.slots).toEqual([null, null])
+    expect(rosterSlotCounts(save)).toEqual({ stations: 6, filled: 2, cap: 12 })
     expect(unassignedWorkers(save).map((worker) => worker.id)).toEqual([rest.id])
   })
 

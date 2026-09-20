@@ -26,7 +26,7 @@ function roster(n: number): Save {
   return save
 }
 
-function unlockTo(save: Save, stationId: 'mining' | 'forging' | 'fishing' | 'hunting', level: number) {
+function unlockTo(save: Save, stationId: 'mining' | 'forging' | 'hunting', level: number) {
   const station = save.stations[stationId]
   while (station.stationLevel < level) {
     grantStationXp(save, stationId, xpToNextLevel(station.stationLevel))
@@ -46,7 +46,6 @@ describe('station XP curve', () => {
     expect(xpToReachLevel(5)).toBe(133)
     expect(STATION_DEF.mining.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
     expect(STATION_DEF.forging.categories.map((c) => c.xpPerCycle)).toEqual([1])
-    expect(STATION_DEF.fishing.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
     expect(STATION_DEF.cooking.categories.map((c) => c.xpPerCycle)).toEqual([1, 1, 2])
     expect(STATION_DEF.hunting.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
     expect(STATION_DEF.herbalism.categories[0].xpPerCycle).toBe(1)
@@ -155,16 +154,10 @@ describe('categoryPickOptions', () => {
     expect(categoryPickOptions(save, 'cooking').every((c) => c.unlocked)).toBe(true)
   })
 
-  it('lists fishing grounds and hunting prey like mining categories', () => {
+  it('lists hunting prey like mining categories', () => {
     const save = createSave()
-    expect(categoryPickOptions(save, 'fishing').map((c) => c.label)).toEqual(['初级渔场', '中级渔场'])
     expect(categoryPickOptions(save, 'hunting').map((c) => c.label)).toEqual(['野猪', '狼'])
-    unlockTo(save, 'fishing', 5)
     unlockTo(save, 'hunting', 5)
-    expect(categoryPickOptions(save, 'fishing').filter((c) => c.unlocked).map((c) => c.id)).toEqual([
-      'copper',
-      'iron',
-    ])
     expect(categoryPickOptions(save, 'hunting').filter((c) => c.unlocked).map((c) => c.id)).toEqual([
       'copper',
       'iron',

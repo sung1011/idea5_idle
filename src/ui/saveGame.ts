@@ -14,6 +14,7 @@ import {
   sanitizeAllStationTools,
 } from '../sim/tools'
 import { hydrateGuideQuestFields } from '../sim/guideQuest'
+import { hydratePotionSlots } from '../sim/potionSlots'
 import { hydrateTechFields } from '../sim/tech'
 import { WORKER_QUALITY_REV } from '../sim/tables'
 import type { Save } from '../sim/types'
@@ -78,6 +79,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
         : 0,
     rngState: normalizeRngState((parsed as { rngState?: unknown }).rngState),
     forgedTools: hydrateForgedTools((parsed as { forgedTools?: unknown }).forgedTools),
+    potionSlots: hydratePotionSlots((parsed as { potionSlots?: unknown }).potionSlots),
   }
   migrateWorkerToolsToStations(merged, parsed.workers)
   returnLegacyStationToolSlots(merged, parsed.stations)

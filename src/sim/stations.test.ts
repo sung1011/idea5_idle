@@ -90,6 +90,7 @@ describe('hunting / herbalism / alchemy', () => {
     assignWorker(save, save.workers[0].id, 'hunting')
     const next = ticks(save, 24)
     expect(bankQty(next, 'meat')).toBe(1)
+    expect(bankQty(next, 'fish')).toBe(1)
     expect(next.stations.hunting.completed).toBe(1)
   })
 
@@ -114,29 +115,18 @@ describe('hunting / herbalism / alchemy', () => {
   })
 })
 
-describe('fishing → bank', () => {
-  it('one fisher deposits fish after one cycle', () => {
-    setRollOverride(() => 0.5)
-    const save = roster(1)
-    assignWorker(save, save.workers[0].id, 'fishing')
-    const next = ticks(save, 28)
-    expect(bankQty(next, 'fish')).toBe(1)
-    expect(next.stations.fishing.completed).toBe(1)
-    expect(next.stations.fishing.progress).toBeCloseTo(0)
+describe('fishing hidden', () => {
+  it('is not a playable or ticking station', () => {
+    expect((STATION_DEF as Record<string, unknown>).fishing).toBeUndefined()
+    expect(STATION_IDS.includes('fishing' as never)).toBe(false)
+    expect(PLAYABLE_STATION_IDS.includes('fishing' as never)).toBe(false)
   })
 
-  it('two fishers without conflict tech produce like one fisher', () => {
-    setRollOverride(() => 0.5)
-    const one = roster(1)
-    assignWorker(one, one.workers[0].id, 'fishing')
-    const two = roster(2)
-    for (const w of two.workers) assignWorker(two, w.id, 'fishing')
-
-    const a = ticks(one, 28)
-    const b = ticks(two, 28)
-    expect(bankQty(a, 'fish')).toBe(1)
-    expect(bankQty(b, 'fish')).toBe(1)
-    expect(b.stations.fishing.completed).toBe(1)
+  it('rejects assigning to the deprecated station', () => {
+    const save = roster(1)
+    const result = assignWorker(save, save.workers[0].id, 'fishing' as never)
+    expect(result.ok).toBe(false)
+    expect(save.workers[0].assignment).toBeNull()
   })
 })
 

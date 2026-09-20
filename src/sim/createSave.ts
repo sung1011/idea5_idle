@@ -2,6 +2,7 @@ import { generateEncounterBoard } from './encounters'
 import { encounterSlotCount } from './tech'
 import { computeKnightLevel } from './knightLevel'
 import { hydrateStations } from './stationProgress'
+import { blankPotionSlots } from './potionSlots'
 import { START_DIAMONDS, START_GOLD, START_TECH_POINTS, WORKER_QUALITY_REV } from './tables'
 import type { Save } from './types'
 
@@ -39,11 +40,12 @@ export function createSave(): Save {
     rngState: 1,
     forgedTools: [],
     workerQualityRev: WORKER_QUALITY_REV,
-    /** 新档：骑士 1 级，灵感 START_TECH_POINTS。七站开局都是 Lv1，公式见 computeKnightLevel。 */
+    /** 新档：骑士 1 级，灵感 START_TECH_POINTS。六站开局都是 Lv1，公式见 computeKnightLevel。 */
     knightLevel: 1,
     techPoints: START_TECH_POINTS,
     unlockedTechIds: [],
     techLevels: {},
+    potionSlots: blankPotionSlots(),
   }
   save.knightLevel = computeKnightLevel(save)
   save.encounters = generateEncounterBoard(0, encounterSlotCount(save), {

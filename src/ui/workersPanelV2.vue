@@ -6,7 +6,9 @@ import { foodBuffRemainS, isFoodBuffActive } from '../sim/food'
 import { isWorkerInCombat, workerLiveStats } from '../sim/combat'
 import { workerXpProgress } from '../sim/workerLevel'
 import CombatAttrRow from './combatAttrRow.vue'
-import { CLASS_LABEL, FOOD_HEAL_RATIO, FOOD_ITEM_IDS, ITEM_DEF, isFoodItemId, type FoodItemId } from '../sim/tables'
+import { availablePotionInstallIds } from '../sim/potionSlots'
+import { CLASS_LABEL, FOOD_HEAL_RATIO, FOOD_ITEM_IDS, ITEM_DEF, isFoodItemId, isPotionItemId, type FoodItemId } from '../sim/tables'
+import type { ItemId } from '../sim/types'
 import { isGuideQuestFlash } from '../sim/guideQuest'
 import { recruitCost } from '../sim/tech'
 import type { ClassId, StationId, Worker } from '../sim/types'
@@ -55,6 +57,8 @@ const pickId = ref<string | null>(null)
 const boards = computed(() => workshopStationBoards(game.save))
 const fightingRoster = computed(() => mainlineCombatWorkers(game.save))
 const resting = computed(() => restingWorkers(game.save))
+const potionSlots = computed(() => game.save.potionSlots)
+const potionPick = computed(() => availablePotionInstallIds(game.save))
 const selected = computed(() => {
   const id = selectedId.value
   if (!id) return null
@@ -183,6 +187,22 @@ function onFuseChoice(stationId: StationId | null) {
 function onEmptySlot(stationId: StationId) {
   if (drag.value?.active) return
   game.assignIdle(stationId)
+}
+
+function potionSlotLabel(itemId: ItemId | null) {
+  if (!itemId || !isPotionItemId(itemId)) return '空'
+  return `${ITEM_DEF[itemId].label} ×${bankQty(game.save, itemId)}`
+}
+
+function onPotionSlot(index: number) {
+  const filled = potionSlots.value[index]
+  if (filled) {
+    game.clearPotionSlot(index)
+    return
+  }
+  const next = potionPick.value[0]
+  if (!next) return
+  game.installPotionSlot(index, next)
 }
 
 function openSheetThenPick(w: Worker) {
@@ -353,6 +373,26 @@ onUnmounted(unbindDrag)
               </button>
             </div>
           </article>
+          <div class="potion-row" aria-label="药剂技能槽">
+            <button
+              v-for="(itemId, i) in potionSlots"
+              :key="`potion-${i}`"
+              type="button"
+              class="potion-slot"
+              :class="{ empty: !itemId }"
+              :aria-label="itemId ? `卸下 ${potionSlotLabel(itemId)}` : `装入药剂槽 ${i + 1}`"
+              @click="onPotionSlot(i)"
+            >
+              <template v-if="itemId">
+                <UiIcon name="alchemy" />
+                <span class="potion-lab">{{ potionSlotLabel(itemId) }}</span>
+              </template>
+              <template v-else>
+                <span class="empty-mark" aria-hidden="true">＋</span>
+                <span class="empty-lab">药剂</span>
+              </template>
+            </button>
+          </div>
         </div>
       </section>
       <div class="col side">
@@ -638,8 +678,8 @@ onUnmounted(unbindDrag)
 }
 
 .station-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: repeat(var(--workshop-rail-row-count), minmax(var(--workshop-rail-row-min), 1fr));
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
@@ -654,7 +694,6 @@ onUnmounted(unbindDrag)
 .station {
   display: flex;
   align-items: stretch;
-  flex: 1 1 0;
   min-height: var(--workshop-rail-row-min);
   min-width: 0;
   border: 2px solid var(--gold);
@@ -687,6 +726,50 @@ onUnmounted(unbindDrag)
   line-height: 1.1;
   letter-spacing: 0.04em;
   writing-mode: vertical-rl;
+}
+
+.potion-row {
+  display: flex;
+  align-items: stretch;
+  min-height: var(--workshop-rail-row-min);
+  min-width: 0;
+  gap: 4px;
+}
+
+.potion-slot {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 2px;
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  background: linear-gradient(145deg, #fff9de, #f3ddaa);
+  box-shadow: 0 2px 0 var(--gold-deep);
+}
+
+.potion-slot.empty {
+  border-style: dashed;
+  background: rgba(255, 241, 190, 0.35);
+  color: #a77840;
+  box-shadow: none;
+}
+
+.potion-slot :deep(.ui-ico) {
+  width: 14px;
+  height: 14px;
+  color: #6a3218;
+}
+
+.potion-lab {
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
 }
 
 .slots {

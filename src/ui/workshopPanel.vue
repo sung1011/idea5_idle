@@ -114,8 +114,8 @@ function selectTab(id: StationId) {
 }
 
 .rail {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: repeat(var(--workshop-rail-row-count), minmax(var(--workshop-rail-row-min), 1fr));
   flex: 0 0 56px;
   width: 56px;
   gap: var(--workshop-rail-row-gap);
@@ -130,9 +130,9 @@ function selectTab(id: StationId) {
   align-items: center;
   justify-content: center;
   gap: 1px;
-  flex: 1 1 0;
   width: 100%;
   min-height: var(--workshop-rail-row-min);
+  min-width: 0;
   padding: 2px 2px 3px;
   font-family: var(--font-display);
   font-size: 11px;

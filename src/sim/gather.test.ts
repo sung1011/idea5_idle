@@ -3,12 +3,11 @@ import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
 import {
-  allowedFishingDrops,
   expectedGatherItemsPerSecond,
   isGatherFrozen,
-  resolveFishingCatch,
   resolveHazard,
   resolveHerbalismDrop,
+  resolveHuntingSideDrop,
 } from './gather'
 import { recruitWorker } from './recruit'
 import { setRollOverride } from './rng'
@@ -24,7 +23,7 @@ function roster(n: number): Save {
   return save
 }
 
-function unlockTo(save: Save, stationId: 'mining' | 'fishing' | 'hunting', level: number) {
+function unlockTo(save: Save, stationId: 'mining' | 'hunting', level: number) {
   const station = save.stations[stationId]
   while (station.stationLevel < level) {
     grantStationXp(save, stationId, xpToNextLevel(station.stationLevel))
@@ -35,37 +34,14 @@ afterEach(() => {
   setRollOverride(null)
 })
 
-describe('fishing drop table', () => {
-  it('can roll empty, fish or junk and beginner never exceeds beginner', () => {
-    expect(resolveFishingCatch('beginner', 0).outcome).toBe('empty')
-    expect(resolveFishingCatch('beginner', 0.5)).toEqual({ outcome: 'fish', catchTier: 'beginner' })
-    expect(resolveFishingCatch('beginner', 0.95)).toEqual({ outcome: 'junk', catchTier: 'beginner' })
-    expect(allowedFishingDrops('beginner').every((row) => !row.catchTier || row.catchTier === 'beginner')).toBe(
-      true,
+describe('hunting side drop', () => {
+  it('keeps junk as a low-weight extra and otherwise drops nothing', () => {
+    expect(resolveHuntingSideDrop(0)).toBe('junk')
+    expect(resolveHuntingSideDrop(0.5)).toBeNull()
+    expect(resolveHuntingSideDrop(0.9)).toBeNull()
+    expect(expectedGatherItemsPerSecond('hunting', 'copper')).toBeGreaterThan(
+      expectedGatherItemsPerSecond('mining', 'copper'),
     )
-    for (let i = 0; i < 20; i++) {
-      const caught = resolveFishingCatch('beginner', i / 20)
-      if (caught.catchTier) expect(caught.catchTier).toBe('beginner')
-    }
-  })
-
-  it('mid/high may roll lower tiers but never above the fishery wall', () => {
-    const mid = resolveFishingCatch('mid', 0.9)
-    if (mid.catchTier) expect(['beginner', 'mid']).toContain(mid.catchTier)
-    const highFish = resolveFishingCatch('high', 0.88)
-    expect(highFish.outcome).toBe('fish')
-    expect(highFish.catchTier).toBe('high')
-    expect(allowedFishingDrops('mid').every((row) => !row.catchTier || row.catchTier !== 'high')).toBe(true)
-  })
-
-  it('expected catch is slower than mining, herbalism and hunting', () => {
-    const fishing = expectedGatherItemsPerSecond('fishing', 'copper')
-    const fishingHigh = expectedGatherItemsPerSecond('fishing', 'mithril')
-    expect(fishing).toBeLessThan(expectedGatherItemsPerSecond('mining', 'copper'))
-    expect(fishing).toBeLessThan(expectedGatherItemsPerSecond('herbalism', 'default'))
-    expect(fishing).toBeLessThan(expectedGatherItemsPerSecond('hunting', 'copper'))
-    expect(fishingHigh).toBeLessThan(expectedGatherItemsPerSecond('hunting', 'copper'))
-    expect(fishingHigh).toBeLessThan(expectedGatherItemsPerSecond('herbalism', 'default'))
   })
 })
 
@@ -121,38 +97,17 @@ describe('mining node recover', () => {
   })
 })
 
-describe('fishing settlement', () => {
-  it('empty rod still finishes the cycle and grants XP', () => {
-    setRollOverride(() => 0)
-    const save = roster(1)
-    assignWorker(save, save.workers[0].id, 'fishing')
-    const next = ticks(save, 28)
-    expect(bankQty(next, 'fish')).toBe(0)
-    expect(bankQty(next, 'junk')).toBe(0)
-    expect(next.stations.fishing.completed).toBe(1)
-    expect(next.stations.fishing.stationXp).toBe(1)
-    expect(next.stations.fishing.gatherNotice).toBe('空杆')
-  })
-
-  it('beginner fishery never deposits a higher-tier exclusive catch', () => {
-    const save = roster(1)
-    assignWorker(save, save.workers[0].id, 'fishing')
+describe('hunting fish goods', () => {
+  it('safe capture now also deposits former fishing goods', () => {
     setRollOverride(() => 0.5)
-    const next = ticks(save, 28 * 8)
-    expect(next.stations.fishing.selectedCategory).toBe('copper')
-    expect(bankQty(next, 'fish')).toBeGreaterThan(0)
-    expect(next.stations.fishing.gatherNotice).not.toContain('高级')
-  })
-
-  it('can switch to a mid fishery after unlock', () => {
-    setRollOverride(() => 0.88)
     const save = roster(1)
-    unlockTo(save, 'fishing', 5)
-    expect(selectStationCategory(save, 'fishing', 'iron').ok).toBe(true)
-    assignWorker(save, save.workers[0].id, 'fishing')
-    const next = ticks(save, 32)
-    expect(next.stations.fishing.completed).toBe(1)
-    expect(bankQty(next, 'fish') + bankQty(next, 'junk')).toBe(1)
+    assignWorker(save, save.workers[0].id, 'hunting')
+    const next = ticks(save, 24)
+    expect(bankQty(next, 'meat')).toBe(1)
+    expect(bankQty(next, 'fish')).toBe(1)
+    expect(bankQty(next, 'junk')).toBe(0)
+    expect(next.stations.hunting.completed).toBe(1)
+    expect(next.stations.hunting.gatherNotice).toContain('安全捕获')
   })
 })
 
@@ -179,6 +134,7 @@ describe('hunting settlement', () => {
     assignWorker(save, save.workers[0].id, 'hunting')
     const next = ticks(save, 24)
     expect(bankQty(next, 'meat')).toBe(1)
+    expect(bankQty(next, 'fish')).toBe(1)
     expect(bankQty(next, 'blood')).toBe(1)
     expect(bankQty(next, 'eye')).toBe(1)
     expect(next.stations.hunting.gatherNotice).toContain('安全捕获')
@@ -192,6 +148,7 @@ describe('hunting settlement', () => {
     assignWorker(save, save.workers[0].id, 'hunting')
     const next = ticks(save, 24)
     expect(bankQty(next, 'meat')).toBe(0)
+    expect(bankQty(next, 'fish')).toBe(0)
     expect(bankQty(next, 'meal')).toBe(0)
     expect(next.stations.hunting.completed).toBe(1)
     expect(next.stations.hunting.stationXp).toBe(1)
@@ -207,5 +164,6 @@ describe('hunting settlement', () => {
     const resumed = ticks(paused, HUNTING_HAZARD_PAUSE_S + 24)
     expect(isGatherFrozen(resumed, 'hunting')).toBe(false)
     expect(bankQty(resumed, 'meat')).toBe(1)
+    expect(bankQty(resumed, 'fish')).toBe(1)
   })
 })

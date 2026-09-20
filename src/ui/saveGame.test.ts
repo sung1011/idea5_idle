@@ -66,12 +66,13 @@ describe('save migration', () => {
     expect(loaded?.bank.ore).toBe(333)
   })
 
-  it('fills missing worker slots and rests woodcutters', () => {
+  it('fills missing worker slots and rests woodcutters / fishers', () => {
     const raw = {
       ...createSave(),
       workers: [
         { id: 'w-1', name: '旧木', assignment: 'woodcutting' },
         { id: 'w-2', assignment: 'smithing', toolId: 'tool', foodItemId: 'meal', foodCount: 2, prodBuff: { effectId: 'prodSpeed', mul: 1.2, durationS: 60 } },
+        { id: 'w-3', assignment: 'fishing' },
       ],
       stations: {
         mining: { progress: 0.2, stallReason: null, completed: 1, resonanceStreak: 0 },
@@ -79,7 +80,8 @@ describe('save migration', () => {
       },
     }
     const save = hydrateLoadedSave(raw)
-    expect(save?.workers).toHaveLength(2)
+    expect(save?.workers).toHaveLength(3)
+    expect(save?.workers[2].assignment).toBeNull()
     expect(save?.workers[0].assignment).toBeNull()
     expect(save?.workers[0].foodSlot).toBeNull()
     expect(save?.workers[0].qualityTier).toBe(1)
@@ -95,12 +97,13 @@ describe('save migration', () => {
     expect(save?.stations.herbalism).toBeTruthy()
     expect(save?.stations.alchemy).toBeTruthy()
     expect((save?.stations as { woodcutting?: unknown } | undefined)?.woodcutting).toBeUndefined()
+    expect((save?.stations as { fishing?: unknown } | undefined)?.fishing).toBeUndefined()
     expect(save?.stations.mining.miningNode?.nodeHp).toBe(20)
     expect(save?.rngState).toBe(raw.rngState)
     expect(save?.forgedTools).toEqual([{ itemId: 'tool', matchStationId: 'mining' }])
     expect(save?.stations.forging.selectedToolType).toBe('pick')
-    expect(save?.stations.fishing.selectedCategory).toBe('copper')
     expect(save?.stations.hunting.selectedCategory).toBe('copper')
+    expect(save?.potionSlots).toEqual([null, null, null, null])
     expect(save?.workerQualityRev).toBe(2)
     expect(save?.knightLevel).toBe(1)
     expect(save?.techPoints).toBe(START_TECH_POINTS)
@@ -280,6 +283,16 @@ describe('save migration', () => {
     })
     expect(oldOnePoint?.techPoints).toBe(1)
     expect(oldOnePoint?.techPoints).not.toBe(START_TECH_POINTS)
+  })
+
+  it('keeps installed potion slots through persist / load', () => {
+    const store = memory()
+    const save = createSave()
+    save.bank.potion = 2
+    save.potionSlots = ['potion', null, null, null]
+    persistSave(save, store)
+    const loaded = loadSave(store)
+    expect(loaded?.potionSlots).toEqual(['potion', null, null, null])
   })
 
   it('keeps guide quest fields through persist / load', () => {

@@ -172,7 +172,7 @@ export function canAssignWorkerTo(save: Save, worker: Worker, stationId: Station
   return assignedWorkers(save, stationId).length < STATION_WORKER_CAP
 }
 
-/** 七站按工坊竖签序，末项休息。 */
+/** 现玩法站按工坊竖签序，末项休息。 */
 export function workerAssignChoices(save: Save, worker: Worker): WorkerAssignChoice[] {
   const ids: Array<StationId | null> = [...WORKSHOP_TAB_IDS, null]
   return ids.map((stationId) => ({
@@ -193,7 +193,7 @@ export type WorkshopStationBoard = {
   slots: Array<Worker | null>
 }
 
-/** 七站按工坊竖签序，每站固定 2 槽，空位 null 占位。 */
+/** 现玩法站按工坊竖签序，每站固定 2 槽，空位 null 占位。 */
 export function workshopStationBoards(save: Save): WorkshopStationBoard[] {
   return WORKSHOP_TAB_IDS.map((stationId) => {
     const crew = assignedWorkers(save, stationId)

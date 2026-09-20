@@ -63,11 +63,11 @@ describe('appNav', () => {
   it('opens a station on the workshop dock', () => {
     const store = memory()
     selectAppTab('workers', store)
-    expect(openWorkshopStation('fishing', store)).toBe('fishing')
+    expect(openWorkshopStation('hunting', store)).toBe('hunting')
     expect(appTab.value).toBe('workshop')
-    expect(workshopTab.value).toBe('fishing')
+    expect(workshopTab.value).toBe('hunting')
     expect(store.getItem(APP_TAB_KEY)).toBe('workshop')
-    expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('fishing')
+    expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('hunting')
   })
 
   it('opens a producible item on the workshop dock and its producer station', () => {

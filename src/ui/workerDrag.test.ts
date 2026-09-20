@@ -145,9 +145,9 @@ describe('worker drag assign', () => {
     const idle = spawnWorkerWith(save, 1, 'laborer')
     expect(canDragWorker(save, idle.id)).toBe(true)
     expect(dropTargetFromDataset({ drop: 'rest' })).toEqual({ kind: 'rest' })
-    expect(dropTargetFromDataset({ drop: 'slot', station: 'fishing', slot: '1' })).toEqual({
+    expect(dropTargetFromDataset({ drop: 'slot', station: 'hunting', slot: '1' })).toEqual({
       kind: 'slot',
-      stationId: 'fishing',
+      stationId: 'hunting',
       slotIndex: 1,
     })
     expect(dropTargetFromDataset({ drop: 'slot', station: 'nope', slot: '0' })).toBeNull()

@@ -7,12 +7,12 @@ export const STATION_ICON_IDS = [
   'cooking',
   'herbalism',
   'alchemy',
-  'fishing',
 ] as const
 
 export type DockIconId = (typeof DOCK_ICON_IDS)[number]
 export type StationIconId = (typeof STATION_ICON_IDS)[number]
-export type UiIconId = DockIconId | StationIconId
+export type ExtraIconId = 'fishing'
+export type UiIconId = DockIconId | StationIconId | ExtraIconId
 
 export const UI_ICON_PATHS: Record<UiIconId, readonly string[]> = {
   workshop: ['M1.7 7.7 8 2.15 14.3 7.7V13.85H9.35V9.55H6.65V13.85H1.7Z'],

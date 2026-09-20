@@ -253,6 +253,7 @@ export function hydrateForgedTools(raw: unknown): ForgedTool[] {
 
 function toolTypeByStationFallback(id: unknown): StationId | null {
   if (typeof id !== 'string') return null
+  if (id === 'fishing') return 'hunting'
   if (Object.prototype.hasOwnProperty.call(STATION_DEF, id)) return id as StationId
   if (isToolTypeId(id)) return TOOL_TYPE_DEF[id].matchStationId
   return null

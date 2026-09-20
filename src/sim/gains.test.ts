@@ -70,9 +70,9 @@ describe('formatCycleTip', () => {
     ).toEqual({ text: '获得 铜矿 ×1', kind: 'ok' })
   })
 
-  it('uses empty-rod / soft-fail notice when there is no output', () => {
-    expect(formatCycleTip({ stationId: 'fishing', lots: [], notice: '空杆' })).toEqual({
-      text: '空杆',
+  it('uses hazard / soft-fail notice when there is no output', () => {
+    expect(formatCycleTip({ stationId: 'hunting', lots: [], notice: '遇险，短暂停手' })).toEqual({
+      text: '遇险，短暂停手',
       kind: 'err',
     })
     expect(formatCycleTip({ stationId: 'forging', lots: [], notice: '软失败，矿石损耗' })).toEqual({
@@ -96,24 +96,16 @@ describe('completeCycle gain tips', () => {
     expect(tips).toEqual(['获得 铜矿 ×1'])
   })
 
-  it('merges hunting multi-drops and tips hazard / empty rod / soft fail on that station', () => {
+  it('merges hunting multi-drops and tips hazard / soft fail on that station', () => {
     setRollOverride(() => 0.9)
     const hunt = roster(1)
     unlockHuntingDeer(hunt)
     assignWorker(hunt, hunt.workers[0].id, 'hunting')
     const huntGain = collectGain(hunt, 'hunting')
     expect(huntGain.events[0]?.stationId).toBe('hunting')
-    expect(huntGain.tips).toEqual(['获得 肉 ×1、血 ×1、眼 ×1、金币 +2'])
+    expect(huntGain.tips).toEqual(['获得 肉 ×1、鱼 ×1、血 ×1、眼 ×1、金币 +2'])
 
     setRollOverride(() => 0)
-    const empty = roster(1)
-    assignWorker(empty, empty.workers[0].id, 'fishing')
-    const emptyGain = collectGain(empty, 'fishing')
-    expect(emptyGain.ok).toBe(true)
-    expect(empty.stations.fishing.gatherNotice).toBe('空杆')
-    expect(emptyGain.events).toEqual([{ stationId: 'fishing', lots: [], notice: '空杆', gold: 0 }])
-    expect(emptyGain.tips).toEqual(['空杆'])
-
     const hazard = roster(1)
     assignWorker(hazard, hazard.workers[0].id, 'hunting')
     const hazardGain = collectGain(hazard, 'hunting')
@@ -208,8 +200,8 @@ describe('completeCycle craft gold', () => {
     setRollOverride(() => 0)
     const empty = roster(1)
     const emptyGold = empty.gold
-    assignWorker(empty, empty.workers[0].id, 'fishing')
-    const emptyGain = collectGain(empty, 'fishing')
+    assignWorker(empty, empty.workers[0].id, 'hunting')
+    const emptyGain = collectGain(empty, 'hunting')
     expect(emptyGain.ok).toBe(true)
     expect(empty.gold).toBe(emptyGold)
     expect(emptyGain.events[0]?.gold).toBe(0)

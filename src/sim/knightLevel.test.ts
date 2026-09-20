@@ -9,7 +9,7 @@ import type { Save } from './types'
 describe('knight level formula', () => {
   it('starts at 1 when every playable station is Lv1', () => {
     const save = createSave()
-    expect(PLAYABLE_STATION_IDS).toHaveLength(7)
+    expect(PLAYABLE_STATION_IDS).toHaveLength(6)
     expect(PLAYABLE_STATION_IDS.every((id) => save.stations[id].stationLevel === 1)).toBe(true)
     expect(computeKnightLevel(save)).toBe(1)
     expect(save.knightLevel).toBe(1)
@@ -20,7 +20,7 @@ describe('knight level formula', () => {
     const save = createSave()
     save.stations.mining.stationLevel = 3
     save.stations.forging.stationLevel = 2
-    // 裸求和=1*5+3+2=10；换算=1+(3-1)+(2-1)=4
+    // 裸求和=1*4+3+2=9；换算=1+(3-1)+(2-1)=4
     expect(computeKnightLevel(save)).toBe(4)
   })
 
@@ -90,7 +90,7 @@ describe('hydrate knight level', () => {
     const save = createSave()
     delete (save as { knightLevel?: number }).knightLevel
     save.stations.mining.stationLevel = 5
-    save.stations.fishing.stationLevel = 2
+    save.stations.hunting.stationLevel = 2
     save.techPoints = 9
     hydrateTechFields(save as Save)
     expect(save.knightLevel).toBe(6)

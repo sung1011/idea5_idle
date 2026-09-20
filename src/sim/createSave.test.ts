@@ -20,14 +20,16 @@ describe('createSave diamonds', () => {
   })
 })
 
-describe('createSave seven stations', () => {
-  it('opens with the seven stations and empty dual slots', () => {
+describe('createSave six stations', () => {
+  it('opens with the six stations and empty dual slots', () => {
     const save = createSave()
-    expect(STATION_IDS).toEqual(['mining', 'forging', 'hunting', 'cooking', 'herbalism', 'alchemy', 'fishing'])
+    expect(STATION_IDS).toEqual(['mining', 'forging', 'hunting', 'cooking', 'herbalism', 'alchemy'])
     expect(Object.keys(save.stations)).toEqual(STATION_IDS)
     expect(PLAYABLE_STATION_IDS).toContain('hunting')
     expect(PLAYABLE_STATION_IDS).toContain('herbalism')
     expect((save.stations as Record<string, unknown>).woodcutting).toBeUndefined()
+    expect((save.stations as Record<string, unknown>).fishing).toBeUndefined()
+    expect(save.potionSlots).toEqual([null, null, null, null])
     expect(save.stations.mining.miningNode?.nodeHp).toBe(20)
     expect(save.stations.mining.miningNode?.recoverAt).toBeNull()
     expect(save.rngState).not.toBe(0)
@@ -37,7 +39,6 @@ describe('createSave seven stations', () => {
     expect(save.stations.forging.selectedForgeToolId).toBeNull()
     expect(save.stations.forging.selectedCategory).toBe('default')
     expect(save.stations.forging.unlockedCategories).toEqual(['default'])
-    expect(save.stations.fishing.selectedCategory).toBe('copper')
     expect(save.stations.hunting.selectedCategory).toBe('copper')
     expect(save.stations.cooking.selectedCategory).toBe('copper')
     expect(save.stations.cooking.unlockedCategories).toEqual(['copper', 'iron'])

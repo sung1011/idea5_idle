@@ -8,23 +8,22 @@
 
 - **本期做**：本文 + `main` / `todo`（及 README 指针）对齐。
 - **本期不做**：第 1～5 期代码；不改生产公式、不换工坊表、不改工人存档形状。
-- **定名**：七站英文 id 用下表；锻造只用 `forging`（`smithing` 是别称，不另开 id）。
+- **定名**：现玩法六站英文 id 用下表；锻造只用 `forging`（`smithing` 是别称，不另开 id）。钓鱼已废弃。
 
 ---
 
-## 1. 七工坊
+## 1. 六工坊
 
-`StationKind = 'gather' | 'craft'`。采集四站各有一条核心差异；制造三站走配方。
+`StationKind = 'gather' | 'craft'`。采集三站各有一条核心差异；制造三站走配方。
 
 | 站 | `stationId` | `kind` | 核心差异 | 产出 → 去向 |
 | --- | --- | --- | --- | --- |
 | 挖矿 | `mining` | gather | 节点生命，挖空等恢复 | 矿石 → 锻造 |
 | 锻造 | `forging` | craft | 配方 + 软失败 | 各站专属工具 → 工坊下拉（武器线搁置） |
-| 狩猎 | `hunting` | gather | 遇险检定（非战斗） | 肉 → 烹饪；血 / 牙 / 眼 → 炼金 |
+| 狩猎 | `hunting` | gather | 遇险检定（非战斗） | 肉 / 鱼 → 烹饪；血 / 牙 / 眼 → 炼金；杂物低权 |
 | 烹饪 | `cooking` | craft | 产出食物 | 食物 → 工人 `foodSlot` → 回血 |
 | 采药 | `herbalism` | gather | 无限稳采 | 草 → 炼金；香料 → 烹饪 |
 | 炼金 | `alchemy` | craft | 一次性消耗草 / 猎副产 | `potion` → 用药回血（不加工厂） |
-| 钓鱼 | `fishing` | gather | 可空杆；期望更慢；随机；渔场品阶墙 | 鱼 → 烹饪；杂物低权 |
 
 ```ts
 type StationId =
@@ -34,13 +33,12 @@ type StationId =
   | 'cooking'
   | 'herbalism'
   | 'alchemy'
-  | 'fishing'
 
-/** 旧站。仍可能出现在旧档 / 现码，不当七站之一。 */
-type DeprecatedStationId = 'woodcutting'
+/** 旧站。仍可能出现在旧档，不当现玩法站。 */
+type DeprecatedStationId = 'woodcutting' | 'fishing'
 ```
 
-UI 主列七站，工坊页左侧七站竖签（采矿 / 锻造 / 狩猎 / 烹饪 / 采药 / 炼金 / 钓鱼），切签只显示该站一张卡。`woodcutting` 废弃或藏入口，见第 7 节。
+UI 主列六站，工坊页左侧六站竖签（采矿 / 锻造 / 狩猎 / 烹饪 / 采药 / 炼金），切签只显示该站一张卡。竖签 / 工人左栏仍按 7 行均分，去掉钓鱼后不把剩余 6 站拉高。`woodcutting` / `fishing` 废弃或藏入口，见第 7 节。
 
 ---
 
@@ -77,7 +75,7 @@ type SoftFailRoll = {
 }
 ```
 
-锻造制造列表来自 `STATION_TOOL_DEF`（采矿 / 锻造 / 狩猎 / 烹饪 / 采药 / 炼金 / 钓鱼各 20 种，名称可占位）。造的解锁 `min(20, 锻造站 stationLevel)`：锻造 Lv1 可造各站工具1，Lv5 可造到工具5。目标站等级不挡造。下拉只列出已解锁 + 下一档预览置灰。占位配方：1–5 铜矿 32s / XP1 / 软失败 10%（第 1 种可用渣滓）；6–10 铁矿 36s / XP2 / 15%；11–20 秘银矿 40s / XP3 / 20%。
+锻造制造列表来自 `STATION_TOOL_DEF`（采矿 / 锻造 / 狩猎 / 烹饪 / 采药 / 炼金各 20 种，名称可占位）。钓鱼工具已撤。造的解锁 `min(20, 锻造站 stationLevel)`：锻造 Lv1 可造各站工具1，Lv5 可造到工具5。目标站等级不挡造。下拉只列出已解锁 + 下一档预览置灰。占位配方：1–5 铜矿 32s / XP1 / 软失败 10%（第 1 种可用渣滓）；6–10 铁矿 36s / XP2 / 15%；11–20 秘银矿 40s / XP3 / 20%。
 
 用具下拉首项「无」。已解锁全列可选，未开启只留下一档置灰预览，更后面的未开档不列出。未解锁即使有库存也不可选。选中那一把：`speed × (1 + 序号 × 0.03)`，只生效一把；每次成功吞吐耗 1，「无」不耗，耗尽回「无」。没选 = 裸效率，仍可派。旧档 `tool` / `ironTool` / `mithrilTool` 与工人 / 站上 `toolSlot` / `toolId` hydrate：一律回物资，不自动选中。
 
@@ -98,6 +96,8 @@ type HazardRoll = {
 | `itemId` | 去向 |
 | --- | --- |
 | `meat` | 烹饪 |
+| `fish` | 烹饪（原钓鱼主产物并入） |
+| `junk` | 物资低权（原钓鱼杂物并入） |
 | `blood` | 炼金 |
 | `tooth` | 炼金 |
 | `eye` | 炼金 |
@@ -125,27 +125,9 @@ type HazardRoll = {
 
 原料走 `ALCHEMY_COST_OPTIONS`：草或猎副产（`blood` / `tooth` / `eye`）任一 1 个即可，优先扣草。旧「耗木出药剂 + 渣滓」已废。
 
-### 2.7 钓鱼 `fishing`（采集）
+### 2.7 钓鱼 `fishing`（已废）
 
-四条同时成立：
-
-1. **可空杆**：周期仍走完、给站 XP，但本次 `outputs` 可以为空。
-2. **期望更慢**：长期期望出货（非空杆次数 × 单次量）低于另外三采集（挖矿 / 狩猎 / 采药）。用更长 `cycleS`（初级 28s / 中级 32s / 高级 36s）加空杆率实现。
-3. **随机**：出鱼 / 空杆 / 杂物走权重，不写死每次 1 鱼。空杆仍走完周期并给站 XP。
-4. **渔场品阶墙**：`catchTier <= fisheryTier`。初级渔场只出初级，不出更高级。
-
-```ts
-type FisheryTier = 'beginner' | 'mid' | 'high' // 与 CategoryId copper / iron / mithril 对齐
-type FishingCatch = {
-  outcome: 'empty' | 'fish' | 'junk'
-  /** 有货时不超过当前渔场品阶 */
-  catchTier?: FisheryTier
-}
-
-type ItemId /* 钓鱼相关 */ = 'fish' | 'junk'
-```
-
-杂物 `junk` 低权，进物资，可在偶遇出手；不是烹饪主料。
+钓鱼站已撤。旧档已派钓鱼的工人 hydrate 撤到休息，站状态丢弃。`fish` / `junk` 改由狩猎产出。工具类型 `rod` 与钓鱼专属工具不再锻造。
 
 ---
 
@@ -155,12 +137,12 @@ type ItemId /* 钓鱼相关 */ = 'fish' | 'junk'
 
 ```
 挖矿 ──矿石──► 锻造 ──各站专属工具──► 工坊 selectedToolId
-狩猎 ──肉────► 烹饪 ──食物──► 工人 foodSlot ──► 回血
+狩猎 ──肉/鱼──► 烹饪 ──食物──► 工人 foodSlot ──► 回血
 狩猎 ──血/牙/眼──► 炼金（药剂）
+狩猎 ──杂物──► 物资（低权，可在偶遇出手）
 采药 ──草────► 炼金（药剂）
 采药 ──香料──► 烹饪
-钓鱼 ──鱼────► 烹饪
-钓鱼 ──杂物──► 物资（低权，可在偶遇出手）
+工人页 `potionSlots[4]` ──装/卸药剂（本轮不自动喝）
 ```
 
 制造站缺料 → `stallReason: 'emptyInput'`，现规则不变：先看齐再扣，缺任一不扣。采集站不因库存数量停工。
@@ -292,7 +274,7 @@ type ProductionBuff = {
 
 ## 7. 旧站
 
-`woodcutting` 已废弃：不在 `STATION_DEF` / `PLAYABLE_CHAINS`，工人派站按钮没有伐木。旧档已派伐木的工人 hydrate 撤到休息。
+`woodcutting`、`fishing` 已废弃：不在 `STATION_DEF` / `PLAYABLE_CHAINS`，工人派站按钮没有这两站。旧档已派伐木 / 钓鱼的工人 hydrate 撤到休息。
 
 - **`wood`**：旧档数量保留，可在偶遇出手；不再产出。
 - **炼金**：耗草或猎副产，不再以木头为原料。
@@ -314,9 +296,10 @@ type ProductionBuff = {
 | 概念 | 稳定名 |
 | --- | --- |
 | 站类型 | `kind: 'gather' \| 'craft'` |
-| 七站 id | `mining` `forging` `hunting` `cooking` `herbalism` `alchemy` `fishing` |
+| 六站 id | `mining` `forging` `hunting` `cooking` `herbalism` `alchemy` |
 | 锻造别称 | `smithing` 只作文案，不是 id |
-| 旧站 | `woodcutting`（废弃） |
+| 旧站 | `woodcutting` `fishing`（废弃） |
+| 工人药剂槽 | `potionSlots` 长度 4，hydrate `[null,null,null,null]` |
 | 不做的站 | `leatherworking` |
 | 矿 | `ore` `ironOre` `mithrilOre` |
 | 渔 | `fish` `junk` |
@@ -333,14 +316,14 @@ type ProductionBuff = {
 | 矿节点 | `nodeHp` `nodeHpMax` `recoverAt` |
 | 锻失败 | `softFail` |
 | 猎遇险 | `hazard` |
-| 渔场墙 | `fisheryTier` `catchTier` 空杆 `empty` |
+| 渔场墙 | 已废；鱼/杂物走狩猎 |
 | 工人槽 | `foodSlot`（工具已改挂站） |
 | 站工具 | `StationState.selectedToolId` |
 | 派驻上限 | `STATION_WORKER_CAP = 2` |
 | 工人品质 | `qualityTier` 1～10；表 `WORKER_QUALITY_TABLE`（白绿蓝青紫橙粉红金彩）；`workerQualityRev` |
 | 工人合成 | 同档两人 → 高一档 1 人；满档不可；职业按新档池随机 |
 | 工具匹配 | `matchStationId` |
-| 工具类型 | `pick` `hammer` `spear` `pot` `sickle` `rack` `rod` |
+| 工具类型 | `pick` `hammer` `spear` `pot` `sickle` `rack` |
 | 锻造队列 | `forgedTools` `selectedToolType` `craftNotice` |
 | 词条 | `affixes[]` `affixId` |
 | 特效 | `effectId` `value` `source`；`prodSpeed` `extraOutput` `cycleShorten` |
@@ -357,10 +340,10 @@ type ProductionBuff = {
 
 | 现码 | 仍后补 |
 | --- | --- |
-| 七站主列；伐木藏入口 / 撤派 | — |
+| 六站主列；伐木 / 钓鱼藏入口 / 撤派；竖签仍按 7 行高度 | — |
 | 挖矿挖空等恢复；可换其它已解锁矿 | — |
-| 钓鱼空杆 / 更慢期望 / 渔场品阶墙 | — |
-| 狩猎遇险检定（停手 / 减产 / 可耗熟食） | — |
+| 工人页 4 药剂技能槽（装/卸/展示，不自动喝） | 药剂应急自动喝 |
+| 狩猎遇险检定（停手 / 减产 / 可耗熟食）；成功出肉/鱼，低权杂物 | 狩猎真战斗 |
 | 采药无限稳采，必出草 / 香料 | — |
 | 锻造出工具；软失败掷骰；工具槽匹配才加速 | — |
 | 烹饪烤鱼 / 烤肉 / 香料炖；`foodSlot` 续期 / 换食覆盖；残血（≤30%）自动吃 1，无手动喂 | — |

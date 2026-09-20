@@ -6,8 +6,6 @@ import type {
   QualityTier,
   WorkerQualityId,
   EffectInstance,
-  FisheryTier,
-  FishingCatchOutcome,
   ItemId,
   ProductionBuff,
   StationId,
@@ -177,7 +175,10 @@ export const STATION_DEF: Record<StationId, StationDef> = {
         label: '野猪',
         cycleS: 24,
         costs: [],
-        outputs: [{ itemId: 'meat', qty: 1 }],
+        outputs: [
+          { itemId: 'meat', qty: 1 },
+          { itemId: 'fish', qty: 1 },
+        ],
         xpPerCycle: 1,
         unlockLevel: 1,
       },
@@ -188,6 +189,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
         costs: [],
         outputs: [
           { itemId: 'meat', qty: 1 },
+          { itemId: 'fish', qty: 1 },
           { itemId: 'tooth', qty: 1 },
         ],
         xpPerCycle: 2,
@@ -200,6 +202,7 @@ export const STATION_DEF: Record<StationId, StationDef> = {
         costs: [],
         outputs: [
           { itemId: 'meat', qty: 1 },
+          { itemId: 'fish', qty: 1 },
           { itemId: 'blood', qty: 1 },
           { itemId: 'eye', qty: 1 },
         ],
@@ -264,52 +267,18 @@ export const STATION_DEF: Record<StationId, StationDef> = {
     neighbors: [],
     categories: singleCategory('药剂', 40, [{ itemId: 'herb', qty: 1 }], [{ itemId: 'potion', qty: 1 }]),
   },
-  fishing: {
-    id: 'fishing',
-    label: '钓鱼',
-    kind: 'gather',
-    neighbors: [],
-    categories: [
-      {
-        id: 'copper',
-        label: '初级渔场',
-        cycleS: 28,
-        costs: [],
-        outputs: [{ itemId: 'fish', qty: 1 }],
-        xpPerCycle: 1,
-        unlockLevel: 1,
-      },
-      {
-        id: 'iron',
-        label: '中级渔场',
-        cycleS: 32,
-        costs: [],
-        outputs: [{ itemId: 'fish', qty: 1 }],
-        xpPerCycle: 2,
-        unlockLevel: 5,
-      },
-      {
-        id: 'mithril',
-        label: '高级渔场',
-        cycleS: 36,
-        costs: [],
-        outputs: [{ itemId: 'fish', qty: 1 }],
-        xpPerCycle: 3,
-        unlockLevel: 10,
-      },
-    ],
-  },
 }
 
 export const STATION_IDS = Object.keys(STATION_DEF) as StationId[]
 
-/** 旧伐木。新档不入表，hydrate 撤派。 */
-export const DEPRECATED_STATION_IDS: readonly DeprecatedStationId[] = ['woodcutting']
+/** 旧伐木 / 钓鱼。新档不入表，hydrate 撤派。 */
+export const DEPRECATED_STATION_IDS: readonly DeprecatedStationId[] = ['woodcutting', 'fishing']
 export const DEPRECATED_STATION_LABEL: Record<DeprecatedStationId, string> = {
   woodcutting: '伐木',
+  fishing: '钓鱼',
 }
 
-/** 旧档 / 文案别称 → 七站 id。`smithing` 不是独立站。 */
+/** 旧档 / 文案别称 → 现玩法站 id。`smithing` 不是独立站。 */
 export const STATION_ID_ALIASES: Record<string, StationId> = {
   smithing: 'forging',
 }
@@ -319,7 +288,7 @@ export function isStationId(id: unknown): id is StationId {
 }
 
 export function isDeprecatedStationId(id: unknown): id is DeprecatedStationId {
-  return id === 'woodcutting'
+  return id === 'woodcutting' || id === 'fishing'
 }
 
 export function resolveStationId(id: unknown): StationId | null {
@@ -358,47 +327,6 @@ export function miningNodeDef(categoryId: CategoryId): MiningNodeDef {
   return MINING_NODE_DEF.copper
 }
 
-export type FishingDropWeight = {
-  outcome: FishingCatchOutcome
-  weight: number
-  catchTier?: FisheryTier
-  itemId?: ItemId
-}
-
-export const FISHERY_TIER_RANK: Record<FisheryTier, number> = {
-  beginner: 1,
-  mid: 2,
-  high: 3,
-}
-
-export function categoryToFisheryTier(categoryId: CategoryId): FisheryTier {
-  if (categoryId === 'iron') return 'mid'
-  if (categoryId === 'mithril') return 'high'
-  return 'beginner'
-}
-
-/** 渔场 × 品阶掉落（含空杆）。结算时再按 fisheryTier 墙过滤。 */
-export const FISHING_DROP_TABLE: Record<FisheryTier, FishingDropWeight[]> = {
-  beginner: [
-    { outcome: 'empty', weight: 40 },
-    { outcome: 'fish', weight: 50, catchTier: 'beginner', itemId: 'fish' },
-    { outcome: 'junk', weight: 10, catchTier: 'beginner', itemId: 'junk' },
-  ],
-  mid: [
-    { outcome: 'empty', weight: 35 },
-    { outcome: 'fish', weight: 40, catchTier: 'beginner', itemId: 'fish' },
-    { outcome: 'fish', weight: 15, catchTier: 'mid', itemId: 'fish' },
-    { outcome: 'junk', weight: 10, itemId: 'junk' },
-  ],
-  high: [
-    { outcome: 'empty', weight: 30 },
-    { outcome: 'fish', weight: 30, catchTier: 'beginner', itemId: 'fish' },
-    { outcome: 'fish', weight: 20, catchTier: 'mid', itemId: 'fish' },
-    { outcome: 'fish', weight: 10, catchTier: 'high', itemId: 'fish' },
-    { outcome: 'junk', weight: 10, itemId: 'junk' },
-  ],
-}
-
 export type HuntingPreyDef = {
   id: string
   label: string
@@ -406,15 +334,24 @@ export type HuntingPreyDef = {
   outputs: IoRule[]
 }
 
-/** 猎物遇险率。周期结束掷骰，遇险非战斗。 */
+/** 猎物遇险率。周期结束掷骰，遇险非战斗。原钓鱼鱼货并入成功捕获。 */
 export const HUNTING_PREY_TABLE: HuntingPreyDef[] = [
-  { id: 'boar', label: '野猪', hazardChance: 0.12, outputs: [{ itemId: 'meat', qty: 1 }] },
+  {
+    id: 'boar',
+    label: '野猪',
+    hazardChance: 0.12,
+    outputs: [
+      { itemId: 'meat', qty: 1 },
+      { itemId: 'fish', qty: 1 },
+    ],
+  },
   {
     id: 'wolf',
     label: '狼',
     hazardChance: 0.22,
     outputs: [
       { itemId: 'meat', qty: 1 },
+      { itemId: 'fish', qty: 1 },
       { itemId: 'tooth', qty: 1 },
     ],
   },
@@ -424,10 +361,22 @@ export const HUNTING_PREY_TABLE: HuntingPreyDef[] = [
     hazardChance: 0.08,
     outputs: [
       { itemId: 'meat', qty: 1 },
+      { itemId: 'fish', qty: 1 },
       { itemId: 'blood', qty: 1 },
       { itemId: 'eye', qty: 1 },
     ],
   },
+]
+
+/** 狩猎成功后的额外掉落：原钓鱼杂物低权并入。 */
+export type HuntingSideDropWeight = {
+  itemId: ItemId | null
+  weight: number
+}
+
+export const HUNTING_SIDE_DROP_TABLE: HuntingSideDropWeight[] = [
+  { itemId: 'junk', weight: 10 },
+  { itemId: null, weight: 90 },
 ]
 
 export const HUNTING_CATEGORY_PREY: Record<CategoryId, string> = {
@@ -502,7 +451,7 @@ export type ToolTypeDef = {
   matchStationId: StationId
 }
 
-/** 锅 / 瓶架等按表匹配制造站；采集站也各有对应类型。 */
+/** 锅 / 瓶架等按表匹配制造站；采集站也各有对应类型。钓鱼竿已撤。 */
 export const TOOL_TYPE_DEF: Record<ToolTypeId, ToolTypeDef> = {
   pick: { id: 'pick', label: '镐', matchStationId: 'mining' },
   hammer: { id: 'hammer', label: '锤', matchStationId: 'forging' },
@@ -510,7 +459,6 @@ export const TOOL_TYPE_DEF: Record<ToolTypeId, ToolTypeDef> = {
   pot: { id: 'pot', label: '锅', matchStationId: 'cooking' },
   sickle: { id: 'sickle', label: '镰', matchStationId: 'herbalism' },
   rack: { id: 'rack', label: '瓶架', matchStationId: 'alchemy' },
-  rod: { id: 'rod', label: '竿', matchStationId: 'fishing' },
 }
 
 export const TOOL_TYPE_IDS = Object.keys(TOOL_TYPE_DEF) as ToolTypeId[]
@@ -741,7 +689,7 @@ export const TOOL_DEF: Record<ToolItemId, ToolDef> = {
   },
   mithrilTool: {
     itemId: 'mithrilTool',
-    matchStationId: 'fishing',
+    matchStationId: 'hunting',
     prodSpeed: 1.3,
     affixes: [
       { affixId: 'bounty', effectId: EFFECT_ID.extraOutput, value: 1 },
@@ -825,14 +773,14 @@ export function findCategory(stationId: StationId, categoryId: CategoryId): Stat
   return STATION_DEF[stationId].categories.find((c) => c.id === categoryId)
 }
 
-/** 可玩七站展开顺序（骑士等级 / leftover / 工人派站）。工坊页左侧七站竖签见 `src/ui/workshopTabs.ts`。伐木已藏。 */
+/** 可玩六站展开顺序（骑士等级 / leftover / 工人派站）。工坊页左侧竖签见 `src/ui/workshopTabs.ts`。伐木 / 钓鱼已藏。 */
 export const PLAYABLE_CHAINS: StationId[][] = [
   ['mining', 'forging'],
-  ['fishing', 'hunting', 'cooking'],
+  ['hunting', 'cooking'],
   ['herbalism', 'alchemy'],
 ]
 export const PLAYABLE_STATION_IDS: StationId[] = PLAYABLE_CHAINS.flat()
-/** 七站已全部上主列。保留空表以免旧 UI 引用炸掉。 */
+/** 现玩法站已全部上主列。保留空表以免旧 UI 引用炸掉。 */
 export const SKELETON_STATION_IDS: StationId[] = []
 
 function pushUniqueItem(list: ItemId[], itemId: ItemId | undefined): void {
@@ -862,17 +810,15 @@ export function stationRelatedItems(stationId: StationId): StationRelatedItems {
       for (const io of rules) pushUniqueItem(costs, io.itemId)
     }
   }
-  if (stationId === 'fishing') {
-    for (const rows of Object.values(FISHING_DROP_TABLE)) {
-      for (const row of rows) pushUniqueItem(outputs, row.itemId)
-    }
-  }
   if (stationId === 'herbalism') {
     for (const row of HERBALISM_DROP_TABLE) pushUniqueItem(outputs, row.itemId)
   }
   if (stationId === 'hunting') {
     for (const prey of HUNTING_PREY_TABLE) {
       for (const io of prey.outputs) pushUniqueItem(outputs, io.itemId)
+    }
+    for (const row of HUNTING_SIDE_DROP_TABLE) {
+      if (row.itemId) pushUniqueItem(outputs, row.itemId)
     }
   }
   if (stationId === 'forging') {

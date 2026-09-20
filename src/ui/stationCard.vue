@@ -70,7 +70,6 @@ const stall = computed(() => station.value.stallReason)
 const frozen = computed(() => isGatherFrozen(game.save, props.stationId))
 const gatherLine = computed(() => gatherStatusText(game.save, props.stationId))
 const pickCaption = computed(() => {
-  if (props.stationId === 'fishing') return '渔场'
   if (props.stationId === 'hunting') return '猎物'
   if (props.stationId === 'mining') return '矿脉'
   if (props.stationId === 'cooking') return '菜谱'

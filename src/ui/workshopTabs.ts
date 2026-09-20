@@ -4,7 +4,7 @@ import type { StationId } from '../sim/types'
 export const WORKSHOP_TAB_KEY = 'idea5IdleWorkshopStation'
 export const LEGACY_WORKSHOP_LINE_KEY = 'idea5IdleWorkshopLine'
 
-/** 工坊页左侧七站竖签顺序。只服务 UI，不进存档，也不改 PLAYABLE_CHAINS。 */
+/** 工坊页左侧竖签顺序。只服务 UI，不进存档，也不改 PLAYABLE_CHAINS。 */
 export const WORKSHOP_TAB_IDS: readonly StationId[] = [
   'mining',
   'forging',
@@ -12,8 +12,10 @@ export const WORKSHOP_TAB_IDS: readonly StationId[] = [
   'cooking',
   'herbalism',
   'alchemy',
-  'fishing',
 ]
+
+/** 竖签 / 工人左栏仍按 7 行均分，去掉钓鱼后不把剩余 6 站拉高。 */
+export const WORKSHOP_RAIL_ROW_COUNT = 7
 
 export const DEFAULT_WORKSHOP_TAB: StationId = WORKSHOP_TAB_IDS[0]
 
@@ -22,7 +24,8 @@ const LEGACY_LINE_TO_STATION: Record<string, StationId> = {
   smelt: 'mining',
   hunt: 'hunting',
   brew: 'herbalism',
-  fish: 'fishing',
+  fish: 'hunting',
+  fishing: 'hunting',
 }
 
 export function isWorkshopTabId(id: unknown): id is StationId {

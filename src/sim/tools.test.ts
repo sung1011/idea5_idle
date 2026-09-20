@@ -75,7 +75,7 @@ describe('tool type table', () => {
     expect(TOOL_TYPE_DEF.pick.matchStationId).toBe('mining')
     expect(TOOL_TYPE_DEF.hammer.matchStationId).toBe('forging')
     const stations = TOOL_TYPE_IDS.map((id) => TOOL_TYPE_DEF[id].matchStationId)
-    expect(new Set(stations).size).toBe(7)
+    expect(new Set(stations).size).toBe(6)
   })
 
   it('gives T1 speed only and T2+ two effect kinds', () => {

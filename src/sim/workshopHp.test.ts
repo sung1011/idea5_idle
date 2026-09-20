@@ -83,7 +83,7 @@ describe('workshop HP formulas', () => {
     expect(worker.assignment).toBe('mining')
   })
 
-  it('does not add fatigue on stall, empty rod; hazard and soft fail add light debt only', () => {
+  it('does not add fatigue on stall; hazard and soft fail add light debt only', () => {
     const idle = roster(1)
     assignWorker(idle, idle.workers[0].id, 'cooking')
     const idleHp = idle.workers[0].hp
@@ -93,14 +93,6 @@ describe('workshop HP formulas', () => {
     expect(stalled.workers[0].fatigueDebt).toBe(0)
 
     setRollOverride(() => 0)
-    const empty = roster(1)
-    assignWorker(empty, empty.workers[0].id, 'fishing')
-    const emptyHp = empty.workers[0].hp
-    expect(completeCycle(empty, 'fishing')).toBe(true)
-    expect(empty.stations.fishing.gatherNotice).toBe('空杆')
-    expect(empty.workers[0].hp).toBe(emptyHp)
-    expect(empty.workers[0].fatigueDebt).toBe(0)
-
     const hazard = roster(1)
     assignWorker(hazard, hazard.workers[0].id, 'hunting')
     const hazardHp = hazard.workers[0].hp

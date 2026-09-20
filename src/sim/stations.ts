@@ -94,7 +94,6 @@ export function completeCycle(
 }
 
 function gatherFatigueKind(stationId: StationId, lots: ItemLot[], notice: string | null | undefined): FatigueKind {
-  if (stationId === 'fishing' && notice === '空杆') return 'emptyRod'
   if (stationId === 'hunting' && (notice ?? '').includes('遇险')) return 'hazard'
   if (lots.length > 0) return 'success'
   return 'none'

@@ -49,6 +49,7 @@
   --z-tips: 40;
   --workshop-rail-row-min: 44px;
   --workshop-rail-row-gap: 4px;
+  --workshop-rail-row-count: 7;
   --dock-pad-y: 6px;
   --dock-item-min-h: 52px;
   --dock-height: calc(

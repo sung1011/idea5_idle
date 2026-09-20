@@ -42,11 +42,11 @@ describe('stationTips', () => {
     expect(useFloatTips().tips.value).toEqual([])
   })
 
-  it('pins empty-rod / soft-fail notices to that station', () => {
-    pushCycleGain({ stationId: 'fishing', lots: [], notice: '空杆' })
+  it('pins hazard / soft-fail notices to that station', () => {
+    pushCycleGain({ stationId: 'hunting', lots: [], notice: '遇险，短暂停手' })
     pushCycleGain({ stationId: 'forging', lots: [], notice: '软失败，矿石损耗' })
-    expect(stationTipList('fishing').map((tip) => ({ text: tip.text, kind: tip.kind }))).toEqual([
-      { text: '空杆', kind: 'err' },
+    expect(stationTipList('hunting').map((tip) => ({ text: tip.text, kind: tip.kind }))).toEqual([
+      { text: '遇险，短暂停手', kind: 'err' },
     ])
     expect(stationTipList('forging').map((tip) => ({ text: tip.text, kind: tip.kind }))).toEqual([
       { text: '软失败，矿石损耗', kind: 'err' },
@@ -68,8 +68,8 @@ describe('stationTips', () => {
 
   it('ignores blank station text', () => {
     pushStationTip('mining', '   ')
-    pushCycleGain({ stationId: 'fishing', lots: [], notice: '' })
+    pushCycleGain({ stationId: 'hunting', lots: [], notice: '' })
     expect(stationTipList('mining')).toEqual([])
-    expect(stationTipList('fishing')).toEqual([])
+    expect(stationTipList('hunting')).toEqual([])
   })
 })

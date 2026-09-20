@@ -4,18 +4,16 @@ import { roll01 } from './rng'
 import { selectedCategoryDef } from './stationProgress'
 import {
   asMiningCategoryId,
-  categoryToFisheryTier,
-  FISHERY_TIER_RANK,
-  FISHING_DROP_TABLE,
   findCategory,
   HERBALISM_DROP_TABLE,
   HUNTING_HAZARD_CONSUME,
   HUNTING_HAZARD_PAUSE_S,
+  HUNTING_SIDE_DROP_TABLE,
   huntingPreyByCategory,
   ITEM_DEF,
   miningNodeDef,
   MINING_NODE_DEF,
-  type FishingDropWeight,
+  type HuntingSideDropWeight,
   type IoRule,
   type MiningCategoryId,
 } from './tables'
@@ -23,8 +21,6 @@ import { miningOutputMul, scaleQtyByMul } from './tech'
 import { cycleOutputBonus } from './tools'
 import type {
   CategoryId,
-  FishingCatch,
-  FisheryTier,
   HazardRoll,
   ItemId,
   MiningNodeState,
@@ -44,27 +40,9 @@ export function pickWeighted<T extends { weight: number }>(rows: T[], roll: numb
   return live[live.length - 1]
 }
 
-export function allowedFishingDrops(tier: FisheryTier): FishingDropWeight[] {
-  const rank = FISHERY_TIER_RANK[tier]
-  return FISHING_DROP_TABLE[tier].filter((row) => {
-    if (row.outcome === 'empty') return row.weight > 0
-    if (!row.catchTier) return row.weight > 0
-    return row.weight > 0 && FISHERY_TIER_RANK[row.catchTier] <= rank
-  })
-}
-
-export function resolveFishingCatch(tier: FisheryTier, roll: number): FishingCatch {
-  const row = pickWeighted(allowedFishingDrops(tier), roll)
-  if (row.outcome === 'empty') return { outcome: 'empty' }
-  const catchTier =
-    row.catchTier && FISHERY_TIER_RANK[row.catchTier] <= FISHERY_TIER_RANK[tier] ? row.catchTier : tier
-  return { outcome: row.outcome, catchTier }
-}
-
-export function fishingCatchItem(catchResult: FishingCatch): ItemId | null {
-  if (catchResult.outcome === 'fish') return 'fish'
-  if (catchResult.outcome === 'junk') return 'junk'
-  return null
+export function resolveHuntingSideDrop(roll: number): ItemId | null {
+  const row = pickWeighted(HUNTING_SIDE_DROP_TABLE as HuntingSideDropWeight[], roll)
+  return row.itemId
 }
 
 export function resolveHerbalismDrop(roll: number): ItemId {
@@ -98,7 +76,7 @@ export function isHuntingPaused(save: Save): boolean {
 }
 
 export function isGatherStation(stationId: StationId): boolean {
-  return stationId === 'mining' || stationId === 'fishing' || stationId === 'herbalism' || stationId === 'hunting'
+  return stationId === 'mining' || stationId === 'herbalism' || stationId === 'hunting'
 }
 
 export function isGatherFrozen(save: Save, stationId: StationId): boolean {
@@ -110,16 +88,15 @@ export function isGatherFrozen(save: Save, stationId: StationId): boolean {
 export function expectedGatherItemsPerSecond(stationId: StationId, categoryId: CategoryId): number {
   const cat = findCategory(stationId, categoryId)
   if (!cat || cat.cycleS <= 0) return 0
-  if (stationId === 'fishing') {
-    const rows = allowedFishingDrops(categoryToFisheryTier(categoryId))
-    const total = rows.reduce((sum, row) => sum + row.weight, 0)
-    const items = rows.reduce((sum, row) => sum + (row.outcome === 'empty' ? 0 : row.weight), 0)
-    return total > 0 ? items / total / cat.cycleS : 0
-  }
   if (stationId === 'hunting') {
     const prey = huntingPreyByCategory(categoryId)
     const qty = prey.outputs.reduce((sum, io) => sum + io.qty, 0)
-    return ((1 - prey.hazardChance) * qty) / cat.cycleS
+    const sideTotal = HUNTING_SIDE_DROP_TABLE.reduce((sum, row) => sum + row.weight, 0)
+    const sideQty =
+      sideTotal > 0
+        ? HUNTING_SIDE_DROP_TABLE.reduce((sum, row) => sum + (row.itemId ? row.weight : 0), 0) / sideTotal
+        : 0
+    return ((1 - prey.hazardChance) * (qty + sideQty)) / cat.cycleS
   }
   if (stationId === 'herbalism') return 1 / cat.cycleS
   if (stationId === 'mining') {
@@ -209,7 +186,6 @@ export function applyGatherOutputs(
   into?: ItemLot[],
 ): boolean {
   if (stationId === 'mining') return completeMiningCycle(save, now, into)
-  if (stationId === 'fishing') return completeFishingCycle(save, now, into)
   if (stationId === 'herbalism') return completeHerbalismCycle(save, now, into)
   if (stationId === 'hunting') return completeHuntingCycle(save, now, into)
   return false
@@ -237,19 +213,6 @@ function completeMiningCycle(save: Save, now: number, into?: ItemLot[]): boolean
   return true
 }
 
-function completeFishingCycle(save: Save, now: number, into?: ItemLot[]): boolean {
-  const tier = categoryToFisheryTier(save.stations.fishing.selectedCategory)
-  const caught = resolveFishingCatch(tier, roll01(save))
-  const itemId = fishingCatchItem(caught)
-  if (!itemId) {
-    save.stations.fishing.gatherNotice = '空杆'
-    return true
-  }
-  if (!emitRules(save, 'fishing', [{ itemId, qty: 1 }], now, into)) return false
-  save.stations.fishing.gatherNotice = itemId === 'junk' ? '钓到杂物' : `钓到${ITEM_DEF.fish.label}`
-  return true
-}
-
 function completeHerbalismCycle(save: Save, now: number, into?: ItemLot[]): boolean {
   const itemId = resolveHerbalismDrop(roll01(save))
   if (!emitRules(save, 'herbalism', [{ itemId, qty: 1 }], now, into)) return false
@@ -272,7 +235,11 @@ function completeHuntingCycle(save: Save, now: number, into?: ItemLot[]): boolea
     }
     return true
   }
-  if (!emitRules(save, 'hunting', prey.outputs, now, into)) return false
-  save.stations.hunting.gatherNotice = `安全捕获 · ${prey.label}`
+  const extra = resolveHuntingSideDrop(roll01(save))
+  const outputs = extra ? [...prey.outputs, { itemId: extra, qty: 1 }] : prey.outputs
+  if (!emitRules(save, 'hunting', outputs, now, into)) return false
+  save.stations.hunting.gatherNotice = extra
+    ? `安全捕获 · ${prey.label}，顺手${ITEM_DEF[extra].label}`
+    : `安全捕获 · ${prey.label}`
   return true
 }

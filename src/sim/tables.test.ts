@@ -5,11 +5,11 @@ import {
   classPoolForQuality,
   QUALITY_TIERS,
   WORKER_QUALITY_TABLE,
-  FISHING_DROP_TABLE,
   FOOD_BUFF_DEF,
   FORGING_SOFT_FAIL_CHANCE,
   HERBALISM_DROP_TABLE,
   HUNTING_PREY_TABLE,
+  HUNTING_SIDE_DROP_TABLE,
   MINING_NODE_DEF,
   leftoverStockItems,
   itemProducerStation,
@@ -28,17 +28,16 @@ import {
 } from './tables'
 
 describe('production phase-1 tables', () => {
-  it('marks seven stations with gather/craft and no resonance neighbors', () => {
+  it('marks six stations with gather/craft and no resonance neighbors', () => {
     expect(STATION_DEF.mining.kind).toBe('gather')
     expect(STATION_DEF.forging.kind).toBe('craft')
     expect(STATION_DEF.hunting.kind).toBe('gather')
     expect(STATION_DEF.cooking.kind).toBe('craft')
     expect(STATION_DEF.herbalism.kind).toBe('gather')
     expect(STATION_DEF.alchemy.kind).toBe('craft')
-    expect(STATION_DEF.fishing.kind).toBe('gather')
+    expect((STATION_DEF as Record<string, unknown>).fishing).toBeUndefined()
     expect(STATION_DEF.mining.neighbors).toEqual([])
     expect(STATION_DEF.forging.neighbors).toEqual([])
-    expect(STATION_DEF.fishing.neighbors).toEqual([])
     expect(STATION_DEF.hunting.neighbors).toEqual([])
     expect(STATION_DEF.cooking.neighbors).toEqual([])
     expect(STATION_DEF.herbalism.neighbors).toEqual([])
@@ -46,7 +45,6 @@ describe('production phase-1 tables', () => {
     expect(PLAYABLE_STATION_IDS).toEqual([
       'mining',
       'forging',
-      'fishing',
       'hunting',
       'cooking',
       'herbalism',
@@ -57,6 +55,7 @@ describe('production phase-1 tables', () => {
   it('maps smithing to forging and drops woodcutting', () => {
     expect(resolveStationId('smithing')).toBe('forging')
     expect(resolveStationId('woodcutting')).toBeNull()
+    expect(resolveStationId('fishing')).toBeNull()
     expect(STATION_DEF.forging.categories.map((c) => c.id)).toEqual(['default'])
     expect(STATION_DEF.forging.categories[0].outputs).toEqual([])
     expect(STATION_DEF.alchemy.categories[0].costs).toEqual([{ itemId: 'herb', qty: 1 }])
@@ -74,10 +73,8 @@ describe('production phase-1 tables', () => {
 
   it('keeps placeholder tables for later phases', () => {
     expect(MINING_NODE_DEF.copper.nodeHpMax).toBeGreaterThan(0)
-    expect(FISHING_DROP_TABLE.beginner.some((row) => row.outcome === 'empty' && row.weight > 0)).toBe(true)
-    expect(FISHING_DROP_TABLE.beginner.every((row) => !row.catchTier || row.catchTier === 'beginner')).toBe(
-      true,
-    )
+    expect(HUNTING_PREY_TABLE.every((row) => row.outputs.some((io) => io.itemId === 'fish'))).toBe(true)
+    expect(HUNTING_SIDE_DROP_TABLE.some((row) => row.itemId === 'junk' && row.weight > 0)).toBe(true)
     expect(HUNTING_PREY_TABLE.every((row) => row.hazardChance > 0 && row.hazardChance < 1)).toBe(true)
     expect(HERBALISM_DROP_TABLE.every((row) => row.weight > 0)).toBe(true)
     expect(FORGING_SOFT_FAIL_CHANCE.copper).toBeGreaterThan(0)
@@ -99,12 +96,11 @@ describe('production phase-1 tables', () => {
     expect(FOOD_BUFF_DEF.stew.mul).toBeGreaterThan(FOOD_BUFF_DEF.meal.mul)
   })
 
-  it('exposes fishing grounds, hunting prey and alchemy-facing herbal drops', () => {
-    expect(STATION_DEF.fishing.categories.map((c) => c.label)).toEqual(['初级渔场', '中级渔场', '高级渔场'])
+  it('exposes hunting prey, former fish goods and alchemy-facing herbal drops', () => {
     expect(STATION_DEF.hunting.categories.map((c) => c.label)).toEqual(['野猪', '狼', '鹿'])
     expect(HUNTING_PREY_TABLE.some((row) => row.outputs.some((io) => io.itemId === 'eye'))).toBe(true)
+    expect(HUNTING_PREY_TABLE.some((row) => row.outputs.some((io) => io.itemId === 'fish'))).toBe(true)
     expect(HERBALISM_DROP_TABLE.map((row) => row.itemId).sort()).toEqual(['herb', 'spice'])
-    expect(FISHING_DROP_TABLE.beginner.some((row) => row.outcome === 'empty')).toBe(true)
   })
 
   it('lists each station\'s related costs and outputs for leftover classification', () => {
@@ -116,13 +112,9 @@ describe('production phase-1 tables', () => {
       costs: ['ore', 'slag', 'ironOre', 'mithrilOre', ...stationToolsOf('forging').map((row) => row.id)],
       outputs: ['blueprint', ...STATION_TOOL_IDS],
     })
-    expect(stationRelatedItems('fishing')).toEqual({
-      costs: stationToolsOf('fishing').map((row) => row.id),
-      outputs: ['fish', 'junk'],
-    })
     expect(stationRelatedItems('hunting')).toEqual({
       costs: stationToolsOf('hunting').map((row) => row.id),
-      outputs: ['meat', 'tooth', 'blood', 'eye'],
+      outputs: ['meat', 'fish', 'tooth', 'blood', 'eye', 'junk'],
     })
     expect(stationRelatedItems('cooking')).toEqual({
       costs: ['fish', 'meat', 'spice', ...stationToolsOf('cooking').map((row) => row.id)],
@@ -154,8 +146,8 @@ describe('production phase-1 tables', () => {
     expect(itemProducerStation('miningTool01')).toBe('forging')
     expect(itemProducerStation('herbalismTool02')).toBe('forging')
     expect(itemProducerStation('blueprint')).toBe('forging')
-    expect(itemProducerStation('fish')).toBe('fishing')
-    expect(itemProducerStation('junk')).toBe('fishing')
+    expect(itemProducerStation('fish')).toBe('hunting')
+    expect(itemProducerStation('junk')).toBe('hunting')
     expect(itemProducerStation('meat')).toBe('hunting')
     expect(itemProducerStation('eye')).toBe('hunting')
     expect(itemProducerStation('meal')).toBe('cooking')

@@ -369,7 +369,7 @@ describe('encounter board', () => {
   it('resolves tool needs to forgeable station tools and raises tier with chapter/quality', () => {
     expect(MAIN_NEED_ITEM_POOL).toContain('tool')
     expect(MAIN_NEED_TOOL_POOL).toContain('miningTool01')
-    expect(MAIN_NEED_TOOL_POOL).toContain('fishingTool20')
+    expect(MAIN_NEED_TOOL_POOL).toContain('alchemyTool20')
     expect(MAIN_NEED_TOOL_POOL).not.toContain('tool')
     expect(MAIN_NEED_TOOL_POOL).not.toContain('ironTool')
     expect(MAIN_NEED_TOOL_POOL).not.toContain('mithrilTool')
