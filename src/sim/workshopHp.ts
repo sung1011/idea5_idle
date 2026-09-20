@@ -3,6 +3,11 @@ import type { Save, StationFatigueCombo, StationId, Worker } from './types'
 
 /** 每次成功产出写入的劳损比例。禁止再走 max(1, floor(hpMax*0.02))。 */
 export const FATIGUE_DEBT_RATIO = 0.0015
+/**
+ * 近满血额外一口：短时吞吐先扣出 1～2 点，之后回落比例债。
+ * 只在 hp >= hpMax-1 时叠加，6h 裸采药仍 HP≥2。
+ */
+export const FATIGUE_NEAR_FULL_PIP = 0.18
 /** 站基准乘子：把 0.0015 落到极缓日常（6h 裸采药仍 HP≥2）。 */
 export const FATIGUE_STATION_MUL: Readonly<Record<StationId, number>> = {
   mining: 0.4,
@@ -36,6 +41,15 @@ export function workerFatigueDebt(worker: Worker): number {
 
 export function workerHpRatio(worker: Worker): number {
   return worker.hp / safeHpMax(worker.hpMax)
+}
+
+/** 工人界面底色：整数 HP 再扣未入账劳损，成功吞吐立刻能看出缺口。 */
+export function workerWearHp(worker: Worker): number {
+  return Math.max(0, worker.hp - workerFatigueDebt(worker))
+}
+
+function nearFullPip(worker: Worker): number {
+  return worker.hp >= worker.hpMax - 1 ? FATIGUE_NEAR_FULL_PIP : 0
 }
 
 /** 仅 HP===1 时 ×0.5，其余 ×1。 */
@@ -144,8 +158,7 @@ function debtAmount(
 ): number {
   const comboMul = stationFatigueComboMul(save, stationId, kind)
   return (
-    safeHpMax(worker.hpMax) *
-    FATIGUE_DEBT_RATIO *
+    (safeHpMax(worker.hpMax) * FATIGUE_DEBT_RATIO + nearFullPip(worker)) *
     FATIGUE_STATION_MUL[stationId] *
     comboMul *
     kindMul(kind) *

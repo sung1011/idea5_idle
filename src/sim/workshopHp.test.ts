@@ -10,14 +10,17 @@ import { setRollOverride } from './rng'
 import { completeCycle } from './stations'
 import { ticks } from './tick'
 import type { Save, Worker } from './types'
+import { hpBarFill, hpBarTone } from '../ui/hpBar'
 import {
   applyWorkshopCycleDrain,
   applyWorkshopFatigue,
   equivalentCyclesIn,
   FATIGUE_DEBT_RATIO,
+  FATIGUE_NEAR_FULL_PIP,
   FATIGUE_SIX_HOUR_S,
   FATIGUE_STATION_MUL,
   restHealAmount,
+  workerWearHp,
   workshopHpWorkMul,
 } from './workshopHp'
 
@@ -61,6 +64,9 @@ describe('workshop HP formulas', () => {
     expect(worker.hp).toBe(before)
     expect(worker.fatigueDebt).toBeGreaterThan(0)
     expect(worker.fatigueDebt).toBeLessThan(1)
+    expect(workerWearHp(worker)).toBeLessThan(worker.hp)
+    expect(hpBarFill(workerWearHp(worker), worker.hpMax)).toBeLessThan(1)
+    expect(hpBarTone(workerWearHp(worker), worker.hpMax)).toBe('mid')
 
     worker.hp = 1
     worker.fatigueDebt = 0
@@ -237,6 +243,30 @@ describe('station fatigue combos', () => {
   })
 })
 
+describe('visible workshop drain', () => {
+  it('accumulates debt then drops HP when mining or gathering herbs', () => {
+    for (const stationId of ['mining', 'herbalism'] as const) {
+      const save = roster(1)
+      const worker = save.workers[0]
+      assignWorker(save, worker.id, stationId)
+      const startHp = worker.hp
+      expect(startHp).toBe(worker.hpMax)
+
+      const afterOne = ticks(save, 20)
+      expect(afterOne.stations[stationId].completed).toBeGreaterThanOrEqual(1)
+      expect(afterOne.workers[0].hp).toBe(startHp)
+      expect(afterOne.workers[0].fatigueDebt).toBeGreaterThan(0)
+      expect(workerWearHp(afterOne.workers[0])).toBeLessThan(startHp)
+      expect(hpBarTone(workerWearHp(afterOne.workers[0]), afterOne.workers[0].hpMax)).toBe('mid')
+
+      const worn = ticks(save, 20 * 18)
+      expect(worn.stations[stationId].completed).toBeGreaterThanOrEqual(12)
+      expect(worn.workers[0].hp).toBeLessThan(startHp)
+      expect(worn.workers[0].hp).toBeGreaterThanOrEqual(startHp - 2)
+    }
+  })
+})
+
 describe('6h equivalent production', () => {
   it('keeps a naked solo worker at HP>=2 after 6h herbalism output', () => {
     const save = roster(1)
@@ -260,7 +290,10 @@ describe('enrage multiplies fatigue', () => {
     expect(startStationEnrage(save, 'herbalism', t0).ok).toBe(true)
     applyWorkshopFatigue(save, 'herbalism', t0 + 1_000, 'success')
     expect(save.workers[0].fatigueDebt).toBeCloseTo(
-      save.workers[0].hpMax * FATIGUE_DEBT_RATIO * FATIGUE_STATION_MUL.herbalism * 1.008 * 6,
+      (save.workers[0].hpMax * FATIGUE_DEBT_RATIO + FATIGUE_NEAR_FULL_PIP) *
+        FATIGUE_STATION_MUL.herbalism *
+        1.008 *
+        6,
       5,
     )
   })

@@ -233,8 +233,8 @@ export type Worker = {
    */
   combatAttrs: CombatAttrId[]
   /**
-   * 工坊劳损累计。成功产出按公式加债，≥1 时扣 floor 血并减债。
-   * 旧档缺字段 hydrate 为 0。
+   * 工坊劳损累计。成功产出按公式加债（含近满血一口），≥1 时扣 floor 血并减债。
+   * 工人界面底色读 hp - fatigueDebt。旧档缺字段 hydrate 为 0。
    */
   fatigueDebt: number
   /**

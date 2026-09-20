@@ -15,6 +15,7 @@ import { openWorkshopStation } from './appNav'
 import { useGameStore } from './gameStore'
 import HpBar from './hpBar.vue'
 import { hpBarFill, hpBarTone } from './hpBar'
+import { workerWearHp } from '../sim/workshopHp'
 import {
   canGoToAssignedWorkshop,
   unassignedWorkers,
@@ -136,11 +137,11 @@ function sheetMeta(w: Worker) {
 }
 
 function hpFillStyle(w: Worker) {
-  return { width: `${(hpBarFill(w.hp, w.hpMax) * 100).toFixed(2)}%` }
+  return { width: `${(hpBarFill(workerWearHp(w), w.hpMax) * 100).toFixed(2)}%` }
 }
 
 function hpToneClass(w: Worker) {
-  return `hp-${hpBarTone(w.hp, w.hpMax)}`
+  return `hp-${hpBarTone(workerWearHp(w), w.hpMax)}`
 }
 
 function openSheet(w: Worker) {

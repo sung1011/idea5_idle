@@ -187,7 +187,7 @@ type ItemId /* 钓鱼相关 */ = 'fish' | 'junk'
 
 ### 4.2 劳损与狂暴
 
-成功产出才加劳损：`fatigueDebt += hpMax * 0.0015 * stationMul * comboMul * enrageMul`。`debt≥1` 扣 `floor` 血并减债。HP 锁 1。`stationMul` 约 0.4（锻造成功 0.55）。残血仅 `HP===1` 贡献 ×0.5。站卡右上角狂暴：60s 速度 ×2.5、劳损 ×6，结束后 CD 300s，字段 `enrageUntil` / `enrageReadyAt`。连招只站内，见 [main.md](main.md) 2.2。
+成功产出才加劳损：`fatigueDebt += (hpMax * 0.0015 + nearFullPip) * stationMul * comboMul * enrageMul`。`nearFullPip` 仅近满血（`hp >= hpMax-1`）加 `0.18`。`debt≥1` 扣 `floor` 血并减债。HP 锁 1。`stationMul` 约 0.4（锻造成功 0.55）。残血仅 `HP===1` 贡献 ×0.5。工人界面底色读 `hp - fatigueDebt`。站卡右上角狂暴：60s 速度 ×2.5、劳损 ×6，结束后 CD 300s，字段 `enrageUntil` / `enrageReadyAt`。连招只站内，见 [main.md](main.md) 2.2。
 
 ---
 
