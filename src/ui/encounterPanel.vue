@@ -10,7 +10,8 @@ import {
   isCombatWon,
   isFighting,
   isFullCombatHp,
-  selectableCombatWorkers,
+  restCombatCandidates,
+  workerCombatNotReadyTip,
 } from '../sim/combat'
 import { createAssistWorker, isAssistWorker, pickCombatCandidates } from '../sim/combatAssist'
 import {
@@ -80,7 +81,7 @@ const pickMax = computed(() => {
   return COMBAT_PARTY_MAX
 })
 const pickCandidates = computed(() =>
-  pickCombatCandidates(selectableCombatWorkers(game.save), assistWorker.value),
+  pickCombatCandidates(restCombatCandidates(game.save), assistWorker.value),
 )
 
 function selectTab(id: EncounterBoardId) {
@@ -402,15 +403,16 @@ function pickRecommend(w: Worker) {
 
     <div v-if="pickOpen" class="modal" role="dialog" aria-label="选择出战工人" @click.self="closePick">
       <div class="sheet">
-        <p>{{ pickMode === 'reinforce' ? '选择增援工人' : '选择出战工人' }}（最多 {{ pickMax }} 人）</p>
-        <p class="hint">只列满血休息工人（与劳损底色一致）。出战不算派驻工坊。点邀请才加入 1 名临时助战。{{ pickMode === 'reinforce' ? '增援不消耗补给。' : '' }}</p>
+        <p>{{ pickMode === 'reinforce' ? '选择增援工人' : '选择出战工人' }}（最多 {{ pickMax }} 人，须满血）</p>
+        <p class="hint">列出休息工人；未满血（有效 HP 含劳损未到上限）灰显。出战不算派驻工坊。点邀请才加入 1 名临时助战。{{ pickMode === 'reinforce' ? '增援不消耗补给。' : '1～3 人即可，不必凑满。' }}</p>
         <ul class="pick-list">
           <li v-for="w in pickCandidates" :key="w.id">
             <button
               type="button"
               class="pick-worker"
-              :class="{ on: picked.includes(w.id), assist: isAssistWorker(w) }"
+              :class="{ on: picked.includes(w.id), assist: isAssistWorker(w), dim: !isFullCombatHp(w) }"
               :disabled="!isFullCombatHp(w)"
+              :title="workerCombatNotReadyTip(w) ?? undefined"
               @click="togglePick(w)"
             >
               <span class="pick-name">
@@ -420,14 +422,15 @@ function pickRecommend(w: Worker) {
                 <b class="pick-worker-name" :style="workerQualityNameStyle(w)">{{ w.name ?? w.id }}</b>
                 <span class="pick-meta">· Lv{{ w.level }} · {{ workerJob(w) }} · HP {{ w.hp }}/{{ w.hpMax }}</span>
                 <i
-                  v-if="pickRecommend(w)"
+                  v-if="pickRecommend(w) && isFullCombatHp(w)"
                   class="pick-rec"
                   :class="{ hot: pickRecommend(w) === '强烈推荐' }"
                 >{{ pickRecommend(w) }}</i>
+                <i v-if="workerCombatNotReadyTip(w)" class="pick-tip">{{ workerCombatNotReadyTip(w) }}</i>
               </span>
             </button>
           </li>
-          <li v-if="!pickCandidates.length" class="hint">没有满血休息工人</li>
+          <li v-if="!pickCandidates.length" class="hint">没有休息中的工人</li>
         </ul>
         <div class="row">
           <span class="act-hit" @click="pickMode === 'start' && pickIndex != null && warnConsumeShort(pickIndex)">
@@ -902,6 +905,23 @@ ul {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-align: center;
+}
+
+.pick-worker.dim,
+.pick-worker:disabled {
+  opacity: 0.5;
+  filter: grayscale(0.15);
+}
+
+.pick-tip {
+  font-style: normal;
+  padding: 1px 7px;
+  border: 2px solid #c4b28a;
+  border-radius: 999px;
+  background: #efe6c8;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .pick-worker.on,

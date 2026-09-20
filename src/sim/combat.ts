@@ -10,7 +10,7 @@ import { drawEnemyTargetRule, pickEnemyTargets, type CombatTarget } from './comb
 import { tryAutoEatAfterCombat, tryAutoEatWhenWounded } from './food'
 import { isWardActive } from './potions'
 import { roll01 } from './rng'
-import { isWoundedHp, restHealAmount, workerWearHp } from './workshopHp'
+import { isWoundedHp, restHealAmount, workerFatigueDebt, workerWearHp } from './workshopHp'
 import { chapterCombatMul } from './mainChapter'
 import {
   addWorkerXp,
@@ -255,6 +255,11 @@ export function fightingWorkerIds(save: Save): Set<string> {
 /** 与工人页劳损底色一致：wearHp/hpMax 铺满才算出战满血。 */
 export function isFullCombatHp(worker: Worker): boolean {
   return workerWearHp(worker) >= Math.max(1, Math.floor(worker.hpMax))
+}
+
+export function workerCombatNotReadyTip(worker: Worker): string | null {
+  if (isFullCombatHp(worker)) return null
+  return '未满血（含劳损）'
 }
 
 export function fieldFighterCount(enc: EnemyEncounter): number {
@@ -656,7 +661,20 @@ export function applyRestHeal(save: Save): void {
     if (worker.assignment !== null) continue
     if (busy.has(worker.id)) continue
     const max = workerLiveStats(worker, save).hp
-    if (worker.hp < max) worker.hp = Math.min(max, worker.hp + restHealAmount(worker.hpMax))
+    const heal = restHealAmount(worker.hpMax)
+    const debt = workerFatigueDebt(worker)
+    if (debt > 0) {
+      const cut = Math.min(debt, heal)
+      worker.fatigueDebt = debt - cut
+      const leftover = heal - cut
+      if (leftover > 0) worker.hp = Math.min(max, worker.hp + leftover)
+    } else if (worker.hp < max) {
+      worker.hp = Math.min(max, worker.hp + heal)
+    }
+    if (worker.hp >= max && workerFatigueDebt(worker) <= 0) {
+      worker.hp = max
+      worker.fatigueDebt = 0
+    }
   }
 }
 

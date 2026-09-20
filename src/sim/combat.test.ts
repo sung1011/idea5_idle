@@ -618,6 +618,19 @@ describe('rest heal', () => {
     const fightAfter = healed.workers.find((w) => w.id === fight.id)
     expect(fightAfter?.hp).toBe(4)
   })
+
+  it('pays down rest fatigue so effective HP can return to full', () => {
+    const save = createSave()
+    const worker = spawnWorker(save)
+    worker.hp = worker.hpMax
+    worker.fatigueDebt = 0.4
+    expect(isFullCombatHp(worker)).toBe(false)
+    save.elapsedS = REST_HEAL_EVERY_S
+    applyRestHeal(save)
+    expect(worker.fatigueDebt).toBe(0)
+    expect(worker.hp).toBe(worker.hpMax)
+    expect(isFullCombatHp(worker)).toBe(true)
+  })
 })
 
 describe('enemy hits workshop crew', () => {
