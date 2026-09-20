@@ -285,7 +285,7 @@ type ProductionBuff = {
 
 ## 8. 偶遇补给
 
-敌人开战仍是补给门闩。新刷出的交物单（敌人补给 / 委托 / 收购 / 路人消耗 / 当铺）只要求 1 种已有产物，种类按章节门控（与骑士开站顺序相同：采药 → 炼金七药 → 狩猎 → 烹饪 → 采矿 → 锻造 `tool` 标记）；数量随品质与章节递增；Boss 只加数量。第 1 章只要草/香料；开局商场「铜矿当」仍是 `ore` ×2 特例。要工具时（第 6 章+）从锻造可造的各站专属工具（`STATION_TOOL_DEF` 的 tool01–20）抽取，档位随章节 / 订单品质抬高。新刷不再要 `tool` / `ironTool` / `mithrilTool`。旧档通用工具库存可留；读档时订单消耗 / 报价里的通用工具 remap 成专属 `*ToolNN`（裸 `potion` → `salve`），`itemProducerStation` 对旧通用工具回落锻造以便跳转。市集新报价（如工具贩 / 工具路人）不再发裸 `tool`。武器搁置，不再作为新单主需求。
+敌人开战仍是补给门闩。新刷出的交物单（敌人补给 / 委托 / 收购 / 路人消耗 / 当铺）只要求 1 种已解锁工位的产物，种类跟骑士开站表（1 采药草/香料 → 2 炼金七药 → 5 狩猎 → 8 烹饪 → 18 采矿 → 20 锻造 `tool` 标记），不跟章节号；数量仍随品质与章节递增；Boss 只加数量。只开采药时只要草/香料；开局商场「铜矿当」仍是 `ore` ×2 特例（采矿要骑士 18 才开）。要工具时（锻造已开）从锻造可造的各站专属工具（`STATION_TOOL_DEF` 的 tool01–20）抽取，档位随章节 / 订单品质抬高。新刷不再要 `tool` / `ironTool` / `mithrilTool`。旧档通用工具库存可留；读档时订单消耗 / 报价里的通用工具 remap 成专属 `*ToolNN`（裸 `potion` → `salve`），`itemProducerStation` 对旧通用工具回落锻造以便跳转。市集新报价（如工具贩 / 工具路人）不再发裸 `tool`。武器搁置，不再作为新单主需求。
 
 ---
 
@@ -329,7 +329,7 @@ type ProductionBuff = {
 | 特效 | `effectId` `value` `source`；`prodSpeed` `extraOutput` `cycleShorten` |
 | 食物 Buff | `buff` `expiresAt` `durationS` `mul` `qty` |
 | 停产 | 只留 `emptyInput`；无满仓 |
-| 骑士等级 | `knightLevel`：`1 + sum(可玩站 stationLevel - 1)`，初始 1；每升 1 级 +1 灵感 |
+| 骑士等级 | `knightLevel`：`1 + sum(可玩站 stationLevel - 1)`，初始 1；每升 1 级 +1 灵感。站入口门槛：采药 1、炼金 2、狩猎 5、烹饪 8、采矿 18、锻造 20 |
 | 灵感 | `techPoints`（界面称灵感；别名 `inspiration` 仅 hydrate）。新档 20；骑士升级 +1；周期完成不加；图纸不当来源。旧档不改写成 20 |
 | 工坊金币 | 吞吐按产出 `craftGold × 数量`；成品约 1～3，采集原材 0 或 1。当铺 / 收购仍用 `sellGold`。敌人战利品绿档基准 `LOOT_GOLD_BASE = 6` |
 | 科技树 | `unlockedTechIds` + `techLevels`：三页签行选，每层同行同价；节点有 `maxLevel`，未满级可再点。该层任一点 `level≥1` 开上一层。已实装先 `maxLevel=1`，占位 `5`。战场格初始 2、科技 +1 封顶 4；商场格初始 1、科技 +1 封顶 4；不新开冲突多级线。旧未知 id 丢掉。`techEffectValue(save, effectId)` 按等级 × 表值叠乘（渣滓 / 站 XP / 采矿 / 工具 / 锻造耗时 / 离线 / 工人三围 / 弱点 / 揭示 / 再战补给 / 助战下限 / 当铺收购金 / 探索费 / 战利品金）。订单格走 `battlefieldSlotCount` / `marketSlotCount`。抽人费与站速度乘区仍不受科技影响 |

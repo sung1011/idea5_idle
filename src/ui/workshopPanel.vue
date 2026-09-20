@@ -8,7 +8,7 @@ import {
 } from '../sim/encounters'
 import { leftoverStockRows } from '../sim/query'
 import { isGuideQuestFlash } from '../sim/guideQuest'
-import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
+import { isStationUnlocked, workshopGroupLockedTip } from '../sim/stationUnlock'
 import type { StationId } from '../sim/types'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
@@ -61,7 +61,8 @@ const railById = computed(() => {
 function selectGroup(id: WorkshopGroupId) {
   const stations = stationsOfWorkshopGroup(id)
   if (stations.every((sid) => !isStationUnlocked(game.save, sid))) {
-    pushFloatTip(stationLockedTip(stations[0]))
+    const tip = workshopGroupLockedTip(game.save, stations)
+    if (tip) pushFloatTip(tip)
   }
   selectWorkshopGroup(id)
 }

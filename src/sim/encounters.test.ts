@@ -33,13 +33,13 @@ import {
   isLegacyGenericToolNeed,
   isMainNeedItem,
   itemNeedBase,
-  mainNeedItemPoolForChapter,
+  mainNeedItemPool,
   mainNeedOutputsOfStation,
   mainNeedToolTierCenter,
   needEntries,
   pickMainNeedItem,
   pickMainNeedTool,
-  resolveChapterMainNeedItem,
+  resolveUnlockedMainNeedItem,
   resolveMainNeedItem,
   scaledDemandQty,
   scaledMainNeed,
@@ -383,8 +383,8 @@ describe('encounter board', () => {
         expect(needEntries(highEnemy.needs)).toHaveLength(1)
         const lowId = needEntries(lowEnemy.needs)[0][0]
         const highId = needEntries(highEnemy.needs)[0][0]
-        expect(isAllowedMainNeedKind(lowId, mainNeedItemPoolForChapter(1))).toBe(true)
-        expect(isAllowedMainNeedKind(highId, mainNeedItemPoolForChapter(8))).toBe(true)
+        expect(isAllowedMainNeedKind(lowId, mainNeedItemPool({ knightLevel: 1 }))).toBe(true)
+        expect(isAllowedMainNeedKind(highId, mainNeedItemPool({ knightLevel: 1 }))).toBe(true)
         if (lowId === highId) {
           expect(needEntries(highEnemy.needs)[0][1]).toBeGreaterThan(needEntries(lowEnemy.needs)[0][1])
         } else if (isStationToolId(lowId) && isStationToolId(highId)) {
@@ -431,17 +431,18 @@ describe('encounter board', () => {
   })
 })
 
-describe('chapter-gated main need pool', () => {
-  it('expands by knight station unlock order', () => {
+describe('unlock-gated main need pool', () => {
+  it('expands by currently unlocked stations, not chapter number', () => {
     expect(mainNeedOutputsOfStation('herbalism')).toEqual(['herb', 'spice'])
     expect(mainNeedOutputsOfStation('alchemy')).toEqual([...POTION_ITEM_IDS])
     expect(mainNeedOutputsOfStation('hunting')).toEqual(['meat', 'fish', 'tooth', 'blood', 'eye', 'junk'])
     expect(mainNeedOutputsOfStation('cooking')).toEqual(['meal', 'roast', 'stew'])
     expect(mainNeedOutputsOfStation('mining')).toEqual(['ore', 'ironOre', 'mithrilOre'])
     expect(mainNeedOutputsOfStation('forging')).toEqual(['tool'])
-    expect(mainNeedItemPoolForChapter(1)).toEqual(['herb', 'spice'])
-    expect(mainNeedItemPoolForChapter(2)).toEqual(['herb', 'spice', ...POTION_ITEM_IDS])
-    expect(mainNeedItemPoolForChapter(3)).toEqual([
+    expect(mainNeedItemPool({ knightLevel: 1 })).toEqual(['herb', 'spice'])
+    expect(mainNeedItemPool({ knightLevel: 2 })).toEqual(['herb', 'spice', ...POTION_ITEM_IDS])
+    expect(mainNeedItemPool({ knightLevel: 4 })).toEqual(['herb', 'spice', ...POTION_ITEM_IDS])
+    expect(mainNeedItemPool({ knightLevel: 5 })).toEqual([
       'herb',
       'spice',
       ...POTION_ITEM_IDS,
@@ -452,45 +453,56 @@ describe('chapter-gated main need pool', () => {
       'eye',
       'junk',
     ])
-    expect(mainNeedItemPoolForChapter(4)).toContain('meal')
-    expect(mainNeedItemPoolForChapter(4)).toContain('roast')
-    expect(mainNeedItemPoolForChapter(4)).toContain('stew')
-    expect(mainNeedItemPoolForChapter(5)).toContain('ore')
-    expect(mainNeedItemPoolForChapter(5)).toContain('ironOre')
-    expect(mainNeedItemPoolForChapter(5)).toContain('mithrilOre')
-    expect(mainNeedItemPoolForChapter(5)).not.toContain('tool')
-    expect(mainNeedItemPoolForChapter(6)).toContain('tool')
-    expect(MAIN_NEED_ITEM_POOL).toEqual(mainNeedItemPoolForChapter(6))
+    expect(mainNeedItemPool({ knightLevel: 8 })).toContain('meal')
+    expect(mainNeedItemPool({ knightLevel: 8 })).toContain('roast')
+    expect(mainNeedItemPool({ knightLevel: 8 })).toContain('stew')
+    expect(mainNeedItemPool({ knightLevel: 8 })).not.toContain('ore')
+    expect(mainNeedItemPool({ knightLevel: 18 })).toContain('ore')
+    expect(mainNeedItemPool({ knightLevel: 18 })).toContain('ironOre')
+    expect(mainNeedItemPool({ knightLevel: 18 })).toContain('mithrilOre')
+    expect(mainNeedItemPool({ knightLevel: 18 })).not.toContain('tool')
+    expect(mainNeedItemPool({ knightLevel: 20 })).toContain('tool')
+    expect(mainNeedItemPool()).toEqual(['herb', 'spice'])
+    expect(MAIN_NEED_ITEM_POOL).toEqual(mainNeedItemPool({ knightLevel: 20 }))
     expect(MAIN_NEED_ITEM_POOL).not.toContain('potion')
   })
 
-  it('picks only herbalism goods in chapter 1 and potions from chapter 2', () => {
-    const ch1 = new Set<ItemId>()
-    const ch2 = new Set<ItemId>()
+  it('picks only herbalism goods at knight 1 and potions once alchemy unlocks', () => {
+    const lv1 = new Set<ItemId>()
+    const lv2 = new Set<ItemId>()
     for (let seed = 1; seed <= 80; seed++) {
-      ch1.add(pickMainNeedItem({ rngState: seed }, 'green', 1))
-      ch2.add(pickMainNeedItem({ rngState: seed }, 'green', 2))
+      lv1.add(pickMainNeedItem({ rngState: seed }, 'green', 8, false, { knightLevel: 1 }))
+      lv2.add(pickMainNeedItem({ rngState: seed }, 'green', 1, false, { knightLevel: 2 }))
     }
-    expect([...ch1].sort()).toEqual(['herb', 'spice'])
-    expect([...ch2].every((id) => id === 'herb' || id === 'spice' || isPotionItemId(id))).toBe(true)
-    expect([...ch2].some((id) => isPotionItemId(id))).toBe(true)
-    expect(ch2.has('potion')).toBe(false)
-    expect(ch2.has('meal')).toBe(false)
+    expect([...lv1].sort()).toEqual(['herb', 'spice'])
+    expect([...lv2].every((id) => id === 'herb' || id === 'spice' || isPotionItemId(id))).toBe(true)
+    expect([...lv2].some((id) => isPotionItemId(id))).toBe(true)
+    expect(lv2.has('potion')).toBe(false)
+    expect(lv2.has('meal')).toBe(false)
   })
 
   it('still resolves tool and potion markers inside the allowed pool', () => {
     expect(resolveMainNeedItem('tool', 'green', 1, false, undefined, 0)).toBe('miningTool01')
     expect(isPotionItemId(resolveMainNeedItem('potion', 'green', 1, false, undefined, 0))).toBe(true)
-    expect(resolveChapterMainNeedItem('tool', 'green', 1)).toMatch(/^herb|spice$/)
-    expect(isPotionItemId(resolveChapterMainNeedItem('potion', 'green', 2, false, undefined, 0))).toBe(true)
-    expect(isStationToolId(resolveChapterMainNeedItem('tool', 'green', 6, false, undefined, 0))).toBe(true)
-    expect(resolveChapterMainNeedItem('salve', 'green', 2)).toBe('salve')
-    expect(resolveChapterMainNeedItem('meal', 'green', 4)).toBe('meal')
-    expect(resolveChapterMainNeedItem('meal', 'green', 1, false, undefined, 3)).toMatch(/^herb|spice$/)
+    expect(resolveUnlockedMainNeedItem('tool', 'green', 1, false, undefined, 0, { knightLevel: 1 })).toMatch(
+      /^herb|spice$/,
+    )
+    expect(
+      isPotionItemId(resolveUnlockedMainNeedItem('potion', 'green', 1, false, undefined, 0, { knightLevel: 2 })),
+    ).toBe(true)
+    expect(
+      isStationToolId(resolveUnlockedMainNeedItem('tool', 'green', 1, false, undefined, 0, { knightLevel: 20 })),
+    ).toBe(true)
+    expect(resolveUnlockedMainNeedItem('salve', 'green', 1, false, undefined, 0, { knightLevel: 2 })).toBe('salve')
+    expect(resolveUnlockedMainNeedItem('meal', 'green', 1, false, undefined, 0, { knightLevel: 8 })).toBe('meal')
+    expect(resolveUnlockedMainNeedItem('meal', 'green', 1, false, undefined, 3, { knightLevel: 1 })).toMatch(
+      /^herb|spice$/,
+    )
   })
 
   it('gates new battlefield needs and market wants; starter copper pawn stays ore ×2', () => {
     const save = createSave()
+    expect(save.knightLevel).toBe(1)
     expect(save.mainChapter).toBe(1)
     expect(save.marketEncounters[0].kind).toBe('pawn')
     if (save.marketEncounters[0].kind === 'pawn') {
@@ -502,8 +514,14 @@ describe('chapter-gated main need pool', () => {
       expect(['herb', 'spice']).toContain(needEntries(enc.needs)[0][0])
     }
 
-    const ch1Market = generateEncounterBoard(9, 4, { board: 'market', mainChapter: 1 })
-    for (const enc of ch1Market) {
+    const lv1Save = createSave()
+    lv1Save.knightLevel = 1
+    const lv1Market = generateEncounterBoard(9, 4, {
+      board: 'market',
+      mainChapter: 8,
+      save: lv1Save,
+    })
+    for (const enc of lv1Market) {
       if (enc.kind === 'passerby' || enc.kind === 'artisan' || enc.kind === 'bulkBuy') {
         expect(['herb', 'spice']).toContain(needEntries(enc.wants)[0][0])
       }
@@ -512,10 +530,16 @@ describe('chapter-gated main need pool', () => {
       }
     }
 
+    const openSave = createSave()
+    openSave.knightLevel = 20
     let sawTool = false
     let sawPotion = false
     for (let seed = 0; seed < 60; seed++) {
-      const battle = generateEncounterBoard(seed, 4, { board: 'battlefield', mainChapter: 6 })
+      const battle = generateEncounterBoard(seed, 4, {
+        board: 'battlefield',
+        mainChapter: 1,
+        save: openSave,
+      })
       for (const enc of battle) {
         if (enc.kind !== 'enemy') continue
         const id = needEntries(enc.needs)[0][0]

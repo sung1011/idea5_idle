@@ -29,10 +29,9 @@ import {
 } from './mainChapter'
 import { canAffordCosts, missingCostLabels, takeCosts } from './costs'
 import { normalizeRngState, roll01 } from './rng'
-import { STATION_UNLOCK_KNIGHT } from './stationUnlock'
+import { STATION_UNLOCK_KNIGHT_MAX, unlockedStationIds } from './stationUnlock'
 import {
   ITEM_DEF,
-  PLAYABLE_STATION_IDS,
   POTION_ITEM_IDS,
   STATION_IDS,
   STATION_TOOL_COUNT,
@@ -348,22 +347,20 @@ export function mainNeedOutputsOfStation(stationId: StationId): readonly ItemId[
 }
 
 /**
- * 章节门控种类池，与骑士开站顺序一致：
- * 第 1 章采药 → 第 2 章 +炼金 → 第 3 章 +狩猎 → 第 4 章 +烹饪 → 第 5 章 +采矿 → 第 6 章 +锻造工具。
+ * 主线需求种类池：只跟当前已解锁工位走（同一套骑士门槛表）。
+ * 无存档按骑士 1 级（只开采药）。
  */
-export function mainNeedItemPoolForChapter(chapter: unknown): readonly ItemId[] {
-  const ch = normalizeMainChapter(chapter)
+export function mainNeedItemPool(save?: Pick<Save, 'knightLevel'> | null): readonly ItemId[] {
   const pool: ItemId[] = []
-  for (const stationId of PLAYABLE_STATION_IDS) {
-    if (STATION_UNLOCK_KNIGHT[stationId] > ch) continue
+  for (const stationId of unlockedStationIds(save ?? { knightLevel: 1 })) {
     for (const id of mainNeedOutputsOfStation(stationId)) {
       if (!pool.includes(id)) pool.push(id)
     }
   }
-  return pool
+  return pool.length > 0 ? pool : [...mainNeedOutputsOfStation('herbalism')]
 }
 
-/** 种类是否落在本章池内（含 tool / potion 标记，以及已落地的药剂 / 专属工具）。 */
+/** 种类是否落在当前已解锁池内（含 tool / potion 标记，以及已落地的药剂 / 专属工具）。 */
 export function isAllowedMainNeedKind(itemId: ItemId, pool: readonly ItemId[]): boolean {
   if ((pool as readonly string[]).includes(itemId)) return true
   if (itemId === 'potion') return pool.includes('potion') || pool.some((id) => isPotionItemId(id))
@@ -386,13 +383,13 @@ function pickFromMainNeedPool(
 }
 
 /**
- * 全解锁种类池（第 6 章+）。新刷实际抽取走 `mainNeedItemPoolForChapter`。
+ * 六站全开时的种类池。新刷实际抽取走 `mainNeedItemPool`（按当前已解锁工位）。
  * `tool` 只是种类标记：落地时改抽 `MAIN_NEED_TOOL_POOL`（锻造可造的各站专属工具）。
  * `potion` 同样是种类标记：落地时改抽 7 种药剂之一。
  */
-export const MAIN_NEED_ITEM_POOL: readonly ItemId[] = mainNeedItemPoolForChapter(
-  STATION_UNLOCK_KNIGHT.forging,
-)
+export const MAIN_NEED_ITEM_POOL: readonly ItemId[] = mainNeedItemPool({
+  knightLevel: STATION_UNLOCK_KNIGHT_MAX,
+})
 
 /** 订单要工具时的 id 池，与 `STATION_TOOL_DEF` / 锻造配方同一套。 */
 export const MAIN_NEED_TOOL_POOL: readonly ItemId[] = STATION_TOOL_IDS
@@ -619,16 +616,17 @@ export function resolveMainNeedItem(
   return pickMainNeedTool(quality, chapter, chapterBoss, rng, salt)
 }
 
-/** 新刷交物：本章池内的 tool / potion 标记照常 resolve；池外种类改从本章池抽。 */
-export function resolveChapterMainNeedItem(
+/** 新刷交物：已解锁池内的 tool / potion 标记照常 resolve；池外种类改从已解锁池抽。 */
+export function resolveUnlockedMainNeedItem(
   itemId: ItemId,
   quality: EncounterQuality,
   chapter: unknown,
   chapterBoss = false,
   rng?: { rngState: number },
   salt = 0,
+  save?: Pick<Save, 'knightLevel'> | null,
 ): ItemId {
-  const pool = mainNeedItemPoolForChapter(chapter)
+  const pool = mainNeedItemPool(save)
   const picked = isAllowedMainNeedKind(itemId, pool) ? itemId : pickFromMainNeedPool(pool, rng, salt)
   return resolveMainNeedItem(picked, quality, chapter, chapterBoss, rng, salt)
 }
@@ -668,8 +666,9 @@ export function pickMainNeedItem(
   quality: EncounterQuality,
   chapter: unknown,
   chapterBoss = false,
+  save?: Pick<Save, 'knightLevel'> | null,
 ): ItemId {
-  const pool = mainNeedItemPoolForChapter(chapter)
+  const pool = mainNeedItemPool(save)
   return resolveMainNeedItem(pickFromMainNeedPool(pool, rng), quality, chapter, chapterBoss, rng)
 }
 
@@ -969,14 +968,15 @@ function makeEnemy(
   const q = qualityDef(resolvedQuality)
   const enemyRank = mainlineEnemyRank(resolvedQuality, forceChapterBoss)
   const itemId = rng
-    ? pickMainNeedItem(rng, resolvedQuality, chapter, forceChapterBoss)
-    : resolveChapterMainNeedItem(
-        pickFromMainNeedPool(mainNeedItemPoolForChapter(chapter), undefined, seed + slot),
+    ? pickMainNeedItem(rng, resolvedQuality, chapter, forceChapterBoss, save)
+    : resolveUnlockedMainNeedItem(
+        pickFromMainNeedPool(mainNeedItemPool(save), undefined, seed + slot),
         resolvedQuality,
         chapter,
         forceChapterBoss,
         undefined,
         seed + slot,
+        save,
       )
   return seedInitialRevealedWeaknesses({
     kind: 'enemy',
@@ -1020,10 +1020,19 @@ function makePasserby(
   quality: EncounterQuality,
   chapter = 1,
   rng?: { rngState: number },
+  save?: Save,
 ): PasserbyEncounter {
   const def = PASSERBY_DEFS[(seed + slot) % PASSERBY_DEFS.length]
   const q = qualityDef(quality)
-  const wantItem = resolveChapterMainNeedItem(firstNeedItem(def.wants), quality, chapter, false, rng, seed + slot)
+  const wantItem = resolveUnlockedMainNeedItem(
+    firstNeedItem(def.wants),
+    quality,
+    chapter,
+    false,
+    rng,
+    seed + slot,
+    save,
+  )
   return {
     kind: 'passerby',
     id: `${def.id}-${quality}-${seed}-${slot}`,
@@ -1041,10 +1050,19 @@ function makePawn(
   quality: EncounterQuality,
   chapter = 1,
   rng?: { rngState: number },
+  save?: Save,
 ): PawnEncounter {
   const def = PAWN_DEFS[(seed + slot) % PAWN_DEFS.length]
   const q = qualityDef(quality)
-  const wantItem = resolveChapterMainNeedItem(firstNeedItem(def.pawnWants), quality, chapter, false, rng, seed + slot)
+  const wantItem = resolveUnlockedMainNeedItem(
+    firstNeedItem(def.pawnWants),
+    quality,
+    chapter,
+    false,
+    rng,
+    seed + slot,
+    save,
+  )
   const pawnWants = scaledMainNeed(wantItem, quality, chapter)
   return {
     kind: 'pawn',
@@ -1093,10 +1111,19 @@ function makeArtisan(
   quality: EncounterQuality,
   chapter = 1,
   rng?: { rngState: number },
+  save?: Save,
 ): ArtisanEncounter {
   const def = ARTISAN_DEFS[(seed + slot) % ARTISAN_DEFS.length]
   const q = qualityDef(quality)
-  const wantItem = resolveChapterMainNeedItem(firstNeedItem(def.wants), quality, chapter, false, rng, seed + slot)
+  const wantItem = resolveUnlockedMainNeedItem(
+    firstNeedItem(def.wants),
+    quality,
+    chapter,
+    false,
+    rng,
+    seed + slot,
+    save,
+  )
   return {
     kind: 'artisan',
     id: `${def.id}-${quality}-${seed}-${slot}`,
@@ -1116,10 +1143,19 @@ function makeBulkBuy(
   quality: EncounterQuality,
   chapter = 1,
   rng?: { rngState: number },
+  save?: Save,
 ): BulkBuyEncounter {
   const def = BULK_BUY_DEFS[(seed + slot) % BULK_BUY_DEFS.length]
   const q = qualityDef(quality)
-  const wantItem = resolveChapterMainNeedItem(firstNeedItem(def.wants), quality, chapter, false, rng, seed + slot)
+  const wantItem = resolveUnlockedMainNeedItem(
+    firstNeedItem(def.wants),
+    quality,
+    chapter,
+    false,
+    rng,
+    seed + slot,
+    save,
+  )
   const wants = scaledMainNeed(wantItem, quality, chapter)
   return {
     kind: 'bulkBuy',
@@ -1144,10 +1180,10 @@ function makeEncounter(
 ): Encounter {
   if (kind === 'enemy') return makeEnemy(seed, slot, quality, forceChapterBoss, chapter, rng, save)
   if (kind === 'blackMerchant') return makeBlackMerchant(seed, slot, quality, chapter)
-  if (kind === 'passerby') return makePasserby(seed, slot, quality, chapter, rng)
-  if (kind === 'pawn') return makePawn(seed, slot, quality, chapter, rng)
-  if (kind === 'artisan') return makeArtisan(seed, slot, quality, chapter, rng)
-  return makeBulkBuy(seed, slot, quality, chapter, rng)
+  if (kind === 'passerby') return makePasserby(seed, slot, quality, chapter, rng, save)
+  if (kind === 'pawn') return makePawn(seed, slot, quality, chapter, rng, save)
+  if (kind === 'artisan') return makeArtisan(seed, slot, quality, chapter, rng, save)
+  return makeBulkBuy(seed, slot, quality, chapter, rng, save)
 }
 
 function pickKindForBoard(

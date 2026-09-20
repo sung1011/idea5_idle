@@ -346,7 +346,7 @@ describe('assign resting to first empty slot', () => {
     assignWorker(save, herbB.id, 'herbalism')
     const idle = spawnWorkerWith(save, 2, 'miner')
     expect(firstEmptyDispatchStation(save)).toBeNull()
-    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '骑士 2 级开放' })
+    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '骑士 2 级开放炼金' })
     expect(idle.assignment).toBeNull()
 
     unlockPlayableStations(save)

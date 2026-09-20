@@ -198,7 +198,7 @@ describe('worker drag assign', () => {
     )
     expect(applyWorkerDrag(save, { kind: 'rest', workerId: idle.id }, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toEqual({
       ok: false,
-      reason: '骑士 5 级开放',
+      reason: '骑士 18 级开放采矿',
     })
     expect(assignWorker(save, idle.id, 'herbalism').ok).toBe(true)
   })
