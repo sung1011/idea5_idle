@@ -5,13 +5,16 @@ import { spawnWorkerWith } from '../sim/recruit'
 import { createSave } from '../sim/createSave'
 import { STATION_WORKER_CAP, WORKER_QUALITY_TABLE } from '../sim/tables'
 import type { EnemyEncounter } from '../sim/types'
-import { WORKSHOP_TAB_IDS } from './workshopTabs'
+import { DISPATCH_STATION_IDS, WORKSHOP_GROUPS, WORKSHOP_TAB_IDS } from './workshopTabs'
 import {
   CREW_DOT_EMPTY,
   DEFAULT_WORKER_GROUP_ORDER,
   WORKER_GROUP_ORDER_KEY,
+  assignRestingToFirstEmpty,
   canAssignWorkerTo,
+  canDispatchRestingWorker,
   canGoToAssignedWorkshop,
+  firstEmptyDispatchStation,
   groupWorkersByQuality,
   loadWorkerGroupOrder,
   rosterDutyCounts,
@@ -243,6 +246,93 @@ describe('workshop station boards', () => {
     if (enc.combat) enc.combat.outcome = 'win'
     expect(mainlineCombatWorkers(save)).toEqual([])
     expect(restingWorkers(save).map((worker) => worker.id)).toEqual([rest.id, fighter.id])
+  })
+})
+
+describe('assign resting to first empty slot', () => {
+  it('scans workshop groups 药剂 / 食物 / 武器 top to bottom, left to right', () => {
+    expect(DISPATCH_STATION_IDS).toEqual(WORKSHOP_GROUPS.flatMap((row) => [...row.stations]))
+    expect(DISPATCH_STATION_IDS).toEqual([
+      'herbalism',
+      'alchemy',
+      'hunting',
+      'cooking',
+      'mining',
+      'forging',
+    ])
+  })
+
+  it('rejects when nobody is resting or every slot is full', () => {
+    const empty = createSave()
+    expect(firstEmptyDispatchStation(empty)).toBe('herbalism')
+    expect(canDispatchRestingWorker(empty)).toBe(false)
+    expect(assignRestingToFirstEmpty(empty)).toEqual({ ok: false, reason: '没有可派的工人' })
+
+    const save = createSave()
+    const fighter = spawnWorkerWith(save, 1, 'wanderer')
+    const enc: EnemyEncounter = {
+      kind: 'enemy',
+      id: 'test-enemy',
+      label: '试敌',
+      quality: 'green',
+      needs: { meal: 1 },
+      lootGold: 8,
+      departed: false,
+      combat: null,
+      lootClaimed: false,
+      enemyRank: 'minion',
+      weaknesses: ['fire'],
+      revealedWeaknesses: [],
+    }
+    save.encounters[0] = enc
+    beginEnemyCombat(enc, [fighter], 1_000)
+    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '没有可派的工人' })
+
+    const full = createSave()
+    for (const stationId of DISPATCH_STATION_IDS) {
+      const a = spawnWorkerWith(full, 1, 'laborer')
+      const b = spawnWorkerWith(full, 1, 'artisan')
+      assignWorker(full, a.id, stationId)
+      assignWorker(full, b.id, stationId)
+    }
+    const leftover = spawnWorkerWith(full, 1, 'wanderer')
+    expect(firstEmptyDispatchStation(full)).toBeNull()
+    expect(canDispatchRestingWorker(full)).toBe(false)
+    expect(assignRestingToFirstEmpty(full)).toEqual({ ok: false, reason: '工位已满' })
+    expect(leftover.assignment).toBeNull()
+  })
+
+  it('takes the top resting worker and fills herbalism before later stations', () => {
+    const save = createSave()
+    const first = spawnWorkerWith(save, 1, 'laborer')
+    const second = spawnWorkerWith(save, 1, 'artisan')
+    expect(restingWorkers(save).map((w) => w.id)).toEqual([first.id, second.id])
+    expect(canDispatchRestingWorker(save)).toBe(true)
+    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: true })
+    expect(first.assignment).toBe('herbalism')
+    expect(second.assignment).toBeNull()
+
+    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: true })
+    expect(second.assignment).toBe('herbalism')
+  })
+
+  it('skips full herbalism and fills alchemy, then hunting', () => {
+    const save = createSave()
+    const herbA = spawnWorkerWith(save, 1, 'laborer')
+    const herbB = spawnWorkerWith(save, 1, 'artisan')
+    assignWorker(save, herbA.id, 'herbalism')
+    assignWorker(save, herbB.id, 'herbalism')
+    const idle = spawnWorkerWith(save, 2, 'miner')
+    expect(firstEmptyDispatchStation(save)).toBe('alchemy')
+    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: true })
+    expect(idle.assignment).toBe('alchemy')
+
+    const alcB = spawnWorkerWith(save, 1, 'wanderer')
+    assignWorker(save, alcB.id, 'alchemy')
+    const next = spawnWorkerWith(save, 3, 'hunter')
+    expect(firstEmptyDispatchStation(save)).toBe('hunting')
+    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: true })
+    expect(next.assignment).toBe('hunting')
   })
 })
 

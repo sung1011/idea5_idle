@@ -3,6 +3,7 @@ import {
   DEFAULT_WORKSHOP_GROUP,
   DEFAULT_WORKSHOP_TAB,
   LEGACY_WORKSHOP_LINE_KEY,
+  DISPATCH_STATION_IDS,
   WORKSHOP_GROUPS,
   WORKSHOP_RAIL_ROW_COUNT,
   WORKSHOP_TAB_IDS,
@@ -78,6 +79,7 @@ describe('workshopTabs', () => {
     expect(workshopGroupOfStation('cooking')).toBe('food')
     expect(workshopGroupOfStation('mining')).toBe('weapon')
     expect(workshopGroupOfStation('forging')).toBe('weapon')
+    expect(DISPATCH_STATION_IDS).toEqual(['herbalism', 'alchemy', 'hunting', 'cooking', 'mining', 'forging'])
     expect(stationsOfWorkshopGroup('potion')).toEqual(['herbalism', 'alchemy'])
     expect(isWorkshopGroupId('potion')).toBe(true)
     expect(isWorkshopGroupId('mining')).toBe(false)

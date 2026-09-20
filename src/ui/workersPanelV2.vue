@@ -41,6 +41,7 @@ import HpBar from './hpBar.vue'
 import { hpBarFill, hpBarTone } from './hpBar'
 import { workerWearHp } from '../sim/workshopHp'
 import {
+  canDispatchRestingWorker,
   canGoToAssignedWorkshop,
   mainlineCombatWorkers,
   restingWorkers,
@@ -80,6 +81,7 @@ const pickPotionIndex = ref<number | null>(null)
 const boards = computed(() => workshopStationBoards(game.save))
 const fightingRoster = computed(() => mainlineCombatWorkers(game.save))
 const resting = computed(() => restingWorkers(game.save))
+const canDispatch = computed(() => canDispatchRestingWorker(game.save))
 const selected = computed(() => {
   const id = selectedId.value
   if (!id) return null
@@ -641,13 +643,25 @@ onUnmounted(() => {
         {{ drag.name }}
       </div>
     </Teleport>
-    <button type="button" class="recruit-fab" :class="{ 'guide-flash': guideFlashRecruit }" @click="game.recruit()">
-      <span class="recruit-plus" aria-hidden="true">＋</span>
-      <span class="recruit-copy">
-        <b>抽工人</b>
-        <small>{{ recruitCost(game.save) }} 金</small>
-      </span>
-    </button>
+    <div class="roster-fabs">
+      <button
+        type="button"
+        class="dispatch-fab"
+        :class="{ off: !canDispatch }"
+        :aria-disabled="!canDispatch"
+        aria-label="派入"
+        @click="game.assignRestingToFirstEmpty()"
+      >
+        <b>派入</b>
+      </button>
+      <button type="button" class="recruit-fab" :class="{ 'guide-flash': guideFlashRecruit }" @click="game.recruit()">
+        <span class="recruit-plus" aria-hidden="true">＋</span>
+        <span class="recruit-copy">
+          <b>抽工人</b>
+          <small>{{ recruitCost(game.save) }} 金</small>
+        </span>
+      </button>
+    </div>
   </section>
 
   <Teleport to="body">
@@ -1248,21 +1262,46 @@ onUnmounted(() => {
   box-shadow: 0 4px 0 var(--gold-deep);
 }
 
-.recruit-fab {
+.roster-fabs {
   position: absolute;
   right: 10px;
   bottom: 10px;
   z-index: 2;
   display: flex;
   align-items: center;
+  gap: 8px;
+}
+
+.dispatch-fab,
+.recruit-fab {
+  display: flex;
+  align-items: center;
   gap: 6px;
   min-height: 48px;
-  padding: 7px 14px 7px 10px;
   border: 0;
   border-radius: 16px;
   background: linear-gradient(#ffe27a, #e2a31a);
   color: #5a3010;
   box-shadow: 0 4px 0 var(--gold-deep);
+}
+
+.dispatch-fab {
+  padding: 7px 16px;
+}
+
+.dispatch-fab b {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.dispatch-fab.off {
+  opacity: 0.45;
+  filter: grayscale(0.28);
+  box-shadow: none;
+}
+
+.recruit-fab {
+  padding: 7px 14px 7px 10px;
 }
 
 .recruit-plus {

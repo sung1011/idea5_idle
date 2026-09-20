@@ -29,6 +29,9 @@ export const WORKSHOP_GROUPS: readonly WorkshopGroupDef[] = [
   { id: 'weapon', label: '武器', stations: ['mining', 'forging'] },
 ]
 
+/** 工人页「派入」扫空槽：组上→下、站内左→右。 */
+export const DISPATCH_STATION_IDS: readonly StationId[] = WORKSHOP_GROUPS.flatMap((row) => [...row.stations])
+
 export const WORKSHOP_GROUP_IDS: readonly WorkshopGroupId[] = WORKSHOP_GROUPS.map((row) => row.id)
 
 const STATION_TO_GROUP = {

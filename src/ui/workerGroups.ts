@@ -1,10 +1,10 @@
-import { assignedWorkers } from '../sim/assign'
+import { assignedWorkers, assignWorker } from '../sim/assign'
 import { fightingWorkerIds, isWorkerInCombat } from '../sim/combat'
 import { canFuseWorkerWithStation } from '../sim/fuse'
 import { QUALITY_TIERS, STATION_DEF, STATION_WORKER_CAP, WORKER_QUALITY_TABLE } from '../sim/tables'
-import type { QualityTier, Save, StationId, Worker, WorkerQualityId } from '../sim/types'
+import type { ActionResult, QualityTier, Save, StationId, Worker, WorkerQualityId } from '../sim/types'
 import { railWorkerDotColors } from './workshopRail'
-import { WORKSHOP_TAB_IDS } from './workshopTabs'
+import { DISPATCH_STATION_IDS, WORKSHOP_TAB_IDS } from './workshopTabs'
 
 export type WorkerGroupOrder = 'highFirst' | 'lowFirst'
 
@@ -232,4 +232,25 @@ export function mainlineCombatWorkers(save: Save): Worker[] {
 /** 未派驻且未在主线战斗。名册原序。 */
 export function restingWorkers(save: Save): Worker[] {
   return save.workers.filter((worker) => worker.assignment === null && !isWorkerInCombat(save, worker.id))
+}
+
+/** 药剂→食物→武器，站内左槽先于右槽；满员跳过。 */
+export function firstEmptyDispatchStation(save: Save): StationId | null {
+  for (const stationId of DISPATCH_STATION_IDS) {
+    if (assignedWorkers(save, stationId).length < STATION_WORKER_CAP) return stationId
+  }
+  return null
+}
+
+export function canDispatchRestingWorker(save: Save): boolean {
+  return restingWorkers(save).length > 0 && firstEmptyDispatchStation(save) != null
+}
+
+/** 休息区首位派到第一空槽。沿用 assignWorker。 */
+export function assignRestingToFirstEmpty(save: Save): ActionResult {
+  const idle = restingWorkers(save)[0]
+  if (!idle) return { ok: false, reason: '没有可派的工人' }
+  const stationId = firstEmptyDispatchStation(save)
+  if (!stationId) return { ok: false, reason: '工位已满' }
+  return assignWorker(save, idle.id, stationId)
 }

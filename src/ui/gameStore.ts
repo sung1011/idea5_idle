@@ -41,6 +41,7 @@ import { pushFloatTip } from './floatTips'
 import { clearSave, loadSave, persistSave } from './saveGame'
 import { pushCycleGain } from './stationTips'
 import { applyWorkerDrag, type WorkerDragSource, type WorkerDropTarget } from './workerDrag'
+import { assignRestingToFirstEmpty } from './workerGroups'
 
 export const useGameStore = defineStore('game', () => {
   // 整份 Save 替换，不用深层响应式，避免 structuredClone 撞上 Proxy。
@@ -145,6 +146,7 @@ export const useGameStore = defineStore('game', () => {
     fuseWorker: (workerId: string, stationId: StationId) =>
       apply((s) => fuseWorkerWithStation(s, workerId, stationId)),
     assignIdle: (stationId: StationId) => apply((s) => assignIdleWorker(s, stationId)),
+    assignRestingToFirstEmpty: () => apply(assignRestingToFirstEmpty),
     withdraw: (stationId: StationId) => apply((s) => withdrawWorker(s, stationId)),
     assign: (workerId: string, stationId: StationId | null) => apply((s) => assignWorker(s, workerId, stationId)),
     dragAssign: (source: WorkerDragSource, target: WorkerDropTarget) => apply((s) => applyWorkerDrag(s, source, target)),
