@@ -670,15 +670,15 @@ onUnmounted(unbindDrag)
   left: 0;
   z-index: 0;
   pointer-events: none;
-  background: var(--bar-fill-gold);
+  background: linear-gradient(90deg, rgba(243, 208, 106, 0.34), rgba(232, 195, 90, 0.22));
 }
 
 .hp-full .hp-fill {
-  background: var(--bar-fill-moss);
+  background: linear-gradient(90deg, rgba(174, 226, 122, 0.34), rgba(122, 214, 78, 0.22));
 }
 
 .hp-low .hp-fill {
-  background: var(--bar-fill-hp);
+  background: linear-gradient(90deg, rgba(240, 160, 140, 0.34), rgba(226, 110, 96, 0.22));
 }
 
 .avatar {
