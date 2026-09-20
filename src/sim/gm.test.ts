@@ -16,7 +16,15 @@ import {
   gmFillBankBasics,
   gmMaxStations,
   gmResetSave,
+  gmSkipGuide,
 } from './gm'
+import {
+  GUIDE_QUEST_DONE_STEP,
+  GUIDE_QUEST_PHASE2_START,
+  GUIDE_QUEST_REV,
+  guideQuestView,
+  isGuideQuestVisible,
+} from './guideQuest'
 import { QUALITY_MAX, START_DIAMONDS, START_GOLD, classPoolForQuality } from './tables'
 
 describe('gm debug grants', () => {
@@ -112,5 +120,33 @@ describe('gm debug grants', () => {
     expect(gmAddTechPoints(save)).toEqual({ ok: true, message: '灵感 +10000' })
     expect(save.techPoints).toBe(before + GM_TECH_POINTS_GRANT)
     expect(save.techPoints).toBe(before + 10000)
+  })
+
+  it('skips both guide phases without paying unclaimed step gold', () => {
+    const save = createSave()
+    const gold = save.gold
+    const knight = save.knightLevel
+    const tech = save.techPoints
+    const workers = save.workers.length
+    expect(isGuideQuestVisible(save)).toBe(true)
+    expect(gmSkipGuide(save)).toEqual({ ok: true, message: '已跳过引导' })
+    expect(save.guideQuestStep).toBe(GUIDE_QUEST_DONE_STEP)
+    expect(save.guideQuestRev).toBe(GUIDE_QUEST_REV)
+    expect(save.gold).toBe(gold)
+    expect(save.knightLevel).toBe(knight)
+    expect(save.techPoints).toBe(tech)
+    expect(save.workers).toHaveLength(workers)
+    expect(guideQuestView(save)).toBeNull()
+    expect(isGuideQuestVisible(save)).toBe(false)
+
+    save.guideQuestStep = GUIDE_QUEST_PHASE2_START
+    save.knightLevel = 2
+    const gold2 = save.gold
+    expect(guideQuestView(save)?.title).toBe('进阶 · 1/3')
+    expect(gmSkipGuide(save).ok).toBe(true)
+    expect(save.guideQuestStep).toBe(GUIDE_QUEST_DONE_STEP)
+    expect(save.gold).toBe(gold2)
+    expect(save.knightLevel).toBe(2)
+    expect(isGuideQuestVisible(save)).toBe(false)
   })
 })

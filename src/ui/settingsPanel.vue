@@ -88,9 +88,10 @@ onUnmounted(() => {
       </div>
 
       <div v-else class="body">
-        <p class="hint">仅调试用。初始化会重开存档。</p>
+        <p class="hint">仅调试用。初始化会重开存档。跳过引导不发未领金币。</p>
         <div class="row">
           <button type="button" @click="game.gmReset()">初始化</button>
+          <button type="button" @click="game.gmSkipGuide()">跳过引导</button>
           <button type="button" @click="game.gmAddGold()">加金币 1w</button>
           <button type="button" @click="game.gmAddDiamonds()">加钻石 1w</button>
           <button type="button" @click="game.gmAddWorkers()">加工人×5</button>

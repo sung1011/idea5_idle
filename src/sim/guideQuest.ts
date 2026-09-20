@@ -13,11 +13,13 @@ export const GUIDE_QUEST_DONE_STEP = GUIDE_QUEST_STEPS + 1
 export const GUIDE_QUEST_PHASE2_START = GUIDE_QUEST_PHASE1_STEPS + 1
 /** 骑士 2 级才开第二阶段（炼金 / 装槽 / 点用）。 */
 export const GUIDE_QUEST_PHASE2_KNIGHT = 2
-/** 新两阶段引导。缺字段或旧 5 步档按现况重落步号。 */
-export const GUIDE_QUEST_REV = 2
+/** 第一步须抽工人 2 次。缺字段或旧档按现况重落步号。 */
+export const GUIDE_QUEST_REV = 3
+/** 第一阶段「抽工人」完成所需次数（花名册人数或已生成序号，取较大）。 */
+export const GUIDE_QUEST_RECRUIT_NEED = 2
 
 export const GUIDE_QUEST_GOALS = [
-  '在工人中抽取工人（≥1）',
+  '抽取工人 2 次',
   '把工人派入采药',
   '合成两名同品质工人',
   '在主线中点击战斗',
@@ -122,10 +124,21 @@ export function isGuideQuestPhase2Open(save: Pick<Save, 'knightLevel'>): boolean
   return knightLevelOf(save) >= GUIDE_QUEST_PHASE2_KNIGHT
 }
 
+/** 已抽/已生成工人次数。花名册与 nextWorkerId 取较大，合成后仍算抽过。 */
+export function guideQuestRecruitCount(save: Pick<Save, 'workers' | 'nextWorkerId'>): number {
+  const roster = save.workers.length
+  const spawned = Math.max(0, Math.floor(save.nextWorkerId) - 1)
+  return Math.max(roster, spawned)
+}
+
+export function hasRecruitedGuideWorkers(save: Pick<Save, 'workers' | 'nextWorkerId'>): boolean {
+  return guideQuestRecruitCount(save) >= GUIDE_QUEST_RECRUIT_NEED
+}
+
 export function guideQuestProgressAt(save: Save, step: number): 0 | 1 {
   switch (step) {
     case 1:
-      return save.workers.length >= 1 ? 1 : 0
+      return hasRecruitedGuideWorkers(save) ? 1 : 0
     case 2:
       return hasAssignedHerbalism(save) ? 1 : 0
     case 3:
@@ -222,6 +235,9 @@ export function guideQuestView(save: Save): GuideQuestView | null {
   const phase: 1 | 2 = step <= GUIDE_QUEST_PHASE1_STEPS ? 1 : 2
   const phaseStep = phase === 1 ? step : step - GUIDE_QUEST_PHASE1_STEPS
   const phaseTotal = phase === 1 ? GUIDE_QUEST_PHASE1_STEPS : GUIDE_QUEST_PHASE2_STEPS
+  const recruitHave = Math.min(guideQuestRecruitCount(save), GUIDE_QUEST_RECRUIT_NEED)
+  const denom = step === 1 ? GUIDE_QUEST_RECRUIT_NEED : 1
+  const numer = step === 1 ? recruitHave : progress
   return {
     step,
     phase,
@@ -230,9 +246,9 @@ export function guideQuestView(save: Save): GuideQuestView | null {
     title: phase === 1 ? `主线 · ${phaseStep}/${phaseTotal}` : `进阶 · ${phaseStep}/${phaseTotal}`,
     goal: GUIDE_QUEST_GOALS[step - 1] ?? '',
     progress,
-    progressLabel: claimable ? `进度 ${progress}/1 · 可领` : `进度 ${progress}/1`,
+    progressLabel: claimable ? `进度 ${numer}/${denom} · 可领` : `进度 ${numer}/${denom}`,
     claimable,
-    fillPct: claimable ? 100 : 0,
+    fillPct: denom > 0 ? Math.round((numer / denom) * 100) : 0,
   }
 }
 

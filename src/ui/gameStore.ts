@@ -12,6 +12,7 @@ import {
   gmFillBankBasics,
   gmMaxStations,
   gmResetSave,
+  gmSkipGuide,
 } from '../sim/gm'
 import { hasUnread, listedMessages, markAllRead } from '../sim/messages'
 import { settleOffline } from '../sim/offline'
@@ -188,6 +189,7 @@ export const useGameStore = defineStore('game', () => {
     gmFillBankBasics: () => apply(gmFillBankBasics),
     gmAddTechPoints: () => apply(gmAddTechPoints),
     gmResetTech: () => apply(resetAllTech),
+    gmSkipGuide: () => apply(gmSkipGuide),
     markAllRead: () => apply(markAllRead),
     researchNextTech: () => apply(researchNextTech),
     researchTech: (techId: string) => apply((s) => researchTech(s, techId)),

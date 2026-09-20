@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createSave, normalizeDiamonds } from './createSave'
+import { GUIDE_QUEST_REV } from './guideQuest'
 import { spawnWorker } from './recruit'
 import { PLAYABLE_STATION_IDS, START_DIAMONDS, START_GOLD, START_TECH_POINTS, STATION_IDS, WORKER_QUALITY_REV } from './tables'
 
@@ -70,7 +71,7 @@ describe('createSave six stations', () => {
     expect(save.mainChapter).toBe(1)
     expect(save.mainLootClaims).toBe(0)
     expect(save.guideQuestStep).toBe(1)
-    expect(save.guideQuestRev).toBe(2)
+    expect(save.guideQuestRev).toBe(GUIDE_QUEST_REV)
     expect(save.guideQuestPotionUsed).toBe(false)
     expect(save.starterCopperPawnDone).toBe(false)
     expect(save.stations.herbalism.stationLevel).toBe(1)

@@ -57,9 +57,9 @@ describe('guideQuest normalize and hydrate', () => {
       phaseStep: 1,
       phaseTotal: 4,
       title: '主线 · 1/4',
-      goal: '在工人中抽取工人（≥1）',
+      goal: '抽取工人 2 次',
       progress: 0,
-      progressLabel: '进度 0/1',
+      progressLabel: '进度 0/2',
       claimable: false,
       fillPct: 0,
     })
@@ -83,10 +83,21 @@ describe('guideQuest normalize and hydrate', () => {
   })
 
   it('migrates an old 5-step save onto the first incomplete new step', () => {
+    const once = createSave()
+    spawnWorker(once)
+    once.stations.mining.completed = 2
+    const { guideQuestStep: _onceStep, guideQuestRev: _onceRev, starterCopperPawnDone: _pawn, ...onceRaw } =
+      once
+    hydrateGuideQuestFields(onceRaw as Save, onceRaw)
+    expect((onceRaw as Save).guideQuestStep).toBe(1)
+    expect((onceRaw as Save).guideQuestRev).toBe(GUIDE_QUEST_REV)
+    expect(guideQuestProgressAt(onceRaw as Save, 1)).toBe(0)
+
     const mid = createSave()
     spawnWorker(mid)
+    spawnWorker(mid)
     mid.stations.mining.completed = 2
-    const { guideQuestStep: _step, guideQuestRev: _rev, starterCopperPawnDone: _pawn, ...omitted } = mid
+    const { guideQuestStep: _step, guideQuestRev: _rev, ...omitted } = mid
     hydrateGuideQuestFields(omitted as Save, omitted)
     expect((omitted as Save).guideQuestStep).toBe(2)
     expect((omitted as Save).guideQuestRev).toBe(GUIDE_QUEST_REV)
@@ -106,6 +117,20 @@ describe('guideQuest normalize and hydrate', () => {
     expect((vetRaw as Save).guideQuestStep).toBe(GUIDE_QUEST_DONE_STEP)
     expect(isGuideQuestVisible(vetRaw as Save)).toBe(false)
     expect(guideQuestView(vetRaw as Save)).toBeNull()
+  })
+
+  it('does not auto-complete recruit step when an old rev-2 save only recruited once', () => {
+    const save = createSave()
+    spawnWorker(save)
+    save.guideQuestStep = 2
+    save.guideQuestRev = 2
+    hydrateGuideQuestFields(save, save)
+    expect(save.guideQuestStep).toBe(1)
+    expect(save.guideQuestRev).toBe(GUIDE_QUEST_REV)
+    expect(guideQuestProgressAt(save, 1)).toBe(0)
+    expect(guideQuestView(save)?.progressLabel).toBe('进度 1/2')
+    expect(guideQuestView(save)?.claimable).toBe(false)
+    expect(claimGuideQuest(save).ok).toBe(false)
   })
 
   it('keeps a current-rev step number', () => {
@@ -148,10 +173,15 @@ describe('guideQuest steps and claim', () => {
     expect(GUIDE_QUEST_STEPS).toBe(7)
 
     expect(recruitWorker(save).ok).toBe(true)
+    expect(guideQuestProgressAt(save, 1)).toBe(0)
+    expect(guideQuestView(save)?.progressLabel).toBe('进度 1/2')
+    expect(claimGuideQuest(save).ok).toBe(false)
+    expect(recruitWorker(save).ok).toBe(true)
     expect(guideQuestProgressAt(save, 1)).toBe(1)
+    expect(guideQuestView(save)?.progressLabel).toBe('进度 2/2 · 可领')
     expect(claimGuideQuest(save)).toEqual({ ok: true, message: `金币 +${GUIDE_QUEST_GOLD}` })
     expect(save.guideQuestStep).toBe(2)
-    expect(save.gold).toBe(gold0 - RECRUIT_COST + GUIDE_QUEST_GOLD)
+    expect(save.gold).toBe(gold0 - RECRUIT_COST * 2 + GUIDE_QUEST_GOLD)
 
     expect(guideQuestView(save)?.goal).toBe('把工人派入采药')
     expect(assignWorker(save, save.workers[0].id, 'herbalism').ok).toBe(true)
@@ -227,6 +257,8 @@ describe('guideQuest flash target', () => {
     expect(isGuideQuestFlash(save, 'assignHerb')).toBe(false)
 
     expect(recruitWorker(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBe('recruit')
+    expect(recruitWorker(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBeNull()
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('assignHerb')
@@ -264,7 +296,13 @@ describe('guideQuest flash target', () => {
   })
 
   it('infers first incomplete step for missing fields', () => {
+    const once = createSave()
+    spawnWorker(once)
+    once.workers[0].assignment = 'herbalism'
+    expect(firstIncompleteGuideQuestStep(once)).toBe(1)
+
     const save = createSave()
+    spawnWorker(save)
     spawnWorker(save)
     save.workers[0].assignment = 'herbalism'
     expect(firstIncompleteGuideQuestStep(save)).toBe(3)

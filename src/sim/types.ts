@@ -391,7 +391,7 @@ export type Save = {
    * 旧 5 步档或缺 `guideQuestRev`：按现况落到第一未完成新步。
    */
   guideQuestStep: number
-  /** 引导表版本。2 = 抽人 / 派采药 / 合成 / 战场 + 炼金 / 装槽 / 点用。缺或 <2 按新表重落步号。 */
+  /** 引导表版本。3 = 第一步抽工人 2 次。缺或低于当前 REV 按现况重落步号。 */
   guideQuestRev: number
   /** 是否已从药剂槽点用过。hydrate 时若有时效 buff 也算。 */
   guideQuestPotionUsed: boolean
