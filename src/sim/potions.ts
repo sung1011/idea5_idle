@@ -298,7 +298,7 @@ export function hydratePotionState(save: Save, raw?: unknown): void {
   }
   save.potionSlots = hydratePotionSlots(src.potionSlots ?? save.potionSlots)
   save.potionBuffs = hydrateBuffs(src.potionBuffs ?? save.potionBuffs, save.elapsedS)
-  for (const enc of save.encounters) {
+  for (const enc of [...save.encounters, ...(save.marketEncounters ?? [])]) {
     if (enc.kind === 'enemy') remapNeedMap(enc.needs)
     else if (enc.kind === 'blackMerchant') remapNeedMap(enc.buyOffers)
     else if (enc.kind === 'passerby') {

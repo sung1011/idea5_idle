@@ -277,7 +277,7 @@ export type BulkBuyDef = {
 export const BLACK_MERCHANT_DEFS: readonly BlackMerchantDef[] = [
   { id: 'merchantBuy', label: '干粮贩', buyGold: 8, buyOffers: { meal: 1 } },
   { id: 'merchantBuyOre', label: '矿石掮客', buyGold: 6, buyOffers: { ore: 2 } },
-  { id: 'merchantBuyBlade', label: '工具贩', buyGold: 12, buyOffers: { tool: 1 } },
+  { id: 'merchantBuyBlade', label: '工具贩', buyGold: 12, buyOffers: { miningTool01: 1 } },
   { id: 'merchantBuyCook', label: '行脚厨子', buyGold: 14, buyOffers: { meal: 2 } },
   { id: 'merchantBuyRoast', label: '烤肉贩', buyGold: 16, buyOffers: { roast: 1 } },
 ]
@@ -287,7 +287,7 @@ export const SHADY_DEFS = BLACK_MERCHANT_DEFS
 export const PASSERBY_DEFS: readonly PasserbyDef[] = [
   { id: 'merchantBarter', label: '换货路人', wants: { ore: 3 }, offers: { meal: 1 } },
   { id: 'merchantBarterOre', label: '矿换路人', wants: { fish: 3 }, offers: { ore: 2 } },
-  { id: 'merchantBarterBlade', label: '工具路人', wants: { ore: 3 }, offers: { tool: 1 } },
+  { id: 'merchantBarterBlade', label: '工具路人', wants: { ore: 3 }, offers: { miningTool01: 1 } },
   { id: 'merchantBarterCook', label: '干粮路人', wants: { meal: 1 }, offers: { ore: 2 } },
   { id: 'merchantBarterStew', label: '香料炖路人', wants: { stew: 1 }, offers: { spice: 2 } },
 ]
@@ -605,10 +605,68 @@ export function pickMainNeedItem(
   return resolveMainNeedItem(pool[idx], quality, chapter, chapterBoss, rng)
 }
 
-function singleOutputMap(map: EncounterNeedMap, mul: number): EncounterNeedMap {
-  const itemId = firstNeedItem(map)
+/** 报价 / 买货产出：通用工具改抽专属工具，裸 potion 并进 salve。 */
+function resolvedOutputMap(
+  map: EncounterNeedMap,
+  quality: EncounterQuality,
+  chapter: unknown,
+  mul: number,
+  rng?: { rngState: number },
+  salt = 0,
+): EncounterNeedMap {
+  const itemId = resolveMainNeedItem(firstNeedItem(map), quality, chapter, false, rng, salt)
   const qty = needEntries(map)[0]?.[1] ?? 1
   return { [itemId]: scaleQty(qty, mul) }
+}
+
+/** 旧档消耗 / 报价里的通用工具改成专属工具，裸 potion 并进 salve。 */
+function remapLegacyNeedMap(
+  map: EncounterNeedMap | undefined,
+  quality: EncounterQuality,
+  chapter: unknown,
+  chapterBoss = false,
+  salt = 0,
+): void {
+  if (!map) return
+  const bag = map as Record<string, number | undefined>
+  for (const [itemId, qty] of Object.entries(bag)) {
+    if (typeof qty !== 'number' || qty <= 0) continue
+    if (itemId === 'potion') {
+      delete bag.potion
+      bag.salve = (bag.salve ?? 0) + Math.floor(qty)
+      continue
+    }
+    if (!isLegacyGenericToolNeed(itemId)) continue
+    const resolved = resolveMainNeedItem(
+      itemId as ItemId,
+      quality,
+      chapter,
+      chapterBoss,
+      undefined,
+      salt + (itemId === 'ironTool' ? 17 : itemId === 'mithrilTool' ? 31 : 0),
+    )
+    if (resolved === itemId) continue
+    delete bag[itemId]
+    bag[resolved] = (bag[resolved] ?? 0) + Math.floor(qty)
+  }
+}
+
+function remapEncounterLegacyNeeds(enc: Encounter, chapter: unknown, salt = 0): void {
+  const quality = enc.quality
+  const chapterBoss = enc.kind === 'enemy' && enc.chapterBoss === true
+  if (enc.kind === 'enemy') remapLegacyNeedMap(enc.needs, quality, chapter, chapterBoss, salt)
+  else if (enc.kind === 'blackMerchant') remapLegacyNeedMap(enc.buyOffers, quality, chapter, false, salt)
+  else if (enc.kind === 'passerby') {
+    remapLegacyNeedMap(enc.wants, quality, chapter, false, salt)
+    remapLegacyNeedMap(enc.offers, quality, chapter, false, salt + 7)
+  } else if (enc.kind === 'pawn') remapLegacyNeedMap(enc.pawnWants, quality, chapter, false, salt)
+  else if (enc.kind === 'artisan') remapLegacyNeedMap(enc.wants, quality, chapter, false, salt)
+  else if (enc.kind === 'bulkBuy') remapLegacyNeedMap(enc.wants, quality, chapter, false, salt)
+}
+
+function remapBoardLegacyNeeds(board: Encounter[] | undefined, chapter: unknown): void {
+  if (!board) return
+  board.forEach((enc, i) => remapEncounterLegacyNeeds(enc, chapter, i))
 }
 
 /** 缺 needs 的旧敌：按品质 / 章节补一张单物品补给。 */
@@ -875,7 +933,6 @@ function makeBlackMerchant(
   quality: EncounterQuality,
   chapter = 1,
 ): BlackMerchantEncounter {
-  void chapter
   const def = BLACK_MERCHANT_DEFS[(seed + slot) % BLACK_MERCHANT_DEFS.length]
   const q = qualityDef(quality)
   return {
@@ -884,7 +941,7 @@ function makeBlackMerchant(
     label: def.label,
     quality,
     buyGold: scaleGold(def.buyGold, q.demandMul),
-    buyOffers: singleOutputMap(def.buyOffers, q.outputMul),
+    buyOffers: resolvedOutputMap(def.buyOffers, quality, chapter, q.outputMul, undefined, seed + slot),
     completed: false,
   }
 }
@@ -905,7 +962,7 @@ function makePasserby(
     label: def.label,
     quality,
     wants: scaledMainNeed(wantItem, quality, chapter),
-    offers: singleOutputMap(def.offers, q.outputMul),
+    offers: resolvedOutputMap(def.offers, quality, chapter, q.outputMul, rng, seed + slot),
     completed: false,
   }
 }
@@ -2046,6 +2103,8 @@ export function hydrateEncounterFields(save: Save): Save {
   for (const enc of raw.encounters) {
     if (enc.kind === 'enemy') ensureEnemyIntel(enc, 0, 0, raw)
   }
+  remapBoardLegacyNeeds(raw.encounters, raw.mainChapter)
+  remapBoardLegacyNeeds(raw.marketEncounters, raw.mainChapter)
   delete raw.currentOrderId
   delete raw.orderIndex
   delete raw.orderSubmitted

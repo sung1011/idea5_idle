@@ -285,7 +285,7 @@ type ProductionBuff = {
 
 ## 8. 偶遇补给
 
-敌人开战仍是补给门闩。新刷出的交物单（敌人 / 委托 / 收购 / 路人消耗 / 当铺 / 黑心购买）只要求 1 种已有产物，数量随品质与章节递增；Boss 只加数量。要工具时从锻造可造的各站专属工具（`STATION_TOOL_DEF` 的 tool01–20）抽取，档位随章节 / 订单品质抬高（低章偏低档，如第 1 章常见采矿工具1）。新刷不再要 `tool` / `ironTool` / `mithrilTool`。旧档通用工具库存可留。武器搁置，不再作为新单主需求。
+敌人开战仍是补给门闩。新刷出的交物单（敌人 / 委托 / 收购 / 路人消耗 / 当铺 / 黑心购买）只要求 1 种已有产物，数量随品质与章节递增；Boss 只加数量。要工具时从锻造可造的各站专属工具（`STATION_TOOL_DEF` 的 tool01–20）抽取，档位随章节 / 订单品质抬高（低章偏低档，如第 1 章常见采矿工具1）。新刷不再要 `tool` / `ironTool` / `mithrilTool`。旧档通用工具库存可留；读档时订单消耗 / 报价里的通用工具 remap 成专属 `*ToolNN`（裸 `potion` → `salve`），`itemProducerStation` 对旧通用工具回落锻造以便跳转。市集新报价（如工具贩 / 工具路人）不再发裸 `tool`。武器搁置，不再作为新单主需求。
 
 ---
 
@@ -306,7 +306,7 @@ type ProductionBuff = {
 | 猎 | `meat` `blood` `tooth` `eye` |
 | 药 | `herb` `spice` |
 | 食 | `meal` `roast` `stew` |
-| 工具 | 锻造 / 新订单用专属 `miningTool01`… 每站 20 种；旧档通用 `tool` `ironTool` `mithrilTool` 可留、不再产出或新刷要 |
+| 工具 | 锻造 / 新订单用专属 `miningTool01`… 每站 20 种；旧档通用 `tool` `ironTool` `mithrilTool` 可留、不再产出或新刷要；读档订单 remap 成专属工具，库存旧工具也可跳锻造 |
 | 炼金药剂 | `stim` `salve` `renewSoup` `brinkSalve` `wardElixir` `focusDraft` `clearMind`；旧 `potion` hydrate→`salve`；旧 `warDrum` 槽清空 |
 | 工人劳损 | `Worker.fatigueDebt` |
 | 药剂槽 / 时效 | `potionSlots` `potionBuffs`（`elapsedS`） |

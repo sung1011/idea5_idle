@@ -53,7 +53,7 @@ export function openWorkshopStation(stationId: unknown, storage?: Storage | null
   return next
 }
 
-/** 切到底栏工坊，并选中该物资主产站。金币 / Buff / 旧物返回 null。 */
+/** 切到底栏工坊，并选中该物资主产站。金币 / Buff / 非工具旧物返回 null。 */
 export function openItemWorkshop(itemId: ItemId, storage?: Storage | null): StationId | null {
   const stationId = itemProducerStation(itemId)
   if (!stationId) return null

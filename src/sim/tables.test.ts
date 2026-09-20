@@ -151,7 +151,9 @@ describe('production phase-1 tables', () => {
   it('maps producible items to one primary station and leaves leftover goods unmapped', () => {
     expect(itemProducerStation('ore')).toBe('mining')
     expect(itemProducerStation('ironOre')).toBe('mining')
-    expect(itemProducerStation('tool')).toBeNull()
+    expect(itemProducerStation('tool')).toBe('forging')
+    expect(itemProducerStation('ironTool')).toBe('forging')
+    expect(itemProducerStation('mithrilTool')).toBe('forging')
     expect(itemProducerStation('miningTool01')).toBe('forging')
     expect(itemProducerStation('herbalismTool02')).toBe('forging')
     expect(itemProducerStation('blueprint')).toBe('forging')

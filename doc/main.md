@@ -137,7 +137,7 @@ HP -= floor(fatigueDebt)；fatigueDebt -= floor(fatigueDebt)
 
 原料不足则空转并提示缺哪几样，够则一次性扣光 `costs` 再产出。产出不受库存数量限制。
 
-偶遇敌人新单改收食物 / 各站专属工具 / 矿。新刷不再要通用 `tool` / `ironTool` / `mithrilTool`；旧档武器需求与通用工具库存仍可成交 / 可留。
+偶遇敌人新单改收食物 / 各站专属工具 / 矿。新刷不再要通用 `tool` / `ironTool` / `mithrilTool`；旧档武器需求与通用工具库存仍可成交 / 可留。读档时战场 / 商场订单里残留的通用工具 wants/needs/offers（及裸 `potion`）会 remap 成可跳转的专属工具 / `salve`；`itemProducerStation` 对库存里的旧通用工具回落锻造。市集新报价不再发裸 `tool`。
 
 ---
 
@@ -232,7 +232,7 @@ qty = max(1, round(base × QUALITY_TABLE.demandMul × chapterNeedMul(chapter) ×
 chapterNeedMul(chapter) = 1 + (chapter - 1) * 0.15
 ```
 
-`base` 绿档第 1 章约 2，可按物品微调（`MAIN_NEED_BASE`）。物品先从 `MAIN_NEED_ITEM_POOL`（meal / ore / fish / tool / roast / stew / potion）掷 1 个；掷到 `tool` 时改从 `MAIN_NEED_TOOL_POOL`（`STATION_TOOL_DEF` / 锻造可造的各站 tool01–20）抽一把，档位中心走同一套 `demandMul × chapterNeedMul`（Boss 再 × 1.25），低章偏低档、高章/高品质偏高档（第 1 章绿档常见采矿工具1）。新刷不再要 `tool` / `ironTool` / `mithrilTool`。交易单用该类型表里的第一种，第一种若是通用工具同样改抽专属工具。本章 Boss **只再 × `CHAPTER_BOSS_NEED_MUL`（1.25）加数量**，不再叠第二种物品。战利品绿档基准 `LOOT_GOLD_BASE = 6`，`lootGold` 再乘品质产出倍率，Boss 另乘战利品倍率。章节需求倍率单独函数，不绑战斗 HP 倍率。旧档 `distance` / `power` hydrate 时读完即丢；已有 needs / loot 原样留下（再战中的多物品敌不改写）。旧档库存里的通用工具可留，不必强删。
+`base` 绿档第 1 章约 2，可按物品微调（`MAIN_NEED_BASE`）。物品先从 `MAIN_NEED_ITEM_POOL`（meal / ore / fish / tool / roast / stew / potion）掷 1 个；掷到 `tool` 时改从 `MAIN_NEED_TOOL_POOL`（`STATION_TOOL_DEF` / 锻造可造的各站 tool01–20）抽一把，档位中心走同一套 `demandMul × chapterNeedMul`（Boss 再 × 1.25），低章偏低档、高章/高品质偏高档（第 1 章绿档常见采矿工具1）。新刷不再要 `tool` / `ironTool` / `mithrilTool`。交易单用该类型表里的第一种，第一种若是通用工具同样改抽专属工具。本章 Boss **只再 × `CHAPTER_BOSS_NEED_MUL`（1.25）加数量**，不再叠第二种物品。战利品绿档基准 `LOOT_GOLD_BASE = 6`，`lootGold` 再乘品质产出倍率，Boss 另乘战利品倍率。章节需求倍率单独函数，不绑战斗 HP 倍率。旧档 `distance` / `power` hydrate 时读完即丢；已有 needs / loot 大体原样留下（再战中的多物品敌不改写），其中残留的 `tool` / `ironTool` / `mithrilTool` / 裸 `potion` 会 remap 成可跳转的专属工具 / `salve`。旧档库存里的通用工具可留，不必强删。
 
 流程（行军门闩已换成战斗；交易单不动）：
 

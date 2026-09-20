@@ -270,6 +270,25 @@ describe('hydrate potions', () => {
     expect((save?.stations.mining as { enrageUntil?: unknown }).enrageUntil).toBeUndefined()
   })
 
+  it('maps leftover potion consume on the market board to salve', () => {
+    const save = hydrateLoadedSave({
+      ...createSave(),
+      marketEncounters: [
+        {
+          kind: 'passerby',
+          id: 'old-market-potion',
+          label: '旧换货',
+          quality: 'green',
+          wants: { potion: 2 },
+          offers: { meal: 1 },
+          completed: false,
+        },
+      ],
+    })
+    const enc = save?.marketEncounters.find((row) => row.id === 'old-market-potion')
+    expect(enc?.kind === 'passerby' && enc.wants).toEqual({ salve: 2 })
+  })
+
   it('clears leftover warDrum slots and drops leftover warDrum stock', () => {
     const save = hydrateLoadedSave({
       ...createSave(),

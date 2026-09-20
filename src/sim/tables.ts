@@ -906,8 +906,9 @@ export function stationRelatedItems(stationId: StationId): StationRelatedItems {
   return { costs, outputs }
 }
 
-/** 可生产物资的主产站。多站都能出时取 PLAYABLE_STATION_IDS 里第一个。金币 / 旧物等返回 null。 */
+/** 可生产物资的主产站。多站都能出时取 PLAYABLE_STATION_IDS 里第一个。旧通用工具回落锻造；金币 / 其它旧物返回 null。 */
 export function itemProducerStation(itemId: ItemId): StationId | null {
+  if (isToolItemId(itemId)) return 'forging'
   for (const id of PLAYABLE_STATION_IDS) {
     if (stationRelatedItems(id).outputs.includes(itemId)) return id
   }

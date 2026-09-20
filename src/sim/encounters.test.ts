@@ -71,7 +71,7 @@ import { isCombatWon, isFighting } from './combat'
 import { assignWorker } from './assign'
 import { currentSpeed } from './query'
 import { recruitWorker, spawnWorker } from './recruit'
-import { bulkUnitGold, ITEM_DEF, isStationToolId, pawnUnitGold, STATION_TOOL_BY_ID } from './tables'
+import { bulkUnitGold, ITEM_DEF, isStationToolId, itemProducerStation, pawnUnitGold, STATION_TOOL_BY_ID } from './tables'
 import {
   BATTLEFIELD_SLOT_MAX,
   BATTLEFIELD_SLOT_MIN,
@@ -297,6 +297,8 @@ describe('encounter board', () => {
         if (enc.kind === 'passerby') {
           expect(needEntries(enc.wants)).toHaveLength(1)
           expect(isLegacyGenericToolNeed(needEntries(enc.wants)[0][0])).toBe(false)
+          expect(needEntries(enc.offers)).toHaveLength(1)
+          expect(isLegacyGenericToolNeed(needEntries(enc.offers)[0][0])).toBe(false)
         }
         if (enc.kind === 'pawn') {
           expect(needEntries(enc.pawnWants)).toHaveLength(1)
@@ -306,7 +308,10 @@ describe('encounter board', () => {
           expect(needEntries(enc.wants)).toHaveLength(1)
           expect(isLegacyGenericToolNeed(needEntries(enc.wants)[0][0])).toBe(false)
         }
-        if (enc.kind === 'blackMerchant') expect(needEntries(enc.buyOffers)).toHaveLength(1)
+        if (enc.kind === 'blackMerchant') {
+          expect(needEntries(enc.buyOffers)).toHaveLength(1)
+          expect(isLegacyGenericToolNeed(needEntries(enc.buyOffers)[0][0])).toBe(false)
+        }
       }
     }
     expect(seenKinds.has('enemy')).toBe(true)
@@ -318,7 +323,11 @@ describe('encounter board', () => {
     expect(seenQualities.has('gray')).toBe(false)
     expect(seenQualities.has('green')).toBe(true)
     expect(BLACK_MERCHANT_DEFS.length).toBeGreaterThan(0)
+    expect(BLACK_MERCHANT_DEFS.every((def) => !needEntries(def.buyOffers).some(([id]) => isLegacyGenericToolNeed(id)))).toBe(
+      true,
+    )
     expect(PASSERBY_DEFS.length).toBeGreaterThan(0)
+    expect(PASSERBY_DEFS.every((def) => !needEntries(def.offers).some(([id]) => isLegacyGenericToolNeed(id)))).toBe(true)
     expect(PAWN_DEFS.length).toBeGreaterThan(0)
     expect(ARTISAN_DEFS.length).toBeGreaterThan(0)
     expect(BULK_BUY_DEFS.length).toBeGreaterThan(0)
@@ -1018,6 +1027,67 @@ describe('hydrateEncounterFields', () => {
     expect(save.encounters[0].id).toBe('keep-five-pad')
     expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MIN)
     expect(save.marketEncounters.every((enc) => enc.kind !== 'enemy')).toBe(true)
+  })
+
+  it('remaps leftover generic tool and potion consume maps so old orders can jump', () => {
+    const save = createSave()
+    unlockMaxSlots(save)
+    save.encounters = [
+      testEnemy({ id: 'old-tool-need', needs: { tool: 2 } }),
+      testEnemy({ id: 'old-potion-need', needs: { potion: 3 } }),
+    ]
+    save.marketEncounters = [
+      testPasserby({ id: 'old-barter-tool', wants: { ironTool: 1 }, offers: { tool: 1 } }),
+      testBlackMerchant({ id: 'old-buy-tool', buyOffers: { mithrilTool: 1 } }),
+      testPawn({ id: 'old-pawn-tool', pawnWants: { tool: 1 } }),
+    ]
+    hydrateEncounterFields(save)
+
+    const enemyIdx = save.encounters.findIndex((enc) => enc.id === 'old-tool-need')
+    const enemy = save.encounters[enemyIdx]
+    expect(enemy?.kind).toBe('enemy')
+    if (enemy?.kind !== 'enemy') return
+    const needId = needEntries(enemy.needs)[0][0]
+    expect(needId).toBe(resolveMainNeedItem('tool', 'green', save.mainChapter, false, undefined, enemyIdx))
+    expect(isStationToolId(needId)).toBe(true)
+    expect(isLegacyGenericToolNeed(needId)).toBe(false)
+    expect(enemy.needs[needId]).toBe(2)
+    expect(itemProducerStation(needId)).toBe('forging')
+
+    const potionEnemy = save.encounters.find((enc) => enc.id === 'old-potion-need')
+    expect(potionEnemy?.kind === 'enemy' && potionEnemy.needs).toEqual({ salve: 3 })
+    expect(itemProducerStation('salve')).toBe('alchemy')
+
+    const barterIdx = save.marketEncounters.findIndex((enc) => enc.id === 'old-barter-tool')
+    const barter = save.marketEncounters[barterIdx]
+    expect(barter?.kind).toBe('passerby')
+    if (barter?.kind !== 'passerby') return
+    const wantId = needEntries(barter.wants)[0][0]
+    const offerId = needEntries(barter.offers)[0][0]
+    expect(wantId).toBe(resolveMainNeedItem('ironTool', 'green', save.mainChapter, false, undefined, barterIdx + 17))
+    expect(offerId).toBe(resolveMainNeedItem('tool', 'green', save.mainChapter, false, undefined, barterIdx + 7))
+    expect(isLegacyGenericToolNeed(wantId)).toBe(false)
+    expect(isLegacyGenericToolNeed(offerId)).toBe(false)
+    expect(itemProducerStation(wantId)).toBe('forging')
+    expect(itemProducerStation(offerId)).toBe('forging')
+
+    const buyIdx = save.marketEncounters.findIndex((enc) => enc.id === 'old-buy-tool')
+    const buy = save.marketEncounters[buyIdx]
+    expect(buy?.kind).toBe('blackMerchant')
+    if (buy?.kind !== 'blackMerchant') return
+    const buyId = needEntries(buy.buyOffers)[0][0]
+    expect(buyId).toBe(resolveMainNeedItem('mithrilTool', 'green', save.mainChapter, false, undefined, buyIdx + 31))
+    expect(isLegacyGenericToolNeed(buyId)).toBe(false)
+    expect(itemProducerStation(buyId)).toBe('forging')
+
+    const pawnIdx = save.marketEncounters.findIndex((enc) => enc.id === 'old-pawn-tool')
+    const pawn = save.marketEncounters[pawnIdx]
+    expect(pawn?.kind).toBe('pawn')
+    if (pawn?.kind !== 'pawn') return
+    const pawnId = needEntries(pawn.pawnWants)[0][0]
+    expect(pawnId).toBe(resolveMainNeedItem('tool', 'green', save.mainChapter, false, undefined, pawnIdx))
+    expect(isLegacyGenericToolNeed(pawnId)).toBe(false)
+    expect(itemProducerStation(pawnId)).toBe('forging')
   })
 })
 
