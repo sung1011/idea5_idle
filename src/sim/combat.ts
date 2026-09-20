@@ -94,6 +94,10 @@ export const ENEMY_COMBAT_POWER_MUL: Readonly<{ atk: number; spd: number }> = {
   spd: 0.65,
 }
 
+/** 敌人出手间隔（秒）。叠完全部乘区后再夹到这个闭区间。 */
+export const ENEMY_SPD_MIN_S = 10
+export const ENEMY_SPD_MAX_S = 30
+
 /** 品质只微调 HP / ATK。橙首领再叠阶级倍率后约 20 分钟（×1.2）可斩杀。 */
 export const ENEMY_COMBAT_QUALITY_MUL: Readonly<Record<EncounterQuality, number>> = {
   gray: 0.9,
@@ -185,7 +189,7 @@ export function enemyCombatStats(
   return {
     hp: scaleStat(ENEMY_COMBAT_BASE.hp, qMul * rMul.hp * cMul),
     atk: scaleStat(ENEMY_COMBAT_BASE.atk, qMul * rMul.atk * cMul * power.atk),
-    spd: Math.max(1, Math.round(ENEMY_COMBAT_BASE.spd * rMul.spd * power.spd)),
+    spd: clampInt(Math.round(ENEMY_COMBAT_BASE.spd * rMul.spd * power.spd), ENEMY_SPD_MIN_S, ENEMY_SPD_MAX_S),
   }
 }
 
@@ -316,8 +320,10 @@ function makeFighter(
   hp: number,
   now: number,
   combatAttrs?: CombatAttrId[],
+  actImmediately = false,
 ): CombatFighter {
   const hpMax = Math.max(1, stats.hp)
+  const intervalMs = Math.max(1, stats.spd) * 1000
   return {
     id,
     label,
@@ -325,7 +331,7 @@ function makeFighter(
     hpMax,
     atk: Math.max(1, stats.atk),
     spd: Math.max(1, stats.spd),
-    nextActAt: now + Math.max(1, stats.spd) * 1000,
+    nextActAt: actImmediately ? now : now + intervalMs,
     ...(combatAttrs && combatAttrs.length ? { combatAttrs: [...combatAttrs] } : {}),
   }
 }
@@ -357,7 +363,7 @@ export function beginEnemyCombat(
       const hp = w.hpMax > 0 ? Math.round((w.hp / w.hpMax) * hpMax) : hpMax
       return makeFighter(w.id, w.name ?? w.id, { ...stats, hp: hpMax }, hp, now, w.combatAttrs)
     }),
-    enemy: makeFighter('enemy', enc.label, eStats, enemyHp, now),
+    enemy: makeFighter('enemy', enc.label, eStats, enemyHp, now, undefined, true),
     logs: [],
     outcome: null,
   }
@@ -365,6 +371,7 @@ export function beginEnemyCombat(
   enc.combat = combat
   enc.departed = true
   enc.lootClaimed = false
+  if (save) stepEnemyCombat(save, enc, now, onLog)
   return combat
 }
 

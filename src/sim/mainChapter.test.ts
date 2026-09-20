@@ -402,11 +402,13 @@ describe('loot claim counter and chapter boss spawn', () => {
       encounters: [claimed],
     })
     expect(loaded.mainLootClaims).toBe(MAIN_LOOT_CLAIMS_GOAL)
-    expect(loaded.encounters[0].kind).toBe('enemy')
-    if (loaded.encounters[0].kind === 'enemy') {
-      expect(loaded.encounters[0].id).not.toBe('stuck-claimed')
-      expect(loaded.encounters[0].chapterBoss).toBe(true)
-      expect(loaded.encounters[0].enemyRank).toBe('boss')
+    expect(loaded.encounters).toHaveLength(4)
+    const bosses = loaded.encounters.filter((enc) => enc.kind === 'enemy' && enc.chapterBoss)
+    expect(bosses).toHaveLength(1)
+    expect(bosses[0].id).not.toBe('stuck-claimed')
+    expect(bosses[0].kind).toBe('enemy')
+    if (bosses[0].kind === 'enemy') {
+      expect(bosses[0].enemyRank).toBe('boss')
     }
   })
 

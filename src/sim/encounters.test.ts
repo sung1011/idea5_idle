@@ -217,7 +217,7 @@ describe('encounter board', () => {
   it('new save starts with a green copper pawn wanting ore ×2', () => {
     expect(ITEM_DEF[STARTER_PAWN_ITEM_ID].label).toBe('铜矿')
     const save = createSave()
-    expect(save.encounters).toHaveLength(1)
+    expect(save.encounters).toHaveLength(4)
     const enc = save.encounters[0]
     expect(enc.kind).toBe('pawn')
     if (enc.kind !== 'pawn') return
@@ -242,10 +242,10 @@ describe('encounter board', () => {
     expect(board[2].id).not.toBe(board[0].id)
   })
 
-  it('starts at 1 slot; full rolls still cover all 6 kinds without gray', () => {
+  it('starts at 4 slots; full rolls still cover all 6 kinds without gray', () => {
     const save = createSave()
-    expect(save.encounters).toHaveLength(1)
-    expect(encounterSlotCount(save)).toBe(1)
+    expect(save.encounters).toHaveLength(4)
+    expect(encounterSlotCount(save)).toBe(4)
     expect(save.workshopBuff).toBeNull()
 
     const seenKinds = new Set<string>()
@@ -403,7 +403,7 @@ describe('exploreBoard', () => {
     if (result.ok) expect(result.message).toContain('探索完成')
     expect(save.gold).toBe(beforeGold - beforeCost)
     expect(save.exploreCount).toBe(1)
-    expect(save.encounters).toHaveLength(1)
+    expect(save.encounters).toHaveLength(4)
     expect(boardSignature(save.encounters)).not.toBe(beforeSig)
   })
 
@@ -833,7 +833,7 @@ describe('hydrateEncounterFields', () => {
     const save = createSave()
     save.encounters = []
     hydrateEncounterFields(save)
-    expect(save.encounters).toHaveLength(1)
+    expect(save.encounters).toHaveLength(4)
     expect(save.encounters[0].kind).toBe('pawn')
     if (save.encounters[0].kind !== 'pawn') return
     expect(save.encounters[0].pawnWants).toEqual({ ore: 2 })
@@ -844,11 +844,12 @@ describe('hydrateEncounterFields', () => {
     const save = createSave()
     save.encounters = [testEnemy({ id: 'legacy-keep' })]
     hydrateEncounterFields(save)
+    expect(save.encounters).toHaveLength(4)
     expect(save.encounters[0].id).toBe('legacy-keep')
     expect(save.encounters.some((enc) => enc.kind === 'pawn' && enc.label === '铜矿当')).toBe(false)
   })
 
-  it('builds a 1-slot board and migrates a legacy order into the first enemy', () => {
+  it('builds a 4-slot board and migrates a legacy order into the first enemy', () => {
     const save = createSave() as Save & {
       currentOrderId?: string
       orderIndex?: number
@@ -860,7 +861,7 @@ describe('hydrateEncounterFields', () => {
     save.orderIndex = 2
     save.orderSubmitted = true
     hydrateEncounterFields(save)
-    expect(save.encounters).toHaveLength(1)
+    expect(save.encounters).toHaveLength(4)
     expect(save.encounters[0].kind).toBe('enemy')
     if (save.encounters[0].kind !== 'enemy') return
     expect(save.encounters[0].id).toBe('campKitchen')
@@ -972,7 +973,7 @@ describe('hydrateEncounterFields', () => {
     expect(save.encounters[0].revealedWeaknesses).toEqual(['fire', 'ice'])
   })
 
-  it('keeps a leftover fighting enemy when shrinking an old 5-slot board to 1', () => {
+  it('keeps a leftover fighting enemy when shrinking an old 5-slot board to 4', () => {
     const save = createSave()
     const now = 2_200_000_000_000
     const marching = testEnemy({
@@ -988,7 +989,7 @@ describe('hydrateEncounterFields', () => {
       testArtisan({ id: 'a1' }),
     ] as unknown as Save['encounters']
     hydrateEncounterFields(save)
-    expect(save.encounters).toHaveLength(1)
+    expect(save.encounters).toHaveLength(4)
     expect(save.encounters[0].id).toBe('keep-five-pad')
   })
 })

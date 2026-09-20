@@ -58,7 +58,7 @@ describe('createSave seven stations', () => {
     expect(save.techPoints).toBe(20)
     expect(save.unlockedTechIds).toEqual([])
     expect(save.techLevels).toEqual({})
-    expect(save.encounters).toHaveLength(1)
+    expect(save.encounters).toHaveLength(4)
     expect(save.encounters[0].kind).toBe('pawn')
     if (save.encounters[0].kind === 'pawn') {
       expect(save.encounters[0].pawnWants).toEqual({ ore: 2 })

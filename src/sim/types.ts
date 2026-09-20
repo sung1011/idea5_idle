@@ -358,7 +358,7 @@ export type Save = {
   lastTick: number
   elapsedS: number
   nextWorkerId: number
-  /** 主线订单板。格数由科技决定，初始 1、封顶 6。 */
+  /** 主线订单板。格数由科技决定，初始 4、封顶 6。 */
   encounters: Encounter[]
   /** 主线章节。从 1 起；旧档缺字段 hydrate 为 1。 */
   mainChapter: number

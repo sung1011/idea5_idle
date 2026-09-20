@@ -4,9 +4,9 @@ import { roll01 } from './rng'
 import { OFFLINE_CAP_S, RECRUIT_COST } from './tables'
 import type { ActionResult, Save, StationId, TechId } from './types'
 
-export const ENCOUNTER_SLOT_MIN = 1
+export const ENCOUNTER_SLOT_MIN = 4
 export const ENCOUNTER_SLOT_MAX = 6
-/** 主线订单格科技的 effectId。每级 +1 格，与初始 1 格相加，封顶 6。已实装节点先 `maxLevel=1`。 */
+/** 主线订单格科技的 effectId。每级 +1 格，与初始 4 格相加，封顶 6。已实装节点先 `maxLevel=1`。 */
 export const ENCOUNTER_SLOT_EFFECT = 'encounterSlot'
 export const NOOP_TECH_EFFECT = 'noop'
 /** 已实装节点先保持单级，图标仍走 `0/1`→`1/1`。 */
@@ -308,7 +308,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'pathOutpost',
         name: '探路哨岗',
-        desc: '在工坊外立一座哨岗，主线订单格 1→2。',
+        desc: '在工坊外立一座哨岗，主线订单格 +1（4→5）。',
         icon: '🏕️',
         effectId: ENCOUNTER_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
@@ -328,7 +328,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'marketLicense',
         name: '市集执照',
-        desc: '拿到摆摊文书，主线订单格 2→3。',
+        desc: '拿到摆摊文书，主线订单格 +1（5→6）。',
         icon: '🪪',
         effectId: ENCOUNTER_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
@@ -348,7 +348,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'scoutRelay',
         name: '斥候驿站',
-        desc: '路书可传到更远，主线订单格 3→4。',
+        desc: '路书可传到更远，主线订单格 +1（封顶 6）。',
         icon: '🏇',
         effectId: ENCOUNTER_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
@@ -368,7 +368,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'farWatch',
         name: '远望烽台',
-        desc: '夜里也能看见客商，主线订单格 4→5。',
+        desc: '夜里也能看见客商，主线订单格 +1（封顶 6）。',
         icon: '🗼',
         effectId: ENCOUNTER_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
@@ -382,7 +382,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'caravanPermit',
         name: '商队路引',
-        desc: '大队可同时进场，主线订单格 5→6。',
+        desc: '大队可同时进场，主线订单格 +1（封顶 6）。',
         icon: '🐫',
         effectId: ENCOUNTER_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
@@ -618,13 +618,13 @@ export function techTier(save: Save): number {
   return TECH_TREE.filter((node) => hasTech(save, node.id)).length
 }
 
-/** 当前主线订单格数。初始 1，每级订单格科技 +1，封顶 6。已实装节点 maxLevel=1，与「点亮 1 个 +1 格」相同。 */
+/** 当前主线订单格数。初始 4，每级订单格科技 +1，封顶 6。超出封顶的科技仍记等级，不再加格。 */
 export function encounterSlotCount(save: Save): number {
   let bonus = 0
   for (const id of ENCOUNTER_SLOT_TECH_IDS) {
     bonus += techLevel(save, id)
   }
-  return Math.min(ENCOUNTER_SLOT_MAX, ENCOUNTER_SLOT_MIN + bonus)
+  return Math.min(ENCOUNTER_SLOT_MAX, Math.max(ENCOUNTER_SLOT_MIN, ENCOUNTER_SLOT_MIN + bonus))
 }
 
 /** 已点节点按 effectId 叠等级 × 表值。订单格走 encounterSlotCount，冲突走 stationConflictMul。 */

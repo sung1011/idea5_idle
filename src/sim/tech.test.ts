@@ -238,7 +238,7 @@ describe('hydrate tech fields', () => {
     expect(aliased.techLevels).toEqual({ workshopRules: 1, pathOutpost: 1 })
     expect(techLevel(aliased, 'workshopRules')).toBe(1)
     expect(techLevel(aliased, 'pathOutpost')).toBe(1)
-    expect(encounterSlotCount(aliased)).toBe(2)
+    expect(encounterSlotCount(aliased)).toBe(5)
     expect(hasTech(aliased, 'workshopRules')).toBe(true)
     expect(hasTech(aliased, 'pathOutpost')).toBe(true)
   })
@@ -346,7 +346,7 @@ describe('research unlock', () => {
     expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MIN)
     expect(researchTech(save, 'pathOutpost').ok).toBe(true)
     expect(researchTech(save, 'marketLicense').ok).toBe(true)
-    expect(encounterSlotCount(save)).toBe(3)
+    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MAX)
   })
 
   it('lets leftover options on a hydrated row be bought later', () => {
@@ -441,28 +441,28 @@ describe('tech multi-level', () => {
 })
 
 describe('encounterSlotCount', () => {
-  it('starts at 1, grows after each slot tech, and caps at 6', () => {
+  it('starts at 4, grows after each slot tech, and caps at 6', () => {
     const save = createSave()
-    expect(encounterSlotCount(save)).toBe(1)
-    expect(save.encounters).toHaveLength(1)
+    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MIN)
+    expect(save.encounters).toHaveLength(ENCOUNTER_SLOT_MIN)
 
     expect(buy(save, 'pathOutpost').ok).toBe(true)
-    expect(encounterSlotCount(save)).toBe(2)
-    expect(save.encounters).toHaveLength(2)
+    expect(encounterSlotCount(save)).toBe(5)
+    expect(save.encounters).toHaveLength(5)
 
     expect(buy(save, 'marketLicense').ok).toBe(true)
-    expect(encounterSlotCount(save)).toBe(3)
+    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MAX)
     expect(buy(save, 'scoutRelay').ok).toBe(true)
-    expect(encounterSlotCount(save)).toBe(4)
+    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MAX)
     expect(buy(save, 'farWatch').ok).toBe(true)
-    expect(encounterSlotCount(save)).toBe(5)
+    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MAX)
     expect(buy(save, 'caravanPermit').ok).toBe(true)
-    expect(encounterSlotCount(save)).toBe(6)
-    expect(save.encounters).toHaveLength(6)
+    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MAX)
+    expect(save.encounters).toHaveLength(ENCOUNTER_SLOT_MAX)
 
     expect(buy(save, 'affairsRoadbook').ok).toBe(true)
     expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MAX)
-    expect(save.encounters).toHaveLength(6)
+    expect(save.encounters).toHaveLength(ENCOUNTER_SLOT_MAX)
   })
 })
 
@@ -594,8 +594,8 @@ describe('resetAllTech', () => {
     expect(spentTechPoints(save)).toBe(expectedSpent)
     expect(save.techPoints).toBe(leftover)
     expect(techLevel(save, 'workshopCrest')).toBe(3)
-    expect(encounterSlotCount(save)).toBe(3)
-    expect(save.encounters).toHaveLength(3)
+    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MAX)
+    expect(save.encounters).toHaveLength(ENCOUNTER_SLOT_MAX)
     expect(stationConflictMul(save, 'mining')).toBe(STATION_CONFLICT_CLEARED_MUL)
 
     const gold = save.gold

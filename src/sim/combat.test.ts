@@ -8,6 +8,8 @@ import {
   ENEMY_COMBAT_POWER_MUL,
   ENEMY_COMBAT_QUALITY_MUL,
   ENEMY_COMBAT_RANK_MUL,
+  ENEMY_SPD_MAX_S,
+  ENEMY_SPD_MIN_S,
   REST_HEAL_EVERY_S,
   WORKER_COMBAT_BY_TIER,
   applyRestHeal,
@@ -100,12 +102,23 @@ describe('combat stats tables', () => {
     expect(ENEMY_COMBAT_RANK_MUL.boss.hp).toBe(2.1)
     expect(ENEMY_COMBAT_POWER_MUL).toEqual({ atk: 1.35, spd: 0.65 })
     expect(minion.atk).toBe(Math.max(1, Math.round(ENEMY_COMBAT_BASE.atk * ENEMY_COMBAT_POWER_MUL.atk)))
-    expect(minion.spd).toBe(Math.max(1, Math.round(ENEMY_COMBAT_BASE.spd * ENEMY_COMBAT_POWER_MUL.spd)))
+    expect(minion.spd).toBe(
+      Math.min(
+        ENEMY_SPD_MAX_S,
+        Math.max(ENEMY_SPD_MIN_S, Math.round(ENEMY_COMBAT_BASE.spd * ENEMY_COMBAT_POWER_MUL.spd)),
+      ),
+    )
     expect(elite.atk).toBe(
       Math.max(1, Math.round(ENEMY_COMBAT_BASE.atk * ENEMY_COMBAT_RANK_MUL.elite.atk * ENEMY_COMBAT_POWER_MUL.atk)),
     )
     expect(elite.spd).toBe(
-      Math.max(1, Math.round(ENEMY_COMBAT_BASE.spd * ENEMY_COMBAT_RANK_MUL.elite.spd * ENEMY_COMBAT_POWER_MUL.spd)),
+      Math.min(
+        ENEMY_SPD_MAX_S,
+        Math.max(
+          ENEMY_SPD_MIN_S,
+          Math.round(ENEMY_COMBAT_BASE.spd * ENEMY_COMBAT_RANK_MUL.elite.spd * ENEMY_COMBAT_POWER_MUL.spd),
+        ),
+      ),
     )
     expect(orange.atk).toBe(
       Math.max(
@@ -118,9 +131,15 @@ describe('combat stats tables', () => {
         ),
       ),
     )
-    expect(orange.spd).toBe(
-      Math.max(1, Math.round(ENEMY_COMBAT_BASE.spd * ENEMY_COMBAT_RANK_MUL.boss.spd * ENEMY_COMBAT_POWER_MUL.spd)),
+    const rawBossSpd = Math.round(
+      ENEMY_COMBAT_BASE.spd * ENEMY_COMBAT_RANK_MUL.boss.spd * ENEMY_COMBAT_POWER_MUL.spd,
     )
+    expect(rawBossSpd).toBeGreaterThan(ENEMY_SPD_MAX_S)
+    expect(orange.spd).toBe(ENEMY_SPD_MAX_S)
+    for (const stats of [minion, elite, orange]) {
+      expect(stats.spd).toBeGreaterThanOrEqual(ENEMY_SPD_MIN_S)
+      expect(stats.spd).toBeLessThanOrEqual(ENEMY_SPD_MAX_S)
+    }
   })
 
   it('hydrates missing hp to full and keeps a stored wound', () => {
@@ -196,10 +215,10 @@ describe('combat timeline', () => {
     stepEnemyCombat(save, enc, now + 4_000)
     expect(enc.combat?.enemy.hp).toBe(enc.combat?.enemy.hpMax)
     expect(enc.combat?.outcome).toBeNull()
+    expect(enc.combat?.workers.some((w) => w.hp < w.hpMax)).toBe(true)
 
     stepEnemyCombat(save, enc, now + 5_000)
     expect(enc.combat?.enemy.hp).toBeLessThan(enc.combat?.enemy.hpMax ?? 0)
-    expect(enc.combat?.workers.every((w) => w.hp === w.hpMax)).toBe(true)
 
     stepEnemyCombat(save, enc, now + 32_000)
     expect(enc.combat?.workers.some((w) => w.hp < w.hpMax)).toBe(true)
@@ -450,6 +469,56 @@ describe('combat duration targets', () => {
   })
 })
 
+describe('enemy opening strike', () => {
+  it('hits once as soon as combat starts, then waits the interval', () => {
+    const save = createSave()
+    const worker = spawnWorkerWith(save, 1, 'laborer')
+    const enc = testEnemy({ targetRuleId: 'lowestHp' })
+    putEnemy(save, enc)
+    const now = 40_000
+    const startHp = worker.hp
+    const combat = beginEnemyCombat(enc, [worker], now, 1, undefined, save)
+    expect(combat.enemy.spd).toBeGreaterThanOrEqual(ENEMY_SPD_MIN_S)
+    expect(combat.enemy.spd).toBeLessThanOrEqual(ENEMY_SPD_MAX_S)
+    expect(combat.workers[0].hp).toBe(startHp - combat.enemy.atk)
+    expect(worker.hp).toBe(combat.workers[0].hp)
+    expect(combat.enemy.nextActAt).toBe(now + combat.enemy.spd * 1000)
+    const afterOpen = worker.hp
+    const hits = () => combat.logs.filter((row) => row.text.startsWith('试敌 对') && row.text.includes('造成'))
+    expect(hits()).toHaveLength(1)
+    stepEnemyCombat(save, enc, now + combat.enemy.spd * 1000 - 1)
+    expect(worker.hp).toBe(afterOpen)
+    expect(hits()).toHaveLength(1)
+    stepEnemyCombat(save, enc, now + combat.enemy.spd * 1000)
+    expect(worker.hp).toBe(afterOpen - combat.enemy.atk)
+    expect(hits()).toHaveLength(2)
+  })
+
+  it('keeps rematch leftover enemy hp and does not double the opening hit', () => {
+    const save = createSave()
+    const worker = spawnWorkerWith(save, 1, 'laborer')
+    const enc = testEnemy({ needs: { meal: 1 }, targetRuleId: 'lowestHp' })
+    putEnemy(save, enc)
+    save.bank.meal = 4
+    const now = 50_000
+    expect(startCombat(save, 0, [worker.id], now).ok).toBe(true)
+    const first = enc.combat
+    expect(first).toBeTruthy()
+    if (!first) return
+    const leftoverHp = Math.max(1, first.enemy.hpMax - 44)
+    first.enemy.hp = leftoverHp
+    first.outcome = 'lose'
+    const beforeRematch = worker.hp
+    const rematchAt = now + 8_000
+    expect(startCombat(save, 0, [worker.id], rematchAt).ok).toBe(true)
+    expect(enc.combat?.enemy.hp).toBe(leftoverHp)
+    expect(enc.combat?.enemy.hp).toBeLessThan(enc.combat?.enemy.hpMax ?? 0)
+    expect(worker.hp).toBe(beforeRematch - (enc.combat?.enemy.atk ?? 0))
+    const rematchHits = enc.combat?.logs.filter((row) => row.text.startsWith('试敌 对') && row.text.includes('造成')) ?? []
+    expect(rematchHits).toHaveLength(1)
+  })
+})
+
 describe('rematch leftover enemy hp', () => {
   it('starts the first fight at full enemy hp', () => {
     const save = createSave()
@@ -513,6 +582,7 @@ describe('rest heal', () => {
     const enc = testEnemy()
     putEnemy(save, enc)
     beginEnemyCombat(enc, [fight], 1_000)
+    if (enc.combat) enc.combat.enemy.nextActAt = 1_000 + 60_000
 
     save.elapsedS = REST_HEAL_EVERY_S - 1
     applyRestHeal(save)

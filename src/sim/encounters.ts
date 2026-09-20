@@ -71,7 +71,7 @@ import type {
   WorkshopBuff,
 } from './types'
 
-/** 主线订单板上限。当前格数用 encounterSlotCount(save)，初始 1。 */
+/** 主线订单板上限。当前格数用 encounterSlotCount(save)，初始 4。 */
 export const ENCOUNTER_SLOT_COUNT = ENCOUNTER_SLOT_MAX
 
 /** 探索费用。随探索次数略涨，超出表长后钉在末档。 */
@@ -999,10 +999,8 @@ export function generateEncounterBoard(
   slotCount = ENCOUNTER_SLOT_MAX,
   opts: EncounterSpawnOpts = {},
 ): Encounter[] {
-  const n = Math.min(
-    ENCOUNTER_SLOT_MAX,
-    Math.max(ENCOUNTER_SLOT_MIN, Number.isFinite(slotCount) ? Math.floor(slotCount) : ENCOUNTER_SLOT_MIN),
-  )
+  const raw = Number.isFinite(slotCount) ? Math.floor(slotCount) : ENCOUNTER_SLOT_MIN
+  const n = Math.min(ENCOUNTER_SLOT_MAX, Math.max(1, raw))
   const fill = encounterFiller(seed, opts)
   const board = Array.from({ length: n }, (_, slot) => fill(slot))
   if (opts.starterCopperPawn && n >= 1) {

@@ -199,7 +199,7 @@ describe('save migration', () => {
     expect(save?.knightLevel).toBe(1)
     expect(save?.unlockedTechIds).toEqual([])
     expect(save?.techLevels).toEqual({})
-    expect(save?.encounters).toHaveLength(1)
+    expect(save?.encounters).toHaveLength(4)
 
     const old = {
       ...createSave(),
@@ -237,7 +237,7 @@ describe('save migration', () => {
     })
     expect(mappedSlot?.unlockedTechIds).toEqual(['workshopRules', 'pathOutpost'])
     expect(mappedSlot?.techLevels).toEqual({ workshopRules: 1, pathOutpost: 1 })
-    expect(mappedSlot?.encounters).toHaveLength(2)
+    expect(mappedSlot?.encounters).toHaveLength(5)
 
     const store = memory()
     const leveled = createSave()
