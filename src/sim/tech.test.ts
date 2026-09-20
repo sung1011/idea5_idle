@@ -18,10 +18,15 @@ import { grantStationXp } from './stationProgress'
 import { completeCycle } from './stations'
 import {
   ATK_INTERVAL_EFFECT,
-  ENCOUNTER_SLOT_EFFECT,
-  ENCOUNTER_SLOT_MAX,
-  ENCOUNTER_SLOT_MIN,
+  BATTLEFIELD_SLOT_EFFECT,
+  BATTLEFIELD_SLOT_MAX,
+  BATTLEFIELD_SLOT_MIN,
+  BATTLEFIELD_SLOT_TECH_IDS,
   ENCOUNTER_SLOT_TECH_IDS,
+  MARKET_SLOT_EFFECT,
+  MARKET_SLOT_MAX,
+  MARKET_SLOT_MIN,
+  MARKET_SLOT_TECH_IDS,
   EXPLORE_COST_EFFECT,
   FORGE_CYCLE_EFFECT,
   IMPLEMENTED_TECH_MAX_LEVEL,
@@ -45,7 +50,9 @@ import {
   applyTechEffects,
   assistQualityFloor,
   attackIntervalMul,
+  battlefieldSlotCount,
   encounterSlotCount,
+  marketSlotCount,
   exploreCostMul,
   forgeCycleMul,
   fuseStayAssigned,
@@ -148,7 +155,10 @@ describe('tech tab row table', () => {
     expect(techRow('affairs', 3)?.options.some((option) => option.id === 'scoutRelay')).toBe(true)
     expect(techRow('affairs', 4)?.options.some((option) => option.id === 'farWatch')).toBe(true)
     expect(techRow('affairs', 5)?.options.some((option) => option.id === 'caravanPermit')).toBe(true)
-    expect(TECH_TREE.filter((node) => node.effectId === ENCOUNTER_SLOT_EFFECT)).toHaveLength(5)
+    expect(BATTLEFIELD_SLOT_TECH_IDS).toEqual(['pathOutpost', 'scoutRelay'])
+    expect(MARKET_SLOT_TECH_IDS).toEqual(['marketLicense', 'farWatch', 'caravanPermit'])
+    expect(TECH_TREE.filter((node) => node.effectId === BATTLEFIELD_SLOT_EFFECT)).toHaveLength(2)
+    expect(TECH_TREE.filter((node) => node.effectId === MARKET_SLOT_EFFECT)).toHaveLength(3)
 
     const rules = TECH_TREE.find((node) => node.id === 'workshopRules')
     const archive = TECH_TREE.find((node) => node.id === 'artisanArchive')
@@ -238,7 +248,9 @@ describe('hydrate tech fields', () => {
     expect(aliased.techLevels).toEqual({ workshopRules: 1, pathOutpost: 1 })
     expect(techLevel(aliased, 'workshopRules')).toBe(1)
     expect(techLevel(aliased, 'pathOutpost')).toBe(1)
-    expect(encounterSlotCount(aliased)).toBe(5)
+    expect(battlefieldSlotCount(aliased)).toBe(3)
+    expect(marketSlotCount(aliased)).toBe(MARKET_SLOT_MIN)
+    expect(encounterSlotCount(aliased)).toBe(4)
     expect(hasTech(aliased, 'workshopRules')).toBe(true)
     expect(hasTech(aliased, 'pathOutpost')).toBe(true)
   })
@@ -343,10 +355,12 @@ describe('research unlock', () => {
     save.techPoints = 99
     expect(researchTech(save, 'marketLicense')).toEqual({ ok: false, reason: '未解锁' })
     expect(save.unlockedTechIds).toEqual([])
-    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MIN)
+    expect(battlefieldSlotCount(save)).toBe(BATTLEFIELD_SLOT_MIN)
+    expect(marketSlotCount(save)).toBe(MARKET_SLOT_MIN)
     expect(researchTech(save, 'pathOutpost').ok).toBe(true)
     expect(researchTech(save, 'marketLicense').ok).toBe(true)
-    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MAX)
+    expect(battlefieldSlotCount(save)).toBe(3)
+    expect(marketSlotCount(save)).toBe(2)
   })
 
   it('lets leftover options on a hydrated row be bought later', () => {
@@ -440,29 +454,40 @@ describe('tech multi-level', () => {
   })
 })
 
-describe('encounterSlotCount', () => {
-  it('starts at 4, grows after each slot tech, and caps at 6', () => {
+describe('battlefieldSlotCount and marketSlotCount', () => {
+  it('grows each board independently and caps at 4', () => {
     const save = createSave()
-    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MIN)
-    expect(save.encounters).toHaveLength(ENCOUNTER_SLOT_MIN)
+    expect(battlefieldSlotCount(save)).toBe(BATTLEFIELD_SLOT_MIN)
+    expect(marketSlotCount(save)).toBe(MARKET_SLOT_MIN)
+    expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MIN)
+    expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MIN)
+    expect(save.encounters.every((enc) => enc.kind === 'enemy')).toBe(true)
+    expect(save.marketEncounters.every((enc) => enc.kind !== 'enemy')).toBe(true)
 
     expect(buy(save, 'pathOutpost').ok).toBe(true)
-    expect(encounterSlotCount(save)).toBe(5)
-    expect(save.encounters).toHaveLength(5)
+    expect(battlefieldSlotCount(save)).toBe(3)
+    expect(marketSlotCount(save)).toBe(MARKET_SLOT_MIN)
+    expect(save.encounters).toHaveLength(3)
 
     expect(buy(save, 'marketLicense').ok).toBe(true)
-    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MAX)
+    expect(battlefieldSlotCount(save)).toBe(3)
+    expect(marketSlotCount(save)).toBe(2)
+    expect(save.marketEncounters).toHaveLength(2)
+
     expect(buy(save, 'scoutRelay').ok).toBe(true)
-    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MAX)
+    expect(battlefieldSlotCount(save)).toBe(BATTLEFIELD_SLOT_MAX)
+    expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MAX)
+
     expect(buy(save, 'farWatch').ok).toBe(true)
-    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MAX)
+    expect(marketSlotCount(save)).toBe(3)
     expect(buy(save, 'caravanPermit').ok).toBe(true)
-    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MAX)
-    expect(save.encounters).toHaveLength(ENCOUNTER_SLOT_MAX)
+    expect(marketSlotCount(save)).toBe(MARKET_SLOT_MAX)
+    expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MAX)
+    expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MAX)
 
     expect(buy(save, 'affairsRoadbook').ok).toBe(true)
-    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MAX)
-    expect(save.encounters).toHaveLength(ENCOUNTER_SLOT_MAX)
+    expect(battlefieldSlotCount(save)).toBe(BATTLEFIELD_SLOT_MAX)
+    expect(marketSlotCount(save)).toBe(MARKET_SLOT_MAX)
   })
 })
 
@@ -594,8 +619,10 @@ describe('resetAllTech', () => {
     expect(spentTechPoints(save)).toBe(expectedSpent)
     expect(save.techPoints).toBe(leftover)
     expect(techLevel(save, 'workshopCrest')).toBe(3)
-    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MAX)
-    expect(save.encounters).toHaveLength(ENCOUNTER_SLOT_MAX)
+    expect(battlefieldSlotCount(save)).toBe(3)
+    expect(marketSlotCount(save)).toBe(2)
+    expect(save.encounters).toHaveLength(3)
+    expect(save.marketEncounters).toHaveLength(2)
     expect(stationConflictMul(save, 'mining')).toBe(STATION_CONFLICT_CLEARED_MUL)
 
     const gold = save.gold
@@ -613,8 +640,10 @@ describe('resetAllTech', () => {
     expect(save.unlockedTechIds).toEqual([])
     expect(TECH_TREE.every((node) => techLevel(save, node.id) === 0)).toBe(true)
     expect(spentTechPoints(save)).toBe(0)
-    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MIN)
-    expect(save.encounters).toHaveLength(ENCOUNTER_SLOT_MIN)
+    expect(battlefieldSlotCount(save)).toBe(BATTLEFIELD_SLOT_MIN)
+    expect(marketSlotCount(save)).toBe(MARKET_SLOT_MIN)
+    expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MIN)
+    expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MIN)
     expect(stationConflictMul(save, 'mining')).toBe(STATION_CONFLICT_BASE_MUL)
     expect(stationConflictHint(save, 'mining')).toBe('冲突：效率 −50%')
     expect(save.gold).toBe(gold)
@@ -631,7 +660,8 @@ describe('resetAllTech', () => {
     expect(save.techPoints).toBe(9)
     expect(save.techLevels).toEqual({})
     expect(save.unlockedTechIds).toEqual([])
-    expect(encounterSlotCount(save)).toBe(ENCOUNTER_SLOT_MIN)
+    expect(battlefieldSlotCount(save)).toBe(BATTLEFIELD_SLOT_MIN)
+    expect(marketSlotCount(save)).toBe(MARKET_SLOT_MIN)
   })
 })
 

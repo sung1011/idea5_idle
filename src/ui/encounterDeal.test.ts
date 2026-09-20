@@ -152,7 +152,8 @@ function withEnc(enc: Encounter, gold = 0, bank: Save['bank'] = {}): Save {
   const save = createSave()
   save.gold = gold
   save.bank = { ...bank }
-  save.encounters = [enc]
+  if (enc.kind === 'enemy') save.encounters = [enc]
+  else save.marketEncounters = [enc]
   return save
 }
 
@@ -203,9 +204,9 @@ describe('encounter consume lock', () => {
       buyOffers: { meal: 1 },
       completed: false,
     }
-    expect(isEncounterActionConsumeShort(withEnc(merchant, 0), 0)).toBe(true)
-    expect(isEncounterActionConsumeShort(withEnc(merchant, 8), 0)).toBe(false)
-    expect(isEncounterActionConsumeShort(withEnc({ ...merchant, completed: true }, 0), 0)).toBe(false)
+    expect(isEncounterActionConsumeShort(withEnc(merchant, 0), 0, 'market')).toBe(true)
+    expect(isEncounterActionConsumeShort(withEnc(merchant, 8), 0, 'market')).toBe(false)
+    expect(isEncounterActionConsumeShort(withEnc({ ...merchant, completed: true }, 0), 0, 'market')).toBe(false)
 
     const passerby: PasserbyEncounter = {
       kind: 'passerby',
@@ -216,8 +217,8 @@ describe('encounter consume lock', () => {
       offers: { fish: 1 },
       completed: false,
     }
-    expect(isEncounterActionConsumeShort(withEnc(passerby), 0)).toBe(true)
-    expect(isEncounterActionConsumeShort(withEnc(passerby, 0, { ore: 2 }), 0)).toBe(false)
+    expect(isEncounterActionConsumeShort(withEnc(passerby), 0, 'market')).toBe(true)
+    expect(isEncounterActionConsumeShort(withEnc(passerby, 0, { ore: 2 }), 0, 'market')).toBe(false)
 
     const pawn: PawnEncounter = {
       kind: 'pawn',
@@ -227,8 +228,8 @@ describe('encounter consume lock', () => {
       pawnWants: { tool: 1 },
       completed: false,
     }
-    expect(isEncounterActionConsumeShort(withEnc(pawn), 0)).toBe(true)
-    expect(isEncounterActionConsumeShort(withEnc(pawn, 0, { tool: 1 }), 0)).toBe(false)
+    expect(isEncounterActionConsumeShort(withEnc(pawn), 0, 'market')).toBe(true)
+    expect(isEncounterActionConsumeShort(withEnc(pawn, 0, { tool: 1 }), 0, 'market')).toBe(false)
 
     const artisan: ArtisanEncounter = {
       kind: 'artisan',
@@ -241,8 +242,8 @@ describe('encounter consume lock', () => {
       buffDurationS: 180,
       completed: false,
     }
-    expect(isEncounterActionConsumeShort(withEnc(artisan), 0)).toBe(true)
-    expect(isEncounterActionConsumeShort(withEnc(artisan, 0, { meal: 2 }), 0)).toBe(false)
+    expect(isEncounterActionConsumeShort(withEnc(artisan), 0, 'market')).toBe(true)
+    expect(isEncounterActionConsumeShort(withEnc(artisan, 0, { meal: 2 }), 0, 'market')).toBe(false)
 
     const bulk: BulkBuyEncounter = {
       kind: 'bulkBuy',
@@ -253,7 +254,7 @@ describe('encounter consume lock', () => {
       rewardGold: 12,
       completed: false,
     }
-    expect(isEncounterActionConsumeShort(withEnc(bulk), 0)).toBe(true)
-    expect(isEncounterActionConsumeShort(withEnc(bulk, 0, { roast: 1 }), 0)).toBe(false)
+    expect(isEncounterActionConsumeShort(withEnc(bulk), 0, 'market')).toBe(true)
+    expect(isEncounterActionConsumeShort(withEnc(bulk, 0, { roast: 1 }), 0, 'market')).toBe(false)
   })
 })

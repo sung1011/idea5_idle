@@ -1,5 +1,5 @@
 import { generateEncounterBoard } from './encounters'
-import { encounterSlotCount } from './tech'
+import { battlefieldSlotCount, marketSlotCount } from './tech'
 import { computeKnightLevel } from './knightLevel'
 import { blankPotionBuffs } from './potions'
 import { hydrateStations } from './stationProgress'
@@ -27,6 +27,7 @@ export function createSave(): Save {
     elapsedS: 0,
     nextWorkerId: 1,
     encounters: [],
+    marketEncounters: [],
     mainChapter: 1,
     mainLootClaims: 0,
     guideQuestStep: 1,
@@ -50,10 +51,18 @@ export function createSave(): Save {
     potionBuffs: blankPotionBuffs(),
   }
   save.knightLevel = computeKnightLevel(save)
-  save.encounters = generateEncounterBoard(0, encounterSlotCount(save), {
+  save.encounters = generateEncounterBoard(0, battlefieldSlotCount(save), {
     rng: save,
     mainChapter: save.mainChapter,
+    board: 'battlefield',
+    save,
+  })
+  save.marketEncounters = generateEncounterBoard(17, marketSlotCount(save), {
+    rng: save,
+    mainChapter: save.mainChapter,
+    board: 'market',
     starterCopperPawn: true,
+    save,
   })
   return save
 }

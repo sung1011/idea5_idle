@@ -72,7 +72,15 @@ import { assignWorker } from './assign'
 import { currentSpeed } from './query'
 import { recruitWorker, spawnWorker } from './recruit'
 import { bulkUnitGold, ITEM_DEF, isStationToolId, pawnUnitGold, STATION_TOOL_BY_ID } from './tables'
-import { ENCOUNTER_SLOT_TECH_IDS, encounterSlotCount } from './tech'
+import {
+  BATTLEFIELD_SLOT_MAX,
+  BATTLEFIELD_SLOT_MIN,
+  ENCOUNTER_SLOT_TECH_IDS,
+  MARKET_SLOT_MAX,
+  MARKET_SLOT_MIN,
+  battlefieldSlotCount,
+  marketSlotCount,
+} from './tech'
 import { ticks } from './tick'
 import type {
   ArtisanEncounter,
@@ -94,7 +102,12 @@ function stock(save: Save, needs: EncounterNeedMap) {
 }
 
 function put(save: Save, index: number, enc: Save['encounters'][number]) {
-  save.encounters[index] = enc
+  if (enc.kind === 'enemy') {
+    save.encounters[index] = enc
+    return
+  }
+  if (!Array.isArray(save.marketEncounters)) save.marketEncounters = []
+  save.marketEncounters[index] = enc
 }
 
 function fightSnap(outcome: 'win' | 'lose' | null) {
@@ -217,8 +230,9 @@ describe('encounter board', () => {
   it('new save starts with a green copper pawn wanting ore ×2', () => {
     expect(ITEM_DEF[STARTER_PAWN_ITEM_ID].label).toBe('铜矿')
     const save = createSave()
-    expect(save.encounters).toHaveLength(4)
-    const enc = save.encounters[0]
+    expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MIN)
+    expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MIN)
+    const enc = save.marketEncounters[0]
     expect(enc.kind).toBe('pawn')
     if (enc.kind !== 'pawn') return
     expect(enc.label).toBe(STARTER_PAWN_LABEL)
@@ -244,8 +258,10 @@ describe('encounter board', () => {
 
   it('starts at 4 slots; full rolls still cover all 6 kinds without gray', () => {
     const save = createSave()
-    expect(save.encounters).toHaveLength(4)
-    expect(encounterSlotCount(save)).toBe(4)
+    expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MIN)
+    expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MIN)
+    expect(battlefieldSlotCount(save)).toBe(BATTLEFIELD_SLOT_MIN)
+    expect(marketSlotCount(save)).toBe(MARKET_SLOT_MIN)
     expect(save.workshopBuff).toBeNull()
 
     const seenKinds = new Set<string>()
@@ -395,7 +411,7 @@ describe('exploreBoard', () => {
     const save = createSave()
     const beforeGold = save.gold
     const beforeCost = exploreCost(save)
-    const beforeSig = boardSignature(save.encounters)
+    const beforeSig = boardSignature([...save.encounters, ...save.marketEncounters])
     expect(beforeCost).toBe(EXPLORE_COST_TABLE[0])
 
     const result = exploreBoard(save)
@@ -403,13 +419,14 @@ describe('exploreBoard', () => {
     if (result.ok) expect(result.message).toContain('探索完成')
     expect(save.gold).toBe(beforeGold - beforeCost)
     expect(save.exploreCount).toBe(1)
-    expect(save.encounters).toHaveLength(4)
-    expect(boardSignature(save.encounters)).not.toBe(beforeSig)
+    expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MIN)
+    expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MIN)
+    expect(boardSignature([...save.encounters, ...save.marketEncounters])).not.toBe(beforeSig)
   })
 
   it('does not explore when gold is short', () => {
     const save = createSave()
-    const beforeSig = boardSignature(save.encounters)
+    const beforeSig = boardSignature([...save.encounters, ...save.marketEncounters])
     save.gold = 0
     expect(canExplore(save)).toBe(false)
     expect(exploreBlockReason(save)).toContain('金币不够')
@@ -418,7 +435,7 @@ describe('exploreBoard', () => {
     expect(result.ok).toBe(false)
     expect(save.gold).toBe(0)
     expect(save.exploreCount).toBe(0)
-    expect(boardSignature(save.encounters)).toBe(beforeSig)
+    expect(boardSignature([...save.encounters, ...save.marketEncounters])).toBe(beforeSig)
   })
 
   it('keeps fighting, won, or lost enemies and replaces idle or claimed ones', () => {
@@ -443,13 +460,9 @@ describe('exploreBoard', () => {
       lootClaimed: true,
     })
     const passerby = testPasserby({ id: 'swap-passerby' })
-    const sixth = testEnemy({ id: 'swap-sixth' })
-    put(save, 0, fighting)
-    put(save, 1, won)
-    put(save, 2, idle)
-    put(save, 3, claimed)
-    put(save, 4, passerby)
-    put(save, 5, sixth)
+    const extra = testEnemy({ id: 'swap-sixth' })
+    save.encounters = [fighting, won, idle, extra]
+    save.marketEncounters = [passerby]
 
     expect(shouldKeepOnExplore(fighting, now)).toBe(true)
     expect(shouldKeepOnExplore(won, now)).toBe(true)
@@ -465,43 +478,41 @@ describe('exploreBoard', () => {
 
     const result = exploreBoard(save, now)
     expect(result.ok).toBe(true)
-    expect(save.encounters).toHaveLength(6)
+    expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MAX)
+    expect(save.encounters.every((enc) => enc.kind === 'enemy')).toBe(true)
     expect(save.encounters[0].id).toBe('keep-fight')
     expect(save.encounters[1].id).toBe('keep-win')
     expect(save.encounters[2].id).not.toBe('swap-idle')
-    expect(save.encounters[3].id).not.toBe('swap-claimed')
-    expect(save.encounters[4].id).not.toBe('swap-passerby')
-    expect(save.encounters[5].id).not.toBe('swap-sixth')
+    expect(save.encounters.map((enc) => enc.id)).not.toContain('swap-sixth')
+    expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MAX)
+    expect(save.marketEncounters.every((enc) => enc.kind !== 'enemy')).toBe(true)
+    expect(save.marketEncounters.some((enc) => enc.id === 'swap-passerby')).toBe(false)
   })
 
-  it('can still roll enemies into empty slots when kept fights occupy the old enemy-only indices', () => {
+  it('keeps battlefield as enemies and market as trades when exploring', () => {
     const save = createSave()
     unlockMaxSlots(save)
     save.gold = 10_000
     const now = 3_000_000_000_000
     save.encounters = [
       testEnemy({ id: 'keep-0', departed: true, combat: fightSnap(null) }),
-      testPasserby({ id: 'empty-1' }),
       testEnemy({ id: 'keep-2', departed: true, combat: fightSnap(null) }),
       testEnemy({ id: 'keep-3', departed: true, combat: fightSnap(null) }),
+    ]
+    save.marketEncounters = [
+      testPasserby({ id: 'empty-1' }),
       testArtisan({ id: 'empty-4' }),
       testBulk({ id: 'empty-5' }),
     ]
-    let newEnemy = 0
-    const draws = 40
-    for (let i = 0; i < draws; i++) {
-      expect(exploreBoard(save, now).ok).toBe(true)
-      expect(save.encounters[0].id).toBe('keep-0')
-      expect(save.encounters[2].id).toBe('keep-2')
-      expect(save.encounters[3].id).toBe('keep-3')
-      for (const idx of [1, 4, 5]) {
-        const enc = save.encounters[idx]
-        if (enc.kind === 'enemy' && enc.id !== 'keep-0' && enc.id !== 'keep-2' && enc.id !== 'keep-3') {
-          newEnemy += 1
-        }
-      }
-    }
-    expect(newEnemy).toBeGreaterThanOrEqual(8)
+    expect(exploreBoard(save, now).ok).toBe(true)
+    expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MAX)
+    expect(save.encounters.every((enc) => enc.kind === 'enemy')).toBe(true)
+    expect(save.encounters[0].id).toBe('keep-0')
+    expect(save.encounters.some((enc) => enc.id === 'keep-2')).toBe(true)
+    expect(save.encounters.some((enc) => enc.id === 'keep-3')).toBe(true)
+    expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MAX)
+    expect(save.marketEncounters.every((enc) => enc.kind !== 'enemy')).toBe(true)
+    expect(save.marketEncounters.some((enc) => enc.id === 'empty-1')).toBe(false)
   })
 
   it('picks encounter kinds by weight instead of board-index modulo', () => {
@@ -727,7 +738,7 @@ describe('merchant kinds', () => {
     expect(buyMerchant(save, 0).ok).toBe(true)
     expect(save.gold).toBe(12)
     expect(bankQty(save, 'meal')).toBe(1)
-    expect(save.encounters[0].kind === 'blackMerchant' && save.encounters[0].completed).toBe(true)
+    expect(save.marketEncounters[0].kind === 'blackMerchant' && save.marketEncounters[0].completed).toBe(true)
   })
 
   it('still buys and barters when stock already exceeds the old bank cap', () => {
@@ -832,21 +843,29 @@ describe('hydrateEncounterFields', () => {
   it('builds a starter copper pawn when the board is empty', () => {
     const save = createSave()
     save.encounters = []
+    save.marketEncounters = []
     hydrateEncounterFields(save)
-    expect(save.encounters).toHaveLength(4)
-    expect(save.encounters[0].kind).toBe('pawn')
-    if (save.encounters[0].kind !== 'pawn') return
-    expect(save.encounters[0].pawnWants).toEqual({ ore: 2 })
-    expect(save.encounters[0].label).toBe('铜矿当')
+    expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MIN)
+    expect(save.encounters.every((enc) => enc.kind === 'enemy')).toBe(true)
+    expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MIN)
+    expect(save.marketEncounters[0].kind).toBe('pawn')
+    if (save.marketEncounters[0].kind !== 'pawn') return
+    expect(save.marketEncounters[0].pawnWants).toEqual({ ore: 2 })
+    expect(save.marketEncounters[0].label).toBe('铜矿当')
   })
 
   it('does not force a starter copper pawn onto an existing old board', () => {
     const save = createSave()
     save.encounters = [testEnemy({ id: 'legacy-keep' })]
+    save.marketEncounters = []
     hydrateEncounterFields(save)
-    expect(save.encounters).toHaveLength(4)
+    expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MIN)
     expect(save.encounters[0].id).toBe('legacy-keep')
-    expect(save.encounters.some((enc) => enc.kind === 'pawn' && enc.label === '铜矿当')).toBe(false)
+    expect(save.encounters.every((enc) => enc.kind === 'enemy')).toBe(true)
+    expect(save.marketEncounters.every((enc) => enc.kind !== 'enemy')).toBe(true)
+    expect(
+      [...save.encounters, ...save.marketEncounters].some((enc) => enc.kind === 'pawn' && enc.label === '铜矿当'),
+    ).toBe(false)
   })
 
   it('builds a 4-slot board and migrates a legacy order into the first enemy', () => {
@@ -857,11 +876,12 @@ describe('hydrateEncounterFields', () => {
       encounters: Save['encounters']
     }
     save.encounters = []
+    save.marketEncounters = []
     save.currentOrderId = 'campKitchen'
     save.orderIndex = 2
     save.orderSubmitted = true
     hydrateEncounterFields(save)
-    expect(save.encounters).toHaveLength(4)
+    expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MIN)
     expect(save.encounters[0].kind).toBe('enemy')
     if (save.encounters[0].kind !== 'enemy') return
     expect(save.encounters[0].id).toBe('campKitchen')
@@ -891,13 +911,15 @@ describe('hydrateEncounterFields', () => {
       completed: false,
     }
     save.encounters = [legacy, testEnemy({ id: 'e1' }), testEnemy({ id: 'e2' }), testEnemy({ id: 'e3' }), testEnemy({ id: 'e4' })] as unknown as Save['encounters']
+    save.marketEncounters = []
     hydrateEncounterFields(save)
-    expect(save.encounters[0].kind).toBe('passerby')
-    if (save.encounters[0].kind !== 'passerby') return
-    expect(save.encounters[0].id).toContain('merchantBarter')
-    expect(save.encounters[0].wants).toEqual({ wood: 4 })
-    expect(save.encounters[0].offers).toEqual({ meal: 1 })
-    expect(save.encounters[0].quality).toBe('green')
+    expect(save.encounters.every((enc) => enc.kind === 'enemy')).toBe(true)
+    expect(save.marketEncounters[0].kind).toBe('passerby')
+    if (save.marketEncounters[0].kind !== 'passerby') return
+    expect(save.marketEncounters[0].id).toContain('merchantBarter')
+    expect(save.marketEncounters[0].wants).toEqual({ wood: 4 })
+    expect(save.marketEncounters[0].offers).toEqual({ meal: 1 })
+    expect(save.marketEncounters[0].quality).toBe('green')
   })
 
   it('migrates shady and pawnshop kinds plus missing workshop buff', () => {
@@ -924,17 +946,19 @@ describe('hydrateEncounterFields', () => {
       testEnemy({ id: 'e2' }),
       testEnemy({ id: 'e3' }),
     ] as unknown as Save['encounters']
+    save.marketEncounters = []
     hydrateEncounterFields(save)
     expect(save.workshopBuff).toBeNull()
-    expect(save.encounters[0].kind).toBe('blackMerchant')
-    if (save.encounters[0].kind === 'blackMerchant') {
-      expect(save.encounters[0].quality).toBe('green')
-      expect(save.encounters[0].completed).toBe(true)
+    expect(save.encounters.every((enc) => enc.kind === 'enemy')).toBe(true)
+    expect(save.marketEncounters[0].kind).toBe('blackMerchant')
+    if (save.marketEncounters[0].kind === 'blackMerchant') {
+      expect(save.marketEncounters[0].quality).toBe('green')
+      expect(save.marketEncounters[0].completed).toBe(true)
     }
-    expect(save.encounters[1].kind).toBe('pawn')
-    if (save.encounters[1].kind === 'pawn') {
-      expect(save.encounters[1].quality).toBe('green')
-      expect(save.encounters[1].pawnWants).toEqual({ weapon: 1 })
+    expect(save.marketEncounters[1].kind).toBe('pawn')
+    if (save.marketEncounters[1].kind === 'pawn') {
+      expect(save.marketEncounters[1].quality).toBe('green')
+      expect(save.marketEncounters[1].pawnWants).toEqual({ weapon: 1 })
     }
   })
 
@@ -973,7 +997,7 @@ describe('hydrateEncounterFields', () => {
     expect(save.encounters[0].revealedWeaknesses).toEqual(['fire', 'ice'])
   })
 
-  it('keeps a leftover fighting enemy when shrinking an old 5-slot board to 4', () => {
+  it('keeps a leftover fighting enemy when splitting an old mixed board', () => {
     const save = createSave()
     const now = 2_200_000_000_000
     const marching = testEnemy({
@@ -988,9 +1012,12 @@ describe('hydrateEncounterFields', () => {
       testPawn({ id: 'w1' }),
       testArtisan({ id: 'a1' }),
     ] as unknown as Save['encounters']
+    save.marketEncounters = []
     hydrateEncounterFields(save)
-    expect(save.encounters).toHaveLength(4)
+    expect(save.encounters.every((enc) => enc.kind === 'enemy')).toBe(true)
     expect(save.encounters[0].id).toBe('keep-five-pad')
+    expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MIN)
+    expect(save.marketEncounters.every((enc) => enc.kind !== 'enemy')).toBe(true)
   })
 })
 
@@ -1049,8 +1076,8 @@ describe('artisan and bulk buy', () => {
     }
     expect(save.gold).toBe(20)
     expect(bankQty(save, 'weapon')).toBe(1)
-    expect(save.encounters[0].kind === 'artisan' && save.encounters[0].completed).toBe(true)
-    expect(stampLabel(save.encounters[0])).toBe('完成')
+    expect(save.marketEncounters[0].kind === 'artisan' && save.marketEncounters[0].completed).toBe(true)
+    expect(stampLabel(save.marketEncounters[0])).toBe('完成')
     expect(isWorkshopBuffActive(save, now)).toBe(true)
     expect(workshopBuffMul(save, now)).toBeCloseTo(1.15)
     expect(workshopBuffMul(save, now + 181_000)).toBe(1)
@@ -1104,18 +1131,17 @@ describe('artisan and bulk buy', () => {
     const doneArtisan = testArtisan({ id: 'swap-artisan', completed: true })
     const doneBulk = testBulk({ id: 'swap-bulk', completed: true })
     const idle = testPasserby({ id: 'swap-idle' })
-    put(save, 0, fighting)
-    put(save, 1, claimed)
-    put(save, 2, doneArtisan)
-    put(save, 3, doneBulk)
-    put(save, 4, idle)
+    save.encounters = [fighting, claimed]
+    save.marketEncounters = [doneArtisan, doneBulk, idle]
     expect(shouldKeepOnExplore(claimed, now)).toBe(false)
     expect(shouldKeepOnExplore(doneArtisan, now)).toBe(false)
     expect(exploreBoard(save, now).ok).toBe(true)
     expect(save.encounters[0].id).toBe('keep-fight')
-    expect(save.encounters[1].id).not.toBe('swap-claimed')
-    expect(save.encounters[2].id).not.toBe('swap-artisan')
-    expect(save.encounters[3].id).not.toBe('swap-bulk')
-    expect(save.encounters[4].id).not.toBe('swap-idle')
+    expect(save.encounters.some((enc) => enc.id === 'swap-claimed')).toBe(false)
+    expect(save.encounters.every((enc) => enc.kind === 'enemy')).toBe(true)
+    expect(save.marketEncounters.every((enc) => enc.kind !== 'enemy')).toBe(true)
+    expect(save.marketEncounters.some((enc) => enc.id === 'swap-artisan')).toBe(false)
+    expect(save.marketEncounters.some((enc) => enc.id === 'swap-bulk')).toBe(false)
+    expect(save.marketEncounters.some((enc) => enc.id === 'swap-idle')).toBe(false)
   })
 })

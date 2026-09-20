@@ -44,11 +44,12 @@ import {
 } from './tables'
 import { pickMainNeedPotion } from './potions'
 import {
-  ENCOUNTER_SLOT_MAX,
-  ENCOUNTER_SLOT_MIN,
-  encounterSlotCount,
+  BATTLEFIELD_SLOT_MAX,
+  MARKET_SLOT_MAX,
+  battlefieldSlotCount,
   exploreCostMul,
   lootGoldMul,
+  marketSlotCount,
   rematchSupplyCut,
   tradeGoldMul,
 } from './tech'
@@ -73,8 +74,31 @@ import type {
   WorkshopBuff,
 } from './types'
 
-/** 主线订单板上限。当前格数用 encounterSlotCount(save)，初始 4。 */
-export const ENCOUNTER_SLOT_COUNT = ENCOUNTER_SLOT_MAX
+/** 混合生成默认格数（测试覆盖六种订单）。玩法板走 battlefield / market 各自上下限。 */
+export const ENCOUNTER_SLOT_COUNT = 6
+
+export const ENCOUNTER_BOARD_IDS = ['battlefield', 'market'] as const
+export type EncounterBoardId = (typeof ENCOUNTER_BOARD_IDS)[number]
+
+export function isEncounterBoardId(value: unknown): value is EncounterBoardId {
+  return value === 'battlefield' || value === 'market'
+}
+
+export function isBattlefieldEncounter(enc: Encounter): enc is EnemyEncounter {
+  return enc.kind === 'enemy'
+}
+
+export function isMarketEncounter(enc: Encounter): enc is TradeEncounter {
+  return isTradeKind(enc.kind)
+}
+
+export function allEncounters(save: Pick<Save, 'encounters'> & { marketEncounters?: Encounter[] }): Encounter[] {
+  return [...(save.encounters ?? []), ...(save.marketEncounters ?? [])]
+}
+
+export function encountersOf(save: Save, board: EncounterBoardId): Encounter[] {
+  return board === 'market' ? save.marketEncounters ?? [] : save.encounters ?? []
+}
 
 /** 探索费用。随探索次数略涨，超出表长后钉在末档。 */
 export const EXPLORE_COST_TABLE: readonly number[] = [8, 10, 12, 14, 16]
@@ -172,6 +196,14 @@ export const TRADE_KINDS: readonly EncounterKind[] = [
   'artisan',
   'bulkBuy',
 ]
+
+export const MARKET_KIND_WEIGHTS: Readonly<Record<Exclude<EncounterKind, 'enemy'>, number>> = {
+  blackMerchant: ENCOUNTER_KIND_WEIGHTS.blackMerchant,
+  passerby: ENCOUNTER_KIND_WEIGHTS.passerby,
+  pawn: ENCOUNTER_KIND_WEIGHTS.pawn,
+  artisan: ENCOUNTER_KIND_WEIGHTS.artisan,
+  bulkBuy: ENCOUNTER_KIND_WEIGHTS.bulkBuy,
+}
 
 export const MERCHANT_KINDS: readonly MerchantKind[] = ['blackMerchant', 'passerby', 'pawn']
 
@@ -765,6 +797,10 @@ export function pickEncounterKind(rng: { rngState: number }): EncounterKind {
   return pickWeighted(ENCOUNTER_KIND_WEIGHTS, rollRng(rng))
 }
 
+export function pickMarketKind(rng: { rngState: number }): (typeof TRADE_KINDS)[number] {
+  return pickWeighted(MARKET_KIND_WEIGHTS, rollRng(rng))
+}
+
 export function pickQuality(rng: { rngState: number }): EncounterQuality {
   return pickWeighted(QUALITY_SPAWN_WEIGHTS, rollRng(rng))
 }
@@ -783,6 +819,8 @@ export type EncounterSpawnOpts = {
   starterCopperPawn?: boolean
   /** 生成弱点初始暴露时读科技。 */
   save?: Save
+  /** 指定板只刷该板种类；缺省为混合（测试覆盖六种）。 */
+  board?: EncounterBoardId
 }
 
 function encounterRng(seed: number, rng?: { rngState: number }): { rngState: number } {
@@ -987,44 +1025,66 @@ function makeEncounter(
   return makeBulkBuy(seed, slot, quality, chapter, rng)
 }
 
+function pickKindForBoard(
+  rng: { rngState: number },
+  board: EncounterBoardId | undefined,
+  forceBoss: boolean,
+): EncounterKind {
+  if (board === 'battlefield' || forceBoss) return 'enemy'
+  if (board === 'market') return pickMarketKind(rng)
+  return forceBoss ? 'enemy' : pickEncounterKind(rng)
+}
+
 export function encounterFiller(seed: number, opts: EncounterSpawnOpts = {}): (slot: number) => Encounter {
   const safe = Number.isFinite(seed) && seed >= 0 ? Math.floor(seed) : 0
   const claims = normalizeMainLootClaims(opts.mainLootClaims)
   const rng = encounterRng(safe, opts.rng)
   const chapter = normalizeMainChapter(opts.mainChapter)
-  let reserved = opts.reservedChapterBoss === true
+  const board = opts.board
+  let reserved = opts.reservedChapterBoss === true || board === 'market'
   return (slot: number) => {
     const quality = pickQuality(rng)
-    const forceBoss = !reserved && claims >= MAIN_LOOT_CLAIMS_GOAL
-    const kind = forceBoss ? 'enemy' : pickEncounterKind(rng)
+    const forceBoss = board !== 'market' && !reserved && claims >= MAIN_LOOT_CLAIMS_GOAL
+    const kind = pickKindForBoard(rng, board, forceBoss)
     if (forceBoss) reserved = true
     return makeEncounter(safe, slot, quality, kind, forceBoss, chapter, rng, opts.save)
   }
 }
 
+function boardSlotClamp(slotCount: number, board?: EncounterBoardId): number {
+  const raw = Number.isFinite(slotCount) ? Math.floor(slotCount) : 1
+  const max =
+    board === 'battlefield' ? BATTLEFIELD_SLOT_MAX : board === 'market' ? MARKET_SLOT_MAX : ENCOUNTER_SLOT_COUNT
+  return Math.min(max, Math.max(1, raw))
+}
+
 export function generateEncounterBoard(
   seed: number,
-  slotCount = ENCOUNTER_SLOT_MAX,
+  slotCount = ENCOUNTER_SLOT_COUNT,
   opts: EncounterSpawnOpts = {},
 ): Encounter[] {
-  const raw = Number.isFinite(slotCount) ? Math.floor(slotCount) : ENCOUNTER_SLOT_MIN
-  const n = Math.min(ENCOUNTER_SLOT_MAX, Math.max(1, raw))
+  const n = boardSlotClamp(slotCount, opts.board)
   const fill = encounterFiller(seed, opts)
   const board = Array.from({ length: n }, (_, slot) => fill(slot))
-  if (opts.starterCopperPawn && n >= 1) {
+  if (opts.starterCopperPawn && opts.board !== 'battlefield' && n >= 1) {
     const safe = Number.isFinite(seed) && seed >= 0 ? Math.floor(seed) : 0
     board[0] = makeStarterCopperPawn(safe, 0)
   }
   return board
 }
 
-function spawnOptsFor(save: Save, reserved: readonly Encounter[]): EncounterSpawnOpts {
+function spawnOptsFor(
+  save: Save,
+  reserved: readonly Encounter[],
+  board?: EncounterBoardId,
+): EncounterSpawnOpts {
   return {
     mainLootClaims: normalizeMainLootClaims(save.mainLootClaims),
-    reservedChapterBoss: hasLiveChapterBoss(reserved),
+    reservedChapterBoss: board === 'market' ? true : hasLiveChapterBoss(reserved),
     rng: save,
     mainChapter: normalizeMainChapter(save.mainChapter),
     save,
+    board,
   }
 }
 
@@ -1140,23 +1200,37 @@ export function isEncounter(value: unknown): value is Encounter {
 export function isValidEncounterBoard(value: unknown, slotCount?: number): value is Encounter[] {
   if (!Array.isArray(value) || !value.every(isEncounter)) return false
   if (slotCount == null) {
-    return value.length >= ENCOUNTER_SLOT_MIN && value.length <= ENCOUNTER_SLOT_MAX
+    return value.length >= 1 && value.length <= ENCOUNTER_SLOT_COUNT
   }
   return value.length === slotCount
 }
 
-function slotAt(save: Save, index: number): Encounter | undefined {
-  if (!Number.isInteger(index) || index < 0 || index >= save.encounters.length) return undefined
-  return save.encounters[index]
+function slotAt(save: Save, index: number, board: EncounterBoardId = 'battlefield'): Encounter | undefined {
+  const slots = encountersOf(save, board)
+  if (!Number.isInteger(index) || index < 0 || index >= slots.length) return undefined
+  return slots[index]
 }
 
 function keptEncounters(encounters: readonly Encounter[], now: number): Encounter[] {
   return encounters.filter((enc) => shouldKeepOnExplore(enc, now))
 }
 
-function boardSizeFor(save: Save, now = Date.now()): number {
-  const current = Array.isArray(save.encounters) ? save.encounters.filter(isEncounter) : []
-  return Math.min(ENCOUNTER_SLOT_MAX, Math.max(encounterSlotCount(save), keptEncounters(current, now).length))
+function belongsToBoard(enc: Encounter, board: EncounterBoardId): boolean {
+  return board === 'battlefield' ? isBattlefieldEncounter(enc) : isMarketEncounter(enc)
+}
+
+function slotCountOf(save: Save, board: EncounterBoardId): number {
+  return board === 'market' ? marketSlotCount(save) : battlefieldSlotCount(save)
+}
+
+function slotMaxOf(board: EncounterBoardId): number {
+  return board === 'market' ? MARKET_SLOT_MAX : BATTLEFIELD_SLOT_MAX
+}
+
+function boardSizeFor(save: Save, board: EncounterBoardId, now = Date.now()): number {
+  const current = encountersOf(save, board).filter((enc) => isEncounter(enc) && belongsToBoard(enc, board))
+  const kept = board === 'battlefield' ? keptEncounters(current, now) : []
+  return Math.max(Math.min(slotMaxOf(board), slotCountOf(save, board)), kept.length)
 }
 
 function placeKeptThenFill(
@@ -1196,14 +1270,27 @@ function placeKeptThenFill(
   return Array.from({ length: size }, (_, i) => out[i] ?? seedFill(i))
 }
 
-/** 按当前格数补齐或收板；战斗中 / 胜可领 / 败可再战优先保留，可暂超目标格数、仍封顶 6。 */
-export function resizeEncounterBoard(save: Save, now = Date.now()): Encounter[] {
-  const previous = Array.isArray(save.encounters) ? save.encounters.filter(isEncounter) : []
-  const size = boardSizeFor(save, now)
+function writeBoard(save: Save, board: EncounterBoardId, next: Encounter[]): Encounter[] {
+  if (board === 'market') save.marketEncounters = next
+  else save.encounters = next
+  return next
+}
+
+function resizeOneBoard(save: Save, board: EncounterBoardId, now: number, reuseIdle: boolean): Encounter[] {
+  const previous = encountersOf(save, board).filter((enc) => isEncounter(enc) && belongsToBoard(enc, board))
+  const size = boardSizeFor(save, board, now)
   const seed = Number.isFinite(save.exploreCount) && save.exploreCount > 0 ? Math.floor(save.exploreCount) : 0
-  const kept = keptEncounters(previous, now)
-  const fill = encounterFiller(seed, spawnOptsFor(save, previous))
-  save.encounters = placeKeptThenFill(size, previous, kept, fill, true)
+  const kept = board === 'battlefield' ? keptEncounters(previous, now) : []
+  const reserved = board === 'battlefield' ? previous : save.encounters.filter(isEncounter)
+  const fill = encounterFiller(seed, spawnOptsFor(save, reserved, board))
+  return writeBoard(save, board, placeKeptThenFill(size, previous, kept, fill, reuseIdle))
+}
+
+/** 按当前格数补齐或收两板；战场战斗中 / 胜可领 / 败可再战优先保留，可暂超目标格数。 */
+export function resizeEncounterBoard(save: Save, now = Date.now()): Encounter[] {
+  if (!Array.isArray(save.marketEncounters)) save.marketEncounters = []
+  resizeOneBoard(save, 'battlefield', now, true)
+  resizeOneBoard(save, 'market', now, true)
   return save.encounters
 }
 
@@ -1221,17 +1308,17 @@ export function ensureChapterBossSpawn(save: Save, now = Date.now()): void {
     for (const enc of save.encounters) ensureChapterBossQuality(enc)
   }
   if (!shouldForceChapterBoss(save, save.encounters)) return
-  const current = Array.isArray(save.encounters) ? save.encounters.filter(isEncounter) : []
-  const size = boardSizeFor(save, now)
+  const current = save.encounters.filter((enc) => isEncounter(enc) && isBattlefieldEncounter(enc))
+  const size = boardSizeFor(save, 'battlefield', now)
   if (current.length < size) {
-    resizeEncounterBoard(save, now)
+    resizeOneBoard(save, 'battlefield', now, true)
     if (!shouldForceChapterBoss(save, save.encounters)) return
   }
-  const idx = save.encounters.findIndex(canRecycleForChapterBoss)
+  const idx = save.encounters.findIndex((enc) => isBattlefieldEncounter(enc) && canRecycleForChapterBoss(enc))
   if (idx < 0) return
   const reserved = save.encounters.filter((_, i) => i !== idx)
   const seed = Number.isFinite(save.exploreCount) && save.exploreCount > 0 ? Math.floor(save.exploreCount) : 0
-  const fill = encounterFiller(seed, spawnOptsFor(save, reserved))
+  const fill = encounterFiller(seed, spawnOptsFor(save, reserved, 'battlefield'))
   save.encounters[idx] = fill(idx)
 }
 
@@ -1255,12 +1342,12 @@ export function enemyAt(save: Save, index: number): EnemyEncounter | undefined {
 }
 
 export function merchantAt(save: Save, index: number): MerchantEncounter | undefined {
-  const enc = slotAt(save, index)
+  const enc = slotAt(save, index, 'market')
   return enc && isMerchantSlot(enc) ? enc : undefined
 }
 
 export function blackMerchantAt(save: Save, index: number): BlackMerchantEncounter | undefined {
-  const enc = slotAt(save, index)
+  const enc = slotAt(save, index, 'market')
   return enc?.kind === 'blackMerchant' ? enc : undefined
 }
 
@@ -1269,12 +1356,12 @@ export function shadyAt(save: Save, index: number): BlackMerchantEncounter | und
 }
 
 export function passerbyAt(save: Save, index: number): PasserbyEncounter | undefined {
-  const enc = slotAt(save, index)
+  const enc = slotAt(save, index, 'market')
   return enc?.kind === 'passerby' ? enc : undefined
 }
 
 export function pawnAt(save: Save, index: number): PawnEncounter | undefined {
-  const enc = slotAt(save, index)
+  const enc = slotAt(save, index, 'market')
   return enc?.kind === 'pawn' ? enc : undefined
 }
 
@@ -1283,12 +1370,12 @@ export function pawnshopAt(save: Save, index: number): PawnEncounter | undefined
 }
 
 export function artisanAt(save: Save, index: number): ArtisanEncounter | undefined {
-  const enc = slotAt(save, index)
+  const enc = slotAt(save, index, 'market')
   return enc?.kind === 'artisan' ? enc : undefined
 }
 
 export function bulkBuyAt(save: Save, index: number): BulkBuyEncounter | undefined {
-  const enc = slotAt(save, index)
+  const enc = slotAt(save, index, 'market')
   return enc?.kind === 'bulkBuy' ? enc : undefined
 }
 
@@ -1451,7 +1538,7 @@ export function claimLoot(save: Save, index: number, now = Date.now()): ActionRe
 }
 
 export function barterBlockReason(save: Save, index: number): string | null {
-  const enc = slotAt(save, index)
+  const enc = slotAt(save, index, 'market')
   if (!enc) return '不是路人偶遇'
   if (enc.kind === 'blackMerchant') return '黑心商人不能以物易物'
   if (enc.kind === 'pawn') return '当铺不能以物易物'
@@ -1466,7 +1553,7 @@ export function barterBlockReason(save: Save, index: number): string | null {
 }
 
 export function buyMerchantBlockReason(save: Save, index: number): string | null {
-  const enc = slotAt(save, index)
+  const enc = slotAt(save, index, 'market')
   if (!enc) return '不是黑心商人偶遇'
   if (enc.kind === 'passerby') return '路人不能购买'
   if (enc.kind === 'pawn') return '当铺不能购买'
@@ -1479,7 +1566,7 @@ export function buyMerchantBlockReason(save: Save, index: number): string | null
 }
 
 export function pawnBlockReason(save: Save, index: number): string | null {
-  const enc = slotAt(save, index)
+  const enc = slotAt(save, index, 'market')
   if (!enc) return '不是当铺偶遇'
   if (enc.kind === 'blackMerchant') return '黑心商人不能典当'
   if (enc.kind === 'passerby') return '路人不能典当'
@@ -1495,7 +1582,7 @@ export function pawnBlockReason(save: Save, index: number): string | null {
 }
 
 export function artisanBlockReason(save: Save, index: number): string | null {
-  const enc = slotAt(save, index)
+  const enc = slotAt(save, index, 'market')
   if (!enc || enc.kind !== 'artisan') return '不是工匠委托'
   if (enc.completed) return '这笔委托已完成'
   if (!needEntries(enc.wants).length) return '没有要交的成品'
@@ -1506,7 +1593,7 @@ export function artisanBlockReason(save: Save, index: number): string | null {
 }
 
 export function bulkBuyBlockReason(save: Save, index: number): string | null {
-  const enc = slotAt(save, index)
+  const enc = slotAt(save, index, 'market')
   if (!enc || enc.kind !== 'bulkBuy') return '不是收购订单'
   if (enc.completed) return '这笔收购已完成'
   if (!needEntries(enc.wants).length) return '没有要收的成品'
@@ -1639,18 +1726,16 @@ export function shouldKeepOnExplore(enc: Encounter, now = Date.now()): boolean {
   return isFighting(enc) || isCombatWon(enc) || combatStatus(enc) === 'lose'
 }
 
-/** 探索：扣金币，只替换可刷新格，保留格占位，板子按当前格数（战斗 / 未领本章 Boss 保留可暂超目标）。 */
+/** 探索：扣金币，两板各自只替换可刷新格；战场保留战斗 / 未领本章 Boss，可暂超目标。 */
 export function exploreBoard(save: Save, now = Date.now()): ActionResult {
   const blocked = exploreBlockReason(save)
   if (blocked) return { ok: false, reason: blocked }
   const cost = exploreCost(save)
-  const previous = save.encounters.filter(isEncounter)
-  const kept = keptEncounters(previous, now)
   save.gold -= cost
   save.exploreCount += 1
-  const size = Math.min(ENCOUNTER_SLOT_MAX, Math.max(encounterSlotCount(save), kept.length))
-  const fill = encounterFiller(save.exploreCount, spawnOptsFor(save, previous))
-  save.encounters = placeKeptThenFill(size, previous, kept, fill, false)
+  if (!Array.isArray(save.marketEncounters)) save.marketEncounters = []
+  resizeOneBoard(save, 'battlefield', now, false)
+  resizeOneBoard(save, 'market', now, false)
   return { ok: true, message: `探索完成。花费 ${cost} 金币` }
 }
 
@@ -1905,7 +1990,35 @@ function hydrateWorkshopBuff(save: Save): void {
   raw.workshopBuff = null
 }
 
-/** 旧存档补主线订单板；单格出发字段迁进第 0 格敌人；通用商人拆成六种之一。按当前科技格数收/补。 */
+function migrateBoardSlots(value: unknown): Encounter[] {
+  if (!Array.isArray(value)) return []
+  return value.map((slot) => migrateEncounterSlot(slot) as Encounter).filter(isEncounter)
+}
+
+function splitLegacyBoards(save: LegacyOrderSave, migrated: Encounter[], incomingMarket: Encounter[]): void {
+  const mixed = migrated.some(isMarketEncounter)
+  if (mixed) {
+    save.encounters = migrated.filter(isBattlefieldEncounter)
+    save.marketEncounters = [...migrated.filter(isMarketEncounter), ...incomingMarket.filter(isMarketEncounter)]
+    return
+  }
+  save.encounters = migrated.filter(isBattlefieldEncounter)
+  save.marketEncounters = incomingMarket.filter(isMarketEncounter)
+}
+
+function seedEmptyBoards(save: LegacyOrderSave): void {
+  save.encounters = generateEncounterBoard(save.exploreCount, battlefieldSlotCount(save), {
+    ...spawnOptsFor(save, [], 'battlefield'),
+    board: 'battlefield',
+  })
+  save.marketEncounters = generateEncounterBoard(save.exploreCount + 17, marketSlotCount(save), {
+    ...spawnOptsFor(save, save.encounters, 'market'),
+    board: 'market',
+    starterCopperPawn: true,
+  })
+}
+
+/** 旧存档补双板；混合单板拆成战场 / 商场；单格出发字段迁进战场第 0 格敌人。 */
 export function hydrateEncounterFields(save: Save): Save {
   const raw = save as LegacyOrderSave
   raw.exploreCount =
@@ -1917,19 +2030,15 @@ export function hydrateEncounterFields(save: Save): Save {
   hydrateMainChapterFields(raw)
   hydrateWorkshopBuff(raw)
 
-  if (Array.isArray(raw.encounters)) {
-    raw.encounters = raw.encounters.map((slot) => migrateEncounterSlot(slot) as Encounter)
-  }
+  const migrated = migrateBoardSlots(raw.encounters)
+  const incomingMarket = migrateBoardSlots(raw.marketEncounters)
+  const empty = migrated.length === 0 && incomingMarket.length === 0
 
-  const migrated = Array.isArray(raw.encounters) ? raw.encounters.filter(isEncounter) : []
-  if (migrated.length === 0) {
-    raw.encounters = generateEncounterBoard(raw.exploreCount, encounterSlotCount(raw), {
-      ...spawnOptsFor(raw, []),
-      starterCopperPawn: true,
-    })
+  if (empty) {
+    seedEmptyBoards(raw)
     migrateLegacyOrder(raw)
   } else {
-    raw.encounters = migrated
+    splitLegacyBoards(raw, migrated, incomingMarket)
   }
 
   resizeEncounterBoard(raw)

@@ -71,7 +71,7 @@ describe('guideQuest normalize and hydrate', () => {
     veteran.exploreCount = 2
     veteran.techLevels = { pathOutpost: 1 }
     veteran.unlockedTechIds = ['pathOutpost']
-    const pawn = veteran.encounters[0]
+    const pawn = veteran.marketEncounters[0]
     if (pawn.kind === 'pawn') pawn.completed = true
     const { guideQuestStep: _vs, starterCopperPawnDone: _vp, ...vetRaw } = veteran
     hydrateGuideQuestFields(vetRaw as Save, vetRaw)
@@ -100,6 +100,7 @@ describe('guideQuest normalize and hydrate', () => {
         revealedWeaknesses: [],
       },
     ]
+    save.marketEncounters = []
     const { starterCopperPawnDone: _done, ...raw } = save
     hydrateGuideQuestFields(raw as Save, raw)
     expect((raw as Save).starterCopperPawnDone).toBe(true)
@@ -114,7 +115,7 @@ describe('guideQuest normalize and hydrate', () => {
 
   it('marks pawn done when the opening copper pawn is already completed on the board', () => {
     const save = createSave()
-    const pawn = save.encounters[0]
+    const pawn = save.marketEncounters[0]
     expect(pawn.kind).toBe('pawn')
     if (pawn.kind === 'pawn') pawn.completed = true
     save.starterCopperPawnDone = false
@@ -176,7 +177,7 @@ describe('guideQuest steps and claim', () => {
     expect(save.guideQuestStep).toBe(4)
     expect(save.gold).toBe(goldAfterPawn + GUIDE_QUEST_GOLD)
 
-    save.encounters = [makeStarterCopperPawn(1, 0)]
+    save.marketEncounters = [makeStarterCopperPawn(1, 0)]
     expect(save.starterCopperPawnDone).toBe(true)
     expect(guideQuestProgressAt(save, 3)).toBe(1)
 
@@ -199,7 +200,7 @@ describe('guideQuest steps and claim', () => {
   it('completes step 3 on any finished mainline order, not only the opening copper pawn', () => {
     const save = createSave()
     save.guideQuestStep = 3
-    save.encounters = [
+    save.marketEncounters = [
       {
         kind: 'pawn',
         id: 'merchantPawn-other',
@@ -214,7 +215,7 @@ describe('guideQuest steps and claim', () => {
 
     const trade = createSave()
     trade.guideQuestStep = 3
-    trade.encounters = [
+    trade.marketEncounters = [
       {
         kind: 'passerby',
         id: 'merchantBarter-done',
@@ -245,8 +246,8 @@ describe('guideQuest flash target', () => {
     expect(guideQuestFlashId(save)).toBeNull()
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('deal')
-    expect(isStarterCopperPawn(save.encounters[0])).toBe(true)
-    expect(isGuideQuestDealFlash(save, save.encounters[0])).toBe(true)
+    expect(isStarterCopperPawn(save.marketEncounters[0])).toBe(true)
+    expect(isGuideQuestDealFlash(save, save.marketEncounters[0])).toBe(true)
 
     pawnStep(save)
     expect(guideQuestFlashId(save)).toBeNull()
@@ -276,12 +277,12 @@ describe('guideQuest flash target', () => {
       pawnWants: { weapon: 1 },
       completed: false,
     }
-    save.encounters = [other]
+    save.marketEncounters = [other]
     expect(guideQuestFlashId(save)).toBe('deal')
     expect(isGuideQuestDealFlash(save, other)).toBe(true)
 
     const starter = makeStarterCopperPawn(0, 0)
-    save.encounters = [other, starter]
+    save.marketEncounters = [other, starter]
     expect(isGuideQuestDealFlash(save, starter)).toBe(true)
     expect(isGuideQuestDealFlash(save, other)).toBe(false)
   })

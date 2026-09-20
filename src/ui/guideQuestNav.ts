@@ -1,4 +1,5 @@
 import { openWorkshopStation, selectAppTab, type AppTabId } from './appNav'
+import { selectMainlineTab } from './mainlineTabs'
 import { selectTechTab } from './techTabs'
 
 export function openGuideQuestStep(step: number, storage?: Storage | null): AppTabId {
@@ -9,6 +10,8 @@ export function openGuideQuestStep(step: number, storage?: Storage | null): AppT
       openWorkshopStation('mining', storage)
       return 'workshop'
     case 3:
+      selectMainlineTab('market', storage)
+      return selectAppTab('encounters', storage)
     case 4:
       return selectAppTab('encounters', storage)
     case 5:

@@ -13,6 +13,7 @@ import {
   pawnRewardGold,
 } from '../sim/encounters'
 import { ITEM_DEF } from '../sim/tables'
+import type { EncounterBoardId } from '../sim/encounters'
 import type { Encounter, EncounterNeedMap, ItemId, Save } from '../sim/types'
 
 /** 消耗不足时主按钮点击漂字。与具体缺哪样无关。 */
@@ -99,8 +100,12 @@ export function isConsumeShortageReason(reason: string | null | undefined): bool
   return !!reason && CONSUME_SHORT_RE.test(reason)
 }
 
-export function encounterActionBlockReason(save: Save, index: number): string | null {
-  const enc = save.encounters[index]
+export function encounterActionBlockReason(
+  save: Save,
+  index: number,
+  board: EncounterBoardId = 'battlefield',
+): string | null {
+  const enc = board === 'market' ? save.marketEncounters?.[index] : save.encounters[index]
   if (!enc) return null
   switch (enc.kind) {
     case 'enemy':
@@ -119,8 +124,12 @@ export function encounterActionBlockReason(save: Save, index: number): string | 
 }
 
 /** 开战 / 交付 / 交易等主操作因消耗不足不能执行。 */
-export function isEncounterActionConsumeShort(save: Save, index: number): boolean {
-  return isConsumeShortageReason(encounterActionBlockReason(save, index))
+export function isEncounterActionConsumeShort(
+  save: Save,
+  index: number,
+  board: EncounterBoardId = 'battlefield',
+): boolean {
+  return isConsumeShortageReason(encounterActionBlockReason(save, index, board))
 }
 
 export function formatEncounterDealLines(

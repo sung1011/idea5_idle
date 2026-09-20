@@ -4,7 +4,8 @@ import {
   TECH_TAB_IDS,
   TECH_TAB_LABELS,
   TECH_TREE,
-  encounterSlotCount,
+  battlefieldSlotCount,
+  marketSlotCount,
   isRowOpen,
   isTechComplete,
   isTechMaxed,
@@ -26,7 +27,8 @@ const guideFlashPathOutpost = computed(() => isGuideQuestFlash(game.save, 'pathO
 const selected = ref<TechNodeDef | null>(null)
 const points = computed(() => game.save.techPoints)
 const knightLevel = computed(() => game.save.knightLevel)
-const slots = computed(() => encounterSlotCount(game.save))
+const battlefieldSlots = computed(() => battlefieldSlotCount(game.save))
+const marketSlots = computed(() => marketSlotCount(game.save))
 const done = computed(() => isTechComplete(game.save))
 const unlockedCount = computed(() => techTier(game.save))
 const progressPct = computed(() => Math.round((unlockedCount.value / TECH_TREE.length) * 100))
@@ -87,7 +89,8 @@ function closeSheet() {
     <div class="chips">
       <span class="chip">骑士 {{ knightLevel }} 级</span>
       <span class="chip">灵感 {{ points }}</span>
-      <span class="chip">主线 {{ slots }} 格</span>
+      <span class="chip">战场 {{ battlefieldSlots }} 格</span>
+      <span class="chip">商场 {{ marketSlots }} 格</span>
       <span class="chip">进度 {{ unlockedCount }}/{{ TECH_TREE.length }}</span>
     </div>
     <div class="bar xp" aria-label="科技进度">

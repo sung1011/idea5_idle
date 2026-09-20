@@ -95,6 +95,9 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
   }
   hydrateTechFields(merged as Save & { inspiration?: unknown })
   if (!Array.isArray(parsed.encounters)) merged.encounters = []
+  if (!Array.isArray((parsed as { marketEncounters?: unknown }).marketEncounters)) {
+    merged.marketEncounters = []
+  }
   const loaded = hydrateEncounterFields(merged)
   hydratePotionState(loaded, parsed)
   return hydrateGuideQuestFields(loaded, parsed)

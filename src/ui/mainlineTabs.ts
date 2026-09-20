@@ -1,0 +1,53 @@
+import { ref } from 'vue'
+import { ENCOUNTER_BOARD_IDS, isEncounterBoardId, type EncounterBoardId } from '../sim/encounters'
+
+export const MAINLINE_TAB_KEY = 'idea5IdleMainlineTab'
+export const MAINLINE_TAB_IDS = ENCOUNTER_BOARD_IDS
+export type MainlineTabId = EncounterBoardId
+
+export const MAINLINE_TAB_LABELS: Record<MainlineTabId, string> = {
+  battlefield: '战场',
+  market: '商场',
+}
+
+export const DEFAULT_MAINLINE_TAB: MainlineTabId = 'battlefield'
+
+function storageOf(storage?: Storage | null): Storage | null {
+  if (storage) return storage
+  if (typeof localStorage === 'undefined') return null
+  return localStorage
+}
+
+export function mainlineTabOf(id: unknown): MainlineTabId {
+  return isEncounterBoardId(id) ? id : DEFAULT_MAINLINE_TAB
+}
+
+export function loadMainlineTab(storage?: Storage | null): MainlineTabId {
+  const store = storageOf(storage)
+  if (!store) return DEFAULT_MAINLINE_TAB
+  try {
+    return mainlineTabOf(store.getItem(MAINLINE_TAB_KEY))
+  } catch {
+    return DEFAULT_MAINLINE_TAB
+  }
+}
+
+export function saveMainlineTab(id: unknown, storage?: Storage | null): MainlineTabId {
+  const next = mainlineTabOf(id)
+  const store = storageOf(storage)
+  if (!store) return next
+  try {
+    store.setItem(MAINLINE_TAB_KEY, next)
+  } catch {
+    // quota / private mode
+  }
+  return next
+}
+
+export const mainlineTab = ref(loadMainlineTab())
+
+export function selectMainlineTab(id: unknown, storage?: Storage | null): MainlineTabId {
+  const next = saveMainlineTab(id, storage)
+  mainlineTab.value = next
+  return next
+}

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { appTab, workshopTab } from './appNav'
 import { APP_TAB_KEY } from './appTabs'
 import { openGuideQuestStep } from './guideQuestNav'
+import { MAINLINE_TAB_KEY, mainlineTab } from './mainlineTabs'
 import { TECH_TAB_KEY, techTab } from './techTabs'
 import { WORKSHOP_TAB_KEY } from './workshopTabs'
 
@@ -42,6 +43,8 @@ describe('guideQuestNav', () => {
     expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('mining')
 
     expect(openGuideQuestStep(3, store)).toBe('encounters')
+    expect(mainlineTab.value).toBe('market')
+    expect(store.getItem(MAINLINE_TAB_KEY)).toBe('market')
     expect(openGuideQuestStep(4, store)).toBe('encounters')
     expect(appTab.value).toBe('encounters')
 

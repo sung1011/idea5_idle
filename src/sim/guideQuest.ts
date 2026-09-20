@@ -1,4 +1,4 @@
-import { isEncounterDone, isStarterCopperPawn } from './encounters'
+import { allEncounters, isEncounterDone, isStarterCopperPawn } from './encounters'
 import { techLevel } from './tech'
 import type { ActionResult, Encounter, Save } from './types'
 
@@ -39,9 +39,11 @@ export function hasCompletedStarterCopperPawn(encounters: readonly Encounter[]):
   return encounters.some((enc) => isStarterCopperPawn(enc) && enc.completed)
 }
 
-export function hasCompletedMainlineOrder(save: Pick<Save, 'encounters' | 'starterCopperPawnDone'>): boolean {
+export function hasCompletedMainlineOrder(
+  save: Pick<Save, 'encounters' | 'starterCopperPawnDone'> & { marketEncounters?: Encounter[] },
+): boolean {
   if (save.starterCopperPawnDone) return true
-  return save.encounters.some((enc) => isEncounterDone(enc))
+  return allEncounters(save).some((enc) => isEncounterDone(enc))
 }
 
 export function openDealEncounters(encounters: readonly Encounter[]): Encounter[] {
@@ -51,7 +53,7 @@ export function openDealEncounters(encounters: readonly Encounter[]): Encounter[
 /** 步骤 3 要闪的那笔可成交单：开局铜矿当还在则优先，否则第一笔未成交交易。 */
 export function guideQuestDealFlashEncounter(save: Save): Encounter | null {
   if (!isGuideQuestFlash(save, 'deal')) return null
-  const open = openDealEncounters(save.encounters)
+  const open = openDealEncounters(allEncounters(save))
   return open.find((enc) => isStarterCopperPawn(enc)) ?? open[0] ?? null
 }
 
@@ -153,11 +155,12 @@ export function hydrateGuideQuestFields(save: Save, raw?: object): Save {
   const hadPawn = !!raw && Object.prototype.hasOwnProperty.call(raw, 'starterCopperPawnDone')
   const incoming = save as Save & { starterCopperPawnDone?: unknown; guideQuestStep?: unknown }
 
-  if (save.encounters.some((enc) => isEncounterDone(enc)) || hasCompletedStarterCopperPawn(save.encounters)) {
+  const board = allEncounters(save)
+  if (board.some((enc) => isEncounterDone(enc)) || hasCompletedStarterCopperPawn(board)) {
     incoming.starterCopperPawnDone = true
   } else if (hadPawn) {
     incoming.starterCopperPawnDone = normalizeStarterCopperPawnDone(incoming.starterCopperPawnDone)
-  } else if (!hasStarterCopperPawn(save.encounters) && (save.exploreCount ?? 0) >= 1) {
+  } else if (!hasStarterCopperPawn(board) && (save.exploreCount ?? 0) >= 1) {
     incoming.starterCopperPawnDone = true
   } else {
     incoming.starterCopperPawnDone = false

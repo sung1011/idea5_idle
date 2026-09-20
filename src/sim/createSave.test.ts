@@ -60,10 +60,12 @@ describe('createSave six stations', () => {
     expect(save.techPoints).toBe(20)
     expect(save.unlockedTechIds).toEqual([])
     expect(save.techLevels).toEqual({})
-    expect(save.encounters).toHaveLength(4)
-    expect(save.encounters[0].kind).toBe('pawn')
-    if (save.encounters[0].kind === 'pawn') {
-      expect(save.encounters[0].pawnWants).toEqual({ ore: 2 })
+    expect(save.encounters).toHaveLength(2)
+    expect(save.encounters.every((enc) => enc.kind === 'enemy')).toBe(true)
+    expect(save.marketEncounters).toHaveLength(1)
+    expect(save.marketEncounters[0].kind).toBe('pawn')
+    if (save.marketEncounters[0].kind === 'pawn') {
+      expect(save.marketEncounters[0].pawnWants).toEqual({ ore: 2 })
     }
     expect(save.mainChapter).toBe(1)
     expect(save.mainLootClaims).toBe(0)

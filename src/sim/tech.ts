@@ -4,10 +4,16 @@ import { roll01 } from './rng'
 import { OFFLINE_CAP_S, RECRUIT_COST } from './tables'
 import type { ActionResult, Save, StationId, TechId } from './types'
 
-export const ENCOUNTER_SLOT_MIN = 4
-export const ENCOUNTER_SLOT_MAX = 6
-/** 主线订单格科技的 effectId。每级 +1 格，与初始 4 格相加，封顶 6。已实装节点先 `maxLevel=1`。 */
-export const ENCOUNTER_SLOT_EFFECT = 'encounterSlot'
+export const BATTLEFIELD_SLOT_MIN = 2
+export const BATTLEFIELD_SLOT_MAX = 4
+export const MARKET_SLOT_MIN = 1
+export const MARKET_SLOT_MAX = 4
+/** 战场订单格科技。每级 +1，与初始 2 格相加，封顶 4。 */
+export const BATTLEFIELD_SLOT_EFFECT = 'battlefieldSlot'
+/** 商场订单格科技。每级 +1，与初始 1 格相加，封顶 4。 */
+export const MARKET_SLOT_EFFECT = 'marketSlot'
+/** @deprecated 旧单板 effectId；现拆成 battlefieldSlot / marketSlot。 */
+export const ENCOUNTER_SLOT_EFFECT = BATTLEFIELD_SLOT_EFFECT
 export const NOOP_TECH_EFFECT = 'noop'
 /** 已实装节点先保持单级，图标仍走 `0/1`→`1/1`。 */
 export const IMPLEMENTED_TECH_MAX_LEVEL = 1
@@ -65,7 +71,7 @@ export type TechNodeDef = {
   name: string
   desc: string
   cost: number
-  /** 实装效果 id；占位为 noop。事务订单格为 encounterSlot；冲突仍走 stationConflictMul。 */
+  /** 实装效果 id；占位为 noop。事务订单格为 battlefieldSlot / marketSlot；冲突仍走 stationConflictMul。 */
   effectId: string
   tab: TechTabId
   row: number
@@ -308,9 +314,9 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'pathOutpost',
         name: '探路哨岗',
-        desc: '在工坊外立一座哨岗，主线订单格 +1（4→5）。',
+        desc: '在工坊外立一座哨岗，战场订单格 +1（2→3）。',
         icon: '🏕️',
-        effectId: ENCOUNTER_SLOT_EFFECT,
+        effectId: BATTLEFIELD_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
       },
       {
@@ -327,10 +333,10 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
     options: [
       {
         id: 'marketLicense',
-        name: '市集执照',
-        desc: '拿到摆摊文书，主线订单格 +1（5→6）。',
+        name: '市集摊位',
+        desc: '多摆一个摊位，商场订单格 +1（1→2）。',
         icon: '🪪',
-        effectId: ENCOUNTER_SLOT_EFFECT,
+        effectId: MARKET_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
       },
       {
@@ -348,9 +354,9 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'scoutRelay',
         name: '斥候驿站',
-        desc: '路书可传到更远，主线订单格 +1（封顶 6）。',
+        desc: '路书可传到更远，战场订单格 +1（3→4）。',
         icon: '🏇',
-        effectId: ENCOUNTER_SLOT_EFFECT,
+        effectId: BATTLEFIELD_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
       },
       {
@@ -367,10 +373,10 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
     options: [
       {
         id: 'farWatch',
-        name: '远望烽台',
-        desc: '夜里也能看见客商，主线订单格 +1（封顶 6）。',
+        name: '货栈扩容',
+        desc: '货栈多开一间，商场订单格 +1（2→3）。',
         icon: '🗼',
-        effectId: ENCOUNTER_SLOT_EFFECT,
+        effectId: MARKET_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
       },
       { id: 's04DraftC', name: '夜更口令', desc: PLACEHOLDER, icon: '🌙' },
@@ -381,10 +387,10 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
     options: [
       {
         id: 'caravanPermit',
-        name: '商队路引',
-        desc: '大队可同时进场，主线订单格 +1（封顶 6）。',
+        name: '商路执照',
+        desc: '办好商路执照，商场订单格 +1（3→4）。',
         icon: '🐫',
-        effectId: ENCOUNTER_SLOT_EFFECT,
+        effectId: MARKET_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
       },
       { id: 's05DraftC', name: '关卡印花', desc: PLACEHOLDER, icon: '💮' },
@@ -400,8 +406,12 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
   },
 ]
 
+function isSlotEffect(effectId: string | undefined): boolean {
+  return effectId === BATTLEFIELD_SLOT_EFFECT || effectId === MARKET_SLOT_EFFECT
+}
+
 function isImplemented(seed: OptionSeed): boolean {
-  return seed.implemented === true || seed.effectId === ENCOUNTER_SLOT_EFFECT
+  return seed.implemented === true || isSlotEffect(seed.effectId)
 }
 
 function resolveMaxLevel(seed: OptionSeed): number {
@@ -449,8 +459,17 @@ export const TECH_TREE: readonly TechNodeDef[] = TECH_TABS.flatMap((tab) =>
 
 export const TECH_IDS = TECH_TREE.map((node) => node.id)
 
-export const ENCOUNTER_SLOT_TECH_IDS: readonly TechId[] = TECH_TREE.filter(
-  (node) => node.effectId === ENCOUNTER_SLOT_EFFECT,
+export const BATTLEFIELD_SLOT_TECH_IDS: readonly TechId[] = TECH_TREE.filter(
+  (node) => node.effectId === BATTLEFIELD_SLOT_EFFECT,
+).map((node) => node.id)
+
+export const MARKET_SLOT_TECH_IDS: readonly TechId[] = TECH_TREE.filter(
+  (node) => node.effectId === MARKET_SLOT_EFFECT,
+).map((node) => node.id)
+
+/** 战场 + 商场订单格科技，按科技树顺序。 */
+export const ENCOUNTER_SLOT_TECH_IDS: readonly TechId[] = TECH_TREE.filter((node) =>
+  isSlotEffect(node.effectId),
 ).map((node) => node.id)
 
 const TECH_BY_ID = new Map<TechId, TechNodeDef>(TECH_TREE.map((node) => [node.id, node]))
@@ -618,18 +637,35 @@ export function techTier(save: Save): number {
   return TECH_TREE.filter((node) => hasTech(save, node.id)).length
 }
 
-/** 当前主线订单格数。初始 4，每级订单格科技 +1，封顶 6。超出封顶的科技仍记等级，不再加格。 */
-export function encounterSlotCount(save: Save): number {
+function slotCountFor(
+  save: Save,
+  ids: readonly TechId[],
+  min: number,
+  max: number,
+): number {
   let bonus = 0
-  for (const id of ENCOUNTER_SLOT_TECH_IDS) {
-    bonus += techLevel(save, id)
-  }
-  return Math.min(ENCOUNTER_SLOT_MAX, Math.max(ENCOUNTER_SLOT_MIN, ENCOUNTER_SLOT_MIN + bonus))
+  for (const id of ids) bonus += techLevel(save, id)
+  return Math.min(max, Math.max(min, min + bonus))
 }
 
-/** 已点节点按 effectId 叠等级 × 表值。订单格走 encounterSlotCount，冲突走 stationConflictMul。 */
+/** 战场订单格。初始 2，每级战场格科技 +1，封顶 4。 */
+export function battlefieldSlotCount(save: Save): number {
+  return slotCountFor(save, BATTLEFIELD_SLOT_TECH_IDS, BATTLEFIELD_SLOT_MIN, BATTLEFIELD_SLOT_MAX)
+}
+
+/** 商场订单格。初始 1，每级商场格科技 +1，封顶 4。 */
+export function marketSlotCount(save: Save): number {
+  return slotCountFor(save, MARKET_SLOT_TECH_IDS, MARKET_SLOT_MIN, MARKET_SLOT_MAX)
+}
+
+/** 两板格数合计，仅作展示 / 旧调用兼容。 */
+export function encounterSlotCount(save: Save): number {
+  return battlefieldSlotCount(save) + marketSlotCount(save)
+}
+
+/** 已点节点按 effectId 叠等级 × 表值。订单格走 battlefieldSlotCount / marketSlotCount，冲突走 stationConflictMul。 */
 export function techEffectValue(save: Save, effectId: string): number {
-  if (!effectId || effectId === NOOP_TECH_EFFECT || effectId === ENCOUNTER_SLOT_EFFECT) return 0
+  if (!effectId || effectId === NOOP_TECH_EFFECT || isSlotEffect(effectId)) return 0
   const base = TECH_EFFECT_BASE[effectId]
   if (typeof base !== 'number' || !Number.isFinite(base) || base === 0) return 0
   let levels = 0
@@ -779,7 +815,7 @@ export function researchTech(save: Save, techId: string): ActionResult {
   const nextLevel = techLevel(save, node.id) + 1
   save.techLevels = { ...materializeTechLevels(save), [node.id]: nextLevel }
   save.unlockedTechIds = syncUnlockedFromLevels(save.techLevels)
-  if (node.effectId === ENCOUNTER_SLOT_EFFECT) {
+  if (isSlotEffect(node.effectId)) {
     resizeEncounterBoard(save)
   }
   return { ok: true, message: `已点亮「${node.name}」` }

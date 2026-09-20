@@ -15,6 +15,7 @@ import {
   ENCOUNTER_KIND_LABEL,
   QUALITY_LABEL,
   combatSupplyBlockReason,
+  encountersOf,
   exploreCost,
   formatMarchClock,
   isEncounterDone,
@@ -22,6 +23,7 @@ import {
   stampLabel,
   workshopBuffMul,
   workshopBuffRemainS,
+  type EncounterBoardId,
 } from '../sim/encounters'
 import { isGuideQuestDealFlash, isGuideQuestFlash } from '../sim/guideQuest'
 import { mainChapterTitle, mainLootClaimBarLabel, mainLootClaimFillPct } from '../sim/mainChapter'
@@ -33,6 +35,7 @@ import { CONSUME_SHORT_TIP, isEncounterActionConsumeShort } from './encounterDea
 import { formatAtkSpeed } from './formatAtkSpeed'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
+import { MAINLINE_TAB_IDS, MAINLINE_TAB_LABELS, mainlineTab, selectMainlineTab } from './mainlineTabs'
 import HpBar from './hpBar.vue'
 import {
   qualityOf,
@@ -42,9 +45,12 @@ import {
 
 const game = useGameStore()
 const guideFlashExplore = computed(() => isGuideQuestFlash(game.save, 'explore'))
+const guideFlashMarket = computed(() => isGuideQuestFlash(game.save, 'deal'))
 function guideFlashDeal(enc: Encounter) {
   return isGuideQuestDealFlash(game.save, enc)
 }
+const currentTab = computed(() => mainlineTab.value)
+const boardEncounters = computed(() => encountersOf(game.save, currentTab.value))
 const cost = computed(() => exploreCost(game.save))
 const chapterTitle = computed(() => mainChapterTitle(game.save))
 const lootBarLabel = computed(() => mainLootClaimBarLabel(game.save))
@@ -68,8 +74,13 @@ const pickCandidates = computed(() =>
   pickCombatCandidates(restCombatCandidates(game.save), assistWorker.value),
 )
 
+function selectTab(id: EncounterBoardId) {
+  selectMainlineTab(id)
+  closePick()
+}
+
 function consumeShort(index: number) {
-  return isEncounterActionConsumeShort(game.save, index)
+  return isEncounterActionConsumeShort(game.save, index, currentTab.value)
 }
 
 function warnConsumeShort(index: number) {
@@ -167,6 +178,19 @@ function pickRecommend(w: Worker) {
 <template>
   <section class="panel encounter">
     <h2 class="title">主线</h2>
+    <nav class="sub" role="tablist" aria-label="主线分页">
+      <button
+        v-for="id in MAINLINE_TAB_IDS"
+        :key="id"
+        type="button"
+        role="tab"
+        :aria-selected="currentTab === id"
+        :class="{ on: currentTab === id, 'guide-flash': guideFlashMarket && id === 'market' }"
+        @click="selectTab(id)"
+      >
+        {{ MAINLINE_TAB_LABELS[id] }}
+      </button>
+    </nav>
     <div class="chapter-head">
       <p class="chapter">{{ chapterTitle }}</p>
       <div
@@ -190,7 +214,7 @@ function pickRecommend(w: Worker) {
     <p v-if="buffOn" class="buff">{{ buffLabel }}</p>
 
     <div class="board">
-      <article v-for="(enc, i) in game.save.encounters" :key="enc.id" class="card" :class="cardClass(enc)">
+      <article v-for="(enc, i) in boardEncounters" :key="enc.id" class="card" :class="cardClass(enc)">
         <EncounterTips :encounter-id="enc.id" />
         <i v-if="isEncounterDone(enc, now)" class="stamp" aria-hidden="true">{{ stampLabel(enc) }}</i>
         <b class="qmark">{{ QUALITY_LABEL[enc.quality] }}</b>
@@ -408,6 +432,58 @@ function pickRecommend(w: Worker) {
 .title {
   margin: 0;
   font-size: 20px;
+}
+
+.sub {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 3px;
+  border: 2px solid var(--gold);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, #fffef8 0%, #fff3d4 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.sub button {
+  flex: 1 1 0;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  opacity: 1;
+  filter: none;
+}
+
+.sub button:hover:not(:disabled) {
+  filter: none;
+  background: rgba(255, 243, 196, 0.45);
+}
+
+.sub button:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.sub button:focus-visible {
+  outline: 2px solid var(--gold-deep);
+  outline-offset: 1px;
+}
+
+.sub button.on,
+.sub button.on:hover:not(:disabled),
+.sub button.on:active:not(:disabled) {
+  color: var(--ink);
+  background: linear-gradient(#ffe27a, #f0b83a);
+  box-shadow: 0 2px 6px rgba(212, 160, 23, 0.32);
+  opacity: 1;
+  filter: none;
 }
 
 .panel p,
