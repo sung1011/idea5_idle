@@ -143,7 +143,7 @@ describe('completeCycle gain tips', () => {
     assignWorker(brew, brew.workers[0].id, 'alchemy')
     const brewGain = collectGain(brew, 'alchemy')
     expect(brewGain.events[0]?.stationId).toBe('alchemy')
-    expect(brewGain.tips).toEqual(['获得 战鼓药 ×6、金币 +12'])
+    expect(brewGain.tips).toEqual(['获得 醒神散 ×6、金币 +12'])
   })
 
   it('forwards onGain through live ticks with stationId', () => {
