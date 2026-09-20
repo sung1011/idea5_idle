@@ -229,7 +229,7 @@ export function unassignedWorkers(save: Save): Worker[] {
   return save.workers.filter((worker) => worker.assignment === null)
 }
 
-/** 主线进行中出战名单（`combat.workerIds` 且 `isFighting`）。工坊在岗即使被波及也不进此列。 */
+/** 主线进行中出场名单（进行中战斗的存活场上工人）。倒下回休息；工坊在岗即使被波及也不进此列。 */
 export function mainlineCombatWorkers(save: Save): Worker[] {
   const fighting = fightingWorkerIds(save)
   return save.workers.filter((worker) => worker.assignment === null && fighting.has(worker.id))

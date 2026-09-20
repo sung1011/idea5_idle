@@ -28,6 +28,7 @@ import {
   buyMerchant,
   claimLoot,
   exploreBoard,
+  reinforceCombat,
   startCombat,
   pawnMerchant,
   sellBulk,
@@ -169,6 +170,8 @@ export const useGameStore = defineStore('game', () => {
     claimGuideQuest: () => apply(claimGuideQuest),
     startCombat: (index: number, workerIds: string[], guests?: Worker[]) =>
       apply((s) => startCombat(s, index, workerIds, Date.now(), pushCombatLogTip, guests)),
+    reinforceCombat: (index: number, workerIds: string[], guests?: Worker[]) =>
+      apply((s) => reinforceCombat(s, index, workerIds, Date.now(), pushCombatLogTip, guests)),
     claimLoot: (index: number) => apply((s) => claimLoot(s, index)),
     barter: (index: number) => apply((s) => barterMerchant(s, index)),
     buyMerchant: (index: number) => apply((s) => buyMerchant(s, index)),

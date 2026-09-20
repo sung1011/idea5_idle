@@ -1,10 +1,13 @@
 import { addToBank, bankQty } from './bank'
 import {
+  addCombatReinforcements,
   beginEnemyCombat,
+  COMBAT_PARTY_MAX,
+  canReinforceCombat,
   combatPartyBlockReason,
   combatStatus,
+  fieldFighterCount,
   grantWorkerCombatXp,
-  isCombatLost,
   isCombatWon,
   isEnemyCombat,
   isFighting,
@@ -53,7 +56,6 @@ import {
   exploreCostMul,
   lootGoldMul,
   marketSlotCount,
-  rematchSupplyCut,
   tradeGoldMul,
 } from './tech'
 import type {
@@ -776,16 +778,9 @@ export function enemyLootPayout(enc: EnemyEncounter, save?: Save): number {
   return save ? scaleGold(base, lootGoldMul(save)) : base
 }
 
-/** 再战补给：败后再开时每项需求 −N，下限 0。 */
-export function combatSupplyNeeds(save: Save, enc: EnemyEncounter): EncounterNeedMap {
-  const cut = isCombatLost(enc) ? rematchSupplyCut(save) : 0
-  if (cut <= 0) return enc.needs
-  const out: EncounterNeedMap = {}
-  for (const [itemId, qty] of needEntries(enc.needs)) {
-    const next = Math.max(0, qty - cut)
-    if (next > 0) out[itemId] = next
-  }
-  return out
+/** 开战消耗：始终一整套 needs。再战补给已取消。 */
+export function combatSupplyNeeds(_save: Save, enc: EnemyEncounter): EncounterNeedMap {
+  return enc.needs
 }
 
 export function needLines(save: Save, map: EncounterNeedMap): EncounterLine[] {
@@ -1447,7 +1442,7 @@ function resizeOneBoard(save: Save, board: EncounterBoardId, now: number, reuseI
   return writeBoard(save, board, placeKeptThenFill(size, previous, kept, fill, reuseIdle))
 }
 
-/** 按当前格数补齐或收两板；战场战斗中 / 胜可领 / 败可再战优先保留，可暂超目标格数。 */
+/** 按当前格数补齐或收两板；战场战斗中 / 胜可领 / 超时战败后可再开战优先保留，可暂超目标格数。 */
 export function resizeEncounterBoard(save: Save, now = Date.now()): Encounter[] {
   if (!Array.isArray(save.marketEncounters)) save.marketEncounters = []
   resizeOneBoard(save, 'battlefield', now, true)
@@ -1462,7 +1457,7 @@ function canRecycleForChapterBoss(enc: Encounter): boolean {
 /**
  * 战利品已满 10 且板上没有未领本章 Boss 时，尽快落下 Boss：
  * 先补空位；没空则回收已领敌人格 / 已完成交易格。
- * 不改战斗中 / 胜可领 / 败可再战，也不把未完成交易单直接改成 Boss。
+ * 不改战斗中 / 胜可领 / 超时战败后可再开战，也不把未完成交易单直接改成 Boss。
  */
 export function ensureChapterBossSpawn(save: Save, now = Date.now()): void {
   if (Array.isArray(save.encounters)) {
@@ -1575,6 +1570,22 @@ export function startCombatBlockReason(
   return combatPartyBlockReason(save, workerIds, guests)
 }
 
+export function reinforceCombatBlockReason(
+  save: Save,
+  index: number,
+  workerIds: readonly string[],
+  guests: readonly Worker[] = [],
+): string | null {
+  const enc = enemyAt(save, index)
+  if (!enc) return '不是敌人偶遇'
+  if (!canReinforceCombat(enc)) {
+    if (!isFighting(enc)) return '战斗未进行'
+    return `场上已满 ${COMBAT_PARTY_MAX} 人`
+  }
+  const room = COMBAT_PARTY_MAX - fieldFighterCount(enc)
+  return combatPartyBlockReason(save, workerIds, guests, room)
+}
+
 export function departBlockReason(
   save: Save,
   index: number,
@@ -1630,9 +1641,30 @@ export function startCombat(
   return { ok: true }
 }
 
+/** 战斗中增援：不扣补给，只加满血休息工人。 */
+export function reinforceCombat(
+  save: Save,
+  index: number,
+  workerIds: readonly string[],
+  now = Date.now(),
+  onLog?: CombatLogSink,
+  guests: readonly Worker[] = [],
+): ActionResult {
+  const blocked = reinforceCombatBlockReason(save, index, workerIds, guests)
+  if (blocked) return { ok: false, reason: blocked }
+  const enc = enemyAt(save, index)
+  if (!enc) return { ok: false, reason: '不是敌人偶遇' }
+  const party = workerIds
+    .map((id) => findCombatPartyWorker(save, id, guests))
+    .filter((w): w is Worker => !!w)
+  if (!party.length) return { ok: false, reason: '请选择出战工人' }
+  addCombatReinforcements(enc, party, now, onLog, save)
+  return { ok: true }
+}
+
 /** @deprecated 改走 startCombat。无工人时只报「请选择出战工人」。 */
 export function departEncounter(save: Save, index: number, now = Date.now()): ActionResult {
-  const idle = selectableCombatWorkers(save).slice(0, 2).map((w) => w.id)
+  const idle = selectableCombatWorkers(save).slice(0, COMBAT_PARTY_MAX).map((w) => w.id)
   if (!idle.length) return { ok: false, reason: startCombatBlockReason(save, index, []) ?? '请选择出战工人' }
   return startCombat(save, index, idle, now)
 }
@@ -1879,7 +1911,7 @@ export function sellBulk(save: Save, index: number): ActionResult {
   return { ok: true, message: `收购成交。金币 +${gold}` }
 }
 
-/** 战斗中 / 胜可领 / 败可再战，以及未领的本章 Boss（含待战）占位保留；普通未开打 / 已领奖 / 其它格可换。 */
+/** 战斗中 / 胜可领 / 超时战败后可再开战，以及未领的本章 Boss（含待战）占位保留；普通未开打 / 已领奖 / 其它格可换。 */
 export function shouldKeepOnExplore(enc: Encounter, now = Date.now()): boolean {
   if (enc.kind !== 'enemy') return false
   void now

@@ -133,7 +133,7 @@ describe('hydrate old saves', () => {
   })
 })
 
-describe('reveal and rematch', () => {
+describe('reveal and later start', () => {
   it('reveals only matched attrs; a miss does not reveal', () => {
     const enc = testEnemy({ weaknesses: ['fire', 'ice', 'dark'] })
     const hit = resolveWorkerAttack(enc, ['fire', 'sword'], 10)
@@ -149,7 +149,7 @@ describe('reveal and rematch', () => {
     expect(matchingWeaknesses(['ice', 'dark'], enc.weaknesses)).toEqual(['ice', 'dark'])
   })
 
-  it('keeps revealedWeaknesses on rematch of the same order', () => {
+  it('keeps revealedWeaknesses when restarting the same order', () => {
     const save = createSave()
     const worker = spawnWorker(save)
     worker.combatAttrs = ['fire']
@@ -173,14 +173,16 @@ describe('reveal and rematch', () => {
       outcome: 'lose',
       enemy: { ...enc.combat!.enemy, hp: leftoverHp },
     }
-    const rematch = startCombat(save, 0, [worker.id], now + 1_000)
-    expect(rematch.ok).toBe(true)
+    worker.hp = worker.hpMax
+    worker.fatigueDebt = 0
+    const restart = startCombat(save, 0, [worker.id], now + 1_000)
+    expect(restart.ok).toBe(true)
     expect(enc.revealedWeaknesses).toEqual(['fire'])
     expect(visibleWeaknessSlots(enc)[0]).toBe('fire')
-    expect(enc.combat?.enemy.hp).toBe(leftoverHp)
+    expect(enc.combat?.enemy.hp).toBe(enc.combat?.enemy.hpMax)
   })
 
-  it('keeps panel weakness slots aligned with combat before fight, after start, and on rematch', () => {
+  it('keeps panel weakness slots aligned with combat before fight, after start, and on later start', () => {
     const save = createSave()
     const worker = spawnWorkerWith(save, 2, 'hunter', ['fire'])
     const enc = testEnemy({
@@ -223,6 +225,8 @@ describe('reveal and rematch', () => {
       outcome: 'lose',
       enemy: { ...combat.enemy, hp: Math.max(1, combat.enemy.hp) },
     }
+    worker.hp = worker.hpMax
+    worker.fatigueDebt = 0
     expect(startCombat(save, 0, [worker.id], now + 2_000).ok).toBe(true)
     expect(enemyWeaknessView(enc)).toMatchObject({
       weaknesses: ['sword', 'fire', 'bow', 'dark'],

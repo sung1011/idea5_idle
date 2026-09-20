@@ -854,7 +854,7 @@ describe('enemy combat and loot', () => {
     expect((save.encounters[0] as { power?: unknown }).power).toBeUndefined()
   })
 
-  it('keeps a leftover multi-item enemy needs map so a rematch is not rewritten', () => {
+  it('keeps a leftover multi-item enemy needs map so an old fighting order is not rewritten', () => {
     const save = createSave()
     save.encounters = [
       {

@@ -63,7 +63,7 @@ export function isChapterBoss(enc: Encounter): enc is EnemyEncounter & { chapter
   return enc.kind === 'enemy' && enc.chapterBoss === true
 }
 
-/** 板上还有未领奖的本章 Boss（含战斗中 / 胜可领 / 败可再战 / 未开打）。 */
+/** 板上还有未领奖的本章 Boss（含战斗中 / 胜可领 / 超时战败后可再开战 / 未开打）。 */
 export function hasLiveChapterBoss(encounters: readonly Encounter[]): boolean {
   return encounters.some((enc) => isChapterBoss(enc) && !enc.lootClaimed)
 }

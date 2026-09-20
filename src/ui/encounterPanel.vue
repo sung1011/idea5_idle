@@ -5,10 +5,12 @@ import CombatAttrIcon from './combatAttrIcon.vue'
 import CombatAttrRow from './combatAttrRow.vue'
 import {
   COMBAT_PARTY_MAX,
-  isCombatLost,
+  canReinforceCombat,
+  fieldFighterCount,
   isCombatWon,
   isFighting,
-  restCombatCandidates,
+  isFullCombatHp,
+  selectableCombatWorkers,
 } from '../sim/combat'
 import { createAssistWorker, isAssistWorker, pickCombatCandidates } from '../sim/combatAssist'
 import {
@@ -66,11 +68,19 @@ const buffLabel = computed(() => {
   return `工匠加持：工坊产量 +${pct}% · 剩余 ${formatMarchClock(workshopBuffRemainS(game.save, now.value))}`
 })
 const pickIndex = ref<number | null>(null)
+const pickMode = ref<'start' | 'reinforce'>('start')
 const picked = ref<string[]>([])
 const assistWorker = ref<Worker | null>(null)
 const pickOpen = computed(() => pickIndex.value !== null)
+const pickMax = computed(() => {
+  if (pickMode.value === 'reinforce' && pickIndex.value != null) {
+    const enc = game.save.encounters[pickIndex.value]
+    if (enc?.kind === 'enemy') return Math.max(0, COMBAT_PARTY_MAX - fieldFighterCount(enc))
+  }
+  return COMBAT_PARTY_MAX
+})
 const pickCandidates = computed(() =>
-  pickCombatCandidates(restCombatCandidates(game.save), assistWorker.value),
+  pickCombatCandidates(selectableCombatWorkers(game.save), assistWorker.value),
 )
 
 function selectTab(id: EncounterBoardId) {
@@ -96,6 +106,16 @@ function openPick(index: number) {
     pushFloatTip(blocked, 'err')
     return
   }
+  pickMode.value = 'start'
+  pickIndex.value = index
+  picked.value = []
+  assistWorker.value = null
+}
+
+function openReinforce(index: number) {
+  const enc = game.save.encounters[index]
+  if (enc?.kind !== 'enemy' || !canReinforceCombat(enc)) return
+  pickMode.value = 'reinforce'
   pickIndex.value = index
   picked.value = []
   assistWorker.value = null
@@ -103,6 +123,7 @@ function openPick(index: number) {
 
 function closePick() {
   pickIndex.value = null
+  pickMode.value = 'start'
   picked.value = []
   assistWorker.value = null
 }
@@ -112,14 +133,14 @@ function inviteAssist() {
 }
 
 function togglePick(worker: Worker) {
-  if (worker.hp <= 0) return
+  if (!isFullCombatHp(worker)) return
   const id = worker.id
   if (picked.value.includes(id)) {
     picked.value = picked.value.filter((x) => x !== id)
     return
   }
-  if (picked.value.length >= COMBAT_PARTY_MAX) {
-    pushFloatTip(`最多选 ${COMBAT_PARTY_MAX} 人`, 'err')
+  if (picked.value.length >= pickMax.value) {
+    pushFloatTip(`最多选 ${pickMax.value} 人`, 'err')
     return
   }
   picked.value = [...picked.value, id]
@@ -128,11 +149,16 @@ function togglePick(worker: Worker) {
 function confirmPick() {
   const index = pickIndex.value
   if (index == null) return
+  const guests = assistWorker.value ? [assistWorker.value] : []
+  if (pickMode.value === 'reinforce') {
+    const result = game.reinforceCombat(index, [...picked.value], guests)
+    if (result.ok) closePick()
+    return
+  }
   if (consumeShort(index)) {
     pushFloatTip(CONSUME_SHORT_TIP, 'err')
     return
   }
-  const guests = assistWorker.value ? [assistWorker.value] : []
   const result = game.startCombat(index, [...picked.value], guests)
   if (result.ok) closePick()
 }
@@ -260,13 +286,16 @@ function pickRecommend(w: Worker) {
             >
               已领
             </button>
-            <button
-              v-else-if="isFighting(enc)"
-              type="button"
-              disabled
-            >
-              战斗中
-            </button>
+            <template v-else-if="isFighting(enc)">
+              <button type="button" disabled>战斗中</button>
+              <button
+                v-if="canReinforceCombat(enc)"
+                type="button"
+                @click="openReinforce(i)"
+              >
+                增援
+              </button>
+            </template>
             <button
               v-else-if="isCombatWon(enc)"
               type="button"
@@ -282,7 +311,7 @@ function pickRecommend(w: Worker) {
                 :disabled="consumeShort(i)"
                 @click.stop="openPick(i)"
               >
-                {{ isCombatLost(enc) ? '再战' : '开战' }}
+                开战
               </button>
             </span>
           </div>
@@ -373,15 +402,15 @@ function pickRecommend(w: Worker) {
 
     <div v-if="pickOpen" class="modal" role="dialog" aria-label="选择出战工人" @click.self="closePick">
       <div class="sheet">
-        <p>选择休息中工人（最多 {{ COMBAT_PARTY_MAX }} 人）</p>
-        <p class="hint">HP≤0 不可选。出战不算派驻工坊。点邀请才加入 1 名临时助战。</p>
+        <p>{{ pickMode === 'reinforce' ? '选择增援工人' : '选择出战工人' }}（最多 {{ pickMax }} 人）</p>
+        <p class="hint">只列满血休息工人（与劳损底色一致）。出战不算派驻工坊。点邀请才加入 1 名临时助战。{{ pickMode === 'reinforce' ? '增援不消耗补给。' : '' }}</p>
         <ul class="pick-list">
           <li v-for="w in pickCandidates" :key="w.id">
             <button
               type="button"
               class="pick-worker"
               :class="{ on: picked.includes(w.id), assist: isAssistWorker(w) }"
-              :disabled="w.hp <= 0"
+              :disabled="!isFullCombatHp(w)"
               @click="togglePick(w)"
             >
               <span class="pick-name">
@@ -398,17 +427,17 @@ function pickRecommend(w: Worker) {
               </span>
             </button>
           </li>
-          <li v-if="!pickCandidates.length" class="hint">没有休息中的工人</li>
+          <li v-if="!pickCandidates.length" class="hint">没有满血休息工人</li>
         </ul>
         <div class="row">
-          <span class="act-hit" @click="pickIndex != null && warnConsumeShort(pickIndex)">
+          <span class="act-hit" @click="pickMode === 'start' && pickIndex != null && warnConsumeShort(pickIndex)">
             <button
               type="button"
-              :class="{ 'guide-flash': guideFlashCombat }"
-              :disabled="!picked.length || (pickIndex != null && consumeShort(pickIndex))"
+              :class="{ 'guide-flash': guideFlashCombat && pickMode === 'start' }"
+              :disabled="!picked.length || (pickMode === 'start' && pickIndex != null && consumeShort(pickIndex))"
               @click.stop="confirmPick"
             >
-              战斗
+              {{ pickMode === 'reinforce' ? '增援' : '战斗' }}
             </button>
           </span>
           <button type="button" @click="inviteAssist">邀请</button>

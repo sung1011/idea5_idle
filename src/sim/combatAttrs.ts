@@ -342,7 +342,7 @@ export function formatWeaknessCritTip(ids: readonly CombatAttrId[]): string {
   return `${ids.map((id) => COMBAT_ATTR_LABEL[id]).join(' ')} 暴击`
 }
 
-/** 旧单缺弱点表则按 id 种子补；已有列表只补齐/截断，开战不另掷一份。再战保留已揭示，并按阶级补齐初始暴露。 */
+/** 旧单缺弱点表则按 id 种子补；已有列表只补齐/截断，开战不另掷一份。同一单保留已揭示，并按阶级补齐初始暴露。 */
 export function ensureEnemyIntel(enc: EnemyEncounter, seed = 0, slot = 0, save?: Save): EnemyEncounter {
   const rank = isEnemyRank(enc.enemyRank) ? enc.enemyRank : enemyRankFor(enc.quality)
   enc.enemyRank = rank

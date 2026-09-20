@@ -276,10 +276,10 @@ const COMBAT_ROWS: readonly RowSeed[] = [
     options: [
       {
         id: 'rematchSupply',
-        name: '再战补给',
-        desc: '再战补给消耗 −1，下限 0。',
+        name: '余粮整备',
+        desc: '暂无效果。再战已取消。',
         icon: '🎒',
-        ...implemented(REMATCH_SUPPLY_EFFECT),
+        ...implemented(NOOP_TECH_EFFECT),
       },
       {
         id: 'assistHorn',
@@ -712,8 +712,9 @@ export function attackIntervalMul(save: Save): number {
   return Math.max(0.1, 1 - techEffectValue(save, ATK_INTERVAL_EFFECT))
 }
 
-export function rematchSupplyCut(save: Save): number {
-  return Math.max(0, Math.floor(techEffectValue(save, REMATCH_SUPPLY_EFFECT)))
+/** 再战已取消，始终 0。旧档点过余粮整备也不再减消耗。 */
+export function rematchSupplyCut(_save: Save): number {
+  return 0
 }
 
 export function tradeGoldMul(save: Save): number {

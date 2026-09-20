@@ -332,7 +332,7 @@ type ProductionBuff = {
 | 骑士等级 | `knightLevel`：`1 + sum(可玩站 stationLevel - 1)`，初始 1；每升 1 级 +1 灵感。站入口门槛：采药 1、炼金 2、狩猎 5、烹饪 8、采矿 18、锻造 20 |
 | 灵感 | `techPoints`（界面称灵感；别名 `inspiration` 仅 hydrate）。新档 20；骑士升级 +1；周期完成不加；图纸不当来源。旧档不改写成 20 |
 | 工坊金币 | 吞吐按产出 `craftGold × 数量`；成品约 1～3，采集原材 0 或 1。当铺 / 收购仍用 `sellGold`。敌人战利品绿档基准 `LOOT_GOLD_BASE = 6` |
-| 科技树 | `unlockedTechIds` + `techLevels`：三页签行选，每层同行同价；节点有 `maxLevel`，未满级可再点。该层任一点 `level≥1` 开上一层。已实装先 `maxLevel=1`，占位 `5`。战场格初始 2、科技 +1 封顶 4；商场格初始 1、科技 +1 封顶 4；不新开冲突多级线。旧未知 id 丢掉。`techEffectValue(save, effectId)` 按等级 × 表值叠乘（渣滓 / 站 XP / 采矿 / 工具 / 锻造耗时 / 离线 / 工人三围 / 弱点 / 揭示 / 再战补给 / 助战下限 / 当铺收购金 / 探索费 / 战利品金）。订单格走 `battlefieldSlotCount` / `marketSlotCount`。抽人费与站速度乘区仍不受科技影响 |
+| 科技树 | `unlockedTechIds` + `techLevels`：三页签行选，每层同行同价；节点有 `maxLevel`，未满级可再点。该层任一点 `level≥1` 开上一层。已实装先 `maxLevel=1`，占位 `5`。战场格初始 2、科技 +1 封顶 4；商场格初始 1、科技 +1 封顶 4；不新开冲突多级线。旧未知 id 丢掉。`techEffectValue(save, effectId)` 按等级 × 表值叠乘（渣滓 / 站 XP / 采矿 / 工具 / 锻造耗时 / 离线 / 工人三围 / 弱点 / 揭示 / 助战下限 / 当铺收购金 / 探索费 / 战利品金；旧 `rematchSupply` 余粮整备为 noop）。订单格走 `battlefieldSlotCount` / `marketSlotCount`。抽人费与站速度乘区仍不受科技影响 |
 
 ---
 

@@ -10,7 +10,7 @@ import { drawEnemyTargetRule, pickEnemyTargets, type CombatTarget } from './comb
 import { tryAutoEatAfterCombat, tryAutoEatWhenWounded } from './food'
 import { isWardActive } from './potions'
 import { roll01 } from './rng'
-import { isWoundedHp, restHealAmount } from './workshopHp'
+import { isWoundedHp, restHealAmount, workerWearHp } from './workshopHp'
 import { chapterCombatMul } from './mainChapter'
 import {
   addWorkerXp,
@@ -35,7 +35,7 @@ import type {
   Worker,
 } from './types'
 
-export const COMBAT_PARTY_MAX = 2
+export const COMBAT_PARTY_MAX = 3
 /** 按阶超时：杂兵 / 精英 15 分钟，首领 30 分钟。 */
 export const COMBAT_TIMEOUT_BY_RANK: Readonly<Record<EnemyRank, number>> = {
   minion: 900,
@@ -121,7 +121,7 @@ export const COMBAT_STATUS_LABEL: Record<CombatStatus, string> = {
   idle: '待战',
   fighting: '战斗中',
   win: '胜可领',
-  lose: '败可再战',
+  lose: '战败',
   claimed: '已领',
 }
 
@@ -245,9 +245,25 @@ export function fightingWorkerIds(save: Save): Set<string> {
   const ids = new Set<string>()
   for (const enc of save.encounters) {
     if (enc.kind !== 'enemy' || !isFighting(enc) || !enc.combat) continue
-    for (const id of enc.combat.workerIds) ids.add(id)
+    for (const fighter of enc.combat.workers) {
+      if (fighter.hp > 0) ids.add(fighter.id)
+    }
   }
   return ids
+}
+
+/** 与工人页劳损底色一致：wearHp/hpMax 铺满才算出战满血。 */
+export function isFullCombatHp(worker: Worker): boolean {
+  return workerWearHp(worker) >= Math.max(1, Math.floor(worker.hpMax))
+}
+
+export function fieldFighterCount(enc: EnemyEncounter): number {
+  if (!enc.combat || !isFighting(enc)) return 0
+  return enc.combat.workers.filter((w) => w.hp > 0).length
+}
+
+export function canReinforceCombat(enc: EnemyEncounter): boolean {
+  return isFighting(enc) && fieldFighterCount(enc) < COMBAT_PARTY_MAX
 }
 
 export function isWorkerInCombat(save: Save, workerId: string): boolean {
@@ -262,7 +278,7 @@ export function restCombatCandidates(save: Save): Worker[] {
 }
 
 export function selectableCombatWorkers(save: Save): Worker[] {
-  return restCombatCandidates(save).filter((w) => w.hp > 0)
+  return restCombatCandidates(save).filter(isFullCombatHp)
 }
 
 export type CombatTipKind = 'ok' | 'err'
@@ -272,9 +288,10 @@ export function combatPartyBlockReason(
   save: Save,
   workerIds: readonly string[],
   guests: readonly Worker[] = [],
+  maxParty = COMBAT_PARTY_MAX,
 ): string | null {
   if (!workerIds.length) return '请选择出战工人'
-  if (workerIds.length > COMBAT_PARTY_MAX) return `最多选 ${COMBAT_PARTY_MAX} 人`
+  if (workerIds.length > maxParty) return `最多选 ${maxParty} 人`
   const seen = new Set<string>()
   const busy = fightingWorkerIds(save)
   for (const id of workerIds) {
@@ -285,7 +302,7 @@ export function combatPartyBlockReason(
     if (!worker) return '没有这个工人'
     if (worker.assignment !== null) return `${worker.name ?? worker.id} 不在休息`
     if (busy.has(id)) return `${worker.name ?? worker.id} 正在战斗`
-    if (worker.hp <= 0) return `${worker.name ?? worker.id} 无法出战`
+    if (!isFullCombatHp(worker)) return `${worker.name ?? worker.id} 未满血`
   }
   return null
 }
@@ -342,10 +359,11 @@ function makeFighter(
   }
 }
 
-function rematchEnemyHp(enc: EnemyEncounter, fullHp: number): number {
-  const prev = enc.combat
-  if (prev?.outcome === 'lose' && prev.enemy.hp > 0) return prev.enemy.hp
-  return fullHp
+function fighterFromWorker(worker: Worker, now: number, save?: Save): CombatFighter {
+  const stats = workerLiveStats(worker, save)
+  const hpMax = Math.max(1, stats.hp)
+  const hp = worker.hpMax > 0 ? Math.round((worker.hp / worker.hpMax) * hpMax) : hpMax
+  return makeFighter(worker.id, worker.name ?? worker.id, { ...stats, hp: hpMax }, hp, now, worker.combatAttrs, false, save)
 }
 
 export function beginEnemyCombat(
@@ -358,18 +376,12 @@ export function beginEnemyCombat(
 ): EnemyCombat {
   ensureEnemyIntel(enc, 0, 0, save)
   const eStats = enemyCombatStats(enc.quality, enc.enemyRank, chapter)
-  const enemyHp = rematchEnemyHp(enc, eStats.hp)
   const combat: EnemyCombat = {
     startedAt: now,
     timeoutAt: now + combatTimeoutS(enc.enemyRank) * 1000,
     workerIds: workers.map((w) => w.id),
-    workers: workers.map((w) => {
-      const stats = workerLiveStats(w, save)
-      const hpMax = Math.max(1, stats.hp)
-      const hp = w.hpMax > 0 ? Math.round((w.hp / w.hpMax) * hpMax) : hpMax
-      return makeFighter(w.id, w.name ?? w.id, { ...stats, hp: hpMax }, hp, now, w.combatAttrs, false, save)
-    }),
-    enemy: makeFighter('enemy', enc.label, eStats, enemyHp, now, undefined, true),
+    workers: workers.map((w) => fighterFromWorker(w, now, save)),
+    enemy: makeFighter('enemy', enc.label, eStats, eStats.hp, now, undefined, true),
     logs: [],
     outcome: null,
   }
@@ -379,6 +391,28 @@ export function beginEnemyCombat(
   enc.lootClaimed = false
   if (save) stepEnemyCombat(save, enc, now, onLog)
   return combat
+}
+
+/** 战斗中增援：满血休息工人入场，不重置敌血与超时。 */
+export function addCombatReinforcements(
+  enc: EnemyEncounter,
+  workers: Worker[],
+  now: number,
+  onLog?: CombatLogSink,
+  save?: Save,
+): void {
+  const combat = enc.combat
+  if (!combat || combat.outcome || enc.lootClaimed || !workers.length) return
+  const added: CombatFighter[] = []
+  for (const worker of workers) {
+    if (combat.workers.some((row) => row.id === worker.id)) continue
+    const fighter = fighterFromWorker(worker, now, save)
+    combat.workers.push(fighter)
+    added.push(fighter)
+    if (!combat.workerIds.includes(worker.id)) combat.workerIds.push(worker.id)
+  }
+  if (!added.length) return
+  emitLog(enc, combat, now, `${added.map((w) => w.label).join('、')} 增援`, 'ok', onLog)
 }
 
 function livingWorkers(combat: EnemyCombat): CombatFighter[] {
@@ -416,6 +450,25 @@ function writeBackWorkers(save: Save, combat: EnemyCombat): void {
     if (!worker) continue
     writeBackFighterHp(save, fighter)
     if (worker.assignment !== null) worker.assignment = null
+  }
+}
+
+function retireFallenFighters(
+  save: Save,
+  enc: EnemyEncounter,
+  combat: EnemyCombat,
+  at: number,
+  onLog?: CombatLogSink,
+): void {
+  const fallen = combat.workers.filter((fighter) => fighter.hp <= 0)
+  if (!fallen.length) return
+  combat.workers = combat.workers.filter((fighter) => fighter.hp > 0)
+  for (const fighter of fallen) {
+    writeBackFighterHp(save, fighter)
+    const worker = save.workers.find((w) => w.id === fighter.id)
+    if (worker && worker.assignment !== null) worker.assignment = null
+    tryAutoEatWhenWounded(save, fighter.id, at)
+    emitLog(enc, combat, at, `${fighter.label} 倒下，返回休息`, 'err', onLog)
   }
 }
 
@@ -470,6 +523,7 @@ function strike(
     'err',
     onLog,
   )
+  if (target.hp <= 0) retireFallenFighters(save, enc, combat, at, onLog)
 }
 
 /** 工坊在岗：扣同一 hp，锁 1；进入/处于残血（≤30%）则自动吃 1。 */
@@ -542,19 +596,18 @@ export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number, on
 
   let lastAt = combat.startedAt
   while (combat.outcome === null) {
+    retireFallenFighters(save, enc, combat, lastAt, onLog)
     if (combat.enemy.hp <= 0) {
       finishCombat(save, enc, combat, lastAt, 'win', '战斗胜利', onLog)
       return
     }
-    const living = livingWorkers(combat)
-    if (!living.length) {
-      finishCombat(save, enc, combat, lastAt, 'lose', '全员倒下，战败', onLog)
-      return
-    }
 
+    const living = livingWorkers(combat)
     const nextAt = nextActionAt(combat)
     if (nextAt == null) {
-      finishCombat(save, enc, combat, lastAt, 'lose', '全员倒下，战败', onLog)
+      if (now >= combat.timeoutAt) {
+        finishCombat(save, enc, combat, Math.min(now, combat.timeoutAt), 'lose', '超时判败', onLog)
+      }
       return
     }
     if (nextAt > combat.timeoutAt || (now >= combat.timeoutAt && nextAt > now)) {
@@ -573,10 +626,6 @@ export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number, on
       if (actor.hp <= 0) continue
       if (actor.id === 'enemy') {
         const targets = resolveEnemyStrikeTargets(save, enc, combat)
-        if (!targets.length) {
-          finishCombat(save, enc, combat, nextAt, 'lose', '全员倒下，战败', onLog)
-          break
-        }
         for (const target of targets) {
           if (combat.outcome) break
           if (target.lane === 'workshop') {

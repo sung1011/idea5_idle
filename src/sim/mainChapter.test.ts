@@ -139,7 +139,7 @@ describe('main chapter hydrate and header', () => {
 })
 
 describe('loot claim counter and chapter boss spawn', () => {
-  it('increments claims on successful loot, not on rematch or lose', () => {
+  it('increments claims on successful loot, not on a later start or lose', () => {
     const save = createSave()
     save.gold = 20
     const worker = spawnWorker(save)
@@ -579,7 +579,7 @@ describe('chapter advance on boss loot', () => {
     expect(mainChapterHeader(save)).toBe('第 2 章 · 本章战利品 0/10')
   })
 
-  it('stays on the chapter after a boss loss so the same boss can rematch', () => {
+  it('stays on the chapter after a boss loss so the same boss can start again', () => {
     const save = createSave()
     save.mainLootClaims = 10
     save.bank.meal = 4

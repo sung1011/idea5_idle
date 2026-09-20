@@ -14,13 +14,16 @@ import {
   WORKER_COMBAT_BY_TIER,
   applyRestHeal,
   beginEnemyCombat,
+  canReinforceCombat,
   combatPartyBlockReason,
   combatTimeoutS,
   enemyCombatStats,
+  fieldFighterCount,
   fillWorkerHp,
   isCombatLost,
   isCombatWon,
   isFighting,
+  isFullCombatHp,
   isWorkerInCombat,
   pickEnemyTarget,
   restCombatCandidates,
@@ -30,7 +33,7 @@ import {
 } from './combat'
 import { createSave } from './createSave'
 import { loadFood } from './food'
-import { claimLoot, startCombat } from './encounters'
+import { claimLoot, reinforceCombat, startCombat } from './encounters'
 import { hydrateWorker, spawnWorker, spawnWorkerWith } from './recruit'
 import { settleOffline } from './offline'
 import { assignWorker } from './assign'
@@ -156,23 +159,32 @@ describe('combat stats tables', () => {
 })
 
 describe('start combat party', () => {
-  it('only lists resting workers and rejects stationed, fighting, or hp<=0', () => {
+  it('only lists full-HP resting workers and rejects stationed, fighting, or not-full', () => {
     const save = createSave()
     const a = spawnWorker(save)
     const b = spawnWorkerWith(save, 1, 'artisan')
     const c = spawnWorkerWith(save, 1, 'wanderer')
+    const d = spawnWorkerWith(save, 1, 'miner')
+    const e = spawnWorkerWith(save, 1, 'cook')
     assignWorker(save, b.id, 'mining')
     c.hp = 0
+    d.hp = Math.max(1, d.hpMax - 1)
+    e.fatigueDebt = 0.2
     putEnemy(save, testEnemy())
     stock(save)
 
-    expect(restCombatCandidates(save).map((w) => w.id)).toEqual([a.id, c.id])
+    expect(restCombatCandidates(save).map((w) => w.id)).toEqual([a.id, c.id, d.id, e.id])
     expect(selectableCombatWorkers(save).map((w) => w.id)).toEqual([a.id])
+    expect(isFullCombatHp(a)).toBe(true)
+    expect(isFullCombatHp(d)).toBe(false)
+    expect(isFullCombatHp(e)).toBe(false)
     expect(combatPartyBlockReason(save, [b.id])).toContain('不在休息')
-    expect(combatPartyBlockReason(save, [c.id])).toContain('无法出战')
+    expect(combatPartyBlockReason(save, [c.id])).toContain('未满血')
+    expect(combatPartyBlockReason(save, [d.id])).toContain('未满血')
+    expect(combatPartyBlockReason(save, [e.id])).toContain('未满血')
     expect(combatPartyBlockReason(save, [])).toBe('请选择出战工人')
     expect(combatPartyBlockReason(save, [a.id, a.id])).toContain('重复')
-    expect(combatPartyBlockReason(save, [a.id, b.id, c.id])).toContain(`最多选 ${COMBAT_PARTY_MAX}`)
+    expect(combatPartyBlockReason(save, [a.id, c.id, d.id, e.id])).toContain(`最多选 ${COMBAT_PARTY_MAX}`)
 
     expect(startCombat(save, 0, [a.id], 1_000).ok).toBe(true)
     expect(a.assignment).toBeNull()
@@ -286,7 +298,7 @@ describe('combat timeline', () => {
     expect(worker.hp).toBe(combat.workers[0].hp)
   })
 
-  it('times out as a loss, writes wounds, and lets a rematch take supplies again', () => {
+  it('times out as a loss, writes wounds, and a later start is a fresh full-HP fight', () => {
     const save = createSave()
     save.gold = 10
     const worker = spawnWorker(save)
@@ -314,15 +326,17 @@ describe('combat timeline', () => {
     expect(combat.enemy.hp).toBe(leftoverHp)
     expect(claimLoot(save, 0, combat.timeoutAt).ok).toBe(false)
 
-    const rematchAt = combat.timeoutAt + 1_000
-    const rematch = startCombat(save, 0, [worker.id], rematchAt)
-    expect(rematch.ok).toBe(true)
+    worker.hp = worker.hpMax
+    worker.fatigueDebt = 0
+    const restartAt = combat.timeoutAt + 1_000
+    const restart = startCombat(save, 0, [worker.id], restartAt)
+    expect(restart.ok).toBe(true)
     expect(save.bank.meal).toBe(2)
     expect(isFighting(enc)).toBe(true)
-    expect(enc.combat?.enemy.hp).toBe(leftoverHp)
-    expect(enc.combat?.enemy.hpMax).toBe(combat.enemy.hpMax)
-    expect(enc.combat?.startedAt).toBe(rematchAt)
-    expect(enc.combat?.timeoutAt).toBe(rematchAt + combatTimeoutS(enc.enemyRank) * 1000)
+    expect(enc.combat?.enemy.hp).toBe(enc.combat?.enemy.hpMax)
+    expect(enc.combat?.enemy.hp).toBe(enemyCombatStats(enc.quality, enc.enemyRank).hp)
+    expect(enc.combat?.startedAt).toBe(restartAt)
+    expect(enc.combat?.timeoutAt).toBe(restartAt + combatTimeoutS(enc.enemyRank) * 1000)
   })
 
   it('resolves the same timeline through applyTick / offline catch-up', () => {
@@ -494,7 +508,7 @@ describe('enemy opening strike', () => {
     expect(hits()).toHaveLength(2)
   })
 
-  it('keeps rematch leftover enemy hp and does not double the opening hit', () => {
+  it('starts a later fight at full enemy hp and does not double the opening hit', () => {
     const save = createSave()
     const worker = spawnWorkerWith(save, 1, 'laborer')
     const enc = testEnemy({ needs: { meal: 1 }, targetRuleId: 'lowestHp' })
@@ -508,18 +522,19 @@ describe('enemy opening strike', () => {
     const leftoverHp = Math.max(1, first.enemy.hpMax - 44)
     first.enemy.hp = leftoverHp
     first.outcome = 'lose'
-    const beforeRematch = worker.hp
-    const rematchAt = now + 8_000
-    expect(startCombat(save, 0, [worker.id], rematchAt).ok).toBe(true)
-    expect(enc.combat?.enemy.hp).toBe(leftoverHp)
-    expect(enc.combat?.enemy.hp).toBeLessThan(enc.combat?.enemy.hpMax ?? 0)
-    expect(worker.hp).toBe(beforeRematch - (enc.combat?.enemy.atk ?? 0))
-    const rematchHits = enc.combat?.logs.filter((row) => row.text.startsWith('试敌 对') && row.text.includes('造成')) ?? []
-    expect(rematchHits).toHaveLength(1)
+    worker.hp = worker.hpMax
+    worker.fatigueDebt = 0
+    const restartAt = now + 8_000
+    expect(startCombat(save, 0, [worker.id], restartAt).ok).toBe(true)
+    expect(enc.combat?.enemy.hp).toBe(enc.combat?.enemy.hpMax)
+    expect(enc.combat?.enemy.hp).toBeGreaterThan(leftoverHp)
+    expect(worker.hp).toBe(worker.hpMax - (enc.combat?.enemy.atk ?? 0))
+    const restartHits = enc.combat?.logs.filter((row) => row.text.startsWith('试敌 对') && row.text.includes('造成')) ?? []
+    expect(restartHits).toHaveLength(1)
   })
 })
 
-describe('rematch leftover enemy hp', () => {
+describe('fresh start after a loss', () => {
   it('starts the first fight at full enemy hp', () => {
     const save = createSave()
     const worker = spawnWorker(save)
@@ -530,7 +545,7 @@ describe('rematch leftover enemy hp', () => {
     expect(combat.enemy.hp).toBe(enemyCombatStats(enc.quality, enc.enemyRank).hp)
   })
 
-  it('keeps leftover enemy hp on rematch after a loss', () => {
+  it('resets leftover enemy hp when starting again after a loss', () => {
     const save = createSave()
     const worker = spawnWorker(save)
     const enc = testEnemy({ needs: { meal: 1 } })
@@ -545,16 +560,17 @@ describe('rematch leftover enemy hp', () => {
     const leftoverHp = Math.max(1, first.enemy.hpMax - 91)
     first.enemy.hp = leftoverHp
     first.outcome = 'lose'
+    worker.hp = worker.hpMax
+    worker.fatigueDebt = 0
 
-    const rematchAt = now + 8_000
-    expect(startCombat(save, 0, [worker.id], rematchAt).ok).toBe(true)
-    expect(enc.combat?.enemy.hp).toBe(leftoverHp)
-    expect(enc.combat?.enemy.hp).toBeLessThan(enc.combat?.enemy.hpMax ?? 0)
-    expect(enc.combat?.enemy.hpMax).toBe(first.enemy.hpMax)
-    expect(enc.combat?.timeoutAt).toBe(rematchAt + combatTimeoutS(enc.enemyRank) * 1000)
+    const restartAt = now + 8_000
+    expect(startCombat(save, 0, [worker.id], restartAt).ok).toBe(true)
+    expect(enc.combat?.enemy.hp).toBe(enc.combat?.enemy.hpMax)
+    expect(enc.combat?.enemy.hp).toBeGreaterThan(leftoverHp)
+    expect(enc.combat?.timeoutAt).toBe(restartAt + combatTimeoutS(enc.enemyRank) * 1000)
   })
 
-  it('falls back to full enemy hp if a loss left hp<=0', () => {
+  it('still starts at full enemy hp if a loss left hp<=0', () => {
     const save = createSave()
     const worker = spawnWorker(save)
     const enc = testEnemy()
@@ -563,9 +579,9 @@ describe('rematch leftover enemy hp', () => {
     const first = beginEnemyCombat(enc, [worker], now)
     first.enemy.hp = 0
     first.outcome = 'lose'
-    const rematch = beginEnemyCombat(enc, [worker], now + 1_000)
-    expect(rematch.enemy.hp).toBe(rematch.enemy.hpMax)
-    expect(rematch.enemy.hp).toBe(enemyCombatStats(enc.quality, enc.enemyRank).hp)
+    const restart = beginEnemyCombat(enc, [worker], now + 1_000)
+    expect(restart.enemy.hp).toBe(restart.enemy.hpMax)
+    expect(restart.enemy.hp).toBe(enemyCombatStats(enc.quality, enc.enemyRank).hp)
   })
 })
 
@@ -683,5 +699,98 @@ describe('combat food heal', () => {
     expect(isCombatWon(enc)).toBe(true)
     expect(worker.hp).toBe(25 + Math.ceil(100 * 0.25))
     expect(worker.foodSlot?.qty).toBe(0)
+  })
+})
+
+describe('death leave and reinforce', () => {
+  it('sends a downed fighter back to rest and keeps the fight going', () => {
+    const save = createSave()
+    const front = spawnWorkerWith(save, 1, 'laborer')
+    const bench = spawnWorkerWith(save, 1, 'wanderer')
+    front.name = '出战甲'
+    bench.name = '休息乙'
+    const enc = testEnemy({ needs: { meal: 1 }, targetRuleId: 'lowestHp' })
+    putEnemy(save, enc)
+    save.bank.meal = 4
+    const now = 80_000
+    expect(startCombat(save, 0, [front.id], now).ok).toBe(true)
+    expect(save.bank.meal).toBe(3)
+    const combat = enc.combat
+    expect(combat).toBeTruthy()
+    if (!combat) return
+    combat.workers[0].hp = 1
+    front.hp = 1
+    combat.workers[0].nextActAt = now + 9_000
+    combat.enemy.nextActAt = now + 1_000
+    combat.enemy.atk = 3
+    stepEnemyCombat(save, enc, now + 1_000)
+    expect(isFighting(enc)).toBe(true)
+    expect(combat.outcome).toBeNull()
+    expect(combat.workers.find((w) => w.id === front.id)).toBeUndefined()
+    expect(isWorkerInCombat(save, front.id)).toBe(false)
+    expect(front.assignment).toBeNull()
+    expect(front.hp).toBe(0)
+    expect(fieldFighterCount(enc)).toBe(0)
+    expect(canReinforceCombat(enc)).toBe(true)
+    expect(combat.logs.some((row) => row.text.includes('倒下，返回休息'))).toBe(true)
+
+    expect(reinforceCombat(save, 0, [bench.id], now + 2_000).ok).toBe(true)
+    expect(save.bank.meal).toBe(3)
+    expect(combat.workers.map((w) => w.id)).toEqual([bench.id])
+    expect(combat.workerIds).toEqual([front.id, bench.id])
+    expect(isWorkerInCombat(save, bench.id)).toBe(true)
+    expect(combat.logs.some((row) => row.text.includes('增援'))).toBe(true)
+  })
+
+  it('lets a healed worker reinforce the same ongoing fight', () => {
+    const save = createSave()
+    const a = spawnWorkerWith(save, 1, 'laborer')
+    const b = spawnWorkerWith(save, 1, 'wanderer')
+    a.name = '甲'
+    b.name = '乙'
+    const enc = testEnemy({ needs: { meal: 1 }, targetRuleId: 'lowestHp' })
+    putEnemy(save, enc)
+    save.bank.meal = 2
+    const now = 90_000
+    expect(startCombat(save, 0, [a.id], now).ok).toBe(true)
+    const combat = enc.combat
+    expect(combat).toBeTruthy()
+    if (!combat) return
+    combat.workers[0].hp = 0
+    a.hp = 0
+    stepEnemyCombat(save, enc, now + 1)
+    expect(isFighting(enc)).toBe(true)
+    expect(isWorkerInCombat(save, a.id)).toBe(false)
+    expect(reinforceCombat(save, 0, [a.id], now + 2).ok).toBe(false)
+
+    a.hp = a.hpMax
+    a.fatigueDebt = 0
+    const revealed = [...enc.revealedWeaknesses]
+    expect(reinforceCombat(save, 0, [a.id], now + 3).ok).toBe(true)
+    expect(combat.workers.some((w) => w.id === a.id && w.hp === w.hpMax)).toBe(true)
+    expect(isWorkerInCombat(save, a.id)).toBe(true)
+    expect(enc.revealedWeaknesses).toEqual(revealed)
+
+    expect(reinforceCombat(save, 0, [a.id], now + 4).ok).toBe(false)
+    expect(startCombat(save, 0, [b.id], now + 5).ok).toBe(false)
+    expect(save.bank.meal).toBe(1)
+  })
+
+  it('blocks reinforce when the field is already full', () => {
+    const save = createSave()
+    const party = [
+      spawnWorkerWith(save, 1, 'laborer'),
+      spawnWorkerWith(save, 1, 'artisan'),
+      spawnWorkerWith(save, 1, 'wanderer'),
+    ]
+    const extra = spawnWorkerWith(save, 1, 'miner')
+    const enc = testEnemy({ needs: { meal: 1 } })
+    putEnemy(save, enc)
+    save.bank.meal = 2
+    expect(startCombat(save, 0, party.map((w) => w.id), 1_000).ok).toBe(true)
+    expect(fieldFighterCount(enc)).toBe(3)
+    expect(canReinforceCombat(enc)).toBe(false)
+    expect(reinforceCombat(save, 0, [extra.id], 2_000).ok).toBe(false)
+    expect(save.bank.meal).toBe(1)
   })
 })

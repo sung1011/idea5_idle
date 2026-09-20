@@ -762,7 +762,7 @@ describe('tech effect multipliers', () => {
     expect(weaknessCritBonus(save)).toBeCloseTo(0.1)
     expect(revealExtraCount(save)).toBe(1)
     expect(attackIntervalMul(save)).toBeCloseTo(0.9)
-    expect(rematchSupplyCut(save)).toBe(1)
+    expect(rematchSupplyCut(save)).toBe(0)
     expect(assistQualityFloor(save, 6)).toBe(3)
     expect(assistQualityFloor(save, 5)).toBe(2)
     expect(assistQualityFloor(save, 1)).toBe(1)
@@ -806,7 +806,7 @@ describe('tech effect multipliers', () => {
     expect(mined.bank.ore).toBe(2)
   })
 
-  it('wires worker combat muls, weakness, reveal, rematch and assist floor', () => {
+  it('wires worker combat muls, weakness, reveal, leftover rematch-supply noop and assist floor', () => {
     const save = createSave()
     unlock(save, 'dummyDrill')
     unlock(save, 'bracerTighten')
@@ -852,7 +852,7 @@ describe('tech effect multipliers', () => {
         outcome: 'lose',
       },
     })
-    expect(combatSupplyNeeds(save, lost)).toEqual({ meal: 1 })
+    expect(combatSupplyNeeds(save, lost)).toEqual({ meal: 2 })
     expect(combatSupplyNeeds(save, testEnemy({ needs: { meal: 1 } }))).toEqual({ meal: 1 })
 
     const high = spawnWorkerWith(save, 6, 'cook')
