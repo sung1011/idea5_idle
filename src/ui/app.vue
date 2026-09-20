@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
-import { formatHudQty } from './formatHud'
 import { useGameStore } from './gameStore'
 import EncounterPanel from './encounterPanel.vue'
 import MessagePanel from './messagePanel.vue'
@@ -12,12 +11,23 @@ import WorkshopPanel from './workshopPanel.vue'
 import FloatTips from './floatTips.vue'
 import GuideQuestFloat from './guideQuestFloat.vue'
 import GuideQuestSpotlight from './guideQuestSpotlight.vue'
+import {
+  hudChipAmount,
+  hudChipAriaLabel,
+  hudChipDetail,
+  listHudChips,
+  type HudChipId,
+} from './hudResource'
+import HudResourceSheet from './hudResourceSheet.vue'
 import UiIcon from './uiIcon.vue'
 
 const game = useGameStore()
 const tab = appTab
 const mailOpen = ref(false)
 const settingsOpen = ref(false)
+const resourceOpen = ref<HudChipId | null>(null)
+const chips = computed(() => listHudChips(game.save))
+const resourceDetail = computed(() => (resourceOpen.value ? hudChipDetail(game.save, resourceOpen.value) : null))
 
 onMounted(() => {
   game.startClock()
@@ -32,36 +42,32 @@ onUnmounted(() => {
   <div class="shell">
     <header class="hud" aria-label="资源">
       <div class="resources">
-        <div class="chip">
-          <i class="sprite sprite-res gold" aria-hidden="true" />
-          <span>{{ formatHudQty(game.save.gold) }}</span>
-        </div>
-        <div class="chip">
-          <i class="sprite sprite-res diamonds" aria-hidden="true" />
-          <span>{{ formatHudQty(game.save.diamonds) }}</span>
-        </div>
-        <div class="chip">
-          <i class="sprite sprite-res workers" aria-hidden="true" />
-          <span>{{ formatHudQty(game.save.workers.length) }}</span>
-        </div>
-        <div class="chip">
-          <svg class="hud-ico" viewBox="0 0 24 24" aria-hidden="true">
+        <button
+          v-for="chip in chips"
+          :key="chip.id"
+          type="button"
+          class="chip"
+          :aria-label="hudChipAriaLabel(game.save, chip)"
+          @click="resourceOpen = chip.id"
+        >
+          <i v-if="chip.id === 'gold'" class="sprite sprite-res gold" aria-hidden="true" />
+          <i v-else-if="chip.id === 'diamonds'" class="sprite sprite-res diamonds" aria-hidden="true" />
+          <i v-else-if="chip.id === 'workers'" class="sprite sprite-res workers" aria-hidden="true" />
+          <svg v-else-if="chip.id === 'knight'" class="hud-ico" viewBox="0 0 24 24" aria-hidden="true">
             <path
               fill="currentColor"
               d="M14.6 3.4 20.6 9.4 19.2 10.8 17.5 9.1 8.8 17.8v2.3h2.3l1.6-1.6 1.4 1.4-4.4 4.4-1.4-1.4.7-.7H3.8v-4.8l-.7.7-1.4-1.4 4.4-4.4 1.4 1.4-1.6 1.6H8.2v2.3l8.7-8.7-1.7-1.7z"
             />
           </svg>
-          <span>Lv{{ game.save.knightLevel }}</span>
-        </div>
-        <div class="chip">
-          <svg class="hud-ico" viewBox="0 0 24 24" aria-hidden="true">
+          <svg v-else-if="chip.id === 'inspiration'" class="hud-ico" viewBox="0 0 24 24" aria-hidden="true">
             <path
               fill="currentColor"
               d="M12 2.4 13.7 8.1 19.4 9.8 13.7 11.5 12 17.2 10.3 11.5 4.6 9.8 10.3 8.1ZM18.2 14.2 19 16.6 21.4 17.4 19 18.2 18.2 20.6 17.4 18.2 15 17.4 17.4 16.6Z"
             />
           </svg>
-          <span>{{ formatHudQty(game.save.techPoints) }}</span>
-        </div>
+          <span v-if="chip.kind === 'item'">{{ chip.name }} {{ hudChipAmount(game.save, chip.id) }}</span>
+          <span v-else>{{ hudChipAmount(game.save, chip.id) }}</span>
+        </button>
       </div>
       <div class="hud-actions">
         <button
@@ -116,6 +122,7 @@ onUnmounted(() => {
     <GuideQuestSpotlight />
     <MessagePanel v-if="mailOpen" @close="mailOpen = false" />
     <SettingsPanel v-if="settingsOpen" @close="settingsOpen = false" />
+    <HudResourceSheet v-if="resourceDetail" :detail="resourceDetail" @close="resourceOpen = null" />
     <FloatTips />
   </div>
 </template>
@@ -170,6 +177,10 @@ onUnmounted(() => {
   min-height: 32px;
   padding: 2px 8px 2px 4px;
   font-size: 13px;
+}
+
+.resources > .chip:hover:not(:disabled) {
+  filter: brightness(1.03);
 }
 
 .chip .sprite-res {
