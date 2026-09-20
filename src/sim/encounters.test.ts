@@ -29,12 +29,17 @@ import {
   enemyNeedsFor,
   MAIN_NEED_ITEM_POOL,
   MAIN_NEED_TOOL_POOL,
+  isAllowedMainNeedKind,
   isLegacyGenericToolNeed,
   isMainNeedItem,
   itemNeedBase,
+  mainNeedItemPoolForChapter,
+  mainNeedOutputsOfStation,
   mainNeedToolTierCenter,
   needEntries,
+  pickMainNeedItem,
   pickMainNeedTool,
+  resolveChapterMainNeedItem,
   resolveMainNeedItem,
   scaledDemandQty,
   scaledMainNeed,
@@ -71,7 +76,16 @@ import { isCombatWon, isFighting } from './combat'
 import { assignWorker } from './assign'
 import { currentSpeed } from './query'
 import { recruitWorker, spawnWorker } from './recruit'
-import { bulkUnitGold, ITEM_DEF, isStationToolId, itemProducerStation, pawnUnitGold, STATION_TOOL_BY_ID } from './tables'
+import {
+  bulkUnitGold,
+  ITEM_DEF,
+  isPotionItemId,
+  isStationToolId,
+  itemProducerStation,
+  pawnUnitGold,
+  POTION_ITEM_IDS,
+  STATION_TOOL_BY_ID,
+} from './tables'
 import {
   BATTLEFIELD_SLOT_MAX,
   BATTLEFIELD_SLOT_MIN,
@@ -369,13 +383,15 @@ describe('encounter board', () => {
         expect(needEntries(highEnemy.needs)).toHaveLength(1)
         const lowId = needEntries(lowEnemy.needs)[0][0]
         const highId = needEntries(highEnemy.needs)[0][0]
-        if (isStationToolId(lowId) && isStationToolId(highId)) {
+        expect(isAllowedMainNeedKind(lowId, mainNeedItemPoolForChapter(1))).toBe(true)
+        expect(isAllowedMainNeedKind(highId, mainNeedItemPoolForChapter(8))).toBe(true)
+        if (lowId === highId) {
+          expect(needEntries(highEnemy.needs)[0][1]).toBeGreaterThan(needEntries(lowEnemy.needs)[0][1])
+        } else if (isStationToolId(lowId) && isStationToolId(highId)) {
           expect(STATION_TOOL_BY_ID[lowId].stationId).toBe(STATION_TOOL_BY_ID[highId].stationId)
           expect(STATION_TOOL_BY_ID[highId].index).toBeGreaterThanOrEqual(STATION_TOOL_BY_ID[lowId].index)
-        } else {
-          expect(lowId).toBe(highId)
+          expect(needEntries(highEnemy.needs)[0][1]).toBeGreaterThan(needEntries(lowEnemy.needs)[0][1])
         }
-        expect(needEntries(highEnemy.needs)[0][1]).toBeGreaterThan(needEntries(lowEnemy.needs)[0][1])
         sawEnemy = true
       }
       if (lowArtisan?.kind === 'artisan' && highArtisan?.kind === 'artisan') {
@@ -412,6 +428,104 @@ describe('encounter board', () => {
     if (isStationToolId(highTool)) {
       expect(STATION_TOOL_BY_ID[highTool].index).toBeGreaterThan(1)
     }
+  })
+})
+
+describe('chapter-gated main need pool', () => {
+  it('expands by knight station unlock order', () => {
+    expect(mainNeedOutputsOfStation('herbalism')).toEqual(['herb', 'spice'])
+    expect(mainNeedOutputsOfStation('alchemy')).toEqual([...POTION_ITEM_IDS])
+    expect(mainNeedOutputsOfStation('hunting')).toEqual(['meat', 'fish', 'tooth', 'blood', 'eye', 'junk'])
+    expect(mainNeedOutputsOfStation('cooking')).toEqual(['meal', 'roast', 'stew'])
+    expect(mainNeedOutputsOfStation('mining')).toEqual(['ore', 'ironOre', 'mithrilOre'])
+    expect(mainNeedOutputsOfStation('forging')).toEqual(['tool'])
+    expect(mainNeedItemPoolForChapter(1)).toEqual(['herb', 'spice'])
+    expect(mainNeedItemPoolForChapter(2)).toEqual(['herb', 'spice', ...POTION_ITEM_IDS])
+    expect(mainNeedItemPoolForChapter(3)).toEqual([
+      'herb',
+      'spice',
+      ...POTION_ITEM_IDS,
+      'meat',
+      'fish',
+      'tooth',
+      'blood',
+      'eye',
+      'junk',
+    ])
+    expect(mainNeedItemPoolForChapter(4)).toContain('meal')
+    expect(mainNeedItemPoolForChapter(4)).toContain('roast')
+    expect(mainNeedItemPoolForChapter(4)).toContain('stew')
+    expect(mainNeedItemPoolForChapter(5)).toContain('ore')
+    expect(mainNeedItemPoolForChapter(5)).toContain('ironOre')
+    expect(mainNeedItemPoolForChapter(5)).toContain('mithrilOre')
+    expect(mainNeedItemPoolForChapter(5)).not.toContain('tool')
+    expect(mainNeedItemPoolForChapter(6)).toContain('tool')
+    expect(MAIN_NEED_ITEM_POOL).toEqual(mainNeedItemPoolForChapter(6))
+    expect(MAIN_NEED_ITEM_POOL).not.toContain('potion')
+  })
+
+  it('picks only herbalism goods in chapter 1 and potions from chapter 2', () => {
+    const ch1 = new Set<ItemId>()
+    const ch2 = new Set<ItemId>()
+    for (let seed = 1; seed <= 80; seed++) {
+      ch1.add(pickMainNeedItem({ rngState: seed }, 'green', 1))
+      ch2.add(pickMainNeedItem({ rngState: seed }, 'green', 2))
+    }
+    expect([...ch1].sort()).toEqual(['herb', 'spice'])
+    expect([...ch2].every((id) => id === 'herb' || id === 'spice' || isPotionItemId(id))).toBe(true)
+    expect([...ch2].some((id) => isPotionItemId(id))).toBe(true)
+    expect(ch2.has('potion')).toBe(false)
+    expect(ch2.has('meal')).toBe(false)
+  })
+
+  it('still resolves tool and potion markers inside the allowed pool', () => {
+    expect(resolveMainNeedItem('tool', 'green', 1, false, undefined, 0)).toBe('miningTool01')
+    expect(isPotionItemId(resolveMainNeedItem('potion', 'green', 1, false, undefined, 0))).toBe(true)
+    expect(resolveChapterMainNeedItem('tool', 'green', 1)).toMatch(/^herb|spice$/)
+    expect(isPotionItemId(resolveChapterMainNeedItem('potion', 'green', 2, false, undefined, 0))).toBe(true)
+    expect(isStationToolId(resolveChapterMainNeedItem('tool', 'green', 6, false, undefined, 0))).toBe(true)
+    expect(resolveChapterMainNeedItem('salve', 'green', 2)).toBe('salve')
+    expect(resolveChapterMainNeedItem('meal', 'green', 4)).toBe('meal')
+    expect(resolveChapterMainNeedItem('meal', 'green', 1, false, undefined, 3)).toMatch(/^herb|spice$/)
+  })
+
+  it('gates new battlefield needs and market wants; starter copper pawn stays ore ×2', () => {
+    const save = createSave()
+    expect(save.mainChapter).toBe(1)
+    expect(save.marketEncounters[0].kind).toBe('pawn')
+    if (save.marketEncounters[0].kind === 'pawn') {
+      expect(save.marketEncounters[0].pawnWants).toEqual({ ore: 2 })
+    }
+    for (const enc of save.encounters) {
+      expect(enc.kind).toBe('enemy')
+      if (enc.kind !== 'enemy') continue
+      expect(['herb', 'spice']).toContain(needEntries(enc.needs)[0][0])
+    }
+
+    const ch1Market = generateEncounterBoard(9, 4, { board: 'market', mainChapter: 1 })
+    for (const enc of ch1Market) {
+      if (enc.kind === 'passerby' || enc.kind === 'artisan' || enc.kind === 'bulkBuy') {
+        expect(['herb', 'spice']).toContain(needEntries(enc.wants)[0][0])
+      }
+      if (enc.kind === 'pawn') {
+        expect(['herb', 'spice']).toContain(needEntries(enc.pawnWants)[0][0])
+      }
+    }
+
+    let sawTool = false
+    let sawPotion = false
+    for (let seed = 0; seed < 60; seed++) {
+      const battle = generateEncounterBoard(seed, 4, { board: 'battlefield', mainChapter: 6 })
+      for (const enc of battle) {
+        if (enc.kind !== 'enemy') continue
+        const id = needEntries(enc.needs)[0][0]
+        if (isStationToolId(id)) sawTool = true
+        if (isPotionItemId(id)) sawPotion = true
+      }
+      if (sawTool && sawPotion) break
+    }
+    expect(sawTool).toBe(true)
+    expect(sawPotion).toBe(true)
   })
 })
 

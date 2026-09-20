@@ -232,7 +232,7 @@ qty = max(1, round(base × QUALITY_TABLE.demandMul × chapterNeedMul(chapter) ×
 chapterNeedMul(chapter) = 1 + (chapter - 1) * 0.15
 ```
 
-`base` 绿档第 1 章约 2，可按物品微调（`MAIN_NEED_BASE`）。物品先从 `MAIN_NEED_ITEM_POOL`（meal / ore / fish / tool / roast / stew / potion）掷 1 个；掷到 `tool` 时改从 `MAIN_NEED_TOOL_POOL`（`STATION_TOOL_DEF` / 锻造可造的各站 tool01–20）抽一把，档位中心走同一套 `demandMul × chapterNeedMul`（Boss 再 × 1.25），低章偏低档、高章/高品质偏高档（第 1 章绿档常见采矿工具1）。新刷不再要 `tool` / `ironTool` / `mithrilTool`。交易单用该类型表里的第一种，第一种若是通用工具同样改抽专属工具。本章 Boss **只再 × `CHAPTER_BOSS_NEED_MUL`（1.25）加数量**，不再叠第二种物品。战利品绿档基准 `LOOT_GOLD_BASE = 6`，`lootGold` 再乘品质产出倍率，Boss 另乘战利品倍率。章节需求倍率单独函数，不绑战斗 HP 倍率。旧档 `distance` / `power` hydrate 时读完即丢；已有 needs / loot 大体原样留下（再战中的多物品敌不改写），其中残留的 `tool` / `ironTool` / `mithrilTool` / 裸 `potion` 会 remap 成可跳转的专属工具 / `salve`。旧档库存里的通用工具可留，不必强删。
+`base` 绿档第 1 章约 2，可按物品微调（`MAIN_NEED_BASE`）。物品从章节门控池 `mainNeedItemPoolForChapter` 掷 1 个，顺序与骑士开站相同：第 1 章只采药产物（`herb` / `spice`）；第 2 章加上 7 种药剂 id（不要裸 `potion`）；第 3 章加上狩猎产物（肉/鱼/牙/血/眼/杂物）；第 4 章加上烹饪食物；第 5 章加上矿石；第 6 章+ 加上 `tool` 标记。掷到 `tool` 时改从 `MAIN_NEED_TOOL_POOL`（`STATION_TOOL_DEF` / 锻造可造的各站 tool01–20）抽一把，档位中心走同一套 `demandMul × chapterNeedMul`（Boss 再 × 1.25），低档偏低、高章/高品质偏高档。掷到 `potion` 标记（本章池已含药剂时）仍 resolve 成 7 种之一。新刷不再要 `tool` / `ironTool` / `mithrilTool`。战场补给与商场交物 wants（路人 / 当铺 / 委托 / 收购）共用这套挑选；表内第一种若已在本章池则保留并 resolve 标记，否则改从本章池抽。商场第 0 格开局「铜矿当」是特例，第 1 章仍固定 `ore` ×2（采矿要到第 5 章才开）。黑心商人买货 / 路人换得物不按本章池改写。本章 Boss **只再 × `CHAPTER_BOSS_NEED_MUL`（1.25）加数量**，不再叠第二种物品。战利品绿档基准 `LOOT_GOLD_BASE = 6`，`lootGold` 再乘品质产出倍率，Boss 另乘战利品倍率。章节需求倍率单独函数，不绑战斗 HP 倍率。旧档 `distance` / `power` hydrate 时读完即丢；已有 needs / loot 大体原样留下（再战中的多物品敌不改写），其中残留的 `tool` / `ironTool` / `mithrilTool` / 裸 `potion` 会 remap 成可跳转的专属工具 / `salve`。旧档库存里的通用工具可留，不必强删。
 
 流程（行军门闩已换成战斗；交易单不动）：
 
@@ -276,7 +276,7 @@ chapterNeedMul(chapter) = 1 + (chapter - 1) * 0.15
 
 ### 6.4 开局与旧存档
 
-新档生成战场 2 格敌人 + 商场 1 格：商场第 0 格固定绿档当铺「铜矿当」，消耗铜矿 `ore` ×2，奖励按 `pawnUnitGold` / `rewardGold`；探索可刷掉。章节 1、战利品计数 0。空双板 hydrate 同样补铜矿当到商场并扩到当前格数；旧档已有板不强制插入铜矿当。旧混合单板 hydrate：敌人进战场（战斗中 / 胜可领 / 败可再战优先留下，可暂超 2 格）、交易进商场，再按 `battlefieldSlotCount` / `marketSlotCount` 轻扩轻收。旧存档若仍是单格出发（`currentOrderId` / `orderIndex` / `orderSubmitted`），把旧需求迁进战场第 0 格敌人（旧档已扣货则内部记一笔，开战不再扣）。
+新档生成战场 2 格敌人 + 商场 1 格：商场第 0 格固定绿档当铺「铜矿当」，消耗铜矿 `ore` ×2（第 1 章特例，不跟采矿解锁走），奖励按 `pawnUnitGold` / `rewardGold`；探索可刷掉。章节 1、战利品计数 0。战场新敌补给只抽草/香料。空双板 hydrate 同样补铜矿当到商场并扩到当前格数；旧档已有板不强制插入铜矿当。旧混合单板 hydrate：敌人进战场（战斗中 / 胜可领 / 败可再战优先留下，可暂超 2 格）、交易进商场，再按 `battlefieldSlotCount` / `marketSlotCount` 轻扩轻收。旧存档若仍是单格出发（`currentOrderId` / `orderIndex` / `orderSubmitted`），把旧需求迁进战场第 0 格敌人（旧档已扣货则内部记一笔，开战不再扣）。
 
 ---
 

@@ -29,8 +29,11 @@ import {
 } from './mainChapter'
 import { canAffordCosts, missingCostLabels, takeCosts } from './costs'
 import { normalizeRngState, roll01 } from './rng'
+import { STATION_UNLOCK_KNIGHT } from './stationUnlock'
 import {
   ITEM_DEF,
+  PLAYABLE_STATION_IDS,
+  POTION_ITEM_IDS,
   STATION_IDS,
   STATION_TOOL_COUNT,
   STATION_TOOL_IDS,
@@ -39,6 +42,7 @@ import {
   isStationToolId,
   isToolItemId,
   pawnUnitGold,
+  stationRelatedItems,
   stationToolItemId,
   type IoRule,
 } from './tables'
@@ -65,6 +69,7 @@ import type {
   EnemyEncounter,
   ItemId,
   MerchantEncounter,
+  StationId,
   MerchantKind,
   PasserbyEncounter,
   PawnEncounter,
@@ -333,11 +338,61 @@ const LEGACY_ORDER_DEFS: ReadonlyArray<{
 ]
 
 /**
- * 主线消耗种类池。新刷交物单先从这里掷 1 种。
+ * 某站贡献给主线需求池的产物。
+ * 炼金用 7 种药剂 id（不要裸 `potion`）；锻造用 `tool` 标记，落地再 resolve。
+ */
+export function mainNeedOutputsOfStation(stationId: StationId): readonly ItemId[] {
+  if (stationId === 'alchemy') return POTION_ITEM_IDS
+  if (stationId === 'forging') return ['tool']
+  return stationRelatedItems(stationId).outputs.filter((id) => id !== 'potion' && !isStationToolId(id))
+}
+
+/**
+ * 章节门控种类池，与骑士开站顺序一致：
+ * 第 1 章采药 → 第 2 章 +炼金 → 第 3 章 +狩猎 → 第 4 章 +烹饪 → 第 5 章 +采矿 → 第 6 章 +锻造工具。
+ */
+export function mainNeedItemPoolForChapter(chapter: unknown): readonly ItemId[] {
+  const ch = normalizeMainChapter(chapter)
+  const pool: ItemId[] = []
+  for (const stationId of PLAYABLE_STATION_IDS) {
+    if (STATION_UNLOCK_KNIGHT[stationId] > ch) continue
+    for (const id of mainNeedOutputsOfStation(stationId)) {
+      if (!pool.includes(id)) pool.push(id)
+    }
+  }
+  return pool
+}
+
+/** 种类是否落在本章池内（含 tool / potion 标记，以及已落地的药剂 / 专属工具）。 */
+export function isAllowedMainNeedKind(itemId: ItemId, pool: readonly ItemId[]): boolean {
+  if ((pool as readonly string[]).includes(itemId)) return true
+  if (itemId === 'potion') return pool.includes('potion') || pool.some((id) => isPotionItemId(id))
+  if (isPotionItemId(itemId)) return pool.includes(itemId) || pool.includes('potion')
+  if (isLegacyGenericToolNeed(itemId) || isStationToolId(itemId)) {
+    return pool.includes('tool') || pool.some((id) => isStationToolId(id))
+  }
+  return false
+}
+
+function pickFromMainNeedPool(
+  pool: readonly ItemId[],
+  rng?: { rngState: number },
+  salt = 0,
+): ItemId {
+  if (pool.length === 0) return 'herb'
+  if (rng) return pool[Math.min(pool.length - 1, Math.floor(rollRng(rng) * pool.length))]
+  const n = Number.isFinite(salt) ? Math.abs(Math.floor(salt)) : 0
+  return pool[n % pool.length]
+}
+
+/**
+ * 全解锁种类池（第 6 章+）。新刷实际抽取走 `mainNeedItemPoolForChapter`。
  * `tool` 只是种类标记：落地时改抽 `MAIN_NEED_TOOL_POOL`（锻造可造的各站专属工具）。
  * `potion` 同样是种类标记：落地时改抽 7 种药剂之一。
  */
-export const MAIN_NEED_ITEM_POOL: readonly ItemId[] = ['meal', 'ore', 'fish', 'tool', 'roast', 'stew', 'potion']
+export const MAIN_NEED_ITEM_POOL: readonly ItemId[] = mainNeedItemPoolForChapter(
+  STATION_UNLOCK_KNIGHT.forging,
+)
 
 /** 订单要工具时的 id 池，与 `STATION_TOOL_DEF` / 锻造配方同一套。 */
 export const MAIN_NEED_TOOL_POOL: readonly ItemId[] = STATION_TOOL_IDS
@@ -547,7 +602,7 @@ export function pickMainNeedTool(
   return stationToolItemId(stationId, index)
 }
 
-/** 种类池掷到通用工具时改抽专属工具；掷到 `potion` 改抽 7 种药剂。 */
+/** 种类池掷到通用工具时改抽专属工具；掷到 `potion` 改抽 7 种药剂。不按章节改写。 */
 export function resolveMainNeedItem(
   itemId: ItemId,
   quality: EncounterQuality,
@@ -562,6 +617,20 @@ export function resolveMainNeedItem(
   }
   if (!isLegacyGenericToolNeed(itemId)) return itemId
   return pickMainNeedTool(quality, chapter, chapterBoss, rng, salt)
+}
+
+/** 新刷交物：本章池内的 tool / potion 标记照常 resolve；池外种类改从本章池抽。 */
+export function resolveChapterMainNeedItem(
+  itemId: ItemId,
+  quality: EncounterQuality,
+  chapter: unknown,
+  chapterBoss = false,
+  rng?: { rngState: number },
+  salt = 0,
+): ItemId {
+  const pool = mainNeedItemPoolForChapter(chapter)
+  const picked = isAllowedMainNeedKind(itemId, pool) ? itemId : pickFromMainNeedPool(pool, rng, salt)
+  return resolveMainNeedItem(picked, quality, chapter, chapterBoss, rng, salt)
 }
 
 /** 章节需求倍率：1 + (chapter-1) * CHAPTER_NEED_STEP。 */
@@ -600,9 +669,8 @@ export function pickMainNeedItem(
   chapter: unknown,
   chapterBoss = false,
 ): ItemId {
-  const pool = MAIN_NEED_ITEM_POOL
-  const idx = Math.min(pool.length - 1, Math.floor(rollRng(rng) * pool.length))
-  return resolveMainNeedItem(pool[idx], quality, chapter, chapterBoss, rng)
+  const pool = mainNeedItemPoolForChapter(chapter)
+  return resolveMainNeedItem(pickFromMainNeedPool(pool, rng), quality, chapter, chapterBoss, rng)
 }
 
 /** 报价 / 买货产出：通用工具改抽专属工具，裸 potion 并进 salve。 */
@@ -902,8 +970,8 @@ function makeEnemy(
   const enemyRank = mainlineEnemyRank(resolvedQuality, forceChapterBoss)
   const itemId = rng
     ? pickMainNeedItem(rng, resolvedQuality, chapter, forceChapterBoss)
-    : resolveMainNeedItem(
-        MAIN_NEED_ITEM_POOL[(seed + slot) % MAIN_NEED_ITEM_POOL.length],
+    : resolveChapterMainNeedItem(
+        pickFromMainNeedPool(mainNeedItemPoolForChapter(chapter), undefined, seed + slot),
         resolvedQuality,
         chapter,
         forceChapterBoss,
@@ -955,7 +1023,7 @@ function makePasserby(
 ): PasserbyEncounter {
   const def = PASSERBY_DEFS[(seed + slot) % PASSERBY_DEFS.length]
   const q = qualityDef(quality)
-  const wantItem = resolveMainNeedItem(firstNeedItem(def.wants), quality, chapter, false, rng, seed + slot)
+  const wantItem = resolveChapterMainNeedItem(firstNeedItem(def.wants), quality, chapter, false, rng, seed + slot)
   return {
     kind: 'passerby',
     id: `${def.id}-${quality}-${seed}-${slot}`,
@@ -976,7 +1044,7 @@ function makePawn(
 ): PawnEncounter {
   const def = PAWN_DEFS[(seed + slot) % PAWN_DEFS.length]
   const q = qualityDef(quality)
-  const wantItem = resolveMainNeedItem(firstNeedItem(def.pawnWants), quality, chapter, false, rng, seed + slot)
+  const wantItem = resolveChapterMainNeedItem(firstNeedItem(def.pawnWants), quality, chapter, false, rng, seed + slot)
   const pawnWants = scaledMainNeed(wantItem, quality, chapter)
   return {
     kind: 'pawn',
@@ -1028,7 +1096,7 @@ function makeArtisan(
 ): ArtisanEncounter {
   const def = ARTISAN_DEFS[(seed + slot) % ARTISAN_DEFS.length]
   const q = qualityDef(quality)
-  const wantItem = resolveMainNeedItem(firstNeedItem(def.wants), quality, chapter, false, rng, seed + slot)
+  const wantItem = resolveChapterMainNeedItem(firstNeedItem(def.wants), quality, chapter, false, rng, seed + slot)
   return {
     kind: 'artisan',
     id: `${def.id}-${quality}-${seed}-${slot}`,
@@ -1051,7 +1119,7 @@ function makeBulkBuy(
 ): BulkBuyEncounter {
   const def = BULK_BUY_DEFS[(seed + slot) % BULK_BUY_DEFS.length]
   const q = qualityDef(quality)
-  const wantItem = resolveMainNeedItem(firstNeedItem(def.wants), quality, chapter, false, rng, seed + slot)
+  const wantItem = resolveChapterMainNeedItem(firstNeedItem(def.wants), quality, chapter, false, rng, seed + slot)
   const wants = scaledMainNeed(wantItem, quality, chapter)
   return {
     kind: 'bulkBuy',
