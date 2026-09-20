@@ -59,12 +59,6 @@ onUnmounted(() => {
               d="M14.6 3.4 20.6 9.4 19.2 10.8 17.5 9.1 8.8 17.8v2.3h2.3l1.6-1.6 1.4 1.4-4.4 4.4-1.4-1.4.7-.7H3.8v-4.8l-.7.7-1.4-1.4 4.4-4.4 1.4 1.4-1.6 1.6H8.2v2.3l8.7-8.7-1.7-1.7z"
             />
           </svg>
-          <svg v-else-if="chip.id === 'inspiration'" class="hud-ico" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              fill="currentColor"
-              d="M12 2.4 13.7 8.1 19.4 9.8 13.7 11.5 12 17.2 10.3 11.5 4.6 9.8 10.3 8.1ZM18.2 14.2 19 16.6 21.4 17.4 19 18.2 18.2 20.6 17.4 18.2 15 17.4 17.4 16.6Z"
-            />
-          </svg>
           <span v-if="chip.kind === 'item'">{{ chip.name }} {{ hudChipAmount(game.save, chip.id) }}</span>
           <span v-else>{{ hudChipAmount(game.save, chip.id) }}</span>
         </button>

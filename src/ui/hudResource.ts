@@ -16,10 +16,11 @@ import type { ItemId, Save } from '../sim/types'
 import { leftoverStockRows } from '../sim/query'
 import { formatHudQty } from './formatHud'
 
-/** 顶栏核心芯片从左到右：骑士等级最先。 */
-export const HUD_CORE_IDS = ['knight', 'gold', 'diamonds', 'workers', 'inspiration'] as const
+/** 顶栏核心芯片从左到右：骑士等级最先。灵感只在科技页。 */
+export const HUD_CORE_IDS = ['knight', 'gold', 'diamonds', 'workers'] as const
 export type HudCoreId = (typeof HUD_CORE_IDS)[number]
-export type HudChipId = HudCoreId | ItemId
+export type HudResourceId = HudCoreId | 'inspiration'
+export type HudChipId = HudResourceId | ItemId
 
 export type HudChip = {
   id: HudChipId
@@ -35,7 +36,7 @@ export type HudChipDetail = {
   usage: string
 }
 
-const CORE_COPY: Record<HudCoreId, { name: string; source: string; usage: string }> = {
+const CORE_COPY: Record<HudResourceId, { name: string; source: string; usage: string }> = {
   knight: {
     name: '骑士等级',
     source: '各可玩工坊站等级汇总：每站升 1 级，骑士等级 +1。',
@@ -63,8 +64,8 @@ const CORE_COPY: Record<HudCoreId, { name: string; source: string; usage: string
   },
 }
 
-export function isHudCoreId(id: string): id is HudCoreId {
-  return (HUD_CORE_IDS as readonly string[]).includes(id)
+export function isHudResourceId(id: string): id is HudResourceId {
+  return id === 'inspiration' || (HUD_CORE_IDS as readonly string[]).includes(id)
 }
 
 /** 核心芯片 + 有货的旧档遗留物资（滑进顶栏右侧）。 */
@@ -94,7 +95,7 @@ export function hudChipAriaLabel(save: Save, chip: HudChip): string {
 }
 
 export function hudChipDetail(save: Save, id: HudChipId): HudChipDetail {
-  if (isHudCoreId(id)) {
+  if (isHudResourceId(id)) {
     const copy = CORE_COPY[id]
     return {
       id,

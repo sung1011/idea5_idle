@@ -11,10 +11,11 @@ import {
 } from './hudResource'
 
 describe('hud resource chips', () => {
-  it('puts knight level first, then gold / diamonds / workers / inspiration', () => {
-    expect([...HUD_CORE_IDS]).toEqual(['knight', 'gold', 'diamonds', 'workers', 'inspiration'])
+  it('puts knight level first, then gold / diamonds / workers, without inspiration', () => {
+    expect([...HUD_CORE_IDS]).toEqual(['knight', 'gold', 'diamonds', 'workers'])
     const save = createSave()
     expect(listHudChips(save).map((chip) => chip.id)).toEqual([...HUD_CORE_IDS])
+    expect(listHudChips(save).some((chip) => chip.id === 'inspiration')).toBe(false)
   })
 
   it('slides leftover stock chips in after the core row', () => {

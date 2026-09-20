@@ -4,8 +4,6 @@ import {
   TECH_TAB_IDS,
   TECH_TAB_LABELS,
   TECH_TREE,
-  battlefieldSlotCount,
-  marketSlotCount,
   isRowOpen,
   isTechComplete,
   isTechMaxed,
@@ -20,15 +18,16 @@ import {
 import { isGuideQuestFlash, PATH_OUTPOST_TECH_ID } from '../sim/guideQuest'
 import type { TechId } from '../sim/types'
 import { useGameStore } from './gameStore'
+import { hudChipAmount, hudChipDetail } from './hudResource'
+import HudResourceSheet from './hudResourceSheet.vue'
 import { selectTechTab, techTab } from './techTabs'
 
 const game = useGameStore()
 const guideFlashPathOutpost = computed(() => isGuideQuestFlash(game.save, 'pathOutpost'))
 const selected = ref<TechNodeDef | null>(null)
-const points = computed(() => game.save.techPoints)
-const knightLevel = computed(() => game.save.knightLevel)
-const battlefieldSlots = computed(() => battlefieldSlotCount(game.save))
-const marketSlots = computed(() => marketSlotCount(game.save))
+const pointsOpen = ref(false)
+const points = computed(() => hudChipAmount(game.save, 'inspiration'))
+const pointsLive = computed(() => (pointsOpen.value ? hudChipDetail(game.save, 'inspiration') : null))
 const done = computed(() => isTechComplete(game.save))
 const unlockedCount = computed(() => techTier(game.save))
 const progressPct = computed(() => Math.round((unlockedCount.value / TECH_TREE.length) * 100))
@@ -87,11 +86,15 @@ function closeSheet() {
     <p class="kicker">骑士工坊 · 科技</p>
     <p class="title">科技树</p>
     <div class="chips">
-      <span class="chip">骑士 {{ knightLevel }} 级</span>
-      <span class="chip">灵感 {{ points }}</span>
-      <span class="chip">战场 {{ battlefieldSlots }} 格</span>
-      <span class="chip">商场 {{ marketSlots }} 格</span>
-      <span class="chip">进度 {{ unlockedCount }}/{{ TECH_TREE.length }}</span>
+      <button type="button" class="chip" aria-label="可用灵感" @click="pointsOpen = true">
+        <svg class="hud-ico" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            fill="currentColor"
+            d="M12 2.4 13.7 8.1 19.4 9.8 13.7 11.5 12 17.2 10.3 11.5 4.6 9.8 10.3 8.1ZM18.2 14.2 19 16.6 21.4 17.4 19 18.2 18.2 20.6 17.4 18.2 15 17.4 17.4 16.6Z"
+          />
+        </svg>
+        <span>可用灵感 {{ points }}</span>
+      </button>
     </div>
     <div class="bar xp" aria-label="科技进度">
       <i :style="{ width: `${progressPct}%` }" />
@@ -160,6 +163,7 @@ function closeSheet() {
         </div>
       </div>
     </Teleport>
+    <HudResourceSheet v-if="pointsLive" :detail="pointsLive" @close="pointsOpen = false" />
   </section>
 </template>
 
@@ -204,6 +208,27 @@ p,
   flex-direction: row;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.chip {
+  min-height: 32px;
+  padding: 2px 10px 2px 6px;
+  font-size: 13px;
+}
+
+.hud-ico {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: var(--ink);
+}
+
+button.chip:hover:not(:disabled) {
+  filter: none;
+}
+
+button.chip:active:not(:disabled) {
+  transform: none;
 }
 
 .sub {
