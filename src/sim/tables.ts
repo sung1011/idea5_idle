@@ -839,7 +839,7 @@ export function findCategory(stationId: StationId, categoryId: CategoryId): Stat
   return STATION_DEF[stationId].categories.find((c) => c.id === categoryId)
 }
 
-/** 可玩六站展开顺序（骑士等级 / leftover / 工人派站）。工坊页左侧竖签见 `src/ui/workshopTabs.ts`。伐木 / 钓鱼已藏。 */
+/** 可玩六站展开顺序（骑士等级 / leftover / 工人派站）。工坊页三组竖签见 `src/ui/workshopTabs.ts` 的 WORKSHOP_GROUPS。伐木 / 钓鱼已藏。 */
 export const PLAYABLE_CHAINS: StationId[][] = [
   ['mining', 'forging'],
   ['hunting', 'cooking'],

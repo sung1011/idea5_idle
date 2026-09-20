@@ -1,13 +1,21 @@
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { itemProducerStation } from '../sim/tables'
 import type { ItemId, StationId } from '../sim/types'
 import { loadAppTab, saveAppTab, type AppTabId } from './appTabs'
-import { loadWorkshopTab, saveWorkshopTab } from './workshopTabs'
+import {
+  loadWorkshopTab,
+  saveWorkshopTab,
+  stationsOfWorkshopGroup,
+  workshopGroupOf,
+  workshopGroupOfStation,
+  type WorkshopGroupId,
+} from './workshopTabs'
 
 export { APP_TABS, DEFAULT_APP_TAB, isAppTabId, type AppTabId } from './appTabs'
 
 export const appTab = ref(loadAppTab())
 export const workshopTab = ref<StationId>(loadWorkshopTab())
+export const workshopGroup = computed(() => workshopGroupOfStation(workshopTab.value))
 
 export function selectAppTab(id: unknown, storage?: Storage | null): AppTabId {
   const next = saveAppTab(id, storage)
@@ -19,6 +27,18 @@ export function selectWorkshopStation(id: unknown, storage?: Storage | null): St
   const next = saveWorkshopTab(id, storage)
   workshopTab.value = next
   return next
+}
+
+/** 切工坊组。当前站已在该组则保留焦点，否则落到该组第一站。 */
+export function selectWorkshopGroup(id: unknown, storage?: Storage | null): WorkshopGroupId {
+  const group = workshopGroupOf(id)
+  const current = workshopTab.value
+  if (stationsOfWorkshopGroup(group).includes(current)) {
+    selectWorkshopStation(current, storage)
+    return group
+  }
+  selectWorkshopStation(stationsOfWorkshopGroup(group)[0], storage)
+  return group
 }
 
 export function syncWorkshopTab(storage?: Storage | null): StationId {

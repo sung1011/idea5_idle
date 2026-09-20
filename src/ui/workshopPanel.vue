@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, watch } from 'vue'
 import {
   formatMarchClock,
   isWorkshopBuffActive,
@@ -14,10 +14,12 @@ import StationCard from './stationCard.vue'
 import UiIcon from './uiIcon.vue'
 import { useFrameNow } from './visualProgress'
 import { railProgressHalted, railVisualPct, railWorkerDotColors } from './workshopRail'
-import { selectWorkshopStation, syncWorkshopTab, workshopTab } from './appNav'
+import { selectWorkshopGroup, syncWorkshopTab, workshopGroup, workshopTab } from './appNav'
 import {
-  WORKSHOP_TAB_IDS,
-  workshopTabLabel,
+  WORKSHOP_GROUPS,
+  stationsOfWorkshopGroup,
+  workshopGroupLabel,
+  type WorkshopGroupId,
 } from './workshopTabs'
 
 const game = useGameStore()
@@ -34,14 +36,16 @@ const buffLabel = computed(() => {
   return `工匠加持：产量 +${pct}% · 剩余 ${formatMarchClock(workshopBuffRemainS(game.save, now.value))}`
 })
 
-const activeTab = workshopTab
+const activeStation = workshopTab
+const activeGroup = workshopGroup
 syncWorkshopTab()
 const leftover = computed(() => leftoverStockRows(game.save))
+const groupStations = computed(() => stationsOfWorkshopGroup(activeGroup.value))
 const railById = computed(() => {
   const save = game.save
   const clock = frameNow.value
   return Object.fromEntries(
-    WORKSHOP_TAB_IDS.map((id) => [
+    WORKSHOP_GROUPS.flatMap((row) => row.stations).map((id) => [
       id,
       {
         dots: railWorkerDotColors(save, id),
@@ -52,39 +56,75 @@ const railById = computed(() => {
   ) as Record<StationId, { dots: string[]; pct: number; halted: boolean }>
 })
 
-function selectTab(id: StationId) {
-  selectWorkshopStation(id)
+function selectGroup(id: WorkshopGroupId) {
+  selectWorkshopGroup(id)
 }
+
+function scrollFocusedStation() {
+  const root = document.getElementById(`workshop-station-${activeStation.value}`)
+  root?.scrollIntoView({ block: 'nearest' })
+}
+
+watch(activeStation, async () => {
+  await nextTick()
+  scrollFocusedStation()
+})
 </script>
 
 <template>
   <div class="wrap">
     <p v-if="buffOn" class="buff">{{ buffLabel }}</p>
     <div class="board">
-      <nav class="rail" role="tablist" aria-label="工坊站点">
+      <nav class="rail" role="tablist" aria-label="工坊分组">
         <button
-          v-for="id in WORKSHOP_TAB_IDS"
-          :key="id"
+          v-for="row in WORKSHOP_GROUPS"
+          :key="row.id"
           type="button"
           role="tab"
-          :aria-selected="activeTab === id"
-          :class="{ on: activeTab === id, halt: railById[id].halted, 'guide-flash': id === 'mining' && guideFlashMining }"
-          @click="selectTab(id)"
+          :aria-selected="activeGroup === row.id"
+          :class="{
+            on: activeGroup === row.id,
+            halt: railById[row.stations[0]].halted && railById[row.stations[1]].halted,
+            'guide-flash': row.stations.includes('mining') && guideFlashMining,
+          }"
+          @click="selectGroup(row.id)"
         >
-          <span class="fill-clip" aria-hidden="true">
-            <i class="fill" :style="{ height: railById[id].pct.toFixed(2) + '%' }" />
+          <span class="fills" aria-hidden="true">
+            <span
+              v-for="id in row.stations"
+              :key="id"
+              class="fill-clip"
+              :class="{ halt: railById[id].halted }"
+            >
+              <i class="fill" :style="{ height: railById[id].pct.toFixed(2) + '%' }" />
+            </span>
           </span>
           <span class="face">
-            <UiIcon :name="id" />
-            <span class="lab">{{ workshopTabLabel(id) }}</span>
-            <span v-if="railById[id].dots.length" class="dots">
-              <i v-for="(color, i) in railById[id].dots" :key="i" :style="{ background: color }" />
+            <span class="pair-icos">
+              <UiIcon v-for="id in row.stations" :key="id" :name="id" />
+            </span>
+            <span class="lab">{{ workshopGroupLabel(row.id) }}</span>
+            <span class="pair-dots">
+              <span v-for="id in row.stations" :key="id" class="dots">
+                <i
+                  v-for="(color, i) in railById[id].dots"
+                  :key="i"
+                  :style="{ background: color }"
+                />
+              </span>
             </span>
           </span>
         </button>
       </nav>
       <section class="stage">
-        <StationCard :station-id="activeTab" />
+        <div
+          v-for="id in groupStations"
+          :id="'workshop-station-' + id"
+          :key="id"
+          class="slot"
+        >
+          <StationCard :station-id="id" :focused="activeStation === id" />
+        </div>
       </section>
     </div>
     <section v-if="leftover.length" class="leftover" aria-label="其它库存">
@@ -115,7 +155,7 @@ function selectTab(id: StationId) {
 
 .rail {
   display: grid;
-  grid-template-rows: repeat(var(--workshop-rail-row-count), minmax(var(--workshop-rail-row-min), 1fr));
+  grid-template-rows: repeat(3, minmax(var(--workshop-rail-row-min), 1fr));
   flex: 0 0 56px;
   width: 56px;
   gap: var(--workshop-rail-row-gap);
@@ -139,13 +179,19 @@ function selectTab(id: StationId) {
   letter-spacing: 0.04em;
 }
 
-.rail .fill-clip {
+.rail .fills {
   position: absolute;
   inset: 0;
-  overflow: hidden;
-  border-radius: inherit;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   pointer-events: none;
   z-index: 0;
+}
+
+.rail .fill-clip {
+  position: relative;
+  overflow: hidden;
+  border-radius: inherit;
 }
 
 .rail .fill {
@@ -156,6 +202,7 @@ function selectTab(id: StationId) {
   background: linear-gradient(0deg, #3e9a2a, #c8f08a 70%, #f3d06a);
 }
 
+.rail .fill-clip.halt .fill,
 .rail button.halt .fill {
   background: linear-gradient(0deg, #9a8f7c, #d4cdc0);
 }
@@ -167,13 +214,29 @@ function selectTab(id: StationId) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
   max-width: 100%;
 }
 
+.rail .pair-icos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
 .rail .lab {
   line-height: 1.1;
+}
+
+.rail .pair-dots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  width: 100%;
+  min-height: 7px;
+  gap: 2px;
 }
 
 .rail .dots {
@@ -213,16 +276,31 @@ function selectTab(id: StationId) {
 }
 
 .rail .ui-ico {
-  width: 16px;
-  height: 16px;
+  width: 13px;
+  height: 13px;
 }
 
 .stage {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
+  gap: 8px;
   min-width: 0;
   min-height: 0;
+  overflow: auto;
+}
+
+.slot {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+.slot :deep(.card) {
+  height: auto;
+  min-height: 100%;
 }
 
 .note,

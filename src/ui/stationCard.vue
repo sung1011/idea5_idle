@@ -44,6 +44,7 @@ import {
 
 const props = defineProps<{
   stationId: StationId
+  focused?: boolean
 }>()
 
 const game = useGameStore()
@@ -165,7 +166,11 @@ function consumeText(row: StationConsumeToken) {
 </script>
 
 <template>
-  <article class="card" :class="{ wait: frozen && !stall, 'guide-flash': guideFlashMining }">
+  <article
+    class="card"
+    :data-station="stationId"
+    :class="{ wait: frozen && !stall, 'guide-flash': guideFlashMining, focus: focused }"
+  >
     <StationTips :station-id="stationId" />
     <header>
       <span class="badge">
@@ -428,6 +433,13 @@ h2 {
 
 .card.wait {
   box-shadow: inset 0 0 0 3px #d4a017;
+}
+
+.card.focus {
+  box-shadow:
+    0 3px 0 var(--shadow),
+    inset 0 0 0 2px #ffe27a,
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 .cats,

@@ -6,7 +6,9 @@ import {
   openItemWorkshop,
   openWorkshopStation,
   selectAppTab,
+  selectWorkshopGroup,
   selectWorkshopStation,
+  workshopGroup,
   workshopTab,
 } from './appNav'
 import { APP_TAB_KEY } from './appTabs'
@@ -83,5 +85,22 @@ describe('appNav', () => {
     expect(openItemWorkshop('wood', store)).toBeNull()
     expect(appTab.value).toBe('workshop')
     expect(workshopTab.value).toBe('alchemy')
+  })
+
+  it('opens a workshop group and keeps the focused station when already in that pair', () => {
+    const store = memory()
+    expect(selectWorkshopStation('mining', store)).toBe('mining')
+    expect(selectWorkshopGroup('potion', store)).toBe('potion')
+    expect(workshopGroup.value).toBe('potion')
+    expect(workshopTab.value).toBe('herbalism')
+    expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('herbalism')
+    expect(selectWorkshopStation('alchemy', store)).toBe('alchemy')
+    expect(workshopGroup.value).toBe('potion')
+    expect(selectWorkshopGroup('potion', store)).toBe('potion')
+    expect(workshopTab.value).toBe('alchemy')
+    expect(selectWorkshopGroup('food', store)).toBe('food')
+    expect(workshopTab.value).toBe('hunting')
+    expect(openWorkshopStation('forging', store)).toBe('forging')
+    expect(workshopGroup.value).toBe('weapon')
   })
 })

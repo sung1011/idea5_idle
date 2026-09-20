@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DEFAULT_WORKSHOP_GROUP,
   DEFAULT_WORKSHOP_TAB,
   LEGACY_WORKSHOP_LINE_KEY,
+  WORKSHOP_GROUPS,
   WORKSHOP_RAIL_ROW_COUNT,
   WORKSHOP_TAB_IDS,
   WORKSHOP_TAB_KEY,
+  isWorkshopGroupId,
   isWorkshopTabId,
   loadWorkshopTab,
   saveWorkshopTab,
+  stationsOfWorkshopGroup,
+  workshopGroupLabel,
+  workshopGroupOf,
+  workshopGroupOfStation,
   workshopTabLabel,
   workshopTabOf,
 } from './workshopTabs'
@@ -55,6 +62,29 @@ describe('workshopTabs', () => {
       '炼金',
     ])
     expect(WORKSHOP_RAIL_ROW_COUNT).toBe(7)
+  })
+
+  it('groups workshop stations as 药剂 / 食物 / 武器', () => {
+    expect(WORKSHOP_GROUPS.map((row) => [row.id, row.label, ...row.stations])).toEqual([
+      ['potion', '药剂', 'herbalism', 'alchemy'],
+      ['food', '食物', 'hunting', 'cooking'],
+      ['weapon', '武器', 'mining', 'forging'],
+    ])
+    expect(WORKSHOP_GROUPS.map((row) => workshopGroupLabel(row.id))).toEqual(['药剂', '食物', '武器'])
+    expect(DEFAULT_WORKSHOP_GROUP).toBe('weapon')
+    expect(workshopGroupOfStation('herbalism')).toBe('potion')
+    expect(workshopGroupOfStation('alchemy')).toBe('potion')
+    expect(workshopGroupOfStation('hunting')).toBe('food')
+    expect(workshopGroupOfStation('cooking')).toBe('food')
+    expect(workshopGroupOfStation('mining')).toBe('weapon')
+    expect(workshopGroupOfStation('forging')).toBe('weapon')
+    expect(stationsOfWorkshopGroup('potion')).toEqual(['herbalism', 'alchemy'])
+    expect(isWorkshopGroupId('potion')).toBe(true)
+    expect(isWorkshopGroupId('mining')).toBe(false)
+    expect(workshopGroupOf('alchemy')).toBe('potion')
+    expect(workshopGroupOf('brew')).toBe('potion')
+    expect(workshopGroupOf('smelt')).toBe('weapon')
+    expect(workshopGroupOf('nope')).toBe(DEFAULT_WORKSHOP_GROUP)
   })
 
   it('resolves unknown and legacy line ids', () => {
