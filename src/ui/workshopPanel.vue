@@ -260,9 +260,9 @@ watch(activeStation, async () => {
   color: var(--ink);
   font-weight: inherit;
   background: linear-gradient(#fffbeb, var(--btn));
-  border-width: 4px;
-  border-color: var(--gold-deep);
-  box-shadow: 0 3px 0 var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  border-width: 6px;
+  border-color: #6b3a2a;
+  box-shadow: 0 3px 0 #5c2e24, inset 0 1px 0 rgba(255, 255, 255, 0.7);
   opacity: 1;
   filter: none;
 }
@@ -274,7 +274,7 @@ watch(activeStation, async () => {
   z-index: 2;
   pointer-events: none;
   border-radius: inherit;
-  box-shadow: inset 0 0 0 3px var(--gold-deep);
+  box-shadow: inset 0 0 0 4px #5c2e24;
 }
 
 .rail .ui-ico {
