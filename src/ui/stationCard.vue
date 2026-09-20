@@ -246,7 +246,9 @@ function consumeText(row: StationConsumeToken) {
         />
       </label>
       <p class="stat">{{ toolLine }}</p>
-      <label class="cats">
+    </div>
+    <div class="actions">
+      <label class="tool-pick">
         <span class="sr">工具</span>
         <UiSelect
           :model-value="station.selectedToolId ?? ''"
@@ -255,10 +257,8 @@ function consumeText(row: StationConsumeToken) {
           @update:model-value="onSelectTool"
         />
       </label>
-    </div>
-    <div class="actions">
-      <button type="button" @click="game.assignIdle(stationId)">派入</button>
-      <button type="button" @click="game.withdraw(stationId)">撤出</button>
+      <button type="button" class="withdraw" @click="game.withdraw(stationId)">撤出</button>
+      <button type="button" class="assign" @click="game.assignIdle(stationId)">派入</button>
     </div>
   </article>
 </template>
@@ -459,14 +459,6 @@ h2 {
   clip: rect(0, 0, 0, 0);
 }
 
-.tool-row {
-  align-items: center;
-}
-
-.tool-row button {
-  min-height: 36px;
-}
-
 .hint {
   color: var(--muted);
   font-size: 12px;
@@ -474,14 +466,44 @@ h2 {
 
 .actions {
   display: flex;
+  align-items: center;
   gap: 8px;
   flex: 0 0 auto;
   margin-top: auto;
   padding-top: 4px;
 }
 
-.actions button {
+.tool-pick {
+  position: relative;
+  display: flex;
+  min-width: 0;
   flex: 1 1 0;
+}
+
+.tool-pick :deep(.ui-select) {
+  min-width: 0;
+  width: 100%;
+}
+
+.tool-pick :deep(.face) {
+  min-height: 36px;
+  padding: 2px 8px;
+  font-size: 13px;
+}
+
+.actions .withdraw {
+  flex: 0 0 auto;
+  min-width: 64px;
+  min-height: 36px;
+  padding: 2px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.actions .assign {
+  flex: 0 0 auto;
+  min-width: 88px;
   min-height: 48px;
   font-size: 16px;
   font-weight: 700;

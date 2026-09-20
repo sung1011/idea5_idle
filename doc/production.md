@@ -232,7 +232,7 @@ type ProductionBuff = {
 
 ### 5.1 工坊工具下拉
 
-- 记在 `StationState.selectedToolId`，工坊站卡自定义下拉 `src/ui/uiSelect.vue`（首项「无」），不跟工人走，没有装备/换装/卸下。
+- 记在 `StationState.selectedToolId`，工坊站卡自定义下拉 `src/ui/uiSelect.vue`（首项「无」），与撤出 / 派入同一行（左→右：工具 | 撤出 | 派入；派入大号，工具与撤出小一号），不跟工人走，没有装备/换装/卸下。
 - 每站 20 种专属工具，表驱动；解锁 `floor(stationLevel/5)`，上限 20。
 - 选项：已解锁全列 + 下一档置灰预览，更后面的未开档不列出。
 - 选中那一把：`1 + 序号 × 3%` 速度乘区，只生效一把。每次成功吞吐耗 1；「无」不耗；耗尽回「无」。
