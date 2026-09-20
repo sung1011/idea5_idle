@@ -437,7 +437,7 @@ function pickRecommend(w: Worker) {
               :disabled="!picked.length || (pickMode === 'start' && pickIndex != null && consumeShort(pickIndex))"
               @click.stop="confirmPick"
             >
-              {{ pickMode === 'reinforce' ? '增援' : '战斗' }}
+              {{ pickMode === 'reinforce' ? '增援' : '开战' }}
             </button>
           </span>
           <button type="button" @click="inviteAssist">邀请</button>

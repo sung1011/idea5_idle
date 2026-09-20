@@ -195,7 +195,7 @@ describe('guideQuest steps and claim', () => {
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(4)
 
-    expect(guideQuestView(save)?.goal).toBe('在主线弹层中点击战斗')
+    expect(guideQuestView(save)?.goal).toBe('在主线弹层中点击开战')
     markCombatStarted(save)
     expect(hasStartedBattlefieldCombat(save)).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
@@ -223,10 +223,10 @@ describe('guideQuest steps and claim', () => {
     expect(claimGuideQuest(save)).toEqual({ ok: false, reason: '新手任务已完成' })
   })
 
-  it('completes step 4 only after the pick-sheet 战斗 click starts combat', () => {
+  it('completes step 4 only after the pick-sheet 开战 click starts combat', () => {
     const save = createSave()
     save.guideQuestStep = 4
-    expect(guideQuestView(save)?.goal).toBe('在主线弹层中点击战斗')
+    expect(guideQuestView(save)?.goal).toBe('在主线弹层中点击开战')
     expect(guideQuestProgressAt(save, 4)).toBe(0)
     expect(hasStartedBattlefieldCombat(save)).toBe(false)
 
