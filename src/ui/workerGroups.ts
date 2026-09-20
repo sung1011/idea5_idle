@@ -1,6 +1,7 @@
 import { assignedWorkers, assignWorker } from '../sim/assign'
 import { fightingWorkerIds, isWorkerInCombat } from '../sim/combat'
 import { canFuseWorkerWithStation } from '../sim/fuse'
+import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { QUALITY_TIERS, STATION_DEF, STATION_ORDER, STATION_WORKER_CAP, WORKER_QUALITY_TABLE } from '../sim/tables'
 import type { ActionResult, QualityTier, Save, StationId, Worker, WorkerQualityId } from '../sim/types'
 import { railWorkerDotColors } from './workshopRail'
@@ -134,6 +135,7 @@ export type WorkerAssignChoice = {
   dots: CrewDot[]
   current: boolean
   disabled: boolean
+  locked: boolean
   canFuse: boolean
 }
 
@@ -168,20 +170,25 @@ export function canAssignWorkerTo(save: Save, worker: Worker, stationId: Station
   if (isWorkerInCombat(save, worker.id)) return false
   if (worker.assignment === stationId) return false
   if (stationId === null) return true
+  if (!isStationUnlocked(save, stationId)) return false
   return assignedWorkers(save, stationId).length < STATION_WORKER_CAP
 }
 
 /** 现玩法站按 STATION_ORDER（工坊组上→下），末项休息。 */
 export function workerAssignChoices(save: Save, worker: Worker): WorkerAssignChoice[] {
   const ids: Array<StationId | null> = [...STATION_ORDER, null]
-  return ids.map((stationId) => ({
-    stationId,
-    label: stationAssignCaption(save, stationId),
-    dots: stationCrewDots(save, stationId),
-    current: worker.assignment === stationId,
-    disabled: !canAssignWorkerTo(save, worker, stationId),
-    canFuse: canFuseWorkerWithStation(save, worker.id, stationId),
-  }))
+  return ids.map((stationId) => {
+    const locked = stationId != null && !isStationUnlocked(save, stationId)
+    return {
+      stationId,
+      label: stationAssignCaption(save, stationId),
+      dots: stationCrewDots(save, stationId),
+      current: worker.assignment === stationId,
+      disabled: !canAssignWorkerTo(save, worker, stationId),
+      locked,
+      canFuse: !locked && canFuseWorkerWithStation(save, worker.id, stationId),
+    }
+  })
 }
 
 export type WorkshopStationBoard = {
@@ -236,6 +243,7 @@ export function restingWorkers(save: Save): Worker[] {
 /** 药剂→食物→武器，站内左槽先于右槽；满员跳过。 */
 export function firstEmptyDispatchStation(save: Save): StationId | null {
   for (const stationId of STATION_ORDER) {
+    if (!isStationUnlocked(save, stationId)) continue
     if (assignedWorkers(save, stationId).length < STATION_WORKER_CAP) return stationId
   }
   return null
@@ -250,6 +258,12 @@ export function assignRestingToFirstEmpty(save: Save): ActionResult {
   const idle = restingWorkers(save)[0]
   if (!idle) return { ok: false, reason: '没有可派的工人' }
   const stationId = firstEmptyDispatchStation(save)
-  if (!stationId) return { ok: false, reason: '工位已满' }
+  if (!stationId) {
+    const lockedEmpty = STATION_ORDER.find(
+      (id) => !isStationUnlocked(save, id) && assignedWorkers(save, id).length < STATION_WORKER_CAP,
+    )
+    if (lockedEmpty) return { ok: false, reason: stationLockedTip(lockedEmpty) }
+    return { ok: false, reason: '工位已满' }
+  }
   return assignWorker(save, idle.id, stationId)
 }

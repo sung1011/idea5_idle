@@ -3,6 +3,7 @@ import { assignWorker } from '../sim/assign'
 import { beginEnemyCombat } from '../sim/combat'
 import { spawnWorkerWith } from '../sim/recruit'
 import { createSave } from '../sim/createSave'
+import { unlockPlayableStations } from '../sim/stationUnlock'
 import { STATION_ORDER, STATION_WORKER_CAP, WORKER_QUALITY_TABLE } from '../sim/tables'
 import type { EnemyEncounter } from '../sim/types'
 import { DISPATCH_STATION_IDS, WORKSHOP_GROUPS } from './workshopTabs'
@@ -85,7 +86,7 @@ describe('groupWorkersByQuality', () => {
 
 describe('worker duty and names', () => {
   it('labels rest, station duty, and combat', () => {
-    const save = createSave()
+    const save = unlockPlayableStations(createSave())
     const rest = spawnWorkerWith(save, 1, 'laborer')
     const busy = spawnWorkerWith(save, 2, 'miner')
     busy.assignment = 'mining'
@@ -98,7 +99,7 @@ describe('worker duty and names', () => {
   })
 
   it('counts rest and on-duty separately', () => {
-    const save = createSave()
+    const save = unlockPlayableStations(createSave())
     spawnWorkerWith(save, 1, 'laborer')
     const busy = spawnWorkerWith(save, 1, 'artisan')
     busy.assignment = 'forging'
@@ -108,7 +109,7 @@ describe('worker duty and names', () => {
 
 describe('station crew dots and assign choices', () => {
   it('pads two slots: quality color when occupied, gray when empty', () => {
-    const save = createSave()
+    const save = unlockPlayableStations(createSave())
     expect(stationCrewDots(save, null)).toEqual([
       { empty: true, color: CREW_DOT_EMPTY },
       { empty: true, color: CREW_DOT_EMPTY },
@@ -135,7 +136,7 @@ describe('station crew dots and assign choices', () => {
   })
 
   it('lists workshop tabs plus rest; full stations cannot take another worker', () => {
-    const save = createSave()
+    const save = unlockPlayableStations(createSave())
     const rest = spawnWorkerWith(save, 1, 'laborer')
     const a = spawnWorkerWith(save, 2, 'miner')
     const b = spawnWorkerWith(save, 3, 'artisan')
@@ -165,10 +166,22 @@ describe('station crew dots and assign choices', () => {
     expect(canGoToAssignedWorkshop(a)).toBe(true)
     expect(canGoToAssignedWorkshop(extra)).toBe(false)
     expect(choices.every((c) => c.canFuse === false)).toBe(true)
+    expect(choices.find((c) => c.stationId === 'forging')?.locked).toBe(false)
+  })
+
+  it('marks locked stations on a new save', () => {
+    const save = createSave()
+    const rest = spawnWorkerWith(save, 1, 'laborer')
+    const choices = workerAssignChoices(save, rest)
+    expect(choices.find((c) => c.stationId === 'herbalism')?.locked).toBe(false)
+    expect(choices.find((c) => c.stationId === 'alchemy')?.locked).toBe(true)
+    expect(choices.find((c) => c.stationId === 'mining')?.locked).toBe(true)
+    expect(canAssignWorkerTo(save, rest, 'herbalism')).toBe(true)
+    expect(canAssignWorkerTo(save, rest, 'mining')).toBe(false)
   })
 
   it('marks a station fusable when the picker matches an existing same-tier worker', () => {
-    const save = createSave()
+    const save = unlockPlayableStations(createSave())
     const idle = spawnWorkerWith(save, 1, 'laborer')
     const mate = spawnWorkerWith(save, 1, 'artisan')
     const other = spawnWorkerWith(save, 3, 'miner')
@@ -189,7 +202,7 @@ describe('station crew dots and assign choices', () => {
 
 describe('workshop station boards', () => {
   it('lists playable stations with two padded slots and unassigned rest list', () => {
-    const save = createSave()
+    const save = unlockPlayableStations(createSave())
     const rest = spawnWorkerWith(save, 1, 'laborer')
     const miner = spawnWorkerWith(save, 2, 'miner')
     const cook = spawnWorkerWith(save, 3, 'cook')
@@ -221,7 +234,7 @@ describe('workshop station boards', () => {
   })
 
   it('splits unassigned roster into mainline fighters and rest, and never duplicates workshop crew', () => {
-    const save = createSave()
+    const save = unlockPlayableStations(createSave())
     const rest = spawnWorkerWith(save, 1, 'laborer')
     const fighter = spawnWorkerWith(save, 1, 'wanderer')
     const shop = spawnWorkerWith(save, 2, 'miner')
@@ -332,6 +345,11 @@ describe('assign resting to first empty slot', () => {
     assignWorker(save, herbA.id, 'herbalism')
     assignWorker(save, herbB.id, 'herbalism')
     const idle = spawnWorkerWith(save, 2, 'miner')
+    expect(firstEmptyDispatchStation(save)).toBeNull()
+    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '骑士 2 级开放' })
+    expect(idle.assignment).toBeNull()
+
+    unlockPlayableStations(save)
     expect(firstEmptyDispatchStation(save)).toBe('alchemy')
     expect(assignRestingToFirstEmpty(save)).toEqual({ ok: true })
     expect(idle.assignment).toBe('alchemy')

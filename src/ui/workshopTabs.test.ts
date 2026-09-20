@@ -77,7 +77,8 @@ describe('workshopTabs', () => {
       ['weapon', '武器', 'mining', 'forging'],
     ])
     expect(WORKSHOP_GROUPS.map((row) => workshopGroupLabel(row.id))).toEqual(['药剂', '食物', '武器'])
-    expect(DEFAULT_WORKSHOP_GROUP).toBe('weapon')
+    expect(DEFAULT_WORKSHOP_GROUP).toBe('potion')
+    expect(DEFAULT_WORKSHOP_TAB).toBe('herbalism')
     expect(workshopGroupOfStation('herbalism')).toBe('potion')
     expect(workshopGroupOfStation('alchemy')).toBe('potion')
     expect(workshopGroupOfStation('hunting')).toBe('food')
@@ -100,7 +101,7 @@ describe('workshopTabs', () => {
     expect(isWorkshopTabId('woodcutting')).toBe(false)
     expect(isWorkshopTabId('fishing')).toBe(false)
     expect(isWorkshopTabId('smelt')).toBe(false)
-    expect(workshopTabOf('nope')).toBe(DEFAULT_WORKSHOP_TAB)
+    expect(workshopTabOf('nope')).toBe('herbalism')
     expect(workshopTabOf('smelt')).toBe('mining')
     expect(workshopTabOf('hunt')).toBe('hunting')
     expect(workshopTabOf('brew')).toBe('herbalism')
@@ -111,12 +112,12 @@ describe('workshopTabs', () => {
 
   it('persists the active station and migrates the old line key', () => {
     const store = memory()
-    expect(loadWorkshopTab(store)).toBe('mining')
+    expect(loadWorkshopTab(store)).toBe('herbalism')
     expect(saveWorkshopTab('cooking', store)).toBe('cooking')
     expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('cooking')
     expect(loadWorkshopTab(store)).toBe('cooking')
-    expect(saveWorkshopTab('bad', store)).toBe('mining')
-    expect(loadWorkshopTab(store)).toBe('mining')
+    expect(saveWorkshopTab('bad', store)).toBe('herbalism')
+    expect(loadWorkshopTab(store)).toBe('herbalism')
 
     const legacy = memory()
     legacy.setItem(LEGACY_WORKSHOP_LINE_KEY, 'brew')

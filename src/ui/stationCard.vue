@@ -13,6 +13,8 @@ import {
 } from '../sim/query'
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
 import { isGuideQuestFlash } from '../sim/guideQuest'
+import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
+import { pushFloatTip } from './floatTips'
 import { stationConflictHint } from '../sim/tech'
 import {
   STATION_DEF,
@@ -90,9 +92,24 @@ const pickOptions = computed(() => categoryPickOptions(game.save, props.stationI
 const consumeGroups = computed(() => stationConsumeGroups(game.save, props.stationId))
 const stallLine = computed(() => stationBottleneckText(game.save, props.stationId))
 const conflictLine = computed(() => stationConflictHint(game.save, props.stationId))
-const guideFlashMining = computed(
-  () => props.stationId === 'mining' && isGuideQuestFlash(game.save, 'mining'),
+const guideFlashAlchemy = computed(
+  () => props.stationId === 'alchemy' && isGuideQuestFlash(game.save, 'alchemy'),
 )
+const locked = computed(() => !isStationUnlocked(game.save, props.stationId))
+
+function onAssignIdle() {
+  if (locked.value) {
+    pushFloatTip(stationLockedTip(props.stationId))
+    return
+  }
+  game.assignIdle(props.stationId)
+}
+
+function onLockedTap(ev: Event) {
+  if (!locked.value) return
+  if (ev.target instanceof HTMLElement && ev.target.closest('button, select, label, input')) return
+  pushFloatTip(stationLockedTip(props.stationId))
+}
 const toolTypeOptions = computed<UiSelectOption[]>(() =>
   TOOL_TYPE_IDS.map((id) => ({
     value: id,
@@ -169,7 +186,8 @@ function consumeText(row: StationConsumeToken) {
   <article
     class="card"
     :data-station="stationId"
-    :class="{ wait: frozen && !stall, 'guide-flash': guideFlashMining, focus: focused }"
+    :class="{ wait: frozen && !stall, locked: locked, 'guide-flash': guideFlashAlchemy, focus: focused }"
+    @click="onLockedTap"
   >
     <StationTips :station-id="stationId" />
     <header>
@@ -190,7 +208,13 @@ function consumeText(row: StationConsumeToken) {
           <b class="crew-name" :style="workerQualityNameStyle(w)">{{ w.name ?? w.id }}</b>
           <span class="crew-lv">Lv{{ w.level }}</span>
         </span>
-        <button v-if="canMerge" type="button" class="crew-merge" @click="onMerge">{{ mergeLabel }}</button>
+        <button
+          v-if="canMerge"
+          type="button"
+          class="crew-merge"
+          :class="{ 'guide-flash': isGuideQuestFlash(game.save, 'fuse') }"
+          @click="onMerge"
+        >{{ mergeLabel }}</button>
       </li>
       <li v-else class="crew-empty">空岗</li>
     </ul>
@@ -258,7 +282,7 @@ function consumeText(row: StationConsumeToken) {
         />
       </label>
       <button type="button" class="withdraw" @click="game.withdraw(stationId)">撤出</button>
-      <button type="button" class="assign" @click="game.assignIdle(stationId)">派入</button>
+      <button type="button" class="assign" :class="{ 'guide-flash': guideFlashAlchemy }" @click="onAssignIdle">派入</button>
     </div>
   </article>
 </template>
@@ -273,6 +297,11 @@ function consumeText(row: StationConsumeToken) {
   min-height: 0;
   height: 100%;
   padding: 12px;
+}
+
+.card.locked {
+  filter: grayscale(0.85);
+  opacity: 0.5;
 }
 
 .jam {

@@ -3,6 +3,7 @@ import { assignWorker } from '../sim/assign'
 import { beginEnemyCombat } from '../sim/combat'
 import { createSave } from '../sim/createSave'
 import { spawnWorkerWith } from '../sim/recruit'
+import { unlockPlayableStations } from '../sim/stationUnlock'
 import { QUALITY_MAX, STATION_WORKER_CAP } from '../sim/tables'
 import type { EnemyEncounter } from '../sim/types'
 import {
@@ -31,7 +32,7 @@ describe('worker drag threshold', () => {
 
 describe('worker drag assign', () => {
   it('drops a resting worker onto an empty slot and rejects a full station', () => {
-    const save = createSave()
+    const save = unlockPlayableStations(createSave())
     const idle = spawnWorkerWith(save, 1, 'laborer')
     const a = spawnWorkerWith(save, 2, 'miner')
     const b = spawnWorkerWith(save, 2, 'artisan')
@@ -56,7 +57,7 @@ describe('worker drag assign', () => {
   })
 
   it('withdraws a slotted worker onto the rest column', () => {
-    const save = createSave()
+    const save = unlockPlayableStations(createSave())
     const busy = spawnWorkerWith(save, 1, 'laborer')
     assignWorker(save, busy.id, 'cooking')
     const source = { kind: 'slot' as const, workerId: busy.id, stationId: 'cooking' as const, slotIndex: 0 }
@@ -66,7 +67,7 @@ describe('worker drag assign', () => {
   })
 
   it('moves onto an empty slot of another station when that station has room', () => {
-    const save = createSave()
+    const save = unlockPlayableStations(createSave())
     const cook = spawnWorkerWith(save, 1, 'cook')
     assignWorker(save, cook.id, 'cooking')
     const fromCook = { kind: 'slot' as const, workerId: cook.id, stationId: 'cooking' as const, slotIndex: 0 }
@@ -75,7 +76,7 @@ describe('worker drag assign', () => {
   })
 
   it('fuses onto a lone same-tier occupant without assigning first', () => {
-    const save = createSave()
+    const save = unlockPlayableStations(createSave())
     const idle = spawnWorkerWith(save, 1, 'laborer')
     const busy = spawnWorkerWith(save, 1, 'artisan')
     assignWorker(save, busy.id, 'mining')
@@ -91,7 +92,7 @@ describe('worker drag assign', () => {
   })
 
   it('fuses onto a same-tier occupant even when the station is already full', () => {
-    const save = createSave()
+    const save = unlockPlayableStations(createSave())
     const idle = spawnWorkerWith(save, 2, 'cook')
     const left = spawnWorkerWith(save, 2, 'miner')
     const right = spawnWorkerWith(save, 3, 'hunter')
@@ -119,7 +120,7 @@ describe('worker drag assign', () => {
   })
 
   it('rejects occupied drops that cannot fuse', () => {
-    const save = createSave()
+    const save = unlockPlayableStations(createSave())
     const idle = spawnWorkerWith(save, 1, 'laborer')
     const green = spawnWorkerWith(save, 2, 'miner')
     const maxA = spawnWorkerWith(save, QUALITY_MAX, 'knight')
@@ -155,7 +156,7 @@ describe('worker drag assign', () => {
   })
 
   it('blocks dragging a mainline fighter away until the fight settles', () => {
-    const save = createSave()
+    const save = unlockPlayableStations(createSave())
     const fighter = spawnWorkerWith(save, 1, 'laborer')
     const enc: EnemyEncounter = {
       kind: 'enemy',
@@ -187,5 +188,18 @@ describe('worker drag assign', () => {
     expect(canDropWorker(save, fromRest, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toBe(true)
     expect(applyWorkerDrag(save, fromRest, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toEqual({ ok: true })
     expect(fighter.assignment).toBe('mining')
+  })
+
+  it('rejects dropping onto a locked empty station', () => {
+    const save = createSave()
+    const idle = spawnWorkerWith(save, 1, 'laborer')
+    expect(canDropWorker(save, { kind: 'rest', workerId: idle.id }, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toBe(
+      false,
+    )
+    expect(applyWorkerDrag(save, { kind: 'rest', workerId: idle.id }, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toEqual({
+      ok: false,
+      reason: '骑士 5 级开放',
+    })
+    expect(assignWorker(save, idle.id, 'herbalism').ok).toBe(true)
   })
 })

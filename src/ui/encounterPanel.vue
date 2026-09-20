@@ -25,7 +25,7 @@ import {
   workshopBuffRemainS,
   type EncounterBoardId,
 } from '../sim/encounters'
-import { isGuideQuestDealFlash, isGuideQuestFlash } from '../sim/guideQuest'
+import { isGuideQuestCombatFlash, isGuideQuestFlash } from '../sim/guideQuest'
 import { mainChapterTitle, mainLootClaimBarLabel, mainLootClaimFillPct } from '../sim/mainChapter'
 import { CLASS_LABEL } from '../sim/tables'
 import type { Encounter, EncounterKind, EnemyEncounter, Worker } from '../sim/types'
@@ -44,10 +44,9 @@ import {
 } from './workerQuality'
 
 const game = useGameStore()
-const guideFlashExplore = computed(() => isGuideQuestFlash(game.save, 'explore'))
-const guideFlashMarket = computed(() => isGuideQuestFlash(game.save, 'deal'))
-function guideFlashDeal(enc: Encounter) {
-  return isGuideQuestDealFlash(game.save, enc)
+const guideFlashCombat = computed(() => isGuideQuestFlash(game.save, 'combat'))
+function guideFlashEnemy(enc: Encounter) {
+  return isGuideQuestCombatFlash(game.save, enc)
 }
 const currentTab = computed(() => mainlineTab.value)
 const boardEncounters = computed(() => encountersOf(game.save, currentTab.value))
@@ -185,7 +184,7 @@ function pickRecommend(w: Worker) {
         type="button"
         role="tab"
         :aria-selected="currentTab === id"
-        :class="{ on: currentTab === id, 'guide-flash': guideFlashMarket && id === 'market' }"
+        :class="{ on: currentTab === id, 'guide-flash': guideFlashCombat && id === 'battlefield' }"
         @click="selectTab(id)"
       >
         {{ MAINLINE_TAB_LABELS[id] }}
@@ -207,7 +206,7 @@ function pickRecommend(w: Worker) {
       </div>
     </div>
     <div class="row">
-      <button type="button" :class="{ 'guide-flash': guideFlashExplore }" @click="game.explore()">
+      <button type="button" @click="game.explore()">
         探索（{{ cost }} 金）
       </button>
     </div>
@@ -271,6 +270,7 @@ function pickRecommend(w: Worker) {
             <button
               v-else-if="isCombatWon(enc)"
               type="button"
+              :class="{ 'guide-flash': guideFlashEnemy(enc) }"
               @click="game.claimLoot(i)"
             >
               战利品
@@ -278,6 +278,7 @@ function pickRecommend(w: Worker) {
             <span v-else class="act-hit" @click="warnConsumeShort(i)">
               <button
                 type="button"
+                :class="{ 'guide-flash': guideFlashEnemy(enc) }"
                 :disabled="consumeShort(i)"
                 @click.stop="openPick(i)"
               >
@@ -302,7 +303,6 @@ function pickRecommend(w: Worker) {
               <span class="act-hit" @click="warnConsumeShort(i)">
                 <button
                   type="button"
-                  :class="{ 'guide-flash': guideFlashDeal(enc) }"
                   :disabled="enc.completed || consumeShort(i)"
                   @click.stop="game.buyMerchant(i)"
                 >
@@ -317,7 +317,6 @@ function pickRecommend(w: Worker) {
               <span class="act-hit" @click="warnConsumeShort(i)">
                 <button
                   type="button"
-                  :class="{ 'guide-flash': guideFlashDeal(enc) }"
                   :disabled="enc.completed || consumeShort(i)"
                   @click.stop="game.barter(i)"
                 >
@@ -332,7 +331,6 @@ function pickRecommend(w: Worker) {
               <span class="act-hit" @click="warnConsumeShort(i)">
                 <button
                   type="button"
-                  :class="{ 'guide-flash': guideFlashDeal(enc) }"
                   :disabled="enc.completed || consumeShort(i)"
                   @click.stop="game.pawn(i)"
                 >
@@ -347,7 +345,6 @@ function pickRecommend(w: Worker) {
               <span class="act-hit" @click="warnConsumeShort(i)">
                 <button
                   type="button"
-                  :class="{ 'guide-flash': guideFlashDeal(enc) }"
                   :disabled="enc.completed || consumeShort(i)"
                   @click.stop="game.submitArtisan(i)"
                 >
@@ -362,7 +359,6 @@ function pickRecommend(w: Worker) {
               <span class="act-hit" @click="warnConsumeShort(i)">
                 <button
                   type="button"
-                  :class="{ 'guide-flash': guideFlashDeal(enc) }"
                   :disabled="enc.completed || consumeShort(i)"
                   @click.stop="game.sellBulk(i)"
                 >

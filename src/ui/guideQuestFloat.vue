@@ -36,7 +36,7 @@ function claim() {
     aria-label="新手主线"
   >
     <div class="row">
-      <div class="ico" role="button" :aria-label="collapsed ? '打开对应模块' : '折叠任务'" @click.stop="onBadge">{{ view.step }}</div>
+      <div class="ico" role="button" :aria-label="collapsed ? '打开对应模块' : '折叠任务'" @click.stop="onBadge">{{ view.phaseStep }}</div>
       <div class="txt" role="button" aria-label="打开对应模块" @click.stop="jump">
         <p class="name">{{ view.title }}</p>
         <p class="goal">{{ view.goal }}</p>

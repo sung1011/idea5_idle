@@ -8,7 +8,9 @@ import {
 } from '../sim/encounters'
 import { leftoverStockRows } from '../sim/query'
 import { isGuideQuestFlash } from '../sim/guideQuest'
+import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import type { StationId } from '../sim/types'
+import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
 import StationCard from './stationCard.vue'
 import UiIcon from './uiIcon.vue'
@@ -23,7 +25,7 @@ import {
 } from './workshopTabs'
 
 const game = useGameStore()
-const guideFlashMining = computed(() => isGuideQuestFlash(game.save, 'mining'))
+const guideFlashAlchemy = computed(() => isGuideQuestFlash(game.save, 'alchemy'))
 const now = computed(() => {
   void game.save.elapsedS
   return Date.now()
@@ -57,7 +59,15 @@ const railById = computed(() => {
 })
 
 function selectGroup(id: WorkshopGroupId) {
+  const stations = stationsOfWorkshopGroup(id)
+  if (stations.every((sid) => !isStationUnlocked(game.save, sid))) {
+    pushFloatTip(stationLockedTip(stations[0]))
+  }
   selectWorkshopGroup(id)
+}
+
+function groupLocked(id: WorkshopGroupId) {
+  return stationsOfWorkshopGroup(id).every((sid) => !isStationUnlocked(game.save, sid))
 }
 
 function scrollFocusedStation() {
@@ -85,7 +95,8 @@ watch(activeStation, async () => {
           :class="{
             on: activeGroup === row.id,
             halt: railById[row.stations[0]].halted && railById[row.stations[1]].halted,
-            'guide-flash': row.stations.includes('mining') && guideFlashMining,
+            locked: groupLocked(row.id),
+            'guide-flash': row.stations.includes('alchemy') && guideFlashAlchemy,
           }"
           @click="selectGroup(row.id)"
         >
@@ -265,6 +276,11 @@ watch(activeStation, async () => {
   box-shadow: 0 3px 0 #5c2e24, inset 0 1px 0 rgba(255, 255, 255, 0.7);
   opacity: 1;
   filter: none;
+}
+
+.rail button.locked {
+  filter: grayscale(0.85);
+  opacity: 0.45;
 }
 
 .rail button.on::after {

@@ -1,22 +1,20 @@
 import { openWorkshopStation, selectAppTab, type AppTabId } from './appNav'
 import { selectMainlineTab } from './mainlineTabs'
-import { selectTechTab } from './techTabs'
 
 export function openGuideQuestStep(step: number, storage?: Storage | null): AppTabId {
   switch (step) {
     case 1:
-      return selectAppTab('workers', storage)
     case 2:
-      openWorkshopStation('mining', storage)
-      return 'workshop'
     case 3:
-      selectMainlineTab('market', storage)
-      return selectAppTab('encounters', storage)
+    case 6:
+    case 7:
+      return selectAppTab('workers', storage)
     case 4:
+      selectMainlineTab('battlefield', storage)
       return selectAppTab('encounters', storage)
     case 5:
-      selectTechTab('affairs', storage)
-      return selectAppTab('tech', storage)
+      openWorkshopStation('alchemy', storage)
+      return 'workshop'
     default:
       return selectAppTab('encounters', storage)
   }

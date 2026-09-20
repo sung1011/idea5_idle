@@ -13,11 +13,12 @@ import {
   stationMergeLabel,
 } from './fuse'
 import { spawnWorker } from './recruit'
+import { unlockPlayableStations } from './stationUnlock'
 import { QUALITY_MAX, STATION_WORKER_CAP } from './tables'
 import type { EnemyEncounter } from './types'
 
 function roster(n: number) {
-  const save = createSave()
+  const save = unlockPlayableStations(createSave())
   for (let i = 0; i < n; i++) spawnWorker(save)
   return save
 }

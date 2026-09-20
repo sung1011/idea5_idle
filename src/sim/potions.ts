@@ -219,6 +219,7 @@ export function usePotionSlot(save: Save, index: number, _now = Date.now()): Act
   const took = takeFromBank(save, itemId, 1)
   if (!took.ok) return took
   const detail = applyPotionEffect(save, itemId)
+  save.guideQuestPotionUsed = true
   return { ok: true, message: `用了${ITEM_DEF[itemId].label}：${detail}` }
 }
 

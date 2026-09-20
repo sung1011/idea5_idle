@@ -1,49 +1,62 @@
 import { describe, expect, it } from 'vitest'
+import { assignWorker } from './assign'
 import { createSave } from './createSave'
-import {
-  isStarterCopperPawn,
-  makeStarterCopperPawn,
-  pawnMerchant,
-  STARTER_PAWN_ITEM_ID,
-  STARTER_PAWN_QTY,
-} from './encounters'
+import { fuseStationWorkers } from './fuse'
 import {
   GUIDE_QUEST_DONE_STEP,
   GUIDE_QUEST_GOLD,
+  GUIDE_QUEST_PHASE2_START,
+  GUIDE_QUEST_REV,
   GUIDE_QUEST_STEPS,
   claimGuideQuest,
+  firstIncompleteGuideQuestStep,
   guideQuestFlashId,
   guideQuestProgressAt,
   guideQuestView,
-  hasCompletedMainlineOrder,
+  hasFinishedBattlefieldCombat,
   hydrateGuideQuestFields,
-  isGuideQuestDealFlash,
+  isGuideQuestCombatFlash,
   isGuideQuestFlash,
   isGuideQuestVisible,
   normalizeGuideQuestStep,
 } from './guideQuest'
+import { installPotionSlot } from './potionSlots'
+import { usePotionSlot } from './potions'
 import { recruitWorker, spawnWorker } from './recruit'
 import { RECRUIT_COST } from './tables'
 import { hydrateLoadedSave } from '../ui/saveGame'
-import type { Save } from './types'
+import type { EnemyEncounter, Save } from './types'
 
-function pawnStep(save: Save) {
-  save.guideQuestStep = 3
-  save.bank[STARTER_PAWN_ITEM_ID] = STARTER_PAWN_QTY
-  expect(pawnMerchant(save, 0).ok).toBe(true)
+function markCombatWon(save: Save) {
+  const enc = save.encounters[0] as EnemyEncounter
+  enc.departed = true
+  enc.combat = {
+    startedAt: 1,
+    timeoutAt: 10,
+    workerIds: [],
+    workers: [],
+    enemy: { id: 'e', label: '敌', hp: 0, hpMax: 20, atk: 1, spd: 10, nextActAt: 2 },
+    logs: [],
+    outcome: 'win',
+  }
+  enc.lootClaimed = false
 }
 
 describe('guideQuest normalize and hydrate', () => {
   it('starts a new save on step 1 with the overlay visible', () => {
     const save = createSave()
     expect(save.guideQuestStep).toBe(1)
-    expect(save.starterCopperPawnDone).toBe(false)
+    expect(save.guideQuestRev).toBe(GUIDE_QUEST_REV)
+    expect(save.guideQuestPotionUsed).toBe(false)
     expect(isGuideQuestVisible(save)).toBe(true)
     expect(guideQuestProgressAt(save, 1)).toBe(0)
     const view = guideQuestView(save)
     expect(view).toEqual({
       step: 1,
-      title: '主线 · 1/5',
+      phase: 1,
+      phaseStep: 1,
+      phaseTotal: 4,
+      title: '主线 · 1/4',
       goal: '在工人中抽取工人（≥1）',
       progress: 0,
       progressLabel: '进度 0/1',
@@ -56,177 +69,144 @@ describe('guideQuest normalize and hydrate', () => {
     expect(normalizeGuideQuestStep(9)).toBe(GUIDE_QUEST_DONE_STEP)
   })
 
-  it('hydrates a missing old save to the first incomplete step and hides when all five are done', () => {
+  it('hides phase 2 until knight is 2, then shows alchemy', () => {
+    const save = createSave()
+    save.guideQuestStep = GUIDE_QUEST_PHASE2_START
+    expect(save.knightLevel).toBe(1)
+    expect(guideQuestView(save)).toBeNull()
+    expect(isGuideQuestVisible(save)).toBe(false)
+    save.knightLevel = 2
+    const view = guideQuestView(save)
+    expect(view?.title).toBe('进阶 · 1/3')
+    expect(view?.goal).toBe('在炼金站炼成药剂')
+    expect(guideQuestFlashId(save)).toBe('alchemy')
+  })
+
+  it('migrates an old 5-step save onto the first incomplete new step', () => {
     const mid = createSave()
     spawnWorker(mid)
     mid.stations.mining.completed = 2
-    const { guideQuestStep: _step, starterCopperPawnDone: _pawn, ...omitted } = mid
+    const { guideQuestStep: _step, guideQuestRev: _rev, starterCopperPawnDone: _pawn, ...omitted } = mid
     hydrateGuideQuestFields(omitted as Save, omitted)
-    expect((omitted as Save).guideQuestStep).toBe(3)
-    expect((omitted as Save).starterCopperPawnDone).toBe(false)
+    expect((omitted as Save).guideQuestStep).toBe(2)
+    expect((omitted as Save).guideQuestRev).toBe(GUIDE_QUEST_REV)
 
     const veteran = createSave()
     spawnWorker(veteran)
-    veteran.stations.mining.completed = 1
-    veteran.exploreCount = 2
+    veteran.workers[0].assignment = 'herbalism'
+    spawnWorker(veteran)
+    veteran.workers[1].qualityTier = 2
+    markCombatWon(veteran)
+    veteran.stations.alchemy.completed = 1
+    veteran.potionSlots[0] = 'salve'
+    veteran.guideQuestPotionUsed = true
     veteran.techLevels = { pathOutpost: 1 }
-    veteran.unlockedTechIds = ['pathOutpost']
-    const pawn = veteran.marketEncounters[0]
-    if (pawn.kind === 'pawn') pawn.completed = true
-    const { guideQuestStep: _vs, starterCopperPawnDone: _vp, ...vetRaw } = veteran
+    const { guideQuestStep: _vs, guideQuestRev: _vr, ...vetRaw } = veteran
     hydrateGuideQuestFields(vetRaw as Save, vetRaw)
     expect((vetRaw as Save).guideQuestStep).toBe(GUIDE_QUEST_DONE_STEP)
-    expect((vetRaw as Save).starterCopperPawnDone).toBe(true)
     expect(isGuideQuestVisible(vetRaw as Save)).toBe(false)
     expect(guideQuestView(vetRaw as Save)).toBeNull()
   })
 
-  it('infers starter copper pawn done when an old save already explored it away', () => {
+  it('keeps a current-rev step number', () => {
     const save = createSave()
-    save.exploreCount = 1
-    save.encounters = [
-      {
-        kind: 'enemy',
-        id: 'after-explore',
-        label: '试敌',
-        quality: 'green',
-        needs: { meal: 1 },
-        lootGold: 6,
-        departed: false,
-        combat: null,
-        lootClaimed: false,
-        enemyRank: 'minion',
-        weaknesses: ['fire'],
-        revealedWeaknesses: [],
-      },
-    ]
-    save.marketEncounters = []
-    const { starterCopperPawnDone: _done, ...raw } = save
-    hydrateGuideQuestFields(raw as Save, raw)
-    expect((raw as Save).starterCopperPawnDone).toBe(true)
-  })
-
-  it('does not infer pawn done on a new save that still has the opening pawn', () => {
-    const save = createSave()
-    const { starterCopperPawnDone: _done, ...raw } = save
-    hydrateGuideQuestFields(raw as Save, raw)
-    expect((raw as Save).starterCopperPawnDone).toBe(false)
-  })
-
-  it('marks pawn done when the opening copper pawn is already completed on the board', () => {
-    const save = createSave()
-    const pawn = save.marketEncounters[0]
-    expect(pawn.kind).toBe('pawn')
-    if (pawn.kind === 'pawn') pawn.completed = true
-    save.starterCopperPawnDone = false
+    save.guideQuestStep = 3
+    save.guideQuestRev = GUIDE_QUEST_REV
     hydrateGuideQuestFields(save, save)
-    expect(save.starterCopperPawnDone).toBe(true)
-    expect(guideQuestProgressAt(save, 3)).toBe(1)
+    expect(save.guideQuestStep).toBe(3)
   })
 
   it('round-trips through hydrateLoadedSave when fields are missing', () => {
     const raw = {
       ...createSave(),
       guideQuestStep: undefined,
+      guideQuestRev: undefined,
+      guideQuestPotionUsed: undefined,
       starterCopperPawnDone: undefined,
     }
     const loaded = hydrateLoadedSave(raw as unknown)
     expect(loaded?.guideQuestStep).toBe(1)
-    expect(loaded?.starterCopperPawnDone).toBe(false)
+    expect(loaded?.guideQuestRev).toBe(GUIDE_QUEST_REV)
+    expect(loaded?.guideQuestPotionUsed).toBe(false)
 
     const dirty = hydrateLoadedSave({
       ...createSave(),
       guideQuestStep: 0,
+      guideQuestRev: 'old',
       starterCopperPawnDone: 'yes',
     } as unknown)
     expect(dirty?.guideQuestStep).toBe(1)
-    expect(dirty?.starterCopperPawnDone).toBe(false)
   })
 })
 
 describe('guideQuest steps and claim', () => {
-  it('walks the five steps, pays 20 gold each claim, then hides the overlay', () => {
+  it('walks seven steps across two phases and pays 20 gold each claim', () => {
     const save = createSave()
     const gold0 = save.gold
     expect(claimGuideQuest(save).ok).toBe(false)
     expect(save.guideQuestStep).toBe(1)
+    expect(GUIDE_QUEST_STEPS).toBe(7)
 
     expect(recruitWorker(save).ok).toBe(true)
     expect(guideQuestProgressAt(save, 1)).toBe(1)
-    const v1 = guideQuestView(save)
-    expect(v1?.claimable).toBe(true)
-    expect(v1?.progressLabel).toBe('进度 1/1 · 可领')
-    expect(v1?.fillPct).toBe(100)
     expect(claimGuideQuest(save)).toEqual({ ok: true, message: `金币 +${GUIDE_QUEST_GOLD}` })
     expect(save.guideQuestStep).toBe(2)
     expect(save.gold).toBe(gold0 - RECRUIT_COST + GUIDE_QUEST_GOLD)
 
-    expect(guideQuestProgressAt(save, 2)).toBe(0)
-    expect(claimGuideQuest(save).ok).toBe(false)
-    save.stations.mining.completed = 1
-    expect(guideQuestView(save)?.goal).toBe('在工坊中完成一次采矿产出')
+    expect(guideQuestView(save)?.goal).toBe('把工人派入采药')
+    expect(assignWorker(save, save.workers[0].id, 'herbalism').ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(3)
-    expect(save.gold).toBe(gold0 - RECRUIT_COST + GUIDE_QUEST_GOLD * 2)
 
-    pawnStep(save)
-    expect(save.starterCopperPawnDone).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('在主线中完成订单')
-    const goldAfterPawn = save.gold
+    spawnWorker(save)
+    assignWorker(save, save.workers[1].id, 'herbalism')
+    expect(fuseStationWorkers(save, 'herbalism').ok).toBe(true)
+    expect(guideQuestView(save)?.goal).toBe('合成两名同品质工人')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(4)
-    expect(save.gold).toBe(goldAfterPawn + GUIDE_QUEST_GOLD)
 
-    save.marketEncounters = [makeStarterCopperPawn(1, 0)]
-    expect(save.starterCopperPawnDone).toBe(true)
-    expect(guideQuestProgressAt(save, 3)).toBe(1)
-
-    save.exploreCount = 1
-    expect(guideQuestView(save)?.goal).toBe('在主线中成功探索一次')
+    expect(guideQuestView(save)?.goal).toBe('在主线战场完成一次战斗')
+    markCombatWon(save)
+    expect(hasFinishedBattlefieldCombat(save)).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(5)
+    expect(guideQuestView(save)).toBeNull()
 
-    save.techLevels = { pathOutpost: 1 }
-    save.unlockedTechIds = ['pathOutpost']
-    expect(guideQuestView(save)?.goal).toBe('在科技的事务中点亮探路哨岗')
+    save.knightLevel = 2
+    expect(guideQuestView(save)?.title).toBe('进阶 · 1/3')
+    save.stations.alchemy.completed = 1
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(save.guideQuestStep).toBe(6)
+
+    save.bank.salve = 2
+    expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
+    expect(guideQuestView(save)?.goal).toBe('把药剂装进技能槽')
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(save.guideQuestStep).toBe(7)
+
+    expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(save.guideQuestPotionUsed).toBe(true)
+    expect(guideQuestView(save)?.goal).toBe('点药剂槽产生效果')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(GUIDE_QUEST_DONE_STEP)
-    expect(save.gold).toBe(goldAfterPawn + GUIDE_QUEST_GOLD * 3)
     expect(isGuideQuestVisible(save)).toBe(false)
-    expect(guideQuestView(save)).toBeNull()
     expect(claimGuideQuest(save)).toEqual({ ok: false, reason: '新手任务已完成' })
   })
 
-  it('completes step 3 on any finished mainline order, not only the opening copper pawn', () => {
+  it('counts a lost battlefield fight as finished', () => {
     const save = createSave()
-    save.guideQuestStep = 3
-    save.marketEncounters = [
-      {
-        kind: 'pawn',
-        id: 'merchantPawn-other',
-        label: '兵器当',
-        quality: 'green',
-        pawnWants: { weapon: 1 },
-        completed: true,
-      },
-    ]
-    expect(guideQuestProgressAt(save, 3)).toBe(1)
-    expect(hasCompletedMainlineOrder(save)).toBe(true)
-
-    const trade = createSave()
-    trade.guideQuestStep = 3
-    trade.marketEncounters = [
-      {
-        kind: 'passerby',
-        id: 'merchantBarter-done',
-        label: '换货路人',
-        quality: 'green',
-        wants: { wood: 1 },
-        offers: { meal: 1 },
-        completed: true,
-      },
-    ]
-    expect(guideQuestProgressAt(trade, 3)).toBe(1)
+    save.guideQuestStep = 4
+    const enc = save.encounters[0] as EnemyEncounter
+    enc.combat = {
+      startedAt: 1,
+      timeoutAt: 10,
+      workerIds: [],
+      workers: [],
+      enemy: { id: 'e', label: '敌', hp: 8, hpMax: 20, atk: 1, spd: 10, nextActAt: 2 },
+      logs: [],
+      outcome: 'lose',
+    }
+    expect(guideQuestProgressAt(save, 4)).toBe(1)
   })
 })
 
@@ -235,55 +215,49 @@ describe('guideQuest flash target', () => {
     const save = createSave()
     expect(guideQuestFlashId(save)).toBe('recruit')
     expect(isGuideQuestFlash(save, 'recruit')).toBe(true)
-    expect(isGuideQuestFlash(save, 'mining')).toBe(false)
+    expect(isGuideQuestFlash(save, 'assignHerb')).toBe(false)
 
     expect(recruitWorker(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBeNull()
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestFlashId(save)).toBe('mining')
+    expect(guideQuestFlashId(save)).toBe('assignHerb')
 
-    save.stations.mining.completed = 1
-    expect(guideQuestFlashId(save)).toBeNull()
+    assignWorker(save, save.workers[0].id, 'herbalism')
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestFlashId(save)).toBe('deal')
-    expect(isStarterCopperPawn(save.marketEncounters[0])).toBe(true)
-    expect(isGuideQuestDealFlash(save, save.marketEncounters[0])).toBe(true)
+    expect(guideQuestFlashId(save)).toBe('fuse')
 
-    pawnStep(save)
-    expect(guideQuestFlashId(save)).toBeNull()
+    spawnWorker(save)
+    assignWorker(save, save.workers[1].id, 'herbalism')
+    fuseStationWorkers(save, 'herbalism')
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestFlashId(save)).toBe('explore')
+    expect(guideQuestFlashId(save)).toBe('combat')
+    expect(isGuideQuestCombatFlash(save, save.encounters[0])).toBe(true)
 
-    save.exploreCount = 1
-    expect(guideQuestFlashId(save)).toBeNull()
+    markCombatWon(save)
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestFlashId(save)).toBe('pathOutpost')
+    expect(guideQuestFlashId(save)).toBeNull()
+    save.knightLevel = 2
+    expect(guideQuestFlashId(save)).toBe('alchemy')
 
-    save.techLevels = { pathOutpost: 1 }
-    save.unlockedTechIds = ['pathOutpost']
+    save.stations.alchemy.completed = 1
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBe('potionInstall')
+
+    save.bank.salve = 1
+    installPotionSlot(save, 0, 'salve')
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBe('potionUse')
+
+    usePotionSlot(save, 0)
     expect(guideQuestFlashId(save)).toBeNull()
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBeNull()
   })
 
-  it('prefers the opening copper pawn when flashing, otherwise any open deal', () => {
+  it('infers first incomplete step for missing fields', () => {
     const save = createSave()
-    save.guideQuestStep = 3
-    const other = {
-      kind: 'pawn' as const,
-      id: 'merchantPawn-other',
-      label: '兵器当',
-      quality: 'green' as const,
-      pawnWants: { weapon: 1 },
-      completed: false,
-    }
-    save.marketEncounters = [other]
-    expect(guideQuestFlashId(save)).toBe('deal')
-    expect(isGuideQuestDealFlash(save, other)).toBe(true)
-
-    const starter = makeStarterCopperPawn(0, 0)
-    save.marketEncounters = [other, starter]
-    expect(isGuideQuestDealFlash(save, starter)).toBe(true)
-    expect(isGuideQuestDealFlash(save, other)).toBe(false)
+    spawnWorker(save)
+    save.workers[0].assignment = 'herbalism'
+    expect(firstIncompleteGuideQuestStep(save)).toBe(3)
   })
 })

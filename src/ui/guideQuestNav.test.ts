@@ -3,7 +3,6 @@ import { appTab, workshopTab } from './appNav'
 import { APP_TAB_KEY } from './appTabs'
 import { openGuideQuestStep } from './guideQuestNav'
 import { MAINLINE_TAB_KEY, mainlineTab } from './mainlineTabs'
-import { TECH_TAB_KEY, techTab } from './techTabs'
 import { WORKSHOP_TAB_KEY } from './workshopTabs'
 
 function memory(): Storage {
@@ -37,20 +36,19 @@ describe('guideQuestNav', () => {
     expect(appTab.value).toBe('workers')
     expect(store.getItem(APP_TAB_KEY)).toBe('workers')
 
-    expect(openGuideQuestStep(2, store)).toBe('workshop')
-    expect(appTab.value).toBe('workshop')
-    expect(workshopTab.value).toBe('mining')
-    expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('mining')
+    expect(openGuideQuestStep(2, store)).toBe('workers')
+    expect(openGuideQuestStep(3, store)).toBe('workers')
 
-    expect(openGuideQuestStep(3, store)).toBe('encounters')
-    expect(mainlineTab.value).toBe('market')
-    expect(store.getItem(MAINLINE_TAB_KEY)).toBe('market')
     expect(openGuideQuestStep(4, store)).toBe('encounters')
-    expect(appTab.value).toBe('encounters')
+    expect(mainlineTab.value).toBe('battlefield')
+    expect(store.getItem(MAINLINE_TAB_KEY)).toBe('battlefield')
 
-    expect(openGuideQuestStep(5, store)).toBe('tech')
-    expect(appTab.value).toBe('tech')
-    expect(techTab.value).toBe('affairs')
-    expect(store.getItem(TECH_TAB_KEY)).toBe('affairs')
+    expect(openGuideQuestStep(5, store)).toBe('workshop')
+    expect(appTab.value).toBe('workshop')
+    expect(workshopTab.value).toBe('alchemy')
+    expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('alchemy')
+
+    expect(openGuideQuestStep(6, store)).toBe('workers')
+    expect(openGuideQuestStep(7, store)).toBe('workers')
   })
 })

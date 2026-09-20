@@ -2,6 +2,7 @@ import { assignedWorkers, assignWorker } from '../sim/assign'
 import { isWorkerInCombat } from '../sim/combat'
 import { canFuseWorkerOntoOccupant, fuseWorkerOntoOccupant } from '../sim/fuse'
 import { findWorker } from '../sim/recruit'
+import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { isStationId, QUALITY_MAX, STATION_WORKER_CAP } from '../sim/tables'
 import type { ActionResult, Save, StationId } from '../sim/types'
 import { workshopStationBoards } from './workerGroups'
@@ -71,6 +72,7 @@ export function canDropWorker(save: Save, source: WorkerDragSource, target: Work
 
   const occupantId = slotOccupantId(save, target.stationId, target.slotIndex)
   if (occupantId) return canFuseDragOnSlot(save, source, target)
+  if (!isStationUnlocked(save, target.stationId)) return false
   if (worker.assignment === target.stationId) return false
   return assignedWorkers(save, target.stationId).length < STATION_WORKER_CAP
 }
@@ -95,6 +97,13 @@ export function applyWorkerDrag(save: Save, source: WorkerDragSource, target: Wo
   if (!worker) return { ok: false, reason: '没有这个 worker' }
   if (isWorkerInCombat(save, worker.id)) return { ok: false, reason: '正在战斗' }
   if (!canDropWorker(save, source, target)) {
+    if (
+      target.kind === 'slot' &&
+      !isStationUnlocked(save, target.stationId) &&
+      !slotOccupantId(save, target.stationId, target.slotIndex)
+    ) {
+      return { ok: false, reason: stationLockedTip(target.stationId) }
+    }
     if (target.kind === 'slot' && slotOccupantId(save, target.stationId, target.slotIndex)) {
       return rejectOccupiedDrop(save, source, target)
     }

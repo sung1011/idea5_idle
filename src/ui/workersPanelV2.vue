@@ -31,6 +31,8 @@ import {
 } from './potionHelp'
 import type { ItemId } from '../sim/types'
 import { isGuideQuestFlash } from '../sim/guideQuest'
+import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
+import { pushFloatTip } from './floatTips'
 import { recruitCost } from '../sim/tech'
 import type { ClassId, PotionItemId, StationId, Worker } from '../sim/types'
 import ClassIcon from './classIcon.vue'
@@ -67,6 +69,10 @@ import {
 
 const game = useGameStore()
 const guideFlashRecruit = computed(() => isGuideQuestFlash(game.save, 'recruit'))
+const guideFlashAssignHerb = computed(() => isGuideQuestFlash(game.save, 'assignHerb'))
+const guideFlashFuse = computed(() => isGuideQuestFlash(game.save, 'fuse'))
+const guideFlashPotionInstall = computed(() => isGuideQuestFlash(game.save, 'potionInstall'))
+const guideFlashPotionUse = computed(() => isGuideQuestFlash(game.save, 'potionUse'))
 const now = computed(() => {
   void game.save.elapsedS
   return Date.now()
@@ -264,6 +270,10 @@ function goWorkshop() {
 function onPickStation(stationId: StationId | null) {
   const w = picking.value
   if (!w) return
+  if (stationId && !isStationUnlocked(game.save, stationId)) {
+    pushFloatTip(stationLockedTip(stationId))
+    return
+  }
   const result = game.assign(w.id, stationId)
   if (result.ok) closePick()
 }
@@ -278,7 +288,19 @@ function onFuseChoice(stationId: StationId | null) {
 
 function onEmptySlot(stationId: StationId) {
   if (drag.value?.active) return
+  if (!isStationUnlocked(game.save, stationId)) {
+    pushFloatTip(stationLockedTip(stationId))
+    return
+  }
   game.assignIdle(stationId)
+}
+
+function stationLocked(stationId: StationId) {
+  return !isStationUnlocked(game.save, stationId)
+}
+
+function tapLockedStation(stationId: StationId) {
+  if (stationLocked(stationId)) pushFloatTip(stationLockedTip(stationId))
 }
 
 function potionSlotLabel(itemId: ItemId | null) {
@@ -419,8 +441,18 @@ onUnmounted(() => {
     <div class="board">
       <section class="col workshop" aria-label="在工坊">
         <div class="station-list">
-          <article v-for="board in boards" :key="board.stationId" class="station">
-            <div class="station-name">
+          <article
+            v-for="board in boards"
+            :key="board.stationId"
+            class="station"
+            :class="{
+              locked: stationLocked(board.stationId),
+              'guide-flash':
+                (guideFlashAssignHerb && board.stationId === 'herbalism') ||
+                (guideFlashFuse && board.stationId === 'herbalism'),
+            }"
+          >
+            <div class="station-name" @click="tapLockedStation(board.stationId)">
               <UiIcon :name="board.stationId" />
               <b>{{ board.label }}</b>
             </div>
@@ -464,7 +496,11 @@ onUnmounted(() => {
               :key="`potion-${i}`"
               type="button"
               class="potion-slot"
-              :class="{ empty: !itemId, dry: !!itemId && potionSlotQty(itemId) <= 0 }"
+              :class="{
+                empty: !itemId,
+                dry: !!itemId && potionSlotQty(itemId) <= 0,
+                'guide-flash': (!itemId && guideFlashPotionInstall) || (!!itemId && guideFlashPotionUse),
+              }"
               :aria-label="itemId ? `${potionSlotLabel(itemId)} · 点击使用` : `装入药剂槽 ${i + 1}`"
               @click="onPotionSlot(i)"
             >
@@ -580,7 +616,7 @@ onUnmounted(() => {
       <button
         type="button"
         class="dispatch-fab"
-        :class="{ off: !canDispatch }"
+        :class="{ off: !canDispatch, 'guide-flash': guideFlashAssignHerb }"
         :aria-disabled="!canDispatch"
         aria-label="派入"
         @click="game.assignRestingToFirstEmpty()"
@@ -667,8 +703,14 @@ onUnmounted(() => {
           <div v-for="choice in pickChoices" :key="choice.stationId ?? 'rest'" class="pick-cell">
             <button
               type="button"
-              :class="{ on: choice.current }"
-              :disabled="choice.disabled"
+              :class="{
+                on: choice.current,
+                locked: choice.locked,
+                'guide-flash':
+                  (guideFlashAssignHerb && choice.stationId === 'herbalism') ||
+                  (guideFlashFuse && choice.canFuse),
+              }"
+              :disabled="choice.disabled && !choice.locked"
               :aria-pressed="choice.current"
               @click="onPickStation(choice.stationId)"
             >
@@ -686,6 +728,7 @@ onUnmounted(() => {
               v-if="choice.canFuse"
               type="button"
               class="fuse-main"
+              :class="{ 'guide-flash': guideFlashFuse }"
               @click="onFuseChoice(choice.stationId)"
             >
               合成
@@ -863,6 +906,11 @@ onUnmounted(() => {
   border-radius: 8px;
   background: linear-gradient(145deg, #fff9de, #f3ddaa);
   box-shadow: 0 2px 0 var(--gold-deep);
+}
+
+.station.locked {
+  filter: grayscale(0.85);
+  opacity: 0.48;
 }
 
 .station-name {
@@ -1475,5 +1523,10 @@ onUnmounted(() => {
 
 .pick-list button:disabled:not(.on) {
   opacity: 0.55;
+}
+
+.pick-list button.locked {
+  filter: grayscale(0.8);
+  opacity: 0.5;
 }
 </style>

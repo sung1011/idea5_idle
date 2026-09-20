@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { guideQuestFlashId } from '../sim/guideQuest'
 import { appTab, workshopTab } from './appNav'
+import { mainlineTab } from './mainlineTabs'
 import { useGameStore } from './gameStore'
 import { holeFromClient, type SpotlightHole } from './guideQuestSpotlight'
 import { techTab } from './techTabs'
@@ -76,7 +77,7 @@ onUnmounted(() => {
   window.removeEventListener('scroll', measure, true)
 })
 
-watch([flashId, appTab, workshopTab, techTab], async () => {
+watch([flashId, appTab, workshopTab, techTab, mainlineTab], async () => {
   await nextTick()
   measure()
 })

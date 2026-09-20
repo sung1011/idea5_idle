@@ -1,4 +1,5 @@
 import { generateEncounterBoard } from './encounters'
+import { GUIDE_QUEST_REV } from './guideQuest'
 import { battlefieldSlotCount, marketSlotCount } from './tech'
 import { computeKnightLevel } from './knightLevel'
 import { blankPotionBuffs } from './potions'
@@ -31,6 +32,8 @@ export function createSave(): Save {
     mainChapter: 1,
     mainLootClaims: 0,
     guideQuestStep: 1,
+    guideQuestRev: GUIDE_QUEST_REV,
+    guideQuestPotionUsed: false,
     starterCopperPawnDone: false,
     workshopBuff: null,
     exploreCount: 0,

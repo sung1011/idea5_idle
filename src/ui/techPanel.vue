@@ -15,7 +15,6 @@ import {
   type TechNodeDef,
   type TechTabId,
 } from '../sim/tech'
-import { isGuideQuestFlash, PATH_OUTPOST_TECH_ID } from '../sim/guideQuest'
 import type { TechId } from '../sim/types'
 import { useGameStore } from './gameStore'
 import { hudChipAmount, hudChipDetail } from './hudResource'
@@ -23,7 +22,6 @@ import HudResourceSheet from './hudResourceSheet.vue'
 import { selectTechTab, techTab } from './techTabs'
 
 const game = useGameStore()
-const guideFlashPathOutpost = computed(() => isGuideQuestFlash(game.save, 'pathOutpost'))
 const selected = ref<TechNodeDef | null>(null)
 const pointsOpen = ref(false)
 const points = computed(() => hudChipAmount(game.save, 'inspiration'))
@@ -106,7 +104,7 @@ function closeSheet() {
         type="button"
         role="tab"
         :aria-selected="techTab === id"
-        :class="{ on: techTab === id, 'guide-flash': guideFlashPathOutpost && id === 'affairs' }"
+        :class="{ on: techTab === id }"
         @click="selectTab(id)"
       >
         {{ TECH_TAB_LABELS[id] }}
@@ -121,7 +119,7 @@ function closeSheet() {
             :key="node.id"
             type="button"
             class="node"
-            :class="[nodeClass(node), { 'guide-flash': guideFlashPathOutpost && node.id === PATH_OUTPOST_TECH_ID }]"
+            :class="nodeClass(node)"
             :title="node.name"
             @click="onNode(node)"
           >

@@ -40,8 +40,8 @@ const STATION_TO_GROUP = Object.fromEntries(
 /** 竖签 / 工人左栏仍按 7 行均分，去掉钓鱼后不把剩余 6 站拉高。 */
 export const WORKSHOP_RAIL_ROW_COUNT = 7
 
-/** 工坊默认落武器组采矿；与左栏展示序解耦，避免改 STATION_ORDER 时误切默认组。 */
-export const DEFAULT_WORKSHOP_TAB: StationId = 'mining'
+/** 新档只开采药，工坊默认落到药剂组。 */
+export const DEFAULT_WORKSHOP_TAB: StationId = 'herbalism'
 export const DEFAULT_WORKSHOP_GROUP: WorkshopGroupId = STATION_TO_GROUP[DEFAULT_WORKSHOP_TAB]
 
 /** 旧四条产线签 → 该线第一站。 */

@@ -1,5 +1,6 @@
 import { isWorkerInCombat } from './combat'
 import { findWorker } from './recruit'
+import { isStationUnlocked, stationLockedTip } from './stationUnlock'
 import { isDeprecatedStationId, isStationId, STATION_WORKER_CAP } from './tables'
 import type { ActionResult, Save, StationId } from './types'
 
@@ -47,6 +48,7 @@ export function assignWorker(save: Save, workerId: string, stationId: StationId 
 }
 
 export function assignIdleWorker(save: Save, stationId: StationId): ActionResult {
+  if (!isStationUnlocked(save, stationId)) return { ok: false, reason: stationLockedTip(stationId) }
   const idle = save.workers.find((w) => w.assignment === null && !isWorkerInCombat(save, w.id))
   if (!idle) return { ok: false, reason: '没有空闲工人' }
   return assignWorker(save, idle.id, stationId)
