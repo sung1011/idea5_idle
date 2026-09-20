@@ -5,6 +5,7 @@ import {
   COMBAT_TIMEOUT_BY_RANK,
   COMBAT_TIMEOUT_S,
   ENEMY_COMBAT_BASE,
+  ENEMY_COMBAT_POWER_MUL,
   ENEMY_COMBAT_QUALITY_MUL,
   ENEMY_COMBAT_RANK_MUL,
   REST_HEAL_EVERY_S,
@@ -97,6 +98,29 @@ describe('combat stats tables', () => {
     expect(ENEMY_COMBAT_BASE.hp).toBe(2400)
     expect(ENEMY_COMBAT_QUALITY_MUL.orange).toBe(1.2)
     expect(ENEMY_COMBAT_RANK_MUL.boss.hp).toBe(2.1)
+    expect(ENEMY_COMBAT_POWER_MUL).toEqual({ atk: 1.35, spd: 0.65 })
+    expect(minion.atk).toBe(Math.max(1, Math.round(ENEMY_COMBAT_BASE.atk * ENEMY_COMBAT_POWER_MUL.atk)))
+    expect(minion.spd).toBe(Math.max(1, Math.round(ENEMY_COMBAT_BASE.spd * ENEMY_COMBAT_POWER_MUL.spd)))
+    expect(elite.atk).toBe(
+      Math.max(1, Math.round(ENEMY_COMBAT_BASE.atk * ENEMY_COMBAT_RANK_MUL.elite.atk * ENEMY_COMBAT_POWER_MUL.atk)),
+    )
+    expect(elite.spd).toBe(
+      Math.max(1, Math.round(ENEMY_COMBAT_BASE.spd * ENEMY_COMBAT_RANK_MUL.elite.spd * ENEMY_COMBAT_POWER_MUL.spd)),
+    )
+    expect(orange.atk).toBe(
+      Math.max(
+        1,
+        Math.round(
+          ENEMY_COMBAT_BASE.atk *
+            ENEMY_COMBAT_QUALITY_MUL.orange *
+            ENEMY_COMBAT_RANK_MUL.boss.atk *
+            ENEMY_COMBAT_POWER_MUL.atk,
+        ),
+      ),
+    )
+    expect(orange.spd).toBe(
+      Math.max(1, Math.round(ENEMY_COMBAT_BASE.spd * ENEMY_COMBAT_RANK_MUL.boss.spd * ENEMY_COMBAT_POWER_MUL.spd)),
+    )
   })
 
   it('hydrates missing hp to full and keeps a stored wound', () => {
@@ -367,30 +391,34 @@ describe('combat duration targets', () => {
     return { combat, elapsedS: combatElapsedS(combat) }
   }
 
-  it('lets two mid workers beat a minion in about 8-12 minutes without weakness', () => {
+  it('makes a faster harder minion drop two mid workers before they finish', () => {
     const enc = testEnemy({
       quality: 'green',
       enemyRank: 'minion',
       weaknesses: ['fire', 'ice'],
       revealedWeaknesses: [],
     })
-    const { combat, elapsedS } = run(enc, noMatch)
-    expect(combat.outcome).toBe('win')
-    expect(elapsedS).toBeGreaterThanOrEqual(8 * 60)
-    expect(elapsedS).toBeLessThanOrEqual(12 * 60)
+    const { combat } = run(enc, noMatch)
+    expect(combat.enemy.atk).toBe(enemyCombatStats('green', 'minion').atk)
+    expect(combat.enemy.spd).toBe(enemyCombatStats('green', 'minion').spd)
+    expect(combat.outcome).toBe('lose')
+    expect(combat.logs.some((row) => row.text.includes('超时') || row.text.includes('倒下'))).toBe(true)
+    expect(combat.enemy.hp).toBeGreaterThan(0)
   })
 
-  it('lets two mid workers beat an elite in about 12-15 minutes without weakness', () => {
+  it('makes a faster harder elite drop two mid workers before they finish', () => {
     const enc = testEnemy({
       quality: 'green',
       enemyRank: 'elite',
       weaknesses: ['fire', 'ice', 'dark'],
       revealedWeaknesses: [],
     })
-    const { combat, elapsedS } = run(enc, noMatch)
-    expect(combat.outcome).toBe('win')
-    expect(elapsedS).toBeGreaterThanOrEqual(12 * 60)
-    expect(elapsedS).toBeLessThanOrEqual(15 * 60)
+    const { combat } = run(enc, noMatch)
+    expect(combat.enemy.atk).toBe(enemyCombatStats('green', 'elite').atk)
+    expect(combat.enemy.spd).toBe(enemyCombatStats('green', 'elite').spd)
+    expect(combat.outcome).toBe('lose')
+    expect(combat.logs.some((row) => row.text.includes('超时') || row.text.includes('倒下'))).toBe(true)
+    expect(combat.enemy.hp).toBeGreaterThan(0)
   })
 
   it('makes a boss wipe two mid workers who miss every weakness', () => {
@@ -406,17 +434,19 @@ describe('combat duration targets', () => {
     expect(combat.enemy.hp).toBeGreaterThan(0)
   })
 
-  it('lets two mid workers with ×1.2 weakness beat a boss in about 18-22 minutes', () => {
+  it('still drops two mid workers on a boss even with a ×1.2 weakness', () => {
     const enc = testEnemy({
       quality: 'orange',
       enemyRank: 'boss',
       weaknesses: bossWeak,
       revealedWeaknesses: [],
     })
-    const { combat, elapsedS } = run(enc, oneHit)
-    expect(combat.outcome).toBe('win')
-    expect(elapsedS).toBeGreaterThanOrEqual(18 * 60)
-    expect(elapsedS).toBeLessThanOrEqual(22 * 60)
+    const { combat } = run(enc, oneHit)
+    expect(combat.enemy.atk).toBe(enemyCombatStats('orange', 'boss').atk)
+    expect(combat.enemy.spd).toBe(enemyCombatStats('orange', 'boss').spd)
+    expect(combat.outcome).toBe('lose')
+    expect(combat.logs.some((row) => row.text.includes('超时') || row.text.includes('倒下'))).toBe(true)
+    expect(combat.enemy.hp).toBeGreaterThan(0)
   })
 })
 

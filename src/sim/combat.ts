@@ -85,6 +85,15 @@ export const CLASS_COMBAT_MOD: Readonly<Record<ClassId, CombatStats>> = {
  */
 export const ENEMY_COMBAT_BASE: CombatStats = { hp: 2400, atk: 2, spd: 32 }
 
+/**
+ * 全阶共用强度乘区。SPD 是出手间隔，越小越快。
+ * 小兵 / 精英 / Boss 都吃这一处，改表即可。
+ */
+export const ENEMY_COMBAT_POWER_MUL: Readonly<{ atk: number; spd: number }> = {
+  atk: 1.35,
+  spd: 0.65,
+}
+
 /** 品质只微调 HP / ATK。橙首领再叠阶级倍率后约 20 分钟（×1.2）可斩杀。 */
 export const ENEMY_COMBAT_QUALITY_MUL: Readonly<Record<EncounterQuality, number>> = {
   gray: 0.9,
@@ -172,10 +181,11 @@ export function enemyCombatStats(
   const qMul = ENEMY_COMBAT_QUALITY_MUL[quality]
   const rMul = ENEMY_COMBAT_RANK_MUL[resolvedRank]
   const cMul = chapterCombatMul(chapter)
+  const power = ENEMY_COMBAT_POWER_MUL
   return {
     hp: scaleStat(ENEMY_COMBAT_BASE.hp, qMul * rMul.hp * cMul),
-    atk: scaleStat(ENEMY_COMBAT_BASE.atk, qMul * rMul.atk * cMul),
-    spd: Math.max(1, Math.round(ENEMY_COMBAT_BASE.spd * rMul.spd)),
+    atk: scaleStat(ENEMY_COMBAT_BASE.atk, qMul * rMul.atk * cMul * power.atk),
+    spd: Math.max(1, Math.round(ENEMY_COMBAT_BASE.spd * rMul.spd * power.spd)),
   }
 }
 
