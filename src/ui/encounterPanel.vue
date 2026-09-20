@@ -270,7 +270,7 @@ function pickRecommend(w: Worker) {
             <button
               v-else-if="isCombatWon(enc)"
               type="button"
-              :class="{ 'guide-flash': guideFlashEnemy(enc) }"
+              :class="{ 'guide-flash': guideFlashEnemy(enc) && !pickOpen }"
               @click="game.claimLoot(i)"
             >
               战利品
@@ -278,11 +278,11 @@ function pickRecommend(w: Worker) {
             <span v-else class="act-hit" @click="warnConsumeShort(i)">
               <button
                 type="button"
-                :class="{ 'guide-flash': guideFlashEnemy(enc) }"
+                :class="{ 'guide-flash': guideFlashEnemy(enc) && !pickOpen }"
                 :disabled="consumeShort(i)"
                 @click.stop="openPick(i)"
               >
-                {{ isCombatLost(enc) ? '再战' : '战斗' }}
+                {{ isCombatLost(enc) ? '再战' : '开战' }}
               </button>
             </span>
           </div>
@@ -404,10 +404,11 @@ function pickRecommend(w: Worker) {
           <span class="act-hit" @click="pickIndex != null && warnConsumeShort(pickIndex)">
             <button
               type="button"
+              :class="{ 'guide-flash': guideFlashCombat }"
               :disabled="!picked.length || (pickIndex != null && consumeShort(pickIndex))"
               @click.stop="confirmPick"
             >
-              开战
+              战斗
             </button>
           </span>
           <button type="button" @click="inviteAssist">邀请</button>

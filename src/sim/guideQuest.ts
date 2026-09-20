@@ -22,7 +22,7 @@ export const GUIDE_QUEST_GOALS = [
   '抽取工人 2 次',
   '把工人派入采药',
   '合成两名同品质工人',
-  '在主线中点击战斗',
+  '在主线弹层中点击战斗',
   '在炼金站炼成药剂',
   '把药剂装进技能槽',
   '点药剂槽产生效果',
@@ -87,7 +87,7 @@ export function hasFusedWorkers(save: Save): boolean {
   return save.workers.some((w) => w.qualityTier >= 2)
 }
 
-/** 主线点过战斗/开战即可。不要求分出胜负或领战利品。旧档已出发/已有战斗态也算。 */
+/** 选人弹层点过「战斗」入战即可。点订单卡「开战」只开框，不算。不要求分出胜负或领战利品。旧档已出发/已有战斗态也算。 */
 export function hasStartedBattlefieldCombat(save: Save): boolean {
   if ((save.departCount ?? 0) >= 1) return true
   if ((save.mainLootClaims ?? 0) >= 1) return true
@@ -208,7 +208,7 @@ export function isGuideQuestFlash(save: Save, id: GuideQuestFlashId): boolean {
   return guideQuestFlashId(save) === id
 }
 
-/** 步骤 4 要闪的那张战场敌：未开战可点「战斗」的优先，否则第一张未领。 */
+/** 步骤 4 要闪的那张战场敌：未入战可点「开战」的优先，否则第一张未领。 */
 export function guideQuestCombatFlashEncounter(save: Save): Encounter | null {
   if (!isGuideQuestFlash(save, 'combat')) return null
   const board = save.encounters.filter((enc) => enc.kind === 'enemy')

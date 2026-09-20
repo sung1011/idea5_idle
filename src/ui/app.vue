@@ -10,7 +10,6 @@ import WorkersPanelV2 from './workersPanelV2.vue'
 import WorkshopPanel from './workshopPanel.vue'
 import FloatTips from './floatTips.vue'
 import GuideQuestFloat from './guideQuestFloat.vue'
-import GuideQuestSpotlight from './guideQuestSpotlight.vue'
 import {
   hudChipAmount,
   hudChipAriaLabel,
@@ -113,7 +112,6 @@ onUnmounted(() => {
     </nav>
 
     <GuideQuestFloat />
-    <GuideQuestSpotlight />
     <MessagePanel v-if="mailOpen" @close="mailOpen = false" />
     <SettingsPanel v-if="settingsOpen" @close="settingsOpen = false" />
     <HudResourceSheet v-if="resourceDetail" :detail="resourceDetail" @close="resourceOpen = null" />

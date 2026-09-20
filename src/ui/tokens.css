@@ -43,7 +43,6 @@
   --bar-fill-hp: var(--bar-sheen), linear-gradient(90deg, #f0785a, var(--danger));
   --z-dock: 3;
   --z-hud: 4;
-  --z-guide-spot: 5;
   --z-sheet: 30;
   --z-select: 35;
   --z-tips: 40;
@@ -178,9 +177,22 @@ button.on:disabled {
   animation: short-flash 1.25s ease-in-out infinite;
 }
 
+@keyframes guide-flash {
+  0%,
+  100% {
+    outline-color: #e5fbff;
+    box-shadow: 0 0 0 0 rgba(229, 251, 255, 0.55);
+  }
+  50% {
+    outline-color: #7af0ff;
+    box-shadow: 0 0 10px 2px rgba(122, 240, 255, 0.55);
+  }
+}
+
 .guide-flash {
   outline: 3px solid #e5fbff;
   outline-offset: 3px;
+  animation: guide-flash 1s ease-in-out infinite;
 }
 
 .item.warn {
@@ -254,7 +266,8 @@ button.on:disabled {
     transition: none;
   }
 
-  .short-flash {
+  .short-flash,
+  .guide-flash {
     animation: none;
   }
 }
