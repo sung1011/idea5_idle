@@ -804,22 +804,26 @@ export function foodBuffDef(itemId: ItemId): ProductionBuff | undefined {
 
 /**
  * 升到下一等级所需 XP。
- * 周期 ×4（且不少于 20s）后，再乘 0.175，让前期升到 Lv5 的墙钟比旧周期+旧 XP 大约快 30%。
- * 旧式：round(100 * 1.45^(L-1))；现式再乘 XP_TO_NEXT_SCALE。
+ * Lv1–4 用固定门槛（5 / 10 / 15 / 20），让前期骑士等级更快起来。
+ * Lv5 起沿用：round(100 * 1.45^(L-1) * 0.175)。
  */
 export const XP_TO_NEXT_BASE = 100
 export const XP_TO_NEXT_GROWTH = 1.45
 export const XP_TO_NEXT_SCALE = 0.175
 
+/** Lv1–4 升下一级的固定 XP。 */
+export const XP_TO_NEXT_EARLY = [5, 10, 15, 20] as const
+
 export function xpToNextLevel(level: number): number {
   const safe = Math.max(1, Math.floor(level))
+  if (safe <= XP_TO_NEXT_EARLY.length) return XP_TO_NEXT_EARLY[safe - 1]
   return Math.max(
     1,
     Math.round(XP_TO_NEXT_BASE * Math.pow(XP_TO_NEXT_GROWTH, safe - 1) * XP_TO_NEXT_SCALE),
   )
 }
 
-/** 从 Lv1 升到 target 的累计 XP（不含当前等级内进度）。Lv5 = 133。 */
+/** 从 Lv1 升到 target 的累计 XP（不含当前等级内进度）。Lv5 = 50。 */
 export function xpToReachLevel(level: number): number {
   const target = Math.max(1, Math.floor(level))
   let total = 0

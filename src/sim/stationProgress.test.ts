@@ -38,12 +38,13 @@ afterEach(() => {
 })
 
 describe('station XP curve', () => {
-  it('uses scaled XP curve and 133 XP to reach Lv5', () => {
-    expect(xpToNextLevel(1)).toBe(18)
-    expect(xpToNextLevel(2)).toBe(25)
-    expect(xpToNextLevel(3)).toBe(37)
-    expect(xpToNextLevel(4)).toBe(53)
-    expect(xpToReachLevel(5)).toBe(133)
+  it('uses early XP steps then the scaled curve; 50 XP to reach Lv5', () => {
+    expect(xpToNextLevel(1)).toBe(5)
+    expect(xpToNextLevel(2)).toBe(10)
+    expect(xpToNextLevel(3)).toBe(15)
+    expect(xpToNextLevel(4)).toBe(20)
+    expect(xpToNextLevel(5)).toBe(77)
+    expect(xpToReachLevel(5)).toBe(50)
     expect(STATION_DEF.mining.categories.map((c) => c.xpPerCycle)).toEqual([1, 2, 3])
     expect(STATION_DEF.forging.categories.map((c) => c.xpPerCycle)).toEqual([1])
     expect(STATION_DEF.cooking.categories.map((c) => c.xpPerCycle)).toEqual([1, 1, 2])
@@ -69,7 +70,7 @@ describe('station XP / level', () => {
     expect(collectHints(next).some((h) => h.kind === 'progress' && h.text.includes('采矿'))).toBe(true)
   })
 
-  it('reaches Lv5 after 133 copper-cycle XP', () => {
+  it('reaches Lv5 after 50 copper-cycle XP', () => {
     const save = createSave()
     grantStationXp(save, 'mining', xpToReachLevel(5))
     expect(save.stations.mining.stationLevel).toBe(5)
