@@ -14,7 +14,9 @@ import {
   leftoverStockItems,
   itemProducerStation,
   POTION_ITEM_IDS,
+  PLAYABLE_CHAINS,
   PLAYABLE_STATION_IDS,
+  STATION_ORDER,
   SELLABLE_GOODS,
   SKELETON_STATION_IDS,
   resolveStationId,
@@ -43,14 +45,20 @@ describe('production phase-1 tables', () => {
     expect(STATION_DEF.cooking.neighbors).toEqual([])
     expect(STATION_DEF.herbalism.neighbors).toEqual([])
     expect(STATION_DEF.alchemy.neighbors).toEqual([])
-    expect(PLAYABLE_STATION_IDS).toEqual([
-      'mining',
-      'forging',
-      'hunting',
-      'cooking',
+    expect(STATION_ORDER).toEqual([
       'herbalism',
       'alchemy',
+      'hunting',
+      'cooking',
+      'mining',
+      'forging',
     ])
+    expect(PLAYABLE_CHAINS).toEqual([
+      ['herbalism', 'alchemy'],
+      ['hunting', 'cooking'],
+      ['mining', 'forging'],
+    ])
+    expect(PLAYABLE_STATION_IDS).toEqual([...STATION_ORDER])
   })
 
   it('maps smithing to forging and drops woodcutting', () => {

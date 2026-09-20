@@ -3,9 +3,9 @@ import { assignWorker } from '../sim/assign'
 import { beginEnemyCombat } from '../sim/combat'
 import { spawnWorkerWith } from '../sim/recruit'
 import { createSave } from '../sim/createSave'
-import { STATION_WORKER_CAP, WORKER_QUALITY_TABLE } from '../sim/tables'
+import { STATION_ORDER, STATION_WORKER_CAP, WORKER_QUALITY_TABLE } from '../sim/tables'
 import type { EnemyEncounter } from '../sim/types'
-import { DISPATCH_STATION_IDS, WORKSHOP_GROUPS, WORKSHOP_TAB_IDS } from './workshopTabs'
+import { DISPATCH_STATION_IDS, WORKSHOP_GROUPS } from './workshopTabs'
 import {
   CREW_DOT_EMPTY,
   DEFAULT_WORKER_GROUP_ORDER,
@@ -150,7 +150,7 @@ describe('station crew dots and assign choices', () => {
     expect(canAssignWorkerTo(save, a, null)).toBe(true)
 
     const choices = workerAssignChoices(save, extra)
-    expect(choices.map((c) => c.stationId)).toEqual([...WORKSHOP_TAB_IDS, null])
+    expect(choices.map((c) => c.stationId)).toEqual([...STATION_ORDER, null])
     expect(choices).toHaveLength(7)
     const mining = choices.find((c) => c.stationId === 'mining')
     const restChoice = choices.find((c) => c.stationId === null)
@@ -197,7 +197,15 @@ describe('workshop station boards', () => {
     assignWorker(save, cook.id, 'cooking')
 
     const boards = workshopStationBoards(save)
-    expect(boards.map((board) => board.stationId)).toEqual([...WORKSHOP_TAB_IDS])
+    expect(boards.map((board) => board.stationId)).toEqual([
+      'herbalism',
+      'alchemy',
+      'hunting',
+      'cooking',
+      'mining',
+      'forging',
+    ])
+    expect(boards.map((board) => board.stationId)).toEqual([...STATION_ORDER])
     expect(boards).toHaveLength(6)
     const mining = boards.find((board) => board.stationId === 'mining')
     const cooking = boards.find((board) => board.stationId === 'cooking')
@@ -251,6 +259,7 @@ describe('workshop station boards', () => {
 
 describe('assign resting to first empty slot', () => {
   it('scans workshop groups 药剂 / 食物 / 武器 top to bottom, left to right', () => {
+    expect(DISPATCH_STATION_IDS).toEqual([...STATION_ORDER])
     expect(DISPATCH_STATION_IDS).toEqual(WORKSHOP_GROUPS.flatMap((row) => [...row.stations]))
     expect(DISPATCH_STATION_IDS).toEqual([
       'herbalism',

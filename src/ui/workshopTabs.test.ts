@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { PLAYABLE_CHAINS, PLAYABLE_STATION_IDS, STATION_ORDER } from '../sim/tables'
 import {
   DEFAULT_WORKSHOP_GROUP,
   DEFAULT_WORKSHOP_TAB,
@@ -45,22 +46,26 @@ function memory(): Storage {
 }
 
 describe('workshopTabs', () => {
-  it('lists six station tabs without fishing', () => {
-    expect(WORKSHOP_TAB_IDS).toEqual([
-      'mining',
-      'forging',
-      'hunting',
-      'cooking',
+  it('lists six station tabs without fishing, matching workshop groups', () => {
+    expect(STATION_ORDER).toEqual([
       'herbalism',
       'alchemy',
+      'hunting',
+      'cooking',
+      'mining',
+      'forging',
     ])
+    expect(WORKSHOP_TAB_IDS).toEqual(STATION_ORDER)
+    expect(PLAYABLE_STATION_IDS).toEqual([...STATION_ORDER])
+    expect(WORKSHOP_GROUPS.flatMap((row) => row.stations)).toEqual([...STATION_ORDER])
+    expect(PLAYABLE_CHAINS.flatMap((pair) => pair)).toEqual([...STATION_ORDER])
     expect(WORKSHOP_TAB_IDS.map(workshopTabLabel)).toEqual([
-      '采矿',
-      '锻造',
-      '狩猎',
-      '烹饪',
       '采药',
       '炼金',
+      '狩猎',
+      '烹饪',
+      '采矿',
+      '锻造',
     ])
     expect(WORKSHOP_RAIL_ROW_COUNT).toBe(7)
   })
@@ -79,6 +84,7 @@ describe('workshopTabs', () => {
     expect(workshopGroupOfStation('cooking')).toBe('food')
     expect(workshopGroupOfStation('mining')).toBe('weapon')
     expect(workshopGroupOfStation('forging')).toBe('weapon')
+    expect(DISPATCH_STATION_IDS).toEqual([...STATION_ORDER])
     expect(DISPATCH_STATION_IDS).toEqual(['herbalism', 'alchemy', 'hunting', 'cooking', 'mining', 'forging'])
     expect(stationsOfWorkshopGroup('potion')).toEqual(['herbalism', 'alchemy'])
     expect(isWorkshopGroupId('potion')).toBe(true)

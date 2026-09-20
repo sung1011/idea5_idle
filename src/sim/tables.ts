@@ -839,13 +839,18 @@ export function findCategory(stationId: StationId, categoryId: CategoryId): Stat
   return STATION_DEF[stationId].categories.find((c) => c.id === categoryId)
 }
 
-/** 可玩六站展开顺序（骑士等级 / leftover / 工人派站）。工坊页三组竖签见 `src/ui/workshopTabs.ts` 的 WORKSHOP_GROUPS。伐木 / 钓鱼已藏。 */
-export const PLAYABLE_CHAINS: StationId[][] = [
-  ['mining', 'forging'],
-  ['hunting', 'cooking'],
+/**
+ * 工坊组 / 工人左栏 / 派入空槽扫描共用上→下顺序，避免三处漂移。
+ * 药剂（采药+炼金）→ 食物（狩猎+烹饪）→ 武器（采矿+锻造）。伐木 / 钓鱼已藏。
+ */
+export const PLAYABLE_CHAINS: readonly (readonly [StationId, StationId])[] = [
   ['herbalism', 'alchemy'],
+  ['hunting', 'cooking'],
+  ['mining', 'forging'],
 ]
-export const PLAYABLE_STATION_IDS: StationId[] = PLAYABLE_CHAINS.flat()
+/** 六站展开顺序，与 PLAYABLE_CHAINS 展平一致。 */
+export const STATION_ORDER: readonly StationId[] = PLAYABLE_CHAINS.flatMap((pair) => pair)
+export const PLAYABLE_STATION_IDS: StationId[] = [...STATION_ORDER]
 /** 现玩法站已全部上主列。保留空表以免旧 UI 引用炸掉。 */
 export const SKELETON_STATION_IDS: StationId[] = []
 

@@ -1,10 +1,9 @@
 import { assignedWorkers, assignWorker } from '../sim/assign'
 import { fightingWorkerIds, isWorkerInCombat } from '../sim/combat'
 import { canFuseWorkerWithStation } from '../sim/fuse'
-import { QUALITY_TIERS, STATION_DEF, STATION_WORKER_CAP, WORKER_QUALITY_TABLE } from '../sim/tables'
+import { QUALITY_TIERS, STATION_DEF, STATION_ORDER, STATION_WORKER_CAP, WORKER_QUALITY_TABLE } from '../sim/tables'
 import type { ActionResult, QualityTier, Save, StationId, Worker, WorkerQualityId } from '../sim/types'
 import { railWorkerDotColors } from './workshopRail'
-import { DISPATCH_STATION_IDS, WORKSHOP_TAB_IDS } from './workshopTabs'
 
 export type WorkerGroupOrder = 'highFirst' | 'lowFirst'
 
@@ -172,9 +171,9 @@ export function canAssignWorkerTo(save: Save, worker: Worker, stationId: Station
   return assignedWorkers(save, stationId).length < STATION_WORKER_CAP
 }
 
-/** 现玩法站按工坊竖签序，末项休息。 */
+/** 现玩法站按 STATION_ORDER（工坊组上→下），末项休息。 */
 export function workerAssignChoices(save: Save, worker: Worker): WorkerAssignChoice[] {
-  const ids: Array<StationId | null> = [...WORKSHOP_TAB_IDS, null]
+  const ids: Array<StationId | null> = [...STATION_ORDER, null]
   return ids.map((stationId) => ({
     stationId,
     label: stationAssignCaption(save, stationId),
@@ -193,9 +192,9 @@ export type WorkshopStationBoard = {
   slots: Array<Worker | null>
 }
 
-/** 现玩法站按工坊竖签序，每站固定 2 槽，空位 null 占位。 */
+/** 现玩法站按 STATION_ORDER（工坊组上→下），每站固定 2 槽，空位 null 占位。 */
 export function workshopStationBoards(save: Save): WorkshopStationBoard[] {
-  return WORKSHOP_TAB_IDS.map((stationId) => {
+  return STATION_ORDER.map((stationId) => {
     const crew = assignedWorkers(save, stationId)
     const slots: Array<Worker | null> = []
     for (let i = 0; i < STATION_WORKER_CAP; i += 1) {
@@ -236,7 +235,7 @@ export function restingWorkers(save: Save): Worker[] {
 
 /** 药剂→食物→武器，站内左槽先于右槽；满员跳过。 */
 export function firstEmptyDispatchStation(save: Save): StationId | null {
-  for (const stationId of DISPATCH_STATION_IDS) {
+  for (const stationId of STATION_ORDER) {
     if (assignedWorkers(save, stationId).length < STATION_WORKER_CAP) return stationId
   }
   return null

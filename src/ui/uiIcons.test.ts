@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { WORKSHOP_TAB_IDS } from './workshopTabs'
+import { STATION_ORDER } from '../sim/tables'
 import {
   DOCK_ICON_IDS,
   STATION_ICON_IDS,
@@ -11,7 +11,7 @@ import {
 describe('ui icons', () => {
   it('covers dock tabs and workshop stations with compact paths', () => {
     expect([...DOCK_ICON_IDS]).toEqual(['encounters', 'workshop', 'workers', 'tech'])
-    expect([...STATION_ICON_IDS]).toEqual([...WORKSHOP_TAB_IDS])
+    expect([...STATION_ICON_IDS]).toEqual([...STATION_ORDER])
     expect(allUiIconsReady()).toBe(true)
     for (const id of [...DOCK_ICON_IDS, ...STATION_ICON_IDS]) {
       expect(hasUiIcon(id)).toBe(true)
