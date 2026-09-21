@@ -13,6 +13,7 @@ import {
   enemyLootReward,
   pawnReward,
 } from '../sim/encounters'
+import { needHaveQty } from '../sim/costs'
 import { scaleNeedMap, timedRewardMul } from '../sim/marketTimed'
 import { ITEM_DEF } from '../sim/tables'
 import type { CurrencyPayout } from '../sim/currencyReward'
@@ -162,9 +163,18 @@ export function formatEncounterDealLines(
 ): { consume: string; gain: string } {
   const deal = encounterDeal(enc, save, now)
   return {
-    consume: deal.consume.length
+            consume: deal.consume.length
       ? `消耗：${deal.consume
-          .map((token) => formatConsumeToken(token, token.kind === 'item' ? (owned[token.itemId] ?? 0) : 0))
+          .map((token) =>
+            formatConsumeToken(
+              token,
+              token.kind === 'item'
+                ? save
+                  ? needHaveQty(save, token.itemId)
+                  : (owned[token.itemId] ?? 0)
+                : 0,
+            ),
+          )
           .join('、')}`
       : '',
     gain: deal.gain.length ? `获得：${formatDealTokens(deal.gain)}` : '',

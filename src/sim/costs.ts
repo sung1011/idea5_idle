@@ -1,6 +1,27 @@
 import { bankQty, takeFromBank } from './bank'
-import { ITEM_DEF, type IoRule } from './tables'
+import { ITEM_DEF, wildcardPayItems, type IoRule } from './tables'
 import type { ActionResult, ItemId, Save } from './types'
+
+/** 通配需求落到库存最多的那一种具体药 / 符；并列取表内靠前。 */
+export function resolveNeedPayItem(save: Save, itemId: ItemId): ItemId {
+  const cands = wildcardPayItems(itemId)
+  if (!cands.length) return itemId
+  let best = cands[0]
+  let bestQty = bankQty(save, best)
+  for (let i = 1; i < cands.length; i++) {
+    const qty = bankQty(save, cands[i])
+    if (qty > bestQty) {
+      best = cands[i]
+      bestQty = qty
+    }
+  }
+  return best
+}
+
+/** 交单拥有量：通配看数量最多的那一种。 */
+export function needHaveQty(save: Save, itemId: ItemId): number {
+  return bankQty(save, resolveNeedPayItem(save, itemId))
+}
 
 /** 同 item 合并数量，支持 `[{ ore, 1 }, { ore, 2 }]` → 共 3。 */
 export function collapseCosts(rules: IoRule[]): IoRule[] {
@@ -16,7 +37,7 @@ export function collapseCosts(rules: IoRule[]): IoRule[] {
 export function missingCosts(save: Save, rules: IoRule[]): IoRule[] {
   const missing: IoRule[] = []
   for (const io of collapseCosts(rules)) {
-    const have = bankQty(save, io.itemId)
+    const have = needHaveQty(save, io.itemId)
     if (have < io.qty) missing.push({ itemId: io.itemId, qty: io.qty - have })
   }
   return missing
@@ -56,7 +77,7 @@ export function takeCosts(save: Save, rules: IoRule[]): ActionResult {
     return { ok: false, reason: `${missingCostLabels(save, rules).join('、')}见底` }
   }
   for (const io of collapseCosts(rules)) {
-    const took = takeFromBank(save, io.itemId, io.qty)
+    const took = takeFromBank(save, resolveNeedPayItem(save, io.itemId), io.qty)
     if (!took.ok) return took
   }
   return { ok: true }

@@ -50,7 +50,7 @@ const CORE_COPY: Record<HudResourceId, { name: string; source: string; usage: st
   },
   diamonds: {
     name: '钻石',
-    source: '新档自带 100；主线战场与商场部分订单掉落。',
+    source: '新档自带 150；主线战场与商场部分订单掉落。',
     usage: '抽工人。',
   },
   workers: {
@@ -129,7 +129,9 @@ export function itemHudUsage(itemId: ItemId): string {
   const extras: string[] = []
   if (isFoodItemId(itemId)) extras.push('工人食物槽回血')
   if (isPotionItemId(itemId) || itemId === 'potion') extras.push('工人页药剂槽短按使用')
+  if (itemId === 'anyPotion') extras.push('主线订单通配：扣库存最多的一种药剂')
   if (isRuneItemId(itemId)) extras.push('开战选人一槽装备，本场消耗')
+  if (itemId === 'anyRune') extras.push('主线订单通配：扣库存最多的一种符文')
   if (itemId === 'wildCrystal') extras.push('铭刻符文的主原料')
   if (isStationToolId(itemId) || isToolItemId(itemId)) extras.push('旧档工具，读档会转成荒晶')
   if (itemId === 'blueprint') extras.push('只进物资，不再兑换灵感')

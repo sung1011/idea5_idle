@@ -24,6 +24,12 @@ import {
   claimLootBlockReason,
   combatSupplyBlockReason,
   chapterNeedMul,
+  chapterLootMul,
+  CHAPTER_LOOT_STEP,
+  applyMainNeedWildcard,
+  MAIN_NEED_ANY_WILDCARD_WEIGHT,
+  MAIN_NEED_SPECIFIC_WEIGHT,
+  mainNeedItemWeight,
   LOOT_GOLD_BASE,
   enemyLootGoldFor,
   enemyNeedsFor,
@@ -86,6 +92,8 @@ import {
   isStationToolId,
   itemProducerStation,
   pawnUnitGold,
+  ANY_POTION_ITEM_ID,
+  ANY_RUNE_ITEM_ID,
   POTION_ITEM_IDS,
   RUNE_ITEM_IDS,
 } from './tables'
@@ -381,7 +389,12 @@ describe('encounter board', () => {
     expect(boss.roast).toBeUndefined()
     expect(enemyNeedsFor()).toEqual(scaledMainNeed('meal', 'green', 1))
     expect(LOOT_GOLD_BASE).toBe(6)
+    expect(CHAPTER_LOOT_STEP).toBe(0.075)
+    expect(chapterLootMul(1)).toBe(1)
+    expect(chapterLootMul(2)).toBeCloseTo(1.075)
+    expect(chapterLootMul(5)).toBeCloseTo(1.3)
     expect(enemyLootGoldFor()).toBe(6)
+    expect(enemyLootGoldFor(false, 5)).toBe(scaleGold(LOOT_GOLD_BASE, chapterLootMul(5)))
     expect(enemyLootGoldFor(true)).toBeGreaterThan(enemyLootGoldFor())
     expect(scaleGold(enemyLootGoldFor(), QUALITY_TABLE.orange.outputMul)).toBeGreaterThan(enemyLootGoldFor())
 
@@ -444,18 +457,19 @@ describe('encounter board', () => {
 describe('unlock-gated main need pool', () => {
   it('expands by currently unlocked stations, not chapter number', () => {
     expect(mainNeedOutputsOfStation('herbalism')).toEqual(['herb', 'spice'])
-    expect(mainNeedOutputsOfStation('alchemy')).toEqual([...POTION_ITEM_IDS])
+    expect(mainNeedOutputsOfStation('alchemy')).toEqual([...POTION_ITEM_IDS, ANY_POTION_ITEM_ID])
     expect(mainNeedOutputsOfStation('hunting')).toEqual(['meat', 'fish', 'tooth', 'blood', 'eye', 'junk'])
     expect(mainNeedOutputsOfStation('cooking')).toEqual(['meal', 'roast', 'stew'])
     expect(mainNeedOutputsOfStation('mining')).toEqual(['ore', 'ironOre', 'mithrilOre'])
-    expect(mainNeedOutputsOfStation('inscription')).toEqual([...RUNE_ITEM_IDS])
+    expect(mainNeedOutputsOfStation('inscription')).toEqual([...RUNE_ITEM_IDS, ANY_RUNE_ITEM_ID])
     expect(mainNeedItemPool({ knightLevel: 1 })).toEqual(['herb', 'spice'])
-    expect(mainNeedItemPool({ knightLevel: 2 })).toEqual(['herb', 'spice', ...POTION_ITEM_IDS])
-    expect(mainNeedItemPool({ knightLevel: 4 })).toEqual(['herb', 'spice', ...POTION_ITEM_IDS])
+    expect(mainNeedItemPool({ knightLevel: 2 })).toEqual(['herb', 'spice', ...POTION_ITEM_IDS, ANY_POTION_ITEM_ID])
+    expect(mainNeedItemPool({ knightLevel: 4 })).toEqual(['herb', 'spice', ...POTION_ITEM_IDS, ANY_POTION_ITEM_ID])
     expect(mainNeedItemPool({ knightLevel: 5 })).toEqual([
       'herb',
       'spice',
       ...POTION_ITEM_IDS,
+      ANY_POTION_ITEM_ID,
       'meat',
       'fish',
       'tooth',
@@ -475,8 +489,11 @@ describe('unlock-gated main need pool', () => {
     expect(mainNeedItemPool({ knightLevel: 9 })).toContain('mithrilOre')
     expect(mainNeedItemPool({ knightLevel: 9 })).not.toContain('runeSharp')
     expect(mainNeedItemPool({ knightLevel: 10 })).toContain('runeSharp')
+    expect(mainNeedItemPool({ knightLevel: 10 })).toContain(ANY_RUNE_ITEM_ID)
     expect(mainNeedItemPool()).toEqual(['herb', 'spice'])
     expect(MAIN_NEED_ITEM_POOL).toEqual(mainNeedItemPool({ knightLevel: 10 }))
+    expect(MAIN_NEED_ITEM_POOL).toContain(ANY_POTION_ITEM_ID)
+    expect(MAIN_NEED_ITEM_POOL).toContain(ANY_RUNE_ITEM_ID)
     expect(MAIN_NEED_ITEM_POOL).not.toContain('potion')
   })
 
@@ -488,8 +505,11 @@ describe('unlock-gated main need pool', () => {
       lv2.add(pickMainNeedItem({ rngState: seed }, 'green', 1, false, { knightLevel: 2 }))
     }
     expect([...lv1].sort()).toEqual(['herb', 'spice'])
-    expect([...lv2].every((id) => id === 'herb' || id === 'spice' || isPotionItemId(id))).toBe(true)
+    expect(
+      [...lv2].every((id) => id === 'herb' || id === 'spice' || isPotionItemId(id) || id === ANY_POTION_ITEM_ID),
+    ).toBe(true)
     expect([...lv2].some((id) => isPotionItemId(id))).toBe(true)
+    expect(lv2.has(ANY_POTION_ITEM_ID)).toBe(true)
     expect(lv2.has('potion')).toBe(false)
     expect(lv2.has('meal')).toBe(false)
   })
@@ -500,13 +520,15 @@ describe('unlock-gated main need pool', () => {
     expect(resolveUnlockedMainNeedItem('tool', 'green', 1, false, undefined, 0, { knightLevel: 1 })).toMatch(
       /^herb|spice$/,
     )
-    expect(
-      isPotionItemId(resolveUnlockedMainNeedItem('potion', 'green', 1, false, undefined, 0, { knightLevel: 2 })),
-    ).toBe(true)
-    expect(
-      isRuneItemId(resolveUnlockedMainNeedItem('tool', 'green', 1, false, undefined, 0, { knightLevel: 10 })),
-    ).toBe(true)
-    expect(resolveUnlockedMainNeedItem('salve', 'green', 1, false, undefined, 0, { knightLevel: 2 })).toBe('salve')
+    const potionResolved = resolveUnlockedMainNeedItem('potion', 'green', 1, false, undefined, 0, {
+      knightLevel: 2,
+    })
+    expect(isPotionItemId(potionResolved) || potionResolved === ANY_POTION_ITEM_ID).toBe(true)
+    const runeResolved = resolveUnlockedMainNeedItem('tool', 'green', 1, false, undefined, 0, {
+      knightLevel: 10,
+    })
+    expect(isRuneItemId(runeResolved) || runeResolved === ANY_RUNE_ITEM_ID).toBe(true)
+    expect(resolveUnlockedMainNeedItem('salve', 'green', 1, false, undefined, 9, { knightLevel: 2 })).toBe('salve')
     expect(resolveUnlockedMainNeedItem('meal', 'green', 1, false, undefined, 0, { knightLevel: 6 })).toBe('meal')
     expect(resolveUnlockedMainNeedItem('meal', 'green', 1, false, undefined, 3, { knightLevel: 1 })).toMatch(
       /^herb|spice$/,
@@ -563,6 +585,44 @@ describe('unlock-gated main need pool', () => {
     }
     expect(sawTool).toBe(true)
     expect(sawPotion).toBe(true)
+  })
+})
+
+describe('main need wildcards', () => {
+  it('weights anyPotion / anyRune at 4 vs 1 for specifics (35%–40% of class)', () => {
+    expect(MAIN_NEED_ANY_WILDCARD_WEIGHT).toBe(4)
+    expect(MAIN_NEED_SPECIFIC_WEIGHT).toBe(1)
+    expect(mainNeedItemWeight(ANY_POTION_ITEM_ID)).toBe(4)
+    expect(mainNeedItemWeight(ANY_RUNE_ITEM_ID)).toBe(4)
+    expect(mainNeedItemWeight('salve')).toBe(1)
+    expect(mainNeedItemWeight('runeSharp')).toBe(1)
+    const potionClass = POTION_ITEM_IDS.length * MAIN_NEED_SPECIFIC_WEIGHT + MAIN_NEED_ANY_WILDCARD_WEIGHT
+    const runeClass = RUNE_ITEM_IDS.length * MAIN_NEED_SPECIFIC_WEIGHT + MAIN_NEED_ANY_WILDCARD_WEIGHT
+    expect(MAIN_NEED_ANY_WILDCARD_WEIGHT / potionClass).toBeGreaterThanOrEqual(0.35)
+    expect(MAIN_NEED_ANY_WILDCARD_WEIGHT / potionClass).toBeLessThanOrEqual(0.4)
+    expect(MAIN_NEED_ANY_WILDCARD_WEIGHT / runeClass).toBeGreaterThanOrEqual(0.35)
+    expect(MAIN_NEED_ANY_WILDCARD_WEIGHT / runeClass).toBeLessThanOrEqual(0.4)
+  })
+
+  it('converts a specific potion / rune to wildcard when the roll is in the wildcard band', () => {
+    const alchemyPool = mainNeedItemPool({ knightLevel: 2 })
+    const fullPool = mainNeedItemPool({ knightLevel: 10 })
+    expect(applyMainNeedWildcard('salve', alchemyPool, 0)).toBe(ANY_POTION_ITEM_ID)
+    expect(applyMainNeedWildcard('salve', alchemyPool, 0.4)).toBe('salve')
+    expect(applyMainNeedWildcard('runeSharp', fullPool, 0)).toBe(ANY_RUNE_ITEM_ID)
+    expect(applyMainNeedWildcard('runeSharp', fullPool, 0.5)).toBe('runeSharp')
+    expect(applyMainNeedWildcard('salve', mainNeedItemPool({ knightLevel: 1 }), 0)).toBe('salve')
+    expect(itemNeedBase(ANY_POTION_ITEM_ID)).toBe(itemNeedBase('salve'))
+    expect(itemNeedBase(ANY_RUNE_ITEM_ID)).toBe(itemNeedBase('runeSharp'))
+  })
+
+  it('keeps wildcards out of the knight-1 pool and in after alchemy / inscription unlock', () => {
+    expect(isAllowedMainNeedKind(ANY_POTION_ITEM_ID, mainNeedItemPool({ knightLevel: 1 }))).toBe(false)
+    expect(isAllowedMainNeedKind(ANY_POTION_ITEM_ID, mainNeedItemPool({ knightLevel: 2 }))).toBe(true)
+    expect(isAllowedMainNeedKind(ANY_RUNE_ITEM_ID, mainNeedItemPool({ knightLevel: 9 }))).toBe(false)
+    expect(isAllowedMainNeedKind(ANY_RUNE_ITEM_ID, mainNeedItemPool({ knightLevel: 10 }))).toBe(true)
+    expect(itemProducerStation(ANY_POTION_ITEM_ID)).toBe('alchemy')
+    expect(itemProducerStation(ANY_RUNE_ITEM_ID)).toBe('inscription')
   })
 })
 

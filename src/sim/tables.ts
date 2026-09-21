@@ -22,10 +22,10 @@ export const OFFLINE_CAP_S = 8 * 60 * 60
 
 export const START_GOLD = 80
 /** 新档钻石。旧档缺字段 hydrate 补这个数；已有字段（含 0）不重灌。 */
-export const START_DIAMONDS = 100
+export const START_DIAMONDS = 150
 /** 新档初始灵感。旧档 hydrate 不改写成这个数。 */
 export const START_TECH_POINTS = 20
-export const RECRUIT_COST = 15
+export const RECRUIT_COST = 12
 
 /** 每站派驻上限。第 3 人派入失败；旧档超出的人 hydrate 撤到休息。 */
 export const STATION_WORKER_CAP = 2
@@ -62,6 +62,8 @@ const BASE_ITEM_DEF: Record<Exclude<ItemId, StationToolId>, ItemDef> = {
   wardElixir: { id: 'wardElixir', label: '护命符药', sellGold: 16, craftGold: 3 },
   focusDraft: { id: 'focusDraft', label: '凝神剂', sellGold: 12, craftGold: 2 },
   clearMind: { id: 'clearMind', label: '醒神散', sellGold: 10, craftGold: 2 },
+  anyPotion: { id: 'anyPotion', label: '任意药剂', sellGold: 8, craftGold: 0 },
+  anyRune: { id: 'anyRune', label: '任意符文', sellGold: 8, craftGold: 0 },
   weapon: { id: 'weapon', label: '铜器', sellGold: 12, craftGold: 0 },
   ironWeapon: { id: 'ironWeapon', label: '铁器', sellGold: 18, craftGold: 0 },
   mithrilWeapon: { id: 'mithrilWeapon', label: '秘银器', sellGold: 28, craftGold: 0 },
@@ -344,7 +346,7 @@ export function asMiningCategoryId(id: CategoryId): MiningCategoryId {
 
 /** 矿节点 HP / 恢复。挖空后按 recoverS 游戏秒恢复。 */
 export const MINING_NODE_DEF: Record<MiningCategoryId, MiningNodeDef> = {
-  copper: { categoryId: 'copper', nodeHpMax: 20, recoverS: 60 },
+  copper: { categoryId: 'copper', nodeHpMax: 20, recoverS: 50 },
   iron: { categoryId: 'iron', nodeHpMax: 24, recoverS: 90 },
   mithril: { categoryId: 'mithril', nodeHpMax: 28, recoverS: 120 },
 }
@@ -492,6 +494,28 @@ export function isPotionItemId(id: unknown): id is PotionItemId {
   )
 }
 
+export const ANY_POTION_ITEM_ID = 'anyPotion' as const
+export const ANY_RUNE_ITEM_ID = 'anyRune' as const
+
+export function isAnyPotionNeed(id: unknown): id is typeof ANY_POTION_ITEM_ID {
+  return id === ANY_POTION_ITEM_ID
+}
+
+export function isAnyRuneNeed(id: unknown): id is typeof ANY_RUNE_ITEM_ID {
+  return id === ANY_RUNE_ITEM_ID
+}
+
+export function isWildcardNeedId(id: unknown): id is typeof ANY_POTION_ITEM_ID | typeof ANY_RUNE_ITEM_ID {
+  return isAnyPotionNeed(id) || isAnyRuneNeed(id)
+}
+
+/** 通配订单可扣的具体 SKU。顺序稳定，数量并列时取表内靠前的。 */
+export function wildcardPayItems(itemId: ItemId): readonly ItemId[] {
+  if (isAnyPotionNeed(itemId)) return POTION_ITEM_IDS
+  if (isAnyRuneNeed(itemId)) return RUNE_ITEM_IDS
+  return []
+}
+
 export function isLegacyPotionItemId(id: unknown): id is 'potion' {
   return id === 'potion'
 }
@@ -543,7 +567,7 @@ export const RUNE_DEF: Readonly<Record<RuneItemId, RuneDef>> = {
     label: '血酬',
     effect: '本场结束后该工人额外获得战斗经验（胜负都发）',
     unlockLevel: 5,
-    costs: [{ itemId: 'wildCrystal', qty: 3 }],
+    costs: [{ itemId: 'wildCrystal', qty: 2 }],
     batch: { min: 1, max: 2 },
     xpPerCycle: 2,
   },
@@ -552,7 +576,7 @@ export const RUNE_DEF: Readonly<Record<RuneItemId, RuneDef>> = {
     label: '破障',
     effect: '命中弱点时额外扣 1 盾',
     unlockLevel: 5,
-    costs: [{ itemId: 'wildCrystal', qty: 3 }],
+    costs: [{ itemId: 'wildCrystal', qty: 2 }],
     batch: { min: 1, max: 2 },
     xpPerCycle: 2,
   },
@@ -561,7 +585,7 @@ export const RUNE_DEF: Readonly<Record<RuneItemId, RuneDef>> = {
     label: '迅击',
     effect: '本场出手间隔 ×0.85',
     unlockLevel: 10,
-    costs: [{ itemId: 'wildCrystal', qty: 4 }],
+    costs: [{ itemId: 'wildCrystal', qty: 3 }],
     batch: { min: 1, max: 1 },
     xpPerCycle: 3,
   },
@@ -570,7 +594,7 @@ export const RUNE_DEF: Readonly<Record<RuneItemId, RuneDef>> = {
     label: '洞悉',
     effect: '本场开战多揭示 1 条弱点（多名携带只生效一次）',
     unlockLevel: 10,
-    costs: [{ itemId: 'wildCrystal', qty: 4 }],
+    costs: [{ itemId: 'wildCrystal', qty: 3 }],
     batch: { min: 1, max: 1 },
     xpPerCycle: 3,
   },
@@ -1037,6 +1061,8 @@ export function stationRelatedItems(stationId: StationId): StationRelatedItems {
 
 /** 可生产物资的主产站。多站都能出时取 PLAYABLE_STATION_IDS 里第一个。旧通用工具回落铭刻；金币 / 其它旧物返回 null。 */
 export function itemProducerStation(itemId: ItemId): StationId | null {
+  if (isAnyPotionNeed(itemId)) return 'alchemy'
+  if (isAnyRuneNeed(itemId)) return 'inscription'
   if (isToolItemId(itemId) || isStationToolId(itemId)) return 'inscription'
   for (const id of PLAYABLE_STATION_IDS) {
     if (stationRelatedItems(id).outputs.includes(itemId)) return id
@@ -1052,7 +1078,7 @@ export function leftoverStockItems(): ItemId[] {
     for (const itemId of related.costs) used.add(itemId)
     for (const itemId of related.outputs) used.add(itemId)
   }
-  return ITEM_IDS.filter((id) => !used.has(id) && !isStationToolId(id))
+  return ITEM_IDS.filter((id) => !used.has(id) && !isStationToolId(id) && !isWildcardNeedId(id))
 }
 
 /** 整批换金（sim / 调试）。主界面已撤卖货；去武器，只收符文 / 烹饪食物。 */

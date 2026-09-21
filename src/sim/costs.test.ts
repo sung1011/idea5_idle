@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
-import { canAffordCosts, missingCostLabels, takeCosts } from './costs'
+import { canAffordCosts, missingCostLabels, needHaveQty, resolveNeedPayItem, takeCosts } from './costs'
 import { createSave } from './createSave'
 import { collectHints } from './query'
 import { recruitWorker } from './recruit'
@@ -85,6 +85,31 @@ describe('takeCosts', () => {
       ]).ok,
     ).toBe(true)
     expect(bankQty(save, 'ore')).toBe(2)
+  })
+
+  it('pays anyPotion / anyRune with the unlocked SKU that has the most stock', () => {
+    const save = createSave()
+    save.bank.stim = 2
+    save.bank.salve = 5
+    save.bank.renewSoup = 5
+    save.bank.runeSharp = 1
+    save.bank.runeArmor = 4
+    save.bank.runeBlood = 4
+    expect(resolveNeedPayItem(save, 'anyPotion')).toBe('salve')
+    expect(needHaveQty(save, 'anyPotion')).toBe(5)
+    expect(resolveNeedPayItem(save, 'anyRune')).toBe('runeArmor')
+    expect(needHaveQty(save, 'anyRune')).toBe(4)
+    expect(takeCosts(save, [{ itemId: 'anyPotion', qty: 3 }]).ok).toBe(true)
+    expect(bankQty(save, 'salve')).toBe(2)
+    expect(bankQty(save, 'stim')).toBe(2)
+    expect(takeCosts(save, [{ itemId: 'anyRune', qty: 2 }]).ok).toBe(true)
+    expect(bankQty(save, 'runeArmor')).toBe(2)
+    expect(bankQty(save, 'runeBlood')).toBe(4)
+    save.bank.stim = 1
+    save.bank.salve = 1
+    save.bank.renewSoup = 1
+    expect(canAffordCosts(save, [{ itemId: 'anyPotion', qty: 3 }])).toBe(false)
+    expect(missingCostLabels(save, [{ itemId: 'anyPotion', qty: 3 }])).toEqual(['任意药剂'])
   })
 })
 

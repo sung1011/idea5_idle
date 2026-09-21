@@ -1125,7 +1125,7 @@ describe('wired placeholder techs', () => {
     expect(tradeGoldMul(save)).toBeCloseTo(1.15 * 1.15)
     expect(pawnRewardGold(testPawn(), save)).toBe(26)
     expect(techEffectValue(save, RECRUIT_COST_EFFECT)).toBe(5)
-    expect(recruitCost(save)).toBe(10)
+    expect(recruitCost(save)).toBe(RECRUIT_COST - 5)
     expect(techEffectValue(save, DIAMOND_ORDER_EFFECT)).toBe(0.1)
     expect(marketDiamondChance(0.2, save)).toBeCloseTo(0.3)
     expect(marketDiamondChance(0.95, save)).toBe(1)

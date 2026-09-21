@@ -13,6 +13,11 @@ import {
   MINING_NODE_DEF,
   leftoverStockItems,
   itemProducerStation,
+  ANY_POTION_ITEM_ID,
+  ANY_RUNE_ITEM_ID,
+  RECRUIT_COST,
+  RUNE_DEF,
+  START_DIAMONDS,
   POTION_ITEM_IDS,
   PLAYABLE_CHAINS,
   PLAYABLE_STATION_IDS,
@@ -174,6 +179,8 @@ describe('production phase-1 tables', () => {
     expect(itemProducerStation('stim')).toBe('alchemy')
     expect(itemProducerStation('salve')).toBe('alchemy')
     expect(itemProducerStation('clearMind')).toBe('alchemy')
+    expect(itemProducerStation(ANY_POTION_ITEM_ID)).toBe('alchemy')
+    expect(itemProducerStation(ANY_RUNE_ITEM_ID)).toBe('inscription')
     expect(itemProducerStation('wood')).toBeNull()
     expect(itemProducerStation('weapon')).toBeNull()
     expect(itemProducerStation('slag')).toBeNull()
@@ -194,5 +201,21 @@ describe('production phase-1 tables', () => {
     }
     expect(itemCraftGold('ore')).toBe(0)
     expect(itemCraftGold('weapon')).toBe(0)
+  })
+
+  it('keeps P0 economy constants: diamonds, recruit, copper recover, rune crystal', () => {
+    expect(START_DIAMONDS).toBe(150)
+    expect(RECRUIT_COST).toBe(12)
+    expect(MINING_NODE_DEF.copper.recoverS).toBe(50)
+    expect(MINING_NODE_DEF.iron.recoverS).toBe(90)
+    expect(MINING_NODE_DEF.mithril.recoverS).toBe(120)
+    expect(RUNE_DEF.runeSharp.costs).toEqual([{ itemId: 'wildCrystal', qty: 2 }])
+    expect(RUNE_DEF.runeArmor.costs).toEqual([{ itemId: 'wildCrystal', qty: 2 }])
+    expect(RUNE_DEF.runeBlood.costs).toEqual([{ itemId: 'wildCrystal', qty: 2 }])
+    expect(RUNE_DEF.runeBreak.costs).toEqual([{ itemId: 'wildCrystal', qty: 2 }])
+    expect(RUNE_DEF.runeSwift.costs).toEqual([{ itemId: 'wildCrystal', qty: 3 }])
+    expect(RUNE_DEF.runeInsight.costs).toEqual([{ itemId: 'wildCrystal', qty: 3 }])
+    expect(ITEM_DEF.anyPotion.label).toBe('任意药剂')
+    expect(ITEM_DEF.anyRune.label).toBe('任意符文')
   })
 })

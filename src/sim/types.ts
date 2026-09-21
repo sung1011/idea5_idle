@@ -61,6 +61,8 @@ export type ItemId =
   | 'wardElixir'
   | 'focusDraft'
   | 'clearMind'
+  | 'anyPotion'
+  | 'anyRune'
   | 'weapon'
   | 'ironWeapon'
   | 'mithrilWeapon'

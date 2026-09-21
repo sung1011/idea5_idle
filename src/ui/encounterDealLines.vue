@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { itemQty } from '../sim/bank'
+import { needHaveQty } from '../sim/costs'
 import type { Encounter } from '../sim/types'
 import ConsumeJumpItem from './consumeJumpItem.vue'
 import {
@@ -24,7 +24,7 @@ const now = computed(() => {
 const deal = computed(() => encounterDeal(props.encounter, game.save, now.value))
 
 function tokenHave(token: DealToken) {
-  return token.kind === 'item' ? itemQty(game.save, token.itemId) : 0
+  return token.kind === 'item' ? needHaveQty(game.save, token.itemId) : 0
 }
 
 function consumeText(token: DealToken) {

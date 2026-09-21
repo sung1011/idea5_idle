@@ -53,7 +53,7 @@ describe('hud resource chips', () => {
 
     const diamonds = hudChipDetail(save, 'diamonds')
     expect(diamonds.name).toBe('钻石')
-    expect(diamonds.source).toMatch(/100|订单/)
+    expect(diamonds.source).toMatch(/150|订单/)
     expect(diamonds.usage).toMatch(/抽工/)
 
     const workers = hudChipDetail(save, 'workers')
@@ -76,6 +76,10 @@ describe('hud resource chips', () => {
     expect(itemHudUsage('meal')).toMatch(/食物槽/)
     expect(itemHudSource('stim')).toBe('炼金产出')
     expect(itemHudUsage('stim')).toMatch(/药剂槽/)
+    expect(itemHudSource('anyPotion')).toBe('炼金产出')
+    expect(itemHudUsage('anyPotion')).toMatch(/通配/)
+    expect(itemHudSource('anyRune')).toBe('铭刻产出')
+    expect(itemHudUsage('anyRune')).toMatch(/通配/)
     expect(itemHudSource('wildCrystal')).toBe('采矿产出')
     expect(itemHudUsage('wildCrystal')).toMatch(/铭刻/)
     expect(itemHudSource('runeSharp')).toBe('铭刻产出')

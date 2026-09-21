@@ -75,7 +75,7 @@ describe('mining node recover', () => {
     const depleted = ticks(save, 20 * 20)
     expect(bankQty(depleted, 'ore')).toBe(20)
     expect(depleted.stations.mining.miningNode?.nodeHp).toBe(0)
-    expect(depleted.stations.mining.miningNode?.recoverAt).toBe(400 + 60)
+    expect(depleted.stations.mining.miningNode?.recoverAt).toBe(400 + 50)
     expect(isGatherFrozen(depleted, 'mining')).toBe(true)
 
     const stillBlocked = ticks(depleted, 10)

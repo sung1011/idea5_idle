@@ -34,7 +34,7 @@ import {
   normalizeMainLootClaims,
   shouldForceChapterBoss,
 } from './mainChapter'
-import { canAffordCosts, missingCostLabels, takeCosts } from './costs'
+import { canAffordCosts, missingCostLabels, needHaveQty, takeCosts } from './costs'
 import {
   exclusiveCurrencyPayout,
   readRewardDiamonds,
@@ -45,15 +45,20 @@ import {
 import { normalizeRngState, roll01 } from './rng'
 import { STATION_UNLOCK_KNIGHT_MAX, unlockedStationIds } from './stationUnlock'
 import {
+  ANY_POTION_ITEM_ID,
+  ANY_RUNE_ITEM_ID,
   ITEM_DEF,
   POTION_ITEM_IDS,
   RUNE_ITEM_IDS,
   STATION_TOOL_COUNT,
   bulkUnitGold,
+  isAnyPotionNeed,
+  isAnyRuneNeed,
   isPotionItemId,
   isRuneItemId,
   isStationToolId,
   isToolItemId,
+  isWildcardNeedId,
   pawnUnitGold,
   stationRelatedItems,
   type IoRule,
@@ -362,11 +367,11 @@ const LEGACY_ORDER_DEFS: ReadonlyArray<{
 
 /**
  * 某站贡献给主线需求池的产物。
- * 炼金用 7 种药剂 id（不要裸 `potion`）；铭刻直接出 6 种符文。
+ * 炼金用 7 种药剂 id + 通配 anyPotion（不要裸 `potion`）；铭刻出 6 种符文 + 通配 anyRune。
  */
 export function mainNeedOutputsOfStation(stationId: StationId): readonly ItemId[] {
-  if (stationId === 'alchemy') return POTION_ITEM_IDS
-  if (stationId === 'inscription') return RUNE_ITEM_IDS
+  if (stationId === 'alchemy') return [...POTION_ITEM_IDS, ANY_POTION_ITEM_ID]
+  if (stationId === 'inscription') return [...RUNE_ITEM_IDS, ANY_RUNE_ITEM_ID]
   return stationRelatedItems(stationId).outputs.filter(
     (id) => id !== 'potion' && id !== 'wildCrystal' && !isStationToolId(id) && !isRuneItemId(id),
   )
@@ -389,13 +394,25 @@ export function mainNeedItemPool(save?: Pick<Save, 'knightLevel'> | null): reado
 /** 种类是否落在当前已解锁池内（含 tool / potion 标记，以及已落地的药剂 / 专属工具）。 */
 export function isAllowedMainNeedKind(itemId: ItemId, pool: readonly ItemId[]): boolean {
   if ((pool as readonly string[]).includes(itemId)) return true
-  if (itemId === 'potion') return pool.includes('potion') || pool.some((id) => isPotionItemId(id))
-  if (isPotionItemId(itemId)) return pool.includes(itemId) || pool.includes('potion')
-  if (isLegacyGenericToolNeed(itemId) || isStationToolId(itemId)) {
-    return pool.some((id) => isRuneItemId(id))
+  if (itemId === 'potion' || isAnyPotionNeed(itemId)) {
+    return pool.includes('potion') || pool.includes(ANY_POTION_ITEM_ID) || pool.some((id) => isPotionItemId(id))
   }
-  if (isRuneItemId(itemId)) return pool.some((id) => isRuneItemId(id))
+  if (isPotionItemId(itemId)) {
+    return pool.includes(itemId) || pool.includes('potion') || pool.includes(ANY_POTION_ITEM_ID)
+  }
+  if (isLegacyGenericToolNeed(itemId) || isStationToolId(itemId) || isAnyRuneNeed(itemId)) {
+    return pool.some((id) => isRuneItemId(id)) || pool.includes(ANY_RUNE_ITEM_ID)
+  }
+  if (isRuneItemId(itemId)) return pool.some((id) => isRuneItemId(id)) || pool.includes(ANY_RUNE_ITEM_ID)
   return false
+}
+
+/** 通配占药类 / 符类订单 4/(7+4)≈36%、4/(6+4)=40%。 */
+export const MAIN_NEED_ANY_WILDCARD_WEIGHT = 4
+export const MAIN_NEED_SPECIFIC_WEIGHT = 1
+
+export function mainNeedItemWeight(itemId: ItemId): number {
+  return isWildcardNeedId(itemId) ? MAIN_NEED_ANY_WILDCARD_WEIGHT : MAIN_NEED_SPECIFIC_WEIGHT
 }
 
 function pickFromMainNeedPool(
@@ -404,9 +421,24 @@ function pickFromMainNeedPool(
   salt = 0,
 ): ItemId {
   if (pool.length === 0) return 'herb'
-  if (rng) return pool[Math.min(pool.length - 1, Math.floor(rollRng(rng) * pool.length))]
-  const n = Number.isFinite(salt) ? Math.abs(Math.floor(salt)) : 0
-  return pool[n % pool.length]
+  const weights = pool.map(mainNeedItemWeight)
+  const roll = rng ? rollRng(rng) : fracFromSalt(salt, 13)
+  return pool[pickWeightedIndex(weights, roll)]
+}
+
+/** 已落到具体药 / 符的订单，再按通配权重改成 anyPotion / anyRune。 */
+export function applyMainNeedWildcard(itemId: ItemId, pool: readonly ItemId[], roll: number): ItemId {
+  if (isPotionItemId(itemId) && pool.includes(ANY_POTION_ITEM_ID)) {
+    const specifics = POTION_ITEM_IDS.filter((id) => (pool as readonly string[]).includes(id)).length
+    const total = specifics * MAIN_NEED_SPECIFIC_WEIGHT + MAIN_NEED_ANY_WILDCARD_WEIGHT
+    if (total > 0 && roll * total < MAIN_NEED_ANY_WILDCARD_WEIGHT) return ANY_POTION_ITEM_ID
+  }
+  if (isRuneItemId(itemId) && pool.includes(ANY_RUNE_ITEM_ID)) {
+    const specifics = RUNE_ITEM_IDS.filter((id) => (pool as readonly string[]).includes(id)).length
+    const total = specifics * MAIN_NEED_SPECIFIC_WEIGHT + MAIN_NEED_ANY_WILDCARD_WEIGHT
+    if (total > 0 && roll * total < MAIN_NEED_ANY_WILDCARD_WEIGHT) return ANY_RUNE_ITEM_ID
+  }
+  return itemId
 }
 
 /**
@@ -557,7 +589,12 @@ export function scaleGold(gold: number, mul: number): number {
 }
 
 export function itemNeedBase(itemId: ItemId): number {
-  const key = isStationToolId(itemId) || isRuneItemId(itemId) ? 'tool' : isPotionItemId(itemId) ? 'potion' : itemId
+  const key =
+    isStationToolId(itemId) || isRuneItemId(itemId) || isAnyRuneNeed(itemId)
+      ? 'tool'
+      : isPotionItemId(itemId) || isAnyPotionNeed(itemId)
+        ? 'potion'
+        : itemId
   const base = MAIN_NEED_BASE[key]
   return typeof base === 'number' && base > 0 ? base : MAIN_NEED_BASE_DEFAULT
 }
@@ -656,13 +693,24 @@ export function resolveUnlockedMainNeedItem(
   save?: Pick<Save, 'knightLevel'> | null,
 ): ItemId {
   const pool = mainNeedItemPool(save)
-  const picked = isAllowedMainNeedKind(itemId, pool) ? itemId : pickFromMainNeedPool(pool, rng, salt)
-  return resolveMainNeedItem(picked, quality, chapter, chapterBoss, rng, salt)
+  if (isAllowedMainNeedKind(itemId, pool)) {
+    const resolved = resolveMainNeedItem(itemId, quality, chapter, chapterBoss, rng, salt)
+    const roll = rng ? rollRng(rng) : fracFromSalt(salt, 41)
+    return applyMainNeedWildcard(resolved, pool, roll)
+  }
+  return resolveMainNeedItem(pickFromMainNeedPool(pool, rng, salt), quality, chapter, chapterBoss, rng, salt)
 }
 
 /** 章节需求倍率：1 + (chapter-1) * CHAPTER_NEED_STEP。 */
 export function chapterNeedMul(chapter: unknown): number {
   return 1 + (normalizeMainChapter(chapter) - 1) * CHAPTER_NEED_STEP
+}
+
+/** 战利品金随章：需求 ×0.15，金打半折跟。 */
+export const CHAPTER_LOOT_STEP = 0.075
+
+export function chapterLootMul(chapter: unknown): number {
+  return 1 + (normalizeMainChapter(chapter) - 1) * CHAPTER_LOOT_STEP
 }
 
 export function scaledDemandQty(
@@ -775,8 +823,9 @@ export function enemyNeedsFor(
   return scaledMainNeed(itemId, quality, chapter, chapterBoss)
 }
 
-export function enemyLootGoldFor(chapterBoss = false): number {
-  return chapterBoss ? scaleGold(LOOT_GOLD_BASE, CHAPTER_BOSS_LOOT_MUL) : LOOT_GOLD_BASE
+export function enemyLootGoldFor(chapterBoss = false, chapter: unknown = 1): number {
+  const base = chapterBoss ? scaleGold(LOOT_GOLD_BASE, CHAPTER_BOSS_LOOT_MUL) : LOOT_GOLD_BASE
+  return scaleGold(base, chapterLootMul(chapter))
 }
 
 export function pawnGoldForMap(map: EncounterNeedMap): number {
@@ -866,7 +915,7 @@ export function combatSupplyNeeds(_save: Save, enc: EnemyEncounter): EncounterNe
 
 export function needLines(save: Save, map: EncounterNeedMap): EncounterLine[] {
   return needEntries(map).map(([itemId, need]) => {
-    const have = bankQty(save, itemId)
+    const have = needHaveQty(save, itemId)
     return {
       itemId,
       label: ITEM_DEF[itemId].label,
@@ -1057,7 +1106,7 @@ function makeEnemy(
         save,
       )
   const loot = rollCurrencyPayout(
-    scaleGold(enemyLootGoldFor(forceChapterBoss), q.outputMul),
+    scaleGold(enemyLootGoldFor(forceChapterBoss, chapter), q.outputMul),
     REWARD_DIAMOND_CHANCE[enemyRank],
     rewardRoll(rng, seed, slot),
   )

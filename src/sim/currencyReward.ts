@@ -1,7 +1,7 @@
 /** 战场 / 商场货币掉落：一单只发金币或钻石。 */
 
 export const REWARD_DIAMOND_CHANCE = {
-  minion: 0.22,
+  minion: 0.28,
   elite: 0.5,
   boss: 1,
   pawn: 0.2,

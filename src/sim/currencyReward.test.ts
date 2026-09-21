@@ -9,6 +9,7 @@ import {
 
 describe('currency reward tables', () => {
   it('leans gold on minions and pawn, either on elite, diamonds on boss and artisan', () => {
+    expect(REWARD_DIAMOND_CHANCE.minion).toBe(0.28)
     expect(REWARD_DIAMOND_CHANCE.minion).toBeLessThan(0.5)
     expect(REWARD_DIAMOND_CHANCE.pawn).toBeLessThan(0.5)
     expect(REWARD_DIAMOND_CHANCE.bulkBuy).toBeLessThan(0.5)

@@ -533,7 +533,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'affairsRoster',
         name: '募兵折',
-        desc: '抽工人钻石费用 15→10。',
+        desc: '抽工人钻石费用 12→7。',
         icon: '📒',
         ...implemented(RECRUIT_COST_EFFECT),
       },
@@ -988,7 +988,7 @@ export function scaleQtyByMul(save: Save, qty: number, mul: number): number {
 /** 结算占位。恒 no-op。 */
 export function applyTechEffects(_save: Save): void {}
 
-/** 抽人费可读科技：募兵折 −5（15→10）。 */
+/** 抽人费可读科技：募兵折 −5（12→7）。 */
 export function recruitCost(save: Save): number {
   return Math.max(1, RECRUIT_COST - Math.round(techEffectValue(save, RECRUIT_COST_EFFECT)))
 }

@@ -177,6 +177,18 @@ describe('encounterDeal', () => {
     expect(formatConsumeToken({ kind: 'gold', qty: 8 })).toBe('金币 ×8')
     expect(formatConsumeToken({ kind: 'diamonds', qty: 3 })).toBe('钻石 ×3')
   })
+
+  it('shows anyPotion have as the highest potion stock', () => {
+    const save = createSave()
+    save.bank.stim = 1
+    save.bank.salve = 6
+    expect(
+      formatEncounterDealLines(enemy({ needs: { anyPotion: 2 } }), {}, save),
+    ).toEqual({
+      consume: '消耗：任意药剂 ×2 / 6',
+      gain: '获得：金币 ×8（战斗后领）',
+    })
+  })
 })
 
 function withEnc(enc: Encounter, gold = 0, bank: Save['bank'] = {}): Save {
