@@ -421,14 +421,14 @@ describe('withdraw workshop to rest', () => {
     expect(canWithdrawWorkshopWorker(save)).toBe(false)
   })
 
-  it('reverses a 派入 scan: forging comes off before herbalism', () => {
+  it('reverses a 派入 scan: inscription comes off before herbalism', () => {
     const save = unlockPlayableStations(createSave())
     const herb = spawnWorkerWith(save, 1, 'laborer')
-    const forge = spawnWorkerWith(save, 1, 'smith')
+    const inscribe = spawnWorkerWith(save, 1, 'smith')
     assignWorker(save, herb.id, 'herbalism')
-    assignWorker(save, forge.id, 'forging')
+    assignWorker(save, inscribe.id, 'inscription')
     expect(withdrawWorkshopToRest(save)).toEqual({ ok: true })
-    expect(forge.assignment).toBeNull()
+    expect(inscribe.assignment).toBeNull()
     expect(herb.assignment).toBe('herbalism')
   })
 })
