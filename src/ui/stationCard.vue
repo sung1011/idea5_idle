@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { stationMergeLabel } from '../sim/fuse'
 import { gatherStatusText, isGatherFrozen } from '../sim/gather'
 import {
@@ -21,6 +21,7 @@ import type { CategoryId, StationId } from '../sim/types'
 import ConsumeJumpItem from './consumeJumpItem.vue'
 import { formatConsumeToken } from './encounterDeal'
 import { useGameStore } from './gameStore'
+import { stationHelpCopy } from './stationHelp'
 import StationTips from './stationTips.vue'
 import UiIcon from './uiIcon.vue'
 import UiSelect from './uiSelect.vue'
@@ -76,6 +77,9 @@ const guideFlashAlchemy = computed(
   () => props.stationId === 'alchemy' && isGuideQuestFlash(game.save, 'alchemy'),
 )
 const locked = computed(() => !isStationUnlocked(game.save, props.stationId))
+const canWithdraw = computed(() => count.value > 0)
+const helpOpen = ref(false)
+const help = computed(() => stationHelpCopy(props.stationId))
 
 function onAssignIdle() {
   if (locked.value) {
@@ -115,6 +119,26 @@ function onMerge() {
 function consumeText(row: StationConsumeToken) {
   return formatConsumeToken({ kind: 'item', itemId: row.itemId, qty: row.need }, row.have)
 }
+
+function toggleHelp() {
+  helpOpen.value = !helpOpen.value
+}
+
+function closeHelp() {
+  helpOpen.value = false
+}
+
+function onHelpKey(ev: KeyboardEvent) {
+  if (ev.key === 'Escape' && helpOpen.value) closeHelp()
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onHelpKey)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onHelpKey)
+})
 </script>
 
 <template>
@@ -125,6 +149,13 @@ function consumeText(row: StationConsumeToken) {
     @click="onLockedTap"
   >
     <StationTips :station-id="stationId" />
+    <button
+      type="button"
+      class="help"
+      :aria-pressed="helpOpen"
+      :aria-label="`查看${def.label}说明`"
+      @click.stop="toggleHelp"
+    >？</button>
     <header>
       <span class="badge">
         <UiIcon :name="stationId" />
@@ -188,9 +219,34 @@ function consumeText(row: StationConsumeToken) {
       </label>
     </div>
     <div class="actions">
-      <button type="button" class="withdraw" @click="game.withdraw(stationId)">撤出</button>
-      <button type="button" class="assign" :class="{ 'guide-flash': guideFlashAlchemy }" @click="onAssignIdle">派入</button>
+      <button
+        type="button"
+        class="act"
+        :disabled="!canWithdraw"
+        @click="game.withdraw(stationId)"
+      >撤出</button>
+      <button
+        type="button"
+        class="act"
+        :class="{ 'guide-flash': guideFlashAlchemy }"
+        @click="onAssignIdle"
+      >派入</button>
     </div>
+    <Teleport to="body">
+      <div
+        v-if="helpOpen"
+        class="help-mask"
+        @click.self="closeHelp"
+      >
+        <section class="help-panel panel" role="dialog" aria-modal="true" :aria-labelledby="`station-help-${stationId}`">
+          <header>
+            <h3 :id="`station-help-${stationId}`" class="title">{{ help.title }}</h3>
+            <button type="button" class="close" @click="closeHelp">关闭</button>
+          </header>
+          <p class="help-body">{{ help.body }}</p>
+        </section>
+      </div>
+    </Teleport>
   </article>
 </template>
 
@@ -409,22 +465,77 @@ h2 {
   padding-top: 4px;
 }
 
-.actions .withdraw {
-  flex: 1 1 0;
-  min-width: 64px;
-  min-height: 36px;
-  padding: 2px 10px;
-  font-size: 13px;
+.help {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  width: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border-width: 2px;
+  border-radius: 50%;
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  line-height: 1;
+  letter-spacing: 0;
 }
 
-.actions .assign {
-  flex: 0 0 auto;
+.actions .act {
+  flex: 1 1 0;
   min-width: 88px;
   min-height: 48px;
+  padding: 6px 12px;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.12em;
+}
+
+.help-mask {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-sheet);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 72px 16px 24px;
+  background: rgba(92, 58, 26, 0.28);
+}
+
+.help-panel {
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 12px 10px;
+}
+
+.help-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.help-panel .title {
+  margin: 0;
+  font-size: 20px;
+}
+
+.help-panel .close {
+  min-height: 32px;
+  padding: 4px 10px;
+}
+
+.help-body {
+  margin: 0;
+  padding: 8px 10px;
+  border: 2px solid var(--gold);
+  border-radius: 12px;
+  background: var(--slot);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
 }
 </style>
