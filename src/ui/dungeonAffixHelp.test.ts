@@ -18,6 +18,10 @@ describe('dungeon affix help bubble', () => {
       expect(copy.title).toBe(DUNGEON_AFFIX_DEFS[id].label)
       expect(copy.effect).toBe(dungeonAffixEffect(id))
       expect(copy.effect).toMatch(/\d/)
+      const field = dungeonAffixHelpCopy(id, 'battlefield')
+      expect(field.title).toBe(DUNGEON_AFFIX_DEFS[id].label)
+      expect(field.effect).toBe(dungeonAffixEffect(id, 'battlefield'))
+      expect(field.effect).toMatch(/\d/)
     }
   })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hpBarFill, hpBarLabel, hpBarTone } from './hpBar'
+import { hpBarFill, hpBarLabel, hpBarTone, shouldShakeHpBar } from './hpBar'
 
 describe('hpBarFill', () => {
   it('fills by hp/hpMax and caps at 1', () => {
@@ -22,6 +22,16 @@ describe('hpBarLabel', () => {
     expect(hpBarLabel(12, 24)).toBe('HP: 12/24')
     expect(hpBarLabel(30, 24)).toBe('HP: 30/24')
     expect(hpBarLabel(0, 24)).toBe('HP: 0/24')
+  })
+})
+
+describe('shouldShakeHpBar', () => {
+  it('fires only when the shake key advances', () => {
+    expect(shouldShakeHpBar(undefined, 1)).toBe(true)
+    expect(shouldShakeHpBar(1, 2)).toBe(true)
+    expect(shouldShakeHpBar(2, 2)).toBe(false)
+    expect(shouldShakeHpBar(1, 0)).toBe(false)
+    expect(shouldShakeHpBar(undefined, undefined)).toBe(false)
   })
 })
 

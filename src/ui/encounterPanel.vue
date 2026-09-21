@@ -33,12 +33,14 @@ import { timedOrderLine } from '../sim/marketTimed'
 import {
   DUNGEON_ATTEMPTS_PER_DAY,
   DUNGEON_MECHANIC_LABEL,
+  battlefieldAffixRow,
   dungeonAffixRows,
   dungeonAttemptsLeft,
   dungeonEncounterOf,
   dungeonRefreshCountdownLabel,
   dungeonSupplyBlockReason,
   isDungeonEncounter,
+  type CombatAffixScope,
   type DungeonAffixId,
 } from '../sim/dungeon'
 import { isGuideQuestCombatFlash, isGuideQuestFlash } from '../sim/guideQuest'
@@ -47,6 +49,7 @@ import { CLASS_LABEL } from '../sim/tables'
 import type { Encounter, EncounterKind, EnemyEncounter, Worker } from '../sim/types'
 import EncounterDealLines from './encounterDealLines.vue'
 import EncounterTips from './encounterTips.vue'
+import { encounterHpShakeAt } from './encounterTips'
 import { CONSUME_SHORT_TIP, isEncounterActionConsumeShort } from './encounterDeal'
 import {
   dungeonAffixHelpCopy,
@@ -96,17 +99,21 @@ const dungeonAttemptLabel = computed(() =>
   isDungeonTab.value ? `次数 ${DUNGEON_ATTEMPTS_PER_DAY - dungeonAttemptsLeft(game.save)}/${DUNGEON_ATTEMPTS_PER_DAY}` : '',
 )
 const affixHelp = ref<DungeonAffixId | null>(null)
+const affixHelpScope = ref<CombatAffixScope>('dungeon')
 const affixHelpPos = ref({ left: 8, top: 8 })
-const affixHelpBubble = computed(() => (affixHelp.value ? dungeonAffixHelpCopy(affixHelp.value) : null))
+const affixHelpBubble = computed(() =>
+  affixHelp.value ? dungeonAffixHelpCopy(affixHelp.value, affixHelpScope.value) : null,
+)
 
 function closeAffixHelp() {
   affixHelp.value = null
 }
 
-function onAffixHelp(ev: MouseEvent, id: DungeonAffixId) {
+function onAffixHelp(ev: MouseEvent, id: DungeonAffixId, scope: CombatAffixScope = 'dungeon') {
   ev.stopPropagation()
   const next = nextDungeonAffixHelp(affixHelp.value, id)
   affixHelp.value = next
+  affixHelpScope.value = scope
   if (!next) return
   const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect()
   affixHelpPos.value = {
@@ -297,8 +304,17 @@ function cardClass(enc: Encounter) {
     [`q-${enc.quality}`]: true,
     compact: isBrief.value,
     done: isEncounterDone(enc, now.value),
-    stunned: enc.kind === 'enemy' && !!enc.combat && isCombatStunned(enc.combat, now.value),
+    stunned: enc.kind === 'enemy' && !!enc.combat && isCombatStunned(enc.combat, fightNow.value),
   }
+}
+
+function enemyCardAffix(enc: Encounter) {
+  return enc.kind === 'enemy' ? battlefieldAffixRow(enc) : null
+}
+
+function enemyHpShakeKey(enc: Encounter) {
+  void fightNow.value
+  return encounterHpShakeAt(enc.id)
 }
 
 function combatShield(enc: EnemyEncounter): number | null {
@@ -403,7 +419,7 @@ function timedLine(enc: Encounter) {
           data-dungeon-affix
           :aria-pressed="isDungeonAffixHelpOpen(affixHelp, row.id)"
           :aria-label="`查看 ${row.label} 效果`"
-          @click="onAffixHelp($event, row.id)"
+          @click="onAffixHelp($event, row.id, 'dungeon')"
         >
           {{ row.label }}
         </button>
@@ -418,8 +434,14 @@ function timedLine(enc: Encounter) {
         <b class="qmark">{{ QUALITY_LABEL[enc.quality] }}</b>
 
         <template v-if="enc.kind === 'enemy'">
+          <i v-if="cardClass(enc).stunned" class="stun-veil" aria-hidden="true" />
           <header v-if="showCardHeader(enc)">
-            <i v-if="!isBrief" class="sprite sprite-encounter" :class="spriteKind(enc.kind)" aria-hidden="true" />
+            <i
+              v-if="!isBrief"
+              class="sprite sprite-encounter"
+              :class="[spriteKind(enc.kind), { stunned: cardClass(enc).stunned }]"
+              aria-hidden="true"
+            />
             <div class="titles">
               <span class="kind">{{ kindTitle(enc.kind, enc) }}</span>
               <span class="tags">
@@ -432,6 +454,18 @@ function timedLine(enc: Encounter) {
             </div>
           </header>
           <p v-if="showCardLabel(enc)" class="label">{{ enc.label }}</p>
+          <p v-if="enemyCardAffix(enc)" class="affix-row card-affix">
+            <button
+              type="button"
+              class="affix-chip"
+              data-dungeon-affix
+              :aria-pressed="isDungeonAffixHelpOpen(affixHelp, enemyCardAffix(enc)!.id)"
+              :aria-label="`查看 ${enemyCardAffix(enc)!.label} 效果`"
+              @click="onAffixHelp($event, enemyCardAffix(enc)!.id, 'battlefield')"
+            >
+              {{ enemyCardAffix(enc)!.label }}
+            </button>
+          </p>
           <EncounterDealLines :encounter="enc" />
           <p v-if="showFightReadout(enc)" class="weak">
             弱点
@@ -440,7 +474,11 @@ function timedLine(enc: Encounter) {
               :key="`${enc.id}-w-${si}`"
               :attr="slot"
             />
-            <i v-if="combatShield(enc) != null" class="shield" :class="{ broke: cardClass(enc).stunned }">
+            <i
+              v-if="combatShield(enc) != null || cardClass(enc).stunned"
+              class="shield"
+              :class="{ broke: cardClass(enc).stunned }"
+            >
               {{ cardClass(enc).stunned ? '破防中' : `盾 ${combatShield(enc)}` }}
             </i>
           </p>
@@ -449,7 +487,11 @@ function timedLine(enc: Encounter) {
               <p v-if="!isBrief" class="bar-line">
                 敌 · ATK {{ enc.combat.enemy.atk }} · 攻速 {{ formatAtkSpeed(enc.combat.enemy.spd) }}
               </p>
-              <HpBar :hp="enc.combat.enemy.hp" :hp-max="enc.combat.enemy.hpMax" />
+              <HpBar
+                :hp="enc.combat.enemy.hp"
+                :hp-max="enc.combat.enemy.hpMax"
+                :shake-key="enemyHpShakeKey(enc)"
+              />
               <template v-for="w in enc.combat.workers" :key="w.id">
                 <p v-if="!isBrief" class="bar-line">
                   {{ w.label }} · ATK {{ w.atk }} · 攻速 {{ formatAtkSpeed(w.spd) }}
@@ -851,6 +893,10 @@ function timedLine(enc: Encounter) {
   background: var(--gold);
 }
 
+.card-affix {
+  margin: 0;
+}
+
 .affix-bubble {
   position: fixed;
   z-index: calc(var(--z-sheet) + 8);
@@ -1110,6 +1156,7 @@ ul {
   border-color: #c0392b;
   background: #ffe0cc;
   color: #c0392b;
+  animation: stun-pulse 0.85s ease-in-out infinite;
 }
 
 .card.stunned {
@@ -1117,7 +1164,39 @@ ul {
 }
 
 .card.stunned .bars {
-  filter: saturate(1.15);
+  filter: saturate(0.7) brightness(0.92);
+}
+
+.card.stunned :deep(.hp) {
+  outline: 2px solid #c0392b;
+  outline-offset: 1px;
+}
+
+.stun-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+  background: rgba(192, 57, 43, 0.1);
+  animation: stun-pulse 0.85s ease-in-out infinite;
+}
+
+.sprite.stunned {
+  outline: 3px solid #c0392b;
+  outline-offset: 2px;
+  filter: saturate(0.45) brightness(0.82);
+  animation: stun-pulse 0.85s ease-in-out infinite;
+}
+
+@keyframes stun-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.62;
+  }
 }
 
 .weak :deep(.chip) {
@@ -1283,7 +1362,10 @@ ul {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stamp {
+  .stamp,
+  .shield.broke,
+  .stun-veil,
+  .sprite.stunned {
     animation: none;
   }
 }

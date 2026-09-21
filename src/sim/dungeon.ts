@@ -25,7 +25,10 @@ import {
   DUNGEON_NEEDS,
   DUNGEON_PARTY_MAX,
   DUNGEON_TIMEOUT_S,
+  applyCombatAffixStats,
   applyDungeonPhaseToEncounter,
+  battlefieldAffixEffect,
+  DUNGEON_AFFIX_COUNT,
   dungeonChestTier,
   dungeonPhaseShield,
   isDungeonAffixId,
@@ -56,15 +59,21 @@ export {
   DUNGEON_PHASES,
   DUNGEON_STUN_S,
   DUNGEON_TARGET_ROTATION,
+  DUNGEON_AFFIX_COUNT,
   DUNGEON_TIMEOUT_S,
+  applyCombatAffixStats,
+  battlefieldAffixEffect,
   dungeonAffixEffect,
   dungeonChapterScale,
   dungeonChestTier,
   dungeonStunS,
+  encounterAffixIds,
+  hasEncounterAffix,
   isDungeonAffixId,
   isDungeonEncounter,
   makeDungeonEncounter,
   rollDungeonAffixes,
+  type CombatAffixScope,
   type DungeonAffixId,
   type DungeonChestTier,
   type DungeonMechanicId,
@@ -79,8 +88,33 @@ function needRules(map: EncounterNeedMap): IoRule[] {
   }))
 }
 
-function rollAffixPairForDay(day: number, salt = 0): DungeonAffixId[] {
-  return rollDungeonAffixes(roll01Bag(hashString(`dungeon-affix:${day}:${salt}`)))
+function rollAffixesForDay(day: number, salt = 0): DungeonAffixId[] {
+  return rollDungeonAffixes(roll01Bag(hashString(`dungeon-affix:${day}:${salt}`)), DUNGEON_AFFIX_COUNT)
+}
+
+export function rollBattlefieldAffix(salt: string): DungeonAffixId {
+  return rollDungeonAffixes(roll01Bag(hashString(`battlefield-affix:${salt}`)), 1)[0]
+}
+
+/** 战场敌人格缺词缀时补 1 条。进行中的战斗不补，避免日中改结算。 */
+export function ensureBattlefieldAffix(enc: EnemyEncounter, force = false): EnemyEncounter {
+  if (isDungeonEncounter(enc)) return enc
+  if (isDungeonAffixId(enc.affixId)) return enc
+  const fighting = !!enc.combat && enc.combat.outcome == null
+  if (fighting && !force) return enc
+  enc.affixId = rollBattlefieldAffix(enc.id)
+  return enc
+}
+
+export function battlefieldAffixRow(
+  enc: EnemyEncounter,
+): { id: DungeonAffixId; label: string; effect: string } | null {
+  if (isDungeonEncounter(enc) || !isDungeonAffixId(enc.affixId)) return null
+  return {
+    id: enc.affixId,
+    label: DUNGEON_AFFIX_DEFS[enc.affixId].label,
+    effect: battlefieldAffixEffect(enc.affixId),
+  }
 }
 
 function lockedDungeonChapter(save?: Save): number {
@@ -108,7 +142,7 @@ export function blankDungeonState(save?: Save, day = 1): DungeonState {
   return {
     day,
     chapter: lockedDungeonChapter(save),
-    affixIds: rollAffixPairForDay(day, save?.nextWorkerId ?? 0),
+    affixIds: rollAffixesForDay(day, save?.nextWorkerId ?? 0),
     attemptsUsed: 0,
     encounter: makeDungeonEncounter(),
   }
@@ -120,15 +154,25 @@ export function hasDungeonAffix(save: Save, id: DungeonAffixId): boolean {
 
 export function dungeonBossLiveStats(save: Save): CombatStats {
   const scale = dungeonChapterScale(dungeonScaleChapter(save))
-  let hp = Math.round(DUNGEON_BOSS_STATS.hp * scale.hpMul)
-  let atk = Math.max(1, Math.round(DUNGEON_BOSS_STATS.atk * scale.atkMul))
-  let spd = Math.max(2, Math.round(DUNGEON_BOSS_STATS.spd * scale.spdMul * 100) / 100)
-  if (hasDungeonAffix(save, 'thickHide')) hp = Math.round(hp * DUNGEON_AFFIX_FX.thickHideHpMul)
-  if (hasDungeonAffix(save, 'heavyHands')) atk = Math.max(1, Math.round(atk * DUNGEON_AFFIX_FX.heavyHandsAtkMul))
-  if (hasDungeonAffix(save, 'quickened')) {
-    spd = Math.max(2, Math.round(spd * DUNGEON_AFFIX_FX.quickenedSpdMul * 100) / 100)
+  const base: CombatStats = {
+    hp: Math.round(DUNGEON_BOSS_STATS.hp * scale.hpMul),
+    atk: Math.max(1, Math.round(DUNGEON_BOSS_STATS.atk * scale.atkMul)),
+    spd: Math.max(2, Math.round(DUNGEON_BOSS_STATS.spd * scale.spdMul * 100) / 100),
   }
-  return { hp, atk, spd }
+  return applyCombatAffixStats(base, (save.dungeon?.affixIds ?? []).filter(isDungeonAffixId))
+}
+
+function readHydratedAffixIds(raw: unknown): DungeonAffixId[] {
+  if (!Array.isArray(raw)) return []
+  const out: DungeonAffixId[] = []
+  const seen = new Set<DungeonAffixId>()
+  for (const id of raw) {
+    if (!isDungeonAffixId(id) || seen.has(id)) continue
+    seen.add(id)
+    out.push(id)
+    if (out.length >= DUNGEON_AFFIX_COUNT) break
+  }
+  return out
 }
 
 export function dungeonShieldBonus(save: Save): number {
@@ -195,7 +239,7 @@ export function ensureDungeonDay(save: Save, now = Date.now()): DungeonState {
 export function hydrateDungeonFields(save: Save): Save {
   const raw = save.dungeon as Partial<DungeonState> | undefined
   const day = typeof raw?.day === 'number' && Number.isFinite(raw.day) ? Math.max(1, Math.floor(raw.day)) : gameDay(save.elapsedS)
-  const affixIds = Array.isArray(raw?.affixIds) ? raw.affixIds.filter(isDungeonAffixId).slice(0, 2) : []
+  const affixIds = readHydratedAffixIds(raw?.affixIds)
   const attemptsUsed =
     typeof raw?.attemptsUsed === 'number' && Number.isFinite(raw.attemptsUsed)
       ? Math.max(0, Math.min(DUNGEON_ATTEMPTS_PER_DAY, Math.floor(raw.attemptsUsed)))
@@ -212,7 +256,7 @@ export function hydrateDungeonFields(save: Save): Save {
   save.dungeon = {
     day,
     chapter,
-    affixIds: affixIds.length === 2 ? affixIds : rollAffixPairForDay(day, save.nextWorkerId ?? 0),
+    affixIds: affixIds.length >= 2 ? affixIds : rollAffixesForDay(day, save.nextWorkerId ?? 0),
     attemptsUsed,
     encounter,
   }

@@ -1,4 +1,4 @@
-import { DUNGEON_AFFIX_DEFS, type DungeonAffixId } from '../sim/dungeon'
+import { DUNGEON_AFFIX_DEFS, dungeonAffixEffect, type CombatAffixScope, type DungeonAffixId } from '../sim/dungeon'
 
 export type DungeonAffixHelpCopy = {
   title: string
@@ -10,9 +10,12 @@ export function nextDungeonAffixHelp(current: DungeonAffixId | null, next: Dunge
   return current === next ? null : next
 }
 
-export function dungeonAffixHelpCopy(id: DungeonAffixId): DungeonAffixHelpCopy {
+export function dungeonAffixHelpCopy(
+  id: DungeonAffixId,
+  scope: CombatAffixScope = 'dungeon',
+): DungeonAffixHelpCopy {
   const def = DUNGEON_AFFIX_DEFS[id]
-  return { title: def.label, effect: def.effect }
+  return { title: def.label, effect: dungeonAffixEffect(id, scope) }
 }
 
 export function isDungeonAffixHelpOpen(current: DungeonAffixId | null, id: DungeonAffixId): boolean {

@@ -20,7 +20,8 @@ import { isEnemyTargetRuleId } from './combatTarget'
 import { findCombatPartyWorker } from './combatAssist'
 import { workerLootXp } from './workerLevel'
 import { ensureEnemyIntel, isEnemyRank, pickEnemyWeaknesses, seedInitialRevealedWeaknesses } from './combatAttrs'
-import { hydrateDungeonFields } from './dungeon'
+import { ensureBattlefieldAffix, hydrateDungeonFields, rollBattlefieldAffix } from './dungeon'
+import { DUNGEON_AFFIX_FX, hasEncounterAffix, isDungeonAffixId } from './dungeonTables'
 import {
   MAIN_CHAPTER_START,
   MAIN_LOOT_CLAIMS_GOAL,
@@ -479,6 +480,7 @@ type LegacyEnemy = {
   /** 旧档强弱，hydrate 读完即丢。 */
   power?: unknown
   targetRuleId?: unknown
+  affixId?: unknown
 }
 
 type LegacyTrade = {
@@ -801,9 +803,22 @@ export function enemyLootPayout(enc: EnemyEncounter, save?: Save): number {
 
 export function enemyLootReward(enc: EnemyEncounter, save?: Save): CurrencyPayout {
   const diamonds = readRewardDiamonds(enc.lootDiamonds)
-  if (diamonds > 0) return { gold: 0, diamonds }
-  const base = typeof enc.lootGold === 'number' && enc.lootGold > 0 ? enc.lootGold : 0
-  return { gold: save ? scaleGold(base, lootGoldMul(save)) : base, diamonds: 0 }
+  const raw =
+    diamonds > 0
+      ? { gold: 0, diamonds }
+      : {
+          gold: save
+            ? scaleGold(typeof enc.lootGold === 'number' && enc.lootGold > 0 ? enc.lootGold : 0, lootGoldMul(save))
+            : typeof enc.lootGold === 'number' && enc.lootGold > 0
+              ? enc.lootGold
+              : 0,
+          diamonds: 0,
+        }
+  if (!hasEncounterAffix(save, enc, 'richVein')) return raw
+  return {
+    gold: Math.round(raw.gold * DUNGEON_AFFIX_FX.richVeinDiamondMul),
+    diamonds: Math.round(raw.diamonds * DUNGEON_AFFIX_FX.richVeinDiamondMul),
+  }
 }
 
 export function pawnReward(enc: PawnEncounter, save?: Save, now = Date.now()): CurrencyPayout {
@@ -1043,9 +1058,10 @@ function makeEnemy(
     REWARD_DIAMOND_CHANCE[enemyRank],
     rewardRoll(rng, seed, slot),
   )
+  const id = `${name.id}-${resolvedQuality}-${seed}-${slot}`
   return seedInitialRevealedWeaknesses({
     kind: 'enemy',
-    id: `${name.id}-${resolvedQuality}-${seed}-${slot}`,
+    id,
     label: forceChapterBoss ? `${name.label}·首领` : name.label,
     quality: resolvedQuality,
     needs: scaledMainNeed(itemId, resolvedQuality, chapter, forceChapterBoss),
@@ -1058,6 +1074,7 @@ function makeEnemy(
     chapterBoss: forceChapterBoss,
     weaknesses: pickEnemyWeaknesses(seed, slot, enemyRank),
     revealedWeaknesses: [],
+    affixId: rollBattlefieldAffix(`${id}:${seed}:${slot}`),
   }, save)
 }
 
@@ -2200,6 +2217,7 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
       ? (raw.revealedWeaknesses as EnemyEncounter['revealedWeaknesses'])
       : [],
     ...(isEnemyTargetRuleId(raw.targetRuleId) ? { targetRuleId: raw.targetRuleId } : {}),
+    ...(isDungeonAffixId(raw.affixId) ? { affixId: raw.affixId } : {}),
     ...(raw.submitted === true && !departed && !combat ? { submitted: true } : {}),
   })
 }
@@ -2381,6 +2399,7 @@ export function hydrateEncounterFields(save: Save): Save {
   for (const enc of raw.encounters) {
     if (enc.kind !== 'enemy') continue
     ensureEnemyIntel(enc, 0, 0, raw)
+    ensureBattlefieldAffix(enc)
     if (enc.combat && enc.combat.outcome === null) {
       ensureCombatShield(enc, enc.combat.startedAt, raw)
     }

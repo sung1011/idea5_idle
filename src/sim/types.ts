@@ -456,8 +456,9 @@ export type Save = {
    */
   potionBuffs: PotionBuffs
   /**
-   * 主线地牢：按游戏日掷 2 词缀、1 次开战。独立战斗，不进战场板、不被探索刷新。
+   * 主线地牢：按游戏日掷 3 词缀、1 次开战。独立战斗，不进战场板、不被探索刷新。
    * 游戏日切强制刷新（先自动发未领宝箱 / 日切判败），旧档缺字段 hydrate 补当天词缀。
+   * 旧档若只存 2 条，当日实例保留，下一次日切再掷满 3 条。
    */
   dungeon: DungeonState
 }
@@ -522,6 +523,11 @@ export type EnemyEncounter = EncounterBase & {
   dungeonMechanic?: 'cleave' | 'workshopSmash' | 'enrage'
   dungeonPendingPhase?: boolean
   dungeonShieldBonus?: number
+  /**
+   * 战场敌人格词缀（与地牢共用词缀池，每卡 1 条）。商场单不写。
+   * 探索刷新该格时重掷。旧档缺字段：非进行中的战斗卡 hydrate 补 1 条。
+   */
+  affixId?: DungeonAffixId
 }
 
 export type DungeonAffixId =

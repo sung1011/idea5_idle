@@ -54,7 +54,12 @@ export const DUNGEON_AFFIX_IDS = [
 ] as const
 export type DungeonAffixId = (typeof DUNGEON_AFFIX_IDS)[number]
 
-export function dungeonAffixEffect(id: DungeonAffixId): string {
+export const DUNGEON_AFFIX_COUNT = 3
+export const BATTLEFIELD_AFFIX_COUNT = 1
+export type CombatAffixScope = 'dungeon' | 'battlefield'
+
+export function dungeonAffixEffect(id: DungeonAffixId, scope: CombatAffixScope = 'dungeon'): string {
+  if (scope === 'battlefield') return battlefieldAffixEffect(id)
   switch (id) {
     case 'thickHide':
       return `开战时地牢 Boss 生命 ×${DUNGEON_AFFIX_FX.thickHideHpMul}（基准 ${DUNGEON_BOSS_STATS.hp} → ${Math.round(DUNGEON_BOSS_STATS.hp * DUNGEON_AFFIX_FX.thickHideHpMul)}）。只作用于本日地牢。`
@@ -78,6 +83,31 @@ export function dungeonAffixEffect(id: DungeonAffixId): string {
       return `增援入场后延迟 ${DUNGEON_AFFIX_FX.reinforceDelayMs / 1000}s 才能出手。开战首发不受影响。`
     case 'dullEdge':
       return `克制伤害倍率固定 ×${DUNGEON_AFFIX_FX.dullEdgeDamageMul}（按无克制结算），破盾与揭示仍算。只作用于本日地牢。`
+  }
+}
+
+export function battlefieldAffixEffect(id: DungeonAffixId): string {
+  switch (id) {
+    case 'thickHide':
+      return `开战时该敌生命 ×${DUNGEON_AFFIX_FX.thickHideHpMul}。只作用于本单。`
+    case 'quickened':
+      return `开战时该敌出手间隔 ×${DUNGEON_AFFIX_FX.quickenedSpdMul}（下限 2s）。只作用于本单。`
+    case 'heavyHands':
+      return `开战时该敌攻击 ×${DUNGEON_AFFIX_FX.heavyHandsAtkMul}。只作用于本单。`
+    case 'ironShield':
+      return `破防盾 +${DUNGEON_AFFIX_FX.ironShieldBonus}。开战写入，持续整场。`
+    case 'jagged':
+      return `该敌每次打中场上工人额外造成 ${DUNGEON_AFFIX_FX.jaggedExtra} 点伤害。不波及工坊站。`
+    case 'richVein':
+      return `领取战利品时金币或钻石 ×${DUNGEON_AFFIX_FX.richVeinDiamondMul}（四舍五入）。只作用于本单。`
+    case 'shortStun':
+      return `破防硬直 ${DUNGEON_AFFIX_FX.shortStunDelta}s。只作用于本单。`
+    case 'workshopRage':
+      return `该敌打中工坊在岗工人的伤害 ×${DUNGEON_AFFIX_FX.workshopRageMul}。不改变对场上工人的伤害。`
+    case 'slowReinforce':
+      return `增援入场后延迟 ${DUNGEON_AFFIX_FX.reinforceDelayMs / 1000}s 才能出手。开战首发不受影响。`
+    case 'dullEdge':
+      return `克制伤害倍率固定 ×${DUNGEON_AFFIX_FX.dullEdgeDamageMul}（按无克制结算），破盾与揭示仍算。只作用于本单。`
   }
 }
 
@@ -138,16 +168,48 @@ export function isDungeonAffixId(value: unknown): value is DungeonAffixId {
   return typeof value === 'string' && (DUNGEON_AFFIX_IDS as readonly string[]).includes(value)
 }
 
-export function rollDungeonAffixes(roll: () => number): DungeonAffixId[] {
+export function rollDungeonAffixes(roll: () => number, count = DUNGEON_AFFIX_COUNT): DungeonAffixId[] {
   const pool = [...DUNGEON_AFFIX_IDS]
   const out: DungeonAffixId[] = []
-  for (let n = 0; n < 2 && pool.length; n++) {
+  const n = Math.max(0, Math.min(pool.length, Math.floor(count)))
+  for (let i = 0; i < n && pool.length; i++) {
     const raw = roll()
     const t = Number.isFinite(raw) ? Math.min(1, Math.max(0, raw)) : 0
-    const i = Math.min(pool.length - 1, Math.floor(t * pool.length))
-    out.push(pool.splice(i, 1)[0])
+    const idx = Math.min(pool.length - 1, Math.floor(t * pool.length))
+    out.push(pool.splice(idx, 1)[0])
   }
   return out
+}
+
+export function applyCombatAffixStats(stats: CombatStats, affixIds: readonly DungeonAffixId[]): CombatStats {
+  let hp = stats.hp
+  let atk = stats.atk
+  let spd = stats.spd
+  if (affixIds.includes('thickHide')) hp = Math.round(hp * DUNGEON_AFFIX_FX.thickHideHpMul)
+  if (affixIds.includes('heavyHands')) atk = Math.max(1, Math.round(atk * DUNGEON_AFFIX_FX.heavyHandsAtkMul))
+  if (affixIds.includes('quickened')) {
+    spd = Math.max(2, Math.round(spd * DUNGEON_AFFIX_FX.quickenedSpdMul * 100) / 100)
+  }
+  return { hp, atk, spd }
+}
+
+export function encounterAffixIds(
+  save: { dungeon?: { affixIds?: unknown } } | undefined,
+  enc: EnemyEncounter,
+): DungeonAffixId[] {
+  if (isDungeonEncounter(enc)) {
+    const ids = save?.dungeon?.affixIds
+    return Array.isArray(ids) ? ids.filter(isDungeonAffixId) : []
+  }
+  return isDungeonAffixId(enc.affixId) ? [enc.affixId] : []
+}
+
+export function hasEncounterAffix(
+  save: { dungeon?: { affixIds?: unknown } } | undefined,
+  enc: EnemyEncounter,
+  id: DungeonAffixId,
+): boolean {
+  return encounterAffixIds(save, enc).includes(id)
 }
 
 export type DungeonEncounter = EnemyEncounter & { dungeon: true }

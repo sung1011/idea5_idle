@@ -4,7 +4,9 @@ import {
   clearEncounterTips,
   combatTipKind,
   encounterTipList,
+  encounterHpShakeAt,
   formatCombatTip,
+  isWeaknessCritCombatTip,
   pushCombatLogTip,
   pushEncounterTip,
 } from './encounterTips'
@@ -42,6 +44,10 @@ describe('encounterTips', () => {
   it('pushes the crit float copy onto the encounter card', () => {
     pushCombatLogTip('enc-a', '甲 对 试敌 造成 15（枪 火 暴击 ×1.5）（2385/2400）', 'ok')
     expect(encounterTipList('enc-a').map((tip) => tip.text)).toEqual(['甲 造成 15（枪 火 暴击）'])
+    expect(isWeaknessCritCombatTip('甲 对 试敌 造成 15（枪 火 暴击 ×1.5）（2385/2400）')).toBe(true)
+    expect(isWeaknessCritCombatTip('甲 对 试敌 造成 8（2400/2400）')).toBe(false)
+    expect(encounterHpShakeAt('enc-a')).toBeGreaterThan(0)
+    expect(encounterHpShakeAt('enc-b')).toBe(0)
   })
 
   it('marks lose lines as err and the rest as ok', () => {

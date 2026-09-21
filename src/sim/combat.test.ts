@@ -37,7 +37,9 @@ import {
   selectableCombatWorkers,
   stepEnemyCombat,
   workerCombatStats,
+  workerLiveStats,
 } from './combat'
+import { jitterWorkerAtkInterval } from './atkInterval'
 import { createSave } from './createSave'
 import { loadFood } from './food'
 import { claimLoot, reinforceCombat, startCombat } from './encounters'
@@ -1011,5 +1013,34 @@ describe('weakness break shields', () => {
     expect(combat.shieldMax).toBeGreaterThanOrEqual(2)
     expect(combat.shieldMax).toBeLessThanOrEqual(3)
     expect(combat.shield).toBe(combat.shieldMax)
+  })
+})
+
+describe('worker interval jitter and battlefield affixes', () => {
+  it('writes the jittered interval onto the fighter used by combat', () => {
+    const save = createSave()
+    const worker = spawnWorkerWith(save, 1, 'laborer')
+    const enc = testEnemy()
+    putEnemy(save, enc)
+    const combat = beginEnemyCombat(enc, [worker], 80_000, 1, undefined, save)
+    expect(combat.workers[0].spd).toBe(workerLiveStats(worker, save).spd)
+    expect(combat.workers[0].spd).toBe(jitterWorkerAtkInterval(workerCombatStats(1, 'laborer', 1, save).spd, worker.id))
+  })
+
+  it('applies a battlefield affix to opening enemy stats and shield', () => {
+    const save = createSave()
+    const worker = spawnWorkerWith(save, 1, 'laborer')
+    const enc = testEnemy({ affixId: 'thickHide' })
+    putEnemy(save, enc)
+    const combat = beginEnemyCombat(enc, [worker], 81_000, 1, undefined, save)
+    const base = enemyCombatStats('green', 'minion', 1)
+    expect(combat.enemy.hpMax).toBe(Math.round(base.hp * 1.4))
+    expect(combat.enemy.atk).toBe(base.atk)
+
+    const shieldEnc = testEnemy({ affixId: 'ironShield' })
+    putEnemy(save, shieldEnc)
+    const shieldCombat = beginEnemyCombat(shieldEnc, [worker], 82_000, 1, undefined, save)
+    expect(shieldCombat.shieldMax).toBeGreaterThanOrEqual(4)
+    expect(shieldCombat.shieldMax).toBeLessThanOrEqual(5)
   })
 })

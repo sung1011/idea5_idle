@@ -53,18 +53,29 @@ function fullWorker(save: ReturnType<typeof createSave>, name: string): Worker {
 }
 
 describe('dungeon mvp', () => {
-  it('hydrates a missing dungeon and rolls two daily affixes', () => {
+  it('hydrates a missing dungeon and rolls three daily affixes', () => {
     const save = createSave()
-    expect(save.dungeon.affixIds).toHaveLength(2)
-    expect(new Set(save.dungeon.affixIds).size).toBe(2)
+    expect(save.dungeon.affixIds).toHaveLength(3)
+    expect(new Set(save.dungeon.affixIds).size).toBe(3)
     expect(save.dungeon.attemptsUsed).toBe(0)
     expect(dungeonEncounterOf(save).label).toBe(DUNGEON_BOSS_LABEL)
     expect(dungeonEncounterOf(save).dungeon).toBe(true)
     const raw = { ...save }
     delete (raw as { dungeon?: typeof save.dungeon }).dungeon
     hydrateDungeonFields(raw)
-    expect(raw.dungeon.affixIds).toHaveLength(2)
+    expect(raw.dungeon.affixIds).toHaveLength(3)
     expect(raw.dungeon.encounter.dungeon).toBe(true)
+  })
+
+  it('keeps an old two-affix dungeon until the next day refresh', () => {
+    const save = createSave()
+    save.dungeon.affixIds = ['thickHide', 'jagged']
+    hydrateDungeonFields(save)
+    expect(save.dungeon.affixIds).toEqual(['thickHide', 'jagged'])
+    save.elapsedS = DAY_LENGTH_S
+    ensureDungeonDay(save)
+    expect(save.dungeon.affixIds).toHaveLength(3)
+    expect(new Set(save.dungeon.affixIds).size).toBe(3)
   })
 
   it('gates start to one attempt per day and does not refund on lose', () => {
@@ -118,7 +129,7 @@ describe('dungeon mvp', () => {
     ensureDungeonDay(save)
     expect(save.dungeon.day).toBe(2)
     expect(save.dungeon.attemptsUsed).toBe(0)
-    expect(save.dungeon.affixIds).toHaveLength(2)
+    expect(save.dungeon.affixIds).toHaveLength(3)
     expect(save.diamonds).toBe(diamonds)
     expect(dungeonEncounterOf(save).combat).toBeNull()
     expect(dungeonEncounterOf(save).lootClaimed).toBe(false)
@@ -320,7 +331,7 @@ describe('dungeon mvp', () => {
     }
   })
 
-  it('still rolls two daily affixes from the stronger 10-id pool', () => {
+  it('still rolls three daily affixes from the stronger 10-id pool', () => {
     expect(DUNGEON_AFFIX_IDS).toEqual([
       'thickHide',
       'quickened',
@@ -337,7 +348,7 @@ describe('dungeon mvp', () => {
     expect(DUNGEON_AFFIX_FX.ironShieldBonus).toBe(2)
     expect(DUNGEON_AFFIX_FX.workshopRageMul).toBe(1.5)
     expect(dungeonStunS(true)).toBe(2)
-    expect(createSave().dungeon.affixIds).toHaveLength(2)
+    expect(createSave().dungeon.affixIds).toHaveLength(3)
   })
 
   it('scales the daily dungeon by the locked chapter and ignores mid-day chapter ups', () => {

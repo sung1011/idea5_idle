@@ -11,6 +11,13 @@ export function hpBarLabel(hp: number, hpMax: number): string {
 
 export type HpBarTone = 'low' | 'mid' | 'full'
 
+/** 弱点暴击时敌血条横晃时长。 */
+export const HP_BAR_SHAKE_MS = 260
+
+export function shouldShakeHpBar(prevKey: number | undefined, nextKey: number | undefined): boolean {
+  return typeof nextKey === 'number' && nextKey > 0 && nextKey !== prevKey
+}
+
 /** 残血偏红，半血暖金，满血主题绿。超上限按满血上色。 */
 export function hpBarTone(hp: number, hpMax: number): HpBarTone {
   const fill = hpBarFill(hp, hpMax)

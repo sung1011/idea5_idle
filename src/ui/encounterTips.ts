@@ -34,6 +34,7 @@ export type EncounterTip = {
 
 const LIFE_MS = 1400
 const tipsByEncounter = reactive<Record<string, EncounterTip[]>>({})
+const shakeAtByEncounter = reactive<Record<string, number>>({})
 let nextId = 1
 
 function scheduleDrop(drop: () => void) {
@@ -88,9 +89,20 @@ export function combatTipKind(text: string): FloatTipKind {
   return 'ok'
 }
 
+export function isWeaknessCritCombatTip(text: string): boolean {
+  return formatCombatTip(text).includes('暴击')
+}
+
+export function encounterHpShakeAt(encounterId: string): number {
+  return shakeAtByEncounter[encounterId] ?? 0
+}
+
 export function pushCombatLogTip(encounterId: string, text: string, kind?: FloatTipKind) {
   const tip = formatCombatTip(text)
   if (!tip) return
+  if (isWeaknessCritCombatTip(text)) {
+    shakeAtByEncounter[encounterId.trim()] = nextId
+  }
   pushEncounterTip(encounterId, tip, kind ?? combatTipKind(text))
 }
 
@@ -101,10 +113,14 @@ export function encounterTipList(encounterId: string): EncounterTip[] {
 export function clearEncounterTips(encounterId?: string) {
   if (encounterId) {
     tipsByEncounter[encounterId] = []
+    delete shakeAtByEncounter[encounterId]
     return
   }
   for (const id of Object.keys(tipsByEncounter)) {
     tipsByEncounter[id] = []
+  }
+  for (const id of Object.keys(shakeAtByEncounter)) {
+    delete shakeAtByEncounter[id]
   }
 }
 

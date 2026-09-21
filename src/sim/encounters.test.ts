@@ -73,6 +73,7 @@ import {
   workshopBuffMul,
 } from './encounters'
 import { initialRevealedWeaknessCount } from './combatAttrs'
+import { isDungeonAffixId } from './dungeon'
 import { isCombatWon, isFighting } from './combat'
 import { assignWorker } from './assign'
 import { currentSpeed } from './query'
@@ -1486,6 +1487,50 @@ describe('artisan and bulk buy', () => {
     expect(save.marketEncounters.some((enc) => enc.id === 'swap-artisan')).toBe(false)
     expect(save.marketEncounters.some((enc) => enc.id === 'swap-bulk')).toBe(false)
     expect(save.marketEncounters.some((enc) => enc.id === 'swap-idle')).toBe(false)
+  })
+})
+
+describe('battlefield affixes', () => {
+  it('rolls one affix per battlefield enemy and none on market orders', () => {
+    const save = createSave()
+    expect(save.encounters.every((enc) => enc.kind === 'enemy' && isDungeonAffixId(enc.affixId))).toBe(true)
+    expect(save.marketEncounters.every((enc) => !('affixId' in enc && enc.affixId))).toBe(true)
+  })
+
+  it('re-rolls the affix when explore replaces a battlefield slot', () => {
+    const save = createSave()
+    const idle = testEnemy({ id: 'swap-affix', affixId: 'thickHide' })
+    const fighting = testEnemy({
+      id: 'keep-affix',
+      affixId: 'jagged',
+      departed: true,
+      combat: fightSnap(null),
+    })
+    save.encounters = [fighting, idle]
+    expect(exploreBoard(save).ok).toBe(true)
+    expect(save.encounters[0].id).toBe('keep-affix')
+    expect(save.encounters[0].kind === 'enemy' && save.encounters[0].affixId).toBe('jagged')
+    const refreshed = save.encounters[1]
+    expect(refreshed.kind).toBe('enemy')
+    if (refreshed.kind !== 'enemy') return
+    expect(refreshed.id).not.toBe('swap-affix')
+    expect(isDungeonAffixId(refreshed.affixId)).toBe(true)
+  })
+
+  it('pads a missing affix on hydrate but leaves a live fight untouched', () => {
+    const save = createSave()
+    const idle = testEnemy({ id: 'pad-idle' })
+    delete idle.affixId
+    const fighting = testEnemy({
+      id: 'pad-fight',
+      departed: true,
+      combat: fightSnap(null),
+    })
+    delete fighting.affixId
+    save.encounters = [idle, fighting]
+    hydrateEncounterFields(save)
+    expect(save.encounters[0].kind === 'enemy' && isDungeonAffixId(save.encounters[0].affixId)).toBe(true)
+    expect(save.encounters[1].kind === 'enemy' && save.encounters[1].affixId).toBeUndefined()
   })
 })
 
