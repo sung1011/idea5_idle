@@ -1,4 +1,5 @@
 import { applyRestHeal, stepCombats, type CombatLogSink } from './combat'
+import { expireTimedMarketOrders } from './marketTimed'
 import { ensureDungeonDay } from './dungeon'
 import { cloneSave } from './clone'
 import { refreshFoodSlots } from './food'
@@ -22,6 +23,7 @@ export function applyTick(save: Save, opts: TickOpts = {}): void {
   save.elapsedS += 1
   save.lastTick = now
   ensureDungeonDay(save, now)
+  expireTimedMarketOrders(save, now)
   applyPotionTicks(save)
   refreshFoodSlots(save, now)
   for (const id of STATION_IDS) stepStation(save, id, now, opts.onGain)

@@ -203,7 +203,7 @@ describe('save migration', () => {
     expect(save?.unlockedTechIds).toEqual([])
     expect(save?.techLevels).toEqual({})
     expect(save?.encounters).toHaveLength(2)
-    expect(save?.marketEncounters).toHaveLength(1)
+    expect(save?.marketEncounters).toHaveLength(2)
 
     const old = {
       ...createSave(),
@@ -242,7 +242,7 @@ describe('save migration', () => {
     expect(mappedSlot?.unlockedTechIds).toEqual(['workshopRules', 'pathOutpost'])
     expect(mappedSlot?.techLevels).toEqual({ workshopRules: 1, pathOutpost: 1 })
     expect(mappedSlot?.encounters).toHaveLength(3)
-    expect(mappedSlot?.marketEncounters).toHaveLength(1)
+    expect(mappedSlot?.marketEncounters).toHaveLength(2)
 
     const store = memory()
     const leveled = createSave()

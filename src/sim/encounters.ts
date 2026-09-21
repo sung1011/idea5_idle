@@ -59,6 +59,16 @@ import {
 } from './tables'
 import { pickMainNeedPotion } from './potions'
 import {
+  TIMED_ORDER_EXPIRED_TIP,
+  attachTimedMarketOrder,
+  expireTimedMarketOrders,
+  isTimedOrderExpired,
+  removeMarketEncounter,
+  scaleCurrencyPayout,
+  scaleNeedMap,
+  timedRewardMul,
+} from './marketTimed'
+import {
   BATTLEFIELD_SLOT_MAX,
   MARKET_SLOT_MAX,
   battlefieldSlotCount,
@@ -795,20 +805,23 @@ export function enemyLootReward(enc: EnemyEncounter, save?: Save): CurrencyPayou
   return { gold: save ? scaleGold(base, lootGoldMul(save)) : base, diamonds: 0 }
 }
 
-export function pawnReward(enc: PawnEncounter, save?: Save): CurrencyPayout {
+export function pawnReward(enc: PawnEncounter, save?: Save, now = Date.now()): CurrencyPayout {
   const diamonds = readRewardDiamonds(enc.rewardDiamonds)
-  if (diamonds > 0) return { gold: 0, diamonds }
-  return { gold: pawnRewardGold(enc, save), diamonds: 0 }
+  const raw = diamonds > 0 ? { gold: 0, diamonds } : { gold: pawnRewardGold(enc, save), diamonds: 0 }
+  return scaleCurrencyPayout(raw, timedRewardMul(enc, now))
 }
 
-export function bulkReward(enc: BulkBuyEncounter, save?: Save): CurrencyPayout {
+export function bulkReward(enc: BulkBuyEncounter, save?: Save, now = Date.now()): CurrencyPayout {
   const diamonds = readRewardDiamonds(enc.rewardDiamonds)
-  if (diamonds > 0) return { gold: 0, diamonds }
-  return { gold: bulkRewardGold(enc, save), diamonds: 0 }
+  const raw = diamonds > 0 ? { gold: 0, diamonds } : { gold: bulkRewardGold(enc, save), diamonds: 0 }
+  return scaleCurrencyPayout(raw, timedRewardMul(enc, now))
 }
 
-export function artisanReward(enc: ArtisanEncounter): CurrencyPayout {
-  return exclusiveCurrencyPayout(enc.rewardGold, enc.rewardDiamonds ?? 0)
+export function artisanReward(enc: ArtisanEncounter, now = Date.now()): CurrencyPayout {
+  return scaleCurrencyPayout(
+    exclusiveCurrencyPayout(enc.rewardGold, enc.rewardDiamonds ?? 0),
+    timedRewardMul(enc, now),
+  )
 }
 
 function rewardRoll(rng?: { rngState: number }, seed = 0, slot = 0): () => number {
@@ -990,6 +1003,8 @@ export type EncounterSpawnOpts = {
   save?: Save
   /** 指定板只刷该板种类；缺省为混合（测试覆盖六种）。 */
   board?: EncounterBoardId
+  /** 限时单墙钟。缺省 Date.now()。 */
+  now?: number
 }
 
 function encounterRng(seed: number, rng?: { rngState: number }): { rngState: number } {
@@ -1278,7 +1293,11 @@ export function encounterFiller(seed: number, opts: EncounterSpawnOpts = {}): (s
     const forceBoss = board !== 'market' && !reserved && claims >= MAIN_LOOT_CLAIMS_GOAL
     const kind = pickKindForBoard(rng, board, forceBoss)
     if (forceBoss) reserved = true
-    return makeEncounter(safe, slot, quality, kind, forceBoss, chapter, rng, opts.save)
+    const enc = makeEncounter(safe, slot, quality, kind, forceBoss, chapter, rng, opts.save)
+    if (board === 'market' && !(opts.starterCopperPawn && slot === 0)) {
+      attachTimedMarketOrder(enc, opts.now ?? Date.now(), chapter)
+    }
+    return enc
   }
 }
 
@@ -1316,6 +1335,7 @@ function spawnOptsFor(
     mainChapter: normalizeMainChapter(save.mainChapter),
     save,
     board,
+    now: Date.now(),
   }
 }
 
@@ -1892,39 +1912,51 @@ export function canBulkBuy(save: Save, index: number): boolean {
   return bulkBuyBlockReason(save, index) === null
 }
 
-export function barterMerchant(save: Save, index: number): ActionResult {
+function rejectExpiredTimed(save: Save, enc: Encounter | undefined, now: number): ActionResult | null {
+  if (!enc || !isTimedOrderExpired(enc, now)) return null
+  removeMarketEncounter(save, enc.id)
+  return { ok: false, reason: TIMED_ORDER_EXPIRED_TIP }
+}
+
+export function barterMerchant(save: Save, index: number, now = Date.now()): ActionResult {
   const blocked = barterBlockReason(save, index)
   if (blocked) return { ok: false, reason: blocked }
   const enc = passerbyAt(save, index)
   if (!enc) return { ok: false, reason: '不是路人偶遇' }
+  const expired = rejectExpiredTimed(save, enc, now)
+  if (expired) return expired
   const took = takeCosts(save, needMapToRules(enc.wants))
   if (!took.ok) return took
-  const added = addNeedMap(save, enc.offers)
+  const added = addNeedMap(save, scaleNeedMap(enc.offers, timedRewardMul(enc, now)))
   if (!added.ok) return added
   enc.completed = true
   save.starterCopperPawnDone = true
   return { ok: true, message: '以物易物成交' }
 }
 
-export function buyMerchant(save: Save, index: number): ActionResult {
+export function buyMerchant(save: Save, index: number, now = Date.now()): ActionResult {
   const blocked = buyMerchantBlockReason(save, index)
   if (blocked) return { ok: false, reason: blocked }
   const enc = blackMerchantAt(save, index)
   if (!enc) return { ok: false, reason: '不是黑心商人偶遇' }
+  const expired = rejectExpiredTimed(save, enc, now)
+  if (expired) return expired
   save.gold -= enc.buyGold
-  const added = addNeedMap(save, enc.buyOffers)
+  const added = addNeedMap(save, scaleNeedMap(enc.buyOffers, timedRewardMul(enc, now)))
   if (!added.ok) return added
   enc.completed = true
   save.starterCopperPawnDone = true
   return { ok: true, message: '金币购买成交' }
 }
 
-export function pawnMerchant(save: Save, index: number): ActionResult {
+export function pawnMerchant(save: Save, index: number, now = Date.now()): ActionResult {
   const blocked = pawnBlockReason(save, index)
   if (blocked) return { ok: false, reason: blocked }
   const enc = pawnAt(save, index)
   if (!enc) return { ok: false, reason: '不是当铺偶遇' }
-  const payout = pawnReward(enc, save)
+  const expired = rejectExpiredTimed(save, enc, now)
+  if (expired) return expired
+  const payout = pawnReward(enc, save, now)
   const took = takeCosts(save, needMapToRules(enc.pawnWants))
   if (!took.ok) return took
   applyCurrencyPayout(save, payout)
@@ -1962,10 +1994,12 @@ export function submitArtisan(save: Save, index: number, now = Date.now()): Acti
   if (blocked) return { ok: false, reason: blocked }
   const enc = artisanAt(save, index)
   if (!enc) return { ok: false, reason: '不是工匠委托' }
+  const expired = rejectExpiredTimed(save, enc, now)
+  if (expired) return expired
   const took = takeCosts(save, needMapToRules(enc.wants))
   if (!took.ok) return took
   applyWorkshopBuff(save, enc.buffMul, enc.buffDurationS, now)
-  const payout = artisanReward(enc)
+  const payout = artisanReward(enc, now)
   applyCurrencyPayout(save, payout)
   enc.completed = true
   save.starterCopperPawnDone = true
@@ -1978,14 +2012,16 @@ export function submitArtisan(save: Save, index: number, now = Date.now()): Acti
   }
 }
 
-export function sellBulk(save: Save, index: number): ActionResult {
+export function sellBulk(save: Save, index: number, now = Date.now()): ActionResult {
   const blocked = bulkBuyBlockReason(save, index)
   if (blocked) return { ok: false, reason: blocked }
   const enc = bulkBuyAt(save, index)
   if (!enc) return { ok: false, reason: '不是收购订单' }
+  const expired = rejectExpiredTimed(save, enc, now)
+  if (expired) return expired
   const took = takeCosts(save, needMapToRules(enc.wants))
   if (!took.ok) return took
-  const payout = bulkReward(enc, save)
+  const payout = bulkReward(enc, save, now)
   applyCurrencyPayout(save, payout)
   enc.completed = true
   save.starterCopperPawnDone = true
@@ -2014,6 +2050,7 @@ export function exploreBoard(save: Save, now = Date.now()): ActionResult {
   save.gold -= cost
   save.exploreCount += 1
   if (!Array.isArray(save.marketEncounters)) save.marketEncounters = []
+  expireTimedMarketOrders(save, now)
   resizeOneBoard(save, 'battlefield', now, false)
   resizeOneBoard(save, 'market', now, false)
   return { ok: true, message: `探索完成。花费 ${cost} 金币` }
@@ -2166,11 +2203,19 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
   })
 }
 
+function readTimedUntil(raw: { timedUntil?: unknown }): { timedUntil?: number } {
+  if (typeof raw.timedUntil === 'number' && Number.isFinite(raw.timedUntil) && raw.timedUntil > 0) {
+    return { timedUntil: Math.floor(raw.timedUntil) }
+  }
+  return {}
+}
+
 function migrateTrade(raw: LegacyTrade): Encounter | unknown {
   const quality = readQuality(raw.quality)
   const completed = raw.completed === true
   const label = typeof raw.label === 'string' ? raw.label : ENCOUNTER_KIND_LABEL.passerby
   const kind = raw.kind === 'shady' ? 'blackMerchant' : raw.kind === 'pawnshop' ? 'pawn' : raw.kind
+  const timed = readTimedUntil(raw)
   if (kind === 'blackMerchant') {
     return {
       kind: 'blackMerchant',
@@ -2180,6 +2225,7 @@ function migrateTrade(raw: LegacyTrade): Encounter | unknown {
       buyGold: typeof raw.buyGold === 'number' ? raw.buyGold : 8,
       buyOffers: isNeedMap(raw.buyOffers) ? { ...raw.buyOffers } : { meal: 1 },
       completed,
+      ...timed,
     } satisfies BlackMerchantEncounter
   }
   if (kind === 'passerby') {
@@ -2191,6 +2237,7 @@ function migrateTrade(raw: LegacyTrade): Encounter | unknown {
       wants: isNeedMap(raw.wants) ? { ...raw.wants } : {},
       offers: isNeedMap(raw.offers) ? { ...raw.offers } : {},
       completed,
+      ...timed,
     } satisfies PasserbyEncounter
   }
   if (kind === 'pawn') {
@@ -2208,6 +2255,7 @@ function migrateTrade(raw: LegacyTrade): Encounter | unknown {
       rewardGold: typeof raw.rewardGold === 'number' ? raw.rewardGold : pawnGoldForMap(pawnWants),
       rewardDiamonds: readRewardDiamonds(raw.rewardDiamonds),
       completed,
+      ...timed,
     } satisfies PawnEncounter
   }
   if (kind === 'artisan') {
@@ -2222,6 +2270,7 @@ function migrateTrade(raw: LegacyTrade): Encounter | unknown {
       buffMul: typeof raw.buffMul === 'number' && raw.buffMul > 1 ? raw.buffMul : 1.15,
       buffDurationS: typeof raw.buffDurationS === 'number' && raw.buffDurationS > 0 ? raw.buffDurationS : 180,
       completed,
+      ...timed,
     } satisfies ArtisanEncounter
   }
   if (kind === 'bulkBuy') {
@@ -2235,6 +2284,7 @@ function migrateTrade(raw: LegacyTrade): Encounter | unknown {
       rewardGold: typeof raw.rewardGold === 'number' ? raw.rewardGold : bulkGoldForMap(wants),
       rewardDiamonds: readRewardDiamonds(raw.rewardDiamonds),
       completed,
+      ...timed,
     } satisfies BulkBuyEncounter
   }
   return raw
@@ -2337,6 +2387,7 @@ export function hydrateEncounterFields(save: Save): Save {
   remapBoardLegacyNeeds(raw.encounters, raw.mainChapter)
   remapBoardLegacyNeeds(raw.marketEncounters, raw.mainChapter)
   hydrateDungeonFields(raw)
+  expireTimedMarketOrders(raw)
   delete raw.currentOrderId
   delete raw.orderIndex
   delete raw.orderSubmitted

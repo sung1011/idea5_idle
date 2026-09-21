@@ -382,7 +382,7 @@ export type Save = {
   nextWorkerId: number
   /** 战场订单板，只放敌人。格数由 `battlefieldSlotCount` 决定：初始 2、封顶 4。 */
   encounters: Encounter[]
-  /** 商场订单板，只放交易单。格数由 `marketSlotCount` 决定：初始 1、封顶 4。旧档缺字段由 hydrate 从混合板拆出。 */
+  /** 商场订单板，只放交易单。格数由 `marketSlotCount` 决定：初始 2、封顶 4。旧档缺字段由 hydrate 从混合板拆出。 */
   marketEncounters: Encounter[]
   /** 主线章节。从 1 起；旧档缺字段 hydrate 为 1。 */
   mainChapter: number
@@ -480,6 +480,8 @@ type EncounterBase = {
   id: string
   label: string
   quality: EncounterQuality
+  /** 商场限时单：过期墙钟。缺字段或已成交不当限时。 */
+  timedUntil?: number | null
 }
 
 export type EnemyEncounter = EncounterBase & {
@@ -529,9 +531,15 @@ export type DungeonAffixId =
   | 'ironShield'
   | 'jagged'
   | 'richVein'
+  | 'shortStun'
+  | 'workshopRage'
+  | 'slowReinforce'
+  | 'dullEdge'
 
 export type DungeonState = {
   day: number
+  /** 日切刷新时锁定的主线章节。当日不随章节上涨重算。 */
+  chapter: number
   affixIds: DungeonAffixId[]
   attemptsUsed: number
   encounter: EnemyEncounter

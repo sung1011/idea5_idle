@@ -14,6 +14,7 @@ import {
   DUNGEON_AFFIX_FX,
   DUNGEON_PARTY_MAX,
   dungeonPhaseIndex,
+  dungeonStunS,
   isDungeonEncounter,
   maybeRotateDungeonTarget,
   onDungeonBreak,
@@ -464,9 +465,12 @@ function applyBreak(
   combat: EnemyCombat,
   at: number,
   onLog?: CombatLogSink,
+  save?: Save,
 ): void {
   combat.shield = 0
-  const stunMs = isDungeonEncounter(enc) ? onDungeonBreak(enc) : enemyStunMs(enc.enemyRank)
+  const stunMs = isDungeonEncounter(enc)
+    ? onDungeonBreak(enc, dungeonStunS(!!save?.dungeon?.affixIds?.includes('shortStun')))
+    : enemyStunMs(enc.enemyRank)
   combat.stunnedUntil = at + stunMs
   if (combat.enemy.nextActAt < combat.stunnedUntil) {
     combat.enemy.nextActAt = combat.stunnedUntil
@@ -530,6 +534,9 @@ export function addCombatReinforcements(
   for (const worker of workers) {
     if (combat.workers.some((row) => row.id === worker.id)) continue
     const fighter = fighterFromWorker(worker, now, save)
+    if (save && isDungeonEncounter(enc) && save.dungeon?.affixIds?.includes('slowReinforce')) {
+      fighter.nextActAt = now + DUNGEON_AFFIX_FX.reinforceDelayMs
+    }
     combat.workers.push(fighter)
     added.push(fighter)
     if (!combat.workerIds.includes(worker.id)) combat.workerIds.push(worker.id)
@@ -641,10 +648,14 @@ function strike(
     const hits = result.hits.length
     if (hits > 0 && !isCombatStunned(combat, at) && (combat.shield ?? 0) > 0) {
       combat.shield = Math.max(0, (combat.shield ?? 0) - hits)
-      if (combat.shield <= 0) applyBreak(enc, combat, at, onLog)
+      if (combat.shield <= 0) applyBreak(enc, combat, at, onLog, save)
     }
     const vuln = isCombatStunned(combat, at) ? BREAK_VULN_MUL : 1
-    const mul = result.mul * vuln
+    const dull =
+      isDungeonEncounter(enc) && save.dungeon?.affixIds?.includes('dullEdge')
+        ? DUNGEON_AFFIX_FX.dullEdgeDamageMul
+        : result.mul
+    const mul = dull * vuln
     const damage = scaledAttackDamage(attacker.atk, mul)
     target.hp = Math.max(0, target.hp - damage)
     if (isDungeonEncounter(enc) && dungeonPhaseLocked(enc) && target.id === 'enemy' && target.hp <= 0) {
@@ -687,7 +698,11 @@ function strikeWorkshop(
     emitLog(enc, combat, at, `${attacker.label} 对 ${target.label} 的伤害被护命抵消（工坊）`, 'ok', onLog)
     return
   }
-  const hit = attacker.atk + dungeonJaggedBonus(save, enc)
+  const rage =
+    isDungeonEncounter(enc) && save.dungeon?.affixIds?.includes('workshopRage')
+      ? DUNGEON_AFFIX_FX.workshopRageMul
+      : 1
+  const hit = Math.max(1, Math.round((attacker.atk + dungeonJaggedBonus(save, enc)) * rage))
   worker.hp = Math.max(1, worker.hp - hit)
   emitLog(
     enc,

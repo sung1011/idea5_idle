@@ -19,7 +19,9 @@ import {
   DUNGEON_AFFIX_FX,
   DUNGEON_ATTEMPTS_PER_DAY,
   DUNGEON_BOSS_STATS,
+  DUNGEON_CHAPTER_FX,
   DUNGEON_CHEST,
+  dungeonChapterScale,
   DUNGEON_NEEDS,
   DUNGEON_PARTY_MAX,
   DUNGEON_TIMEOUT_S,
@@ -43,6 +45,7 @@ export {
   DUNGEON_AFFIX_FX,
   DUNGEON_AFFIX_IDS,
   DUNGEON_ATTEMPTS_PER_DAY,
+  DUNGEON_CHAPTER_FX,
   DUNGEON_BOSS_ID,
   DUNGEON_BOSS_LABEL,
   DUNGEON_BOSS_STATS,
@@ -56,7 +59,9 @@ export {
   DUNGEON_TARGET_ROTATION,
   DUNGEON_TIMEOUT_S,
   dungeonAffixEffect,
+  dungeonChapterScale,
   dungeonChestTier,
+  dungeonStunS,
   isDungeonAffixId,
   isDungeonEncounter,
   makeDungeonEncounter,
@@ -79,9 +84,21 @@ function rollAffixPairForDay(day: number, salt = 0): DungeonAffixId[] {
   return rollDungeonAffixes(roll01Bag(hashString(`dungeon-affix:${day}:${salt}`)))
 }
 
+function lockedDungeonChapter(save?: Save): number {
+  const n = save?.mainChapter
+  return typeof n === 'number' && Number.isFinite(n) ? Math.max(1, Math.floor(n)) : 1
+}
+
+export function dungeonScaleChapter(save: Save): number {
+  const n = save.dungeon?.chapter
+  if (typeof n === 'number' && Number.isFinite(n) && n >= 1) return Math.floor(n)
+  return 1
+}
+
 export function blankDungeonState(save?: Save, day = 1): DungeonState {
   return {
     day,
+    chapter: lockedDungeonChapter(save),
     affixIds: rollAffixPairForDay(day, save?.nextWorkerId ?? 0),
     attemptsUsed: 0,
     encounter: makeDungeonEncounter(),
@@ -93,11 +110,12 @@ export function hasDungeonAffix(save: Save, id: DungeonAffixId): boolean {
 }
 
 export function dungeonBossLiveStats(save: Save): CombatStats {
-  let hp = DUNGEON_BOSS_STATS.hp
-  let atk = DUNGEON_BOSS_STATS.atk
-  let spd = DUNGEON_BOSS_STATS.spd
+  const scale = dungeonChapterScale(dungeonScaleChapter(save))
+  let hp = Math.round(DUNGEON_BOSS_STATS.hp * scale.hpMul)
+  let atk = Math.max(1, Math.round(DUNGEON_BOSS_STATS.atk * scale.atkMul))
+  let spd = Math.max(2, Math.round(DUNGEON_BOSS_STATS.spd * scale.spdMul * 100) / 100)
   if (hasDungeonAffix(save, 'thickHide')) hp = Math.round(hp * DUNGEON_AFFIX_FX.thickHideHpMul)
-  if (hasDungeonAffix(save, 'heavyHands')) atk = Math.round(atk * DUNGEON_AFFIX_FX.heavyHandsAtkMul)
+  if (hasDungeonAffix(save, 'heavyHands')) atk = Math.max(1, Math.round(atk * DUNGEON_AFFIX_FX.heavyHandsAtkMul))
   if (hasDungeonAffix(save, 'quickened')) {
     spd = Math.max(2, Math.round(spd * DUNGEON_AFFIX_FX.quickenedSpdMul * 100) / 100)
   }
@@ -105,7 +123,10 @@ export function dungeonBossLiveStats(save: Save): CombatStats {
 }
 
 export function dungeonShieldBonus(save: Save): number {
-  return hasDungeonAffix(save, 'ironShield') ? DUNGEON_AFFIX_FX.ironShieldBonus : 0
+  const scale = dungeonChapterScale(dungeonScaleChapter(save))
+  let bonus = scale.shield
+  if (hasDungeonAffix(save, 'ironShield')) bonus += DUNGEON_AFFIX_FX.ironShieldBonus
+  return bonus
 }
 
 export function dungeonEncounterOf(save: Save): EnemyEncounter {
@@ -170,11 +191,18 @@ export function hydrateDungeonFields(save: Save): Save {
     typeof raw?.attemptsUsed === 'number' && Number.isFinite(raw.attemptsUsed)
       ? Math.max(0, Math.min(DUNGEON_ATTEMPTS_PER_DAY, Math.floor(raw.attemptsUsed)))
       : 0
+  const hadChapter = typeof raw?.chapter === 'number' && Number.isFinite(raw.chapter) && raw.chapter >= 1
+  const chapter = hadChapter
+    ? Math.floor(raw.chapter as number)
+    : isDungeonEncounter(raw?.encounter)
+      ? 1
+      : lockedDungeonChapter(save)
   const encounter = isDungeonEncounter(raw?.encounter) ? raw.encounter : makeDungeonEncounter()
   encounter.dungeon = true
   encounter.needs = { ...DUNGEON_NEEDS }
   save.dungeon = {
     day,
+    chapter,
     affixIds: affixIds.length === 2 ? affixIds : rollAffixPairForDay(day, save.nextWorkerId ?? 0),
     attemptsUsed,
     encounter,

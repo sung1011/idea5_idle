@@ -4,9 +4,12 @@ import { isCombatStunned, isFighting, stepEnemyCombat } from './combat'
 import { createSave } from './createSave'
 import {
   DUNGEON_AFFIX_DEFS,
+  DUNGEON_AFFIX_FX,
   DUNGEON_AFFIX_IDS,
   DUNGEON_ATTEMPTS_PER_DAY,
   DUNGEON_BOSS_LABEL,
+  DUNGEON_BOSS_STATS,
+  DUNGEON_CHAPTER_FX,
   DUNGEON_CHEST,
   DUNGEON_NEEDS,
   DUNGEON_PARTY_MAX,
@@ -15,15 +18,18 @@ import {
   DUNGEON_TARGET_ROTATION,
   claimDungeonChest,
   dungeonAttemptsLeft,
+  dungeonBossLiveStats,
   dungeonChestTier,
   dungeonEncounterOf,
+  dungeonScaleChapter,
+  dungeonShieldBonus,
   dungeonSupplyBlockReason,
   ensureDungeonDay,
   hydrateDungeonFields,
   reinforceDungeonCombat,
   startDungeonCombat,
 } from './dungeon'
-import { onDungeonBreak, onDungeonWake, rotateDungeonTarget } from './dungeonTables'
+import { dungeonChapterScale, dungeonStunS, onDungeonBreak, onDungeonWake, rotateDungeonTarget } from './dungeonTables'
 import { exploreBoard } from './encounters'
 import { spawnWorkerWith } from './recruit'
 import { DAY_LENGTH_S } from './tables'
@@ -242,6 +248,7 @@ describe('dungeon mvp', () => {
     stockDungeon(save)
     const a = fullWorker(save, '甲')
     const now = 12_000
+    save.dungeon.affixIds = ['thickHide', 'jagged']
     startDungeonCombat(save, [a.id], now)
     const enc = dungeonEncounterOf(save) as EnemyEncounter
     enc.combat!.shield = 1
@@ -292,5 +299,65 @@ describe('dungeon mvp', () => {
       expect(DUNGEON_AFFIX_DEFS[id].effect).toMatch(/\d/)
       expect(DUNGEON_AFFIX_DEFS[id].effect.length).toBeGreaterThan(DUNGEON_AFFIX_DEFS[id].tip.length)
     }
+  })
+
+  it('still rolls two daily affixes from the stronger 10-id pool', () => {
+    expect(DUNGEON_AFFIX_IDS).toEqual([
+      'thickHide',
+      'quickened',
+      'heavyHands',
+      'ironShield',
+      'jagged',
+      'richVein',
+      'shortStun',
+      'workshopRage',
+      'slowReinforce',
+      'dullEdge',
+    ])
+    expect(DUNGEON_AFFIX_FX.thickHideHpMul).toBe(1.4)
+    expect(DUNGEON_AFFIX_FX.ironShieldBonus).toBe(2)
+    expect(DUNGEON_AFFIX_FX.workshopRageMul).toBe(1.5)
+    expect(dungeonStunS(true)).toBe(2)
+    expect(createSave().dungeon.affixIds).toHaveLength(2)
+  })
+
+  it('scales the daily dungeon by the locked chapter and ignores mid-day chapter ups', () => {
+    const save = createSave()
+    save.dungeon.affixIds = ['richVein', 'jagged']
+    expect(save.dungeon.chapter).toBe(1)
+    expect(dungeonChapterScale(1)).toEqual({ hpMul: 1, spdMul: 1, atkMul: 1, shield: 0 })
+    const base = dungeonBossLiveStats(save)
+    expect(base.hp).toBe(DUNGEON_BOSS_STATS.hp)
+    expect(dungeonShieldBonus(save)).toBe(0)
+    save.mainChapter = 5
+    expect(dungeonScaleChapter(save)).toBe(1)
+    expect(dungeonBossLiveStats(save)).toEqual(base)
+    save.elapsedS = DAY_LENGTH_S
+    ensureDungeonDay(save)
+    expect(save.dungeon.chapter).toBe(5)
+    expect(dungeonScaleChapter(save)).toBe(5)
+    save.dungeon.affixIds = ['richVein', 'jagged']
+    const scaled = dungeonBossLiveStats(save)
+    expect(scaled.hp).toBe(Math.round(DUNGEON_BOSS_STATS.hp * DUNGEON_CHAPTER_FX.hpMulPerChapter ** 4))
+    expect(scaled.spd).toBeLessThan(base.spd)
+    expect(dungeonShieldBonus(save)).toBe(1)
+    expect(dungeonChapterScale(3).shield).toBe(1)
+  })
+
+  it('keeps an already-spawned old dungeon at chapter 1 when the field is missing', () => {
+    const save = createSave()
+    save.mainChapter = 6
+    const raw = {
+      ...save,
+      dungeon: {
+        day: save.dungeon.day,
+        affixIds: ['thickHide', 'jagged'] as typeof save.dungeon.affixIds,
+        attemptsUsed: 0,
+        encounter: save.dungeon.encounter,
+      },
+    }
+    hydrateDungeonFields(raw)
+    expect(raw.dungeon.chapter).toBe(1)
+    expect(dungeonScaleChapter(raw)).toBe(1)
   })
 })

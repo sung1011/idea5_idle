@@ -128,6 +128,32 @@ describe('encounterDeal', () => {
     expect(artisanDeal.gain.every((token) => token.kind === 'buff')).toBe(true)
   })
 
+  it('doubles live timed market gains on the card', () => {
+    const now = 5_000
+    const pawn: PawnEncounter = {
+      kind: 'pawn',
+      id: 'timed-pawn',
+      label: '限时当',
+      quality: 'green',
+      pawnWants: { ore: 2 },
+      rewardGold: 10,
+      completed: false,
+      timedUntil: now + 60_000,
+    }
+    expect(encounterDeal(pawn, undefined, now).gain).toEqual([{ kind: 'gold', qty: 20 }])
+    const passerby: PasserbyEncounter = {
+      kind: 'passerby',
+      id: 'timed-pass',
+      label: '限时路人',
+      quality: 'green',
+      wants: { ore: 2 },
+      offers: { fish: 1 },
+      completed: false,
+      timedUntil: now + 60_000,
+    }
+    expect(encounterDeal(passerby, undefined, now).gain).toEqual([{ kind: 'item', itemId: 'fish', qty: 2 }])
+  })
+
   it('joins multiple items with顿号 and hides an empty side', () => {
     expect(formatEncounterDealLines(enemy({ needs: { meal: 2, ore: 1 } }), { meal: 2, ore: 0 })).toEqual({
       consume: '消耗：熟食 ×2 / 2、铜矿 ×1 / 0',

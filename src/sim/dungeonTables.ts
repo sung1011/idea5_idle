@@ -21,12 +21,23 @@ export const DUNGEON_NEEDS: EncounterNeedMap = { herb: 12, spice: 6, meal: 4, sa
 export const DUNGEON_DAILY_REFRESH_TIP = '地牢每日自动刷新'
 
 export const DUNGEON_AFFIX_FX = {
-  thickHideHpMul: 1.25,
-  quickenedSpdMul: 0.8,
-  heavyHandsAtkMul: 1.2,
-  ironShieldBonus: 1,
-  jaggedExtra: 2,
-  richVeinDiamondMul: 1.25,
+  thickHideHpMul: 1.4,
+  quickenedSpdMul: 0.7,
+  heavyHandsAtkMul: 1.45,
+  ironShieldBonus: 2,
+  jaggedExtra: 4,
+  richVeinDiamondMul: 1.5,
+  shortStunDelta: -1,
+  workshopRageMul: 1.5,
+  reinforceDelayMs: 4000,
+  dullEdgeDamageMul: 1,
+} as const
+
+export const DUNGEON_CHAPTER_FX = {
+  hpMulPerChapter: 1.12,
+  spdMulPerChapter: 0.97,
+  atkMulPerChapter: 1.06,
+  shieldFromChapter: 3,
 } as const
 
 export const DUNGEON_BOSS_STATS: CombatStats = { hp: 8000, atk: 5, spd: 4 }
@@ -38,6 +49,10 @@ export const DUNGEON_AFFIX_IDS = [
   'ironShield',
   'jagged',
   'richVein',
+  'shortStun',
+  'workshopRage',
+  'slowReinforce',
+  'dullEdge',
 ] as const
 export type DungeonAffixId = (typeof DUNGEON_AFFIX_IDS)[number]
 
@@ -57,6 +72,14 @@ export function dungeonAffixEffect(id: DungeonAffixId): string {
       return `地牢 Boss 每次打中场上工人额外造成 ${DUNGEON_AFFIX_FX.jaggedExtra} 点伤害。只作用于本日地牢，不波及工坊站。`
     case 'richVein':
       return `领取宝箱时钻石 ×${DUNGEON_AFFIX_FX.richVeinDiamondMul}（四舍五入）。铜 ${DUNGEON_CHEST.copper.diamonds}→${Math.round(DUNGEON_CHEST.copper.diamonds * DUNGEON_AFFIX_FX.richVeinDiamondMul)}、银 ${DUNGEON_CHEST.silver.diamonds}→${Math.round(DUNGEON_CHEST.silver.diamonds * DUNGEON_AFFIX_FX.richVeinDiamondMul)}、金 ${DUNGEON_CHEST.gold.diamonds}→${Math.round(DUNGEON_CHEST.gold.diamonds * DUNGEON_AFFIX_FX.richVeinDiamondMul)}。`
+    case 'shortStun':
+      return `破防硬直 ${DUNGEON_STUN_S + DUNGEON_AFFIX_FX.shortStunDelta}s（基准 ${DUNGEON_STUN_S}s ${DUNGEON_AFFIX_FX.shortStunDelta}s）。只作用于本日地牢。`
+    case 'workshopRage':
+      return `地牢 Boss 打中工坊在岗工人的伤害 ×${DUNGEON_AFFIX_FX.workshopRageMul}。不改变对场上工人的伤害。`
+    case 'slowReinforce':
+      return `增援入场后延迟 ${DUNGEON_AFFIX_FX.reinforceDelayMs / 1000}s 才能出手。开战首发不受影响。`
+    case 'dullEdge':
+      return `克制伤害倍率固定 ×${DUNGEON_AFFIX_FX.dullEdgeDamageMul}（按无克制结算），破盾与揭示仍算。只作用于本日地牢。`
   }
 }
 
@@ -104,9 +127,13 @@ export const DUNGEON_AFFIX_DEFS: Readonly<Record<DungeonAffixId, { label: string
   thickHide: { label: '厚皮', tip: '地牢 Boss 生命更高', effect: dungeonAffixEffect('thickHide') },
   quickened: { label: '迅捷', tip: '地牢 Boss 出手更快', effect: dungeonAffixEffect('quickened') },
   heavyHands: { label: '重击', tip: '地牢 Boss 伤害更高', effect: dungeonAffixEffect('heavyHands') },
-  ironShield: { label: '铁盾', tip: '每阶段盾数 +1', effect: dungeonAffixEffect('ironShield') },
+  ironShield: { label: '铁盾', tip: '每阶段盾数 +2', effect: dungeonAffixEffect('ironShield') },
   jagged: { label: '尖刺', tip: '工人挨打额外受伤', effect: dungeonAffixEffect('jagged') },
   richVein: { label: '富矿', tip: '宝箱钻石更多', effect: dungeonAffixEffect('richVein') },
+  shortStun: { label: '急醒', tip: '破防硬直更短', effect: dungeonAffixEffect('shortStun') },
+  workshopRage: { label: '砸场强化', tip: '工坊波及更疼', effect: dungeonAffixEffect('workshopRage') },
+  slowReinforce: { label: '迟援', tip: '增援出手更慢', effect: dungeonAffixEffect('slowReinforce') },
+  dullEdge: { label: '钝刃', tip: '克制伤害失效', effect: dungeonAffixEffect('dullEdge') },
 }
 
 export function isDungeonAffixId(value: unknown): value is DungeonAffixId {
@@ -146,6 +173,31 @@ export function dungeonPhaseShield(phase: unknown, bonus = 0): number {
   return dungeonPhaseDef(phase).shield + Math.max(0, Math.floor(bonus))
 }
 
+export function dungeonChapterOffset(chapter: unknown): number {
+  const n = typeof chapter === 'number' && Number.isFinite(chapter) ? Math.floor(chapter) : 1
+  return Math.max(0, n - 1)
+}
+
+export function dungeonChapterScale(chapter: unknown): {
+  hpMul: number
+  spdMul: number
+  atkMul: number
+  shield: number
+} {
+  const n = dungeonChapterOffset(chapter)
+  const ch = n + 1
+  return {
+    hpMul: DUNGEON_CHAPTER_FX.hpMulPerChapter ** n,
+    spdMul: DUNGEON_CHAPTER_FX.spdMulPerChapter ** n,
+    atkMul: DUNGEON_CHAPTER_FX.atkMulPerChapter ** n,
+    shield: ch >= DUNGEON_CHAPTER_FX.shieldFromChapter ? 1 : 0,
+  }
+}
+
+export function dungeonStunS(hasShortStun: boolean): number {
+  return Math.max(1, DUNGEON_STUN_S + (hasShortStun ? DUNGEON_AFFIX_FX.shortStunDelta : 0))
+}
+
 export function dungeonChestTier(enc: EnemyEncounter): DungeonChestTier {
   if (enc.combat?.outcome === 'win') return 'gold'
   if ((enc.dungeonPhaseReached ?? 1) >= 2) return 'silver'
@@ -173,14 +225,14 @@ export function applyDungeonPhaseToEncounter(enc: EnemyEncounter, phase: number,
   }
 }
 
-export function onDungeonBreak(enc: EnemyEncounter): number {
+export function onDungeonBreak(enc: EnemyEncounter, stunS = DUNGEON_STUN_S): number {
   const phase = dungeonPhaseIndex(enc.dungeonPhase)
   if (phase < DUNGEON_PHASES.length) {
     enc.dungeonPendingPhase = true
     enc.dungeonPhase = phase + 1
     enc.dungeonPhaseReached = Math.max(enc.dungeonPhaseReached ?? 1, enc.dungeonPhase)
   }
-  return DUNGEON_STUN_S * 1000
+  return Math.max(1, stunS) * 1000
 }
 
 export function onDungeonWake(enc: EnemyEncounter, combat: EnemyCombat, at: number): boolean {

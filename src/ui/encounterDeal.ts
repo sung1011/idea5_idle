@@ -13,6 +13,7 @@ import {
   enemyLootReward,
   pawnReward,
 } from '../sim/encounters'
+import { scaleNeedMap, timedRewardMul } from '../sim/marketTimed'
 import { ITEM_DEF } from '../sim/tables'
 import type { CurrencyPayout } from '../sim/currencyReward'
 import type { EncounterBoardId } from '../sim/encounters'
@@ -42,7 +43,8 @@ function currencyToken(payout: CurrencyPayout, note?: string): DealToken | null 
   return null
 }
 
-export function encounterDeal(enc: Encounter, save?: Save): EncounterDeal {
+export function encounterDeal(enc: Encounter, save?: Save, now = Date.now()): EncounterDeal {
+  const rewardMul = timedRewardMul(enc, now)
   switch (enc.kind) {
     case 'enemy': {
       const loot = enemyLootReward(enc, save)
@@ -54,12 +56,12 @@ export function encounterDeal(enc: Encounter, save?: Save): EncounterDeal {
     case 'blackMerchant':
       return {
         consume: [{ kind: 'gold', qty: enc.buyGold }],
-        gain: tokensFromNeedMap(enc.buyOffers),
+        gain: tokensFromNeedMap(scaleNeedMap(enc.buyOffers, rewardMul)),
       }
     case 'passerby':
       return {
         consume: tokensFromNeedMap(enc.wants),
-        gain: tokensFromNeedMap(enc.offers),
+        gain: tokensFromNeedMap(scaleNeedMap(enc.offers, rewardMul)),
       }
     case 'pawn':
       return {
@@ -156,8 +158,9 @@ export function formatEncounterDealLines(
   enc: Encounter,
   owned: Partial<Record<ItemId, number>> = {},
   save?: Save,
+  now = Date.now(),
 ): { consume: string; gain: string } {
-  const deal = encounterDeal(enc, save)
+  const deal = encounterDeal(enc, save, now)
   return {
     consume: deal.consume.length
       ? `消耗：${deal.consume

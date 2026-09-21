@@ -6,11 +6,11 @@ import type { ActionResult, Save, StationId, TechId } from './types'
 
 export const BATTLEFIELD_SLOT_MIN = 2
 export const BATTLEFIELD_SLOT_MAX = 4
-export const MARKET_SLOT_MIN = 1
+export const MARKET_SLOT_MIN = 2
 export const MARKET_SLOT_MAX = 4
 /** 战场订单格科技。每级 +1，与初始 2 格相加，封顶 4。 */
 export const BATTLEFIELD_SLOT_EFFECT = 'battlefieldSlot'
-/** 商场订单格科技。每级 +1，与初始 1 格相加，封顶 4。 */
+/** 商场订单格科技。每级 +1，与初始 2 格相加，封顶 4。 */
 export const MARKET_SLOT_EFFECT = 'marketSlot'
 /** @deprecated 旧单板 effectId；现拆成 battlefieldSlot / marketSlot。 */
 export const ENCOUNTER_SLOT_EFFECT = BATTLEFIELD_SLOT_EFFECT
@@ -334,7 +334,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'marketLicense',
         name: '市集摊位',
-        desc: '多摆一个摊位，商场订单格 +1（1→2）。',
+        desc: '多摆一个摊位，商场订单格 +1（2→3）。',
         icon: '🪪',
         effectId: MARKET_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
@@ -374,7 +374,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'farWatch',
         name: '货栈扩容',
-        desc: '货栈多开一间，商场订单格 +1（2→3）。',
+        desc: '货栈多开一间，商场订单格 +1（3→4）。',
         icon: '🗼',
         effectId: MARKET_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
@@ -388,7 +388,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'caravanPermit',
         name: '商路执照',
-        desc: '办好商路执照，商场订单格 +1（3→4）。',
+        desc: '办好商路执照，商场订单格 +1（封顶 4）。',
         icon: '🐫',
         effectId: MARKET_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
@@ -653,7 +653,7 @@ export function battlefieldSlotCount(save: Save): number {
   return slotCountFor(save, BATTLEFIELD_SLOT_TECH_IDS, BATTLEFIELD_SLOT_MIN, BATTLEFIELD_SLOT_MAX)
 }
 
-/** 商场订单格。初始 1，每级商场格科技 +1，封顶 4。 */
+/** 商场订单格。初始 2，每级商场格科技 +1，封顶 4。 */
 export function marketSlotCount(save: Save): number {
   return slotCountFor(save, MARKET_SLOT_TECH_IDS, MARKET_SLOT_MIN, MARKET_SLOT_MAX)
 }

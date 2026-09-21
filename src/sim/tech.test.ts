@@ -360,7 +360,7 @@ describe('research unlock', () => {
     expect(researchTech(save, 'pathOutpost').ok).toBe(true)
     expect(researchTech(save, 'marketLicense').ok).toBe(true)
     expect(battlefieldSlotCount(save)).toBe(3)
-    expect(marketSlotCount(save)).toBe(2)
+    expect(marketSlotCount(save)).toBe(3)
   })
 
   it('lets leftover options on a hydrated row be bought later', () => {
@@ -471,15 +471,15 @@ describe('battlefieldSlotCount and marketSlotCount', () => {
 
     expect(buy(save, 'marketLicense').ok).toBe(true)
     expect(battlefieldSlotCount(save)).toBe(3)
-    expect(marketSlotCount(save)).toBe(2)
-    expect(save.marketEncounters).toHaveLength(2)
+    expect(marketSlotCount(save)).toBe(3)
+    expect(save.marketEncounters).toHaveLength(3)
 
     expect(buy(save, 'scoutRelay').ok).toBe(true)
     expect(battlefieldSlotCount(save)).toBe(BATTLEFIELD_SLOT_MAX)
     expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MAX)
 
     expect(buy(save, 'farWatch').ok).toBe(true)
-    expect(marketSlotCount(save)).toBe(3)
+    expect(marketSlotCount(save)).toBe(MARKET_SLOT_MAX)
     expect(buy(save, 'caravanPermit').ok).toBe(true)
     expect(marketSlotCount(save)).toBe(MARKET_SLOT_MAX)
     expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MAX)
@@ -620,9 +620,9 @@ describe('resetAllTech', () => {
     expect(save.techPoints).toBe(leftover)
     expect(techLevel(save, 'workshopCrest')).toBe(3)
     expect(battlefieldSlotCount(save)).toBe(3)
-    expect(marketSlotCount(save)).toBe(2)
+    expect(marketSlotCount(save)).toBe(3)
     expect(save.encounters).toHaveLength(3)
-    expect(save.marketEncounters).toHaveLength(2)
+    expect(save.marketEncounters).toHaveLength(3)
     expect(stationConflictMul(save, 'mining')).toBe(STATION_CONFLICT_CLEARED_MUL)
 
     const gold = save.gold

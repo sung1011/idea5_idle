@@ -29,6 +29,7 @@ import {
   workshopBuffMul,
   workshopBuffRemainS,
 } from '../sim/encounters'
+import { timedOrderLine } from '../sim/marketTimed'
 import {
   DUNGEON_ATTEMPTS_PER_DAY,
   DUNGEON_DAILY_REFRESH_TIP,
@@ -325,6 +326,10 @@ function pickRecommend(w: Worker) {
   return enc ? fighterRecommendLabel(w.combatAttrs, enc) : null
 }
 
+function timedLine(enc: Encounter) {
+  return timedOrderLine(enc, now.value)
+}
+
 </script>
 
 <template>
@@ -513,6 +518,7 @@ function pickRecommend(w: Worker) {
             </div>
           </header>
           <p v-if="showCardLabel(enc)" class="label">{{ enc.label }}</p>
+          <p v-if="timedLine(enc)" class="timed">{{ timedLine(enc) }}</p>
           <EncounterDealLines :encounter="enc" />
 
           <template v-if="enc.kind === 'blackMerchant'">
@@ -796,6 +802,13 @@ function pickRecommend(w: Worker) {
 .label {
   font-family: var(--font-mono);
   color: var(--copper);
+}
+
+.timed {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: #c0392b;
 }
 
 .buff {
