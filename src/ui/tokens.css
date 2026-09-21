@@ -41,9 +41,9 @@
   --bar-fill-moss: var(--bar-sheen), linear-gradient(90deg, #9ee65a, var(--moss-deep));
   --bar-fill-gold: var(--bar-sheen), linear-gradient(90deg, #f3d06a, var(--gold-deep));
   --bar-fill-hp: var(--bar-sheen), linear-gradient(90deg, #f0785a, var(--danger));
-  --bar-fill-workshop: var(--bar-sheen), linear-gradient(90deg, #fff8ee, #ffffff);
+  --bar-fill-workshop: var(--bar-sheen), linear-gradient(90deg, #9bb8b8, #c5d8d6);
   --bar-fill-workshop-halt: var(--bar-sheen), linear-gradient(90deg, #d4cdc0, #9a8f7c);
-  --rail-fill-workshop: linear-gradient(0deg, #fff4e6, #ffffff);
+  --rail-fill-workshop: linear-gradient(0deg, #9bb8b8, #c5d8d6);
   --z-dock: 3;
   --z-hud: 4;
   --z-sheet: 30;
