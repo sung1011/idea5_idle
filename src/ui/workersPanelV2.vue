@@ -44,6 +44,7 @@ import { workerWearHp } from '../sim/workshopHp'
 import {
   canDispatchRestingWorker,
   canGoToAssignedWorkshop,
+  canWithdrawWorkshopWorker,
   mainlineCombatWorkers,
   restingWorkers,
   workerAssignChoices,
@@ -87,6 +88,7 @@ const boards = computed(() => workshopStationBoards(game.save))
 const fightingRoster = computed(() => mainlineCombatWorkers(game.save))
 const resting = computed(() => restingWorkers(game.save))
 const canDispatch = computed(() => canDispatchRestingWorker(game.save))
+const canWithdraw = computed(() => canWithdrawWorkshopWorker(game.save))
 const selected = computed(() => {
   const id = selectedId.value
   if (!id) return null
@@ -609,6 +611,16 @@ onUnmounted(() => {
       </button>
       <button
         type="button"
+        class="dispatch-fab"
+        :class="{ off: !canWithdraw }"
+        :aria-disabled="!canWithdraw"
+        aria-label="撤出"
+        @click="game.withdrawWorkshopToRest()"
+      >
+        →
+      </button>
+      <button
+        type="button"
         class="recruit-fab"
         :class="{ 'guide-flash': guideFlashRecruit }"
         :aria-label="`抽工人 · ${recruitCost(game.save)} 钻`"
@@ -884,7 +896,7 @@ onUnmounted(() => {
 }
 
 .rest-list {
-  padding: 3px 3px 84px;
+  padding: 3px 3px 116px;
 }
 
 .station {
@@ -1253,7 +1265,7 @@ onUnmounted(() => {
 
 .empty-rest {
   margin: 6px 3px;
-  padding-bottom: 84px;
+  padding-bottom: 116px;
   color: var(--muted);
   font-size: 10px;
   font-weight: 700;

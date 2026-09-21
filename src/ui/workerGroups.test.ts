@@ -15,7 +15,9 @@ import {
   canAssignWorkerTo,
   canDispatchRestingWorker,
   canGoToAssignedWorkshop,
+  canWithdrawWorkshopWorker,
   firstEmptyDispatchStation,
+  lastOccupiedDispatchStation,
   groupWorkersByQuality,
   loadWorkerGroupOrder,
   rosterDutyCounts,
@@ -33,6 +35,7 @@ import {
   workerGroupOrderOf,
   workerShopCaption,
   workerShortName,
+  withdrawWorkshopToRest,
   workshopStationBoards,
 } from './workerGroups'
 
@@ -360,6 +363,73 @@ describe('assign resting to first empty slot', () => {
     expect(firstEmptyDispatchStation(save)).toBe('hunting')
     expect(assignRestingToFirstEmpty(save)).toEqual({ ok: true })
     expect(next.assignment).toBe('hunting')
+  })
+})
+
+describe('withdraw workshop to rest', () => {
+  it('rejects when nobody is on duty and never pulls a fighter', () => {
+    const empty = createSave()
+    expect(lastOccupiedDispatchStation(empty)).toBeNull()
+    expect(canWithdrawWorkshopWorker(empty)).toBe(false)
+    expect(withdrawWorkshopToRest(empty)).toEqual({ ok: false, reason: '没有可撤的工人' })
+
+    const save = createSave()
+    const fighter = spawnWorkerWith(save, 1, 'wanderer')
+    const enc: EnemyEncounter = {
+      kind: 'enemy',
+      id: 'test-enemy-withdraw',
+      label: '试敌',
+      quality: 'green',
+      needs: { meal: 1 },
+      lootGold: 8,
+      departed: false,
+      combat: null,
+      lootClaimed: false,
+      enemyRank: 'minion',
+      weaknesses: ['fire'],
+      revealedWeaknesses: [],
+    }
+    save.encounters[0] = enc
+    beginEnemyCombat(enc, [fighter], 1_000)
+    expect(canWithdrawWorkshopWorker(save)).toBe(false)
+    expect(withdrawWorkshopToRest(save)).toEqual({ ok: false, reason: '没有可撤的工人' })
+    expect(fighter.assignment).toBeNull()
+  })
+
+  it('withdraws the last occupied station first, last assigned at that station', () => {
+    const save = unlockPlayableStations(createSave())
+    const herb = spawnWorkerWith(save, 1, 'laborer')
+    const huntA = spawnWorkerWith(save, 2, 'hunter')
+    const huntB = spawnWorkerWith(save, 2, 'artisan')
+    assignWorker(save, herb.id, 'herbalism')
+    assignWorker(save, huntA.id, 'hunting')
+    assignWorker(save, huntB.id, 'hunting')
+    expect(lastOccupiedDispatchStation(save)).toBe('hunting')
+    expect(canWithdrawWorkshopWorker(save)).toBe(true)
+    expect(withdrawWorkshopToRest(save)).toEqual({ ok: true })
+    expect(huntB.assignment).toBeNull()
+    expect(huntA.assignment).toBe('hunting')
+    expect(herb.assignment).toBe('herbalism')
+
+    expect(withdrawWorkshopToRest(save)).toEqual({ ok: true })
+    expect(huntA.assignment).toBeNull()
+    expect(herb.assignment).toBe('herbalism')
+    expect(lastOccupiedDispatchStation(save)).toBe('herbalism')
+
+    expect(withdrawWorkshopToRest(save)).toEqual({ ok: true })
+    expect(herb.assignment).toBeNull()
+    expect(canWithdrawWorkshopWorker(save)).toBe(false)
+  })
+
+  it('reverses a 派入 scan: forging comes off before herbalism', () => {
+    const save = unlockPlayableStations(createSave())
+    const herb = spawnWorkerWith(save, 1, 'laborer')
+    const forge = spawnWorkerWith(save, 1, 'smith')
+    assignWorker(save, herb.id, 'herbalism')
+    assignWorker(save, forge.id, 'forging')
+    expect(withdrawWorkshopToRest(save)).toEqual({ ok: true })
+    expect(forge.assignment).toBeNull()
+    expect(herb.assignment).toBe('herbalism')
   })
 })
 

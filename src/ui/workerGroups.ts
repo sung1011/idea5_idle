@@ -1,4 +1,4 @@
-import { assignedWorkers, assignWorker } from '../sim/assign'
+import { assignedWorkers, assignWorker, withdrawWorker } from '../sim/assign'
 import { fightingWorkerIds, isWorkerInCombat } from '../sim/combat'
 import { canFuseWorkerWithStation } from '../sim/fuse'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
@@ -266,4 +266,25 @@ export function assignRestingToFirstEmpty(save: Save): ActionResult {
     return { ok: false, reason: '工位已满' }
   }
   return assignWorker(save, idle.id, stationId)
+}
+
+/** 派入扫描逆序：武器→食物→药剂，站内后派的先撤。出战不计入。 */
+export function lastOccupiedDispatchStation(save: Save): StationId | null {
+  for (let i = STATION_ORDER.length - 1; i >= 0; i -= 1) {
+    const stationId = STATION_ORDER[i]
+    const crew = assignedWorkers(save, stationId).filter((w) => !isWorkerInCombat(save, w.id))
+    if (crew.length > 0) return stationId
+  }
+  return null
+}
+
+export function canWithdrawWorkshopWorker(save: Save): boolean {
+  return lastOccupiedDispatchStation(save) != null
+}
+
+/** 在岗一人撤回休息。沿用 withdrawWorker / assignWorker。 */
+export function withdrawWorkshopToRest(save: Save): ActionResult {
+  const stationId = lastOccupiedDispatchStation(save)
+  if (!stationId) return { ok: false, reason: '没有可撤的工人' }
+  return withdrawWorker(save, stationId)
 }
