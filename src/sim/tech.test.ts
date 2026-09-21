@@ -70,6 +70,7 @@ import {
   diamondOrderChanceBonus,
   battlefieldSlotCount,
   encounterSlotCount,
+  exploreCostMul,
   marketDiamondChance,
   marketSlotCount,
   miningDualDropBonus,
@@ -1017,17 +1018,21 @@ describe('wired placeholder techs', () => {
 
     const echo = createSave()
     unlock(echo, 'combatLegend')
-    const striker = spawnWorkerWith(echo, 1, 'laborer', ['fire'])
+    const striker = spawnWorkerWith(echo, 5, 'artisan', ['fire'])
     const echoEnc = testEnemy({
       weaknesses: ['fire'],
       revealedWeaknesses: ['fire'],
     })
     echo.encounters = [echoEnc]
-    const echoFight = beginEnemyCombat(echoEnc, [striker], 70_000, 1, undefined, echo, { shield: 1 })
+    const echoFight = beginEnemyCombat(echoEnc, [striker], 70_000, 1, undefined, echo)
+    echoFight.shieldMax = 1
+    echoFight.shield = 1
+    echoFight.stunnedUntil = null
     echoFight.workers[0].nextActAt = 71_000
     echoFight.enemy.nextActAt = 90_000
     const hp0 = echoFight.enemy.hp
     stepEnemyCombat(echo, echoEnc, 71_000)
+    expect(echoFight.shield).toBe(0)
     expect(echoFight.stunnedUntil).toBeGreaterThan(71_000)
     echoFight.workers[0].nextActAt = 72_000
     const hp1 = echoFight.enemy.hp
