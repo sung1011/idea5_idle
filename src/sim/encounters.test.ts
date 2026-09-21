@@ -463,13 +463,16 @@ describe('unlock-gated main need pool', () => {
       'eye',
       'junk',
     ])
+    expect(mainNeedItemPool({ knightLevel: 5 })).not.toContain('meal')
+    expect(mainNeedItemPool({ knightLevel: 6 })).toContain('meal')
+    expect(mainNeedItemPool({ knightLevel: 6 })).toContain('roast')
+    expect(mainNeedItemPool({ knightLevel: 6 })).toContain('stew')
+    expect(mainNeedItemPool({ knightLevel: 6 })).not.toContain('ore')
     expect(mainNeedItemPool({ knightLevel: 8 })).toContain('meal')
-    expect(mainNeedItemPool({ knightLevel: 8 })).toContain('roast')
-    expect(mainNeedItemPool({ knightLevel: 8 })).toContain('stew')
-    expect(mainNeedItemPool({ knightLevel: 8 })).toContain('ore')
-    expect(mainNeedItemPool({ knightLevel: 8 })).toContain('ironOre')
-    expect(mainNeedItemPool({ knightLevel: 8 })).toContain('mithrilOre')
-    expect(mainNeedItemPool({ knightLevel: 8 })).not.toContain('runeSharp')
+    expect(mainNeedItemPool({ knightLevel: 8 })).not.toContain('ore')
+    expect(mainNeedItemPool({ knightLevel: 9 })).toContain('ore')
+    expect(mainNeedItemPool({ knightLevel: 9 })).toContain('ironOre')
+    expect(mainNeedItemPool({ knightLevel: 9 })).toContain('mithrilOre')
     expect(mainNeedItemPool({ knightLevel: 9 })).not.toContain('runeSharp')
     expect(mainNeedItemPool({ knightLevel: 10 })).toContain('runeSharp')
     expect(mainNeedItemPool()).toEqual(['herb', 'spice'])
@@ -504,7 +507,7 @@ describe('unlock-gated main need pool', () => {
       isRuneItemId(resolveUnlockedMainNeedItem('tool', 'green', 1, false, undefined, 0, { knightLevel: 10 })),
     ).toBe(true)
     expect(resolveUnlockedMainNeedItem('salve', 'green', 1, false, undefined, 0, { knightLevel: 2 })).toBe('salve')
-    expect(resolveUnlockedMainNeedItem('meal', 'green', 1, false, undefined, 0, { knightLevel: 8 })).toBe('meal')
+    expect(resolveUnlockedMainNeedItem('meal', 'green', 1, false, undefined, 0, { knightLevel: 6 })).toBe('meal')
     expect(resolveUnlockedMainNeedItem('meal', 'green', 1, false, undefined, 3, { knightLevel: 1 })).toMatch(
       /^herb|spice$/,
     )

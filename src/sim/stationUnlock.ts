@@ -7,8 +7,8 @@ export const STATION_UNLOCK_KNIGHT = {
   herbalism: 1,
   alchemy: 2,
   hunting: 5,
-  cooking: 8,
-  mining: 8,
+  cooking: 6,
+  mining: 9,
   inscription: 10,
 } as const satisfies Record<StationId, number>
 
