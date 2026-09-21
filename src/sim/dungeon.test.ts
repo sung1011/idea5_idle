@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { addToBank, itemQty } from './bank'
-import { isCombatStunned, isFighting, stepEnemyCombat } from './combat'
+import { combatRosterFighters, isCombatStunned, isFighting, stepEnemyCombat } from './combat'
 import { createSave } from './createSave'
 import {
   DUNGEON_AFFIX_DEFS,
@@ -184,6 +184,36 @@ describe('dungeon mvp', () => {
     const sixth = reinforceDungeonCombat(save, [ids[5]], 5_100)
     expect(sixth.ok).toBe(false)
     if (!sixth.ok) expect(sixth.reason).toContain(String(DUNGEON_PARTY_MAX))
+  })
+
+  it('drops a downed fighter from the dungeon order roster immediately', () => {
+    const save = createSave()
+    stockDungeon(save)
+    const a = fullWorker(save, '甲')
+    const b = fullWorker(save, '乙')
+    expect(startDungeonCombat(save, [a.id, b.id], 7_000).ok).toBe(true)
+    const enc = dungeonEncounterOf(save)
+    enc.targetRuleId = 'lowestHp'
+    const combat = enc.combat
+    expect(combat).toBeTruthy()
+    if (!combat) return
+    combat.workers[0].hp = 1
+    a.hp = 1
+    combat.workers[0].nextActAt = 7_000 + 9_000
+    combat.workers[1].nextActAt = 7_000 + 9_000
+    combat.enemy.nextActAt = 7_000 + 50
+    combat.enemy.atk = 8
+    stepEnemyCombat(save, enc, 7_000 + 50)
+    expect(isFighting(enc)).toBe(true)
+    expect(combat.workers.map((w) => w.id)).toEqual([b.id])
+    expect(combatRosterFighters(combat).map((w) => w.id)).toEqual([b.id])
+    expect(combat.workers.every((w) => w.hp > 0)).toBe(true)
+    expect(a.assignment).toBeNull()
+    expect(reinforceDungeonCombat(save, [a.id], 7_100).ok).toBe(false)
+    a.hp = a.hpMax
+    a.fatigueDebt = 0
+    expect(reinforceDungeonCombat(save, [a.id], 7_200).ok).toBe(true)
+    expect(combatRosterFighters(combat).map((w) => w.id).sort()).toEqual([a.id, b.id].sort())
   })
 
   it('does not spend the daily attempt when reinforcing', () => {
@@ -372,6 +402,28 @@ describe('dungeon mvp', () => {
     expect(scaled.spd).toBeLessThan(base.spd)
     expect(dungeonShieldBonus(save)).toBe(1)
     expect(dungeonChapterScale(3).shield).toBe(1)
+  })
+
+  it('hydrates a dungeon fight without leftover 0-hp roster shells', () => {
+    const save = createSave()
+    const downed = fullWorker(save, '倒')
+    const alive = fullWorker(save, '活')
+    save.dungeon.encounter.combat = {
+      startedAt: 1,
+      timeoutAt: 100_000,
+      workerIds: [downed.id, alive.id],
+      workers: [
+        { id: downed.id, label: '倒', hp: 0, hpMax: 24, atk: 4, spd: 5, nextActAt: 2 },
+        { id: alive.id, label: '活', hp: 20, hpMax: 24, atk: 4, spd: 5, nextActAt: 3 },
+      ],
+      enemy: { id: 'enemy', label: '看守', hp: 100, hpMax: 100, atk: 5, spd: 4, nextActAt: 4 },
+      logs: [],
+      outcome: null,
+    }
+    hydrateDungeonFields(save)
+    const combat = dungeonEncounterOf(save).combat
+    expect(combat?.workers.map((w) => w.id)).toEqual([alive.id])
+    expect(combatRosterFighters(combat).map((w) => w.id)).toEqual([alive.id])
   })
 
   it('keeps an already-spawned old dungeon at chapter 1 when the field is missing', () => {

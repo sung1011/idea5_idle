@@ -9,6 +9,7 @@ import {
   fieldFighterCount,
   grantWorkerCombatXp,
   ensureCombatShield,
+  hydrateCombatRoster,
   isCombatWon,
   isEnemyCombat,
   isFighting,
@@ -2400,6 +2401,7 @@ export function hydrateEncounterFields(save: Save): Save {
     if (enc.kind !== 'enemy') continue
     ensureEnemyIntel(enc, 0, 0, raw)
     ensureBattlefieldAffix(enc)
+    hydrateCombatRoster(raw, enc)
     if (enc.combat && enc.combat.outcome === null) {
       ensureCombatShield(enc, enc.combat.startedAt, raw)
     }

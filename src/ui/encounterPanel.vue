@@ -6,6 +6,7 @@ import CombatAttrRow from './combatAttrRow.vue'
 import {
   canReinforceCombat,
   combatPartyCap,
+  combatRosterFighters,
   fieldFighterCount,
   isCombatLost,
   isCombatStunned,
@@ -317,6 +318,10 @@ function enemyHpShakeKey(enc: Encounter) {
   return encounterHpShakeAt(enc.id)
 }
 
+function rosterFighters(enc: Encounter) {
+  return enc.kind === 'enemy' ? combatRosterFighters(enc.combat) : []
+}
+
 function combatShield(enc: EnemyEncounter): number | null {
   if (!enc.combat || typeof enc.combat.shield !== 'number') return null
   return enc.combat.shield
@@ -492,7 +497,7 @@ function timedLine(enc: Encounter) {
                 :hp-max="enc.combat.enemy.hpMax"
                 :shake-key="enemyHpShakeKey(enc)"
               />
-              <template v-for="w in enc.combat.workers" :key="w.id">
+              <template v-for="w in rosterFighters(enc)" :key="w.id">
                 <p v-if="!isBrief" class="bar-line">
                   {{ w.label }} · ATK {{ w.atk }} · 攻速 {{ formatAtkSpeed(w.spd) }}
                 </p>

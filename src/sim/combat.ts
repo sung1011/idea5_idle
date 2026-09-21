@@ -298,9 +298,7 @@ export function fightingWorkerIds(save: Save): Set<string> {
   if (save.dungeon?.encounter) boards.push(save.dungeon.encounter)
   for (const enc of boards) {
     if (enc.kind !== 'enemy' || !isFighting(enc) || !enc.combat) continue
-    for (const fighter of enc.combat.workers) {
-      if (fighter.hp > 0) ids.add(fighter.id)
-    }
+    for (const fighter of combatRosterFighters(enc.combat)) ids.add(fighter.id)
   }
   return ids
 }
@@ -315,9 +313,15 @@ export function workerCombatNotReadyTip(worker: Worker): string | null {
   return '未满血（含劳损）'
 }
 
+/** 订单卡友方栏：只列仍在场且 HP>0 的人，不留 0 血壳或空位。 */
+export function combatRosterFighters(combat: EnemyCombat | null | undefined): CombatFighter[] {
+  if (!combat) return []
+  return combat.workers.filter((fighter) => fighter.hp > 0)
+}
+
 export function fieldFighterCount(enc: EnemyEncounter): number {
   if (!enc.combat || !isFighting(enc)) return 0
-  return enc.combat.workers.filter((w) => w.hp > 0).length
+  return combatRosterFighters(enc.combat).length
 }
 
 export function canReinforceCombat(enc: EnemyEncounter): boolean {
@@ -554,7 +558,25 @@ export function addCombatReinforcements(
 }
 
 function livingWorkers(combat: EnemyCombat): CombatFighter[] {
-  return combat.workers.filter((w) => w.hp > 0)
+  return combatRosterFighters(combat)
+}
+
+function dropDownedFighters(combat: EnemyCombat): CombatFighter[] {
+  const fallen = combat.workers.filter((fighter) => fighter.hp <= 0)
+  if (!fallen.length) return []
+  combat.workers = combat.workers.filter((fighter) => fighter.hp > 0)
+  return fallen
+}
+
+/** 读档：把残留的 0 血壳从订单名单摘掉并写回休息，不补战报。 */
+export function hydrateCombatRoster(save: Save, enc: EnemyEncounter): void {
+  const combat = enc.combat
+  if (!combat) return
+  for (const fighter of dropDownedFighters(combat)) {
+    writeBackFighterHp(save, fighter)
+    const worker = save.workers.find((w) => w.id === fighter.id)
+    if (worker && worker.assignment !== null) worker.assignment = null
+  }
 }
 
 export function pickEnemyTarget(combat: EnemyCombat): CombatFighter | undefined {
@@ -598,9 +620,8 @@ function retireFallenFighters(
   at: number,
   onLog?: CombatLogSink,
 ): void {
-  const fallen = combat.workers.filter((fighter) => fighter.hp <= 0)
+  const fallen = dropDownedFighters(combat)
   if (!fallen.length) return
-  combat.workers = combat.workers.filter((fighter) => fighter.hp > 0)
   for (const fighter of fallen) {
     writeBackFighterHp(save, fighter)
     const worker = save.workers.find((w) => w.id === fighter.id)
@@ -619,6 +640,7 @@ function finishCombat(
   text: string,
   onLog?: CombatLogSink,
 ): void {
+  retireFallenFighters(save, enc, combat, at, onLog)
   combat.outcome = outcome
   emitLog(enc, combat, at, text, outcome === 'win' ? 'ok' : 'err', onLog)
   writeBackWorkers(save, combat)

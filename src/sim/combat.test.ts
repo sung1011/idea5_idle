@@ -20,8 +20,10 @@ import {
   beginEnemyCombat,
   canReinforceCombat,
   combatPartyBlockReason,
+  combatRosterFighters,
   combatTimeoutS,
   enemyStunMs,
+  hydrateCombatRoster,
   enemyCombatStats,
   isCombatStunned,
   rollEnemyShield,
@@ -749,6 +751,8 @@ describe('death leave and reinforce', () => {
     expect(isFighting(enc)).toBe(true)
     expect(combat.outcome).toBeNull()
     expect(combat.workers.find((w) => w.id === front.id)).toBeUndefined()
+    expect(combatRosterFighters(combat).map((w) => w.id)).toEqual([])
+    expect(combat.workers.every((w) => w.hp > 0)).toBe(true)
     expect(isWorkerInCombat(save, front.id)).toBe(false)
     expect(front.assignment).toBeNull()
     expect(front.hp).toBe(0)
@@ -793,9 +797,41 @@ describe('death leave and reinforce', () => {
     expect(isWorkerInCombat(save, a.id)).toBe(true)
     expect(enc.revealedWeaknesses).toEqual(revealed)
 
+    expect(combatRosterFighters(combat).every((w) => w.hp > 0)).toBe(true)
     expect(reinforceCombat(save, 0, [a.id], now + 4).ok).toBe(false)
     expect(startCombat(save, 0, [b.id], now + 5).ok).toBe(false)
     expect(save.bank.meal).toBe(1)
+  })
+
+  it('strips leftover 0-hp shells from the order roster on hydrate', () => {
+    const save = createSave()
+    const downed = spawnWorkerWith(save, 1, 'laborer')
+    const alive = spawnWorkerWith(save, 1, 'wanderer')
+    downed.name = '倒下'
+    alive.name = '仍在'
+    const enc = testEnemy({
+      departed: true,
+      combat: {
+        startedAt: 1,
+        timeoutAt: 100_000,
+        workerIds: [downed.id, alive.id],
+        workers: [
+          { id: downed.id, label: '倒下', hp: 0, hpMax: 24, atk: 4, spd: 5, nextActAt: 2 },
+          { id: alive.id, label: '仍在', hp: 18, hpMax: 24, atk: 4, spd: 5, nextActAt: 3 },
+        ],
+        enemy: { id: 'enemy', label: '试敌', hp: 10, hpMax: 18, atk: 3, spd: 5, nextActAt: 4 },
+        logs: [],
+        outcome: null,
+      },
+    })
+    putEnemy(save, enc)
+    hydrateCombatRoster(save, enc)
+    expect(enc.combat?.workers.map((w) => w.id)).toEqual([alive.id])
+    expect(combatRosterFighters(enc.combat).map((w) => w.id)).toEqual([alive.id])
+    expect(downed.hp).toBe(0)
+    expect(downed.assignment).toBeNull()
+    expect(isWorkerInCombat(save, downed.id)).toBe(false)
+    expect(isWorkerInCombat(save, alive.id)).toBe(true)
   })
 
   it('blocks reinforce when the field is already full', () => {

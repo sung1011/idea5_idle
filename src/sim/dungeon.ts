@@ -8,6 +8,7 @@ import {
   endEnemyCombat,
   fieldFighterCount,
   grantWorkerCombatXp,
+  hydrateCombatRoster,
   isCombatWon,
   isFighting,
   type CombatLogSink,
@@ -253,6 +254,7 @@ export function hydrateDungeonFields(save: Save): Save {
   const encounter = isDungeonEncounter(raw?.encounter) ? raw.encounter : makeDungeonEncounter()
   encounter.dungeon = true
   encounter.needs = { ...DUNGEON_NEEDS }
+  hydrateCombatRoster(save, encounter)
   save.dungeon = {
     day,
     chapter,
