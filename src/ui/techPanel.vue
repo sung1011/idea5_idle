@@ -9,7 +9,6 @@ import {
   isTechMaxed,
   techActivateLabel,
   techProgressText,
-  techReadyLabel,
   techTab as techTabDef,
   techTier,
   type TechNodeDef,
@@ -125,7 +124,6 @@ function closeSheet() {
           >
             <span class="ico" aria-hidden="true">{{ node.icon }}</span>
             <strong>{{ node.name }}</strong>
-            <i class="impl" :class="node.implemented ? 'yes' : 'no'">{{ techReadyLabel(node) }}</i>
             <i class="prog">{{ progress(node.id) }}</i>
             <i v-if="maxed(node.id)" class="mark" aria-hidden="true">✓</i>
           </button>
@@ -322,37 +320,6 @@ button.chip:active:not(:disabled) {
 .node .ico {
   font-size: 22px;
   line-height: 1;
-}
-
-.node .impl {
-  font-size: 10px;
-  font-style: normal;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  line-height: 1.2;
-  padding: 1px 6px;
-  border-radius: var(--radius-pill);
-  white-space: nowrap;
-}
-
-.node .impl.yes {
-  color: #245c10;
-  background: rgba(47, 107, 18, 0.16);
-}
-
-.node .impl.no {
-  color: #7a5a38;
-  background: rgba(80, 48, 12, 0.1);
-}
-
-.node.on .impl.yes {
-  color: #f3ffe4;
-  background: rgba(255, 253, 248, 0.22);
-}
-
-.node.on .impl.no {
-  color: #fff3d4;
-  background: rgba(40, 24, 8, 0.18);
 }
 
 .node .prog {

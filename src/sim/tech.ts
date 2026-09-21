@@ -159,8 +159,6 @@ export const STATION_CONFLICT_RULES_MUL = 0.85
 /** 解锁「工匠密录」后消除冲突。 */
 export const STATION_CONFLICT_CLEARED_MUL = 1
 
-const PLACEHOLDER = '效果尚未实现。扣灵感点亮后可占位。'
-
 function implemented(effectId: string, extra: Partial<OptionSeed> = {}): Pick<OptionSeed, 'effectId' | 'implemented' | 'maxLevel'> {
   return {
     effectId,
