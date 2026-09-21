@@ -38,6 +38,7 @@ import UiIcon from './uiIcon.vue'
 import UiSelect from './uiSelect.vue'
 import type { UiSelectOption } from './uiSelect'
 import { useVisualProgress } from './visualProgress'
+import { stationProgressStyle } from './workshopTabs'
 import {
   qualityOf,
   workerQualityBadgeStyle,
@@ -86,6 +87,7 @@ const visual = useVisualProgress(() => ({
 }))
 const pct = computed(() => Math.min(100, visual.value * 100))
 const pctLabel = computed(() => Math.round(pct.value))
+const progressTone = computed(() => stationProgressStyle(props.stationId))
 const xpNeed = computed(() => xpToNextLevel(station.value.stationLevel))
 const xpPct = computed(() => Math.min(100, Math.round((station.value.stationXp / xpNeed.value) * 100)))
 const pickOptions = computed(() => categoryPickOptions(game.save, props.stationId))
@@ -219,7 +221,7 @@ function consumeText(row: StationConsumeToken) {
       <li v-else class="crew-empty">空岗</li>
     </ul>
     <div class="bars">
-      <div class="bar live" :class="{ halt: !!stall || frozen }" :aria-valuenow="pctLabel">
+      <div class="bar live" :class="{ halt: !!stall || frozen }" :style="progressTone" :aria-valuenow="pctLabel">
         <i :style="{ width: pct.toFixed(2) + '%' }" />
       </div>
       <div class="bar xp" :aria-valuenow="xpPct">

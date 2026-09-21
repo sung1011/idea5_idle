@@ -13,9 +13,10 @@ import {
   isWorkshopTabId,
   loadWorkshopTab,
   saveWorkshopTab,
-  WORKSHOP_GROUP_CHROME,
+  WORKSHOP_GROUP_PROGRESS,
+  stationProgressStyle,
   stationsOfWorkshopGroup,
-  workshopGroupChromeStyle,
+  workshopGroupProgressStyle,
   workshopGroupLabel,
   workshopGroupOf,
   workshopGroupOfStation,
@@ -98,14 +99,18 @@ describe('workshopTabs', () => {
     expect(workshopGroupOf('nope')).toBe(DEFAULT_WORKSHOP_GROUP)
   })
 
-  it('gives each workshop group a muted Scheme A chrome', () => {
-    expect(WORKSHOP_GROUP_CHROME.potion).toEqual({ accent: '#5f7a62', tint: '#d7e2d6' })
-    expect(WORKSHOP_GROUP_CHROME.food).toEqual({ accent: '#9a6b4a', tint: '#ead8c6' })
-    expect(WORKSHOP_GROUP_CHROME.weapon).toEqual({ accent: '#5c6a76', tint: '#d5dce3' })
-    expect(workshopGroupChromeStyle('potion')).toEqual({
-      '--workshop-group-accent': '#5f7a62',
-      '--workshop-group-tint': '#d7e2d6',
+  it('colors workshop progress by group, not sidebar chrome', () => {
+    expect(WORKSHOP_GROUP_PROGRESS.potion.from).toBe('#6a8f72')
+    expect(WORKSHOP_GROUP_PROGRESS.food.from).toBe('#b07a52')
+    expect(WORKSHOP_GROUP_PROGRESS.weapon.from).toBe('#8a6a4e')
+    expect(WORKSHOP_GROUP_PROGRESS.weapon.from).not.toBe(WORKSHOP_GROUP_PROGRESS.potion.from)
+    expect(workshopGroupProgressStyle('potion')).toEqual({
+      '--workshop-progress-from': '#6a8f72',
+      '--workshop-progress-to': '#8fb89a',
     })
+    expect(stationProgressStyle('herbalism')).toEqual(workshopGroupProgressStyle('potion'))
+    expect(stationProgressStyle('cooking')).toEqual(workshopGroupProgressStyle('food'))
+    expect(stationProgressStyle('forging')).toEqual(workshopGroupProgressStyle('weapon'))
   })
 
   it('resolves unknown and legacy line ids', () => {

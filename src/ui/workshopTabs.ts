@@ -15,23 +15,23 @@ export type WorkshopGroupDef = {
   stations: readonly [StationId, StationId]
 }
 
-export type WorkshopGroupChrome = {
-  accent: string
-  tint: string
+export type WorkshopGroupProgress = {
+  from: string
+  to: string
 }
 
-/** 工坊三组竖签 Scheme A：低饱和描边 + 浅底，不进存档。 */
-export const WORKSHOP_GROUP_CHROME: Record<WorkshopGroupId, WorkshopGroupChrome> = {
-  potion: { accent: '#5f7a62', tint: '#d7e2d6' },
-  food: { accent: '#9a6b4a', tint: '#ead8c6' },
-  weapon: { accent: '#5c6a76', tint: '#d5dce3' },
+/** 工坊生产进度按组上色；竖签 chrome 仍走金边羊皮纸。 */
+export const WORKSHOP_GROUP_PROGRESS: Record<WorkshopGroupId, WorkshopGroupProgress> = {
+  potion: { from: '#6a8f72', to: '#8fb89a' },
+  food: { from: '#b07a52', to: '#c99470' },
+  weapon: { from: '#8a6a4e', to: '#a48462' },
 }
 
-export function workshopGroupChromeStyle(id: WorkshopGroupId): Record<string, string> {
-  const chrome = WORKSHOP_GROUP_CHROME[id]
+export function workshopGroupProgressStyle(id: WorkshopGroupId): Record<string, string> {
+  const row = WORKSHOP_GROUP_PROGRESS[id]
   return {
-    '--workshop-group-accent': chrome.accent,
-    '--workshop-group-tint': chrome.tint,
+    '--workshop-progress-from': row.from,
+    '--workshop-progress-to': row.to,
   }
 }
 
@@ -91,6 +91,10 @@ export function workshopTabOf(id: unknown): StationId {
 
 export function workshopGroupOfStation(id: StationId): WorkshopGroupId {
   return STATION_TO_GROUP[id]
+}
+
+export function stationProgressStyle(id: StationId): Record<string, string> {
+  return workshopGroupProgressStyle(workshopGroupOfStation(id))
 }
 
 export function workshopGroupDef(id: WorkshopGroupId): WorkshopGroupDef {

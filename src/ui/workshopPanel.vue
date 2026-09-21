@@ -19,8 +19,8 @@ import { railProgressHalted, railVisualPct, railWorkerDotColors } from './worksh
 import { selectWorkshopGroup, syncWorkshopTab, workshopGroup, workshopTab } from './appNav'
 import {
   WORKSHOP_GROUPS,
+  stationProgressStyle,
   stationsOfWorkshopGroup,
-  workshopGroupChromeStyle,
   workshopGroupLabel,
   type WorkshopGroupId,
 } from './workshopTabs'
@@ -100,7 +100,6 @@ watch(activeStation, async () => {
             locked: groupLocked(row.id),
             'guide-flash': row.stations.includes('alchemy') && guideFlashAlchemy,
           }"
-          :style="workshopGroupChromeStyle(row.id)"
           @click="selectGroup(row.id)"
         >
           <span class="fills" aria-hidden="true">
@@ -110,7 +109,13 @@ watch(activeStation, async () => {
               class="fill-clip"
               :class="{ halt: railById[id].halted }"
             >
-              <i class="fill" :style="{ height: railById[id].pct.toFixed(2) + '%' }" />
+              <i
+                class="fill"
+                :style="{
+                  height: railById[id].pct.toFixed(2) + '%',
+                  ...stationProgressStyle(id),
+                }"
+              />
             </span>
           </span>
           <span class="face">
@@ -191,9 +196,6 @@ watch(activeStation, async () => {
   font-family: var(--font-display);
   font-size: 11px;
   letter-spacing: 0.04em;
-  background: var(--workshop-group-tint);
-  border-color: var(--workshop-group-accent);
-  box-shadow: 0 2px 0 var(--workshop-group-accent), inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
 .rail .fills {
@@ -216,7 +218,7 @@ watch(activeStation, async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--rail-fill-workshop);
+  background: linear-gradient(0deg, var(--workshop-progress-from), var(--workshop-progress-to));
 }
 
 .rail .fill-clip.halt .fill,
@@ -276,10 +278,10 @@ watch(activeStation, async () => {
 .rail button.on:active:not(:disabled) {
   color: var(--ink);
   font-weight: inherit;
-  background: var(--workshop-group-tint);
+  background: linear-gradient(#fffbeb, var(--btn));
   border-width: 6px;
-  border-color: var(--workshop-group-accent);
-  box-shadow: 0 3px 0 var(--workshop-group-accent), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  border-color: #6b3a2a;
+  box-shadow: 0 3px 0 #5c2e24, inset 0 1px 0 rgba(255, 255, 255, 0.7);
   opacity: 1;
   filter: none;
 }
@@ -296,7 +298,7 @@ watch(activeStation, async () => {
   z-index: 2;
   pointer-events: none;
   border-radius: inherit;
-  box-shadow: inset 0 0 0 4px var(--workshop-group-accent);
+  box-shadow: inset 0 0 0 4px #5c2e24;
 }
 
 .rail .ui-ico {
