@@ -45,7 +45,8 @@ import {
 } from '../sim/dungeon'
 import { isGuideQuestCombatFlash, isGuideQuestFlash } from '../sim/guideQuest'
 import { mainChapterTitle, mainLootClaimBarLabel, mainLootClaimFillPct } from '../sim/mainChapter'
-import { CLASS_LABEL, isClassId, isRuneItemId, RUNE_DEF } from '../sim/tables'
+import { isRuneItemId, RUNE_DEF } from '../sim/tables'
+import { pickWorkerName } from './pickWorkerName'
 import { availableRuneQty, listRunePickOptions } from '../sim/runes'
 import type { Encounter, EncounterKind, EnemyEncounter, RuneItemId, Worker } from '../sim/types'
 import EncounterDealLines from './encounterDealLines.vue'
@@ -385,20 +386,6 @@ function rosterFighters(enc: Encounter) {
 function combatShield(enc: EnemyEncounter): number | null {
   if (!enc.combat || typeof enc.combat.shield !== 'number') return null
   return enc.combat.shield
-}
-
-/** 选人列表只显示本名，去掉职业后缀（游民 / 骑士等）。 */
-function pickWorkerName(w: Worker): string {
-  const raw = (w.name ?? w.id).trim()
-  if (!raw) return w.id
-  const suffixes = isClassId(w.classId) ? [CLASS_LABEL[w.classId]] : Object.values(CLASS_LABEL)
-  for (const suffix of suffixes) {
-    if (raw === suffix) return raw
-    if (raw.endsWith(suffix) && raw.length > suffix.length) {
-      return raw.slice(0, -suffix.length).replace(/[·\s\-—]+$/, '') || raw
-    }
-  }
-  return raw
 }
 
 function weaknessSlots(enc: EnemyEncounter) {
@@ -1489,17 +1476,6 @@ ul {
 .pick-worker:disabled {
   opacity: 0.5;
   filter: grayscale(0.15);
-}
-
-.pick-tip {
-  font-style: normal;
-  padding: 1px 7px;
-  border: 2px solid #c4b28a;
-  border-radius: 999px;
-  background: #efe6c8;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
 }
 
 .pick-worker.on,
