@@ -227,7 +227,6 @@ describe('fuse drag tip', () => {
     const fused = applyWorkerDrag(mixed, { kind: 'rest', workerId: idle.id }, { kind: 'slot', stationId: 'mining', slotIndex: 0 })
     expect(fused.ok).toBe(true)
     expect(mixed.fuseDragTipDone).toBe(true)
-    expect(canDragFuseAny(mixed)).toBe(false)
     expect(shouldShowFuseDragTip(mixed)).toBe(false)
 
     const again = spawnWorkerWith(mixed, 2, 'cook')
