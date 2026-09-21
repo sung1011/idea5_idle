@@ -75,8 +75,8 @@ describe('formatCycleTip', () => {
       text: '遇险，短暂停手',
       kind: 'err',
     })
-    expect(formatCycleTip({ stationId: 'forging', lots: [], notice: '软失败，矿石损耗' })).toEqual({
-      text: '软失败，矿石损耗',
+    expect(formatCycleTip({ stationId: 'inscription', lots: [], notice: '软失败，荒晶损耗' })).toEqual({
+      text: '软失败，荒晶损耗',
       kind: 'err',
     })
     expect(formatCycleTip({ stationId: 'mining', lots: [], notice: '  ' })).toBeNull()
@@ -92,8 +92,11 @@ describe('completeCycle gain tips', () => {
     expect(bankQty(save, 'ore')).toBe(1)
     expect(events).toHaveLength(1)
     expect(events[0].stationId).toBe('mining')
-    expect(events[0].lots).toEqual([{ itemId: 'ore', qty: 1 }])
-    expect(tips).toEqual(['获得 铜矿 ×1'])
+    expect(events[0].lots).toEqual([
+      { itemId: 'ore', qty: 1 },
+      { itemId: 'wildCrystal', qty: 1 },
+    ])
+    expect(tips).toEqual(['获得 铜矿 ×1、荒晶 ×1'])
   })
 
   it('merges hunting multi-drops and tips hazard / soft fail on that station', () => {
@@ -116,27 +119,25 @@ describe('completeCycle gain tips', () => {
     expect(hazardGain.tips[0]).toContain('遇险')
 
     const fail = roster(1)
-    fail.stations.forging.selectedForgeToolId = 'miningTool01'
-    fail.bank.ore = 1
-    assignWorker(fail, fail.workers[0].id, 'forging')
-    const failGain = collectGain(fail, 'forging')
+    fail.bank.wildCrystal = 2
+    assignWorker(fail, fail.workers[0].id, 'inscription')
+    const failGain = collectGain(fail, 'inscription')
     expect(failGain.ok).toBe(true)
-    expect(fail.stations.forging.craftNotice).toContain('软失败')
-    expect(bankQty(fail, 'miningTool01')).toBe(0)
+    expect(fail.stations.inscription.craftNotice).toContain('软失败')
+    expect(bankQty(fail, 'runeSharp')).toBe(0)
     expect(bankQty(fail, 'tool')).toBe(0)
-    expect(failGain.events).toEqual([{ stationId: 'forging', lots: [], notice: '软失败，矿石损耗', gold: 0 }])
-    expect(failGain.tips).toEqual(['软失败，矿石损耗'])
+    expect(failGain.events).toEqual([{ stationId: 'inscription', lots: [], notice: '软失败，荒晶损耗', gold: 0 }])
+    expect(failGain.tips).toEqual(['软失败，荒晶损耗'])
   })
 
-  it('tips forging and alchemy success', () => {
+  it('tips inscription and alchemy success', () => {
     setRollOverride(() => 0.99)
     const forge = roster(1)
-    forge.stations.forging.selectedForgeToolId = 'miningTool01'
-    forge.bank.ore = 1
-    assignWorker(forge, forge.workers[0].id, 'forging')
-    const forgeGain = collectGain(forge, 'forging')
-    expect(forgeGain.events[0]?.stationId).toBe('forging')
-    expect(forgeGain.tips).toEqual(['获得 采矿工具1 ×1、金币 +1'])
+    forge.bank.wildCrystal = 2
+    assignWorker(forge, forge.workers[0].id, 'inscription')
+    const forgeGain = collectGain(forge, 'inscription')
+    expect(forgeGain.events[0]?.stationId).toBe('inscription')
+    expect(forgeGain.tips[0]).toMatch(/^获得 厚甲 ×2、金币 \+4$/)
 
     const brew = roster(1)
     brew.bank.blood = 1
@@ -157,7 +158,7 @@ describe('completeCycle gain tips', () => {
     })
     expect(events).toHaveLength(1)
     expect(events[0].stationId).toBe('mining')
-    expect(formatCycleTip(events[0])?.text).toBe('获得 铜矿 ×1')
+    expect(formatCycleTip(events[0])?.text).toBe('获得 铜矿 ×1、荒晶 ×1')
   })
 })
 
@@ -179,14 +180,13 @@ describe('completeCycle craft gold', () => {
     setRollOverride(() => 0.99)
     const forge = roster(1)
     const forgeGold = forge.gold
-    forge.stations.forging.selectedForgeToolId = 'miningTool01'
-    forge.bank.ore = 1
-    assignWorker(forge, forge.workers[0].id, 'forging')
-    const forged = collectGain(forge, 'forging')
+    forge.bank.wildCrystal = 2
+    assignWorker(forge, forge.workers[0].id, 'inscription')
+    const forged = collectGain(forge, 'inscription')
     expect(forged.ok).toBe(true)
-    expect(forge.gold).toBe(forgeGold + 1)
-    expect(forged.events[0]?.gold).toBe(1)
-    expect(forged.tips).toEqual(['获得 采矿工具1 ×1、金币 +1'])
+    expect(forge.gold).toBe(forgeGold + 4)
+    expect(forged.events[0]?.gold).toBe(4)
+    expect(forged.tips).toEqual(['获得 厚甲 ×2、金币 +4'])
 
     const cook = roster(1)
     const cookGold = cook.gold

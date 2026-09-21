@@ -8,7 +8,6 @@ import { recruitWorker } from './recruit'
 import { setRollOverride } from './rng'
 import { completeCycle } from './stations'
 import { ticks } from './tick'
-import { selectForgeOutput } from './tools'
 import type { Save } from './types'
 
 afterEach(() => {
@@ -89,65 +88,51 @@ describe('takeCosts', () => {
   })
 })
 
-describe('forging costs table', () => {
-  it('first exclusive tool spends 1 ore', () => {
+describe('inscription costs table', () => {
+  it('spends wildCrystal and deposits a rune', () => {
     setRollOverride(() => 0.99)
     const save = roster(1)
-    expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
-    save.bank.ore = 1
-    assignWorker(save, save.workers[0].id, 'forging')
-    expect(completeCycle(save, 'forging')).toBe(true)
-    expect(bankQty(save, 'ore')).toBe(0)
-    expect(bankQty(save, 'miningTool01')).toBe(1)
+    save.bank.wildCrystal = 2
+    assignWorker(save, save.workers[0].id, 'inscription')
+    expect(completeCycle(save, 'inscription')).toBe(true)
+    expect(bankQty(save, 'wildCrystal')).toBe(0)
+    expect(
+      bankQty(save, 'runeSharp') +
+        bankQty(save, 'runeArmor') +
+        bankQty(save, 'runeBlood') +
+        bankQty(save, 'runeBreak') +
+        bankQty(save, 'runeSwift') +
+        bankQty(save, 'runeInsight'),
+    ).toBeGreaterThanOrEqual(1)
+    expect(bankQty(save, 'miningTool01')).toBe(0)
     expect(bankQty(save, 'tool')).toBe(0)
-    expect(bankQty(save, 'weapon')).toBe(0)
   })
 
-  it('mid-tier exclusive tool spends ironOre only; missing ore deducts nothing', () => {
+  it('idles without deducting leftover wood when wildCrystal is missing', () => {
     const save = roster(1)
-    save.stations.forging.stationLevel = 6
-    expect(selectForgeOutput(save, 'miningTool06').ok).toBe(true)
-    save.bank.ironOre = 0
+    save.bank.wildCrystal = 0
     save.bank.wood = 2
-    assignWorker(save, save.workers[0].id, 'forging')
-    const next = ticks(save, 36)
-    expect(bankQty(next, 'ironOre')).toBe(0)
+    assignWorker(save, save.workers[0].id, 'inscription')
+    const next = ticks(save, 32)
+    expect(bankQty(next, 'wildCrystal')).toBe(0)
     expect(bankQty(next, 'wood')).toBe(2)
-    expect(bankQty(next, 'miningTool06')).toBe(0)
-    expect(next.stations.forging.completed).toBe(0)
-    expect(next.stations.forging.stallReason).toBe('emptyInput')
-    expect(collectHints(next).some((h) => h.text.includes('铁矿') && h.text.includes('见底'))).toBe(true)
+    expect(next.stations.inscription.completed).toBe(0)
+    expect(next.stations.inscription.stallReason).toBe('emptyInput')
+    expect(collectHints(next).some((h) => h.text.includes('荒晶') && h.text.includes('见底'))).toBe(true)
   })
 
-  it('mid-tier exclusive tool deducts ironOre and ignores leftover wood', () => {
+  it('higher-level recipes still only spend wildCrystal', () => {
     setRollOverride(() => 0.99)
     const save = roster(1)
-    save.stations.forging.stationLevel = 6
-    expect(selectForgeOutput(save, 'miningTool06').ok).toBe(true)
-    save.bank.ironOre = 1
+    save.stations.inscription.stationLevel = 11
+    save.bank.wildCrystal = 4
     save.bank.wood = 2
-    save.bank.ore = 4
-    assignWorker(save, save.workers[0].id, 'forging')
-    const next = ticks(save, 36)
-    expect(bankQty(next, 'ironOre')).toBe(0)
-    expect(bankQty(next, 'wood')).toBe(2)
-    expect(bankQty(next, 'ore')).toBe(4)
-    expect(bankQty(next, 'miningTool06')).toBe(1)
-    expect(next.stations.forging.completed).toBe(1)
-  })
-
-  it('high-tier exclusive tool spends 1 mithrilOre and no wood', () => {
-    setRollOverride(() => 0.99)
-    const save = roster(1)
-    save.stations.forging.stationLevel = 11
-    expect(selectForgeOutput(save, 'miningTool11').ok).toBe(true)
     save.bank.mithrilOre = 1
-    save.bank.wood = 2
-    assignWorker(save, save.workers[0].id, 'forging')
-    expect(completeCycle(save, 'forging')).toBe(true)
-    expect(bankQty(save, 'mithrilOre')).toBe(0)
+    assignWorker(save, save.workers[0].id, 'inscription')
+    expect(completeCycle(save, 'inscription')).toBe(true)
+    expect(bankQty(save, 'wildCrystal')).toBeLessThan(4)
     expect(bankQty(save, 'wood')).toBe(2)
-    expect(bankQty(save, 'miningTool11')).toBe(1)
-    expect(bankQty(save, 'mithrilTool')).toBe(0)
+    expect(bankQty(save, 'mithrilOre')).toBe(1)
+    expect(save.stations.inscription.completed).toBe(1)
   })
 })

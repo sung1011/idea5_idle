@@ -9,6 +9,7 @@ import type {
   ItemId,
   ProductionBuff,
   PotionItemId,
+  RuneItemId,
   StationId,
   StationKind,
   StationToolId,
@@ -71,6 +72,13 @@ const BASE_ITEM_DEF: Record<Exclude<ItemId, StationToolId>, ItemDef> = {
   eye: { id: 'eye', label: '眼', sellGold: 4, craftGold: 1 },
   herb: { id: 'herb', label: '草', sellGold: 2, craftGold: 0 },
   spice: { id: 'spice', label: '香料', sellGold: 3, craftGold: 1 },
+  wildCrystal: { id: 'wildCrystal', label: '荒晶', sellGold: 4, craftGold: 0 },
+  runeSharp: { id: 'runeSharp', label: '锋锐', sellGold: 8, craftGold: 2 },
+  runeArmor: { id: 'runeArmor', label: '厚甲', sellGold: 8, craftGold: 2 },
+  runeBlood: { id: 'runeBlood', label: '血酬', sellGold: 10, craftGold: 2 },
+  runeBreak: { id: 'runeBreak', label: '破障', sellGold: 10, craftGold: 2 },
+  runeSwift: { id: 'runeSwift', label: '迅击', sellGold: 12, craftGold: 3 },
+  runeInsight: { id: 'runeInsight', label: '洞悉', sellGold: 12, craftGold: 3 },
   tool: { id: 'tool', label: '初级工具', sellGold: 12, craftGold: 2 },
   ironTool: { id: 'ironTool', label: '中阶工具', sellGold: 18, craftGold: 2 },
   mithrilTool: { id: 'mithrilTool', label: '高阶工具', sellGold: 28, craftGold: 3 },
@@ -141,7 +149,10 @@ export const STATION_DEF: Record<StationId, StationDef> = {
         label: '铜矿',
         cycleS: 20,
         costs: [],
-        outputs: [{ itemId: 'ore', qty: 1 }],
+        outputs: [
+          { itemId: 'ore', qty: 1 },
+          { itemId: 'wildCrystal', qty: 1 },
+        ],
         xpPerCycle: 1,
         unlockLevel: 1,
       },
@@ -150,7 +161,10 @@ export const STATION_DEF: Record<StationId, StationDef> = {
         label: '铁矿',
         cycleS: 24,
         costs: [],
-        outputs: [{ itemId: 'ironOre', qty: 1 }],
+        outputs: [
+          { itemId: 'ironOre', qty: 1 },
+          { itemId: 'wildCrystal', qty: 1 },
+        ],
         xpPerCycle: 2,
         unlockLevel: 5,
       },
@@ -159,18 +173,21 @@ export const STATION_DEF: Record<StationId, StationDef> = {
         label: '秘银矿',
         cycleS: 28,
         costs: [],
-        outputs: [{ itemId: 'mithrilOre', qty: 1 }],
+        outputs: [
+          { itemId: 'mithrilOre', qty: 1 },
+          { itemId: 'wildCrystal', qty: 1 },
+        ],
         xpPerCycle: 3,
         unlockLevel: 10,
       },
     ],
   },
-  forging: {
-    id: 'forging',
-    label: '锻造',
+  inscription: {
+    id: 'inscription',
+    label: '铭刻',
     kind: 'craft',
     neighbors: [],
-    categories: singleCategory('专属工具', 32, [], []),
+    categories: singleCategory('符文', 32, [{ itemId: 'wildCrystal', qty: 2 }], []),
   },
   hunting: {
     id: 'hunting',
@@ -286,9 +303,11 @@ export const DEPRECATED_STATION_LABEL: Record<DeprecatedStationId, string> = {
   fishing: '钓鱼',
 }
 
-/** 旧档 / 文案别称 → 现玩法站 id。`smithing` 不是独立站。 */
+/** 旧档 / 文案别称 → 现玩法站 id。`forging` / `smithing` 不是独立站。 */
 export const STATION_ID_ALIASES: Record<string, StationId> = {
-  smithing: 'forging',
+  smithing: 'inscription',
+  forging: 'inscription',
+  engraving: 'inscription',
 }
 
 export function isStationId(id: unknown): id is StationId {
@@ -477,18 +496,129 @@ export function isLegacyPotionItemId(id: unknown): id is 'potion' {
   return id === 'potion'
 }
 
-/** 锻造软失败率。周期走完后掷骰。 */
+export const RUNE_ITEM_IDS: readonly RuneItemId[] = [
+  'runeSharp',
+  'runeArmor',
+  'runeBlood',
+  'runeBreak',
+  'runeSwift',
+  'runeInsight',
+]
+
+export type RuneBatchRange = { min: number; max: number }
+
+export type RuneDef = {
+  id: RuneItemId
+  label: string
+  /** 短效果文案，选人弹层用。 */
+  effect: string
+  unlockLevel: number
+  costs: IoRule[]
+  batch: RuneBatchRange
+  xpPerCycle: number
+}
+
+/** 铭刻配方。随机从已解锁池抽一种。 */
+export const RUNE_DEF: Readonly<Record<RuneItemId, RuneDef>> = {
+  runeSharp: {
+    id: 'runeSharp',
+    label: '锋锐',
+    effect: '本场造成伤害 ×1.25',
+    unlockLevel: 1,
+    costs: [{ itemId: 'wildCrystal', qty: 2 }],
+    batch: { min: 1, max: 2 },
+    xpPerCycle: 1,
+  },
+  runeArmor: {
+    id: 'runeArmor',
+    label: '厚甲',
+    effect: '本场受到伤害 ×0.75',
+    unlockLevel: 1,
+    costs: [{ itemId: 'wildCrystal', qty: 2 }],
+    batch: { min: 1, max: 2 },
+    xpPerCycle: 1,
+  },
+  runeBlood: {
+    id: 'runeBlood',
+    label: '血酬',
+    effect: '本场结束后该工人额外获得战斗经验（胜负都发）',
+    unlockLevel: 5,
+    costs: [{ itemId: 'wildCrystal', qty: 3 }],
+    batch: { min: 1, max: 2 },
+    xpPerCycle: 2,
+  },
+  runeBreak: {
+    id: 'runeBreak',
+    label: '破障',
+    effect: '命中弱点时额外扣 1 盾',
+    unlockLevel: 5,
+    costs: [{ itemId: 'wildCrystal', qty: 3 }],
+    batch: { min: 1, max: 2 },
+    xpPerCycle: 2,
+  },
+  runeSwift: {
+    id: 'runeSwift',
+    label: '迅击',
+    effect: '本场出手间隔 ×0.85',
+    unlockLevel: 10,
+    costs: [{ itemId: 'wildCrystal', qty: 4 }],
+    batch: { min: 1, max: 1 },
+    xpPerCycle: 3,
+  },
+  runeInsight: {
+    id: 'runeInsight',
+    label: '洞悉',
+    effect: '本场开战多揭示 1 条弱点（多名携带只生效一次）',
+    unlockLevel: 10,
+    costs: [{ itemId: 'wildCrystal', qty: 4 }],
+    batch: { min: 1, max: 1 },
+    xpPerCycle: 3,
+  },
+}
+
+export const RUNE_EFFECT_TEXT: Readonly<Record<RuneItemId, string>> = {
+  runeSharp: RUNE_DEF.runeSharp.effect,
+  runeArmor: RUNE_DEF.runeArmor.effect,
+  runeBlood: RUNE_DEF.runeBlood.effect,
+  runeBreak: RUNE_DEF.runeBreak.effect,
+  runeSwift: RUNE_DEF.runeSwift.effect,
+  runeInsight: RUNE_DEF.runeInsight.effect,
+}
+
+export const RUNE_DEAL_MUL = 1.25
+export const RUNE_TAKEN_MUL = 0.75
+export const RUNE_SWIFT_SPD_MUL = 0.85
+export const RUNE_BLOOD_XP = 8
+export const RUNE_BREAK_SHIELD_BONUS = 1
+
+export function isRuneItemId(id: unknown): id is RuneItemId {
+  return typeof id === 'string' && Object.prototype.hasOwnProperty.call(RUNE_DEF, id)
+}
+
+export function unlockedRuneIds(stationLevel: number): RuneItemId[] {
+  const level = Number.isFinite(stationLevel) ? Math.floor(stationLevel) : 1
+  return RUNE_ITEM_IDS.filter((id) => RUNE_DEF[id].unlockLevel <= level)
+}
+
+export function inscriptionRecipes(stationLevel: number): RuneDef[] {
+  return unlockedRuneIds(stationLevel).map((id) => RUNE_DEF[id])
+}
+
+/** 铭刻软失败率。周期走完后掷骰。 */
+export const INSCRIPTION_SOFT_FAIL_CHANCE = 0.1
 export const FORGING_SOFT_FAIL_CHANCE: Record<CategoryId, number> = {
   copper: 0.1,
   iron: 0.15,
   mithril: 0.2,
-  default: 0,
+  default: INSCRIPTION_SOFT_FAIL_CHANCE,
 }
 
-/** 软失败扣料比例；不足 1 按 1。铜档 1 矿失败也扣 1。 */
-export const FORGING_SOFT_FAIL_TAKE_RATIO = 0.5
+/** 软失败扣料比例；不足 1 按 1。 */
+export const INSCRIPTION_SOFT_FAIL_TAKE_RATIO = 0.5
+export const FORGING_SOFT_FAIL_TAKE_RATIO = INSCRIPTION_SOFT_FAIL_TAKE_RATIO
 /** 软失败 XP 相对本档 xpPerCycle；至少 1。 */
-export const FORGING_SOFT_FAIL_XP_MUL = 0.5
+export const INSCRIPTION_SOFT_FAIL_XP_MUL = 0.5
+export const FORGING_SOFT_FAIL_XP_MUL = INSCRIPTION_SOFT_FAIL_XP_MUL
 
 export const EFFECT_ID = {
   prodSpeed: 'prodSpeed',
@@ -507,7 +637,7 @@ export type ToolTypeDef = {
 /** 锅 / 瓶架等按表匹配制造站；采集站也各有对应类型。钓鱼竿已撤。 */
 export const TOOL_TYPE_DEF: Record<ToolTypeId, ToolTypeDef> = {
   pick: { id: 'pick', label: '镐', matchStationId: 'mining' },
-  hammer: { id: 'hammer', label: '锤', matchStationId: 'forging' },
+  hammer: { id: 'hammer', label: '锤', matchStationId: 'inscription' },
   spear: { id: 'spear', label: '猎具', matchStationId: 'hunting' },
   pot: { id: 'pot', label: '锅', matchStationId: 'cooking' },
   sickle: { id: 'sickle', label: '镰', matchStationId: 'herbalism' },
@@ -845,12 +975,12 @@ export function findCategory(stationId: StationId, categoryId: CategoryId): Stat
 
 /**
  * 工坊组 / 工人左栏 / 派入空槽扫描共用上→下顺序，避免三处漂移。
- * 药剂（采药+炼金）→ 食物（狩猎+烹饪）→ 武器（采矿+锻造）。伐木 / 钓鱼已藏。
+ * 药剂（采药+炼金）→ 食物（狩猎+烹饪）→ 矿符（采矿+铭刻）。伐木 / 钓鱼已藏。
  */
 export const PLAYABLE_CHAINS: readonly (readonly [StationId, StationId])[] = [
   ['herbalism', 'alchemy'],
   ['hunting', 'cooking'],
-  ['mining', 'forging'],
+  ['mining', 'inscription'],
 ]
 /** 六站展开顺序，与 PLAYABLE_CHAINS 展平一致。 */
 export const STATION_ORDER: readonly StationId[] = PLAYABLE_CHAINS.flatMap((pair) => pair)
@@ -897,22 +1027,17 @@ export function stationRelatedItems(stationId: StationId): StationRelatedItems {
       if (row.itemId) pushUniqueItem(outputs, row.itemId)
     }
   }
-  if (stationId === 'forging') {
-    pushUniqueItem(outputs, 'blueprint')
-    for (const toolId of STATION_TOOL_IDS) {
-      pushUniqueItem(outputs, toolId)
-      const recipe = forgeToolRecipeOf(toolId)
-      for (const io of recipe.costs) pushUniqueItem(costs, io.itemId)
-      for (const io of recipe.altCosts ?? []) pushUniqueItem(costs, io.itemId)
-    }
+  if (stationId === 'inscription') {
+    pushUniqueItem(costs, 'wildCrystal')
+    for (const id of RUNE_ITEM_IDS) pushUniqueItem(outputs, id)
   }
-  for (const tool of stationToolsOf(stationId)) pushUniqueItem(costs, tool.id)
+  if (stationId === 'mining') pushUniqueItem(outputs, 'wildCrystal')
   return { costs, outputs }
 }
 
-/** 可生产物资的主产站。多站都能出时取 PLAYABLE_STATION_IDS 里第一个。旧通用工具回落锻造；金币 / 其它旧物返回 null。 */
+/** 可生产物资的主产站。多站都能出时取 PLAYABLE_STATION_IDS 里第一个。旧通用工具回落铭刻；金币 / 其它旧物返回 null。 */
 export function itemProducerStation(itemId: ItemId): StationId | null {
-  if (isToolItemId(itemId)) return 'forging'
+  if (isToolItemId(itemId) || isStationToolId(itemId)) return 'inscription'
   for (const id of PLAYABLE_STATION_IDS) {
     if (stationRelatedItems(id).outputs.includes(itemId)) return id
   }
@@ -927,14 +1052,17 @@ export function leftoverStockItems(): ItemId[] {
     for (const itemId of related.costs) used.add(itemId)
     for (const itemId of related.outputs) used.add(itemId)
   }
-  return ITEM_IDS.filter((id) => !used.has(id))
+  return ITEM_IDS.filter((id) => !used.has(id) && !isStationToolId(id))
 }
 
-/** 整批换金（sim / 调试）。主界面已撤卖货；去武器，只收工具 / 烹饪食物。 */
+/** 整批换金（sim / 调试）。主界面已撤卖货；去武器，只收符文 / 烹饪食物。 */
 export const SELLABLE_GOODS: ItemId[] = [
-  'tool',
-  'ironTool',
-  'mithrilTool',
+  'runeSharp',
+  'runeArmor',
+  'runeBlood',
+  'runeBreak',
+  'runeSwift',
+  'runeInsight',
   'meal',
   'roast',
   'stew',

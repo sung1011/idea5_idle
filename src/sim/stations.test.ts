@@ -8,7 +8,6 @@ import { recruitWorker } from './recruit'
 import { setRollOverride } from './rng'
 import { PLAYABLE_STATION_IDS, STATION_DEF, STATION_IDS, stationSpeed } from './tables'
 import { ticks } from './tick'
-import { selectForgeOutput } from './tools'
 import type { Save } from './types'
 
 afterEach(() => {
@@ -194,45 +193,44 @@ describe('empty station progress', () => {
   })
 })
 
-describe('forging pipeline', () => {
-  it('consumes ore and deposits an exclusive tool', () => {
+describe('inscription pipeline', () => {
+  it('consumes wildCrystal and deposits a rune', () => {
     setRollOverride(() => 0.99)
     const save = roster(1)
-    expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
-    save.bank.ore = 1
-    assignWorker(save, save.workers[0].id, 'forging')
+    save.bank.wildCrystal = 2
+    assignWorker(save, save.workers[0].id, 'inscription')
     const next = ticks(save, 32)
-    expect(bankQty(next, 'ore')).toBe(0)
-    expect(bankQty(next, 'miningTool01')).toBe(1)
+    expect(bankQty(next, 'wildCrystal')).toBe(0)
+    expect(
+      ['runeSharp', 'runeArmor', 'runeBlood', 'runeBreak', 'runeSwift', 'runeInsight'].some(
+        (id) => bankQty(next, id as 'runeSharp') > 0,
+      ),
+    ).toBe(true)
     expect(bankQty(next, 'tool')).toBe(0)
-    expect(bankQty(next, 'weapon')).toBe(0)
-    expect(next.stations.forging.completed).toBe(1)
-    expect(next.stations.forging.stallReason).toBeNull()
+    expect(next.stations.inscription.completed).toBe(1)
+    expect(next.stations.inscription.stallReason).toBeNull()
   })
 
-  it('idles when forging station has no craft tier', () => {
+  it('idles when inscription has no unlocked recipes', () => {
     const save = roster(1)
-    save.stations.forging.stationLevel = 0
-    assignWorker(save, save.workers[0].id, 'forging')
+    save.stations.inscription.stationLevel = 0
+    save.bank.wildCrystal = 4
+    assignWorker(save, save.workers[0].id, 'inscription')
     const next = ticks(save, 32)
-    expect(bankQty(next, 'miningTool01')).toBe(0)
-    expect(bankQty(next, 'tool')).toBe(0)
-    expect(next.stations.forging.completed).toBe(0)
-    expect(next.stations.forging.progress).toBe(0)
-    expect(next.stations.forging.stallReason).toBe('emptyInput')
+    expect(next.stations.inscription.completed).toBe(0)
+    expect(next.stations.inscription.progress).toBe(0)
+    expect(next.stations.inscription.stallReason).toBe('emptyInput')
     const hints = collectHints(next)
-    expect(hints.some((h) => h.kind === 'bottleneck' && h.text.includes('未解锁工具'))).toBe(true)
+    expect(hints.some((h) => h.kind === 'bottleneck' && h.text.includes('未解锁符文'))).toBe(true)
   })
 
-  it('idles with a hint when a tool is selected but there is no ore', () => {
+  it('idles with a hint when there is no wildCrystal', () => {
     const save = roster(1)
-    expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
-    assignWorker(save, save.workers[0].id, 'forging')
+    assignWorker(save, save.workers[0].id, 'inscription')
     const next = ticks(save, 32)
-    expect(bankQty(next, 'miningTool01')).toBe(0)
-    expect(next.stations.forging.completed).toBe(0)
-    expect(next.stations.forging.progress).toBe(0)
-    expect(next.stations.forging.stallReason).toBe('emptyInput')
+    expect(next.stations.inscription.completed).toBe(0)
+    expect(next.stations.inscription.progress).toBe(0)
+    expect(next.stations.inscription.stallReason).toBe('emptyInput')
     const hints = collectHints(next)
     expect(hints.some((h) => h.kind === 'bottleneck' && h.text.includes('见底'))).toBe(true)
   })

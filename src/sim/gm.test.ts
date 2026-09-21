@@ -100,10 +100,10 @@ describe('gm debug grants', () => {
     const save = createSave()
     expect(gmMaxStations(save).ok).toBe(true)
     expect(save.stations.mining.stationLevel).toBe(10)
-    expect(save.stations.forging.stationLevel).toBe(10)
+    expect(save.stations.inscription.stationLevel).toBe(10)
     expect(save.stations.hunting.stationLevel).toBe(10)
     expect(save.stations.mining.unlockedCategories).toEqual(['copper', 'iron', 'mithril'])
-    expect(save.stations.forging.unlockedCategories).toEqual(['default'])
+    expect(save.stations.inscription.unlockedCategories).toEqual(['default'])
     expect(save.stations.hunting.unlockedCategories).toEqual(['copper', 'iron', 'mithril'])
   })
 

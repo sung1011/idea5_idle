@@ -6,12 +6,12 @@ export const STATION_ICON_IDS = [
   'hunting',
   'cooking',
   'mining',
-  'forging',
+  'inscription',
 ] as const
 
 export type DockIconId = (typeof DOCK_ICON_IDS)[number]
 export type StationIconId = (typeof STATION_ICON_IDS)[number]
-export type ExtraIconId = 'fishing'
+export type ExtraIconId = 'fishing' | 'forging'
 export type UiIconId = DockIconId | StationIconId | ExtraIconId
 
 export const UI_ICON_PATHS: Record<UiIconId, readonly string[]> = {
@@ -25,6 +25,10 @@ export const UI_ICON_PATHS: Record<UiIconId, readonly string[]> = {
   mining: [
     'M2.1 13.2 8.65 6.65 10.35 8.35 3.8 14.9Z',
     'M6.7 5.55 11.35 1.7 14.95 4.15 12.7 7.65 10.3 6.4 8.35 7.55Z',
+  ],
+  inscription: [
+    'M2.15 13.15 8.55 6.75 10.2 8.4 3.8 14.8Z',
+    'M8.15 4.05 13.75 2.25 14.95 6.55 11.5 8.15 9.55 6.15Z',
   ],
   forging: [
     'M2.15 13.15 8.55 6.75 10.2 8.4 3.8 14.8Z',

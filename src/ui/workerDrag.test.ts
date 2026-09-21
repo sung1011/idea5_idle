@@ -40,13 +40,13 @@ describe('worker drag assign', () => {
     assignWorker(save, b.id, 'mining')
 
     const restToEmpty = { kind: 'rest' as const, workerId: idle.id }
-    expect(canDropWorker(save, restToEmpty, { kind: 'slot', stationId: 'forging', slotIndex: 0 })).toBe(true)
+    expect(canDropWorker(save, restToEmpty, { kind: 'slot', stationId: 'inscription', slotIndex: 0 })).toBe(true)
     expect(canDropWorker(save, restToEmpty, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toBe(false)
     expect(canDropWorker(save, restToEmpty, { kind: 'slot', stationId: 'mining', slotIndex: 1 })).toBe(false)
-    expect(applyWorkerDrag(save, restToEmpty, { kind: 'slot', stationId: 'forging', slotIndex: 0 })).toEqual({
+    expect(applyWorkerDrag(save, restToEmpty, { kind: 'slot', stationId: 'inscription', slotIndex: 0 })).toEqual({
       ok: true,
     })
-    expect(idle.assignment).toBe('forging')
+    expect(idle.assignment).toBe('inscription')
 
     const extra = spawnWorkerWith(save, 1, 'wanderer')
     expect(applyWorkerDrag(save, { kind: 'rest', workerId: extra.id }, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toEqual({
@@ -71,8 +71,8 @@ describe('worker drag assign', () => {
     const cook = spawnWorkerWith(save, 1, 'cook')
     assignWorker(save, cook.id, 'cooking')
     const fromCook = { kind: 'slot' as const, workerId: cook.id, stationId: 'cooking' as const, slotIndex: 0 }
-    expect(applyWorkerDrag(save, fromCook, { kind: 'slot', stationId: 'forging', slotIndex: 0 })).toEqual({ ok: true })
-    expect(cook.assignment).toBe('forging')
+    expect(applyWorkerDrag(save, fromCook, { kind: 'slot', stationId: 'inscription', slotIndex: 0 })).toEqual({ ok: true })
+    expect(cook.assignment).toBe('inscription')
   })
 
   it('fuses onto a lone same-tier occupant without assigning first', () => {

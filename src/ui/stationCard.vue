@@ -16,20 +16,8 @@ import { isGuideQuestFlash } from '../sim/guideQuest'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { pushFloatTip } from './floatTips'
 import { stationConflictHint } from '../sim/tech'
-import {
-  STATION_DEF,
-  STATION_WORKER_CAP,
-  TOOL_TYPE_DEF,
-  TOOL_TYPE_IDS,
-  xpToNextLevel,
-} from '../sim/tables'
-import {
-  forgeToolPickOptions,
-  stationToolPickOptions,
-  stationToolSpeedMul,
-  type StationToolPickOption,
-} from '../sim/tools'
-import type { CategoryId, StationId, StationToolId, ToolTypeId } from '../sim/types'
+import { STATION_DEF, STATION_WORKER_CAP, xpToNextLevel } from '../sim/tables'
+import type { CategoryId, StationId } from '../sim/types'
 import ConsumeJumpItem from './consumeJumpItem.vue'
 import { formatConsumeToken } from './encounterDeal'
 import { useGameStore } from './gameStore'
@@ -57,16 +45,6 @@ const crew = computed(() => assignedWorkers(game.save, props.stationId))
 const canMerge = computed(() => crew.value.length >= STATION_WORKER_CAP)
 const mergeLabel = computed(() => stationMergeLabel(game.save, props.stationId))
 const station = computed(() => game.save.stations[props.stationId])
-const toolOptions = computed(() => stationToolPickOptions(game.save, props.stationId))
-const forgeOptions = computed(() =>
-  props.stationId === 'forging' ? forgeToolPickOptions(game.save) : [],
-)
-const toolLine = computed(() => {
-  const selected = toolOptions.value.find((row) => row.id === station.value.selectedToolId)
-  if (!selected?.id) return '未选工具 · 裸效率'
-  const pct = Math.round(selected.id ? stationToolSpeedMul(game.save, props.stationId) * 100 - 100 : 0)
-  return `${selected.label} ×${selected.qty} · +${pct}%`
-})
 const cat = computed(() => selectedCategoryDef(game.save, props.stationId))
 const speed = computed(() => currentSpeed(game.save, props.stationId))
 const stall = computed(() => station.value.stallReason)
@@ -112,31 +90,11 @@ function onLockedTap(ev: Event) {
   if (ev.target instanceof HTMLElement && ev.target.closest('button, select, label, input')) return
   pushFloatTip(stationLockedTip(props.stationId))
 }
-const toolTypeOptions = computed<UiSelectOption[]>(() =>
-  TOOL_TYPE_IDS.map((id) => ({
-    value: id,
-    label: `${TOOL_TYPE_DEF[id].label}（${STATION_DEF[TOOL_TYPE_DEF[id].matchStationId].label}）`,
-  })),
-)
-const forgeSelectOptions = computed<UiSelectOption[]>(() =>
-  forgeOptions.value.map((row) => ({
-    value: row.id ?? '',
-    label: forgeOptionLabel(row),
-    disabled: !row.unlocked,
-  })),
-)
 const categorySelectOptions = computed<UiSelectOption[]>(() =>
   pickOptions.value.map((c) => ({
     value: c.id,
     label: c.unlocked ? c.label : `${c.label}（Lv${c.unlockLevel}）`,
     disabled: !c.unlocked,
-  })),
-)
-const toolSelectOptions = computed<UiSelectOption[]>(() =>
-  toolOptions.value.map((row) => ({
-    value: row.id ?? '',
-    label: toolOptionLabel(row),
-    disabled: !!row.id && (!row.unlocked || row.qty < 1),
   })),
 )
 
@@ -148,31 +106,6 @@ function onPick(value: string) {
   const opt = pickOptions.value.find((c) => c.id === value)
   if (!opt?.unlocked) return
   pick(value as CategoryId)
-}
-
-function onToolType(value: string) {
-  game.selectToolType(value as ToolTypeId)
-}
-
-function onSelectTool(value: string) {
-  game.selectStationTool(props.stationId, value ? (value as StationToolId) : null)
-}
-
-function onForgeOutput(value: string) {
-  if (!value) return
-  game.selectForgeOutput(value as StationToolId)
-}
-
-function forgeOptionLabel(row: StationToolPickOption) {
-  if (!row.id) return row.label
-  if (!row.unlocked) return `${row.label}（Lv${row.unlockLevel}）`
-  return row.label
-}
-
-function toolOptionLabel(row: StationToolPickOption) {
-  if (!row.id) return row.label
-  if (!row.unlocked) return `${row.label}（Lv${row.unlockLevel}）`
-  return `${row.label} ×${row.qty}`
 }
 
 function onMerge() {
@@ -244,25 +177,7 @@ function consumeText(row: StationConsumeToken) {
           </template>
         </template>
       </p>
-      <label v-if="stationId === 'forging'" class="cats">
-        <span class="sr">工具类型</span>
-        <UiSelect
-          :model-value="station.selectedToolType ?? 'pick'"
-          :options="toolTypeOptions"
-          aria-label="工具类型"
-          @update:model-value="onToolType"
-        />
-      </label>
-      <label v-if="stationId === 'forging'" class="cats">
-        <span class="sr">制造</span>
-        <UiSelect
-          :model-value="station.selectedForgeToolId ?? ''"
-          :options="forgeSelectOptions"
-          aria-label="制造"
-          @update:model-value="onForgeOutput"
-        />
-      </label>
-      <label v-if="stationId !== 'forging' && pickOptions.length > 1" class="cats">
+      <label v-if="pickOptions.length > 1" class="cats">
         <span class="sr">{{ pickCaption }}</span>
         <UiSelect
           :model-value="station.selectedCategory"
@@ -271,18 +186,8 @@ function consumeText(row: StationConsumeToken) {
           @update:model-value="onPick"
         />
       </label>
-      <p class="stat">{{ toolLine }}</p>
     </div>
     <div class="actions">
-      <label class="tool-pick">
-        <span class="sr">工具</span>
-        <UiSelect
-          :model-value="station.selectedToolId ?? ''"
-          :options="toolSelectOptions"
-          aria-label="工具"
-          @update:model-value="onSelectTool"
-        />
-      </label>
       <button type="button" class="withdraw" @click="game.withdraw(stationId)">撤出</button>
       <button type="button" class="assign" :class="{ 'guide-flash': guideFlashAlchemy }" @click="onAssignIdle">派入</button>
     </div>
@@ -504,26 +409,8 @@ h2 {
   padding-top: 4px;
 }
 
-.tool-pick {
-  position: relative;
-  display: flex;
-  min-width: 0;
-  flex: 1 1 0;
-}
-
-.tool-pick :deep(.ui-select) {
-  min-width: 0;
-  width: 100%;
-}
-
-.tool-pick :deep(.face) {
-  min-height: 36px;
-  padding: 2px 8px;
-  font-size: 13px;
-}
-
 .actions .withdraw {
-  flex: 0 0 auto;
+  flex: 1 1 0;
   min-width: 64px;
   min-height: 36px;
   padding: 2px 10px;

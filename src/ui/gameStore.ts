@@ -21,8 +21,8 @@ import { usePotionSlot } from '../sim/potions'
 import { loadFood, unloadFood } from '../sim/food'
 import { fuseStationWorkers, fuseWorkerWithStation } from '../sim/fuse'
 import { recruitWorker } from '../sim/recruit'
-import { selectForgeOutput, selectForgingToolType, selectStationTool } from '../sim/tools'
 import { selectStationCategory } from '../sim/stationProgress'
+import type { RunePickMap } from '../sim/runes'
 import {
   barterMerchant,
   buyMerchant,
@@ -38,7 +38,7 @@ import { claimDungeonChest, reinforceDungeonCombat, startDungeonCombat } from '.
 import { claimGuideQuest } from '../sim/guideQuest'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
 import { tick } from '../sim/tick'
-import type { ActionResult, CategoryId, ItemId, PotionItemId, Save, StationId, StationToolId, ToolTypeId, Worker } from '../sim/types'
+import type { ActionResult, CategoryId, ItemId, PotionItemId, Save, StationId, Worker } from '../sim/types'
 import { pushCombatLogTip } from './encounterTips'
 import { pushFloatTip } from './floatTips'
 import { clearSave, loadSave, persistSave } from './saveGame'
@@ -154,8 +154,6 @@ export const useGameStore = defineStore('game', () => {
     withdraw: (stationId: StationId) => apply((s) => withdrawWorker(s, stationId)),
     assign: (workerId: string, stationId: StationId | null) => apply((s) => assignWorker(s, workerId, stationId)),
     dragAssign: (source: WorkerDragSource, target: WorkerDropTarget) => apply((s) => applyWorkerDrag(s, source, target)),
-    selectStationTool: (stationId: StationId, toolId: StationToolId | null) =>
-      apply((s) => selectStationTool(s, stationId, toolId)),
     loadFood: (workerId: string, itemId: ItemId, qty: number) =>
       apply((s) => loadFood(s, workerId, itemId, qty)),
     unloadFood: (workerId: string) => apply((s) => unloadFood(s, workerId)),
@@ -164,20 +162,18 @@ export const useGameStore = defineStore('game', () => {
     clearPotionSlot: (index: number) => apply((s) => clearPotionSlot(s, index)),
     unequipPotion: (index: number) => apply((s) => clearPotionSlot(s, index)),
     usePotionSlot: (index: number) => apply((s) => usePotionSlot(s, index)),
-    selectToolType: (toolTypeId: ToolTypeId) => apply((s) => selectForgingToolType(s, toolTypeId)),
-    selectForgeOutput: (toolId: StationToolId) => apply((s) => selectForgeOutput(s, toolId)),
     selectCategory: (stationId: StationId, categoryId: CategoryId) =>
       apply((s) => selectStationCategory(s, stationId, categoryId)),
     explore: () => apply(exploreBoard),
     claimGuideQuest: () => apply(claimGuideQuest),
-    startCombat: (index: number, workerIds: string[], guests?: Worker[]) =>
-      apply((s) => startCombat(s, index, workerIds, Date.now(), pushCombatLogTip, guests)),
-    reinforceCombat: (index: number, workerIds: string[], guests?: Worker[]) =>
-      apply((s) => reinforceCombat(s, index, workerIds, Date.now(), pushCombatLogTip, guests)),
-    startDungeonCombat: (workerIds: string[], guests?: Worker[]) =>
-      apply((s) => startDungeonCombat(s, workerIds, Date.now(), pushCombatLogTip, guests)),
-    reinforceDungeonCombat: (workerIds: string[], guests?: Worker[]) =>
-      apply((s) => reinforceDungeonCombat(s, workerIds, Date.now(), pushCombatLogTip, guests)),
+    startCombat: (index: number, workerIds: string[], guests?: Worker[], runePicks?: RunePickMap) =>
+      apply((s) => startCombat(s, index, workerIds, Date.now(), pushCombatLogTip, guests, runePicks)),
+    reinforceCombat: (index: number, workerIds: string[], guests?: Worker[], runePicks?: RunePickMap) =>
+      apply((s) => reinforceCombat(s, index, workerIds, Date.now(), pushCombatLogTip, guests, runePicks)),
+    startDungeonCombat: (workerIds: string[], guests?: Worker[], runePicks?: RunePickMap) =>
+      apply((s) => startDungeonCombat(s, workerIds, Date.now(), pushCombatLogTip, guests, runePicks)),
+    reinforceDungeonCombat: (workerIds: string[], guests?: Worker[], runePicks?: RunePickMap) =>
+      apply((s) => reinforceDungeonCombat(s, workerIds, Date.now(), pushCombatLogTip, guests, runePicks)),
     claimDungeonChest: () => apply((s) => claimDungeonChest(s)),
     claimLoot: (index: number) => apply((s) => claimLoot(s, index)),
     barter: (index: number) => apply((s) => barterMerchant(s, index)),

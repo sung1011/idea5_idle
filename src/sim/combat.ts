@@ -26,6 +26,16 @@ import {
 } from './dungeonTables'
 import { tryAutoEatAfterCombat, tryAutoEatWhenWounded } from './food'
 import { isWardActive } from './potions'
+import { isAssistWorker } from './combatAssist'
+import {
+  fighterRuneId,
+  hasInsightRune,
+  runeBloodXp,
+  runeBreakBonus,
+  runeDealMul,
+  runeSpdMul,
+  runeTakenMul,
+} from './runes'
 import { roll01 } from './rng'
 import { isWoundedHp, restHealAmount, workerFatigueDebt, workerWearHp } from './workshopHp'
 import { chapterCombatMul } from './mainChapter'
@@ -48,6 +58,7 @@ import type {
   EnemyEncounter,
   EnemyRank,
   QualityTier,
+  RuneItemId,
   Save,
   Worker,
 } from './types'
@@ -406,26 +417,41 @@ function makeFighter(
   combatAttrs?: CombatAttrId[],
   actImmediately = false,
   save?: Save,
+  runeId?: RuneItemId,
 ): CombatFighter {
+  const spd = Math.max(1, stats.spd * runeSpdMul(runeId))
   const hpMax = Math.max(1, stats.hp)
-  const intervalMs = actIntervalMs(stats.spd)
+  const intervalMs = actIntervalMs(spd)
   return {
     id,
     label,
     hp: clampInt(hp, 0, hpMax),
     hpMax,
     atk: Math.max(1, stats.atk),
-    spd: Math.max(1, stats.spd),
+    spd,
     nextActAt: actImmediately ? now : now + intervalMs,
     ...(combatAttrs && combatAttrs.length ? { combatAttrs: [...combatAttrs] } : {}),
+    ...(runeId ? { runeId } : {}),
   }
 }
 
-function fighterFromWorker(worker: Worker, now: number, save?: Save): CombatFighter {
+function fighterFromWorker(worker: Worker, now: number, save?: Save, runeId?: RuneItemId): CombatFighter {
   const stats = workerLiveStats(worker, save)
   const hpMax = Math.max(1, stats.hp)
   const hp = worker.hpMax > 0 ? Math.round((worker.hp / worker.hpMax) * hpMax) : hpMax
-  return makeFighter(worker.id, worker.name ?? worker.id, { ...stats, hp: hpMax }, hp, now, worker.combatAttrs, false, save)
+  return makeFighter(worker.id, worker.name ?? worker.id, { ...stats, hp: hpMax }, hp, now, worker.combatAttrs, false, save, runeId)
+}
+
+function revealInsightWeakness(enc: EnemyEncounter, combat: EnemyCombat): void {
+  if (combat.insightUsed) return
+  if (!hasInsightRune(combat.workers)) return
+  const hidden = enc.weaknesses.filter((id) => !enc.revealedWeaknesses.includes(id))
+  if (!hidden.length) {
+    combat.insightUsed = true
+    return
+  }
+  enc.revealedWeaknesses = [...enc.revealedWeaknesses, hidden[0]]
+  combat.insightUsed = true
 }
 
 function shieldRoll(enc: EnemyEncounter, now: number, save?: Save): () => number {
@@ -491,6 +517,7 @@ export type BeginCombatOpts = {
   stats?: CombatStats
   shield?: number
   timeoutS?: number
+  runes?: Partial<Record<string, RuneItemId>>
 }
 
 export function beginEnemyCombat(
@@ -507,17 +534,21 @@ export function beginEnemyCombat(
     opts?.stats ??
     applyCombatAffixStats(enemyCombatStats(enc.quality, enc.enemyRank, chapter), encounterAffixIds(save, enc))
   const timeoutS = opts?.timeoutS ?? combatTimeoutS(enc.enemyRank)
+  const runes = opts?.runes ?? {}
   const combat: EnemyCombat = {
     startedAt: now,
     timeoutAt: now + timeoutS * 1000,
     workerIds: workers.map((w) => w.id),
-    workers: workers.map((w) => fighterFromWorker(w, now, save)),
+    workers: workers.map((w) => fighterFromWorker(w, now, save, runes[w.id])),
     enemy: makeFighter('enemy', enc.label, eStats, eStats.hp, now, undefined, true),
     logs: [],
     outcome: null,
     stunnedUntil: null,
+    insightUsed: false,
+    runeLoadout: { ...runes },
   }
   enc.combat = combat
+  revealInsightWeakness(enc, combat)
   const rolled =
     typeof opts?.shield === 'number' && opts.shield >= 1
       ? Math.floor(opts.shield)
@@ -539,21 +570,27 @@ export function addCombatReinforcements(
   now: number,
   onLog?: CombatLogSink,
   save?: Save,
+  runes?: Partial<Record<string, RuneItemId>>,
 ): void {
   const combat = enc.combat
   if (!combat || combat.outcome || enc.lootClaimed || !workers.length) return
   const added: CombatFighter[] = []
   for (const worker of workers) {
     if (combat.workers.some((row) => row.id === worker.id)) continue
-    const fighter = fighterFromWorker(worker, now, save)
+    const fighter = fighterFromWorker(worker, now, save, runes?.[worker.id])
     if (save && hasEncounterAffix(save, enc, 'slowReinforce')) {
       fighter.nextActAt = now + DUNGEON_AFFIX_FX.reinforceDelayMs
     }
     combat.workers.push(fighter)
     added.push(fighter)
     if (!combat.workerIds.includes(worker.id)) combat.workerIds.push(worker.id)
+    if (runes?.[worker.id]) {
+      if (!combat.runeLoadout) combat.runeLoadout = {}
+      combat.runeLoadout[worker.id] = runes[worker.id]
+    }
   }
   if (!added.length) return
+  revealInsightWeakness(enc, combat)
   emitLog(enc, combat, now, `${added.map((w) => w.label).join('、')} 增援`, 'ok', onLog)
 }
 
@@ -631,6 +668,17 @@ function retireFallenFighters(
   }
 }
 
+function grantRuneBloodXp(save: Save, combat: EnemyCombat): void {
+  const loadout = combat.runeLoadout ?? {}
+  for (const workerId of combat.workerIds) {
+    const bonus = runeBloodXp(loadout[workerId] ?? fighterRuneId(combat.workers.find((row) => row.id === workerId)))
+    if (bonus <= 0) continue
+    const worker = save.workers.find((row) => row.id === workerId)
+    if (!worker || isAssistWorker(worker)) continue
+    grantWorkerCombatXp(worker, bonus)
+  }
+}
+
 function finishCombat(
   save: Save,
   enc: EnemyEncounter,
@@ -643,6 +691,7 @@ function finishCombat(
   retireFallenFighters(save, enc, combat, at, onLog)
   combat.outcome = outcome
   emitLog(enc, combat, at, text, outcome === 'win' ? 'ok' : 'err', onLog)
+  grantRuneBloodXp(save, combat)
   writeBackWorkers(save, combat)
   tryAutoEatAfterCombat(save, combat.workerIds, at)
 }
@@ -677,12 +726,12 @@ function strike(
     }
     const hits = result.hits.length
     if (hits > 0 && !isCombatStunned(combat, at) && (combat.shield ?? 0) > 0) {
-      combat.shield = Math.max(0, (combat.shield ?? 0) - hits)
+      combat.shield = Math.max(0, (combat.shield ?? 0) - hits - runeBreakBonus(fighterRuneId(attacker)))
       if (combat.shield <= 0) applyBreak(enc, combat, at, onLog, save)
     }
     const vuln = isCombatStunned(combat, at) ? BREAK_VULN_MUL : 1
     const dull = hasEncounterAffix(save, enc, 'dullEdge') ? DUNGEON_AFFIX_FX.dullEdgeDamageMul : result.mul
-    const mul = dull * vuln
+    const mul = dull * vuln * runeDealMul(fighterRuneId(attacker))
     const damage = scaledAttackDamage(attacker.atk, mul)
     target.hp = Math.max(0, target.hp - damage)
     if (isDungeonEncounter(enc) && dungeonPhaseLocked(enc) && target.id === 'enemy' && target.hp <= 0) {
@@ -694,7 +743,7 @@ function strike(
     emitLog(enc, combat, at, `${attacker.label} 对 ${target.label} 造成 ${damage}${tail}`, 'ok', onLog)
     return
   }
-  const hit = attacker.atk + dungeonJaggedBonus(save, enc)
+  const hit = Math.max(1, Math.round((attacker.atk + dungeonJaggedBonus(save, enc)) * runeTakenMul(fighterRuneId(target))))
   target.hp = Math.max(0, target.hp - hit)
   writeBackFighterHp(save, target)
   emitLog(

@@ -82,11 +82,12 @@ import {
   bulkUnitGold,
   ITEM_DEF,
   isPotionItemId,
+  isRuneItemId,
   isStationToolId,
   itemProducerStation,
   pawnUnitGold,
   POTION_ITEM_IDS,
-  STATION_TOOL_BY_ID,
+  RUNE_ITEM_IDS,
 } from './tables'
 import {
   BATTLEFIELD_SLOT_MAX,
@@ -402,9 +403,7 @@ describe('encounter board', () => {
         expect(isAllowedMainNeedKind(highId, mainNeedItemPool({ knightLevel: 1 }))).toBe(true)
         if (lowId === highId) {
           expect(needEntries(highEnemy.needs)[0][1]).toBeGreaterThan(needEntries(lowEnemy.needs)[0][1])
-        } else if (isStationToolId(lowId) && isStationToolId(highId)) {
-          expect(STATION_TOOL_BY_ID[lowId].stationId).toBe(STATION_TOOL_BY_ID[highId].stationId)
-          expect(STATION_TOOL_BY_ID[highId].index).toBeGreaterThanOrEqual(STATION_TOOL_BY_ID[lowId].index)
+        } else if (isRuneItemId(lowId) && isRuneItemId(highId)) {
           expect(needEntries(highEnemy.needs)[0][1]).toBeGreaterThan(needEntries(lowEnemy.needs)[0][1])
         }
         sawEnemy = true
@@ -422,27 +421,23 @@ describe('encounter board', () => {
     expect(sawArtisan).toBe(true)
   })
 
-  it('resolves tool needs to forgeable station tools and raises tier with chapter/quality', () => {
-    expect(MAIN_NEED_ITEM_POOL).toContain('tool')
-    expect(MAIN_NEED_TOOL_POOL).toContain('miningTool01')
-    expect(MAIN_NEED_TOOL_POOL).toContain('alchemyTool20')
+  it('resolves old tool needs to runes and raises qty with chapter/quality', () => {
+    expect(MAIN_NEED_ITEM_POOL).toContain('runeSharp')
+    expect(MAIN_NEED_TOOL_POOL).toEqual([...RUNE_ITEM_IDS])
     expect(MAIN_NEED_TOOL_POOL).not.toContain('tool')
     expect(MAIN_NEED_TOOL_POOL).not.toContain('ironTool')
     expect(MAIN_NEED_TOOL_POOL).not.toContain('mithrilTool')
-    expect(pickMainNeedTool('green', 1, false, undefined, 0)).toBe('miningTool01')
-    expect(resolveMainNeedItem('tool', 'green', 1, false, undefined, 0)).toBe('miningTool01')
+    expect(isRuneItemId(pickMainNeedTool('green', 1, false, undefined, 0))).toBe(true)
+    expect(isRuneItemId(resolveMainNeedItem('tool', 'green', 1, false, undefined, 0))).toBe(true)
     expect(resolveMainNeedItem('meal', 'green', 1)).toBe('meal')
-    expect(isMainNeedItem('miningTool01')).toBe(true)
+    expect(isMainNeedItem('runeSharp')).toBe(true)
     expect(isMainNeedItem('tool')).toBe(false)
-    expect(itemNeedBase('miningTool01')).toBe(2)
+    expect(itemNeedBase('runeSharp')).toBe(2)
     expect(mainNeedToolTierCenter('green', 1)).toBeCloseTo(1)
     expect(mainNeedToolTierCenter('orange', 8)).toBeGreaterThan(mainNeedToolTierCenter('green', 1))
     expect(mainNeedToolTierCenter('orange', 8)).toBeGreaterThan(mainNeedToolTierCenter('green', 8))
     const highTool = pickMainNeedTool('orange', 16, true, undefined, 0)
-    expect(isStationToolId(highTool)).toBe(true)
-    if (isStationToolId(highTool)) {
-      expect(STATION_TOOL_BY_ID[highTool].index).toBeGreaterThan(1)
-    }
+    expect(isRuneItemId(highTool)).toBe(true)
   })
 })
 
@@ -453,7 +448,7 @@ describe('unlock-gated main need pool', () => {
     expect(mainNeedOutputsOfStation('hunting')).toEqual(['meat', 'fish', 'tooth', 'blood', 'eye', 'junk'])
     expect(mainNeedOutputsOfStation('cooking')).toEqual(['meal', 'roast', 'stew'])
     expect(mainNeedOutputsOfStation('mining')).toEqual(['ore', 'ironOre', 'mithrilOre'])
-    expect(mainNeedOutputsOfStation('forging')).toEqual(['tool'])
+    expect(mainNeedOutputsOfStation('inscription')).toEqual([...RUNE_ITEM_IDS])
     expect(mainNeedItemPool({ knightLevel: 1 })).toEqual(['herb', 'spice'])
     expect(mainNeedItemPool({ knightLevel: 2 })).toEqual(['herb', 'spice', ...POTION_ITEM_IDS])
     expect(mainNeedItemPool({ knightLevel: 4 })).toEqual(['herb', 'spice', ...POTION_ITEM_IDS])
@@ -475,8 +470,8 @@ describe('unlock-gated main need pool', () => {
     expect(mainNeedItemPool({ knightLevel: 18 })).toContain('ore')
     expect(mainNeedItemPool({ knightLevel: 18 })).toContain('ironOre')
     expect(mainNeedItemPool({ knightLevel: 18 })).toContain('mithrilOre')
-    expect(mainNeedItemPool({ knightLevel: 18 })).not.toContain('tool')
-    expect(mainNeedItemPool({ knightLevel: 20 })).toContain('tool')
+    expect(mainNeedItemPool({ knightLevel: 18 })).not.toContain('runeSharp')
+    expect(mainNeedItemPool({ knightLevel: 20 })).toContain('runeSharp')
     expect(mainNeedItemPool()).toEqual(['herb', 'spice'])
     expect(MAIN_NEED_ITEM_POOL).toEqual(mainNeedItemPool({ knightLevel: 20 }))
     expect(MAIN_NEED_ITEM_POOL).not.toContain('potion')
@@ -497,7 +492,7 @@ describe('unlock-gated main need pool', () => {
   })
 
   it('still resolves tool and potion markers inside the allowed pool', () => {
-    expect(resolveMainNeedItem('tool', 'green', 1, false, undefined, 0)).toBe('miningTool01')
+    expect(isRuneItemId(resolveMainNeedItem('tool', 'green', 1, false, undefined, 0))).toBe(true)
     expect(isPotionItemId(resolveMainNeedItem('potion', 'green', 1, false, undefined, 0))).toBe(true)
     expect(resolveUnlockedMainNeedItem('tool', 'green', 1, false, undefined, 0, { knightLevel: 1 })).toMatch(
       /^herb|spice$/,
@@ -506,7 +501,7 @@ describe('unlock-gated main need pool', () => {
       isPotionItemId(resolveUnlockedMainNeedItem('potion', 'green', 1, false, undefined, 0, { knightLevel: 2 })),
     ).toBe(true)
     expect(
-      isStationToolId(resolveUnlockedMainNeedItem('tool', 'green', 1, false, undefined, 0, { knightLevel: 20 })),
+      isRuneItemId(resolveUnlockedMainNeedItem('tool', 'green', 1, false, undefined, 0, { knightLevel: 20 })),
     ).toBe(true)
     expect(resolveUnlockedMainNeedItem('salve', 'green', 1, false, undefined, 0, { knightLevel: 2 })).toBe('salve')
     expect(resolveUnlockedMainNeedItem('meal', 'green', 1, false, undefined, 0, { knightLevel: 8 })).toBe('meal')
@@ -558,7 +553,7 @@ describe('unlock-gated main need pool', () => {
       for (const enc of battle) {
         if (enc.kind !== 'enemy') continue
         const id = needEntries(enc.needs)[0][0]
-        if (isStationToolId(id)) sawTool = true
+        if (isRuneItemId(id)) sawTool = true
         if (isPotionItemId(id)) sawPotion = true
       }
       if (sawTool && sawPotion) break
@@ -1276,10 +1271,10 @@ describe('hydrateEncounterFields', () => {
     if (enemy?.kind !== 'enemy') return
     const needId = needEntries(enemy.needs)[0][0]
     expect(needId).toBe(resolveMainNeedItem('tool', 'green', save.mainChapter, false, undefined, enemyIdx))
-    expect(isStationToolId(needId)).toBe(true)
+    expect(isRuneItemId(needId)).toBe(true)
     expect(isLegacyGenericToolNeed(needId)).toBe(false)
     expect(enemy.needs[needId]).toBe(2)
-    expect(itemProducerStation(needId)).toBe('forging')
+    expect(itemProducerStation(needId)).toBe('inscription')
 
     const potionEnemy = save.encounters.find((enc) => enc.id === 'old-potion-need')
     expect(potionEnemy?.kind === 'enemy' && potionEnemy.needs).toEqual({ salve: 3 })
@@ -1295,8 +1290,8 @@ describe('hydrateEncounterFields', () => {
     expect(offerId).toBe(resolveMainNeedItem('tool', 'green', save.mainChapter, false, undefined, barterIdx + 7))
     expect(isLegacyGenericToolNeed(wantId)).toBe(false)
     expect(isLegacyGenericToolNeed(offerId)).toBe(false)
-    expect(itemProducerStation(wantId)).toBe('forging')
-    expect(itemProducerStation(offerId)).toBe('forging')
+    expect(itemProducerStation(wantId)).toBe('inscription')
+    expect(itemProducerStation(offerId)).toBe('inscription')
 
     const buyIdx = save.marketEncounters.findIndex((enc) => enc.id === 'old-buy-tool')
     const buy = save.marketEncounters[buyIdx]
@@ -1305,7 +1300,7 @@ describe('hydrateEncounterFields', () => {
     const buyId = needEntries(buy.buyOffers)[0][0]
     expect(buyId).toBe(resolveMainNeedItem('mithrilTool', 'green', save.mainChapter, false, undefined, buyIdx + 31))
     expect(isLegacyGenericToolNeed(buyId)).toBe(false)
-    expect(itemProducerStation(buyId)).toBe('forging')
+    expect(itemProducerStation(buyId)).toBe('inscription')
 
     const pawnIdx = save.marketEncounters.findIndex((enc) => enc.id === 'old-pawn-tool')
     const pawn = save.marketEncounters[pawnIdx]
@@ -1314,7 +1309,7 @@ describe('hydrateEncounterFields', () => {
     const pawnId = needEntries(pawn.pawnWants)[0][0]
     expect(pawnId).toBe(resolveMainNeedItem('tool', 'green', save.mainChapter, false, undefined, pawnIdx))
     expect(isLegacyGenericToolNeed(pawnId)).toBe(false)
-    expect(itemProducerStation(pawnId)).toBe('forging')
+    expect(itemProducerStation(pawnId)).toBe('inscription')
   })
 
   it('fills missing break-shield fields on a mid-fight enemy', () => {

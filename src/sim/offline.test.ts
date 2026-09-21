@@ -72,25 +72,21 @@ describe('settleOffline', () => {
     expect(result.save.offlineCount).toBe(1)
   })
 
-  it('summarizes forging consume and produce', () => {
+  it('summarizes inscription consume and produce', () => {
     setRollOverride(() => 0.99)
     const save = roster(1)
-    save.stations.forging.selectedForgeToolId = 'miningTool01'
-    save.bank.ore = 3
-    assignWorker(save, save.workers[0].id, 'forging')
+    save.bank.wildCrystal = 6
+    assignWorker(save, save.workers[0].id, 'inscription')
     save.lastTick = 0
     const result = settleOffline(save, 100_000)
     expect(result.summary.seconds).toBe(100)
-    expect(bankQty(result.save, 'ore')).toBe(0)
-    expect(bankQty(result.save, 'miningTool01')).toBe(3)
+    expect(bankQty(result.save, 'wildCrystal')).toBe(0)
     expect(bankQty(result.save, 'tool')).toBe(0)
-    expect(bankQty(result.save, 'weapon')).toBe(0)
-    const forging = result.summary.stations.find((s) => s.stationId === 'forging')
-    expect(forging?.completed).toBe(3)
-    expect(forging?.stallReason).toBe('emptyInput')
-    expect(result.summary.bank.some((b) => b.itemId === 'ore' && b.delta === -3)).toBe(true)
-    expect(result.summary.bank.some((b) => b.itemId === 'miningTool01' && b.delta === 3)).toBe(true)
-    expect(result.summary.lines.some((l) => l.includes('锻造') && l.includes('原料见底'))).toBe(true)
+    const inscription = result.summary.stations.find((s) => s.stationId === 'inscription')
+    expect(inscription?.completed).toBe(3)
+    expect(inscription?.stallReason).toBe('emptyInput')
+    expect(result.summary.bank.some((b) => b.itemId === 'wildCrystal' && b.delta === -6)).toBe(true)
+    expect(result.summary.lines.some((l) => l.includes('铭刻') && l.includes('原料见底'))).toBe(true)
   })
 
   it('summarizes herbalism into the bank', () => {

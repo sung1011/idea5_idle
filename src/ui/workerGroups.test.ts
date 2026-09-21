@@ -105,7 +105,7 @@ describe('worker duty and names', () => {
     const save = unlockPlayableStations(createSave())
     spawnWorkerWith(save, 1, 'laborer')
     const busy = spawnWorkerWith(save, 1, 'artisan')
-    busy.assignment = 'forging'
+    busy.assignment = 'inscription'
     expect(rosterDutyCounts(save)).toEqual({ total: 2, rest: 1, busy: 1, fight: 0 })
   })
 })
@@ -149,7 +149,7 @@ describe('station crew dots and assign choices', () => {
 
     expect(canAssignWorkerTo(save, extra, 'mining')).toBe(false)
     expect(canAssignWorkerTo(save, a, 'mining')).toBe(false)
-    expect(canAssignWorkerTo(save, extra, 'forging')).toBe(true)
+    expect(canAssignWorkerTo(save, extra, 'inscription')).toBe(true)
     expect(canAssignWorkerTo(save, extra, null)).toBe(false)
     expect(canAssignWorkerTo(save, a, null)).toBe(true)
 
@@ -163,13 +163,13 @@ describe('station crew dots and assign choices', () => {
     expect(restChoice?.current).toBe(true)
     expect(restChoice?.disabled).toBe(true)
     expect(restChoice?.label).toBe('休息')
-    expect(choices.find((c) => c.stationId === 'forging')?.disabled).toBe(false)
-    expect(canAssignWorkerTo(save, rest, 'forging')).toBe(true)
+    expect(choices.find((c) => c.stationId === 'inscription')?.disabled).toBe(false)
+    expect(canAssignWorkerTo(save, rest, 'inscription')).toBe(true)
     expect(canGoToAssignedWorkshop(rest)).toBe(false)
     expect(canGoToAssignedWorkshop(a)).toBe(true)
     expect(canGoToAssignedWorkshop(extra)).toBe(false)
     expect(choices.every((c) => c.canFuse === false)).toBe(true)
-    expect(choices.find((c) => c.stationId === 'forging')?.locked).toBe(false)
+    expect(choices.find((c) => c.stationId === 'inscription')?.locked).toBe(false)
   })
 
   it('marks locked stations on a new save', () => {
@@ -219,7 +219,7 @@ describe('workshop station boards', () => {
       'hunting',
       'cooking',
       'mining',
-      'forging',
+      'inscription',
     ])
     expect(boards.map((board) => board.stationId)).toEqual([...STATION_ORDER])
     expect(boards).toHaveLength(6)
@@ -274,7 +274,7 @@ describe('workshop station boards', () => {
 })
 
 describe('assign resting to first empty slot', () => {
-  it('scans workshop groups 药剂 / 食物 / 武器 top to bottom, left to right', () => {
+  it('scans workshop groups 药剂 / 食物 / 矿符 top to bottom, left to right', () => {
     expect(DISPATCH_STATION_IDS).toEqual([...STATION_ORDER])
     expect(DISPATCH_STATION_IDS).toEqual(WORKSHOP_GROUPS.flatMap((row) => [...row.stations]))
     expect(DISPATCH_STATION_IDS).toEqual([
@@ -283,7 +283,7 @@ describe('assign resting to first empty slot', () => {
       'hunting',
       'cooking',
       'mining',
-      'forging',
+      'inscription',
     ])
   })
 

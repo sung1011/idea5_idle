@@ -14,7 +14,7 @@ describe('workshopRail', () => {
     const green = spawnWorkerWith(save, 2, 'laborer')
     assignWorker(save, green.id, 'mining')
     expect(railWorkerDotColors(save, 'mining')).toEqual([WORKER_QUALITY_TABLE[2].color])
-    expect(railWorkerDotColors(save, 'forging')).toEqual([])
+    expect(railWorkerDotColors(save, 'inscription')).toEqual([])
 
     const pink = spawnWorkerWith(save, 7, 'laborer')
     assignWorker(save, pink.id, 'mining')
@@ -39,12 +39,12 @@ describe('workshopRail', () => {
   it('freezes the fill when the station is stalled or frozen', () => {
     const save = createSave()
     const worker = spawnWorkerWith(save, 1, 'laborer')
-    assignWorker(save, worker.id, 'forging')
-    save.stations.forging.progress = 0.4
-    save.stations.forging.stallReason = 'emptyInput'
+    assignWorker(save, worker.id, 'inscription')
+    save.stations.inscription.progress = 0.4
+    save.stations.inscription.stallReason = 'emptyInput'
     save.lastTick = 1000
-    expect(railProgressHalted(save, 'forging')).toBe(true)
-    expect(railVisualPct(save, 'forging', 1800)).toBeCloseTo(40)
-    expect(railVisualInput(save, 'forging').stalled).toBe(true)
+    expect(railProgressHalted(save, 'inscription')).toBe(true)
+    expect(railVisualPct(save, 'inscription', 1800)).toBeCloseTo(40)
+    expect(railVisualInput(save, 'inscription').stalled).toBe(true)
   })
 })

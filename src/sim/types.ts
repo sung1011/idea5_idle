@@ -2,7 +2,7 @@ export type StationKind = 'gather' | 'craft'
 
 export type StationId =
   | 'mining'
-  | 'forging'
+  | 'inscription'
   | 'hunting'
   | 'cooking'
   | 'herbalism'
@@ -11,8 +11,8 @@ export type StationId =
 /** 旧站。仍可能出现在旧档，不当现玩法站。 */
 export type DeprecatedStationId = 'woodcutting' | 'fishing'
 
-/** 锻造别称，只作文案 / 旧档映射，不是 id。 */
-export type StationAlias = 'smithing'
+/** 铭刻 / 锻造别称，只作文案 / 旧档映射，不是 id。 */
+export type StationAlias = 'smithing' | 'forging' | 'engraving'
 
 /** 站内品类。采矿 / 锻造多档；其它站单一品类兼容。 */
 export type CategoryId = 'copper' | 'iron' | 'mithril' | 'default'
@@ -71,6 +71,13 @@ export type ItemId =
   | 'eye'
   | 'herb'
   | 'spice'
+  | 'wildCrystal'
+  | 'runeSharp'
+  | 'runeArmor'
+  | 'runeBlood'
+  | 'runeBreak'
+  | 'runeSwift'
+  | 'runeInsight'
   | 'tool'
   | 'ironTool'
   | 'mithrilTool'
@@ -85,6 +92,15 @@ export type PotionItemId =
   | 'wardElixir'
   | 'focusDraft'
   | 'clearMind'
+
+/** 开战一人一槽的一次性符文。铭刻产出，进物资堆叠。 */
+export type RuneItemId =
+  | 'runeSharp'
+  | 'runeArmor'
+  | 'runeBlood'
+  | 'runeBreak'
+  | 'runeSwift'
+  | 'runeInsight'
 
 /** 药剂时效。字段都是 `elapsedS`；到期或未开为 null。 */
 export type PotionBuffs = {
@@ -233,6 +249,8 @@ export type CombatFighter = CombatStats & {
   nextActAt: number
   /** 出战工人带上自己的属性；敌人忽略。 */
   combatAttrs?: CombatAttrId[]
+  /** 本场开战消耗的符文；敌人忽略。战后清空。 */
+  runeId?: RuneItemId
 }
 
 export type CombatLogEntry = {
@@ -257,6 +275,10 @@ export type EnemyCombat = {
   shield?: number
   /** 破防硬直结束墙钟。未破防或缺字段为 null。 */
   stunnedUntil?: number | null
+  /** 本场已用过洞悉（任一携带者揭 1 条）。 */
+  insightUsed?: boolean
+  /** 开战 / 增援消耗的符文，倒下离场后仍用来结算血酬。 */
+  runeLoadout?: Partial<Record<string, RuneItemId>>
 }
 
 export type Worker = {
@@ -322,17 +344,8 @@ export type StationState = {
   gatherNotice?: string | null
   /** 狩猎遇险短暂停手：恢复推进的 elapsedS；未暂停为 null。 */
   gatherPauseUntil?: number | null
-  /** 锻造当前工具类型（镐/锅/瓶架等）。其它站忽略。 */
-  selectedToolType?: ToolTypeId | null
-  /** 锻造当前要造的专属工具。其它站忽略。未解锁或非法时回 null。 */
-  selectedForgeToolId?: StationToolId | null
-  /** 最近一次制造结算文案（软失败 / 锻成）。 */
+  /** 最近一次制造结算文案（软失败 / 铭成）。 */
   craftNotice?: string | null
-  /**
-   * 该站下拉选中的专属工具。`null` = 无。
-   * 只生效一把；未解锁或库存见底时 hydrate / 结算会清回无。
-   */
-  selectedToolId: StationToolId | null
   /** 站内连招 / 毒雾 / 挫败。旧档缺字段 hydrate 为零。 */
   fatigueCombo: StationFatigueCombo
 }
@@ -417,9 +430,9 @@ export type Save = {
   nextMessageId: number
   /** 成功离线追赶次数（seconds > 0）。 */
   offlineCount: number
-  /** 采集 / 锻造掷骰种子。缺字段 hydrate 为 1。 */
+  /** 采集 / 铭刻掷骰种子。缺字段 hydrate 为 1。 */
   rngState: number
-  /** 未装备的锻造成品类型队列，与 bank 工具数量对齐。 */
+  /** 旧档锻造成品队列。hydrate 转荒晶后清空，新档不写。 */
   forgedTools: ForgedTool[]
   /**
    * 工人色表版本。2 = 白为首、无灰、粉在橙红之间。

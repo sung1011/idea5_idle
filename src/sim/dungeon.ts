@@ -42,6 +42,7 @@ import {
 import { hashString, roll01Bag } from './combatAttrs'
 import { DAY_LENGTH_S, ITEM_DEF, formatClock, gameDay, timeOfDayS, type IoRule } from './tables'
 import { workerLootXp } from './workerLevel'
+import { consumeRunePicks, normalizeRunePicks, runePickBlockReason, type RunePickMap } from './runes'
 import type { ActionResult, CombatStats, DungeonState, EncounterNeedMap, EnemyEncounter, ItemId, Save, Worker } from './types'
 
 export {
@@ -307,9 +308,12 @@ export function startDungeonCombat(
   now = Date.now(),
   onLog?: CombatLogSink,
   guests: readonly Worker[] = [],
+  runePicks?: RunePickMap,
 ): ActionResult {
   const blocked = startDungeonBlockReason(save, workerIds, guests)
   if (blocked) return { ok: false, reason: blocked }
+  const runeBlocked = runePickBlockReason(save, runePicks)
+  if (runeBlocked) return { ok: false, reason: runeBlocked }
   const enc = dungeonEncounterOf(save)
   const party = workerIds
     .map((id) => findCombatPartyWorker(save, id, guests))
@@ -320,6 +324,8 @@ export function startDungeonCombat(
   }
   const took = takeCosts(save, needRules(DUNGEON_NEEDS))
   if (!took.ok) return took
+  const consumed = consumeRunePicks(save, runePicks)
+  if (!consumed.ok) return consumed
   save.dungeon.attemptsUsed = Math.min(DUNGEON_ATTEMPTS_PER_DAY, save.dungeon.attemptsUsed + 1)
   enc.dungeonShieldBonus = dungeonShieldBonus(save)
   enc.lootClaimed = false
@@ -329,6 +335,7 @@ export function startDungeonCombat(
     stats: dungeonBossLiveStats(save),
     shield: dungeonPhaseShield(1, enc.dungeonShieldBonus),
     timeoutS: DUNGEON_TIMEOUT_S,
+    runes: normalizeRunePicks(runePicks),
   })
   return { ok: true }
 }
@@ -339,15 +346,20 @@ export function reinforceDungeonCombat(
   now = Date.now(),
   onLog?: CombatLogSink,
   guests: readonly Worker[] = [],
+  runePicks?: RunePickMap,
 ): ActionResult {
   const blocked = reinforceDungeonBlockReason(save, workerIds, guests)
   if (blocked) return { ok: false, reason: blocked }
+  const runeBlocked = runePickBlockReason(save, runePicks)
+  if (runeBlocked) return { ok: false, reason: runeBlocked }
   const enc = dungeonEncounterOf(save)
   const party = workerIds
     .map((id) => findCombatPartyWorker(save, id, guests))
     .filter((w): w is Worker => !!w)
   if (!party.length) return { ok: false, reason: '请选择出战工人' }
-  addCombatReinforcements(enc, party, now, onLog, save)
+  const consumed = consumeRunePicks(save, runePicks)
+  if (!consumed.ok) return consumed
+  addCombatReinforcements(enc, party, now, onLog, save, normalizeRunePicks(runePicks))
   return { ok: true }
 }
 

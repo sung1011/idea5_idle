@@ -1,7 +1,7 @@
 import { alchemyCostLabel, rollAlchemyPotionBatch } from './alchemy'
 import { addToBank } from './bank'
 import { takeCosts } from './costs'
-import { completeForgingCycle } from './forging'
+import { completeInscriptionCycle } from './inscription'
 import { applyGatherOutputs, applyHuntingPauseTick, applyMiningRecovery, isGatherFrozen, isGatherStation } from './gather'
 import { craftGoldForLots, emitGain, mergeLots, pushLot, type GainSink, type ItemLot } from './gains'
 import { tryAutoEatAssigned } from './food'
@@ -9,7 +9,7 @@ import { applyWorkshopFatigue, decayAlchemyFog, workshopHpWorkMul, type FatigueK
 import { assignedCount, canConsume, currentSpeed, pickConsume } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
 import { ITEM_DEF } from './tables'
-import { consumeSelectedStationTool, cycleOutputBonus, sanitizeForgeSelection } from './tools'
+import { cycleOutputBonus } from './tools'
 import type { Save, StationId } from './types'
 
 /** 1/6、1/7 这类 cycle 累加会卡在 0.999…，差一丁点到 1。 */
@@ -58,10 +58,9 @@ export function completeCycle(
 ): boolean {
   if (!canConsume(save, stationId)) return false
   const lots: ItemLot[] = []
-  if (stationId === 'forging') {
-    const ok = completeForgingCycle(save, now, lots)
+  if (stationId === 'inscription') {
+    const ok = completeInscriptionCycle(save, now, lots)
     if (ok) {
-      consumeSelectedStationTool(save, stationId)
       const fatigue: FatigueKind = lots.length > 0 ? 'success' : 'softFail'
       emitCycleGain(save, stationId, lots, onGain, now, fatigue)
     }
@@ -70,7 +69,6 @@ export function completeCycle(
   if (stationId === 'alchemy') {
     const ok = completeAlchemyCycle(save, now, lots)
     if (ok) {
-      consumeSelectedStationTool(save, stationId)
       emitCycleGain(save, stationId, lots, onGain, now, 'success')
     }
     return ok
@@ -84,7 +82,6 @@ export function completeCycle(
   }
   station.completed += 1
   grantStationXp(save, stationId, selectedCategoryDef(save, stationId).xpPerCycle)
-  consumeSelectedStationTool(save, stationId)
   emitCycleGain(save, stationId, lots, onGain, now, gatherFatigueKind(stationId, lots, station.gatherNotice))
   return true
 }
@@ -120,8 +117,6 @@ function emitCycleGain(
 export function stepStation(save: Save, stationId: StationId, now = Date.now(), onGain?: GainSink): void {
   if (stationId === 'mining') applyMiningRecovery(save)
   if (stationId === 'hunting') applyHuntingPauseTick(save)
-  if (stationId === 'forging') sanitizeForgeSelection(save)
-
   const station = save.stations[stationId]
   const n = assignedCount(save, stationId)
   if (n <= 0) {

@@ -19,7 +19,7 @@ describe('knight level formula', () => {
   it('uses 1 + sum(stationLevel - 1), not the raw level sum', () => {
     const save = createSave()
     save.stations.mining.stationLevel = 3
-    save.stations.forging.stationLevel = 2
+    save.stations.inscription.stationLevel = 2
     // 裸求和=1*4+3+2=9；换算=1+(3-1)+(2-1)=4
     expect(computeKnightLevel(save)).toBe(4)
   })

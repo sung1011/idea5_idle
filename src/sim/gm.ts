@@ -7,9 +7,9 @@ import { syncUnlockedCategories } from './stationProgress'
 import { normalizeTechPoints } from './tech'
 import {
   QUALITY_MAX,
+  RUNE_ITEM_IDS,
   STATION_DEF,
   STATION_IDS,
-  STATION_TOOL_IDS,
   classPoolForQuality,
   pickClassFromPool,
 } from './tables'
@@ -42,9 +42,13 @@ export const GM_BASIC_ITEMS: ItemId[] = [
   'wardElixir',
   'focusDraft',
   'clearMind',
-  'tool',
-  'ironTool',
-  'mithrilTool',
+  'wildCrystal',
+  'runeSharp',
+  'runeArmor',
+  'runeBlood',
+  'runeBreak',
+  'runeSwift',
+  'runeInsight',
 ]
 
 /** 按 createSave 重开。调用方替换整份存档并写回 localStorage。 */
@@ -98,7 +102,7 @@ export function gmMaxStations(save: Save, level = GM_MAX_STATION_LEVEL): ActionR
 
 export function gmFillBankBasics(save: Save): ActionResult {
   for (const id of GM_BASIC_ITEMS) save.bank[id] = GM_BASIC_ITEM_QTY
-  for (const id of STATION_TOOL_IDS) save.bank[id] = GM_BASIC_ITEM_QTY
+  for (const id of RUNE_ITEM_IDS) save.bank[id] = GM_BASIC_ITEM_QTY
   return { ok: true, message: '已加基础物资' }
 }
 

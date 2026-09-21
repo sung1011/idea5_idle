@@ -38,10 +38,10 @@ export function workshopGroupProgressStyle(id: WorkshopGroupId): Record<string, 
 const WORKSHOP_GROUP_META: readonly { id: WorkshopGroupId; label: string }[] = [
   { id: 'potion', label: '药剂' },
   { id: 'food', label: '食物' },
-  { id: 'weapon', label: '武器' },
+  { id: 'weapon', label: '矿符' },
 ]
 
-/** 工坊页左侧三组竖签，上→下：药剂 / 食物 / 武器。站序来自 PLAYABLE_CHAINS。 */
+/** 工坊页左侧三组竖签，上→下：药剂 / 食物 / 矿符。站序来自 PLAYABLE_CHAINS。 */
 export const WORKSHOP_GROUPS: readonly WorkshopGroupDef[] = PLAYABLE_CHAINS.map((stations, index) => {
   const meta = WORKSHOP_GROUP_META[index]
   if (!meta) throw new Error('工坊组元数据与 PLAYABLE_CHAINS 不对齐')
@@ -82,6 +82,7 @@ export function isWorkshopGroupId(id: unknown): id is WorkshopGroupId {
 }
 
 export function workshopTabOf(id: unknown): StationId {
+  if (id === 'forging') return 'inscription'
   if (isWorkshopTabId(id)) return id
   if (typeof id === 'string' && Object.prototype.hasOwnProperty.call(LEGACY_LINE_TO_STATION, id)) {
     return LEGACY_LINE_TO_STATION[id]

@@ -3,20 +3,22 @@ import { addToBank, hydrateBank, itemQty, sellAllGoods, sellFromBank } from './b
 import { createSave } from './createSave'
 
 describe('sell goods', () => {
-  it('batch-sells tools and cooked food, not old weapons', () => {
+  it('batch-sells runes and cooked food, not old weapons or tools', () => {
     const save = createSave()
     save.gold = 0
     save.bank.weapon = 2
     save.bank.tool = 1
+    save.bank.runeSharp = 1
     save.bank.meal = 1
     save.bank.roast = 1
     const result = sellAllGoods(save)
     expect(result.ok).toBe(true)
     expect(save.bank.weapon).toBe(2)
-    expect(save.bank.tool ?? 0).toBe(0)
+    expect(save.bank.tool).toBe(1)
+    expect(save.bank.runeSharp ?? 0).toBe(0)
     expect(save.bank.meal ?? 0).toBe(0)
     expect(save.bank.roast ?? 0).toBe(0)
-    expect(save.gold).toBe(12 + 8 + 10)
+    expect(save.gold).toBe(8 + 8 + 10)
   })
 
   it('fails when there is nothing to sell', () => {
@@ -40,9 +42,9 @@ describe('sell goods', () => {
     const save = createSave()
     save.gold = 0
     save.bank.stew = 1
-    save.bank.ironTool = 1
+    save.bank.runeArmor = 1
     expect(sellAllGoods(save).ok).toBe(true)
-    expect(save.gold).toBe(14 + 18)
+    expect(save.gold).toBe(14 + 8)
   })
 
   it('sells a single ore for its table price', () => {

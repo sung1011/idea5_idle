@@ -279,23 +279,21 @@ describe('inspiration grant', () => {
     setRollOverride(() => 0.99)
     const forge = createSave()
     spawnWorker(forge)
-    forge.stations.forging.selectedForgeToolId = 'miningTool01'
-    assignWorker(forge, forge.workers[0].id, 'forging')
-    forge.bank.ore = 1
+    assignWorker(forge, forge.workers[0].id, 'inscription')
+    forge.bank.wildCrystal = 2
     const forged = ticks(forge, 32)
-    expect(forged.stations.forging.completed).toBe(1)
+    expect(forged.stations.inscription.completed).toBe(1)
     expect(forged.techPoints).toBe(20)
   })
 
-  it('does not grant inspiration on a forging soft-fail cycle', () => {
+  it('does not grant inspiration on an inscription soft-fail cycle', () => {
     setRollOverride(() => 0)
     const save = createSave()
     spawnWorker(save)
-    save.stations.forging.selectedForgeToolId = 'miningTool01'
-    assignWorker(save, save.workers[0].id, 'forging')
-    save.bank.ore = 1
-    expect(completeCycle(save, 'forging')).toBe(true)
-    expect(save.stations.forging.craftNotice).toContain('软失败')
+    assignWorker(save, save.workers[0].id, 'inscription')
+    save.bank.wildCrystal = 2
+    expect(completeCycle(save, 'inscription')).toBe(true)
+    expect(save.stations.inscription.craftNotice).toContain('软失败')
     expect(save.techPoints).toBe(20)
   })
 })
@@ -785,7 +783,7 @@ describe('tech effect multipliers', () => {
 
     expect(slagCopperCostSet(save, [{ itemId: 'ore', qty: 1 }])).toEqual([{ itemId: 'slag', qty: 2 }])
     const bareForge = createSave()
-    expect(stationCycleS(save, 'forging')).toBeCloseTo(stationCycleS(bareForge, 'forging') * 0.9)
+    expect(stationCycleS(save, 'inscription')).toBeCloseTo(stationCycleS(bareForge, 'inscription') * 0.9)
     expect(stationCycleS(save, 'cooking')).toBe(stationCycleS(bareForge, 'cooking'))
 
     const xpBefore = save.stations.mining.stationXp
@@ -793,11 +791,9 @@ describe('tech effect multipliers', () => {
     expect(save.stations.mining.stationXp - xpBefore).toBeCloseTo(1.15)
 
     save.stations.mining.stationLevel = 5
-    save.bank.miningTool01 = 1
     const toolPick = spawnWorker(save)
     assignWorker(save, toolPick.id, 'mining')
-    save.stations.mining.selectedToolId = 'miningTool01'
-    expect(stationToolSpeedMul(save, 'mining')).toBeCloseTo(1.08)
+    expect(stationToolSpeedMul(save, 'mining')).toBe(1)
 
     setRollOverride(() => 0)
     const mined = createSave()

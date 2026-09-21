@@ -27,29 +27,29 @@ describe('stationTips', () => {
       notice: '矿脉 4/5',
     })
     expect(stationTipList('mining').map((tip) => tip.text)).toEqual(['获得 铜矿 ×1'])
-    expect(stationTipList('forging')).toEqual([])
+    expect(stationTipList('inscription')).toEqual([])
     expect(useFloatTips().tips.value).toEqual([])
   })
 
   it('merges workshop gold into the station 获得 tip', () => {
     pushCycleGain({
-      stationId: 'forging',
-      lots: [{ itemId: 'tool', qty: 1 }],
-      notice: '锻成初级工具',
+      stationId: 'inscription',
+      lots: [{ itemId: 'runeSharp', qty: 1 }],
+      notice: '铭成锋锐',
       gold: 2,
     })
-    expect(stationTipList('forging').map((tip) => tip.text)).toEqual(['获得 初级工具 ×1、金币 +2'])
+    expect(stationTipList('inscription').map((tip) => tip.text)).toEqual(['获得 锋锐 ×1、金币 +2'])
     expect(useFloatTips().tips.value).toEqual([])
   })
 
   it('pins hazard / soft-fail notices to that station', () => {
     pushCycleGain({ stationId: 'hunting', lots: [], notice: '遇险，短暂停手' })
-    pushCycleGain({ stationId: 'forging', lots: [], notice: '软失败，矿石损耗' })
+    pushCycleGain({ stationId: 'inscription', lots: [], notice: '软失败，荒晶损耗' })
     expect(stationTipList('hunting').map((tip) => ({ text: tip.text, kind: tip.kind }))).toEqual([
       { text: '遇险，短暂停手', kind: 'err' },
     ])
-    expect(stationTipList('forging').map((tip) => ({ text: tip.text, kind: tip.kind }))).toEqual([
-      { text: '软失败，矿石损耗', kind: 'err' },
+    expect(stationTipList('inscription').map((tip) => ({ text: tip.text, kind: tip.kind }))).toEqual([
+      { text: '软失败，荒晶损耗', kind: 'err' },
     ])
     expect(stationTipList('mining')).toEqual([])
     expect(useFloatTips().tips.value).toEqual([])

@@ -14,7 +14,6 @@ import {
   isFighting,
   isFullCombatHp,
   restCombatCandidates,
-  workerCombatNotReadyTip,
 } from '../sim/combat'
 import { createAssistWorker, isAssistWorker, pickCombatCandidates } from '../sim/combatAssist'
 import {
@@ -46,8 +45,9 @@ import {
 } from '../sim/dungeon'
 import { isGuideQuestCombatFlash, isGuideQuestFlash } from '../sim/guideQuest'
 import { mainChapterTitle, mainLootClaimBarLabel, mainLootClaimFillPct } from '../sim/mainChapter'
-import { CLASS_LABEL } from '../sim/tables'
-import type { Encounter, EncounterKind, EnemyEncounter, Worker } from '../sim/types'
+import { CLASS_LABEL, isClassId, isRuneItemId, RUNE_DEF } from '../sim/tables'
+import { availableRuneQty, listRunePickOptions } from '../sim/runes'
+import type { Encounter, EncounterKind, EnemyEncounter, RuneItemId, Worker } from '../sim/types'
 import EncounterDealLines from './encounterDealLines.vue'
 import EncounterTips from './encounterTips.vue'
 import { encounterHpShakeAt } from './encounterTips'
@@ -163,7 +163,11 @@ const pickIndex = ref<number | null>(null)
 const pickMode = ref<'start' | 'reinforce'>('start')
 const picked = ref<string[]>([])
 const assistWorker = ref<Worker | null>(null)
+const pickRunes = ref<Partial<Record<string, RuneItemId>>>({})
+const runePickWorkerId = ref<string | null>(null)
 const pickOpen = computed(() => pickIndex.value !== null)
+const runePickOpen = computed(() => runePickWorkerId.value !== null)
+const runeOptions = computed(() => listRunePickOptions(game.save))
 const pickMax = computed(() => {
   const enc = activeEnemy()
   const cap = combatPartyCap(enc)
@@ -234,6 +238,8 @@ function openPick(index: number) {
   pickIndex.value = index
   picked.value = []
   assistWorker.value = null
+  pickRunes.value = {}
+  runePickWorkerId.value = null
 }
 
 function openReinforce(index: number) {
@@ -243,6 +249,8 @@ function openReinforce(index: number) {
   pickIndex.value = index
   picked.value = []
   assistWorker.value = null
+  pickRunes.value = {}
+  runePickWorkerId.value = null
 }
 
 function closePick() {
@@ -250,6 +258,54 @@ function closePick() {
   pickMode.value = 'start'
   picked.value = []
   assistWorker.value = null
+  pickRunes.value = {}
+  runePickWorkerId.value = null
+}
+
+function openRunePick(workerId: string, ev?: Event) {
+  ev?.stopPropagation()
+  runePickWorkerId.value = workerId
+}
+
+function closeRunePick() {
+  runePickWorkerId.value = null
+}
+
+function equippedRune(workerId: string): RuneItemId | null {
+  const id = pickRunes.value[workerId]
+  return isRuneItemId(id) ? id : null
+}
+
+function runeSlotLabel(workerId: string): string {
+  const id = equippedRune(workerId)
+  return id ? RUNE_DEF[id].label : '符文'
+}
+
+function pickRune(runeId: RuneItemId | null) {
+  const workerId = runePickWorkerId.value
+  if (!workerId) return
+  if (!runeId) {
+    const next = { ...pickRunes.value }
+    delete next[workerId]
+    pickRunes.value = next
+    closeRunePick()
+    return
+  }
+  if (availableRuneQty(game.save, pickRunes.value, runeId, workerId) < 1) {
+    pushFloatTip(`${RUNE_DEF[runeId].label}见底`, 'err')
+    return
+  }
+  pickRunes.value = { ...pickRunes.value, [workerId]: runeId }
+  closeRunePick()
+}
+
+function runePicksForConfirm() {
+  const out: Partial<Record<string, RuneItemId>> = {}
+  for (const id of picked.value) {
+    const runeId = pickRunes.value[id]
+    if (isRuneItemId(runeId)) out[id] = runeId
+  }
+  return out
 }
 
 function inviteAssist() {
@@ -261,6 +317,9 @@ function togglePick(worker: Worker) {
   const id = worker.id
   if (picked.value.includes(id)) {
     picked.value = picked.value.filter((x) => x !== id)
+    const next = { ...pickRunes.value }
+    delete next[id]
+    pickRunes.value = next
     return
   }
   if (picked.value.length >= pickMax.value) {
@@ -274,10 +333,11 @@ function confirmPick() {
   const index = pickIndex.value
   if (index == null) return
   const guests = assistWorker.value ? [assistWorker.value] : []
+  const runes = runePicksForConfirm()
   if (pickMode.value === 'reinforce') {
     const result = isDungeonTab.value
-      ? game.reinforceDungeonCombat([...picked.value], guests)
-      : game.reinforceCombat(index, [...picked.value], guests)
+      ? game.reinforceDungeonCombat([...picked.value], guests, runes)
+      : game.reinforceCombat(index, [...picked.value], guests, runes)
     if (result.ok) closePick()
     return
   }
@@ -286,8 +346,8 @@ function confirmPick() {
     return
   }
   const result = isDungeonTab.value
-    ? game.startDungeonCombat([...picked.value], guests)
-    : game.startCombat(index, [...picked.value], guests)
+    ? game.startDungeonCombat([...picked.value], guests, runes)
+    : game.startCombat(index, [...picked.value], guests, runes)
   if (result.ok) closePick()
 }
 
@@ -327,8 +387,18 @@ function combatShield(enc: EnemyEncounter): number | null {
   return enc.combat.shield
 }
 
-function workerJob(w: Worker) {
-  return w.classId ? CLASS_LABEL[w.classId] : '未标'
+/** 选人列表只显示本名，去掉职业后缀（游民 / 骑士等）。 */
+function pickWorkerName(w: Worker): string {
+  const raw = (w.name ?? w.id).trim()
+  if (!raw) return w.id
+  const suffixes = isClassId(w.classId) ? [CLASS_LABEL[w.classId]] : Object.values(CLASS_LABEL)
+  for (const suffix of suffixes) {
+    if (raw === suffix) return raw
+    if (raw.endsWith(suffix) && raw.length > suffix.length) {
+      return raw.slice(0, -suffix.length).replace(/[·\s\-—]+$/, '') || raw
+    }
+  }
+  return raw
 }
 
 function weaknessSlots(enc: EnemyEncounter) {
@@ -638,32 +708,38 @@ function timedLine(enc: Encounter) {
 
     <div v-if="pickOpen" class="modal" role="dialog" aria-label="选择出战工人" @click.self="closePick">
       <div class="sheet">
-        <p>{{ pickMode === 'reinforce' ? '选择增援工人' : '选择出战工人' }}（最多 {{ pickMax }} 人，须满血）</p>
-        <p class="hint">列出休息工人；未满血（有效 HP 含劳损未到上限）灰显。出战不算派驻工坊。点邀请才加入 1 名临时助战。{{ pickMode === 'reinforce' ? '增援不消耗补给。' : `1～${pickMax} 人即可，不必凑满。` }}</p>
+        <p>{{ pickMode === 'reinforce' ? '选择增援工人' : '选择出战工人' }}（最多 {{ pickMax }} 人）</p>
+        <p class="hint">列出休息工人；未达出战条件的灰显。出战不算派驻工坊。点邀请才加入 1 名临时助战。{{ pickMode === 'reinforce' ? '增援不消耗补给。' : `1～${pickMax} 人即可，不必凑满。` }}</p>
         <ul class="pick-list">
-          <li v-for="w in pickCandidates" :key="w.id">
+          <li v-for="w in pickCandidates" :key="w.id" class="pick-row">
             <button
               type="button"
               class="pick-worker"
               :class="{ on: picked.includes(w.id), assist: isAssistWorker(w), dim: !isFullCombatHp(w) }"
               :disabled="!isFullCombatHp(w)"
-              :title="workerCombatNotReadyTip(w) ?? undefined"
               @click="togglePick(w)"
             >
               <span class="pick-name">
                 <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
                 <i v-if="isAssistWorker(w)" class="pick-assist">助战</i>
                 <CombatAttrRow class="pick-attrs" :attrs="w.combatAttrs" />
-                <b class="pick-worker-name" :style="workerQualityNameStyle(w)">{{ w.name ?? w.id }}</b>
-                <span class="pick-meta">· Lv{{ w.level }} · {{ workerJob(w) }} · HP {{ w.hp }}/{{ w.hpMax }}</span>
+                <b class="pick-worker-name" :style="workerQualityNameStyle(w)">{{ pickWorkerName(w) }}</b>
+                <span class="pick-meta">· Lv{{ w.level }}</span>
                 <i
                   v-if="pickRecommend(w) && isFullCombatHp(w)"
                   class="pick-rec"
                   :class="{ hot: pickRecommend(w) === '强烈推荐' }"
                 >{{ pickRecommend(w) }}</i>
-                <i v-if="workerCombatNotReadyTip(w)" class="pick-tip">{{ workerCombatNotReadyTip(w) }}</i>
               </span>
             </button>
+            <button
+              type="button"
+              class="rune-slot"
+              :class="{ on: !!equippedRune(w.id) }"
+              :disabled="!isFullCombatHp(w)"
+              :aria-label="`${pickWorkerName(w)} 符文槽`"
+              @click="openRunePick(w.id, $event)"
+            >{{ runeSlotLabel(w.id) }}</button>
           </li>
           <li v-if="!pickCandidates.length" class="hint">没有休息中的工人</li>
         </ul>
@@ -679,6 +755,36 @@ function timedLine(enc: Encounter) {
             </button>
           </span>
           <button type="button" @click="inviteAssist">邀请</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="runePickOpen" class="modal" role="dialog" aria-label="选择符文" @click.self="closeRunePick">
+      <div class="sheet rune-sheet">
+        <p>选择符文（一人一槽，开战消耗）</p>
+        <p class="hint">列出全部种类与库存；短文案是本场效果。未选则空手出战。</p>
+        <ul class="rune-list">
+          <li>
+            <button type="button" class="rune-item" :class="{ on: runePickWorkerId && !equippedRune(runePickWorkerId) }" @click="pickRune(null)">
+              <b>空槽</b>
+              <span>不带符文</span>
+            </button>
+          </li>
+          <li v-for="row in runeOptions" :key="row.id">
+            <button
+              type="button"
+              class="rune-item"
+              :class="{ on: runePickWorkerId ? equippedRune(runePickWorkerId) === row.id : false }"
+              :disabled="availableRuneQty(game.save, pickRunes, row.id, runePickWorkerId ?? undefined) < 1 && !(runePickWorkerId && equippedRune(runePickWorkerId) === row.id)"
+              @click="pickRune(row.id)"
+            >
+              <b>{{ row.label }} ×{{ availableRuneQty(game.save, pickRunes, row.id, runePickWorkerId ?? undefined) }}</b>
+              <span>{{ row.effect }}</span>
+            </button>
+          </li>
+        </ul>
+        <div class="row">
+          <button type="button" @click="closeRunePick">关闭</button>
         </div>
       </div>
     </div>
@@ -1256,14 +1362,65 @@ ul {
   overflow: auto;
 }
 
-.pick-list button {
-  width: 100%;
+.pick-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.pick-list .pick-worker {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-start;
   gap: 6px;
   text-align: left;
+}
+
+.rune-slot {
+  flex: 0 0 56px;
+  min-width: 56px;
+  min-height: 44px;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.rune-slot.on {
+  background: linear-gradient(#ffe27a, #f0b83a);
+}
+
+.rune-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 46vh;
+  overflow: auto;
+}
+
+.rune-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+}
+
+.rune-item span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.rune-item.on {
+  background: linear-gradient(#ffe27a, #f0b83a);
 }
 
 .pick-name {

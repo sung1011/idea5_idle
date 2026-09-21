@@ -101,16 +101,15 @@ describe('workshop HP formulas', () => {
     expect(hazard.workers[0].fatigueDebt).toBeLessThan(1)
 
     const fail = roster(1)
-    fail.stations.forging.selectedForgeToolId = 'miningTool01'
-    fail.bank.ore = 1
-    assignWorker(fail, fail.workers[0].id, 'forging')
+    fail.bank.wildCrystal = 2
+    assignWorker(fail, fail.workers[0].id, 'inscription')
     const failHp = fail.workers[0].hp
-    expect(completeCycle(fail, 'forging')).toBe(true)
-    expect(fail.stations.forging.craftNotice).toContain('软失败')
+    expect(completeCycle(fail, 'inscription')).toBe(true)
+    expect(fail.stations.inscription.craftNotice).toContain('软失败')
     expect(fail.workers[0].hp).toBe(failHp)
     expect(fail.workers[0].fatigueDebt).toBeGreaterThan(0)
     expect(fail.workers[0].fatigueDebt).toBeLessThan(1)
-    expect(fail.stations.forging.fatigueCombo.frustration).toBe(1)
+    expect(fail.stations.inscription.fatigueCombo.frustration).toBe(1)
   })
 
   it('does not use food to cut workshop drain; empty/wounded bands slow the station', () => {
@@ -224,20 +223,19 @@ describe('station fatigue combos', () => {
     )
   })
 
-  it('liquidates forging frustration on the next success', () => {
+  it('liquidates inscription frustration on the next success', () => {
     const save = roster(1)
-    save.stations.forging.selectedForgeToolId = 'miningTool01'
-    save.bank.ore = 3
-    assignWorker(save, save.workers[0].id, 'forging')
-    save.stations.forging.fatigueCombo.frustration = 3
+    save.bank.wildCrystal = 4
+    assignWorker(save, save.workers[0].id, 'inscription')
+    save.stations.inscription.fatigueCombo.frustration = 3
     const before = save.workers[0].fatigueDebt
     setRollOverride(() => 0.99)
-    expect(completeCycle(save, 'forging')).toBe(true)
-    expect(save.stations.forging.craftNotice).toContain('锻成')
+    expect(completeCycle(save, 'inscription')).toBe(true)
+    expect(save.stations.inscription.craftNotice).toContain('铭成')
     expect(save.workers[0].fatigueDebt - before).toBeGreaterThan(
-      save.workers[0].hpMax * FATIGUE_DEBT_RATIO * FATIGUE_STATION_MUL.forging * 1.2,
+      save.workers[0].hpMax * FATIGUE_DEBT_RATIO * FATIGUE_STATION_MUL.inscription * 1.2,
     )
-    expect(save.stations.forging.fatigueCombo.frustration).toBe(0)
+    expect(save.stations.inscription.fatigueCombo.frustration).toBe(0)
   })
 
   it('stacks alchemy fog on success and decays when the station is idle', () => {

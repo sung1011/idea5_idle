@@ -5,8 +5,6 @@ import {
   asMiningCategoryId,
   defaultCategory,
   findCategory,
-  forgeCategoryFromRecipe,
-  isToolTypeId,
   miningNodeDef,
   MINING_NODE_DEF,
   stationCategories,
@@ -14,7 +12,6 @@ import {
   xpToNextLevel,
   type MiningCategoryId,
 } from './tables'
-import { hydrateSelectedForgeToolId, hydrateSelectedToolId, selectedForgeRecipe } from './tools'
 import type { ActionResult, CategoryId, MiningNodeState, Save, StationFatigueCombo, StationId, StationState } from './types'
 import { blankFatigueCombo } from './workshopHp'
 
@@ -108,10 +105,6 @@ export function isCategoryUnlocked(save: Save, stationId: StationId, categoryId:
 }
 
 export function selectedCategoryDef(save: Save, stationId: StationId) {
-  if (stationId === 'forging') {
-    const recipe = selectedForgeRecipe(save)
-    if (recipe) return forgeCategoryFromRecipe(recipe)
-  }
   const selected = save.stations[stationId].selectedCategory
   return findCategory(stationId, selected) ?? defaultCategory(stationId)
 }
@@ -170,10 +163,7 @@ export function blankStation(stationId: StationId): StationState {
     progressNotice: null,
     gatherNotice: null,
     gatherPauseUntil: null,
-    selectedToolType: stationId === 'forging' ? 'pick' : null,
-    selectedForgeToolId: null,
     craftNotice: null,
-    selectedToolId: null,
     fatigueCombo: blankFatigueCombo(),
     ...(stationId === 'mining'
       ? (() => {
@@ -209,21 +199,7 @@ export function hydrateStationState(stationId: StationId, incoming?: Partial<Sta
       typeof incoming.gatherPauseUntil === 'number' && Number.isFinite(incoming.gatherPauseUntil)
         ? incoming.gatherPauseUntil
         : null,
-    selectedToolType:
-      stationId === 'forging'
-        ? isToolTypeId(incoming.selectedToolType)
-          ? incoming.selectedToolType
-          : 'pick'
-        : null,
-    selectedForgeToolId:
-      stationId === 'forging'
-        ? hydrateSelectedForgeToolId((incoming as { selectedForgeToolId?: unknown }).selectedForgeToolId)
-        : null,
     craftNotice: typeof incoming.craftNotice === 'string' ? incoming.craftNotice : null,
-    selectedToolId: hydrateSelectedToolId(
-      (incoming as { selectedToolId?: unknown }).selectedToolId,
-      stationId,
-    ),
     fatigueCombo: hydrateFatigueCombo(incoming.fatigueCombo),
     ...(stationId === 'mining'
       ? hydrateMiningNodes(incoming, incoming.selectedCategory ?? blank.selectedCategory)
@@ -234,10 +210,12 @@ export function hydrateStationState(stationId: StationId, incoming?: Partial<Sta
   return station
 }
 
-export function hydrateStations(raw?: Partial<Record<StationId, Partial<StationState>>>): Save['stations'] {
+export function hydrateStations(raw?: Partial<Record<string, Partial<StationState>>>): Save['stations'] {
   const next = {} as Save['stations']
+  const src = raw && typeof raw === 'object' ? raw : {}
   for (const id of Object.keys(STATION_DEF) as StationId[]) {
-    next[id] = hydrateStationState(id, raw?.[id])
+    const incoming = src[id] ?? (id === 'inscription' ? src.forging ?? src.smithing ?? src.engraving : undefined)
+    next[id] = hydrateStationState(id, incoming)
   }
   return next
 }

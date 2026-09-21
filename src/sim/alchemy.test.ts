@@ -104,6 +104,16 @@ describe('alchemy random potion batches', () => {
     expect(STATION_DEF.herbalism.neighbors).toEqual([])
     expect((STATION_DEF as Record<string, unknown>).leatherworking).toBeUndefined()
     expect(SELLABLE_GOODS).not.toContain('weapon')
-    expect(SELLABLE_GOODS).toEqual(['tool', 'ironTool', 'mithrilTool', 'meal', 'roast', 'stew'])
+    expect(SELLABLE_GOODS).toEqual([
+      'runeSharp',
+      'runeArmor',
+      'runeBlood',
+      'runeBreak',
+      'runeSwift',
+      'runeInsight',
+      'meal',
+      'roast',
+      'stew',
+    ])
   })
 })

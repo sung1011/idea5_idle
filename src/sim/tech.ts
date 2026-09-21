@@ -168,7 +168,7 @@ const PRODUCTION_ROWS: readonly RowSeed[] = [
       {
         id: 'toolUpkeep',
         name: '工具保养',
-        desc: '保养到位，已选工具效率再 +5%（与现有工具加成叠）。',
+        desc: '保养铭刀，铭刻成功时额外 +1 枚符文。',
         icon: '🔧',
         ...implemented(TOOL_UPKEEP_EFFECT),
       },
@@ -188,7 +188,7 @@ const PRODUCTION_ROWS: readonly RowSeed[] = [
       {
         id: 'forgeHeat',
         name: '炉温调控',
-        desc: '把炉火稳住，锻造耗时 −10%。',
+        desc: '把炉火稳住，铭刻耗时 −10%。',
         icon: '🔥',
         ...implemented(FORGE_CYCLE_EFFECT),
       },

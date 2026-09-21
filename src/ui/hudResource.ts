@@ -6,6 +6,7 @@ import {
   STATION_DEF,
   isFoodItemId,
   isPotionItemId,
+  isRuneItemId,
   isStationToolId,
   isToolItemId,
   itemProducerStation,
@@ -128,7 +129,9 @@ export function itemHudUsage(itemId: ItemId): string {
   const extras: string[] = []
   if (isFoodItemId(itemId)) extras.push('工人食物槽回血')
   if (isPotionItemId(itemId) || itemId === 'potion') extras.push('工人页药剂槽短按使用')
-  if (isStationToolId(itemId) || isToolItemId(itemId)) extras.push('工坊站卡装备，成功吞吐耗 1')
+  if (isRuneItemId(itemId)) extras.push('开战选人一槽装备，本场消耗')
+  if (itemId === 'wildCrystal') extras.push('铭刻符文的主原料')
+  if (isStationToolId(itemId) || isToolItemId(itemId)) extras.push('旧档工具，读档会转成荒晶')
   if (itemId === 'blueprint') extras.push('只进物资，不再兑换灵感')
   if (itemId === 'slag') extras.push('点亮渣滓回炉后可替代铜矿')
 

@@ -87,21 +87,24 @@ describe('save migration', () => {
     expect(save?.workers[0].qualityTier).toBe(1)
     expect(save?.workers[0].hp).toBe(save?.workers[0].hpMax)
     expect(save?.workers[1].qualityTier).toBe(1)
-    expect(save?.workers[1].assignment).toBe('forging')
+    expect(save?.workers[1].assignment).toBe('inscription')
     expect(save?.workers[1].foodSlot?.itemId).toBe('meal')
-    expect(save?.stations.mining.selectedToolId).toBeNull()
-    expect(save?.bank.tool).toBe(1)
+    expect((save?.stations.mining as { selectedToolId?: unknown }).selectedToolId).toBeNull()
+    expect(save?.bank.tool).toBeUndefined()
+    expect((save?.bank.wildCrystal ?? 0) >= 2).toBe(true)
+    expect((save?.bank.runeSharp ?? 0) >= 1).toBe(true)
     expect(save?.workers[1].foodSlot?.buff.mul).toBe(1.2)
     expect(save?.workers[1].foodSlot?.qty).toBe(2)
     expect(save?.stations.hunting).toBeTruthy()
     expect(save?.stations.herbalism).toBeTruthy()
     expect(save?.stations.alchemy).toBeTruthy()
+    expect(save?.stations.inscription).toBeTruthy()
     expect((save?.stations as { woodcutting?: unknown } | undefined)?.woodcutting).toBeUndefined()
     expect((save?.stations as { fishing?: unknown } | undefined)?.fishing).toBeUndefined()
+    expect((save?.stations as { forging?: unknown } | undefined)?.forging).toBeUndefined()
     expect(save?.stations.mining.miningNode?.nodeHp).toBe(20)
     expect(save?.rngState).toBe(raw.rngState)
-    expect(save?.forgedTools).toEqual([{ itemId: 'tool', matchStationId: 'mining' }])
-    expect(save?.stations.forging.selectedToolType).toBe('pick')
+    expect(save?.forgedTools).toEqual([])
     expect(save?.stations.hunting.selectedCategory).toBe('copper')
     expect(save?.potionSlots).toEqual([null, null, null, null])
     expect(save?.workerQualityRev).toBe(2)
@@ -155,23 +158,25 @@ describe('save migration', () => {
       ],
     }
     const save = hydrateLoadedSave(raw)
-    expect(save?.stations.mining.selectedToolId).toBeNull()
-    expect(save?.bank.tool).toBe(1)
-    expect(save?.bank.ironTool).toBe(1)
+    expect((save?.stations.mining as { selectedToolId?: unknown }).selectedToolId).toBeNull()
+    expect(save?.bank.tool).toBeUndefined()
+    expect(save?.bank.ironTool).toBeUndefined()
+    expect((save?.bank.wildCrystal ?? 0) >= 5).toBe(true)
+    expect((save?.bank.runeSharp ?? 0) >= 1).toBe(true)
     expect(save?.workers.map((w) => w.assignment)).toEqual(['mining', 'mining', null])
     expect(save?.workers.every((w) => !('toolSlot' in w) || (w as { toolSlot?: unknown }).toolSlot == null)).toBe(true)
   })
 
-  it('returns an old station toolSlot to the bank and keeps selectedToolId', () => {
+  it('converts old station tools and selectedToolId into wildCrystal', () => {
     const store = memory()
     const save = createSave()
     save.stations.cooking.stationLevel = 5
     save.bank.cookingTool01 = 2
-    save.stations.cooking.selectedToolId = 'cookingTool01'
     persistSave(save, store)
     const loaded = loadSave(store)
-    expect(loaded?.stations.cooking.selectedToolId).toBe('cookingTool01')
-    expect(loaded?.bank.cookingTool01).toBe(2)
+    expect((loaded?.stations.cooking as { selectedToolId?: unknown }).selectedToolId).toBeNull()
+    expect(loaded?.bank.cookingTool01).toBeUndefined()
+    expect((loaded?.bank.wildCrystal ?? 0) >= 4).toBe(true)
 
     const legacy = hydrateLoadedSave({
       ...createSave(),
@@ -187,8 +192,9 @@ describe('save migration', () => {
         },
       },
     })
-    expect(legacy?.stations.cooking.selectedToolId).toBeNull()
-    expect(legacy?.bank.tool).toBe(1)
+    expect((legacy?.stations.cooking as { selectedToolId?: unknown }).selectedToolId).toBeNull()
+    expect(legacy?.bank.tool).toBeUndefined()
+    expect((legacy?.bank.wildCrystal ?? 0) >= 2).toBe(true)
   })
 
   it('hydrates missing tech fields and drops unknown old ids without granting slot majors', () => {

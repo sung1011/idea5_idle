@@ -56,7 +56,7 @@ describe('workshopTabs', () => {
       'hunting',
       'cooking',
       'mining',
-      'forging',
+      'inscription',
     ])
     expect(WORKSHOP_TAB_IDS).toEqual(STATION_ORDER)
     expect(PLAYABLE_STATION_IDS).toEqual([...STATION_ORDER])
@@ -68,18 +68,18 @@ describe('workshopTabs', () => {
       '狩猎',
       '烹饪',
       '采矿',
-      '锻造',
+      '铭刻',
     ])
     expect(WORKSHOP_RAIL_ROW_COUNT).toBe(7)
   })
 
-  it('groups workshop stations as 药剂 / 食物 / 武器', () => {
+  it('groups workshop stations as 药剂 / 食物 / 矿符', () => {
     expect(WORKSHOP_GROUPS.map((row) => [row.id, row.label, ...row.stations])).toEqual([
       ['potion', '药剂', 'herbalism', 'alchemy'],
       ['food', '食物', 'hunting', 'cooking'],
-      ['weapon', '武器', 'mining', 'forging'],
+      ['weapon', '矿符', 'mining', 'inscription'],
     ])
-    expect(WORKSHOP_GROUPS.map((row) => workshopGroupLabel(row.id))).toEqual(['药剂', '食物', '武器'])
+    expect(WORKSHOP_GROUPS.map((row) => workshopGroupLabel(row.id))).toEqual(['药剂', '食物', '矿符'])
     expect(DEFAULT_WORKSHOP_GROUP).toBe('potion')
     expect(DEFAULT_WORKSHOP_TAB).toBe('herbalism')
     expect(workshopGroupOfStation('herbalism')).toBe('potion')
@@ -87,9 +87,9 @@ describe('workshopTabs', () => {
     expect(workshopGroupOfStation('hunting')).toBe('food')
     expect(workshopGroupOfStation('cooking')).toBe('food')
     expect(workshopGroupOfStation('mining')).toBe('weapon')
-    expect(workshopGroupOfStation('forging')).toBe('weapon')
+    expect(workshopGroupOfStation('inscription')).toBe('weapon')
     expect(DISPATCH_STATION_IDS).toEqual([...STATION_ORDER])
-    expect(DISPATCH_STATION_IDS).toEqual(['herbalism', 'alchemy', 'hunting', 'cooking', 'mining', 'forging'])
+    expect(DISPATCH_STATION_IDS).toEqual(['herbalism', 'alchemy', 'hunting', 'cooking', 'mining', 'inscription'])
     expect(stationsOfWorkshopGroup('potion')).toEqual(['herbalism', 'alchemy'])
     expect(isWorkshopGroupId('potion')).toBe(true)
     expect(isWorkshopGroupId('mining')).toBe(false)
@@ -110,7 +110,7 @@ describe('workshopTabs', () => {
     })
     expect(stationProgressStyle('herbalism')).toEqual(workshopGroupProgressStyle('potion'))
     expect(stationProgressStyle('cooking')).toEqual(workshopGroupProgressStyle('food'))
-    expect(stationProgressStyle('forging')).toEqual(workshopGroupProgressStyle('weapon'))
+    expect(stationProgressStyle('inscription')).toEqual(workshopGroupProgressStyle('weapon'))
   })
 
   it('resolves unknown and legacy line ids', () => {
@@ -124,6 +124,7 @@ describe('workshopTabs', () => {
     expect(workshopTabOf('brew')).toBe('herbalism')
     expect(workshopTabOf('fish')).toBe('hunting')
     expect(workshopTabOf('fishing')).toBe('hunting')
+    expect(workshopTabOf('forging')).toBe('inscription')
     expect(workshopTabOf('alchemy')).toBe('alchemy')
   })
 

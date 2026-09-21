@@ -100,7 +100,7 @@ describe('appNav', () => {
     expect(workshopTab.value).toBe('alchemy')
     expect(selectWorkshopGroup('food', store)).toBe('food')
     expect(workshopTab.value).toBe('hunting')
-    expect(openWorkshopStation('forging', store)).toBe('forging')
+    expect(openWorkshopStation('forging', store)).toBe('inscription')
     expect(workshopGroup.value).toBe('weapon')
   })
 })

@@ -25,17 +25,17 @@ describe('stationUnlock by knight level', () => {
     expect(isStationUnlocked(save, 'herbalism')).toBe(true)
     expect(isStationUnlocked(save, 'alchemy')).toBe(false)
     expect(isStationUnlocked(save, 'hunting')).toBe(false)
-    expect(isStationUnlocked(save, 'forging')).toBe(false)
+    expect(isStationUnlocked(save, 'inscription')).toBe(false)
     expect(stationLockedTip('alchemy')).toBe('骑士 2 级开放炼金')
     expect(stationLockedTip('hunting')).toBe('骑士 5 级开放狩猎')
-    expect(stationUnlockKnightLevel('forging')).toBe(20)
+    expect(stationUnlockKnightLevel('inscription')).toBe(20)
     expect(STATION_UNLOCK_KNIGHT).toEqual({
       herbalism: 1,
       alchemy: 2,
       hunting: 5,
       cooking: 8,
       mining: 18,
-      forging: 20,
+      inscription: 20,
     })
     expect(STATION_UNLOCK_KNIGHT_MAX).toBe(20)
   })
@@ -59,7 +59,7 @@ describe('stationUnlock by knight level', () => {
     const save = createSave()
     expect(nextLockedStation(save, ['hunting', 'cooking'])).toBe('hunting')
     expect(workshopGroupLockedTip(save, ['hunting', 'cooking'])).toBe('骑士 5 级开放狩猎')
-    expect(workshopGroupLockedTip(save, ['mining', 'forging'])).toBe('骑士 18 级开放采矿')
+    expect(workshopGroupLockedTip(save, ['mining', 'inscription'])).toBe('骑士 18 级开放采矿')
     save.knightLevel = 5
     expect(workshopGroupLockedTip(save, ['hunting', 'cooking'])).toBe('骑士 8 级开放烹饪')
     expect(workshopGroupLockedTip(save, ['herbalism', 'alchemy'])).toBeNull()
@@ -96,6 +96,6 @@ describe('stationUnlock by knight level', () => {
     expect(isStationUnlocked(loaded!, 'hunting')).toBe(true)
     expect(isStationUnlocked(loaded!, 'cooking')).toBe(false)
     expect(isStationUnlocked(loaded!, 'mining')).toBe(false)
-    expect(isStationUnlocked(loaded!, 'forging')).toBe(false)
+    expect(isStationUnlocked(loaded!, 'inscription')).toBe(false)
   })
 })

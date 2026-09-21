@@ -3,28 +3,24 @@ import { createSave } from './createSave'
 import { leftoverStockRows, stationConsumeGroups, stationStockRows } from './query'
 import { grantStationXp, selectStationCategory } from './stationProgress'
 import { xpToNextLevel } from './tables'
-import { selectForgeOutput } from './tools'
 
 describe('station stock rows', () => {
-  it('lists only the selected forging recipe costs, not all station outputs', () => {
+  it('lists inscription wildCrystal costs from unlocked rune recipes', () => {
     const save = createSave()
+    save.bank.wildCrystal = 4
     save.bank.ore = 4
     save.bank.slag = 2
-    save.bank.ironOre = 3
-    save.bank.tool = 2
-    expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
-    const rows = stationStockRows(save, 'forging')
-    expect(rows.costs.map((r) => r.itemId)).toEqual(['ore', 'slag'])
-    expect(rows.costs.find((r) => r.itemId === 'ore')).toMatchObject({
-      label: '铜矿',
+    const rows = stationStockRows(save, 'inscription')
+    expect(rows.costs.map((r) => r.itemId)).toEqual(['wildCrystal'])
+    expect(rows.costs[0]).toMatchObject({
+      label: '荒晶',
       qty: 4,
     })
     expect(rows).not.toHaveProperty('outputs')
 
-    save.stations.forging.stationLevel = 6
-    expect(selectForgeOutput(save, 'miningTool06').ok).toBe(true)
-    expect(stationStockRows(save, 'forging').costs.map((r) => r.itemId)).toEqual(['ironOre'])
-    expect(stationStockRows(save, 'forging').costs[0]).toMatchObject({ label: '铁矿', qty: 3 })
+    save.stations.inscription.stationLevel = 5
+    expect(stationStockRows(save, 'inscription').costs.map((r) => r.itemId)).toEqual(['wildCrystal'])
+    expect(stationStockRows(save, 'inscription').costs[0]).toMatchObject({ label: '荒晶', qty: 4 })
   })
 
   it('shows alchemy current consume only and hides gather consume stock', () => {
@@ -60,12 +56,9 @@ describe('station stock rows', () => {
 
   it('lists consume groups with need / have and shortage flags', () => {
     const save = createSave()
-    save.bank.ore = 0
-    save.bank.slag = 2
-    expect(selectForgeOutput(save, 'miningTool01').ok).toBe(true)
-    expect(stationConsumeGroups(save, 'forging')).toEqual([
-      [{ itemId: 'ore', label: '铜矿', need: 1, have: 0, short: true }],
-      [{ itemId: 'slag', label: '渣滓', need: 1, have: 2, short: false }],
+    save.bank.wildCrystal = 0
+    expect(stationConsumeGroups(save, 'inscription')).toEqual([
+      [{ itemId: 'wildCrystal', label: '荒晶', need: 2, have: 0, short: true }],
     ])
     expect(stationConsumeGroups(save, 'mining')).toEqual([])
     save.bank.herb = 0

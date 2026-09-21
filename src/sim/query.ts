@@ -17,7 +17,8 @@ import {
 } from './tables'
 import { stimSpeedMul } from './potions'
 import { forgeCycleMul, slagCopperValue, stationConflictMul, stationTechSpeedMul } from './tech'
-import { assignedToolWeight, selectedForgeRecipe } from './tools'
+import { assignedToolWeight } from './tools'
+import { inscriptionRecipes } from './tables'
 import type { Hint, ItemId, Save, StationId } from './types'
 
 export { assignedWorkers }
@@ -32,7 +33,7 @@ export function idleCount(save: Save): number {
 
 export function stationCycleS(save: Save, stationId: StationId): number {
   const cycleS = selectedCategoryDef(save, stationId).cycleS
-  if (stationId === 'forging') return Math.max(1, cycleS * forgeCycleMul(save))
+  if (stationId === 'inscription') return Math.max(1, cycleS * forgeCycleMul(save))
   return cycleS
 }
 
@@ -51,10 +52,17 @@ export function currentSpeed(save: Save, stationId: StationId, now = Date.now())
 
 export type ConsumePick = { kind: 'none' | 'primary' | 'alt'; rules: IoRule[] }
 
-/** 当前站可扣的配方组。炼金走草 / 猎副产表，其它站 costs + 可选 altCosts。 */
+/** 当前站可扣的配方组。炼金走草 / 猎副产表，铭刻走已解锁符文成本，其它站 costs + 可选 altCosts。 */
 export function consumeRuleSets(save: Save, stationId: StationId): IoRule[][] {
   if (stationId === 'alchemy') return ALCHEMY_COST_OPTIONS
-  if (stationId === 'forging' && !selectedForgeRecipe(save)) return []
+  if (stationId === 'inscription') {
+    const recipes = inscriptionRecipes(save.stations.inscription?.stationLevel ?? 1)
+    const sets: IoRule[][] = []
+    for (const recipe of recipes) {
+      if (!sets.some((rules) => sameCostSet(rules, recipe.costs))) sets.push(recipe.costs)
+    }
+    return sets
+  }
   const def = selectedCategoryDef(save, stationId)
   const sets: IoRule[][] = [def.costs]
   if (def.altCosts?.length) sets.push(def.altCosts)
@@ -91,7 +99,9 @@ export function pickConsume(save: Save, stationId: StationId): ConsumePick | nul
 }
 
 export function needLabel(save: Save, stationId: StationId): string {
-  if (stationId === 'forging' && !selectedForgeRecipe(save)) return '未解锁工具'
+  if (stationId === 'inscription' && !inscriptionRecipes(save.stations.inscription?.stationLevel ?? 1).length) {
+    return '未解锁符文'
+  }
   const labels = new Set<string>()
   for (const rules of consumeRuleSets(save, stationId)) {
     for (const label of missingCostLabels(save, rules)) labels.add(label)
@@ -103,8 +113,8 @@ export function needLabel(save: Save, stationId: StationId): string {
 export function stationBottleneckText(save: Save, stationId: StationId): string | null {
   const station = save.stations[stationId]
   if (station.stallReason === 'emptyInput') {
-    if (stationId === 'forging' && !selectedForgeRecipe(save)) {
-      return `未解锁工具：${STATION_DEF.forging.label}空转`
+    if (stationId === 'inscription' && !inscriptionRecipes(station.stationLevel).length) {
+      return `未解锁符文：${STATION_DEF.inscription.label}空转`
     }
     return `${needLabel(save, stationId)}见底：${STATION_DEF[stationId].label}空转`
   }

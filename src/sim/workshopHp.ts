@@ -11,7 +11,7 @@ export const FATIGUE_NEAR_FULL_PIP = 0.18
 /** 站基准乘子：把 0.0015 落到极缓日常（6h 裸采药仍 HP≥2）。 */
 export const FATIGUE_STATION_MUL: Readonly<Record<StationId, number>> = {
   mining: 0.4,
-  forging: 0.55,
+  inscription: 0.55,
   hunting: 0.4,
   cooking: 0.4,
   herbalism: 0.4,
@@ -106,7 +106,7 @@ export function stationFatigueComboMul(save: Save, stationId: StationId, kind: F
     return same * stew
   }
   if (stationId === 'mining') return 1 + 0.02 * Math.min(combo.streak, 28)
-  if (stationId === 'forging') {
+  if (stationId === 'inscription') {
     if (kind === 'success') return 1.2 + combo.frustration * 0.12
     return 1
   }
@@ -137,7 +137,7 @@ function noteCombo(save: Save, stationId: StationId, kind: FatigueKind): void {
     combo.streak = node ? Math.max(0, node.nodeHpMax - node.nodeHp) : combo.streak + 1
     return
   }
-  if (stationId === 'forging') {
+  if (stationId === 'inscription') {
     if (kind === 'softFail') combo.frustration += 1
     return
   }
@@ -217,7 +217,7 @@ export function applyWorkshopFatigue(save: Save, stationId: StationId, now: numb
       }
     }
   }
-  if (stationId === 'forging' && kind === 'success') comboOf(save, 'forging').frustration = 0
+  if (stationId === 'inscription' && kind === 'success') comboOf(save, 'inscription').frustration = 0
   return weak
 }
 

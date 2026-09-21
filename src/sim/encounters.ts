@@ -47,16 +47,15 @@ import { STATION_UNLOCK_KNIGHT_MAX, unlockedStationIds } from './stationUnlock'
 import {
   ITEM_DEF,
   POTION_ITEM_IDS,
-  STATION_IDS,
+  RUNE_ITEM_IDS,
   STATION_TOOL_COUNT,
-  STATION_TOOL_IDS,
   bulkUnitGold,
   isPotionItemId,
+  isRuneItemId,
   isStationToolId,
   isToolItemId,
   pawnUnitGold,
   stationRelatedItems,
-  stationToolItemId,
   type IoRule,
 } from './tables'
 import { pickMainNeedPotion } from './potions'
@@ -100,6 +99,7 @@ import type {
   Worker,
   WorkshopBuff,
 } from './types'
+import { consumeRunePicks, normalizeRunePicks, runePickBlockReason, type RunePickMap } from './runes'
 
 /** 混合生成默认格数（测试覆盖六种订单）。玩法板走 battlefield / market 各自上下限。 */
 export const ENCOUNTER_SLOT_COUNT = 6
@@ -361,12 +361,14 @@ const LEGACY_ORDER_DEFS: ReadonlyArray<{
 
 /**
  * 某站贡献给主线需求池的产物。
- * 炼金用 7 种药剂 id（不要裸 `potion`）；锻造用 `tool` 标记，落地再 resolve。
+ * 炼金用 7 种药剂 id（不要裸 `potion`）；铭刻直接出 6 种符文。
  */
 export function mainNeedOutputsOfStation(stationId: StationId): readonly ItemId[] {
   if (stationId === 'alchemy') return POTION_ITEM_IDS
-  if (stationId === 'forging') return ['tool']
-  return stationRelatedItems(stationId).outputs.filter((id) => id !== 'potion' && !isStationToolId(id))
+  if (stationId === 'inscription') return RUNE_ITEM_IDS
+  return stationRelatedItems(stationId).outputs.filter(
+    (id) => id !== 'potion' && id !== 'wildCrystal' && !isStationToolId(id) && !isRuneItemId(id),
+  )
 }
 
 /**
@@ -389,8 +391,9 @@ export function isAllowedMainNeedKind(itemId: ItemId, pool: readonly ItemId[]): 
   if (itemId === 'potion') return pool.includes('potion') || pool.some((id) => isPotionItemId(id))
   if (isPotionItemId(itemId)) return pool.includes(itemId) || pool.includes('potion')
   if (isLegacyGenericToolNeed(itemId) || isStationToolId(itemId)) {
-    return pool.includes('tool') || pool.some((id) => isStationToolId(id))
+    return pool.some((id) => isRuneItemId(id))
   }
+  if (isRuneItemId(itemId)) return pool.some((id) => isRuneItemId(id))
   return false
 }
 
@@ -407,15 +410,15 @@ function pickFromMainNeedPool(
 
 /**
  * 六站全开时的种类池。新刷实际抽取走 `mainNeedItemPool`（按当前已解锁工位）。
- * `tool` 只是种类标记：落地时改抽 `MAIN_NEED_TOOL_POOL`（锻造可造的各站专属工具）。
+ * 旧 `tool` 只是种类标记：落地时改抽 `MAIN_NEED_TOOL_POOL`（铭刻符文）。
  * `potion` 同样是种类标记：落地时改抽 7 种药剂之一。
  */
 export const MAIN_NEED_ITEM_POOL: readonly ItemId[] = mainNeedItemPool({
   knightLevel: STATION_UNLOCK_KNIGHT_MAX,
 })
 
-/** 订单要工具时的 id 池，与 `STATION_TOOL_DEF` / 锻造配方同一套。 */
-export const MAIN_NEED_TOOL_POOL: readonly ItemId[] = STATION_TOOL_IDS
+/** 订单要符文时的 id 池，与铭刻配方同一套。旧名保留给测试。 */
+export const MAIN_NEED_TOOL_POOL: readonly ItemId[] = RUNE_ITEM_IDS
 
 /** 档位中心随 demandMul × 章节倍率抬高，对齐数量缩放。 */
 export const MAIN_NEED_TOOL_TIER_STEP = 1.8
@@ -553,7 +556,7 @@ export function scaleGold(gold: number, mul: number): number {
 }
 
 export function itemNeedBase(itemId: ItemId): number {
-  const key = isStationToolId(itemId) ? 'tool' : isPotionItemId(itemId) ? 'potion' : itemId
+  const key = isStationToolId(itemId) || isRuneItemId(itemId) ? 'tool' : isPotionItemId(itemId) ? 'potion' : itemId
   const base = MAIN_NEED_BASE[key]
   return typeof base === 'number' && base > 0 ? base : MAIN_NEED_BASE_DEFAULT
 }
@@ -568,7 +571,7 @@ export function isMainNeedItem(id: unknown): id is ItemId {
   if (isLegacyGenericToolNeed(id)) return false
   if ((MAIN_NEED_ITEM_POOL as readonly string[]).includes(id)) return true
   if (isPotionItemId(id)) return true
-  return isStationToolId(id)
+  return isRuneItemId(id)
 }
 
 /** 档位中心：第 1 章绿≈1，随品质/章节/Boss 倍率抬高，封顶 20。 */
@@ -610,7 +613,7 @@ function fracFromSalt(salt: number, stride: number): number {
   return ((n * stride + 3) % 1000) / 1000
 }
 
-/** 从锻造可造的各站 tool01–20 抽一把。低章偏低档，高章/高品质偏高档。 */
+/** 旧档工具标记落地成符文。低章偏低档，高章/高品质偏后段。 */
 export function pickMainNeedTool(
   quality: EncounterQuality,
   chapter: unknown,
@@ -618,15 +621,12 @@ export function pickMainNeedTool(
   rng?: { rngState: number },
   salt = 0,
 ): ItemId {
-  const stationRoll = rng ? rollRng(rng) : fracFromSalt(salt, 1)
-  const stationIdx = Math.min(STATION_IDS.length - 1, Math.floor(stationRoll * STATION_IDS.length))
-  const stationId = STATION_IDS[stationIdx]
-  const tierRoll = rng ? rollRng(rng) : fracFromSalt(salt, 17)
-  const index = pickWeightedIndex(mainNeedToolTierWeights(quality, chapter, chapterBoss), tierRoll) + 1
-  return stationToolItemId(stationId, index)
+  const roll = rng ? rollRng(rng) : fracFromSalt(salt, 17)
+  const idx = pickWeightedIndex(mainNeedToolTierWeights(quality, chapter, chapterBoss).slice(0, RUNE_ITEM_IDS.length), roll)
+  return RUNE_ITEM_IDS[Math.min(RUNE_ITEM_IDS.length - 1, idx)]
 }
 
-/** 种类池掷到通用工具时改抽专属工具；掷到 `potion` 改抽 7 种药剂。不按章节改写。 */
+/** 种类池掷到通用工具 / 专属工具时改抽符文；掷到 `potion` 改抽 7 种药剂。 */
 export function resolveMainNeedItem(
   itemId: ItemId,
   quality: EncounterQuality,
@@ -639,7 +639,8 @@ export function resolveMainNeedItem(
     const roll = rng ? rollRng(rng) : fracFromSalt(salt, 29)
     return pickMainNeedPotion(roll)
   }
-  if (!isLegacyGenericToolNeed(itemId)) return itemId
+  if (isRuneItemId(itemId)) return itemId
+  if (!isLegacyGenericToolNeed(itemId) && !isStationToolId(itemId)) return itemId
   return pickMainNeedTool(quality, chapter, chapterBoss, rng, salt)
 }
 
@@ -730,7 +731,7 @@ function remapLegacyNeedMap(
       bag.salve = (bag.salve ?? 0) + Math.floor(qty)
       continue
     }
-    if (!isLegacyGenericToolNeed(itemId)) continue
+    if (!isLegacyGenericToolNeed(itemId) && !isStationToolId(itemId)) continue
     const resolved = resolveMainNeedItem(
       itemId as ItemId,
       quality,
@@ -1735,9 +1736,12 @@ export function startCombat(
   now = Date.now(),
   onLog?: CombatLogSink,
   guests: readonly Worker[] = [],
+  runePicks?: RunePickMap,
 ): ActionResult {
   const blocked = startCombatBlockReason(save, index, workerIds, guests)
   if (blocked) return { ok: false, reason: blocked }
+  const runeBlocked = runePickBlockReason(save, runePicks)
+  if (runeBlocked) return { ok: false, reason: runeBlocked }
   const enc = enemyAt(save, index)
   if (!enc) return { ok: false, reason: '不是敌人偶遇' }
   const party = workerIds
@@ -1748,10 +1752,14 @@ export function startCombat(
     const took = takeCosts(save, needMapToRules(combatSupplyNeeds(save, enc)))
     if (!took.ok) return took
   }
+  const consumed = consumeRunePicks(save, runePicks)
+  if (!consumed.ok) return consumed
   save.departCount += 1
   save.lastDepartAt = now
   delete enc.submitted
-  beginEnemyCombat(enc, party, now, normalizeMainChapter(save.mainChapter), onLog, save)
+  beginEnemyCombat(enc, party, now, normalizeMainChapter(save.mainChapter), onLog, save, {
+    runes: normalizeRunePicks(runePicks),
+  })
   return { ok: true }
 }
 
@@ -1763,16 +1771,21 @@ export function reinforceCombat(
   now = Date.now(),
   onLog?: CombatLogSink,
   guests: readonly Worker[] = [],
+  runePicks?: RunePickMap,
 ): ActionResult {
   const blocked = reinforceCombatBlockReason(save, index, workerIds, guests)
   if (blocked) return { ok: false, reason: blocked }
+  const runeBlocked = runePickBlockReason(save, runePicks)
+  if (runeBlocked) return { ok: false, reason: runeBlocked }
   const enc = enemyAt(save, index)
   if (!enc) return { ok: false, reason: '不是敌人偶遇' }
   const party = workerIds
     .map((id) => findCombatPartyWorker(save, id, guests))
     .filter((w): w is Worker => !!w)
   if (!party.length) return { ok: false, reason: '请选择出战工人' }
-  addCombatReinforcements(enc, party, now, onLog, save)
+  const consumed = consumeRunePicks(save, runePicks)
+  if (!consumed.ok) return consumed
+  addCombatReinforcements(enc, party, now, onLog, save, normalizeRunePicks(runePicks))
   return { ok: true }
 }
 

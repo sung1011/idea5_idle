@@ -113,7 +113,7 @@ describe('station merge', () => {
   it('fails when the two workers are at different stations', () => {
     const save = roster(2)
     assignWorker(save, save.workers[0].id, 'mining')
-    assignWorker(save, save.workers[1].id, 'forging')
+    assignWorker(save, save.workers[1].id, 'inscription')
     expect(fuseWorkers(save, save.workers[0].id, save.workers[1].id)).toEqual({
       ok: false,
       reason: '只能合并同一工坊的两人',
@@ -179,8 +179,8 @@ describe('station merge', () => {
     const save = roster(2)
     const [a, b] = save.workers
     b.qualityTier = 3
-    assignWorker(save, b.id, 'forging')
-    expect(fuseWorkerWithStation(save, a.id, 'forging')).toEqual({
+    assignWorker(save, b.id, 'inscription')
+    expect(fuseWorkerWithStation(save, a.id, 'inscription')).toEqual({
       ok: false,
       reason: '品质不同，不能合成',
     })

@@ -9,7 +9,7 @@ export const STATION_UNLOCK_KNIGHT = {
   hunting: 5,
   cooking: 8,
   mining: 18,
-  forging: 20,
+  inscription: 20,
 } as const satisfies Record<StationId, number>
 
 export const STATION_UNLOCK_KNIGHT_MAX = Math.max(

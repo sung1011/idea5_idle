@@ -240,7 +240,7 @@ export function restingWorkers(save: Save): Worker[] {
   return save.workers.filter((worker) => worker.assignment === null && !isWorkerInCombat(save, worker.id))
 }
 
-/** 药剂→食物→武器，站内左槽先于右槽；满员跳过。 */
+/** 药剂→食物→矿符，站内左槽先于右槽；满员跳过。 */
 export function firstEmptyDispatchStation(save: Save): StationId | null {
   for (const stationId of STATION_ORDER) {
     if (!isStationUnlocked(save, stationId)) continue
