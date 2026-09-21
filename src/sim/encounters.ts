@@ -1992,8 +1992,6 @@ export function sellBulk(save: Save, index: number): ActionResult {
   return { ok: true, message: gain ? `收购成交。${gain}` : '收购成交' }
 }
 
-export const EXPLORE_PROTECTED_TIP = '探索不会刷新此订单'
-
 /** 探索不会刷新/替换：战斗中、胜可领、超时战败后可再开战，以及未领的本章 Boss（含待战）。 */
 export function isExploreProtected(enc: Encounter, now = Date.now()): boolean {
   if (enc.kind !== 'enemy') return false

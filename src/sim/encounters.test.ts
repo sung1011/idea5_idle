@@ -44,7 +44,6 @@ import {
   scaledDemandQty,
   scaledMainNeed,
   exploreBlockReason,
-  EXPLORE_PROTECTED_TIP,
   exploreBoard,
   exploreCost,
   generateEncounterBoard,
@@ -705,7 +704,6 @@ describe('exploreBoard', () => {
     expect(isExploreProtected(claimedBoss, now)).toBe(false)
     expect(isExploreProtected(testPasserby({ id: 'fix-market' }), now)).toBe(false)
     expect(isExploreProtected(makeStarterCopperPawn(), now)).toBe(false)
-    expect(EXPLORE_PROTECTED_TIP).toBe('探索不会刷新此订单')
   })
 
   it('keeps battlefield as enemies and market as trades when exploring', () => {
