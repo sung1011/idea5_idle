@@ -71,6 +71,36 @@ export function workshopHpWorkMul(worker: Worker): number {
   return 1
 }
 
+/** 站卡效率：空岗 100%；两人取更低乘区。 */
+export function stationHpWorkMul(save: Save, stationId: StationId): number {
+  const crew = assignedOf(save, stationId)
+  if (!crew.length) return 1
+  return Math.min(...crew.map((worker) => workshopHpWorkMul(worker)))
+}
+
+export function stationHpEfficiencyLabel(mul: number): string {
+  return `效率 ${Math.round(mul * 100)}%`
+}
+
+export const WORKSHOP_HP_EFFICIENCY_TIP =
+  '工人体力不足，工坊效率下降。装备熟食可自动回血；紧急可用药剂。'
+
+export function anyOnDutyHpEfficiencyDropped(save: Save): boolean {
+  return save.workers.some((worker) => worker.assignment != null && workshopHpWorkMul(worker) < 1)
+}
+
+/** 账号首次在岗效率跌破 100% 时返回提示文案并落旗；已提示或仍满效率则 null。 */
+export function takeWorkshopHpEfficiencyTip(save: Save): string | null {
+  if (save.workshopHpEfficiencyTipShown) return null
+  if (!anyOnDutyHpEfficiencyDropped(save)) return null
+  save.workshopHpEfficiencyTipShown = true
+  return WORKSHOP_HP_EFFICIENCY_TIP
+}
+
+export function hydrateWorkshopHpFields(save: Save): void {
+  save.workshopHpEfficiencyTipShown = save.workshopHpEfficiencyTipShown === true
+}
+
 export function restHealAmount(hpMax: number): number {
   return Math.max(1, Math.floor(safeHpMax(hpMax) * WORKSHOP_REST_HEAL_RATIO))
 }

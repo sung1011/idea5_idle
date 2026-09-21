@@ -38,6 +38,7 @@ import { claimDungeonChest, reinforceDungeonCombat, startDungeonCombat } from '.
 import { claimGuideQuest, markGuideQuestRuneOpened } from '../sim/guideQuest'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
 import { tick } from '../sim/tick'
+import { takeWorkshopHpEfficiencyTip } from '../sim/workshopHp'
 import type { ActionResult, CategoryId, ItemId, PotionItemId, Save, StationId, Worker } from '../sim/types'
 import { pushCombatLogTip } from './encounterTips'
 import { pushFloatTip } from './floatTips'
@@ -58,6 +59,11 @@ export const useGameStore = defineStore('game', () => {
     persistSave(save.value)
   }
 
+  function notifyWorkshopHpEfficiency(next: Save) {
+    const tip = takeWorkshopHpEfficiencyTip(next)
+    if (tip) pushFloatTip(tip)
+  }
+
   function liveTick() {
     save.value = tick(save.value, {
       onGain: (gain) => {
@@ -67,6 +73,7 @@ export const useGameStore = defineStore('game', () => {
         pushCombatLogTip(encounterId, text, kind)
       },
     })
+    notifyWorkshopHpEfficiency(save.value)
     persist()
   }
 
@@ -75,6 +82,7 @@ export const useGameStore = defineStore('game', () => {
     const result = fn(next)
     if (result.ok) {
       save.value = next
+      notifyWorkshopHpEfficiency(next)
       persist()
       if (result.message) pushFloatTip(result.message, 'ok')
     } else {
@@ -86,6 +94,7 @@ export const useGameStore = defineStore('game', () => {
   function applyCatchUp(from: Save) {
     const result = settleOffline(from)
     save.value = result.save
+    notifyWorkshopHpEfficiency(save.value)
     persist()
     return result
   }

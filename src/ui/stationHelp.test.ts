@@ -4,6 +4,7 @@ import {
   isStationHelpOpen,
   nextStationHelp,
   STATION_HELP,
+  STATION_HP_HELP,
   stationHelpCopy,
   stationHelpIds,
 } from './stationHelp'
@@ -14,7 +15,10 @@ describe('station help copy', () => {
     for (const id of STATION_IDS) {
       const copy = stationHelpCopy(id)
       expect(copy.title).toBe(STATION_DEF[id].label)
-      expect(copy.body).toBe(STATION_HELP[id])
+      expect(copy.body).toBe(`${STATION_HELP[id]}${STATION_HP_HELP}`)
+      expect(copy.body).toContain('在岗体力影响效率')
+      expect(copy.body).toContain('残血 80%')
+      expect(copy.body).toContain('空血 50%')
       expect(copy.body.length).toBeGreaterThan(12)
     }
   })

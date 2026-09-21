@@ -25,10 +25,13 @@ export const STATION_HELP: Record<StationId, string> = {
     '做成即扣光 1 个草或猎副产（血 / 牙 / 眼，优先扣草）。每次成功从 7 种药剂里随机一种并给一批。药剂装进工人页 4 槽后点槽使用，点？看效果。',
 }
 
+export const STATION_HP_HELP =
+  '在岗体力影响效率：正常 100%，残血 80%，空血 50%。残血会自动吃熟食；药剂点槽给在岗救急。'
+
 export function stationHelpCopy(id: StationId): StationHelpCopy {
   return {
     title: STATION_DEF[id].label,
-    body: STATION_HELP[id],
+    body: `${STATION_HELP[id]}${STATION_HP_HELP}`,
   }
 }
 

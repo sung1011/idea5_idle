@@ -14,6 +14,7 @@ import {
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
 import { isGuideQuestFlash } from '../sim/guideQuest'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
+import { stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
 import { pushFloatTip } from './floatTips'
 import { stationConflictHint } from '../sim/tech'
 import { STATION_DEF, STATION_WORKER_CAP, xpToNextLevel } from '../sim/tables'
@@ -48,6 +49,8 @@ const mergeLabel = computed(() => stationMergeLabel(game.save, props.stationId))
 const station = computed(() => game.save.stations[props.stationId])
 const cat = computed(() => selectedCategoryDef(game.save, props.stationId))
 const speed = computed(() => currentSpeed(game.save, props.stationId))
+const hpMul = computed(() => stationHpWorkMul(game.save, props.stationId))
+const hpEffLabel = computed(() => stationHpEfficiencyLabel(hpMul.value))
 const stall = computed(() => station.value.stallReason)
 const frozen = computed(() => isGatherFrozen(game.save, props.stationId))
 const gatherLine = computed(() => gatherStatusText(game.save, props.stationId))
@@ -192,7 +195,10 @@ onUnmounted(() => {
         <i :style="{ width: xpPct + '%' }" />
       </div>
     </div>
-    <p class="stat">进度 {{ pctLabel }}% · XP {{ station.stationXp }}/{{ xpNeed }} · 速度 {{ speed.toFixed(2) }}/s</p>
+    <p class="stat">
+      进度 {{ pctLabel }}% · XP {{ station.stationXp }}/{{ xpNeed }} · 速度 {{ speed.toFixed(2) }}/s
+      · <span :class="{ low: hpMul < 1 }">{{ hpEffLabel }}</span>
+    </p>
     <div class="sub">
       <p v-if="conflictLine" class="stat conflict">{{ conflictLine }}</p>
       <p v-if="gatherLine" class="stat gather">{{ gatherLine }}</p>
@@ -422,7 +428,8 @@ h2.station-title {
 }
 
 .gather,
-.conflict {
+.conflict,
+.low {
   color: var(--copper);
 }
 

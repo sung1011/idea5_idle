@@ -20,8 +20,12 @@ import {
   HP_EMPTY_RATIO,
   HP_WOUNDED_RATIO,
   restHealAmount,
+  stationHpEfficiencyLabel,
+  stationHpWorkMul,
+  takeWorkshopHpEfficiencyTip,
   workerWearHp,
   WORKSHOP_EMPTY_WORK_MUL,
+  WORKSHOP_HP_EFFICIENCY_TIP,
   WORKSHOP_WOUNDED_WORK_MUL,
   workshopHpWorkMul,
 } from './workshopHp'
@@ -61,6 +65,9 @@ describe('workshop HP formulas', () => {
     expect(workshopHpWorkMul(stubWorker(30, 100))).toBe(WORKSHOP_WOUNDED_WORK_MUL)
     expect(workshopHpWorkMul(stubWorker(31, 100))).toBe(1)
     expect(workshopHpWorkMul(stubWorker(26, 26))).toBe(1)
+    expect(stationHpEfficiencyLabel(1)).toBe('效率 100%')
+    expect(stationHpEfficiencyLabel(WORKSHOP_WOUNDED_WORK_MUL)).toBe('效率 80%')
+    expect(stationHpEfficiencyLabel(WORKSHOP_EMPTY_WORK_MUL)).toBe('效率 50%')
 
     const save = roster(1)
     const worker = save.workers[0]
@@ -139,6 +146,37 @@ describe('workshop HP formulas', () => {
     expect(save.workers[2].fatigueDebt).toBe(0)
     expect(completeCycle(save, 'herbalism')).toBe(true)
     expect(save.workers[2].fatigueDebt).toBeGreaterThan(0)
+  })
+
+  it('uses the worse assigned HP mul on a station card', () => {
+    expect(stationHpWorkMul(createSave(), 'mining')).toBe(1)
+    const save = roster(2)
+    assignWorker(save, save.workers[0].id, 'mining')
+    assignWorker(save, save.workers[1].id, 'mining')
+    save.workers[0].hpMax = 100
+    save.workers[0].hp = 31
+    save.workers[1].hpMax = 100
+    save.workers[1].hp = 20
+    expect(stationHpWorkMul(save, 'mining')).toBe(WORKSHOP_WOUNDED_WORK_MUL)
+    expect(stationHpEfficiencyLabel(stationHpWorkMul(save, 'mining'))).toBe('效率 80%')
+    save.workers[0].hp = 1
+    expect(stationHpWorkMul(save, 'mining')).toBe(WORKSHOP_EMPTY_WORK_MUL)
+    expect(stationHpEfficiencyLabel(stationHpWorkMul(save, 'mining'))).toBe('效率 50%')
+    expect(stationHpWorkMul(save, 'herbalism')).toBe(1)
+  })
+
+  it('shows the HP efficiency tip once when on-duty work first drops below 100%', () => {
+    const save = roster(1)
+    assignWorker(save, save.workers[0].id, 'mining')
+    expect(save.workshopHpEfficiencyTipShown).toBe(false)
+    expect(takeWorkshopHpEfficiencyTip(save)).toBeNull()
+    save.workers[0].hpMax = 100
+    save.workers[0].hp = 20
+    expect(takeWorkshopHpEfficiencyTip(save)).toBe(WORKSHOP_HP_EFFICIENCY_TIP)
+    expect(save.workshopHpEfficiencyTipShown).toBe(true)
+    expect(takeWorkshopHpEfficiencyTip(save)).toBeNull()
+    save.workers[0].hp = 1
+    expect(takeWorkshopHpEfficiencyTip(save)).toBeNull()
   })
 
   it('marks weak at wounded HP and rest-heals max(1, floor(hpMax * 0.05))', () => {

@@ -38,7 +38,7 @@ type StationId =
 type DeprecatedStationId = 'woodcutting' | 'fishing'
 ```
 
-UI 主列六站。工坊页左侧三组竖签（药剂=采药+炼金，食物=狩猎+烹饪，符文=采矿+铭刻；组 id 仍是 `weapon`），切组同时显示该组两张站卡；工人页左栏仍按站分行，上→下与工坊组一致：采药→炼金→狩猎→烹饪→采矿→铭刻（`STATION_ORDER` 共用，派入空槽扫描同序）。工人左栏仍按 7 行均分，去掉钓鱼后不把剩余 6 站拉高。`woodcutting` / `fishing` 废弃或藏入口，见第 7 节。站卡底部撤出 / 派入同款大号（仅文案与点击不同，无人在岗时撤出置灰）；右上角「？」打开该站说明，文案表在 `src/ui/stationHelp.ts`。
+UI 主列六站。工坊页左侧三组竖签（药剂=采药+炼金，食物=狩猎+烹饪，符文=采矿+铭刻；组 id 仍是 `weapon`），切组同时显示该组两张站卡；工人页左栏仍按站分行，上→下与工坊组一致：采药→炼金→狩猎→烹饪→采矿→铭刻（`STATION_ORDER` 共用，派入空槽扫描同序）。工人左栏仍按 7 行均分，去掉钓鱼后不把剩余 6 站拉高。`woodcutting` / `fishing` 废弃或藏入口，见第 7 节。站卡底部撤出 / 派入同款大号（仅文案与点击不同，无人在岗时撤出置灰）；右上角「？」打开该站说明，文案表在 `src/ui/stationHelp.ts`，各站末尾附「在岗体力影响效率：正常 100%，残血 80%，空血 50%。残血会自动吃熟食；药剂点槽给在岗救急。」。进度行写「效率 N%」（空岗 100%，两人取更低乘区）。账号首次在岗效率跌破 100% 漂一次并记 `workshopHpEfficiencyTipShown`。
 
 ---
 
@@ -185,7 +185,7 @@ type HazardRoll = {
 
 ### 4.2 劳损与药剂
 
-成功产出才加劳损：`fatigueDebt += (hpMax * 0.0015 + nearFullPip) * stationMul * comboMul`。`nearFullPip` 仅近满血（`hp >= hpMax-1`）加 `0.18`。`debt≥1` 扣 `floor` 血并减债。HP 锁 1。`stationMul` 约 0.4（铭刻成功 0.55）。血线三档（`hp/hpMax`）：≤1% 空血 ×0.5，≤30% 残血 ×0.8，＞30% 正常 ×1。工人界面底色读 `hp - fatigueDebt`。已删除站狂暴、战鼓药与站工具。工人页 4 槽短按点用 7 种药剂（兴奋剂加速、护命挡劳损/战斗伤、凝神下一次 +1 等），时效按 `elapsedS`。连招只站内，见 [main.md](main.md) 2.2。
+成功产出才加劳损：`fatigueDebt += (hpMax * 0.0015 + nearFullPip) * stationMul * comboMul`。`nearFullPip` 仅近满血（`hp >= hpMax-1`）加 `0.18`。`debt≥1` 扣 `floor` 血并减债。HP 锁 1。`stationMul` 约 0.4（铭刻成功 0.55）。血线三档（`hp/hpMax`）：≤1% 空血 ×0.5，≤30% 残血 ×0.8，＞30% 正常 ×1。站卡进度行写「效率 N%」（两人取更低）。工人界面底色读 `hp - fatigueDebt`。已删除站狂暴、战鼓药与站工具。工人页 4 槽短按点用 7 种药剂（兴奋剂加速、护命挡劳损/战斗伤、凝神下一次 +1 等），时效按 `elapsedS`。连招只站内，见 [main.md](main.md) 2.2。
 
 ---
 

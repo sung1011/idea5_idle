@@ -314,6 +314,30 @@ describe('save migration', () => {
     expect(save?.potionSlots).toEqual(['salve', null, null, null])
   })
 
+  it('hydrates the workshop HP efficiency tip flag', () => {
+    const missing = { ...createSave() }
+    delete (missing as { workshopHpEfficiencyTipShown?: boolean }).workshopHpEfficiencyTipShown
+    expect(hydrateLoadedSave(missing)?.workshopHpEfficiencyTipShown).toBe(false)
+
+    const store = memory()
+    const save = createSave()
+    save.workshopHpEfficiencyTipShown = true
+    persistSave(save, store)
+    expect(loadSave(store)?.workshopHpEfficiencyTipShown).toBe(true)
+
+    const shown = hydrateLoadedSave({
+      ...createSave(),
+      workshopHpEfficiencyTipShown: true,
+    })
+    expect(shown?.workshopHpEfficiencyTipShown).toBe(true)
+
+    const dirty = hydrateLoadedSave({
+      ...createSave(),
+      workshopHpEfficiencyTipShown: 'yes' as unknown as boolean,
+    })
+    expect(dirty?.workshopHpEfficiencyTipShown).toBe(false)
+  })
+
   it('keeps guide quest fields through persist / load', () => {
     const store = memory()
     const save = createSave()

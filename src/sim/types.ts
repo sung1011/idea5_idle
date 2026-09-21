@@ -417,6 +417,11 @@ export type Save = {
   /** 是否已在选人面板点开过符文槽。hydrate 缺字段为 false。 */
   guideQuestRuneOpened: boolean
   /**
+   * 是否已提示过工坊在岗体力导致效率下降。
+   * 账号首次在岗效率跌破 100%（残血 / 空血）漂一次；hydrate 缺字段为 false。
+   */
+  workshopHpEfficiencyTipShown: boolean
+  /**
    * 是否已成交过至少一笔主线订单（交易完成或敌人已领奖）。成交后即使探索刷掉该格也仍算完成。
    * 字段名沿用旧档；旧档 `true` 或板上已完成开局当仍算完成。
    */
