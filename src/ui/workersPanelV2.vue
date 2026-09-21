@@ -546,15 +546,7 @@ onUnmounted(() => {
                 <span class="avatar" :style="workerQualityTileStyle(w)">
                   <ClassIcon :name="classIconOf(w)" />
                 </span>
-                <span class="rest-main">
-                  <span class="rest-top">
-                    <b :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</b>
-                    <small>
-                      <i class="qdot" :style="workerQualityDotStyle(w.qualityTier)" />
-                      Lv{{ w.level }}
-                    </small>
-                  </span>
-                </span>
+                <b class="rest-name" :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</b>
               </button>
               <button
                 type="button"
@@ -582,15 +574,7 @@ onUnmounted(() => {
                 <span class="avatar" :style="workerQualityTileStyle(w)">
                   <ClassIcon :name="classIconOf(w)" />
                 </span>
-                <span class="rest-main">
-                  <span class="rest-top">
-                    <b :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</b>
-                    <small>
-                      <i class="qdot" :style="workerQualityDotStyle(w.qualityTier)" />
-                      Lv{{ w.level }}
-                    </small>
-                  </span>
-                </span>
+                <b class="rest-name" :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</b>
               </button>
               <button
                 type="button"
@@ -603,7 +587,7 @@ onUnmounted(() => {
               </button>
             </div>
           </div>
-          <p v-else class="empty-rest">没有休息工人。点左侧空槽会派入空闲人；也可先抽人。</p>
+          <p v-else class="empty-rest">无人</p>
         </section>
       </div>
     </div>
@@ -621,14 +605,16 @@ onUnmounted(() => {
         aria-label="派入"
         @click="game.assignRestingToFirstEmpty()"
       >
-        <b>派入</b>
+        ←
       </button>
-      <button type="button" class="recruit-fab" :class="{ 'guide-flash': guideFlashRecruit }" @click="game.recruit()">
-        <span class="recruit-plus" aria-hidden="true">＋</span>
-        <span class="recruit-copy">
-          <b>抽工人</b>
-          <small>{{ recruitCost(game.save) }} 钻</small>
-        </span>
+      <button
+        type="button"
+        class="recruit-fab"
+        :class="{ 'guide-flash': guideFlashRecruit }"
+        :aria-label="`抽工人 · ${recruitCost(game.save)} 钻`"
+        @click="game.recruit()"
+      >
+        抽
       </button>
     </div>
   </section>
@@ -802,6 +788,7 @@ onUnmounted(() => {
 
 <style scoped>
 .panel {
+  --roster-side-width: 72px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -830,12 +817,14 @@ onUnmounted(() => {
 }
 
 .workshop {
-  flex: 0 0 62%;
+  flex: 1 1 auto;
   border-right: 2px solid rgba(212, 160, 23, 0.55);
 }
 
 .side {
-  flex: 0 0 38%;
+  flex: 0 0 var(--roster-side-width);
+  width: var(--roster-side-width);
+  overflow: hidden;
 }
 
 .zone {
@@ -864,12 +853,13 @@ onUnmounted(() => {
 
 .zone-head {
   flex: 0 0 auto;
-  padding: 5px 8px 3px;
+  padding: 4px 2px 2px;
   color: #7a4a22;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   line-height: 1.2;
+  text-align: center;
 }
 
 .combat .zone-head {
@@ -880,7 +870,7 @@ onUnmounted(() => {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  padding: 4px 6px 8px;
+  padding: 3px 3px 6px;
 }
 
 .station-list {
@@ -894,7 +884,7 @@ onUnmounted(() => {
 }
 
 .rest-list {
-  padding: 4px 6px 72px;
+  padding: 3px 3px 84px;
 }
 
 .station {
@@ -1162,24 +1152,19 @@ onUnmounted(() => {
   height: 13px;
 }
 
-.slot-main,
-.rest-main {
+.slot-main {
   position: relative;
   z-index: 1;
   min-width: 0;
   min-height: 0;
   flex: 1;
-}
-
-.slot-main {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   overflow: hidden;
 }
 
-.slot-main b,
-.rest-top b {
+.slot-main b {
   display: flex;
   align-items: center;
   gap: 3px;
@@ -1188,7 +1173,7 @@ onUnmounted(() => {
 }
 
 .slot-main em,
-.rest-top b {
+.rest-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1196,16 +1181,20 @@ onUnmounted(() => {
   font-style: normal;
 }
 
-.slot-main small,
-.rest-top small {
+.slot-main small {
   color: var(--muted);
   font-size: 9px;
   font-weight: 800;
   white-space: nowrap;
 }
 
-.rest-top small {
-  display: block;
+.rest-name {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 12px;
 }
 
 .qdot {
@@ -1221,10 +1210,10 @@ onUnmounted(() => {
   overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 2px;
-  margin-bottom: 5px;
+  gap: 0;
+  margin-bottom: 4px;
   border: 1px solid #d4a84a;
-  border-radius: 9px;
+  border-radius: 7px;
   background: rgba(255, 247, 212, 0.45);
   box-shadow: 0 2px 0 rgba(170, 108, 31, 0.28);
 }
@@ -1237,42 +1226,39 @@ onUnmounted(() => {
   min-height: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 4px;
+  gap: 3px;
+  padding: 3px 14px 3px 2px;
   border: 0;
   background: transparent;
   box-shadow: none;
   touch-action: pan-y;
 }
 
-.rest-top {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
 .rest-go {
-  position: relative;
-  z-index: 1;
-  flex: none;
-  width: 28px;
-  min-height: 36px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  width: 16px;
+  height: 100%;
+  min-height: 0;
   padding: 0;
   border: 0;
   background: transparent;
   box-shadow: none;
   color: #b77720;
-  font-size: 18px;
+  font-size: 13px;
   font-weight: 900;
 }
 
 .empty-rest {
-  margin: 10px 8px;
-  padding-bottom: 72px;
+  margin: 6px 3px;
+  padding-bottom: 84px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  line-height: 1.45;
+  line-height: 1.35;
+  text-align: center;
 }
 
 .drag-ghost {
@@ -1293,73 +1279,41 @@ onUnmounted(() => {
 
 .roster-fabs {
   position: absolute;
-  right: 10px;
-  bottom: 10px;
+  right: 6px;
+  bottom: 8px;
   z-index: 2;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 40px;
 }
 
 .dispatch-fab,
 .recruit-fab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 48px;
+  display: grid;
+  place-items: center;
+  min-height: 32px;
+  min-width: 0;
+  padding: 0;
   border: 0;
-  border-radius: 16px;
+  border-radius: 10px;
   background: linear-gradient(#ffe27a, #e2a31a);
   color: #5a3010;
-  box-shadow: 0 4px 0 var(--gold-deep);
+  box-shadow: 0 3px 0 var(--gold-deep);
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .dispatch-fab {
-  padding: 7px 16px;
-}
-
-.dispatch-fab b {
-  font-size: 13px;
-  font-weight: 900;
+  font-size: 16px;
 }
 
 .dispatch-fab.off {
   opacity: 0.45;
   filter: grayscale(0.28);
   box-shadow: none;
-}
-
-.recruit-fab {
-  padding: 7px 14px 7px 10px;
-}
-
-.recruit-plus {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  font-size: 18px;
-  font-weight: 900;
-  line-height: 1;
-}
-
-.recruit-copy {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  line-height: 1.1;
-}
-
-.recruit-copy b {
-  font-size: 13px;
-  font-weight: 900;
-}
-
-.recruit-copy small {
-  font-size: 10px;
-  font-weight: 800;
-  opacity: 0.78;
 }
 
 .hint {
