@@ -167,6 +167,10 @@ watch(activeStation, async () => {
   font-family: var(--font-display);
   font-size: 11px;
   letter-spacing: 0.04em;
+  border-width: var(--border-thin);
+  border-color: var(--gold);
+  background: linear-gradient(#fffef8, var(--btn));
+  box-shadow: none;
 }
 
 .rail .face {
@@ -220,15 +224,24 @@ watch(activeStation, async () => {
   animation: rail-idle-flash 1.1s ease-in-out infinite;
 }
 
+.rail button:active:not(:disabled):not(.on) {
+  transform: none;
+  box-shadow: none;
+}
+
 .rail button.on,
 .rail button.on:hover:not(:disabled),
 .rail button.on:active:not(:disabled) {
   color: var(--ink);
   font-weight: inherit;
-  background: linear-gradient(#fffbeb, var(--btn));
-  border-width: 6px;
-  border-color: #6b3a2a;
-  box-shadow: 0 3px 0 #5c2e24, inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  z-index: 1;
+  background: #fffaf0;
+  border-width: var(--border-thin);
+  border-color: #a67c2a;
+  box-shadow:
+    0 5px 12px rgba(90, 58, 16, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  transform: translateY(-3px);
   opacity: 1;
   filter: none;
 }
@@ -236,16 +249,6 @@ watch(activeStation, async () => {
 .rail button.locked {
   filter: grayscale(0.85);
   opacity: 0.45;
-}
-
-.rail button.on::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  border-radius: inherit;
-  box-shadow: inset 0 0 0 4px #5c2e24;
 }
 
 .rail .ui-ico {
