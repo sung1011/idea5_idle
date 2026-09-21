@@ -109,7 +109,7 @@ xpToNext(L) = Math.round(100 * Math.pow(1.45, L - 1) * 0.175)  // L >= 5
 speed = (1 / 当前品类 cycleS) * n * stationConflictMul
 ```
 
-满 2 人未研究冲突 ×0.5，工坊规章 ×0.75，工匠密录 ×1.0。1 人无冲突。
+满 2 人未研究冲突 ×0.7，工坊规章 ×0.85，工匠密录 ×1.0。1 人无冲突。
 
 完成周期后 `grantStationXp`（点亮「配方拓印」后再 ×1.15）。升级时把 `unlockLevel <= 新等级` 的品类写入 `unlockedCategories`，并写 `progressNotice`（如「采矿升到 Lv5，解锁铁矿」）。UI 不展示该升级文案；停产不再整卡描边，缺料看消耗轻闪与堵点句。
 

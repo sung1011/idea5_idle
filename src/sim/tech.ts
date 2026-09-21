@@ -109,10 +109,10 @@ type RowSeed = {
   options: readonly OptionSeed[]
 }
 
-/** 未研究时同站两人冲突倍率。 */
-export const STATION_CONFLICT_BASE_MUL = 0.5
-/** 解锁「工坊规章」后冲突倍率。 */
-export const STATION_CONFLICT_RULES_MUL = 0.75
+/** 未研究时同站两人冲突倍率（−30%）。 */
+export const STATION_CONFLICT_BASE_MUL = 0.7
+/** 解锁「工坊规章」后冲突倍率（−15%）。 */
+export const STATION_CONFLICT_RULES_MUL = 0.85
 /** 解锁「工匠密录」后消除冲突。 */
 export const STATION_CONFLICT_CLEARED_MUL = 1
 
@@ -160,7 +160,7 @@ const PRODUCTION_ROWS: readonly RowSeed[] = [
       {
         id: 'workshopRules',
         name: '工坊规章',
-        desc: '排班规矩减轻同站两人冲突（效率 −25%）。',
+        desc: '排班规矩减轻同站两人冲突（效率 −15%）。',
         icon: '📜',
         implemented: true,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,

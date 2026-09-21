@@ -4,6 +4,7 @@ import { bankQty } from './bank'
 import { createSave } from './createSave'
 import { completeForgingCycle, resolveSoftFail, softFailCosts, softFailXp } from './forging'
 import { currentSpeed } from './query'
+import { STATION_CONFLICT_BASE_MUL } from './tech'
 import { recruitWorker } from './recruit'
 import { setRollOverride } from './rng'
 import { completeCycle } from './stations'
@@ -236,7 +237,7 @@ describe('matching tool speed', () => {
     assignWorker(save, save.workers[1].id, 'mining')
     expect(selectStationTool(save, 'mining', 'miningTool01').ok).toBe(true)
     expect(assignedToolWeight(save, 'mining')).toBeCloseTo(2.06)
-    expect(currentSpeed(save, 'mining')).toBeCloseTo((1 / 20) * 2.06 * 0.5)
+    expect(currentSpeed(save, 'mining')).toBeCloseTo((1 / 20) * 2.06 * STATION_CONFLICT_BASE_MUL)
   })
 
   it('consumes 1 on successful cycle and returns to 无 when empty', () => {

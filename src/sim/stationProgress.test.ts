@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
-import { collectHints } from './query'
+import { collectHints, currentSpeed } from './query'
+import { STATION_CONFLICT_BASE_MUL } from './tech'
 import { recruitWorker } from './recruit'
 import { setRollOverride } from './rng'
 import {
@@ -167,7 +168,7 @@ describe('categoryPickOptions', () => {
 })
 
 describe('stack current category', () => {
-  it('two miners on iron without conflict tech produce like one miner', () => {
+  it('two miners on iron without conflict tech are faster than one miner', () => {
     const one = roster(1)
     unlockTo(one, 'mining', 5)
     expect(selectStationCategory(one, 'mining', 'iron').ok).toBe(true)
@@ -177,10 +178,11 @@ describe('stack current category', () => {
     unlockTo(two, 'mining', 5)
     expect(selectStationCategory(two, 'mining', 'iron').ok).toBe(true)
     for (const w of two.workers) assignWorker(two, w.id, 'mining')
+    expect(currentSpeed(two, 'mining')).toBeCloseTo(currentSpeed(one, 'mining') * 2 * STATION_CONFLICT_BASE_MUL)
 
-    const a = ticks(one, 24)
-    const b = ticks(two, 24)
-    expect(bankQty(a, 'ironOre')).toBe(1)
+    const a = ticks(one, 18)
+    const b = ticks(two, 18)
+    expect(bankQty(a, 'ironOre')).toBe(0)
     expect(bankQty(a, 'ore')).toBe(0)
     expect(bankQty(b, 'ironOre')).toBe(1)
     expect(b.stations.mining.completed).toBe(1)

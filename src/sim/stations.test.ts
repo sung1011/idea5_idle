@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
-import { collectHints } from './query'
+import { collectHints, currentSpeed } from './query'
+import { STATION_CONFLICT_BASE_MUL } from './tech'
 import { recruitWorker } from './recruit'
 import { setRollOverride } from './rng'
 import { PLAYABLE_STATION_IDS, STATION_DEF, STATION_IDS, stationSpeed } from './tables'
@@ -42,15 +43,16 @@ describe('mining → bank', () => {
     expect(next.stations.mining.progress).toBeCloseTo(0)
   })
 
-  it('two miners without conflict tech produce like one miner', () => {
+  it('two miners without conflict tech are faster than one miner', () => {
     const one = roster(1)
     assignWorker(one, one.workers[0].id, 'mining')
     const two = roster(2)
     for (const w of two.workers) assignWorker(two, w.id, 'mining')
+    expect(currentSpeed(two, 'mining')).toBeCloseTo(currentSpeed(one, 'mining') * 2 * STATION_CONFLICT_BASE_MUL)
 
-    const a = ticks(one, 20)
-    const b = ticks(two, 20)
-    expect(bankQty(a, 'ore')).toBe(1)
+    const a = ticks(one, 15)
+    const b = ticks(two, 15)
+    expect(bankQty(a, 'ore')).toBe(0)
     expect(bankQty(b, 'ore')).toBe(1)
     expect(b.stations.mining.completed).toBe(1)
   })

@@ -526,7 +526,7 @@ describe('tech effects stay no-op where intended', () => {
 })
 
 describe('station conflict', () => {
-  it('halves two-worker speed before conflict techs', () => {
+  it('cuts two-worker speed by 30% before conflict techs', () => {
     const two = createSave()
     spawnWorker(two)
     spawnWorker(two)
@@ -537,10 +537,11 @@ describe('station conflict', () => {
     assignWorker(one, one.workers[0].id, 'mining')
     const noConflictTwo = currentSpeed(one, 'mining') * 2
 
+    expect(STATION_CONFLICT_BASE_MUL).toBe(0.7)
     expect(stationConflictMul(two, 'mining')).toBe(STATION_CONFLICT_BASE_MUL)
-    expect(currentSpeed(two, 'mining')).toBeCloseTo(noConflictTwo * 0.5)
-    expect(currentSpeed(two, 'mining')).toBeCloseTo(currentSpeed(one, 'mining'))
-    expect(stationConflictHint(two, 'mining')).toBe('冲突：效率 −50%')
+    expect(currentSpeed(two, 'mining')).toBeCloseTo(noConflictTwo * STATION_CONFLICT_BASE_MUL)
+    expect(currentSpeed(two, 'mining')).toBeGreaterThan(currentSpeed(one, 'mining'))
+    expect(stationConflictHint(two, 'mining')).toBe('冲突：效率 −30%')
   })
 
   it('changes mul after researching workshopRules then artisanArchive', () => {
@@ -559,9 +560,10 @@ describe('station conflict', () => {
     while (!hasTech(two, 'workshopRules')) {
       expect(researchNextTech(two).ok).toBe(true)
     }
+    expect(STATION_CONFLICT_RULES_MUL).toBe(0.85)
     expect(stationConflictMul(two, 'mining')).toBe(STATION_CONFLICT_RULES_MUL)
-    expect(currentSpeed(two, 'mining')).toBeCloseTo(stacked * 0.75)
-    expect(stationConflictHint(two, 'mining')).toBe('冲突：效率 −25%')
+    expect(currentSpeed(two, 'mining')).toBeCloseTo(stacked * STATION_CONFLICT_RULES_MUL)
+    expect(stationConflictHint(two, 'mining')).toBe('冲突：效率 −15%')
 
     while (!hasTech(two, 'artisanArchive')) {
       expect(researchNextTech(two).ok).toBe(true)
@@ -645,7 +647,7 @@ describe('resetAllTech', () => {
     expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MIN)
     expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MIN)
     expect(stationConflictMul(save, 'mining')).toBe(STATION_CONFLICT_BASE_MUL)
-    expect(stationConflictHint(save, 'mining')).toBe('冲突：效率 −50%')
+    expect(stationConflictHint(save, 'mining')).toBe('冲突：效率 −30%')
     expect(save.gold).toBe(gold)
     expect(save.diamonds).toBe(diamonds)
     expect(save.bank.wood).toBe(wood)
