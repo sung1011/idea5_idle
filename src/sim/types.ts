@@ -447,7 +447,7 @@ export type Save = {
   techLevels: Partial<Record<TechId, number>>
   /**
    * 工人页 4 个药剂装配槽。只记种类，数量读物资。
-   * 旧档缺字段 hydrate 为空槽。
+   * 点槽只打六站在岗；无人在岗不扣瓶。旧档缺字段 hydrate 为空槽。
    */
   potionSlots: PotionSlots
   /**

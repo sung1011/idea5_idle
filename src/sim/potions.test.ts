@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { beginEnemyCombat, stepEnemyCombat } from './combat'
+import { createAssistWorker } from './combatAssist'
 import { createSave } from './createSave'
 import {
   BRINK_HEAL_BASE,
@@ -25,6 +26,7 @@ import {
   rollAlchemyPotionBatch,
   stimSpeedMul,
   unequipPotionSlot,
+  POTION_NO_DUTY_TIP,
   usePotionSlot,
 } from './potions'
 import { currentSpeed } from './query'
@@ -96,6 +98,7 @@ describe('potion slots', () => {
     expect(usePotionSlot(save, 0)).toEqual({ ok: false, reason: '空槽' })
     expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
     expect(save.potionSlots[0]).toBe('salve')
+    assignWorker(save, save.workers[0].id, 'herbalism')
     save.workers[0].hp = 1
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(bankQty(save, 'salve')).toBe(0)
@@ -128,8 +131,10 @@ describe('seven potion effects', () => {
     expect(currentSpeed(later, 'mining')).toBeCloseTo(bare)
   })
 
-  it('salve heals every worker by 20% hpMax', () => {
+  it('salve heals every on-duty worker by 20% hpMax', () => {
     const save = roster(2)
+    assignWorker(save, save.workers[0].id, 'herbalism')
+    assignWorker(save, save.workers[1].id, 'mining')
     save.workers[0].hp = 1
     save.workers[1].hp = 1
     save.bank.salve = 1
@@ -158,6 +163,8 @@ describe('seven potion effects', () => {
 
   it('brinkSalve heals more when missing more HP', () => {
     const save = roster(2)
+    assignWorker(save, save.workers[0].id, 'herbalism')
+    assignWorker(save, save.workers[1].id, 'mining')
     save.workers[0].hp = save.workers[0].hpMax
     save.workers[1].hp = 1
     save.bank.brinkSalve = 1
@@ -172,7 +179,7 @@ describe('seven potion effects', () => {
     expect(emptyHeal).toBeGreaterThan(fullHeal)
   })
 
-  it('wardElixir blocks workshop fatigue and combat HP damage', () => {
+  it('wardElixir blocks workshop fatigue but not combat HP damage', () => {
     const save = roster(1)
     const worker = save.workers[0]
     assignWorker(save, worker.id, 'herbalism')
@@ -187,9 +194,14 @@ describe('seven potion effects', () => {
     save.encounters[0] = enc
     worker.assignment = null
     beginEnemyCombat(enc, [worker], 1_000_000, 1, undefined, save)
-    const hp = enc.combat!.workers[0].hp
-    stepEnemyCombat(save, enc, 1_000_000, undefined)
-    expect(enc.combat!.workers[0].hp).toBe(hp)
+    const fighter = enc.combat!.workers[0]
+    fighter.hp = 20
+    fighter.hpMax = 20
+    worker.hp = 20
+    enc.combat!.enemy.nextActAt = 1_000_050
+    fighter.nextActAt = 1_000_500
+    stepEnemyCombat(save, enc, 1_000_080)
+    expect(fighter.hp).toBeLessThan(20)
   })
 
   it('focusDraft gives each station +1 on the next successful cycle for 5 minutes', () => {
@@ -214,6 +226,8 @@ describe('seven potion effects', () => {
     const save = roster(2)
     const residual = save.workers[0]
     const healthy = save.workers[1]
+    assignWorker(save, residual.id, 'herbalism')
+    assignWorker(save, healthy.id, 'mining')
     residual.fatigueDebt = 2.4
     residual.hp = 1
     healthy.fatigueDebt = 1.1
@@ -228,6 +242,54 @@ describe('seven potion effects', () => {
     expect(healthy.hp).toBe(
       Math.min(healthy.hpMax, Math.ceil(healthy.hpMax * 0.6) + Math.ceil(healthy.hpMax * CLEAR_MIND_HEAL_RATIO)),
     )
+  })
+})
+
+describe('potion slot on-duty targeting', () => {
+  it('does not consume when nobody is on duty', () => {
+    const save = roster(1)
+    save.bank.salve = 1
+    save.bank.stim = 1
+    expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
+    expect(usePotionSlot(save, 0)).toEqual({ ok: false, reason: POTION_NO_DUTY_TIP })
+    expect(bankQty(save, 'salve')).toBe(1)
+    expect(save.guideQuestPotionUsed).toBeFalsy()
+    expect(installPotionSlot(save, 1, 'stim').ok).toBe(true)
+    expect(usePotionSlot(save, 1)).toEqual({ ok: false, reason: POTION_NO_DUTY_TIP })
+    expect(bankQty(save, 'stim')).toBe(1)
+    expect(save.potionBuffs.stimUntil).toBeNull()
+  })
+
+  it('heals only on-duty workers and skips rest, combat, and assist', () => {
+    const save = roster(3)
+    const duty = save.workers[0]
+    const rest = save.workers[1]
+    const fighter = save.workers[2]
+    assignWorker(save, duty.id, 'herbalism')
+    duty.hp = 1
+    rest.hp = 1
+    fighter.hp = fighter.hpMax
+    const enc = testEnemy()
+    save.encounters[0] = enc
+    beginEnemyCombat(enc, [fighter], 2_000_000, 1, undefined, save)
+    expect(enc.combat?.workers[0]?.id).toBe(fighter.id)
+    enc.combat!.enemy.nextActAt = 9_000_000
+    enc.combat!.workers[0].nextActAt = 9_000_000
+    enc.combat!.workers[0].hp = 5
+    fighter.hp = 5
+    const assist = createAssistWorker(save)
+    assist.assignment = 'mining'
+    assist.hp = 1
+    save.workers.push(assist)
+    save.bank.salve = 1
+    expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
+    expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(bankQty(save, 'salve')).toBe(0)
+    expect(duty.hp).toBe(1 + Math.ceil(duty.hpMax * SALVE_HEAL_RATIO))
+    expect(rest.hp).toBe(1)
+    expect(fighter.hp).toBe(5)
+    expect(enc.combat?.workers[0]?.hp).toBe(5)
+    expect(assist.hp).toBe(1)
   })
 })
 

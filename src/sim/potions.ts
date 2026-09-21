@@ -8,6 +8,7 @@ import {
   CLEAR_MIND_LEAVE_RATIO,
   FOCUS_DURATION_S,
   ITEM_DEF,
+  PLAYABLE_STATION_IDS,
   POTION_BATCH_RANGE,
   POTION_ITEM_IDS,
   RENEW_DURATION_S,
@@ -34,6 +35,23 @@ import { POTION_SLOT_COUNT } from './types'
 
 export { POTION_SLOT_COUNT }
 export { installPotionSlot, unequipPotionSlot } from './potionSlots'
+
+export const POTION_NO_DUTY_TIP = '没有在岗工人可用药'
+
+function isAssistLike(worker: Pick<Worker, 'id' | 'guest'>): boolean {
+  return worker.guest === true || worker.id.startsWith('assist-')
+}
+
+/** 工人页点槽：只打六站在岗，排除休息 / 主线与地牢出战 / 助战。 */
+export function isPotionDutyWorker(worker: Worker): boolean {
+  if (isAssistLike(worker)) return false
+  const station = worker.assignment
+  return !!station && (PLAYABLE_STATION_IDS as readonly string[]).includes(station)
+}
+
+export function potionDutyWorkers(save: Save): Worker[] {
+  return save.workers.filter(isPotionDutyWorker)
+}
 
 export function blankPotionBuffs(): PotionBuffs {
   return {
@@ -130,12 +148,8 @@ function syncCombatHp(save: Save, worker: Worker): void {
   }
 }
 
-function livingWorkers(save: Save): Worker[] {
-  return save.workers.filter((worker) => worker.hp > 0)
-}
-
-function allWorkers(save: Save): Worker[] {
-  return save.workers
+function livingDutyWorkers(save: Save): Worker[] {
+  return potionDutyWorkers(save).filter((worker) => worker.hp > 0)
 }
 
 function applyHeal(save: Save, worker: Worker, amount: number): number {
@@ -153,9 +167,9 @@ function brinkHealAmount(worker: Worker): number {
   return healAmount(hpMax, BRINK_HEAL_BASE + BRINK_HEAL_MISSING * (1 - ratio))
 }
 
-function healAll(save: Save, amountOf: (worker: Worker) => number, livingOnly = false): number {
+function healDuty(save: Save, amountOf: (worker: Worker) => number, livingOnly = false): number {
   let total = 0
-  const crew = livingOnly ? livingWorkers(save) : allWorkers(save)
+  const crew = livingOnly ? livingDutyWorkers(save) : potionDutyWorkers(save)
   for (const worker of crew) total += applyHeal(save, worker, amountOf(worker))
   return total
 }
@@ -168,8 +182,8 @@ function applyPotionEffect(save: Save, itemId: PotionItemId): string {
     return '在岗工人工作效率 ×1.5，持续 3 分钟'
   }
   if (itemId === 'salve') {
-    const healed = healAll(save, (worker) => healAmount(worker.hpMax, SALVE_HEAL_RATIO))
-    return healed > 0 ? `全体回血，合计 HP+${healed}` : '全体已满血'
+    const healed = healDuty(save, (worker) => healAmount(worker.hpMax, SALVE_HEAL_RATIO))
+    return healed > 0 ? `在岗回血，合计 HP+${healed}` : '在岗已满血'
   }
   if (itemId === 'renewSoup') {
     buffs.renewUntil = t + RENEW_DURATION_S
@@ -177,8 +191,8 @@ function applyPotionEffect(save: Save, itemId: PotionItemId): string {
     return '续命：每 10 秒回 5% 生命，持续 2 分钟'
   }
   if (itemId === 'brinkSalve') {
-    const healed = healAll(save, brinkHealAmount)
-    return healed > 0 ? `绝境回血，合计 HP+${healed}` : '全体已满血'
+    const healed = healDuty(save, brinkHealAmount)
+    return healed > 0 ? `在岗绝境回血，合计 HP+${healed}` : '在岗已满血'
   }
   if (itemId === 'wardElixir') {
     buffs.wardUntil = t + WARD_DURATION_S
@@ -191,7 +205,7 @@ function applyPotionEffect(save: Save, itemId: PotionItemId): string {
   }
   if (itemId === 'clearMind') {
     let woke = 0
-    for (const worker of allWorkers(save)) {
+    for (const worker of potionDutyWorkers(save)) {
       if (isWoundedHp(worker)) {
         const hpMax = Math.max(1, Math.floor(worker.hpMax))
         const floorHp = Math.ceil(CLEAR_MIND_LEAVE_RATIO * hpMax)
@@ -204,7 +218,7 @@ function applyPotionEffect(save: Save, itemId: PotionItemId): string {
       }
       woke += 1
     }
-    return woke > 0 ? '醒神：残血抬至 40%，其余立刻回 10%' : '没有工人'
+    return woke > 0 ? '醒神：在岗残血抬至 40%，其余立刻回 10%' : POTION_NO_DUTY_TIP
   }
   const _unreachable: never = itemId
   return _unreachable
@@ -216,6 +230,7 @@ export function usePotionSlot(save: Save, index: number, _now = Date.now()): Act
   const itemId = slotsOf(save)[index]
   if (!itemId) return { ok: false, reason: '空槽' }
   if (bankQty(save, itemId) < 1) return { ok: false, reason: `${ITEM_DEF[itemId].label}见底` }
+  if (!potionDutyWorkers(save).length) return { ok: false, reason: POTION_NO_DUTY_TIP }
   const took = takeFromBank(save, itemId, 1)
   if (!took.ok) return took
   const detail = applyPotionEffect(save, itemId)
@@ -235,7 +250,7 @@ export function applyPotionTicks(save: Save): void {
     t >= buffs.renewNextAt &&
     t <= buffs.renewUntil
   ) {
-    healAll(save, (worker) => healAmount(worker.hpMax, RENEW_HEAL_RATIO), true)
+    healDuty(save, (worker) => healAmount(worker.hpMax, RENEW_HEAL_RATIO), true)
     let next = buffs.renewNextAt + RENEW_TICK_S
     while (next <= t && next <= buffs.renewUntil) next += RENEW_TICK_S
     buffs.renewNextAt = next > buffs.renewUntil ? null : next

@@ -57,7 +57,7 @@
 | `techPoints` | 账号级灵感。新档 20（`START_TECH_POINTS`）。骑士等级每升 1 级 +1。工坊完成周期不再加灵感。图纸不再兑换灵感。旧档已有点数原样保留；缺字段 / 别名 `inspiration` hydrate 为点数，不无故重置成 20。 |
 | `unlockedTechIds` | 已点过至少 1 次的科技 id（与 `techLevels[id] ≥ 1` 同步）。三页签各自成串，该层任意节点 `level≥1` 即开上一层，同行可稍后补买，最终都能买齐。旧档能对上新表的 id 保留并写成 `level=1`，对不上的丢掉。灵感另走 `techPoints`，不因清档进度而扣。 |
 | `techLevels` | 各科技已点次数。0 / 缺省 = 未买。节点另有表字段 `maxLevel`（≥1）。已实装节点先 `maxLevel=1`（图标 `0/1`→`1/1`）；占位 `maxLevel=5`。每次激活扣该层同行同价灵感 1 次；未满级且本层已开、灵感够可再点同一节点。 |
-| `potionSlots` | 工人页 4 个药剂装配槽，只记种类。点已装槽扣物资 1 瓶立刻生效，无 CD；点槽角「？」看效果；库存 0 仍留装配。hydrate 缺字段为空槽；旧档通用 `potion` 记成 `salve`，`warDrum` 槽清空。 |
+| `potionSlots` | 工人页 4 个药剂装配槽，只记种类。点已装槽扣物资 1 瓶立刻生效，无 CD；只打六站在岗工人，战斗中 / 休息 / 助战不吃；无人在岗漂「没有在岗工人可用药」且不扣瓶。点槽角「？」看效果；库存 0 仍留装配。hydrate 缺字段为空槽；旧档通用 `potion` 记成 `salve`，`warDrum` 槽清空。 |
 | `potionBuffs` | 兴奋剂 / 续命 / 护命 / 凝神的 `elapsedS` 时效与凝神已用站。 |
 
 ### 2.2 Worker
@@ -113,7 +113,7 @@ HP -= floor(fatigueDebt)；fatigueDebt -= floor(fatigueDebt)
 - 空转 / 空杆 `kindMul=0`。软失败 ×0.35，遇险 ×0.5。护命符药期间不加劳损。
 - HP 最低锁 1，不自动下岗、不打死。双人站各自记自己的债。食物不再减工坊掉血。成功产出后若仍残血（hp/hpMax ≤30%，含空血）则该站卡另漂「虚弱」。工人v2 左右栏底色血条读 `workerWearHp`（`hp - fatigueDebt`）。
 
-站工具不再走 `effectId` 词条，只给该站速度乘区 `1 + 序号 × 3%`（只生效一把）。食物生产加速压到很弱（熟食 ×1.02 / 香料炖 ×1.03，烤肉不再额外产），主职是回血：`ceil(hpMax * 比例)`，meal 25% / roast 40% / stew 55%，至少使 HP>1。残血（hp/hpMax ≤30%）且槽内有余粮则自动吃 1：工坊在岗产出扣血后检查，主线等战斗结算后也按残血检查。工人页只留装槽 / 换食 / 卸下，不提供「吃 1 / 手动喂」。药剂必须装进工人页 4 个 `potionSlots` 后点槽使用（扣物资 1 瓶，无 CD；库存 0 仍留装配；点「？」看效果，装配面板只写名字和数量）。7 种：`stim` 兴奋剂（在岗速度 ×1.5 / 3 分钟）、`salve` 初级药膏（全体立刻回 20% hpMax）、`renewSoup` 续命汤（全体存活每 10s 回 5% / 2 分钟）、`brinkSalve` 绝境膏（缺血越多回越多，约 10%～45% hpMax）、`wardElixir` 护命符药（1 分钟无视工坊劳损与战斗伤害）、`focusDraft` 凝神剂（5 分钟内每站下一次成功吞吐 +1）、`clearMind` 醒神散（残血抬到 40% hpMax；非残血立刻 +10% hpMax，不清劳损）。时效按 `elapsedS` 走，离线追赶同一套。旧档通用 `potion` hydrate 成 `salve`；旧档 `warDrum` 槽清空。同一 worker 同时只能派一个站。每站最多 2 人。旧档工人 / 站上 `toolSlot` hydrate 一律回物资，不再装配；同站超过 2 人的撤到休息。工人页没有工具装配。
+站工具不再走 `effectId` 词条，只给该站速度乘区 `1 + 序号 × 3%`（只生效一把）。食物生产加速压到很弱（熟食 ×1.02 / 香料炖 ×1.03，烤肉不再额外产），主职是回血：`ceil(hpMax * 比例)`，meal 25% / roast 40% / stew 55%，至少使 HP>1。残血（hp/hpMax ≤30%）且槽内有余粮则自动吃 1：工坊在岗产出扣血后检查，主线等战斗结算后也按残血检查。工人页只留装槽 / 换食 / 卸下，不提供「吃 1 / 手动喂」。药剂必须装进工人页 4 个 `potionSlots` 后点槽使用（扣物资 1 瓶，无 CD；库存 0 仍留装配；点「？」看效果，装配面板只写名字和数量）。点槽只作用于六站在岗；战斗中 / 休息 / 助战不吃；无人在岗漂「没有在岗工人可用药」且不扣瓶。7 种：`stim` 兴奋剂（在岗速度 ×1.5 / 3 分钟）、`salve` 初级药膏（在岗立刻回 20% hpMax）、`renewSoup` 续命汤（在岗存活每 10s 回 5% / 2 分钟）、`brinkSalve` 绝境膏（在岗缺血越多回越多，约 10%～45% hpMax）、`wardElixir` 护命符药（1 分钟无视在岗工坊劳损与工坊波及）、`focusDraft` 凝神剂（5 分钟内每站下一次成功吞吐 +1）、`clearMind` 醒神散（在岗残血抬到 40% hpMax；非残血立刻 +10% hpMax，不清劳损）。时效按 `elapsedS` 走，离线追赶同一套。旧档通用 `potion` hydrate 成 `salve`；旧档 `warDrum` 槽清空。同一 worker 同时只能派一个站。每站最多 2 人。旧档工人 / 站上 `toolSlot` hydrate 一律回物资，不再装配；同站超过 2 人的撤到休息。工人页没有工具装配。
 
 ### 2.3 站点
 
@@ -151,7 +151,7 @@ stackFactor(n) = n
 人数项按工人加权：每人贡献 = 工具/食物速度乘区 × HP 效率
 HP 效率：hp/hpMax ≤1% 空血 ×0.5；≤30% 残血 ×0.8；＞30% 正常 ×1
 speed = (1 / cycleS) * 加权人数项 * stationConflictMul * 兴奋剂
-兴奋剂：工人页药剂槽点用，全体在岗速度 ×1.5，持续 180s（`elapsedS`）
+兴奋剂：工人页药剂槽点用（须有在岗工人），在岗速度 ×1.5，持续 180s（`elapsedS`）
 存档：StationState.fatigueCombo；账号 `potionSlots` / `potionBuffs`
 progress += speed
 progress >= 1 → 完成一次吞吐，progress -= 1

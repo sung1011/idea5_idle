@@ -452,13 +452,13 @@ export const POTION_BATCH_RANGE: Readonly<Record<PotionItemId, PotionBatchRange>
 }
 
 export const POTION_EFFECT_TEXT: Readonly<Record<PotionItemId, string>> = {
-  stim: '全体在岗工人工作速度 ×1.5，持续 3 分钟',
-  salve: '全体工人立刻回复 20% 最大生命',
-  renewSoup: '全体存活工人每 10 秒回复 5% 最大生命，持续 2 分钟',
-  brinkSalve: '全体回血，满血约 10%、空血约 45% 最大生命',
-  wardElixir: '1 分钟内不受工坊劳损与战斗伤害（已有伤口保留）',
+  stim: '在岗工人工作速度 ×1.5，持续 3 分钟',
+  salve: '在岗工人立刻回复 20% 最大生命',
+  renewSoup: '在岗存活工人每 10 秒回复 5% 最大生命，持续 2 分钟',
+  brinkSalve: '在岗回血，满血约 10%、空血约 45% 最大生命',
+  wardElixir: '1 分钟内在岗工人不受工坊劳损与工坊波及伤害（已有伤口保留）',
   focusDraft: '5 分钟内每站下一次成功吞吐额外 +1',
-  clearMind: '残血（≤30%）抬到 40% 最大生命；非残血立刻回复 10% 最大生命',
+  clearMind: '在岗工人：残血（≤30%）抬到 40% 最大生命；非残血立刻回复 10% 最大生命',
 }
 
 export function isPotionItemId(id: unknown): id is PotionItemId {

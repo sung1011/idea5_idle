@@ -656,10 +656,6 @@ function strike(
     emitLog(enc, combat, at, `${attacker.label} 对 ${target.label} 造成 ${damage}${tail}`, 'ok', onLog)
     return
   }
-  if (isWardActive(save)) {
-    emitLog(enc, combat, at, `${attacker.label} 对 ${target.label} 的伤害被护命抵消`, 'ok', onLog)
-    return
-  }
   const hit = attacker.atk + dungeonJaggedBonus(save, enc)
   target.hp = Math.max(0, target.hp - hit)
   writeBackFighterHp(save, target)
