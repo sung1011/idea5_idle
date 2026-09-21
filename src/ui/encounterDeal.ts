@@ -7,12 +7,14 @@ import {
   formatMarchClock,
   needEntries,
   pawnBlockReason,
-  bulkRewardGold,
+  artisanReward,
+  bulkReward,
   combatSupplyNeeds,
-  enemyLootPayout,
-  pawnRewardGold,
+  enemyLootReward,
+  pawnReward,
 } from '../sim/encounters'
 import { ITEM_DEF } from '../sim/tables'
+import type { CurrencyPayout } from '../sim/currencyReward'
 import type { EncounterBoardId } from '../sim/encounters'
 import type { Encounter, EncounterNeedMap, ItemId, Save } from '../sim/types'
 
@@ -22,6 +24,7 @@ export const CONSUME_SHORT_TIP = '物资不足'
 export type DealToken =
   | { kind: 'item'; itemId: ItemId; qty: number }
   | { kind: 'gold'; qty: number; note?: string }
+  | { kind: 'diamonds'; qty: number; note?: string }
   | { kind: 'buff'; mul: number; durationS: number }
 
 export type EncounterDeal = {
@@ -33,13 +36,21 @@ function tokensFromNeedMap(map: EncounterNeedMap): DealToken[] {
   return needEntries(map).map(([itemId, qty]) => ({ kind: 'item', itemId, qty }))
 }
 
+function currencyToken(payout: CurrencyPayout, note?: string): DealToken | null {
+  if (payout.diamonds > 0) return { kind: 'diamonds', qty: payout.diamonds, note }
+  if (payout.gold > 0) return { kind: 'gold', qty: payout.gold, note }
+  return null
+}
+
 export function encounterDeal(enc: Encounter, save?: Save): EncounterDeal {
   switch (enc.kind) {
-    case 'enemy':
+    case 'enemy': {
+      const loot = enemyLootReward(enc, save)
       return {
         consume: tokensFromNeedMap(save ? combatSupplyNeeds(save, enc) : enc.needs),
-        gain: [{ kind: 'gold', qty: enemyLootPayout(enc, save), note: '战斗后领' }],
+        gain: [currencyToken(loot, '战斗后领')].filter((token): token is DealToken => token != null),
       }
+    }
     case 'blackMerchant':
       return {
         consume: [{ kind: 'gold', qty: enc.buyGold }],
@@ -53,17 +64,22 @@ export function encounterDeal(enc: Encounter, save?: Save): EncounterDeal {
     case 'pawn':
       return {
         consume: tokensFromNeedMap(enc.pawnWants),
-        gain: [{ kind: 'gold', qty: pawnRewardGold(enc, save) }],
+        gain: [currencyToken(pawnReward(enc, save))].filter((token): token is DealToken => token != null),
       }
-    case 'artisan':
+    case 'artisan': {
+      const money = currencyToken(artisanReward(enc))
       return {
         consume: tokensFromNeedMap(enc.wants),
-        gain: [{ kind: 'buff', mul: enc.buffMul, durationS: enc.buffDurationS }],
+        gain: [
+          ...(money ? [money] : []),
+          { kind: 'buff', mul: enc.buffMul, durationS: enc.buffDurationS },
+        ],
       }
+    }
     case 'bulkBuy':
       return {
         consume: tokensFromNeedMap(enc.wants),
-        gain: [{ kind: 'gold', qty: bulkRewardGold(enc, save) }],
+        gain: [currencyToken(bulkReward(enc, save))].filter((token): token is DealToken => token != null),
       }
   }
 }
@@ -71,8 +87,12 @@ export function encounterDeal(enc: Encounter, save?: Save): EncounterDeal {
 export function formatDealToken(token: DealToken): string {
   if (token.kind === 'item') return `${ITEM_DEF[token.itemId].label}×${token.qty}`
   if (token.kind === 'gold') {
-    const gold = `${token.qty} 金`
+    const gold = `金币 ×${token.qty}`
     return token.note ? `${gold}（${token.note}）` : gold
+  }
+  if (token.kind === 'diamonds') {
+    const diamonds = `钻石 ×${token.qty}`
+    return token.note ? `${diamonds}（${token.note}）` : diamonds
   }
   const pct = Math.round((token.mul - 1) * 100)
   return `产量 +${pct}% · ${formatMarchClock(token.durationS)}`

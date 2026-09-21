@@ -895,10 +895,12 @@ describe('weakness break shields', () => {
   it('does not deduct shield on a miss', () => {
     const save = createSave()
     const worker = spawnWorkerWith(save, 5, 'artisan', ['bow'])
+    worker.combatAttrs = ['bow']
     const enc = testEnemy({ weaknesses: ['fire', 'ice'], revealedWeaknesses: ['fire'] })
     putEnemy(save, enc)
     const now = 40_000
     const combat = beginEnemyCombat(enc, [worker], now)
+    combat.workers[0].combatAttrs = ['bow']
     combat.shieldMax = 3
     combat.shield = 3
     combat.stunnedUntil = null

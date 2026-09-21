@@ -20,8 +20,8 @@ export const DAY_LENGTH_S = 24 * 60
 export const OFFLINE_CAP_S = 8 * 60 * 60
 
 export const START_GOLD = 80
-/** 高级代币占位。新档 0，本轮没有获得途径。 */
-export const START_DIAMONDS = 0
+/** 新档钻石。旧档缺字段 hydrate 补这个数；已有字段（含 0）不重灌。 */
+export const START_DIAMONDS = 100
 /** 新档初始灵感。旧档 hydrate 不改写成这个数。 */
 export const START_TECH_POINTS = 20
 export const RECRUIT_COST = 15

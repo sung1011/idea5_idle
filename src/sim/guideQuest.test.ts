@@ -23,7 +23,7 @@ import {
 import { installPotionSlot } from './potionSlots'
 import { usePotionSlot } from './potions'
 import { recruitWorker, spawnWorker } from './recruit'
-import { RECRUIT_COST } from './tables'
+import { RECRUIT_COST, START_DIAMONDS } from './tables'
 import { hydrateLoadedSave } from '../ui/saveGame'
 import type { EnemyEncounter, Save } from './types'
 
@@ -181,7 +181,8 @@ describe('guideQuest steps and claim', () => {
     expect(guideQuestView(save)?.progressLabel).toBe('进度 2/2 · 可领')
     expect(claimGuideQuest(save)).toEqual({ ok: true, message: `金币 +${GUIDE_QUEST_GOLD}` })
     expect(save.guideQuestStep).toBe(2)
-    expect(save.gold).toBe(gold0 - RECRUIT_COST * 2 + GUIDE_QUEST_GOLD)
+    expect(save.gold).toBe(gold0 + GUIDE_QUEST_GOLD)
+    expect(save.diamonds).toBe(START_DIAMONDS - RECRUIT_COST * 2)
 
     expect(guideQuestView(save)?.goal).toBe('把工人派入采药')
     expect(assignWorker(save, save.workers[0].id, 'herbalism').ok).toBe(true)

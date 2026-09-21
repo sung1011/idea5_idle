@@ -16,7 +16,7 @@ afterEach(() => {
 
 function roster(n: number): Save {
   const save = createSave()
-  save.gold = 15 * n
+  save.diamonds = 15 * n
   for (let i = 0; i < n; i++) {
     const result = recruitWorker(save)
     expect(result.ok).toBe(true)

@@ -5,18 +5,19 @@ import { spawnWorker } from './recruit'
 import { PLAYABLE_STATION_IDS, START_DIAMONDS, START_GOLD, START_TECH_POINTS, STATION_IDS, WORKER_QUALITY_REV } from './tables'
 
 describe('createSave diamonds', () => {
-  it('starts diamonds at 0 as a premium-token placeholder', () => {
+  it('starts diamonds at 100 for recruiting', () => {
     const save = createSave()
     expect(save.diamonds).toBe(START_DIAMONDS)
-    expect(save.diamonds).toBe(0)
+    expect(save.diamonds).toBe(100)
     expect(save.gold).toBe(START_GOLD)
   })
 
-  it('normalizes missing or dirty diamonds back to 0', () => {
-    expect(normalizeDiamonds(undefined)).toBe(0)
-    expect(normalizeDiamonds(null)).toBe(0)
+  it('hydrates missing diamonds to 100 and keeps an existing spent balance', () => {
+    expect(normalizeDiamonds(undefined)).toBe(100)
+    expect(normalizeDiamonds(null)).toBe(100)
+    expect(normalizeDiamonds(Number.NaN)).toBe(100)
+    expect(normalizeDiamonds(0)).toBe(0)
     expect(normalizeDiamonds(-3)).toBe(0)
-    expect(normalizeDiamonds(Number.NaN)).toBe(0)
     expect(normalizeDiamonds(4.8)).toBe(4)
   })
 })

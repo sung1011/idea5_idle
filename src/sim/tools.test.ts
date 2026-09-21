@@ -63,7 +63,7 @@ describe('unlockedPlusNextPreview', () => {
 
 function roster(n: number): Save {
   const save = createSave()
-  save.gold = 15 * n
+  save.diamonds = 15 * n
   for (let i = 0; i < n; i++) expect(recruitWorker(save).ok).toBe(true)
   return save
 }

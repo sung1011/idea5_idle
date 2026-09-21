@@ -154,7 +154,7 @@ export function hydrateWorkers(raw: unknown, qualityRev?: unknown): Worker[] {
   return workers
 }
 
-/** 写入一名工人，不扣金币。GM 免费招人复用。新抽默认最低档。 */
+/** 写入一名工人，不扣钻石。GM 免费招人复用。新抽默认最低档。 */
 export function spawnWorker(save: Save): Worker {
   const idx = save.nextWorkerId - 1
   return spawnWorkerWith(save, QUALITY_MIN, CLASS_PLACEHOLDERS[idx % CLASS_PLACEHOLDERS.length])
@@ -190,11 +190,11 @@ export function spawnWorkerWith(
   return worker
 }
 
-/** 表驱动抽工人。扣账号金币，写入花名册。费用可被科技减免。 */
+/** 表驱动抽工人。扣账号钻石，写入花名册。费用数字与旧金币抽人费相同。 */
 export function recruitWorker(save: Save): ActionResult {
   const cost = recruitCost(save)
-  if (save.gold < cost) return { ok: false, reason: '金币不足' }
-  save.gold -= cost
+  if (save.diamonds < cost) return { ok: false, reason: '钻石不足' }
+  save.diamonds -= cost
   spawnWorker(save)
   return { ok: true }
 }

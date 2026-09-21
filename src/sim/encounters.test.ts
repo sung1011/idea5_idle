@@ -302,11 +302,19 @@ describe('encounter board', () => {
           expect(needEntries(enc.needs)).toHaveLength(1)
           expect(isMainNeedItem(needEntries(enc.needs)[0][0])).toBe(true)
           expect(isLegacyGenericToolNeed(needEntries(enc.needs)[0][0])).toBe(false)
+          expect(enc.lootGold > 0 && (enc.lootDiamonds ?? 0) > 0).toBe(false)
+          if (enc.enemyRank === 'boss') {
+            expect(enc.lootGold).toBe(0)
+            expect(enc.lootDiamonds).toBeGreaterThan(0)
+          } else {
+            expect(enc.lootGold + (enc.lootDiamonds ?? 0)).toBeGreaterThan(0)
+          }
         }
         if (enc.kind === 'artisan') {
           expect(needEntries(enc.wants)).toHaveLength(1)
           expect(isLegacyGenericToolNeed(needEntries(enc.wants)[0][0])).toBe(false)
-          expect(enc.rewardGold).toBe(0)
+          expect(enc.rewardGold > 0 && (enc.rewardDiamonds ?? 0) > 0).toBe(false)
+          expect(enc.rewardGold + (enc.rewardDiamonds ?? 0)).toBeGreaterThan(0)
         }
         if (enc.kind === 'passerby') {
           expect(needEntries(enc.wants)).toHaveLength(1)
@@ -317,10 +325,14 @@ describe('encounter board', () => {
         if (enc.kind === 'pawn') {
           expect(needEntries(enc.pawnWants)).toHaveLength(1)
           expect(isLegacyGenericToolNeed(needEntries(enc.pawnWants)[0][0])).toBe(false)
+          expect((enc.rewardGold ?? 0) > 0 && (enc.rewardDiamonds ?? 0) > 0).toBe(false)
+          expect((enc.rewardGold ?? 0) + (enc.rewardDiamonds ?? 0)).toBeGreaterThan(0)
         }
         if (enc.kind === 'bulkBuy') {
           expect(needEntries(enc.wants)).toHaveLength(1)
           expect(isLegacyGenericToolNeed(needEntries(enc.wants)[0][0])).toBe(false)
+          expect(enc.rewardGold > 0 && (enc.rewardDiamonds ?? 0) > 0).toBe(false)
+          expect(enc.rewardGold + (enc.rewardDiamonds ?? 0)).toBeGreaterThan(0)
         }
         if (enc.kind === 'blackMerchant') {
           expect(needEntries(enc.buyOffers)).toHaveLength(1)
@@ -397,7 +409,7 @@ describe('encounter board', () => {
       if (lowArtisan?.kind === 'artisan' && highArtisan?.kind === 'artisan') {
         expect(needEntries(lowArtisan.wants)).toHaveLength(1)
         expect(needEntries(highArtisan.wants)).toHaveLength(1)
-        expect(lowArtisan.rewardGold).toBe(0)
+        expect(lowArtisan.rewardGold > 0 && (lowArtisan.rewardDiamonds ?? 0) > 0).toBe(false)
         expect(needEntries(highArtisan.wants)[0][1]).toBeGreaterThan(needEntries(lowArtisan.wants)[0][1])
         sawArtisan = true
       }
@@ -790,6 +802,24 @@ describe('enemy combat and loot', () => {
     expect(save.bank).toEqual({ wood: 2, meal: 1 })
     expect(enemy.lootClaimed).toBe(true)
     expect(claimLoot(save, 0, 3_000).ok).toBe(false)
+  })
+
+  it('claims diamonds instead of gold when the order is a diamond drop', () => {
+    const save = createSave()
+    save.gold = 10
+    save.diamonds = 4
+    const enemy = testEnemy({
+      departed: true,
+      combat: fightSnap('win'),
+      lootGold: 0,
+      lootDiamonds: 3,
+    })
+    put(save, 0, enemy)
+    const result = claimLoot(save, 0, 2_000)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.message).toContain('钻石 +3')
+    expect(save.gold).toBe(10)
+    expect(save.diamonds).toBe(7)
   })
 
   it('migrates a leftover march into a winnable claim without offline waiting', () => {
@@ -1320,7 +1350,7 @@ describe('artisan and bulk buy', () => {
   it('lets an artisan take finished goods for a workshop yield buff and does not change gold', () => {
     const save = createSave()
     save.gold = 20
-    put(save, 0, testArtisan({ rewardGold: 10 }))
+    put(save, 0, testArtisan({ rewardGold: 0 }))
     stock(save, { weapon: 2 })
     const now = 3_000_000_000_000
     const result = submitArtisan(save, 0, now)
@@ -1398,5 +1428,35 @@ describe('artisan and bulk buy', () => {
     expect(save.marketEncounters.some((enc) => enc.id === 'swap-artisan')).toBe(false)
     expect(save.marketEncounters.some((enc) => enc.id === 'swap-bulk')).toBe(false)
     expect(save.marketEncounters.some((enc) => enc.id === 'swap-idle')).toBe(false)
+  })
+})
+
+describe('gold or diamond order rewards', () => {
+  it('gives bosses diamonds and keeps starter pawn on gold', () => {
+    const field = generateEncounterBoard(0, 2, { board: 'battlefield', mainLootClaims: 10 })
+    const boss = field.find((enc) => enc.kind === 'enemy' && enc.chapterBoss)
+    expect(boss?.kind).toBe('enemy')
+    if (boss?.kind !== 'enemy') return
+    expect(boss.enemyRank).toBe('boss')
+    expect(boss.lootGold).toBe(0)
+    expect(boss.lootDiamonds).toBeGreaterThan(0)
+
+    const starter = makeStarterCopperPawn()
+    expect(starter.rewardGold).toBeGreaterThan(0)
+    expect(starter.rewardDiamonds).toBe(0)
+  })
+
+  it('pays artisan diamonds when the order rolled diamonds', () => {
+    const save = createSave()
+    save.gold = 8
+    save.diamonds = 2
+    const artisan = testArtisan({ rewardGold: 0, rewardDiamonds: 2 })
+    put(save, 0, artisan)
+    stock(save, { weapon: 1 })
+    const result = submitArtisan(save, 0, 4_000)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.message).toContain('钻石 +2')
+    expect(save.gold).toBe(8)
+    expect(save.diamonds).toBe(4)
   })
 })

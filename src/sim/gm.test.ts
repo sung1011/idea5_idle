@@ -65,7 +65,7 @@ describe('gm debug grants', () => {
   it('adds 10000 diamonds and fills a missing field', () => {
     const save = createSave()
     expect(gmAddDiamonds(save).ok).toBe(true)
-    expect(save.diamonds).toBe(GM_DIAMOND_GRANT)
+    expect(save.diamonds).toBe(START_DIAMONDS + GM_DIAMOND_GRANT)
 
     const legacy = createSave()
     delete (legacy as { diamonds?: number }).diamonds

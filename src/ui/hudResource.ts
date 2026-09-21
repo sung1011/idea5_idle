@@ -45,16 +45,16 @@ const CORE_COPY: Record<HudResourceId, { name: string; source: string; usage: st
   gold: {
     name: '金币',
     source: '工坊吞吐按产出 craftGold 给少量金币；主线战胜领战利品；当铺典当与收购换金。',
-    usage: '抽人、探索、黑心商人购买及商场订单等生活开销。',
+    usage: '探索、黑心商人购买及商场订单等生活开销。',
   },
   diamonds: {
     name: '钻石',
-    source: '高级代币占位，本轮暂无正规获得途径。',
-    usage: '预留高级消耗，当前只在顶栏展示数量。',
+    source: '新档自带 100；主线战场与商场部分订单掉落。',
+    usage: '抽工人。',
   },
   workers: {
     name: '工人',
-    source: '花金币抽人获得；同档两人可合成升一档。',
+    source: '花钻石抽人获得；同档两人可合成升一档。',
     usage: '派驻工坊生产，或出战主线敌人。',
   },
   inspiration: {

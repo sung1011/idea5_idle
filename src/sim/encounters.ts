@@ -32,6 +32,13 @@ import {
   shouldForceChapterBoss,
 } from './mainChapter'
 import { canAffordCosts, missingCostLabels, takeCosts } from './costs'
+import {
+  exclusiveCurrencyPayout,
+  readRewardDiamonds,
+  REWARD_DIAMOND_CHANCE,
+  rollCurrencyPayout,
+  type CurrencyPayout,
+} from './currencyReward'
 import { normalizeRngState, roll01 } from './rng'
 import { STATION_UNLOCK_KNIGHT_MAX, unlockedStationIds } from './stationUnlock'
 import {
@@ -445,6 +452,7 @@ type LegacyEnemy = {
   quality?: EncounterQuality
   needs?: EncounterNeedMap
   lootGold?: number
+  lootDiamonds?: number
   departGold?: number
   submitted?: boolean
   departed?: boolean
@@ -473,6 +481,7 @@ type LegacyTrade = {
   offers?: EncounterNeedMap
   pawnWants?: EncounterNeedMap
   rewardGold?: number
+  rewardDiamonds?: number
   buffMul?: number
   buffDurationS?: number
   completed?: boolean
@@ -775,8 +784,46 @@ export function bulkRewardGold(enc: BulkBuyEncounter, save?: Save): number {
 }
 
 export function enemyLootPayout(enc: EnemyEncounter, save?: Save): number {
+  return enemyLootReward(enc, save).gold
+}
+
+export function enemyLootReward(enc: EnemyEncounter, save?: Save): CurrencyPayout {
+  const diamonds = readRewardDiamonds(enc.lootDiamonds)
+  if (diamonds > 0) return { gold: 0, diamonds }
   const base = typeof enc.lootGold === 'number' && enc.lootGold > 0 ? enc.lootGold : 0
-  return save ? scaleGold(base, lootGoldMul(save)) : base
+  return { gold: save ? scaleGold(base, lootGoldMul(save)) : base, diamonds: 0 }
+}
+
+export function pawnReward(enc: PawnEncounter, save?: Save): CurrencyPayout {
+  const diamonds = readRewardDiamonds(enc.rewardDiamonds)
+  if (diamonds > 0) return { gold: 0, diamonds }
+  return { gold: pawnRewardGold(enc, save), diamonds: 0 }
+}
+
+export function bulkReward(enc: BulkBuyEncounter, save?: Save): CurrencyPayout {
+  const diamonds = readRewardDiamonds(enc.rewardDiamonds)
+  if (diamonds > 0) return { gold: 0, diamonds }
+  return { gold: bulkRewardGold(enc, save), diamonds: 0 }
+}
+
+export function artisanReward(enc: ArtisanEncounter): CurrencyPayout {
+  return exclusiveCurrencyPayout(enc.rewardGold, enc.rewardDiamonds ?? 0)
+}
+
+function rewardRoll(rng?: { rngState: number }, seed = 0, slot = 0): () => number {
+  const bag = rng ?? { rngState: normalizeRngState(seed * 17 + slot * 31 + 3) }
+  return () => roll01(bag as Save)
+}
+
+function applyCurrencyPayout(save: Save, payout: CurrencyPayout): void {
+  if (payout.gold > 0) save.gold += payout.gold
+  if (payout.diamonds > 0) save.diamonds += payout.diamonds
+}
+
+function currencyGainText(payout: CurrencyPayout): string {
+  if (payout.diamonds > 0) return `钻石 +${payout.diamonds}`
+  if (payout.gold > 0) return `金币 +${payout.gold}`
+  return ''
 }
 
 /** 开战消耗：始终一整套 needs。再战补给已取消。 */
@@ -974,13 +1021,19 @@ function makeEnemy(
         seed + slot,
         save,
       )
+  const loot = rollCurrencyPayout(
+    scaleGold(enemyLootGoldFor(forceChapterBoss), q.outputMul),
+    REWARD_DIAMOND_CHANCE[enemyRank],
+    rewardRoll(rng, seed, slot),
+  )
   return seedInitialRevealedWeaknesses({
     kind: 'enemy',
     id: `${name.id}-${resolvedQuality}-${seed}-${slot}`,
     label: forceChapterBoss ? `${name.label}·首领` : name.label,
     quality: resolvedQuality,
     needs: scaledMainNeed(itemId, resolvedQuality, chapter, forceChapterBoss),
-    lootGold: scaleGold(enemyLootGoldFor(forceChapterBoss), q.outputMul),
+    lootGold: loot.gold,
+    lootDiamonds: loot.diamonds,
     departed: false,
     combat: null,
     lootClaimed: false,
@@ -1060,13 +1113,19 @@ function makePawn(
     save,
   )
   const pawnWants = scaledMainNeed(wantItem, quality, chapter)
+  const reward = rollCurrencyPayout(
+    scaleGold(pawnGoldForMap(pawnWants), q.outputMul / q.demandMul),
+    REWARD_DIAMOND_CHANCE.pawn,
+    rewardRoll(rng, seed, slot),
+  )
   return {
     kind: 'pawn',
     id: `${def.id}-${quality}-${seed}-${slot}`,
     label: def.label,
     quality,
     pawnWants,
-    rewardGold: scaleGold(pawnGoldForMap(pawnWants), q.outputMul / q.demandMul),
+    rewardGold: reward.gold,
+    rewardDiamonds: reward.diamonds,
     completed: false,
   }
 }
@@ -1097,6 +1156,7 @@ export function makeStarterCopperPawn(seed = 0, slot = 0): PawnEncounter {
     quality,
     pawnWants,
     rewardGold: scaleGold(pawnGoldForMap(pawnWants), q.outputMul / q.demandMul),
+    rewardDiamonds: 0,
     completed: false,
   }
 }
@@ -1120,13 +1180,20 @@ function makeArtisan(
     seed + slot,
     save,
   )
+  const wants = scaledMainNeed(wantItem, quality, chapter)
+  const reward = rollCurrencyPayout(
+    scaleGold(pawnGoldForMap(wants), q.outputMul / q.demandMul),
+    REWARD_DIAMOND_CHANCE.artisan,
+    rewardRoll(rng, seed, slot),
+  )
   return {
     kind: 'artisan',
     id: `${def.id}-${quality}-${seed}-${slot}`,
     label: def.label,
     quality,
-    wants: scaledMainNeed(wantItem, quality, chapter),
-    rewardGold: 0,
+    wants,
+    rewardGold: reward.gold,
+    rewardDiamonds: reward.diamonds,
     buffMul: 1 + (def.buffMul - 1) * q.outputMul,
     buffDurationS: scaleQty(def.buffDurationS, q.outputMul),
     completed: false,
@@ -1153,13 +1220,19 @@ function makeBulkBuy(
     save,
   )
   const wants = scaledMainNeed(wantItem, quality, chapter)
+  const reward = rollCurrencyPayout(
+    scaleGold(bulkGoldForMap(wants), q.outputMul / q.demandMul),
+    REWARD_DIAMOND_CHANCE.bulkBuy,
+    rewardRoll(rng, seed, slot),
+  )
   return {
     kind: 'bulkBuy',
     id: `${def.id}-${quality}-${seed}-${slot}`,
     label: def.label,
     quality,
     wants,
-    rewardGold: scaleGold(bulkGoldForMap(wants), q.outputMul / q.demandMul),
+    rewardGold: reward.gold,
+    rewardDiamonds: reward.diamonds,
     completed: false,
   }
 }
@@ -1705,30 +1778,31 @@ function grantCombatLootXp(save: Save, enc: EnemyEncounter): boolean {
   return granted
 }
 
-function lootClaimMessage(lootGold: number, grantedXp: boolean, chapterNote?: string): string {
+function lootClaimMessage(payout: CurrencyPayout, grantedXp: boolean, chapterNote?: string): string {
   const xpNote = grantedXp ? '。工人获得经验' : ''
   const tail = chapterNote ? `。${chapterNote}` : ''
-  return `战利品：金币 +${lootGold}${xpNote}${tail}`
+  const gain = currencyGainText(payout) || '金币 +0'
+  return `战利品：${gain}${xpNote}${tail}`
 }
 
-/** 战胜后领金币。败不发金。不加物资。成功领取计入本章战利品；Boss 领取后进下一章。 */
+/** 战胜后领金币或钻石。败不发。不加物资。成功领取计入本章战利品；Boss 领取后进下一章。 */
 export function claimLoot(save: Save, index: number, now = Date.now()): ActionResult {
   const blocked = claimLootBlockReason(save, index, now)
   if (blocked) return { ok: false, reason: blocked }
   const enc = enemyAt(save, index)
   if (!enc || enc.kind !== 'enemy') return { ok: false, reason: '不是敌人偶遇' }
-  const lootGold = enemyLootPayout(enc, save)
+  const payout = enemyLootReward(enc, save)
   const grantedXp = grantCombatLootXp(save, enc)
   enc.lootClaimed = true
   save.starterCopperPawnDone = true
-  save.gold += lootGold
+  applyCurrencyPayout(save, payout)
   save.mainLootClaims = normalizeMainLootClaims(save.mainLootClaims) + 1
   if (isChapterBoss(enc)) {
     advanceMainChapter(save, now)
-    return { ok: true, message: lootClaimMessage(lootGold, grantedXp, `进入第 ${save.mainChapter} 章`) }
+    return { ok: true, message: lootClaimMessage(payout, grantedXp, `进入第 ${save.mainChapter} 章`) }
   }
   ensureChapterBossSpawn(save, now)
-  return { ok: true, message: lootClaimMessage(lootGold, grantedXp) }
+  return { ok: true, message: lootClaimMessage(payout, grantedXp) }
 }
 
 export function barterBlockReason(save: Save, index: number): string | null {
@@ -1849,13 +1923,14 @@ export function pawnMerchant(save: Save, index: number): ActionResult {
   if (blocked) return { ok: false, reason: blocked }
   const enc = pawnAt(save, index)
   if (!enc) return { ok: false, reason: '不是当铺偶遇' }
-  const gold = pawnRewardGold(enc, save)
+  const payout = pawnReward(enc, save)
   const took = takeCosts(save, needMapToRules(enc.pawnWants))
   if (!took.ok) return took
-  save.gold += gold
+  applyCurrencyPayout(save, payout)
   enc.completed = true
   save.starterCopperPawnDone = true
-  return { ok: true, message: `以物换钱成交。金币 +${gold}` }
+  const gain = currencyGainText(payout)
+  return { ok: true, message: gain ? `以物换钱成交。${gain}` : '以物换钱成交' }
 }
 
 export function applyWorkshopBuff(save: Save, mul: number, durationS: number, now = Date.now()): WorkshopBuff {
@@ -1889,12 +1964,16 @@ export function submitArtisan(save: Save, index: number, now = Date.now()): Acti
   const took = takeCosts(save, needMapToRules(enc.wants))
   if (!took.ok) return took
   applyWorkshopBuff(save, enc.buffMul, enc.buffDurationS, now)
+  const payout = artisanReward(enc)
+  applyCurrencyPayout(save, payout)
   enc.completed = true
   save.starterCopperPawnDone = true
   const pct = Math.round((enc.buffMul - 1) * 100)
+  const gain = currencyGainText(payout)
+  const buff = `工坊产量 +${pct}% · ${formatMarchClock(enc.buffDurationS)}`
   return {
     ok: true,
-    message: `委托完成。工坊产量 +${pct}% · ${formatMarchClock(enc.buffDurationS)}`,
+    message: gain ? `委托完成。${buff}。${gain}` : `委托完成。${buff}`,
   }
 }
 
@@ -1905,11 +1984,12 @@ export function sellBulk(save: Save, index: number): ActionResult {
   if (!enc) return { ok: false, reason: '不是收购订单' }
   const took = takeCosts(save, needMapToRules(enc.wants))
   if (!took.ok) return took
-  const gold = bulkRewardGold(enc, save)
-  save.gold += gold
+  const payout = bulkReward(enc, save)
+  applyCurrencyPayout(save, payout)
   enc.completed = true
   save.starterCopperPawnDone = true
-  return { ok: true, message: `收购成交。金币 +${gold}` }
+  const gain = currencyGainText(payout)
+  return { ok: true, message: gain ? `收购成交。${gain}` : '收购成交' }
 }
 
 /** 战斗中 / 胜可领 / 超时战败后可再开战，以及未领的本章 Boss（含待战）占位保留；普通未开打 / 已领奖 / 其它格可换。 */
@@ -2063,6 +2143,7 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
     quality,
     needs,
     lootGold,
+    lootDiamonds: readRewardDiamonds(raw.lootDiamonds),
     departed,
     combat,
     lootClaimed,
@@ -2119,6 +2200,7 @@ function migrateTrade(raw: LegacyTrade): Encounter | unknown {
       quality,
       pawnWants,
       rewardGold: typeof raw.rewardGold === 'number' ? raw.rewardGold : pawnGoldForMap(pawnWants),
+      rewardDiamonds: readRewardDiamonds(raw.rewardDiamonds),
       completed,
     } satisfies PawnEncounter
   }
@@ -2129,7 +2211,8 @@ function migrateTrade(raw: LegacyTrade): Encounter | unknown {
       label,
       quality,
       wants: isNeedMap(raw.wants) ? { ...raw.wants } : { weapon: 1 },
-      rewardGold: 0,
+      rewardGold: typeof raw.rewardGold === 'number' ? raw.rewardGold : 0,
+      rewardDiamonds: readRewardDiamonds(raw.rewardDiamonds),
       buffMul: typeof raw.buffMul === 'number' && raw.buffMul > 1 ? raw.buffMul : 1.15,
       buffDurationS: typeof raw.buffDurationS === 'number' && raw.buffDurationS > 0 ? raw.buffDurationS : 180,
       completed,
@@ -2144,6 +2227,7 @@ function migrateTrade(raw: LegacyTrade): Encounter | unknown {
       quality,
       wants,
       rewardGold: typeof raw.rewardGold === 'number' ? raw.rewardGold : bulkGoldForMap(wants),
+      rewardDiamonds: readRewardDiamonds(raw.rewardDiamonds),
       completed,
     } satisfies BulkBuyEncounter
   }

@@ -4,7 +4,7 @@ import { bankQty } from './bank'
 import { createSave } from './createSave'
 import { loadFood } from './food'
 import { fuseWorkers } from './fuse'
-import { hydrateWorker, hydrateWorkers, spawnWorker } from './recruit'
+import { hydrateWorker, hydrateWorkers, recruitWorker, spawnWorker } from './recruit'
 import { setRollOverride } from './rng'
 import {
   CLASS_MIN_QUALITY,
@@ -13,6 +13,9 @@ import {
   migrateQualityTierFromGrayTable,
   QUALITY_MAX,
   QUALITY_MIN,
+  RECRUIT_COST,
+  START_DIAMONDS,
+  START_GOLD,
   QUALITY_TIERS,
   WORKER_NAME_POOL,
   WORKER_QUALITY_REV,
@@ -54,6 +57,25 @@ describe('worker quality table', () => {
     expect(classPoolForQuality(2)).not.toContain('knight')
     expect(classPoolForQuality(10)).toContain('knight')
     expect(classPoolForQuality(10)).toHaveLength(Object.keys(CLASS_MIN_QUALITY).length)
+  })
+})
+
+describe('recruitWorker', () => {
+  it('spends diamonds not gold, and rejects when diamonds are short', () => {
+    const save = createSave()
+    const gold0 = save.gold
+    const diamonds0 = save.diamonds
+    expect(diamonds0).toBe(START_DIAMONDS)
+    expect(recruitWorker(save).ok).toBe(true)
+    expect(save.gold).toBe(gold0)
+    expect(save.gold).toBe(START_GOLD)
+    expect(save.diamonds).toBe(diamonds0 - RECRUIT_COST)
+    expect(save.workers).toHaveLength(1)
+
+    save.diamonds = RECRUIT_COST - 1
+    expect(recruitWorker(save)).toEqual({ ok: false, reason: '钻石不足' })
+    expect(save.diamonds).toBe(RECRUIT_COST - 1)
+    expect(save.workers).toHaveLength(1)
   })
 })
 

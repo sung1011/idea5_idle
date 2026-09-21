@@ -10,10 +10,10 @@ import type { Save } from './types'
 
 export { blankStation } from './stationProgress'
 
-/** 旧档缺字段或脏值时钉回 0。 */
+/** 缺字段 / 非数字 → 新档初始钻石；已有数字（含 0）只夹成非负整数，不每次重灌。 */
 export function normalizeDiamonds(value: unknown): number {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return START_DIAMONDS
-  return Math.floor(value)
+  if (typeof value !== 'number' || !Number.isFinite(value)) return START_DIAMONDS
+  return Math.max(0, Math.floor(value))
 }
 
 export function createSave(): Save {

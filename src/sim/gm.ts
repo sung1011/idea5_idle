@@ -1,4 +1,4 @@
-import { createSave, normalizeDiamonds } from './createSave'
+import { createSave } from './createSave'
 import { GUIDE_QUEST_DONE_STEP, GUIDE_QUEST_REV } from './guideQuest'
 import { syncKnightLevel } from './knightLevel'
 import { spawnWorker, spawnWorkerWith } from './recruit'
@@ -60,7 +60,9 @@ export function gmAddGold(save: Save, amount = GM_GOLD_GRANT): ActionResult {
 
 export function gmAddDiamonds(save: Save, amount = GM_DIAMOND_GRANT): ActionResult {
   const qty = Math.max(0, Math.floor(amount))
-  save.diamonds = normalizeDiamonds(save.diamonds) + qty
+  const current =
+    typeof save.diamonds === 'number' && Number.isFinite(save.diamonds) ? Math.max(0, Math.floor(save.diamonds)) : 0
+  save.diamonds = current + qty
   return { ok: true, message: `钻石 +${qty}` }
 }
 

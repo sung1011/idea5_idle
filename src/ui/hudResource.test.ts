@@ -42,7 +42,7 @@ describe('hud resource chips', () => {
     expect(gold.source).toMatch(/craftGold/)
     expect(gold.source).toMatch(/战利品/)
     expect(gold.source).toMatch(/当铺/)
-    expect(gold.usage).toMatch(/抽人/)
+    expect(gold.usage).not.toMatch(/抽人/)
     expect(gold.usage).toMatch(/探索/)
 
     const inspiration = hudChipDetail(save, 'inspiration')
@@ -53,12 +53,12 @@ describe('hud resource chips', () => {
 
     const diamonds = hudChipDetail(save, 'diamonds')
     expect(diamonds.name).toBe('钻石')
-    expect(diamonds.source).toMatch(/暂无正规/)
-    expect(diamonds.usage).toMatch(/占位|展示|预留/)
+    expect(diamonds.source).toMatch(/100|订单/)
+    expect(diamonds.usage).toMatch(/抽工/)
 
     const workers = hudChipDetail(save, 'workers')
     expect(workers.name).toBe('工人')
-    expect(workers.source).toMatch(/抽人/)
+    expect(workers.source).toMatch(/钻石/)
     expect(workers.usage).toMatch(/派驻/)
     expect(workers.usage).toMatch(/出战|战斗/)
 

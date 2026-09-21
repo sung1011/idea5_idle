@@ -8,7 +8,7 @@ import { recruitWorker } from './recruit'
 describe('messages', () => {
   it('creates an unread offline-earnings message after settle with output', () => {
     const save = createSave()
-    save.gold = 15
+    save.diamonds = 15
     expect(recruitWorker(save).ok).toBe(true)
     assignWorker(save, save.workers[0].id, 'mining')
     save.lastTick = 0
@@ -24,7 +24,7 @@ describe('messages', () => {
 
   it('clears the unread flag after markAllRead', () => {
     const save = createSave()
-    save.gold = 15
+    save.diamonds = 15
     expect(recruitWorker(save).ok).toBe(true)
     assignWorker(save, save.workers[0].id, 'mining')
     save.lastTick = 0

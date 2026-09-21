@@ -754,7 +754,7 @@ export function scaleQtyByMul(save: Save, qty: number, mul: number): number {
 /** 结算占位。恒 no-op。 */
 export function applyTechEffects(_save: Save): void {}
 
-/** 抽人费不受科技影响。 */
+/** 抽人费数字不受科技影响；现扣钻石。 */
 export function recruitCost(_save: Save): number {
   return RECRUIT_COST
 }

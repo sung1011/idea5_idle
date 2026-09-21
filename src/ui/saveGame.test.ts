@@ -350,4 +350,22 @@ describe('save migration', () => {
     })
     expect(sneaked?.workers.map((w) => w.id)).toEqual(['w-1'])
   })
+
+  it('fills missing diamonds to 100 and does not refill a spent balance', () => {
+    const missing = { ...createSave() }
+    delete (missing as { diamonds?: number }).diamonds
+    expect(hydrateLoadedSave(missing)?.diamonds).toBe(100)
+
+    const spent = hydrateLoadedSave({
+      ...createSave(),
+      diamonds: 0,
+    })
+    expect(spent?.diamonds).toBe(0)
+
+    const kept = hydrateLoadedSave({
+      ...createSave(),
+      diamonds: 17,
+    })
+    expect(kept?.diamonds).toBe(17)
+  })
 })

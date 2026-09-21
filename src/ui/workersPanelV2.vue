@@ -627,7 +627,7 @@ onUnmounted(() => {
         <span class="recruit-plus" aria-hidden="true">＋</span>
         <span class="recruit-copy">
           <b>抽工人</b>
-          <small>{{ recruitCost(game.save) }} 金</small>
+          <small>{{ recruitCost(game.save) }} 钻</small>
         </span>
       </button>
     </div>

@@ -369,9 +369,9 @@ export type GameMessage = {
 }
 
 export type Save = {
-  /** 抽人 / 探索 / 黑心商人购买扣金；当铺典当 / 收购 / 敌人战利品加金。 */
+  /** 探索 / 黑心商人购买扣金；当铺典当 / 收购 / 部分敌人与商场订单加金。 */
   gold: number
-  /** 高级代币占位。默认 0，本轮没有获得途径。 */
+  /** 抽工人消耗。新档 100；旧档缺字段 hydrate 补 100，已有字段（含已花到 0）不重灌。战场 / 商场部分订单掉落。 */
   diamonds: number
   /** 站间物资数量。旧档字段名仍叫 bank；无容量。 */
   bank: Partial<Record<ItemId, number>>
@@ -480,8 +480,10 @@ type EncounterBase = {
 export type EnemyEncounter = EncounterBase & {
   kind: 'enemy'
   needs: EncounterNeedMap
-  /** 战胜后点「战利品」只发这笔金币，不加物资。 */
+  /** 战胜后点「战利品」发金币。与 lootDiamonds 互斥；钻石单为 0。 */
   lootGold: number
+  /** 战胜后点「战利品」发钻石。与 lootGold 互斥；金币单或缺字段为 0。 */
+  lootDiamonds?: number
   /** 旧两步流程残留。新档不写；仅 hydrate 用来让「已扣货未开战」免再扣。 */
   submitted?: boolean
   /** 成功开过战。统计用；主流程看 combat / lootClaimed。 */
@@ -527,8 +529,10 @@ export type PawnEncounter = EncounterBase & {
   kind: 'pawn'
   /** 可典当：玩家交出的物资。 */
   pawnWants: EncounterNeedMap
-  /** 品质加成后的成交金。缺省则按当铺价表现算。 */
+  /** 品质加成后的成交金。与 rewardDiamonds 互斥；钻石单为 0。 */
   rewardGold?: number
+  /** 成交钻石。与 rewardGold 互斥；金币单或缺字段为 0。 */
+  rewardDiamonds?: number
   completed: boolean
 }
 
@@ -538,8 +542,9 @@ export type PawnshopEncounter = PawnEncounter
 export type ArtisanEncounter = EncounterBase & {
   kind: 'artisan'
   wants: EncounterNeedMap
-  /** 新单固定 0；提交只给产量 buff，不加金币。 */
+  /** 委托货币：与 rewardDiamonds 互斥。旧单多为 0（只给 buff）。 */
   rewardGold: number
+  rewardDiamonds?: number
   buffMul: number
   buffDurationS: number
   completed: boolean
@@ -549,6 +554,7 @@ export type BulkBuyEncounter = EncounterBase & {
   kind: 'bulkBuy'
   wants: EncounterNeedMap
   rewardGold: number
+  rewardDiamonds?: number
   completed: boolean
 }
 

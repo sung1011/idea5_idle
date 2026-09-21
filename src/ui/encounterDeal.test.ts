@@ -44,7 +44,7 @@ describe('encounterDeal', () => {
   it('splits each order into consume and gain lines', () => {
     expect(formatEncounterDealLines(enemy(), { meal: 12 })).toEqual({
       consume: '消耗：熟食 ×2 / 12',
-      gain: '获得：8 金（战斗后领）',
+      gain: '获得：金币 ×8（战斗后领）',
     })
 
     const merchant: BlackMerchantEncounter = {
@@ -57,7 +57,7 @@ describe('encounterDeal', () => {
       completed: false,
     }
     expect(formatEncounterDealLines(merchant)).toEqual({
-      consume: '消耗：8 金',
+      consume: '消耗：金币 ×8',
       gain: '获得：熟食×1',
     })
 
@@ -85,7 +85,7 @@ describe('encounterDeal', () => {
     }
     expect(formatEncounterDealLines(pawn, { tool: 1 })).toEqual({
       consume: '消耗：初级工具 ×1 / 1',
-      gain: `获得：${pawnRewardGold(pawn)} 金`,
+      gain: `获得：金币 ×${pawnRewardGold(pawn)}`,
     })
 
     const artisan: ArtisanEncounter = {
@@ -116,7 +116,7 @@ describe('encounterDeal', () => {
     }
     expect(formatEncounterDealLines(bulk, { roast: 4 })).toEqual({
       consume: '消耗：烤肉 ×1 / 4',
-      gain: '获得：12 金',
+      gain: '获得：金币 ×12',
     })
 
     const merchantDeal = encounterDeal(merchant)
@@ -131,11 +131,15 @@ describe('encounterDeal', () => {
   it('joins multiple items with顿号 and hides an empty side', () => {
     expect(formatEncounterDealLines(enemy({ needs: { meal: 2, ore: 1 } }), { meal: 2, ore: 0 })).toEqual({
       consume: '消耗：熟食 ×2 / 2、铜矿 ×1 / 0',
-      gain: '获得：8 金（战斗后领）',
+      gain: '获得：金币 ×8（战斗后领）',
     })
     expect(formatEncounterDealLines(enemy({ needs: {} }))).toEqual({
       consume: '',
-      gain: '获得：8 金（战斗后领）',
+      gain: '获得：金币 ×8（战斗后领）',
+    })
+    expect(formatEncounterDealLines(enemy({ lootGold: 0, lootDiamonds: 2 }))).toEqual({
+      consume: '消耗：熟食 ×2 / 0',
+      gain: '获得：钻石 ×2（战斗后领）',
     })
   })
 
@@ -144,7 +148,8 @@ describe('encounterDeal', () => {
     expect(formatConsumeToken(iron, 12)).toBe('铁矿 ×3 / 12')
     expect(isConsumeShort(iron, 12)).toBe(false)
     expect(isConsumeShort(iron, 2)).toBe(true)
-    expect(formatConsumeToken({ kind: 'gold', qty: 8 })).toBe('8 金')
+    expect(formatConsumeToken({ kind: 'gold', qty: 8 })).toBe('金币 ×8')
+    expect(formatConsumeToken({ kind: 'diamonds', qty: 3 })).toBe('钻石 ×3')
   })
 })
 
