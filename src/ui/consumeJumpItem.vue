@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { isStationUnlocked } from '../sim/stationUnlock'
 import { ITEM_DEF, itemProducerStation } from '../sim/tables'
 import type { ItemId } from '../sim/types'
 import { openItemWorkshop } from './appNav'
+import { pushFloatTip } from './floatTips'
+import { useGameStore } from './gameStore'
+import { beginItemSourceFlash, itemSourceHint, itemSourceTip } from './itemSource'
 
 const props = defineProps<{
   itemId: ItemId
@@ -10,11 +14,19 @@ const props = defineProps<{
   short?: boolean
 }>()
 
+const game = useGameStore()
 const canJump = computed(() => itemProducerStation(props.itemId) != null)
 const ariaLabel = computed(() => `前往生产${ITEM_DEF[props.itemId].label}的工坊`)
 
 function jump() {
+  const hint = itemSourceHint(props.itemId)
   openItemWorkshop(props.itemId)
+  if (!hint) return
+  if (!isStationUnlocked(game.save, hint.stationId)) {
+    pushFloatTip(itemSourceTip(props.itemId, hint))
+    return
+  }
+  beginItemSourceFlash(props.itemId, game.save)
 }
 </script>
 

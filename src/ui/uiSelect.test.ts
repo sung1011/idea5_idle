@@ -3,6 +3,7 @@ import {
   nextUiSelectUid,
   uiSelectCanPick,
   uiSelectLabel,
+  uiSelectOptionFlashing,
   uiSelectStepIndex,
   type UiSelectOption,
 } from './uiSelect'
@@ -29,6 +30,13 @@ describe('uiSelect helpers', () => {
     expect(uiSelectCanPick(options[0])).toBe(true)
     expect(uiSelectCanPick(options[2])).toBe(false)
     expect(uiSelectCanPick(undefined)).toBe(false)
+  })
+
+  it('marks flash rows without treating them as the selected value', () => {
+    expect(uiSelectOptionFlashing('iron', ['iron'])).toBe(true)
+    expect(uiSelectOptionFlashing('copper', ['iron'])).toBe(false)
+    expect(uiSelectLabel(options, 'a')).toBe('工具1')
+    expect(uiSelectCanPick(options[1])).toBe(true)
   })
 
   it('steps over disabled rows', () => {

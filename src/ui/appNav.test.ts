@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+import { createSave } from '../sim/createSave'
+import { beginItemSourceFlash, clearItemSourceFlash, itemSourceFlashCategories } from './itemSource'
 import {
   APP_TABS,
   DEFAULT_APP_TAB,
@@ -37,6 +39,10 @@ function memory(): Storage {
     },
   }
 }
+
+afterEach(() => {
+  clearItemSourceFlash()
+})
 
 describe('appNav', () => {
   it('keeps the dock order 工坊 | 工人 | 主线 | 科技 and falls back to 主线', () => {
@@ -85,6 +91,14 @@ describe('appNav', () => {
     expect(openItemWorkshop('wood', store)).toBeNull()
     expect(appTab.value).toBe('workshop')
     expect(workshopTab.value).toBe('alchemy')
+    const save = createSave()
+    save.knightLevel = 10
+    save.stations.cooking.selectedCategory = 'copper'
+    expect(openItemWorkshop('roast', store)).toBe('cooking')
+    beginItemSourceFlash('roast', save)
+    expect(workshopTab.value).toBe('cooking')
+    expect(save.stations.cooking.selectedCategory).toBe('copper')
+    expect(itemSourceFlashCategories('cooking')).toEqual(['iron'])
   })
 
   it('opens a workshop group and keeps the focused station when already in that pair', () => {

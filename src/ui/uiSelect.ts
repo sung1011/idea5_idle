@@ -19,6 +19,10 @@ export function uiSelectCanPick(option: UiSelectOption | undefined): boolean {
   return !!option && !option.disabled
 }
 
+export function uiSelectOptionFlashing(value: string, flashValues?: readonly string[]): boolean {
+  return !!flashValues?.includes(value)
+}
+
 export function uiSelectStepIndex(
   options: readonly UiSelectOption[],
   from: number,

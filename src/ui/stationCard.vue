@@ -17,7 +17,8 @@ import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
 import { pushFloatTip } from './floatTips'
 import { stationConflictHint } from '../sim/tech'
-import { STATION_DEF, STATION_WORKER_CAP, xpToNextLevel } from '../sim/tables'
+import { findCategory, STATION_DEF, STATION_WORKER_CAP, xpToNextLevel } from '../sim/tables'
+import { itemSourceFlashCategories, isItemSourceStationFlash } from './itemSource'
 import type { CategoryId, StationId } from '../sim/types'
 import ConsumeJumpItem from './consumeJumpItem.vue'
 import { formatConsumeToken } from './encounterDeal'
@@ -80,6 +81,8 @@ const conflictLine = computed(() => stationConflictHint(game.save, props.station
 const guideFlashAlchemy = computed(
   () => props.stationId === 'alchemy' && isGuideQuestFlash(game.save, 'alchemy'),
 )
+const sourceFlashCats = computed(() => itemSourceFlashCategories(props.stationId))
+const sourceFlashStation = computed(() => isItemSourceStationFlash(props.stationId))
 const locked = computed(() => !isStationUnlocked(game.save, props.stationId))
 const canWithdraw = computed(() => count.value > 0)
 const helpOpen = ref(false)
@@ -98,13 +101,26 @@ function onLockedTap(ev: Event) {
   if (ev.target instanceof HTMLElement && ev.target.closest('button, select, label, input')) return
   pushFloatTip(stationLockedTip(props.stationId))
 }
-const categorySelectOptions = computed<UiSelectOption[]>(() =>
-  pickOptions.value.map((c) => ({
+const categorySelectOptions = computed<UiSelectOption[]>(() => {
+  const rows: UiSelectOption[] = pickOptions.value.map((c) => ({
     value: c.id,
     label: c.unlocked ? c.label : `${c.label}（Lv${c.unlockLevel}）`,
     disabled: !c.unlocked,
-  })),
-)
+  }))
+  const have = new Set(rows.map((row) => row.value))
+  for (const id of sourceFlashCats.value) {
+    if (have.has(id)) continue
+    const cat = findCategory(props.stationId, id)
+    if (!cat) continue
+    rows.push({
+      value: id,
+      label: `${cat.label}（Lv${cat.unlockLevel}）`,
+      disabled: true,
+    })
+  }
+  return rows
+})
+const showCategoryPick = computed(() => pickOptions.value.length > 1 || sourceFlashCats.value.length > 0)
 
 function pick(id: CategoryId) {
   game.selectCategory(props.stationId, id)
@@ -149,7 +165,8 @@ onUnmounted(() => {
   <article
     class="card"
     :data-station="stationId"
-    :class="{ wait: frozen && !stall, locked: locked, 'guide-flash': guideFlashAlchemy, focus: focused }"
+    :class="{ wait: frozen && !stall, locked: locked, 'guide-flash': guideFlashAlchemy || sourceFlashStation, focus: focused }"
+    :data-source-flash="sourceFlashStation ? stationId : undefined"
     @click="onLockedTap"
   >
     <StationTips :station-id="stationId" />
@@ -215,12 +232,13 @@ onUnmounted(() => {
           </template>
         </template>
       </p>
-      <label v-if="pickOptions.length > 1" class="cats">
+      <label v-if="showCategoryPick" class="cats">
         <span class="sr">{{ pickCaption }}</span>
         <UiSelect
           :model-value="station.selectedCategory"
           :options="categorySelectOptions"
           :aria-label="pickCaption"
+          :flash-values="sourceFlashCats"
           @update:model-value="onPick"
         />
       </label>

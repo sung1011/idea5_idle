@@ -4,6 +4,7 @@ import {
   nextUiSelectUid,
   uiSelectCanPick,
   uiSelectLabel,
+  uiSelectOptionFlashing,
   uiSelectStepIndex,
   type UiSelectOption,
 } from './uiSelect'
@@ -14,6 +15,8 @@ const props = withDefaults(
     options: readonly UiSelectOption[]
     disabled?: boolean
     ariaLabel?: string
+    /** 来源提示：打开菜单并给对应选项加 guide-flash，不改 modelValue。 */
+    flashValues?: readonly string[]
   }>(),
   { disabled: false },
 )
@@ -36,6 +39,11 @@ const currentLabel = computed(() => uiSelectLabel(props.options, props.modelValu
 const selectedIndex = computed(() =>
   props.options.findIndex((row) => row.value === props.modelValue),
 )
+let openedByFlash = false
+
+function optionFlashing(value: string) {
+  return uiSelectOptionFlashing(value, props.flashValues)
+}
 
 function placeMenu() {
   const el = trigger.value
@@ -141,6 +149,24 @@ watch(
   },
 )
 
+watch(
+  () => (props.flashValues ?? []).join('\0'),
+  (key) => {
+    const on = key.length > 0
+    if (on) {
+      if (!open.value && !props.disabled) {
+        openedByFlash = true
+        void setOpen(true)
+      }
+      return
+    }
+    if (openedByFlash) {
+      openedByFlash = false
+      open.value = false
+    }
+  },
+)
+
 onMounted(() => {
   document.addEventListener('pointerdown', onDocPointer, true)
   window.addEventListener('keydown', onKey)
@@ -189,7 +215,8 @@ onUnmounted(() => {
           :data-i="i"
           role="option"
           class="opt"
-          :class="{ on: row.value === modelValue, active: i === active, off: row.disabled }"
+          :class="{ on: row.value === modelValue, active: i === active, off: row.disabled, 'guide-flash': optionFlashing(row.value) }"
+          :data-source-flash="optionFlashing(row.value) ? row.value : undefined"
           :aria-selected="row.value === modelValue"
           :aria-disabled="!!row.disabled"
           @mouseenter="active = i"
