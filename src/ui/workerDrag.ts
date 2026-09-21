@@ -56,6 +56,28 @@ export function sameDragEndpoint(source: WorkerDragSource, target: WorkerDropTar
   )
 }
 
+export const FUSE_DRAG_TIP = '拖到同品质工人上可合成'
+
+/** 工人页当前是否存在可拖到同品质在岗工人上的合成。 */
+export function canDragFuseAny(save: Save): boolean {
+  const sources = save.workers.filter((worker) => canDragWorker(save, worker.id) && worker.qualityTier < QUALITY_MAX)
+  if (!sources.length) return false
+  for (const occupant of save.workers) {
+    const stationId = occupant.assignment
+    if (!stationId || !isStationId(stationId) || occupant.qualityTier >= QUALITY_MAX) continue
+    for (const source of sources) {
+      if (source.id === occupant.id) continue
+      if (canFuseWorkerOntoOccupant(save, source.id, occupant.id, stationId)) return true
+    }
+  }
+  return false
+}
+
+/** 未成功合成过、且当前能拖合时才出工人页短气泡。 */
+export function shouldShowFuseDragTip(save: Save): boolean {
+  return save.fuseDragTipDone !== true && canDragFuseAny(save)
+}
+
 export function canFuseDragOnSlot(save: Save, source: WorkerDragSource, target: WorkerDropTarget): boolean {
   if (target.kind !== 'slot') return false
   const occupantId = slotOccupantId(save, target.stationId, target.slotIndex)

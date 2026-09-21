@@ -422,6 +422,11 @@ export type Save = {
    */
   workshopHpEfficiencyTipShown: boolean
   /**
+   * 是否已成功合成过至少一次。工人页拖拽合成提示只在未合过且当前可拖合时显示。
+   * hydrate 缺字段为 false。
+   */
+  fuseDragTipDone: boolean
+  /**
    * 是否已成交过至少一笔主线订单（交易完成或敌人已领奖）。成交后即使探索刷掉该格也仍算完成。
    * 字段名沿用旧档；旧档 `true` 或板上已完成开局当仍算完成。
    */

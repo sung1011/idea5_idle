@@ -90,6 +90,7 @@ describe('station merge', () => {
     assignWorker(save, save.workers[1].id, 'mining')
     const result = fuseStationWorkers(save, 'mining')
     expect(result.ok).toBe(true)
+    expect(save.fuseDragTipDone).toBe(true)
     expect(save.workers).toHaveLength(1)
     expect(save.workers[0].qualityTier).toBe(2)
     expect(save.workers[0].assignment).toBe('mining')

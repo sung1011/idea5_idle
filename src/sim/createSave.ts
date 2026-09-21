@@ -37,6 +37,7 @@ export function createSave(): Save {
     guideQuestPotionUsed: false,
     guideQuestRuneOpened: false,
     workshopHpEfficiencyTipShown: false,
+    fuseDragTipDone: false,
     starterCopperPawnDone: false,
     workshopBuff: null,
     exploreCount: 0,

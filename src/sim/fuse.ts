@@ -48,7 +48,12 @@ function fusePairAt(save: Save, a: Worker, b: Worker, stayAt: StationId | null):
   if (rightFrom !== stayAt) clearEmptyStation(save, rightFrom)
   const quality = workerQualityDef(nextTier)
   const job = worker.classId ? CLASS_LABEL[worker.classId] : '未标'
+  save.fuseDragTipDone = true
   return { ok: true, message: `合成出${worker.name ?? worker.id}（${quality.label}·${job}）` }
+}
+
+export function hydrateFuseDragTip(save: Save): void {
+  save.fuseDragTipDone = save.fuseDragTipDone === true
 }
 
 function fusePairReady(a: Worker | undefined, b: Worker | undefined): ActionResult | null {

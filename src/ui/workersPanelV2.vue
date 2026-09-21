@@ -62,13 +62,16 @@ import {
   canDropWorker,
   dropTargetEquals,
   dropTargetFromDataset,
+  FUSE_DRAG_TIP,
   sameDragEndpoint,
+  shouldShowFuseDragTip,
   shouldStartWorkerDrag,
   type WorkerDragSource,
   type WorkerDropTarget,
 } from './workerDrag'
 
 const game = useGameStore()
+const showFuseDragTip = computed(() => shouldShowFuseDragTip(game.save))
 const guideFlashRecruit = computed(() => isGuideQuestFlash(game.save, 'recruit'))
 const guideFlashAssignHerb = computed(() => isGuideQuestFlash(game.save, 'assignHerb'))
 const guideFlashFuse = computed(() => isGuideQuestFlash(game.save, 'fuse'))
@@ -442,6 +445,7 @@ onUnmounted(() => {
   <section class="panel roster-v2" :class="{ dragging: drag?.active }">
     <div class="board">
       <section class="col workshop" aria-label="在工坊">
+        <p v-if="showFuseDragTip" class="fuse-drag-tip" role="status">{{ FUSE_DRAG_TIP }}</p>
         <div class="station-list">
           <article
             v-for="board in boards"
@@ -831,6 +835,21 @@ onUnmounted(() => {
 .workshop {
   flex: 1 1 auto;
   border-right: 2px solid rgba(212, 160, 23, 0.55);
+}
+
+.fuse-drag-tip {
+  flex: 0 0 auto;
+  margin: 4px 6px 0;
+  padding: 4px 8px;
+  border: 2px solid var(--gold-deep);
+  border-radius: 8px;
+  background: linear-gradient(#fffef8, #fff3d8);
+  box-shadow: 0 2px 0 var(--shadow);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-align: center;
 }
 
 .side {

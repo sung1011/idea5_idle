@@ -338,6 +338,24 @@ describe('save migration', () => {
     expect(dirty?.workshopHpEfficiencyTipShown).toBe(false)
   })
 
+  it('hydrates the fuse drag tip flag', () => {
+    const missing = { ...createSave() }
+    delete (missing as { fuseDragTipDone?: boolean }).fuseDragTipDone
+    expect(hydrateLoadedSave(missing)?.fuseDragTipDone).toBe(false)
+
+    const store = memory()
+    const save = createSave()
+    save.fuseDragTipDone = true
+    persistSave(save, store)
+    expect(loadSave(store)?.fuseDragTipDone).toBe(true)
+
+    const dirty = hydrateLoadedSave({
+      ...createSave(),
+      fuseDragTipDone: 'yes' as unknown as boolean,
+    })
+    expect(dirty?.fuseDragTipDone).toBe(false)
+  })
+
   it('keeps guide quest fields through persist / load', () => {
     const store = memory()
     const save = createSave()

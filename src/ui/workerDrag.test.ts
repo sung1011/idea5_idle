@@ -8,10 +8,13 @@ import { QUALITY_MAX, STATION_WORKER_CAP } from '../sim/tables'
 import type { EnemyEncounter } from '../sim/types'
 import {
   applyWorkerDrag,
+  canDragFuseAny,
   canDragWorker,
   canDropWorker,
   dropTargetFromDataset,
+  FUSE_DRAG_TIP,
   isWorkerDragThreshold,
+  shouldShowFuseDragTip,
   shouldStartWorkerDrag,
   slotOccupantId,
   WORKER_DRAG_THRESHOLD_PX,
@@ -201,5 +204,45 @@ describe('worker drag assign', () => {
       reason: '骑士 9 级开放采矿',
     })
     expect(assignWorker(save, idle.id, 'herbalism').ok).toBe(true)
+  })
+})
+
+describe('fuse drag tip', () => {
+  it('shows only while a drag-fuse pair exists and hides after the first merge', () => {
+    expect(FUSE_DRAG_TIP).toBe('拖到同品质工人上可合成')
+    const resting = unlockPlayableStations(createSave())
+    spawnWorkerWith(resting, 1, 'laborer')
+    spawnWorkerWith(resting, 1, 'artisan')
+    expect(canDragFuseAny(resting)).toBe(false)
+    expect(shouldShowFuseDragTip(resting)).toBe(false)
+
+    const mixed = unlockPlayableStations(createSave())
+    const idle = spawnWorkerWith(mixed, 1, 'laborer')
+    const busy = spawnWorkerWith(mixed, 1, 'artisan')
+    spawnWorkerWith(mixed, 2, 'miner')
+    assignWorker(mixed, busy.id, 'mining')
+    expect(canDragFuseAny(mixed)).toBe(true)
+    expect(shouldShowFuseDragTip(mixed)).toBe(true)
+
+    const fused = applyWorkerDrag(mixed, { kind: 'rest', workerId: idle.id }, { kind: 'slot', stationId: 'mining', slotIndex: 0 })
+    expect(fused.ok).toBe(true)
+    expect(mixed.fuseDragTipDone).toBe(true)
+    expect(canDragFuseAny(mixed)).toBe(false)
+    expect(shouldShowFuseDragTip(mixed)).toBe(false)
+
+    const again = spawnWorkerWith(mixed, 2, 'cook')
+    expect(canDragFuseAny(mixed)).toBe(true)
+    expect(shouldShowFuseDragTip(mixed)).toBe(false)
+    expect(again.qualityTier).toBe(2)
+  })
+
+  it('does not treat max-tier or in-combat workers as a drag-fuse pair', () => {
+    const save = unlockPlayableStations(createSave())
+    const maxA = spawnWorkerWith(save, QUALITY_MAX, 'knight')
+    const maxB = spawnWorkerWith(save, QUALITY_MAX, 'steward')
+    assignWorker(save, maxA.id, 'mining')
+    expect(canDragFuseAny(save)).toBe(false)
+    expect(shouldShowFuseDragTip(save)).toBe(false)
+    expect(maxB.assignment).toBeNull()
   })
 })

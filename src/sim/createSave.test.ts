@@ -75,6 +75,7 @@ describe('createSave six stations', () => {
     expect(save.guideQuestPotionUsed).toBe(false)
     expect(save.guideQuestRuneOpened).toBe(false)
     expect(save.workshopHpEfficiencyTipShown).toBe(false)
+    expect(save.fuseDragTipDone).toBe(false)
     expect(save.starterCopperPawnDone).toBe(false)
     expect(save.stations.herbalism.stationLevel).toBe(1)
   })

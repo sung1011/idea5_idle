@@ -17,6 +17,7 @@ import { hydrateGuideQuestFields } from '../sim/guideQuest'
 import { hydratePotionSlots } from '../sim/potionSlots'
 import { hydratePotionState } from '../sim/potions'
 import { hydrateTechFields } from '../sim/tech'
+import { hydrateFuseDragTip } from '../sim/fuse'
 import { hydrateWorkshopHpFields } from '../sim/workshopHp'
 import { WORKER_QUALITY_REV } from '../sim/tables'
 import type { Save } from '../sim/types'
@@ -103,6 +104,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
   hydratePotionState(loaded, parsed)
   const withGuide = hydrateGuideQuestFields(loaded, parsed)
   hydrateWorkshopHpFields(withGuide)
+  hydrateFuseDragTip(withGuide)
   return withGuide
 }
 
