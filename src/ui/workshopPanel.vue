@@ -171,6 +171,7 @@ watch(activeStation, async () => {
   border-color: var(--gold);
   background: linear-gradient(#fffef8, var(--btn));
   box-shadow: none;
+  opacity: 0.52;
 }
 
 .rail .face {
@@ -235,12 +236,12 @@ watch(activeStation, async () => {
   color: var(--ink);
   font-weight: inherit;
   z-index: 1;
-  background: #fff6e0;
-  border-width: 3px;
-  border-color: #b8923a;
+  background: #fffaf0;
+  border-width: var(--border-thin);
+  border-color: #a67c2a;
   box-shadow:
-    0 4px 10px rgba(90, 58, 16, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+    0 5px 12px rgba(90, 58, 16, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
   transform: translateY(-3px);
   opacity: 1;
   filter: none;
