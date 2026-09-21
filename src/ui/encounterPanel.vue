@@ -40,6 +40,13 @@ import { FIGHTING_DOT_MS, fightingButtonLabel } from './fightingLabel'
 import { formatAtkSpeed } from './formatAtkSpeed'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
+import {
+  MAINLINE_DENSITY_IDS,
+  MAINLINE_DENSITY_LABELS,
+  mainlineDensity,
+  selectMainlineDensity,
+  type MainlineDensityId,
+} from './mainlineDensity'
 import { MAINLINE_TAB_IDS, MAINLINE_TAB_LABELS, mainlineTab, selectMainlineTab } from './mainlineTabs'
 import HpBar from './hpBar.vue'
 import {
@@ -54,6 +61,8 @@ function guideFlashEnemy(enc: Encounter) {
   return isGuideQuestCombatFlash(game.save, enc)
 }
 const currentTab = computed(() => mainlineTab.value)
+const currentDensity = computed(() => mainlineDensity.value)
+const isBrief = computed(() => currentDensity.value === 'brief')
 const boardEncounters = computed(() => encountersOf(game.save, currentTab.value))
 const cost = computed(() => exploreCost(game.save))
 const chapterTitle = computed(() => mainChapterTitle(game.save))
@@ -101,6 +110,22 @@ const pickCandidates = computed(() =>
 function selectTab(id: EncounterBoardId) {
   selectMainlineTab(id)
   closePick()
+}
+
+function selectDensity(id: MainlineDensityId) {
+  selectMainlineDensity(id)
+}
+
+function showCardHeader(enc: Encounter) {
+  return !isBrief.value || enc.kind === 'enemy'
+}
+
+function showCardLabel(enc: Encounter) {
+  return !isBrief.value || enc.kind !== 'enemy'
+}
+
+function showFightReadout(enc: Encounter) {
+  return enc.kind === 'enemy' && (!isBrief.value || isFighting(enc))
 }
 
 function consumeShort(index: number) {
@@ -189,6 +214,7 @@ function spriteKind(kind: EncounterKind) {
 function cardClass(enc: Encounter) {
   return {
     [`q-${enc.quality}`]: true,
+    compact: isBrief.value,
     done: isEncounterDone(enc, now.value),
     stunned: enc.kind === 'enemy' && !!enc.combat && isCombatStunned(enc.combat, now.value),
   }
@@ -224,19 +250,34 @@ function pickRecommend(w: Worker) {
 <template>
   <section class="panel encounter">
     <h2 class="title">主线</h2>
-    <nav class="sub" role="tablist" aria-label="主线分页">
-      <button
-        v-for="id in MAINLINE_TAB_IDS"
-        :key="id"
-        type="button"
-        role="tab"
-        :aria-selected="currentTab === id"
-        :class="{ on: currentTab === id, 'guide-flash': guideFlashCombat && id === 'battlefield' }"
-        @click="selectTab(id)"
-      >
-        {{ MAINLINE_TAB_LABELS[id] }}
-      </button>
-    </nav>
+    <div class="board-nav">
+      <nav class="sub" role="tablist" aria-label="主线分页">
+        <button
+          v-for="id in MAINLINE_TAB_IDS"
+          :key="id"
+          type="button"
+          role="tab"
+          :aria-selected="currentTab === id"
+          :class="{ on: currentTab === id, 'guide-flash': guideFlashCombat && id === 'battlefield' }"
+          @click="selectTab(id)"
+        >
+          {{ MAINLINE_TAB_LABELS[id] }}
+        </button>
+      </nav>
+      <nav class="sub density" role="tablist" aria-label="订单详略">
+        <button
+          v-for="id in MAINLINE_DENSITY_IDS"
+          :key="id"
+          type="button"
+          role="tab"
+          :aria-selected="currentDensity === id"
+          :class="{ on: currentDensity === id }"
+          @click="selectDensity(id)"
+        >
+          {{ MAINLINE_DENSITY_LABELS[id] }}
+        </button>
+      </nav>
+    </div>
     <div class="chapter-head">
       <p class="chapter">{{ chapterTitle }}</p>
       <div
@@ -266,8 +307,8 @@ function pickRecommend(w: Worker) {
         <b class="qmark">{{ QUALITY_LABEL[enc.quality] }}</b>
 
         <template v-if="enc.kind === 'enemy'">
-          <header>
-            <i class="sprite sprite-encounter" :class="spriteKind(enc.kind)" aria-hidden="true" />
+          <header v-if="showCardHeader(enc)">
+            <i v-if="!isBrief" class="sprite sprite-encounter" :class="spriteKind(enc.kind)" aria-hidden="true" />
             <div class="titles">
               <span class="kind">{{ kindTitle(enc.kind) }}</span>
               <span class="tags">
@@ -275,9 +316,9 @@ function pickRecommend(w: Worker) {
               </span>
             </div>
           </header>
-          <p class="label">{{ enc.label }}</p>
+          <p v-if="showCardLabel(enc)" class="label">{{ enc.label }}</p>
           <EncounterDealLines :encounter="enc" />
-          <p class="weak">
+          <p v-if="showFightReadout(enc)" class="weak">
             弱点
             <CombatAttrIcon
               v-for="(slot, si) in weaknessSlots(enc)"
@@ -288,16 +329,17 @@ function pickRecommend(w: Worker) {
               {{ cardClass(enc).stunned ? '破防中' : `盾 ${combatShield(enc)}` }}
             </i>
           </p>
-          <template v-if="enc.combat">
+          <template v-if="enc.combat && (!isBrief || isFighting(enc))">
             <div class="bars">
-              <p class="bar-line">
+              <p v-if="!isBrief" class="bar-line">
                 敌 · ATK {{ enc.combat.enemy.atk }} · 攻速 {{ formatAtkSpeed(enc.combat.enemy.spd) }}
               </p>
               <HpBar :hp="enc.combat.enemy.hp" :hp-max="enc.combat.enemy.hpMax" />
               <template v-for="w in enc.combat.workers" :key="w.id">
-                <p class="bar-line">
+                <p v-if="!isBrief" class="bar-line">
                   {{ w.label }} · ATK {{ w.atk }} · 攻速 {{ formatAtkSpeed(w.spd) }}
                 </p>
+                <p v-else class="bar-line">{{ w.label }}</p>
                 <HpBar :hp="w.hp" :hp-max="w.hpMax" />
               </template>
             </div>
@@ -342,13 +384,13 @@ function pickRecommend(w: Worker) {
         </template>
 
         <template v-else>
-          <header>
-            <i class="sprite sprite-encounter" :class="spriteKind(enc.kind)" aria-hidden="true" />
+          <header v-if="showCardHeader(enc)">
+            <i v-if="!isBrief" class="sprite sprite-encounter" :class="spriteKind(enc.kind)" aria-hidden="true" />
             <div class="titles">
               <span class="kind">{{ kindTitle(enc.kind) }}</span>
             </div>
           </header>
-          <p class="label">{{ enc.label }}</p>
+          <p v-if="showCardLabel(enc)" class="label">{{ enc.label }}</p>
           <EncounterDealLines :encounter="enc" />
 
           <template v-if="enc.kind === 'blackMerchant'">
@@ -486,6 +528,21 @@ function pickRecommend(w: Worker) {
   font-size: 20px;
 }
 
+.board-nav {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.board-nav .sub {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.board-nav .density {
+  flex: 0 0 auto;
+}
+
 .sub {
   display: flex;
   align-items: stretch;
@@ -536,6 +593,12 @@ function pickRecommend(w: Worker) {
   box-shadow: 0 2px 6px rgba(212, 160, 23, 0.32);
   opacity: 1;
   filter: none;
+}
+
+.sub.density button {
+  flex: 0 0 auto;
+  min-width: 40px;
+  padding: 4px 12px;
 }
 
 .panel p,
@@ -617,6 +680,11 @@ function pickRecommend(w: Worker) {
   gap: 8px;
   padding: 12px;
   overflow: visible;
+}
+
+.card.compact {
+  gap: 6px;
+  padding: 8px 10px;
 }
 
 .card header {
