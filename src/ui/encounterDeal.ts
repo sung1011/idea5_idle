@@ -66,10 +66,10 @@ export function encounterDeal(enc: Encounter, save?: Save, now = Date.now()): En
     case 'pawn':
       return {
         consume: tokensFromNeedMap(enc.pawnWants),
-        gain: [currencyToken(pawnReward(enc, save))].filter((token): token is DealToken => token != null),
+        gain: [currencyToken(pawnReward(enc, save, now))].filter((token): token is DealToken => token != null),
       }
     case 'artisan': {
-      const money = currencyToken(artisanReward(enc))
+      const money = currencyToken(artisanReward(enc, now))
       return {
         consume: tokensFromNeedMap(enc.wants),
         gain: [
@@ -81,7 +81,7 @@ export function encounterDeal(enc: Encounter, save?: Save, now = Date.now()): En
     case 'bulkBuy':
       return {
         consume: tokensFromNeedMap(enc.wants),
-        gain: [currencyToken(bulkReward(enc, save))].filter((token): token is DealToken => token != null),
+        gain: [currencyToken(bulkReward(enc, save, now))].filter((token): token is DealToken => token != null),
       }
   }
 }

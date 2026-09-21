@@ -65,7 +65,7 @@ import {
   isTimedOrderExpired,
   removeMarketEncounter,
   scaleCurrencyPayout,
-  scaleNeedMap,
+  scaleNeedMap as scaleTimedNeedMap,
   timedRewardMul,
 } from './marketTimed'
 import {
@@ -496,6 +496,7 @@ type LegacyTrade = {
   buffMul?: number
   buffDurationS?: number
   completed?: boolean
+  timedUntil?: unknown
 }
 
 export function needEntries(map: EncounterNeedMap): Array<[ItemId, number]> {
@@ -1919,15 +1920,15 @@ function rejectExpiredTimed(save: Save, enc: Encounter | undefined, now: number)
 }
 
 export function barterMerchant(save: Save, index: number, now = Date.now()): ActionResult {
+  const expired = rejectExpiredTimed(save, slotAt(save, index, 'market'), now)
+  if (expired) return expired
   const blocked = barterBlockReason(save, index)
   if (blocked) return { ok: false, reason: blocked }
   const enc = passerbyAt(save, index)
   if (!enc) return { ok: false, reason: '不是路人偶遇' }
-  const expired = rejectExpiredTimed(save, enc, now)
-  if (expired) return expired
   const took = takeCosts(save, needMapToRules(enc.wants))
   if (!took.ok) return took
-  const added = addNeedMap(save, scaleNeedMap(enc.offers, timedRewardMul(enc, now)))
+  const added = addNeedMap(save, scaleTimedNeedMap(enc.offers, timedRewardMul(enc, now)))
   if (!added.ok) return added
   enc.completed = true
   save.starterCopperPawnDone = true
@@ -1935,14 +1936,14 @@ export function barterMerchant(save: Save, index: number, now = Date.now()): Act
 }
 
 export function buyMerchant(save: Save, index: number, now = Date.now()): ActionResult {
+  const expired = rejectExpiredTimed(save, slotAt(save, index, 'market'), now)
+  if (expired) return expired
   const blocked = buyMerchantBlockReason(save, index)
   if (blocked) return { ok: false, reason: blocked }
   const enc = blackMerchantAt(save, index)
   if (!enc) return { ok: false, reason: '不是黑心商人偶遇' }
-  const expired = rejectExpiredTimed(save, enc, now)
-  if (expired) return expired
   save.gold -= enc.buyGold
-  const added = addNeedMap(save, scaleNeedMap(enc.buyOffers, timedRewardMul(enc, now)))
+  const added = addNeedMap(save, scaleTimedNeedMap(enc.buyOffers, timedRewardMul(enc, now)))
   if (!added.ok) return added
   enc.completed = true
   save.starterCopperPawnDone = true
@@ -1950,12 +1951,12 @@ export function buyMerchant(save: Save, index: number, now = Date.now()): Action
 }
 
 export function pawnMerchant(save: Save, index: number, now = Date.now()): ActionResult {
+  const expired = rejectExpiredTimed(save, slotAt(save, index, 'market'), now)
+  if (expired) return expired
   const blocked = pawnBlockReason(save, index)
   if (blocked) return { ok: false, reason: blocked }
   const enc = pawnAt(save, index)
   if (!enc) return { ok: false, reason: '不是当铺偶遇' }
-  const expired = rejectExpiredTimed(save, enc, now)
-  if (expired) return expired
   const payout = pawnReward(enc, save, now)
   const took = takeCosts(save, needMapToRules(enc.pawnWants))
   if (!took.ok) return took
@@ -1990,12 +1991,12 @@ export function workshopBuffMul(save: Save, now = Date.now()): number {
 }
 
 export function submitArtisan(save: Save, index: number, now = Date.now()): ActionResult {
+  const expired = rejectExpiredTimed(save, slotAt(save, index, 'market'), now)
+  if (expired) return expired
   const blocked = artisanBlockReason(save, index)
   if (blocked) return { ok: false, reason: blocked }
   const enc = artisanAt(save, index)
   if (!enc) return { ok: false, reason: '不是工匠委托' }
-  const expired = rejectExpiredTimed(save, enc, now)
-  if (expired) return expired
   const took = takeCosts(save, needMapToRules(enc.wants))
   if (!took.ok) return took
   applyWorkshopBuff(save, enc.buffMul, enc.buffDurationS, now)
@@ -2013,12 +2014,12 @@ export function submitArtisan(save: Save, index: number, now = Date.now()): Acti
 }
 
 export function sellBulk(save: Save, index: number, now = Date.now()): ActionResult {
+  const expired = rejectExpiredTimed(save, slotAt(save, index, 'market'), now)
+  if (expired) return expired
   const blocked = bulkBuyBlockReason(save, index)
   if (blocked) return { ok: false, reason: blocked }
   const enc = bulkBuyAt(save, index)
   if (!enc) return { ok: false, reason: '不是收购订单' }
-  const expired = rejectExpiredTimed(save, enc, now)
-  if (expired) return expired
   const took = takeCosts(save, needMapToRules(enc.wants))
   if (!took.ok) return took
   const payout = bulkReward(enc, save, now)

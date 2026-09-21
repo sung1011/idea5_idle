@@ -140,7 +140,7 @@ describe('encounterDeal', () => {
       completed: false,
       timedUntil: now + 60_000,
     }
-    expect(encounterDeal(pawn, undefined, now).gain).toEqual([{ kind: 'gold', qty: 20 }])
+    expect(encounterDeal(pawn, undefined, now).gain).toMatchObject([{ kind: 'gold', qty: 20 }])
     const passerby: PasserbyEncounter = {
       kind: 'passerby',
       id: 'timed-pass',

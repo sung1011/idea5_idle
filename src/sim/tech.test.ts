@@ -250,7 +250,7 @@ describe('hydrate tech fields', () => {
     expect(techLevel(aliased, 'pathOutpost')).toBe(1)
     expect(battlefieldSlotCount(aliased)).toBe(3)
     expect(marketSlotCount(aliased)).toBe(MARKET_SLOT_MIN)
-    expect(encounterSlotCount(aliased)).toBe(4)
+    expect(encounterSlotCount(aliased)).toBe(3 + MARKET_SLOT_MIN)
     expect(hasTech(aliased, 'workshopRules')).toBe(true)
     expect(hasTech(aliased, 'pathOutpost')).toBe(true)
   })

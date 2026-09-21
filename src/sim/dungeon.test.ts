@@ -347,17 +347,10 @@ describe('dungeon mvp', () => {
   it('keeps an already-spawned old dungeon at chapter 1 when the field is missing', () => {
     const save = createSave()
     save.mainChapter = 6
-    const raw = {
-      ...save,
-      dungeon: {
-        day: save.dungeon.day,
-        affixIds: ['thickHide', 'jagged'] as typeof save.dungeon.affixIds,
-        attemptsUsed: 0,
-        encounter: save.dungeon.encounter,
-      },
-    }
-    hydrateDungeonFields(raw)
-    expect(raw.dungeon.chapter).toBe(1)
-    expect(dungeonScaleChapter(raw)).toBe(1)
+    delete (save.dungeon as { chapter?: number }).chapter
+    save.dungeon.affixIds = ['thickHide', 'jagged']
+    hydrateDungeonFields(save)
+    expect(save.dungeon.chapter).toBe(1)
+    expect(dungeonScaleChapter(save)).toBe(1)
   })
 })
