@@ -149,23 +149,23 @@ onUnmounted(() => {
     @click="onLockedTap"
   >
     <StationTips :station-id="stationId" />
-    <button
-      type="button"
-      class="help"
-      :aria-pressed="helpOpen"
-      :aria-label="`查看${def.label}说明`"
-      @click.stop="toggleHelp"
-    >？</button>
     <header>
       <span class="badge">
         <UiIcon :name="stationId" />
       </span>
       <div class="titles">
-        <h2>
+        <h2 class="station-title">
           {{ def.label }} · Lv{{ station.stationLevel }}
         </h2>
         <p class="meta">{{ cat.label }} {{ stationCycleS(game.save, stationId) }}s/次</p>
       </div>
+      <button
+        type="button"
+        class="help"
+        :aria-pressed="helpOpen"
+        :aria-label="`查看${def.label}说明`"
+        @click.stop="toggleHelp"
+      >？</button>
     </header>
     <ul class="crew" aria-label="在岗工人">
       <li v-if="crew.length" class="crew-row">
@@ -312,9 +312,12 @@ h2,
   margin: 0;
 }
 
-h2 {
+h2.station-title {
+  font-family: var(--font-body);
   font-size: 18px;
+  font-weight: 700;
   letter-spacing: 0.08em;
+  color: var(--ink);
 }
 
 .meta,
@@ -466,9 +469,9 @@ h2 {
 }
 
 .help {
-  position: absolute;
-  top: 8px;
-  left: 8px;
+  flex: 0 0 28px;
+  align-self: flex-start;
+  margin-left: auto;
   z-index: 3;
   width: 28px;
   min-width: 28px;
