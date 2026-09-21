@@ -1992,12 +1992,19 @@ export function sellBulk(save: Save, index: number): ActionResult {
   return { ok: true, message: gain ? `收购成交。${gain}` : '收购成交' }
 }
 
-/** 战斗中 / 胜可领 / 超时战败后可再开战，以及未领的本章 Boss（含待战）占位保留；普通未开打 / 已领奖 / 其它格可换。 */
-export function shouldKeepOnExplore(enc: Encounter, now = Date.now()): boolean {
+export const EXPLORE_PROTECTED_TIP = '探索不会刷新此订单'
+
+/** 探索不会刷新/替换：战斗中、胜可领、超时战败后可再开战，以及未领的本章 Boss（含待战）。 */
+export function isExploreProtected(enc: Encounter, now = Date.now()): boolean {
   if (enc.kind !== 'enemy') return false
   void now
   if (isChapterBoss(enc) && !enc.lootClaimed) return true
   return isFighting(enc) || isCombatWon(enc) || combatStatus(enc) === 'lose'
+}
+
+/** 探索保留格与 `isExploreProtected` 同一套判断。 */
+export function shouldKeepOnExplore(enc: Encounter, now = Date.now()): boolean {
+  return isExploreProtected(enc, now)
 }
 
 /** 探索：扣金币，两板各自只替换可刷新格；战场保留战斗 / 未领本章 Boss，可暂超目标。 */

@@ -17,12 +17,14 @@ import {
 import { createAssistWorker, isAssistWorker, pickCombatCandidates } from '../sim/combatAssist'
 import {
   ENCOUNTER_KIND_LABEL,
+  EXPLORE_PROTECTED_TIP,
   QUALITY_LABEL,
   combatSupplyBlockReason,
   encountersOf,
   exploreCost,
   formatMarchClock,
   isEncounterDone,
+  isExploreProtected,
   isWorkshopBuffActive,
   stampLabel,
   workshopBuffMul,
@@ -249,6 +251,15 @@ function pickRecommend(w: Worker) {
     <div class="board">
       <article v-for="(enc, i) in boardEncounters" :key="enc.id" class="card" :class="cardClass(enc)">
         <EncounterTips :encounter-id="enc.id" />
+        <button
+          v-if="isExploreProtected(enc, now)"
+          type="button"
+          class="fixed-mark"
+          :aria-label="EXPLORE_PROTECTED_TIP"
+          @click.stop="pushFloatTip(EXPLORE_PROTECTED_TIP, 'ok')"
+        >
+          固定
+        </button>
         <i v-if="isEncounterDone(enc, now)" class="stamp" aria-hidden="true">{{ stampLabel(enc) }}</i>
         <b class="qmark">{{ QUALITY_LABEL[enc.quality] }}</b>
 
@@ -639,6 +650,32 @@ function pickRecommend(w: Worker) {
   background: var(--slot);
   color: var(--ink);
   font-size: 12px;
+}
+
+.fixed-mark {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 1;
+  min-height: 0;
+  padding: 1px 6px;
+  border: 2px solid var(--gold-deep);
+  border-radius: 6px;
+  background: linear-gradient(180deg, #f8edc4, #e8c35a);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  line-height: 1.35;
+  box-shadow: 0 1px 0 var(--copper), inset 0 1px 0 #fff8e0;
+}
+
+.fixed-mark:hover:not(:disabled),
+.fixed-mark:active:not(:disabled) {
+  filter: none;
+  transform: none;
+  box-shadow: 0 1px 0 var(--copper), inset 0 1px 0 #fff8e0;
 }
 
 .qmark {

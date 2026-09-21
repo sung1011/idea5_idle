@@ -44,9 +44,11 @@ import {
   scaledDemandQty,
   scaledMainNeed,
   exploreBlockReason,
+  EXPLORE_PROTECTED_TIP,
   exploreBoard,
   exploreCost,
   generateEncounterBoard,
+  isExploreProtected,
   hydrateEncounterFields,
   makeStarterCopperPawn,
   STARTER_PAWN_ITEM_ID,
@@ -256,6 +258,7 @@ describe('encounter board', () => {
     expect(enc.rewardGold).toBe(pawnRewardGold(enc))
     expect(enc.rewardGold).toBe(scaleGold(pawnUnitGold('ore') * STARTER_PAWN_QTY, 1))
     expect(shouldKeepOnExplore(enc)).toBe(false)
+    expect(isExploreProtected(enc)).toBe(false)
   })
 
   it('puts the starter copper pawn on slot 0 and fills the rest', () => {
@@ -646,6 +649,63 @@ describe('exploreBoard', () => {
     expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MAX)
     expect(save.marketEncounters.every((enc) => enc.kind !== 'enemy')).toBe(true)
     expect(save.marketEncounters.some((enc) => enc.id === 'swap-passerby')).toBe(false)
+  })
+
+  it('marks explore-protected orders and shares shouldKeepOnExplore', () => {
+    const now = 2_000_000_000_000
+    const fighting = testEnemy({ id: 'fix-fight', departed: true, combat: fightSnap(null) })
+    const won = testEnemy({ id: 'fix-win', departed: true, combat: fightSnap('win') })
+    const lost = testEnemy({ id: 'fix-lose', departed: true, combat: fightSnap('lose') })
+    const idleBoss = testEnemy({
+      id: 'fix-idle-boss',
+      chapterBoss: true,
+      enemyRank: 'boss',
+      departed: false,
+      combat: null,
+    })
+    const idle = testEnemy({ id: 'fix-idle' })
+    const claimed = testEnemy({
+      id: 'fix-claimed',
+      departed: true,
+      combat: fightSnap('win'),
+      lootClaimed: true,
+    })
+    const claimedBoss = testEnemy({
+      id: 'fix-claimed-boss',
+      chapterBoss: true,
+      enemyRank: 'boss',
+      departed: true,
+      combat: fightSnap('win'),
+      lootClaimed: true,
+    })
+    const samples = [
+      fighting,
+      won,
+      lost,
+      idleBoss,
+      idle,
+      claimed,
+      claimedBoss,
+      testPasserby({ id: 'fix-passerby' }),
+      testPawn({ id: 'fix-pawn' }),
+      testArtisan({ id: 'fix-artisan' }),
+      testBulk({ id: 'fix-bulk' }),
+      testBlackMerchant({ id: 'fix-buy' }),
+      makeStarterCopperPawn(),
+    ]
+    for (const enc of samples) {
+      expect(isExploreProtected(enc, now)).toBe(shouldKeepOnExplore(enc, now))
+    }
+    expect(isExploreProtected(fighting, now)).toBe(true)
+    expect(isExploreProtected(won, now)).toBe(true)
+    expect(isExploreProtected(lost, now)).toBe(true)
+    expect(isExploreProtected(idleBoss, now)).toBe(true)
+    expect(isExploreProtected(idle, now)).toBe(false)
+    expect(isExploreProtected(claimed, now)).toBe(false)
+    expect(isExploreProtected(claimedBoss, now)).toBe(false)
+    expect(isExploreProtected(testPasserby({ id: 'fix-market' }), now)).toBe(false)
+    expect(isExploreProtected(makeStarterCopperPawn(), now)).toBe(false)
+    expect(EXPLORE_PROTECTED_TIP).toBe('探索不会刷新此订单')
   })
 
   it('keeps battlefield as enemies and market as trades when exploring', () => {
