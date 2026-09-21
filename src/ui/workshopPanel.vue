@@ -235,12 +235,12 @@ watch(activeStation, async () => {
   color: var(--ink);
   font-weight: inherit;
   z-index: 1;
-  background: #fffaf0;
-  border-width: var(--border-thin);
-  border-color: #a67c2a;
+  background: #fff6e0;
+  border-width: 3px;
+  border-color: #b8923a;
   box-shadow:
-    0 5px 12px rgba(90, 58, 16, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    0 4px 10px rgba(90, 58, 16, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
   transform: translateY(-3px);
   opacity: 1;
   filter: none;
