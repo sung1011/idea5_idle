@@ -37,6 +37,7 @@ describe('mainlineTabs', () => {
   it('resolves known tabs and falls back to battlefield', () => {
     expect(mainlineTabOf('battlefield')).toBe('battlefield')
     expect(mainlineTabOf('market')).toBe('market')
+    expect(mainlineTabOf('dungeon')).toBe('dungeon')
     expect(mainlineTabOf('nope')).toBe(DEFAULT_MAINLINE_TAB)
     expect(DEFAULT_MAINLINE_TAB).toBe('battlefield')
   })

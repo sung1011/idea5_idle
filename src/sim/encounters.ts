@@ -20,6 +20,7 @@ import { isEnemyTargetRuleId } from './combatTarget'
 import { findCombatPartyWorker } from './combatAssist'
 import { workerLootXp } from './workerLevel'
 import { ensureEnemyIntel, isEnemyRank, pickEnemyWeaknesses, seedInitialRevealedWeaknesses } from './combatAttrs'
+import { hydrateDungeonFields } from './dungeon'
 import {
   MAIN_CHAPTER_START,
   MAIN_LOOT_CLAIMS_GOAL,
@@ -2335,6 +2336,7 @@ export function hydrateEncounterFields(save: Save): Save {
   }
   remapBoardLegacyNeeds(raw.encounters, raw.mainChapter)
   remapBoardLegacyNeeds(raw.marketEncounters, raw.mainChapter)
+  hydrateDungeonFields(raw)
   delete raw.currentOrderId
   delete raw.orderIndex
   delete raw.orderSubmitted

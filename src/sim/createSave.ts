@@ -1,3 +1,4 @@
+import { blankDungeonState } from './dungeon'
 import { generateEncounterBoard } from './encounters'
 import { GUIDE_QUEST_REV } from './guideQuest'
 import { battlefieldSlotCount, marketSlotCount } from './tech'
@@ -52,7 +53,9 @@ export function createSave(): Save {
     techLevels: {},
     potionSlots: blankPotionSlots(),
     potionBuffs: blankPotionBuffs(),
+    dungeon: blankDungeonState(undefined, 1),
   }
+  save.dungeon = blankDungeonState(save, 1)
   save.knightLevel = computeKnightLevel(save)
   save.encounters = generateEncounterBoard(0, battlefieldSlotCount(save), {
     rng: save,

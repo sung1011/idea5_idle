@@ -1,0 +1,226 @@
+import { describe, expect, it } from 'vitest'
+import { addToBank } from './bank'
+import { isCombatStunned, isFighting, stepEnemyCombat } from './combat'
+import { createSave } from './createSave'
+import {
+  DUNGEON_ATTEMPTS_PER_DAY,
+  DUNGEON_BOSS_LABEL,
+  DUNGEON_CHEST,
+  DUNGEON_NEEDS,
+  DUNGEON_PARTY_MAX,
+  DUNGEON_PHASES,
+  DUNGEON_STUN_S,
+  DUNGEON_TARGET_ROTATION,
+  claimDungeonChest,
+  dungeonAttemptsLeft,
+  dungeonChestTier,
+  dungeonEncounterOf,
+  dungeonSupplyBlockReason,
+  ensureDungeonDay,
+  hydrateDungeonFields,
+  reinforceDungeonCombat,
+  startDungeonCombat,
+} from './dungeon'
+import { onDungeonBreak, onDungeonWake, rotateDungeonTarget } from './dungeonTables'
+import { spawnWorkerWith } from './recruit'
+import { DAY_LENGTH_S } from './tables'
+import type { EnemyEncounter, Worker } from './types'
+
+function stockDungeon(save: ReturnType<typeof createSave>) {
+  for (const [itemId, qty] of Object.entries(DUNGEON_NEEDS)) {
+    if (qty) addToBank(save, itemId as keyof typeof DUNGEON_NEEDS, qty)
+  }
+}
+
+function fullWorker(save: ReturnType<typeof createSave>, name: string): Worker {
+  const worker = spawnWorkerWith(save, 6, 'knight', ['fire', 'sword'])
+  worker.name = name
+  worker.hp = worker.hpMax
+  worker.fatigueDebt = 0
+  worker.assignment = null
+  return worker
+}
+
+describe('dungeon mvp', () => {
+  it('hydrates a missing dungeon and rolls two daily affixes', () => {
+    const save = createSave()
+    expect(save.dungeon.affixIds).toHaveLength(2)
+    expect(new Set(save.dungeon.affixIds).size).toBe(2)
+    expect(save.dungeon.attemptsUsed).toBe(0)
+    expect(dungeonEncounterOf(save).label).toBe(DUNGEON_BOSS_LABEL)
+    expect(dungeonEncounterOf(save).dungeon).toBe(true)
+    const raw = { ...save }
+    delete (raw as { dungeon?: typeof save.dungeon }).dungeon
+    hydrateDungeonFields(raw)
+    expect(raw.dungeon.affixIds).toHaveLength(2)
+    expect(raw.dungeon.encounter.dungeon).toBe(true)
+  })
+
+  it('gates start to one attempt per day and does not refund on lose', () => {
+    const save = createSave()
+    stockDungeon(save)
+    const a = fullWorker(save, '甲')
+    const now = 2_000_000_000_000
+    expect(startDungeonCombat(save, [a.id], now).ok).toBe(true)
+    expect(save.dungeon.attemptsUsed).toBe(DUNGEON_ATTEMPTS_PER_DAY)
+    expect(dungeonAttemptsLeft(save)).toBe(0)
+    const enc = dungeonEncounterOf(save)
+    expect(isFighting(enc)).toBe(true)
+    enc.combat!.outcome = 'lose'
+    enc.combat!.enemy.hp = enc.combat!.enemy.hpMax
+    const blocked = startDungeonCombat(save, [a.id], now + 10)
+    expect(blocked.ok).toBe(false)
+    if (!blocked.ok) expect(blocked.reason).toMatch(/宝箱|次数/)
+    claimDungeonChest(save)
+    const spent = startDungeonCombat(save, [a.id], now + 20)
+    expect(spent.ok).toBe(false)
+    if (!spent.ok) expect(spent.reason).toBe('今日地牢次数已用完')
+  })
+
+  it('resets affixes and attempts on a new game day when not fighting', () => {
+    const save = createSave()
+    stockDungeon(save)
+    const a = fullWorker(save, '甲')
+    startDungeonCombat(save, [a.id], 1_000)
+    dungeonEncounterOf(save).combat!.outcome = 'lose'
+    claimDungeonChest(save)
+    const prev = [...save.dungeon.affixIds]
+    save.elapsedS = DAY_LENGTH_S
+    ensureDungeonDay(save)
+    expect(save.dungeon.day).toBe(2)
+    expect(save.dungeon.attemptsUsed).toBe(0)
+    expect(save.dungeon.affixIds).toHaveLength(2)
+    expect(dungeonEncounterOf(save).combat).toBeNull()
+    expect(dungeonEncounterOf(save).lootClaimed).toBe(false)
+    void prev
+  })
+
+  it('keeps a live fight across a day boundary', () => {
+    const save = createSave()
+    stockDungeon(save)
+    const a = fullWorker(save, '甲')
+    startDungeonCombat(save, [a.id], 1_000)
+    const day = save.dungeon.day
+    save.elapsedS = DAY_LENGTH_S * 2
+    ensureDungeonDay(save)
+    expect(save.dungeon.day).toBe(day)
+    expect(isFighting(dungeonEncounterOf(save))).toBe(true)
+    expect(save.dungeon.attemptsUsed).toBe(1)
+  })
+
+  it('allows up to 5 fighters and rejects a sixth reinforce', () => {
+    const save = createSave()
+    stockDungeon(save)
+    const ids = ['甲', '乙', '丙', '丁', '戊', '己'].map((name) => fullWorker(save, name).id)
+    expect(startDungeonCombat(save, ids.slice(0, 5), 5_000).ok).toBe(true)
+    expect(dungeonEncounterOf(save).combat?.workers).toHaveLength(5)
+    const sixth = reinforceDungeonCombat(save, [ids[5]], 5_100)
+    expect(sixth.ok).toBe(false)
+    if (!sixth.ok) expect(sixth.reason).toContain(String(DUNGEON_PARTY_MAX))
+  })
+
+  it('does not spend the daily attempt when reinforcing', () => {
+    const save = createSave()
+    stockDungeon(save)
+    const a = fullWorker(save, '甲')
+    const b = fullWorker(save, '乙')
+    startDungeonCombat(save, [a.id], 6_000)
+    expect(save.dungeon.attemptsUsed).toBe(1)
+    expect(reinforceDungeonCombat(save, [b.id], 6_100).ok).toBe(true)
+    expect(save.dungeon.attemptsUsed).toBe(1)
+    expect(dungeonEncounterOf(save).combat?.workers.some((w) => w.id === b.id)).toBe(true)
+  })
+
+  it('uses table-driven 3-phase shields and 3s stun', () => {
+    const save = createSave()
+    const enc = dungeonEncounterOf(save)
+    enc.combat = {
+      startedAt: 0,
+      timeoutAt: 100_000,
+      workerIds: [],
+      workers: [],
+      enemy: { id: 'enemy', label: '看守', hp: 100, hpMax: 100, atk: 5, spd: 4, nextActAt: 0 },
+      logs: [],
+      outcome: null,
+      shield: 0,
+      shieldMax: 5,
+      stunnedUntil: null,
+    }
+    enc.dungeonPhase = 1
+    enc.dungeonPhaseReached = 1
+    expect(onDungeonBreak(enc)).toBe(DUNGEON_STUN_S * 1000)
+    expect(enc.dungeonPhase).toBe(2)
+    expect(enc.dungeonPendingPhase).toBe(true)
+    expect(onDungeonWake(enc, enc.combat, 3_000)).toBe(true)
+    expect(enc.combat.shield).toBe(DUNGEON_PHASES[1].shield + (enc.dungeonShieldBonus ?? 0))
+    expect(enc.weaknesses).toEqual([...DUNGEON_PHASES[1].weaknesses])
+    expect(enc.dungeonMechanic).toBe(DUNGEON_PHASES[1].mechanic)
+    onDungeonBreak(enc)
+    onDungeonWake(enc, enc.combat, 6_000)
+    expect(enc.dungeonPhase).toBe(3)
+    expect(enc.combat.shield).toBe(DUNGEON_PHASES[2].shield + (enc.dungeonShieldBonus ?? 0))
+    const stun = onDungeonBreak(enc)
+    expect(stun).toBe(DUNGEON_STUN_S * 1000)
+    expect(enc.dungeonPhase).toBe(3)
+    expect(enc.dungeonPendingPhase).toBeFalsy()
+  })
+
+  it('rotates pinned dungeon target rules', () => {
+    const enc = dungeonEncounterOf(createSave())
+    enc.targetRuleId = DUNGEON_TARGET_ROTATION[0]
+    rotateDungeonTarget(enc, 10_000)
+    expect(enc.targetRuleId).toBe(DUNGEON_TARGET_ROTATION[1])
+    rotateDungeonTarget(enc, 20_000)
+    expect(enc.targetRuleId).toBe(DUNGEON_TARGET_ROTATION[2])
+  })
+
+  it('tiers the chest by phase reached and pays diamonds plus items', () => {
+    const save = createSave()
+    stockDungeon(save)
+    const a = fullWorker(save, '甲')
+    startDungeonCombat(save, [a.id], 8_000)
+    const enc = dungeonEncounterOf(save)
+    enc.dungeonPhaseReached = 1
+    enc.combat!.outcome = 'lose'
+    expect(dungeonChestTier(enc)).toBe('copper')
+    enc.dungeonPhaseReached = 2
+    expect(dungeonChestTier(enc)).toBe('silver')
+    enc.combat!.outcome = 'win'
+    enc.dungeonPhaseReached = 3
+    expect(dungeonChestTier(enc)).toBe('gold')
+    const before = save.diamonds
+    const result = claimDungeonChest(save)
+    expect(result.ok).toBe(true)
+    expect(save.diamonds).toBeGreaterThanOrEqual(before + DUNGEON_CHEST.gold.diamonds)
+    expect(save.dungeon.encounter.lootClaimed).toBe(true)
+  })
+
+  it('requires dungeon supply and does not touch battlefield slots', () => {
+    const save = createSave()
+    const battlefield = save.encounters.map((enc) => enc.id)
+    const a = fullWorker(save, '甲')
+    expect(startDungeonCombat(save, [a.id], 9_000).ok).toBe(false)
+    expect(dungeonSupplyBlockReason(save)?.startsWith('货不够')).toBe(true)
+    stockDungeon(save)
+    expect(startDungeonCombat(save, [a.id], 9_000).ok).toBe(true)
+    expect(save.encounters.map((enc) => enc.id)).toEqual(battlefield)
+  })
+
+  it('keeps dungeon stun window at 3s during a live break', () => {
+    const save = createSave()
+    stockDungeon(save)
+    const a = fullWorker(save, '甲')
+    const now = 12_000
+    startDungeonCombat(save, [a.id], now)
+    const enc = dungeonEncounterOf(save) as EnemyEncounter
+    enc.combat!.shield = 1
+    enc.combat!.workers[0].combatAttrs = ['fire']
+    enc.combat!.workers[0].nextActAt = now + 50
+    enc.combat!.enemy.nextActAt = now + 50_000
+    enc.weaknesses = ['fire']
+    stepEnemyCombat(save, enc, now + 80)
+    expect(enc.combat!.shield).toBe(0)
+    expect(isCombatStunned(enc.combat!, now + 80)).toBe(true)
+    expect((enc.combat!.stunnedUntil ?? 0) - (now + 50)).toBe(DUNGEON_STUN_S * 1000)
+  })
+})

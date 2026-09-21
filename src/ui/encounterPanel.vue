@@ -4,9 +4,10 @@ import { ENEMY_RANK_LABEL, enemyWeaknessView, fighterRecommendLabel } from '../s
 import CombatAttrIcon from './combatAttrIcon.vue'
 import CombatAttrRow from './combatAttrRow.vue'
 import {
-  COMBAT_PARTY_MAX,
   canReinforceCombat,
+  combatPartyCap,
   fieldFighterCount,
+  isCombatLost,
   isCombatStunned,
   isCombatWon,
   isFighting,
@@ -27,8 +28,16 @@ import {
   stampLabel,
   workshopBuffMul,
   workshopBuffRemainS,
-  type EncounterBoardId,
 } from '../sim/encounters'
+import {
+  DUNGEON_ATTEMPTS_PER_DAY,
+  DUNGEON_MECHANIC_LABEL,
+  dungeonAffixLabels,
+  dungeonAttemptsLeft,
+  dungeonEncounterOf,
+  dungeonSupplyBlockReason,
+  isDungeonEncounter,
+} from '../sim/dungeon'
 import { isGuideQuestCombatFlash, isGuideQuestFlash } from '../sim/guideQuest'
 import { mainChapterTitle, mainLootClaimBarLabel, mainLootClaimFillPct } from '../sim/mainChapter'
 import { CLASS_LABEL } from '../sim/tables'
@@ -47,7 +56,13 @@ import {
   selectMainlineDensity,
   type MainlineDensityId,
 } from './mainlineDensity'
-import { MAINLINE_TAB_IDS, MAINLINE_TAB_LABELS, mainlineTab, selectMainlineTab } from './mainlineTabs'
+import {
+  MAINLINE_TAB_IDS,
+  MAINLINE_TAB_LABELS,
+  mainlineTab,
+  selectMainlineTab,
+  type MainlineTabId,
+} from './mainlineTabs'
 import HpBar from './hpBar.vue'
 import {
   qualityOf,
@@ -61,9 +76,17 @@ function guideFlashEnemy(enc: Encounter) {
   return isGuideQuestCombatFlash(game.save, enc)
 }
 const currentTab = computed(() => mainlineTab.value)
+const isDungeonTab = computed(() => currentTab.value === 'dungeon')
 const currentDensity = computed(() => mainlineDensity.value)
 const isBrief = computed(() => currentDensity.value === 'brief')
-const boardEncounters = computed(() => encountersOf(game.save, currentTab.value))
+const boardEncounters = computed(() => {
+  if (isDungeonTab.value) return [dungeonEncounterOf(game.save)]
+  return encountersOf(game.save, currentTab.value === 'market' ? 'market' : 'battlefield')
+})
+const dungeonAffixes = computed(() => (isDungeonTab.value ? dungeonAffixLabels(game.save) : []))
+const dungeonAttemptLabel = computed(() =>
+  isDungeonTab.value ? `次数 ${DUNGEON_ATTEMPTS_PER_DAY - dungeonAttemptsLeft(game.save)}/${DUNGEON_ATTEMPTS_PER_DAY}` : '',
+)
 const cost = computed(() => exploreCost(game.save))
 const chapterTitle = computed(() => mainChapterTitle(game.save))
 const lootBarLabel = computed(() => mainLootClaimBarLabel(game.save))
@@ -97,19 +120,26 @@ const picked = ref<string[]>([])
 const assistWorker = ref<Worker | null>(null)
 const pickOpen = computed(() => pickIndex.value !== null)
 const pickMax = computed(() => {
-  if (pickMode.value === 'reinforce' && pickIndex.value != null) {
-    const enc = game.save.encounters[pickIndex.value]
-    if (enc?.kind === 'enemy') return Math.max(0, COMBAT_PARTY_MAX - fieldFighterCount(enc))
-  }
-  return COMBAT_PARTY_MAX
+  const enc = activeEnemy()
+  const cap = combatPartyCap(enc)
+  if (pickMode.value === 'reinforce' && enc) return Math.max(0, cap - fieldFighterCount(enc))
+  return cap
 })
 const pickCandidates = computed(() =>
   pickCombatCandidates(restCombatCandidates(game.save), assistWorker.value),
 )
 
-function selectTab(id: EncounterBoardId) {
+function selectTab(id: MainlineTabId) {
   selectMainlineTab(id)
   closePick()
+}
+
+function activeEnemy(): EnemyEncounter | null {
+  if (isDungeonTab.value) return dungeonEncounterOf(game.save)
+  const i = pickIndex.value
+  if (i == null) return null
+  const enc = game.save.encounters[i]
+  return enc?.kind === 'enemy' ? enc : null
 }
 
 function selectDensity(id: MainlineDensityId) {
@@ -129,7 +159,11 @@ function showFightReadout(enc: Encounter) {
 }
 
 function consumeShort(index: number) {
-  return isEncounterActionConsumeShort(game.save, index, currentTab.value)
+  if (isDungeonTab.value) {
+    const reason = dungeonSupplyBlockReason(game.save)
+    return !!reason && reason.startsWith('货不够')
+  }
+  return isEncounterActionConsumeShort(game.save, index, currentTab.value === 'market' ? 'market' : 'battlefield')
 }
 
 function warnConsumeShort(index: number) {
@@ -141,7 +175,7 @@ function openPick(index: number) {
     pushFloatTip(CONSUME_SHORT_TIP, 'err')
     return
   }
-  const blocked = combatSupplyBlockReason(game.save, index)
+  const blocked = isDungeonTab.value ? dungeonSupplyBlockReason(game.save) : combatSupplyBlockReason(game.save, index)
   if (blocked) {
     pushFloatTip(blocked, 'err')
     return
@@ -153,7 +187,7 @@ function openPick(index: number) {
 }
 
 function openReinforce(index: number) {
-  const enc = game.save.encounters[index]
+  const enc = isDungeonTab.value ? dungeonEncounterOf(game.save) : game.save.encounters[index]
   if (enc?.kind !== 'enemy' || !canReinforceCombat(enc)) return
   pickMode.value = 'reinforce'
   pickIndex.value = index
@@ -191,7 +225,9 @@ function confirmPick() {
   if (index == null) return
   const guests = assistWorker.value ? [assistWorker.value] : []
   if (pickMode.value === 'reinforce') {
-    const result = game.reinforceCombat(index, [...picked.value], guests)
+    const result = isDungeonTab.value
+      ? game.reinforceDungeonCombat([...picked.value], guests)
+      : game.reinforceCombat(index, [...picked.value], guests)
     if (result.ok) closePick()
     return
   }
@@ -199,11 +235,14 @@ function confirmPick() {
     pushFloatTip(CONSUME_SHORT_TIP, 'err')
     return
   }
-  const result = game.startCombat(index, [...picked.value], guests)
+  const result = isDungeonTab.value
+    ? game.startDungeonCombat([...picked.value], guests)
+    : game.startCombat(index, [...picked.value], guests)
   if (result.ok) closePick()
 }
 
-function kindTitle(kind: EncounterKind) {
+function kindTitle(kind: EncounterKind, enc?: Encounter) {
+  if (enc && isDungeonEncounter(enc)) return '地牢'
   return ENCOUNTER_KIND_LABEL[kind]
 }
 
@@ -234,10 +273,7 @@ function weaknessSlots(enc: EnemyEncounter) {
 }
 
 function pickEnemy(): EnemyEncounter | null {
-  const i = pickIndex.value
-  if (i == null) return null
-  const enc = game.save.encounters[i]
-  return enc?.kind === 'enemy' ? enc : null
+  return activeEnemy()
 }
 
 function pickRecommend(w: Worker) {
@@ -299,8 +335,12 @@ function pickRecommend(w: Worker) {
       </button>
     </div>
     <p v-if="buffOn" class="buff">{{ buffLabel }}</p>
+    <div v-if="isDungeonTab" class="dungeon-meta">
+      <p>今日词缀：{{ dungeonAffixes.join('、') || '—' }}</p>
+      <p>{{ dungeonAttemptLabel }}</p>
+    </div>
 
-    <div class="board">
+    <div class="board" :class="{ solo: isDungeonTab }">
       <article v-for="(enc, i) in boardEncounters" :key="enc.id" class="card" :class="cardClass(enc)">
         <EncounterTips :encounter-id="enc.id" />
         <i v-if="isEncounterDone(enc, now)" class="stamp" aria-hidden="true">{{ stampLabel(enc) }}</i>
@@ -310,9 +350,13 @@ function pickRecommend(w: Worker) {
           <header v-if="showCardHeader(enc)">
             <i v-if="!isBrief" class="sprite sprite-encounter" :class="spriteKind(enc.kind)" aria-hidden="true" />
             <div class="titles">
-              <span class="kind">{{ kindTitle(enc.kind) }}</span>
+              <span class="kind">{{ kindTitle(enc.kind, enc) }}</span>
               <span class="tags">
-                <i>{{ ENEMY_RANK_LABEL[enc.enemyRank] }}</i>
+                <i>{{ isDungeonEncounter(enc) ? '地牢' : ENEMY_RANK_LABEL[enc.enemyRank] }}</i>
+                <i v-if="isDungeonEncounter(enc)">阶段 {{ enc.dungeonPhase ?? 1 }}/3</i>
+                <i v-if="isDungeonEncounter(enc) && enc.dungeonMechanic && !isBrief">
+                  {{ DUNGEON_MECHANIC_LABEL[enc.dungeonMechanic] }}
+                </i>
               </span>
             </div>
           </header>
@@ -363,6 +407,13 @@ function pickRecommend(w: Worker) {
               </button>
             </template>
             <button
+              v-else-if="isDungeonEncounter(enc) && (isCombatWon(enc) || isCombatLost(enc))"
+              type="button"
+              @click="game.claimDungeonChest()"
+            >
+              宝箱
+            </button>
+            <button
               v-else-if="isCombatWon(enc)"
               type="button"
               :class="{ 'guide-flash': guideFlashEnemy(enc) && !pickOpen }"
@@ -387,7 +438,7 @@ function pickRecommend(w: Worker) {
           <header v-if="showCardHeader(enc)">
             <i v-if="!isBrief" class="sprite sprite-encounter" :class="spriteKind(enc.kind)" aria-hidden="true" />
             <div class="titles">
-              <span class="kind">{{ kindTitle(enc.kind) }}</span>
+              <span class="kind">{{ kindTitle(enc.kind, enc) }}</span>
             </div>
           </header>
           <p v-if="showCardLabel(enc)" class="label">{{ enc.label }}</p>
@@ -469,7 +520,7 @@ function pickRecommend(w: Worker) {
     <div v-if="pickOpen" class="modal" role="dialog" aria-label="选择出战工人" @click.self="closePick">
       <div class="sheet">
         <p>{{ pickMode === 'reinforce' ? '选择增援工人' : '选择出战工人' }}（最多 {{ pickMax }} 人，须满血）</p>
-        <p class="hint">列出休息工人；未满血（有效 HP 含劳损未到上限）灰显。出战不算派驻工坊。点邀请才加入 1 名临时助战。{{ pickMode === 'reinforce' ? '增援不消耗补给。' : '1～3 人即可，不必凑满。' }}</p>
+        <p class="hint">列出休息工人；未满血（有效 HP 含劳损未到上限）灰显。出战不算派驻工坊。点邀请才加入 1 名临时助战。{{ pickMode === 'reinforce' ? '增援不消耗补给。' : `1～${pickMax} 人即可，不必凑满。` }}</p>
         <ul class="pick-list">
           <li v-for="w in pickCandidates" :key="w.id">
             <button
@@ -671,6 +722,22 @@ function pickRecommend(w: Worker) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.board.solo {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.dungeon-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-family: var(--font-mono);
+  color: var(--ink);
+}
+
+.dungeon-meta p {
+  margin: 0;
 }
 
 .card {

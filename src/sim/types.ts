@@ -455,6 +455,11 @@ export type Save = {
    * 旧档缺字段 hydrate 为空。
    */
   potionBuffs: PotionBuffs
+  /**
+   * 主线地牢：按游戏日掷 2 词缀、1 次开战。独立战斗，不进战场板、不被探索刷新。
+   * 旧档缺字段 hydrate 补当天词缀。
+   */
+  dungeon: DungeonState
 }
 
 export type EncounterQuality = 'gray' | 'green' | 'blue' | 'purple' | 'orange'
@@ -506,6 +511,30 @@ export type EnemyEncounter = EncounterBase & {
    * 旧档缺字段不补，开战现抽。
    */
   targetRuleId?: EnemyTargetRuleId
+  /** 地牢单：下次轮转选目标规则的墙钟。 */
+  targetRuleUntil?: number | null
+  /** 主线地牢独立战，不进战场板。 */
+  dungeon?: boolean
+  dungeonPhase?: number
+  dungeonPhaseReached?: number
+  dungeonMechanic?: 'cleave' | 'workshopSmash' | 'enrage'
+  dungeonPendingPhase?: boolean
+  dungeonShieldBonus?: number
+}
+
+export type DungeonAffixId =
+  | 'thickHide'
+  | 'quickened'
+  | 'heavyHands'
+  | 'ironShield'
+  | 'jagged'
+  | 'richVein'
+
+export type DungeonState = {
+  day: number
+  affixIds: DungeonAffixId[]
+  attemptsUsed: number
+  encounter: EnemyEncounter
 }
 
 export type BlackMerchantEncounter = EncounterBase & {

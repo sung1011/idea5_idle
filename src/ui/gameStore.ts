@@ -34,6 +34,7 @@ import {
   sellBulk,
   submitArtisan,
 } from '../sim/encounters'
+import { claimDungeonChest, reinforceDungeonCombat, startDungeonCombat } from '../sim/dungeon'
 import { claimGuideQuest } from '../sim/guideQuest'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
 import { tick } from '../sim/tick'
@@ -172,6 +173,11 @@ export const useGameStore = defineStore('game', () => {
       apply((s) => startCombat(s, index, workerIds, Date.now(), pushCombatLogTip, guests)),
     reinforceCombat: (index: number, workerIds: string[], guests?: Worker[]) =>
       apply((s) => reinforceCombat(s, index, workerIds, Date.now(), pushCombatLogTip, guests)),
+    startDungeonCombat: (workerIds: string[], guests?: Worker[]) =>
+      apply((s) => startDungeonCombat(s, workerIds, Date.now(), pushCombatLogTip, guests)),
+    reinforceDungeonCombat: (workerIds: string[], guests?: Worker[]) =>
+      apply((s) => reinforceDungeonCombat(s, workerIds, Date.now(), pushCombatLogTip, guests)),
+    claimDungeonChest: () => apply((s) => claimDungeonChest(s)),
     claimLoot: (index: number) => apply((s) => claimLoot(s, index)),
     barter: (index: number) => apply((s) => barterMerchant(s, index)),
     buyMerchant: (index: number) => apply((s) => buyMerchant(s, index)),

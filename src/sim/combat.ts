@@ -10,6 +10,14 @@ import {
 } from './combatAttrs'
 import { attackIntervalMul, workerAtkMul, workerHpMul } from './tech'
 import { drawEnemyTargetRule, pickEnemyTargets, type CombatTarget } from './combatTarget'
+import {
+  DUNGEON_PARTY_MAX,
+  dungeonPhaseIndex,
+  isDungeonEncounter,
+  maybeRotateDungeonTarget,
+  onDungeonBreak,
+  onDungeonWake,
+} from './dungeonTables'
 import { tryAutoEatAfterCombat, tryAutoEatWhenWounded } from './food'
 import { isWardActive } from './potions'
 import { roll01 } from './rng'
@@ -273,9 +281,15 @@ export function combatStatus(enc: EnemyEncounter): CombatStatus {
   return 'idle'
 }
 
+export function combatPartyCap(enc?: EnemyEncounter | null): number {
+  return isDungeonEncounter(enc) ? DUNGEON_PARTY_MAX : COMBAT_PARTY_MAX
+}
+
 export function fightingWorkerIds(save: Save): Set<string> {
   const ids = new Set<string>()
-  for (const enc of save.encounters) {
+  const boards = [...(save.encounters ?? [])]
+  if (save.dungeon?.encounter) boards.push(save.dungeon.encounter)
+  for (const enc of boards) {
     if (enc.kind !== 'enemy' || !isFighting(enc) || !enc.combat) continue
     for (const fighter of enc.combat.workers) {
       if (fighter.hp > 0) ids.add(fighter.id)
@@ -300,7 +314,7 @@ export function fieldFighterCount(enc: EnemyEncounter): number {
 }
 
 export function canReinforceCombat(enc: EnemyEncounter): boolean {
-  return isFighting(enc) && fieldFighterCount(enc) < COMBAT_PARTY_MAX
+  return isFighting(enc) && fieldFighterCount(enc) < combatPartyCap(enc)
 }
 
 export function isWorkerInCombat(save: Save, workerId: string): boolean {
@@ -427,7 +441,17 @@ export function ensureCombatShield(enc: EnemyEncounter, now: number, save?: Save
   combat.stunnedUntil = null
 }
 
-function wakeCombatShield(combat: EnemyCombat): void {
+function dungeonPhaseLocked(enc: EnemyEncounter): boolean {
+  return isDungeonEncounter(enc) && dungeonPhaseIndex(enc.dungeonPhase) < 3
+}
+
+function dungeonJaggedBonus(save: Save, enc: EnemyEncounter): number {
+  if (!isDungeonEncounter(enc)) return 0
+  return save.dungeon?.affixIds?.includes('jagged') ? 2 : 0
+}
+
+function wakeCombatShield(enc: EnemyEncounter, combat: EnemyCombat, at: number): void {
+  if (isDungeonEncounter(enc) && onDungeonWake(enc, combat, at)) return
   const max = Math.max(1, Math.floor(combat.shieldMax ?? 1))
   combat.shieldMax = max
   combat.shield = max
@@ -441,11 +465,18 @@ function applyBreak(
   onLog?: CombatLogSink,
 ): void {
   combat.shield = 0
-  combat.stunnedUntil = at + enemyStunMs(enc.enemyRank)
+  const stunMs = isDungeonEncounter(enc) ? onDungeonBreak(enc) : enemyStunMs(enc.enemyRank)
+  combat.stunnedUntil = at + stunMs
   if (combat.enemy.nextActAt < combat.stunnedUntil) {
     combat.enemy.nextActAt = combat.stunnedUntil
   }
   emitLog(enc, combat, at, BREAK_TIP, 'ok', onLog)
+}
+
+export type BeginCombatOpts = {
+  stats?: CombatStats
+  shield?: number
+  timeoutS?: number
 }
 
 export function beginEnemyCombat(
@@ -455,12 +486,14 @@ export function beginEnemyCombat(
   chapter = 1,
   onLog?: CombatLogSink,
   save?: Save,
+  opts?: BeginCombatOpts,
 ): EnemyCombat {
   ensureEnemyIntel(enc, 0, 0, save)
-  const eStats = enemyCombatStats(enc.quality, enc.enemyRank, chapter)
+  const eStats = opts?.stats ?? enemyCombatStats(enc.quality, enc.enemyRank, chapter)
+  const timeoutS = opts?.timeoutS ?? combatTimeoutS(enc.enemyRank)
   const combat: EnemyCombat = {
     startedAt: now,
-    timeoutAt: now + combatTimeoutS(enc.enemyRank) * 1000,
+    timeoutAt: now + timeoutS * 1000,
     workerIds: workers.map((w) => w.id),
     workers: workers.map((w) => fighterFromWorker(w, now, save)),
     enemy: makeFighter('enemy', enc.label, eStats, eStats.hp, now, undefined, true),
@@ -469,7 +502,10 @@ export function beginEnemyCombat(
     stunnedUntil: null,
   }
   enc.combat = combat
-  const rolled = rollEnemyShield(enc.enemyRank, shieldRoll(enc, now, save))
+  const rolled =
+    typeof opts?.shield === 'number' && opts.shield >= 1
+      ? Math.floor(opts.shield)
+      : rollEnemyShield(enc.enemyRank, shieldRoll(enc, now, save))
   combat.shieldMax = rolled
   combat.shield = rolled
   emitLog(enc, combat, now, `${workers.map((w) => w.name ?? w.id).join('、')} 出战`, 'ok', onLog)
@@ -597,6 +633,9 @@ function strike(
     const mul = result.mul * vuln
     const damage = scaledAttackDamage(attacker.atk, mul)
     target.hp = Math.max(0, target.hp - damage)
+    if (isDungeonEncounter(enc) && dungeonPhaseLocked(enc) && target.id === 'enemy' && target.hp <= 0) {
+      target.hp = 1
+    }
     const mulText = mul > 1 ? ` ×${mul}` : ''
     const hitText = result.hits.length ? `${formatWeaknessCritTip(result.hits)}${mulText}` : ''
     const tail = hitText ? `（${hitText}）（${target.hp}/${target.hpMax}）` : `（${target.hp}/${target.hpMax}）`
@@ -607,13 +646,14 @@ function strike(
     emitLog(enc, combat, at, `${attacker.label} 对 ${target.label} 的伤害被护命抵消`, 'ok', onLog)
     return
   }
-  target.hp = Math.max(0, target.hp - attacker.atk)
+  const hit = attacker.atk + dungeonJaggedBonus(save, enc)
+  target.hp = Math.max(0, target.hp - hit)
   writeBackFighterHp(save, target)
   emitLog(
     enc,
     combat,
     at,
-    `${attacker.label} 对 ${target.label} 造成 ${attacker.atk}（${target.hp}/${target.hpMax}）`,
+    `${attacker.label} 对 ${target.label} 造成 ${hit}（${target.hp}/${target.hpMax}）`,
     'err',
     onLog,
   )
@@ -637,12 +677,13 @@ function strikeWorkshop(
     emitLog(enc, combat, at, `${attacker.label} 对 ${target.label} 的伤害被护命抵消（工坊）`, 'ok', onLog)
     return
   }
-  worker.hp = Math.max(1, worker.hp - attacker.atk)
+  const hit = attacker.atk + dungeonJaggedBonus(save, enc)
+  worker.hp = Math.max(1, worker.hp - hit)
   emitLog(
     enc,
     combat,
     at,
-    `${attacker.label} 对 ${target.label} 造成 ${attacker.atk}（工坊）（${worker.hp}/${worker.hpMax}）`,
+    `${attacker.label} 对 ${target.label} 造成 ${hit}（工坊）（${worker.hp}/${worker.hpMax}）`,
     'err',
     onLog,
   )
@@ -653,8 +694,12 @@ function resolveEnemyStrikeTargets(
   save: Save,
   enc: EnemyEncounter,
   combat: EnemyCombat,
+  at = 0,
 ): CombatTarget[] {
-  const rule = drawEnemyTargetRule(save, enc)
+  if (isDungeonEncounter(enc)) maybeRotateDungeonTarget(enc, at)
+  let rule = drawEnemyTargetRule(save, enc)
+  if (isDungeonEncounter(enc) && enc.dungeonMechanic === 'cleave' && rule === 'rand1') rule = 'cleave2'
+  if (isDungeonEncounter(enc) && enc.dungeonMechanic === 'workshopSmash') rule = 'workshopBias'
   const picked = pickEnemyTargets(save, combat, rule, () => roll01(save))
   if (picked.length) return picked
   const fallback = pickEnemyTarget(combat)
@@ -702,8 +747,12 @@ export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number, on
   while (combat.outcome === null) {
     retireFallenFighters(save, enc, combat, lastAt, onLog)
     if (combat.enemy.hp <= 0) {
-      finishCombat(save, enc, combat, lastAt, 'win', '战斗胜利', onLog)
-      return
+      if (dungeonPhaseLocked(enc)) {
+        combat.enemy.hp = 1
+      } else {
+        finishCombat(save, enc, combat, lastAt, 'win', '战斗胜利', onLog)
+        return
+      }
     }
 
     const living = livingWorkers(combat)
@@ -722,7 +771,7 @@ export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number, on
 
     lastAt = nextAt
     if (isCombatStunned(combat, nextAt) === false && (combat.shield ?? 0) <= 0 && typeof combat.stunnedUntil === 'number') {
-      wakeCombatShield(combat)
+      wakeCombatShield(enc, combat, nextAt)
     }
     const actors = [...living, combat.enemy]
       .filter((f) => f.hp > 0 && f.nextActAt === nextAt && (f.id !== 'enemy' || !isCombatStunned(combat, nextAt)))
@@ -732,7 +781,7 @@ export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number, on
       if (combat.outcome) break
       if (actor.hp <= 0) continue
       if (actor.id === 'enemy') {
-        const targets = resolveEnemyStrikeTargets(save, enc, combat)
+        const targets = resolveEnemyStrikeTargets(save, enc, combat, nextAt)
         for (const target of targets) {
           if (combat.outcome) break
           if (target.lane === 'workshop') {
@@ -754,6 +803,8 @@ export function stepCombats(save: Save, now: number, onLog?: CombatLogSink): voi
   for (const enc of save.encounters) {
     if (enc.kind === 'enemy') stepEnemyCombat(save, enc, now, onLog)
   }
+  const dungeonEnc = save.dungeon?.encounter
+  if (dungeonEnc?.kind === 'enemy') stepEnemyCombat(save, dungeonEnc, now, onLog)
 }
 
 export function applyRestHeal(save: Save): void {
