@@ -36,7 +36,7 @@ import {
   type DungeonChestTier,
 } from './dungeonTables'
 import { hashString, roll01Bag } from './combatAttrs'
-import { ITEM_DEF, gameDay, type IoRule } from './tables'
+import { DAY_LENGTH_S, ITEM_DEF, formatClock, gameDay, timeOfDayS, type IoRule } from './tables'
 import { workerLootXp } from './workerLevel'
 import type { ActionResult, CombatStats, DungeonState, EncounterNeedMap, EnemyEncounter, ItemId, Save, Worker } from './types'
 
@@ -50,7 +50,6 @@ export {
   DUNGEON_BOSS_LABEL,
   DUNGEON_BOSS_STATS,
   DUNGEON_CHEST,
-  DUNGEON_DAILY_REFRESH_TIP,
   DUNGEON_MECHANIC_LABEL,
   DUNGEON_NEEDS,
   DUNGEON_PARTY_MAX,
@@ -87,6 +86,16 @@ function rollAffixPairForDay(day: number, salt = 0): DungeonAffixId[] {
 function lockedDungeonChapter(save?: Save): number {
   const n = save?.mainChapter
   return typeof n === 'number' && Number.isFinite(n) ? Math.max(1, Math.floor(n)) : 1
+}
+
+/** 距下一次 `gameDay` 日切（地牢硬刷边界）还剩多少秒。 */
+export function dungeonRefreshRemainS(elapsedS: number): number {
+  const remain = DAY_LENGTH_S - timeOfDayS(elapsedS)
+  return remain > 0 ? remain : DAY_LENGTH_S
+}
+
+export function dungeonRefreshCountdownLabel(elapsedS: number): string {
+  return `刷新倒计时: ${formatClock(dungeonRefreshRemainS(elapsedS))}`
 }
 
 export function dungeonScaleChapter(save: Save): number {

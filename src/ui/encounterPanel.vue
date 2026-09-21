@@ -32,11 +32,11 @@ import {
 import { timedOrderLine } from '../sim/marketTimed'
 import {
   DUNGEON_ATTEMPTS_PER_DAY,
-  DUNGEON_DAILY_REFRESH_TIP,
   DUNGEON_MECHANIC_LABEL,
   dungeonAffixRows,
   dungeonAttemptsLeft,
   dungeonEncounterOf,
+  dungeonRefreshCountdownLabel,
   dungeonSupplyBlockReason,
   isDungeonEncounter,
   type DungeonAffixId,
@@ -122,6 +122,7 @@ function onDocAffixHelp(ev: PointerEvent) {
   closeAffixHelp()
 }
 const cost = computed(() => exploreCost(game.save))
+const dungeonRefreshLabel = computed(() => dungeonRefreshCountdownLabel(game.save.elapsedS))
 const chapterTitle = computed(() => mainChapterTitle(game.save))
 const lootBarLabel = computed(() => mainLootClaimBarLabel(game.save))
 const lootBarPct = computed(() => mainLootClaimFillPct(game.save))
@@ -172,10 +173,6 @@ function selectTab(id: MainlineTabId) {
 }
 
 function onExplore() {
-  if (isDungeonTab.value) {
-    pushFloatTip(DUNGEON_DAILY_REFRESH_TIP)
-    return
-  }
   game.explore()
 }
 
@@ -349,19 +346,6 @@ function timedLine(enc: Encounter) {
           {{ MAINLINE_TAB_LABELS[id] }}
         </button>
       </nav>
-      <nav class="sub density" role="tablist" aria-label="订单详略">
-        <button
-          v-for="id in MAINLINE_DENSITY_IDS"
-          :key="id"
-          type="button"
-          role="tab"
-          :aria-selected="currentDensity === id"
-          :class="{ on: currentDensity === id }"
-          @click="selectDensity(id)"
-        >
-          {{ MAINLINE_DENSITY_LABELS[id] }}
-        </button>
-      </nav>
     </div>
     <div class="chapter-head">
       <p class="chapter">{{ chapterTitle }}</p>
@@ -378,7 +362,7 @@ function timedLine(enc: Encounter) {
         <span>{{ lootBarLabel }}</span>
       </div>
     </div>
-    <div class="row">
+    <div class="row refresh">
       <button
         v-if="!isDungeonTab"
         type="button"
@@ -386,15 +370,26 @@ function timedLine(enc: Encounter) {
       >
         探索（{{ cost }} 金）
       </button>
-      <button
+      <p
         v-else
-        type="button"
-        disabled
-        :title="DUNGEON_DAILY_REFRESH_TIP"
-        @click="onExplore"
+        class="refresh-hint"
+        aria-live="polite"
       >
-        {{ DUNGEON_DAILY_REFRESH_TIP }}
-      </button>
+        {{ dungeonRefreshLabel }}
+      </p>
+      <nav class="sub density" role="tablist" aria-label="订单详略">
+        <button
+          v-for="id in MAINLINE_DENSITY_IDS"
+          :key="id"
+          type="button"
+          role="tab"
+          :aria-selected="currentDensity === id"
+          :class="{ on: currentDensity === id }"
+          @click="selectDensity(id)"
+        >
+          {{ MAINLINE_DENSITY_LABELS[id] }}
+        </button>
+      </nav>
     </div>
     <p v-if="buffOn" class="buff">{{ buffLabel }}</p>
     <div v-if="isDungeonTab" class="dungeon-meta">
@@ -679,10 +674,6 @@ function timedLine(enc: Encounter) {
 .board-nav .sub {
   flex: 1 1 0;
   min-width: 0;
-}
-
-.board-nav .density {
-  flex: 0 0 auto;
 }
 
 .sub {
@@ -1062,6 +1053,22 @@ ul {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.refresh {
+  align-items: center;
+}
+
+.refresh .density {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.refresh-hint {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 14px;
 }
 
 .act-hit {

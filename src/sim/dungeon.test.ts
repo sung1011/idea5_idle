@@ -21,6 +21,8 @@ import {
   dungeonBossLiveStats,
   dungeonChestTier,
   dungeonEncounterOf,
+  dungeonRefreshCountdownLabel,
+  dungeonRefreshRemainS,
   dungeonScaleChapter,
   dungeonShieldBonus,
   dungeonSupplyBlockReason,
@@ -32,7 +34,7 @@ import {
 import { dungeonChapterScale, dungeonStunS, onDungeonBreak, onDungeonWake, rotateDungeonTarget } from './dungeonTables'
 import { exploreBoard } from './encounters'
 import { spawnWorkerWith } from './recruit'
-import { DAY_LENGTH_S } from './tables'
+import { DAY_LENGTH_S, formatClock } from './tables'
 import type { EnemyEncounter, Worker } from './types'
 
 function stockDungeon(save: ReturnType<typeof createSave>) {
@@ -84,6 +86,23 @@ describe('dungeon mvp', () => {
     const spent = startDungeonCombat(save, [a.id], now + 20)
     expect(spent.ok).toBe(false)
     if (!spent.ok) expect(spent.reason).toBe('今日地牢次数已用完')
+  })
+
+  it('counts down to the next game-day cut used by dungeon hard refresh', () => {
+    expect(dungeonRefreshRemainS(0)).toBe(DAY_LENGTH_S)
+    expect(dungeonRefreshCountdownLabel(0)).toBe(`刷新倒计时: ${formatClock(DAY_LENGTH_S)}`)
+    expect(dungeonRefreshRemainS(1)).toBe(DAY_LENGTH_S - 1)
+    expect(dungeonRefreshCountdownLabel(DAY_LENGTH_S - 1)).toBe('刷新倒计时: 00:00:01')
+    expect(dungeonRefreshRemainS(DAY_LENGTH_S)).toBe(DAY_LENGTH_S)
+    expect(dungeonRefreshCountdownLabel(39)).toBe(`刷新倒计时: ${formatClock(DAY_LENGTH_S - 39)}`)
+    const save = createSave()
+    save.elapsedS = DAY_LENGTH_S - 1
+    expect(dungeonRefreshRemainS(save.elapsedS)).toBe(1)
+    expect(save.dungeon.day).toBe(1)
+    save.elapsedS = DAY_LENGTH_S
+    ensureDungeonDay(save)
+    expect(save.dungeon.day).toBe(2)
+    expect(dungeonRefreshRemainS(save.elapsedS)).toBe(DAY_LENGTH_S)
   })
 
   it('resets affixes and attempts on a new game day when not fighting', () => {

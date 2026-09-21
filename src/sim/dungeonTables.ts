@@ -18,8 +18,6 @@ export const DUNGEON_TARGET_ROTATE_S = 18
 
 export const DUNGEON_NEEDS: EncounterNeedMap = { herb: 12, spice: 6, meal: 4, salve: 3 }
 
-export const DUNGEON_DAILY_REFRESH_TIP = '地牢每日自动刷新'
-
 export const DUNGEON_AFFIX_FX = {
   thickHideHpMul: 1.4,
   quickenedSpdMul: 0.7,
