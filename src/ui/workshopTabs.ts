@@ -24,7 +24,7 @@ export type WorkshopGroupProgress = {
 export const WORKSHOP_GROUP_PROGRESS: Record<WorkshopGroupId, WorkshopGroupProgress> = {
   potion: { from: '#6a8f72', to: '#8fb89a' },
   food: { from: '#b07a52', to: '#c99470' },
-  weapon: { from: '#8a6a4e', to: '#a48462' },
+  weapon: { from: '#7a6a8f', to: '#9488a8' },
 }
 
 export function workshopGroupProgressStyle(id: WorkshopGroupId): Record<string, string> {

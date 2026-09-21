@@ -102,7 +102,7 @@ describe('workshopTabs', () => {
   it('colors workshop progress by group, not sidebar chrome', () => {
     expect(WORKSHOP_GROUP_PROGRESS.potion.from).toBe('#6a8f72')
     expect(WORKSHOP_GROUP_PROGRESS.food.from).toBe('#b07a52')
-    expect(WORKSHOP_GROUP_PROGRESS.weapon.from).toBe('#8a6a4e')
+    expect(WORKSHOP_GROUP_PROGRESS.weapon.from).toBe('#7a6a8f')
     expect(WORKSHOP_GROUP_PROGRESS.weapon.from).not.toBe(WORKSHOP_GROUP_PROGRESS.potion.from)
     expect(workshopGroupProgressStyle('potion')).toEqual({
       '--workshop-progress-from': '#6a8f72',
