@@ -13,7 +13,9 @@ import {
   isWorkshopTabId,
   loadWorkshopTab,
   saveWorkshopTab,
+  WORKSHOP_GROUP_CHROME,
   stationsOfWorkshopGroup,
+  workshopGroupChromeStyle,
   workshopGroupLabel,
   workshopGroupOf,
   workshopGroupOfStation,
@@ -94,6 +96,16 @@ describe('workshopTabs', () => {
     expect(workshopGroupOf('brew')).toBe('potion')
     expect(workshopGroupOf('smelt')).toBe('weapon')
     expect(workshopGroupOf('nope')).toBe(DEFAULT_WORKSHOP_GROUP)
+  })
+
+  it('gives each workshop group a muted Scheme A chrome', () => {
+    expect(WORKSHOP_GROUP_CHROME.potion).toEqual({ accent: '#5f7a62', tint: '#d7e2d6' })
+    expect(WORKSHOP_GROUP_CHROME.food).toEqual({ accent: '#9a6b4a', tint: '#ead8c6' })
+    expect(WORKSHOP_GROUP_CHROME.weapon).toEqual({ accent: '#5c6a76', tint: '#d5dce3' })
+    expect(workshopGroupChromeStyle('potion')).toEqual({
+      '--workshop-group-accent': '#5f7a62',
+      '--workshop-group-tint': '#d7e2d6',
+    })
   })
 
   it('resolves unknown and legacy line ids', () => {

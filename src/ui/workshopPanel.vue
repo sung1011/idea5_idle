@@ -20,6 +20,7 @@ import { selectWorkshopGroup, syncWorkshopTab, workshopGroup, workshopTab } from
 import {
   WORKSHOP_GROUPS,
   stationsOfWorkshopGroup,
+  workshopGroupChromeStyle,
   workshopGroupLabel,
   type WorkshopGroupId,
 } from './workshopTabs'
@@ -99,6 +100,7 @@ watch(activeStation, async () => {
             locked: groupLocked(row.id),
             'guide-flash': row.stations.includes('alchemy') && guideFlashAlchemy,
           }"
+          :style="workshopGroupChromeStyle(row.id)"
           @click="selectGroup(row.id)"
         >
           <span class="fills" aria-hidden="true">
@@ -189,6 +191,9 @@ watch(activeStation, async () => {
   font-family: var(--font-display);
   font-size: 11px;
   letter-spacing: 0.04em;
+  background: var(--workshop-group-tint);
+  border-color: var(--workshop-group-accent);
+  box-shadow: 0 2px 0 var(--workshop-group-accent), inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
 .rail .fills {
@@ -271,10 +276,10 @@ watch(activeStation, async () => {
 .rail button.on:active:not(:disabled) {
   color: var(--ink);
   font-weight: inherit;
-  background: linear-gradient(#fffbeb, var(--btn));
+  background: var(--workshop-group-tint);
   border-width: 6px;
-  border-color: #6b3a2a;
-  box-shadow: 0 3px 0 #5c2e24, inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  border-color: var(--workshop-group-accent);
+  box-shadow: 0 3px 0 var(--workshop-group-accent), inset 0 1px 0 rgba(255, 255, 255, 0.65);
   opacity: 1;
   filter: none;
 }
@@ -291,7 +296,7 @@ watch(activeStation, async () => {
   z-index: 2;
   pointer-events: none;
   border-radius: inherit;
-  box-shadow: inset 0 0 0 4px #5c2e24;
+  box-shadow: inset 0 0 0 4px var(--workshop-group-accent);
 }
 
 .rail .ui-ico {
