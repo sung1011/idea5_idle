@@ -510,6 +510,12 @@ onUnmounted(() => {
                 <UiIcon name="alchemy" />
                 <span class="potion-lab">{{ potionSlotLabel(itemId) }}</span>
                 <span
+                  class="unequip"
+                  role="button"
+                  :aria-label="`卸下 ${ITEM_DEF[itemId].label}`"
+                  @click.stop="game.clearPotionSlot(i)"
+                >×</span>
+                <span
                   class="potion-help"
                   data-potion-help
                   role="button"
@@ -517,12 +523,6 @@ onUnmounted(() => {
                   :aria-label="`查看 ${ITEM_DEF[itemId].label} 效果`"
                   @click.stop="onPotionHelp($event, 'slot', itemId)"
                 >？</span>
-                <span
-                  class="unequip"
-                  role="button"
-                  :aria-label="`卸下 ${ITEM_DEF[itemId].label}`"
-                  @click.stop="game.clearPotionSlot(i)"
-                >×</span>
               </template>
               <template v-else>
                 <span class="empty-mark" aria-hidden="true">＋</span>
@@ -761,7 +761,7 @@ onUnmounted(() => {
         <div class="pick-list">
           <div v-for="id in potionPickOptions" :key="id" class="pick-cell">
             <div class="potion-pick-row">
-              <button type="button" @click="onInstallPotion(id)">
+              <button type="button" class="potion-pick-main" @click="onInstallPotion(id)">
                 <span>{{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}</span>
               </button>
               <button
@@ -770,7 +770,7 @@ onUnmounted(() => {
                 data-potion-help
                 :aria-pressed="isPotionHelpOpen(potionHelp, 'pick', id)"
                 :aria-label="`查看 ${ITEM_DEF[id].label} 效果`"
-                @click="onPotionHelp($event, 'pick', id)"
+                @click.stop="onPotionHelp($event, 'pick', id)"
               >
                 ？
               </button>
@@ -951,6 +951,7 @@ onUnmounted(() => {
 
 .potion-slot {
   position: relative;
+  overflow: visible;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -977,45 +978,62 @@ onUnmounted(() => {
 .potion-slot .unequip,
 .potion-slot .potion-help {
   position: absolute;
-  top: -4px;
-  width: 16px;
-  height: 16px;
+  top: -2px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   font-size: 11px;
-  line-height: 16px;
+  font-weight: 700;
+  line-height: 1;
   text-align: center;
 }
 
+.potion-slot .unequip::before,
+.potion-slot .potion-help::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
 .potion-slot .unequip {
-  right: -2px;
+  left: -2px;
   background: #8a3228;
   color: #fff8ee;
 }
 
 .potion-slot .potion-help {
-  left: -2px;
+  right: -2px;
   background: #6a4a18;
   color: #fff8ee;
 }
 
 .potion-pick-row {
-  display: flex;
-  align-items: stretch;
-  gap: 6px;
+  position: relative;
   min-width: 0;
 }
 
-.potion-pick-row button:not(.potion-help) {
-  flex: 1 1 auto;
+.potion-pick-main {
+  width: 100%;
   min-width: 0;
+  padding-right: 40px;
 }
 
 .potion-help.pick {
-  flex: 0 0 36px;
-  width: 36px;
-  min-height: 48px;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  width: 28px;
+  min-width: 28px;
+  min-height: 28px;
   padding: 0;
-  border-radius: 12px;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .potion-bubble {
