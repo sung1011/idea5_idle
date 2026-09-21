@@ -112,9 +112,10 @@ export function gmAddTechPoints(save: Save, amount = GM_TECH_POINTS_GRANT): Acti
   return { ok: true, message: `灵感 +${qty}` }
 }
 
-/** 两阶段引导全部标完成，浮层/聚光灯消失。不发未领的 20 金，不动骑士等级与其它资源。 */
+/** 三阶段引导全部标完成，浮层/聚光灯消失。不发未领的 20 金，不动骑士等级与其它资源。 */
 export function gmSkipGuide(save: Save): ActionResult {
   save.guideQuestStep = GUIDE_QUEST_DONE_STEP
   save.guideQuestRev = GUIDE_QUEST_REV
+  save.guideQuestRuneOpened = true
   return { ok: true, message: '已跳过引导' }
 }

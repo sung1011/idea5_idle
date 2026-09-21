@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ENEMY_RANK_LABEL, enemyWeaknessView, fighterRecommendLabel } from '../sim/combatAttrs'
 import CombatAttrIcon from './combatAttrIcon.vue'
 import CombatAttrRow from './combatAttrRow.vue'
@@ -43,7 +43,12 @@ import {
   type CombatAffixScope,
   type DungeonAffixId,
 } from '../sim/dungeon'
-import { isGuideQuestCombatFlash, isGuideQuestFlash } from '../sim/guideQuest'
+import {
+  battlefieldRuneGuideOpenIndex,
+  isGuideQuestCombatFlash,
+  isGuideQuestFlash,
+  isGuideQuestRuneFlash,
+} from '../sim/guideQuest'
 import { mainChapterTitle, mainLootClaimBarLabel, mainLootClaimFillPct } from '../sim/mainChapter'
 import { isRuneItemId, RUNE_DEF } from '../sim/tables'
 import { pickWorkerName } from './pickWorkerName'
@@ -65,6 +70,7 @@ import {
   isDungeonAffixHelpOpen,
   nextDungeonAffixHelp,
 } from './dungeonAffixHelp'
+import { pendingGuideRunePick, takeGuideRunePickRequest } from './guideQuestNav'
 import { FIGHTING_DOT_MS, fightingButtonLabel } from './fightingLabel'
 import { formatAtkSpeed } from './formatAtkSpeed'
 import { pushFloatTip } from './floatTips'
@@ -92,8 +98,19 @@ import {
 
 const game = useGameStore()
 const guideFlashCombat = computed(() => isGuideQuestFlash(game.save, 'combat'))
+const guideFlashRune = computed(() => isGuideQuestFlash(game.save, 'rune'))
 function guideFlashEnemy(enc: Encounter) {
-  return isGuideQuestCombatFlash(game.save, enc)
+  return isGuideQuestCombatFlash(game.save, enc) || (guideFlashRune.value && isGuideQuestRuneFlash(game.save, enc))
+}
+function tryOpenGuideRunePick() {
+  if (!guideFlashRune.value || pickOpen.value) return
+  if (!takeGuideRunePickRequest()) return
+  const index = battlefieldRuneGuideOpenIndex(game.save)
+  if (index == null) return
+  const enc = game.save.encounters[index]
+  if (enc?.kind !== 'enemy') return
+  if (isFighting(enc) && canReinforceCombat(enc)) openReinforce(index)
+  else openPick(index)
 }
 const currentTab = computed(() => mainlineTab.value)
 const isDungeonTab = computed(() => currentTab.value === 'dungeon')
@@ -155,6 +172,7 @@ onMounted(() => {
     fightNow.value = Date.now()
   }, FIGHTING_DOT_MS)
   document.addEventListener('pointerdown', onDocAffixHelp)
+  tryOpenGuideRunePick()
 })
 onUnmounted(() => {
   window.clearInterval(fightDotTimer)
@@ -278,7 +296,12 @@ function openRunePick(workerId: string, ev?: Event) {
     return
   }
   runePickWorkerId.value = workerId
+  game.markGuideRuneOpened()
 }
+
+watch([guideFlashRune, pendingGuideRunePick], () => {
+  tryOpenGuideRunePick()
+})
 
 function onRuneSlotTap(worker: Worker, ev?: Event) {
   ev?.stopPropagation()
@@ -593,6 +616,7 @@ function timedLine(enc: Encounter) {
               <button
                 v-if="canReinforceCombat(enc)"
                 type="button"
+                :class="{ 'guide-flash': guideFlashEnemy(enc) && !pickOpen }"
                 @click="openReinforce(i)"
               >
                 增援
@@ -740,7 +764,7 @@ function timedLine(enc: Encounter) {
               <button
                 type="button"
                 class="rune-slot"
-                :class="{ on: runeSlotUnlocked && !!equippedRune(w.id), locked: !runeSlotUnlocked }"
+                :class="{ on: runeSlotUnlocked && !!equippedRune(w.id), locked: !runeSlotUnlocked, 'guide-flash': guideFlashRune && runeSlotUnlocked }"
                 :disabled="!runeSlotUnlocked || !isFullCombatHp(w)"
                 :aria-label="`${pickWorkerName(w)} 符文槽`"
                 @click.stop="onRuneSlotTap(w, $event)"

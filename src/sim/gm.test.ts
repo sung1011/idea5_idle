@@ -122,7 +122,7 @@ describe('gm debug grants', () => {
     expect(save.techPoints).toBe(before + 10000)
   })
 
-  it('skips both guide phases without paying unclaimed step gold', () => {
+  it('skips all guide phases without paying unclaimed step gold', () => {
     const save = createSave()
     const gold = save.gold
     const knight = save.knightLevel
@@ -132,6 +132,7 @@ describe('gm debug grants', () => {
     expect(gmSkipGuide(save)).toEqual({ ok: true, message: '已跳过引导' })
     expect(save.guideQuestStep).toBe(GUIDE_QUEST_DONE_STEP)
     expect(save.guideQuestRev).toBe(GUIDE_QUEST_REV)
+    expect(save.guideQuestRuneOpened).toBe(true)
     expect(save.gold).toBe(gold)
     expect(save.knightLevel).toBe(knight)
     expect(save.techPoints).toBe(tech)

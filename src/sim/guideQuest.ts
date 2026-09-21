@@ -1,20 +1,23 @@
 import { bankQty } from './bank'
-import { allEncounters, isEncounterDone, isStarterCopperPawn } from './encounters'
-import { knightLevelOf } from './stationUnlock'
+import { canReinforceCombat, isCombatWon, isFighting } from './combat'
+import { allEncounters, combatSupplyBlockReason, isEncounterDone, isStarterCopperPawn } from './encounters'
+import { isStationUnlocked, knightLevelOf } from './stationUnlock'
 import { POTION_ITEM_IDS } from './tables'
-import type { ActionResult, Encounter, Save } from './types'
+import type { ActionResult, Encounter, EnemyEncounter, Save } from './types'
 
 export const GUIDE_QUEST_PHASE1_STEPS = 4
 export const GUIDE_QUEST_PHASE2_STEPS = 3
-export const GUIDE_QUEST_STEPS = GUIDE_QUEST_PHASE1_STEPS + GUIDE_QUEST_PHASE2_STEPS
+export const GUIDE_QUEST_PHASE3_STEPS = 1
+export const GUIDE_QUEST_STEPS = GUIDE_QUEST_PHASE1_STEPS + GUIDE_QUEST_PHASE2_STEPS + GUIDE_QUEST_PHASE3_STEPS
 export const GUIDE_QUEST_GOLD = 20
-/** 七步都已领取后的步号；浮层不渲染。 */
+/** 八步都已领取后的步号；浮层不渲染。 */
 export const GUIDE_QUEST_DONE_STEP = GUIDE_QUEST_STEPS + 1
 export const GUIDE_QUEST_PHASE2_START = GUIDE_QUEST_PHASE1_STEPS + 1
+export const GUIDE_QUEST_PHASE3_START = GUIDE_QUEST_PHASE1_STEPS + GUIDE_QUEST_PHASE2_STEPS + 1
 /** 骑士 2 级才开第二阶段（炼金 / 装槽 / 点用）。 */
 export const GUIDE_QUEST_PHASE2_KNIGHT = 2
 /** 第一步须抽工人 2 次。缺字段或旧档按现况重落步号。 */
-export const GUIDE_QUEST_REV = 3
+export const GUIDE_QUEST_REV = 4
 /** 第一阶段「抽工人」完成所需次数（花名册人数或已生成序号，取较大）。 */
 export const GUIDE_QUEST_RECRUIT_NEED = 2
 
@@ -26,11 +29,12 @@ export const GUIDE_QUEST_GOALS = [
   '在炼金站炼成药剂',
   '把药剂装进技能槽',
   '点药剂槽产生效果',
+  '在选人面板点开符文槽',
 ] as const
 
 export type GuideQuestView = {
   step: number
-  phase: 1 | 2
+  phase: 1 | 2 | 3
   phaseStep: number
   phaseTotal: number
   title: string
@@ -56,6 +60,10 @@ export function normalizeStarterCopperPawnDone(value: unknown): boolean {
 }
 
 export function normalizeGuideQuestPotionUsed(value: unknown): boolean {
+  return value === true
+}
+
+export function normalizeGuideQuestRuneOpened(value: unknown): boolean {
   return value === true
 }
 
@@ -124,6 +132,53 @@ export function isGuideQuestPhase2Open(save: Pick<Save, 'knightLevel'>): boolean
   return knightLevelOf(save) >= GUIDE_QUEST_PHASE2_KNIGHT
 }
 
+/** 铭刻按骑士开站表解锁后才出第三阶段（点开符文槽）。 */
+export function isGuideQuestPhase3Open(save: Pick<Save, 'knightLevel'>): boolean {
+  return isStationUnlocked(save, 'inscription')
+}
+
+export function hasOpenedRunePick(save: Pick<Save, 'guideQuestRuneOpened'>): boolean {
+  return save.guideQuestRuneOpened === true
+}
+
+export function markGuideQuestRuneOpened(save: Save): boolean {
+  if (save.guideQuestRuneOpened) return false
+  if (!isGuideQuestPhase3Open(save)) return false
+  save.guideQuestRuneOpened = true
+  return true
+}
+
+/** 战场卡面出「开战」或「增援」的格子；物资不够的开战仍算出。 */
+export function isBattlefieldRuneGuideFight(enc: Encounter): enc is EnemyEncounter {
+  if (enc.kind !== 'enemy' || enc.lootClaimed) return false
+  if (isFighting(enc)) return canReinforceCombat(enc)
+  return !isCombatWon(enc)
+}
+
+export function canOpenBattlefieldRuneGuidePick(save: Save, enc: Encounter, index: number): boolean {
+  if (!isBattlefieldRuneGuideFight(enc)) return false
+  if (isFighting(enc)) return true
+  return !combatSupplyBlockReason(save, index)
+}
+
+export function battlefieldRuneGuideFightIndex(save: Save): number | null {
+  for (let i = 0; i < save.encounters.length; i++) {
+    if (isBattlefieldRuneGuideFight(save.encounters[i])) return i
+  }
+  return null
+}
+
+export function battlefieldRuneGuideOpenIndex(save: Save): number | null {
+  for (let i = 0; i < save.encounters.length; i++) {
+    if (canOpenBattlefieldRuneGuidePick(save, save.encounters[i], i)) return i
+  }
+  return null
+}
+
+export function hasClickableBattlefieldRuneFight(save: Save): boolean {
+  return battlefieldRuneGuideFightIndex(save) != null
+}
+
 /** 已抽/已生成工人次数。花名册与 nextWorkerId 取较大，合成后仍算抽过。 */
 export function guideQuestRecruitCount(save: Pick<Save, 'workers' | 'nextWorkerId'>): number {
   const roster = save.workers.length
@@ -151,12 +206,14 @@ export function guideQuestProgressAt(save: Save, step: number): 0 | 1 {
       return hasInstalledPotion(save) ? 1 : 0
     case 7:
       return hasUsedPotionFromSlot(save) ? 1 : 0
+    case 8:
+      return hasOpenedRunePick(save) ? 1 : 0
     default:
       return 0
   }
 }
 
-/** 第一未完成步；七步都齐则 8。 */
+/** 第一未完成步；八步都齐则 9。 */
 export function firstIncompleteGuideQuestStep(save: Save): number {
   for (let step = 1; step <= GUIDE_QUEST_STEPS; step++) {
     if (guideQuestProgressAt(save, step) < 1) return step
@@ -180,6 +237,7 @@ export type GuideQuestFlashId =
   | 'alchemy'
   | 'potionInstall'
   | 'potionUse'
+  | 'rune'
 
 export function guideQuestFlashId(save: Save): GuideQuestFlashId | null {
   const view = guideQuestView(save)
@@ -199,6 +257,8 @@ export function guideQuestFlashId(save: Save): GuideQuestFlashId | null {
       return 'potionInstall'
     case 7:
       return 'potionUse'
+    case 8:
+      return 'rune'
     default:
       return null
   }
@@ -226,24 +286,45 @@ export function isGuideQuestCombatFlash(save: Save, enc: Encounter): boolean {
   return !!target && target.id === enc.id
 }
 
+export function guideQuestRuneFlashEncounter(save: Save): Encounter | null {
+  if (!isGuideQuestFlash(save, 'rune')) return null
+  const index = battlefieldRuneGuideFightIndex(save)
+  return index == null ? null : save.encounters[index]
+}
+
+export function isGuideQuestRuneFlash(save: Save, enc: Encounter): boolean {
+  const target = guideQuestRuneFlashEncounter(save)
+  return !!target && target.id === enc.id
+}
+
 export function guideQuestView(save: Save): GuideQuestView | null {
   const step = normalizeGuideQuestStep(save.guideQuestStep)
   if (step >= GUIDE_QUEST_DONE_STEP) return null
-  if (step >= GUIDE_QUEST_PHASE2_START && !isGuideQuestPhase2Open(save)) return null
+  if (step >= GUIDE_QUEST_PHASE3_START) {
+    if (!isGuideQuestPhase3Open(save)) return null
+    if (guideQuestProgressAt(save, step) < 1 && !hasClickableBattlefieldRuneFight(save)) return null
+  } else if (step >= GUIDE_QUEST_PHASE2_START && !isGuideQuestPhase2Open(save)) {
+    return null
+  }
   const progress = guideQuestProgressAt(save, step)
   const claimable = progress >= 1
-  const phase: 1 | 2 = step <= GUIDE_QUEST_PHASE1_STEPS ? 1 : 2
-  const phaseStep = phase === 1 ? step : step - GUIDE_QUEST_PHASE1_STEPS
-  const phaseTotal = phase === 1 ? GUIDE_QUEST_PHASE1_STEPS : GUIDE_QUEST_PHASE2_STEPS
+  const phase: 1 | 2 | 3 =
+    step <= GUIDE_QUEST_PHASE1_STEPS ? 1 : step < GUIDE_QUEST_PHASE3_START ? 2 : 3
+  const phaseStep =
+    phase === 1 ? step : phase === 2 ? step - GUIDE_QUEST_PHASE1_STEPS : step - GUIDE_QUEST_PHASE3_START + 1
+  const phaseTotal =
+    phase === 1 ? GUIDE_QUEST_PHASE1_STEPS : phase === 2 ? GUIDE_QUEST_PHASE2_STEPS : GUIDE_QUEST_PHASE3_STEPS
   const recruitHave = Math.min(guideQuestRecruitCount(save), GUIDE_QUEST_RECRUIT_NEED)
   const denom = step === 1 ? GUIDE_QUEST_RECRUIT_NEED : 1
   const numer = step === 1 ? recruitHave : progress
+  const title =
+    phase === 1 ? `主线 · ${phaseStep}/${phaseTotal}` : phase === 2 ? `进阶 · ${phaseStep}/${phaseTotal}` : `符文 · ${phaseStep}/${phaseTotal}`
   return {
     step,
     phase,
     phaseStep,
     phaseTotal,
-    title: phase === 1 ? `主线 · ${phaseStep}/${phaseTotal}` : `进阶 · ${phaseStep}/${phaseTotal}`,
+    title,
     goal: GUIDE_QUEST_GOALS[step - 1] ?? '',
     progress,
     progressLabel: claimable ? `进度 ${numer}/${denom} · 可领` : `进度 ${numer}/${denom}`,
@@ -255,7 +336,10 @@ export function guideQuestView(save: Save): GuideQuestView | null {
 export function claimGuideQuest(save: Save): ActionResult {
   const step = normalizeGuideQuestStep(save.guideQuestStep)
   if (step >= GUIDE_QUEST_DONE_STEP) return { ok: false, reason: '新手任务已完成' }
-  if (step >= GUIDE_QUEST_PHASE2_START && !isGuideQuestPhase2Open(save)) {
+  if (step >= GUIDE_QUEST_PHASE3_START && !isGuideQuestPhase3Open(save)) {
+    return { ok: false, reason: '铭刻未解锁' }
+  }
+  if (step >= GUIDE_QUEST_PHASE2_START && step < GUIDE_QUEST_PHASE3_START && !isGuideQuestPhase2Open(save)) {
     return { ok: false, reason: '骑士 2 级开放' }
   }
   if (guideQuestProgressAt(save, step) < 1) return { ok: false, reason: '尚未完成' }
@@ -284,11 +368,13 @@ export function hydrateGuideQuestFields(save: Save, raw?: object): Save {
     guideQuestStep?: unknown
     guideQuestRev?: unknown
     guideQuestPotionUsed?: unknown
+    guideQuestRuneOpened?: unknown
   }
   hydratePawnFlag(save, raw, incoming)
 
   incoming.guideQuestPotionUsed =
     normalizeGuideQuestPotionUsed(incoming.guideQuestPotionUsed) || hasUsedPotionFromSlot(save)
+  incoming.guideQuestRuneOpened = normalizeGuideQuestRuneOpened(incoming.guideQuestRuneOpened)
 
   const hadRev = !!raw && Object.prototype.hasOwnProperty.call(raw, 'guideQuestRev')
   const hadStep = !!raw && Object.prototype.hasOwnProperty.call(raw, 'guideQuestStep')

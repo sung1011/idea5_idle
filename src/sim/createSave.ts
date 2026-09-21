@@ -35,6 +35,7 @@ export function createSave(): Save {
     guideQuestStep: 1,
     guideQuestRev: GUIDE_QUEST_REV,
     guideQuestPotionUsed: false,
+    guideQuestRuneOpened: false,
     starterCopperPawnDone: false,
     workshopBuff: null,
     exploreCount: 0,

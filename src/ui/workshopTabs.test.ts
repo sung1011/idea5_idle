@@ -73,13 +73,13 @@ describe('workshopTabs', () => {
     expect(WORKSHOP_RAIL_ROW_COUNT).toBe(7)
   })
 
-  it('groups workshop stations as 药剂 / 食物 / 矿符', () => {
+  it('groups workshop stations as 药剂 / 食物 / 符文', () => {
     expect(WORKSHOP_GROUPS.map((row) => [row.id, row.label, ...row.stations])).toEqual([
       ['potion', '药剂', 'herbalism', 'alchemy'],
       ['food', '食物', 'hunting', 'cooking'],
-      ['weapon', '矿符', 'mining', 'inscription'],
+      ['weapon', '符文', 'mining', 'inscription'],
     ])
-    expect(WORKSHOP_GROUPS.map((row) => workshopGroupLabel(row.id))).toEqual(['药剂', '食物', '矿符'])
+    expect(WORKSHOP_GROUPS.map((row) => workshopGroupLabel(row.id))).toEqual(['药剂', '食物', '符文'])
     expect(DEFAULT_WORKSHOP_GROUP).toBe('potion')
     expect(DEFAULT_WORKSHOP_TAB).toBe('herbalism')
     expect(workshopGroupOfStation('herbalism')).toBe('potion')

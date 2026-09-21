@@ -466,14 +466,14 @@ describe('unlock-gated main need pool', () => {
     expect(mainNeedItemPool({ knightLevel: 8 })).toContain('meal')
     expect(mainNeedItemPool({ knightLevel: 8 })).toContain('roast')
     expect(mainNeedItemPool({ knightLevel: 8 })).toContain('stew')
-    expect(mainNeedItemPool({ knightLevel: 8 })).not.toContain('ore')
-    expect(mainNeedItemPool({ knightLevel: 18 })).toContain('ore')
-    expect(mainNeedItemPool({ knightLevel: 18 })).toContain('ironOre')
-    expect(mainNeedItemPool({ knightLevel: 18 })).toContain('mithrilOre')
-    expect(mainNeedItemPool({ knightLevel: 18 })).not.toContain('runeSharp')
-    expect(mainNeedItemPool({ knightLevel: 20 })).toContain('runeSharp')
+    expect(mainNeedItemPool({ knightLevel: 8 })).toContain('ore')
+    expect(mainNeedItemPool({ knightLevel: 8 })).toContain('ironOre')
+    expect(mainNeedItemPool({ knightLevel: 8 })).toContain('mithrilOre')
+    expect(mainNeedItemPool({ knightLevel: 8 })).not.toContain('runeSharp')
+    expect(mainNeedItemPool({ knightLevel: 9 })).not.toContain('runeSharp')
+    expect(mainNeedItemPool({ knightLevel: 10 })).toContain('runeSharp')
     expect(mainNeedItemPool()).toEqual(['herb', 'spice'])
-    expect(MAIN_NEED_ITEM_POOL).toEqual(mainNeedItemPool({ knightLevel: 20 }))
+    expect(MAIN_NEED_ITEM_POOL).toEqual(mainNeedItemPool({ knightLevel: 10 }))
     expect(MAIN_NEED_ITEM_POOL).not.toContain('potion')
   })
 
@@ -501,7 +501,7 @@ describe('unlock-gated main need pool', () => {
       isPotionItemId(resolveUnlockedMainNeedItem('potion', 'green', 1, false, undefined, 0, { knightLevel: 2 })),
     ).toBe(true)
     expect(
-      isRuneItemId(resolveUnlockedMainNeedItem('tool', 'green', 1, false, undefined, 0, { knightLevel: 20 })),
+      isRuneItemId(resolveUnlockedMainNeedItem('tool', 'green', 1, false, undefined, 0, { knightLevel: 10 })),
     ).toBe(true)
     expect(resolveUnlockedMainNeedItem('salve', 'green', 1, false, undefined, 0, { knightLevel: 2 })).toBe('salve')
     expect(resolveUnlockedMainNeedItem('meal', 'green', 1, false, undefined, 0, { knightLevel: 8 })).toBe('meal')
@@ -541,7 +541,7 @@ describe('unlock-gated main need pool', () => {
     }
 
     const openSave = createSave()
-    openSave.knightLevel = 20
+    openSave.knightLevel = 10
     let sawTool = false
     let sawPotion = false
     for (let seed = 0; seed < 60; seed++) {

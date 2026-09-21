@@ -35,7 +35,7 @@ import {
   submitArtisan,
 } from '../sim/encounters'
 import { claimDungeonChest, reinforceDungeonCombat, startDungeonCombat } from '../sim/dungeon'
-import { claimGuideQuest } from '../sim/guideQuest'
+import { claimGuideQuest, markGuideQuestRuneOpened } from '../sim/guideQuest'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
 import { tick } from '../sim/tick'
 import type { ActionResult, CategoryId, ItemId, PotionItemId, Save, StationId, Worker } from '../sim/types'
@@ -166,6 +166,13 @@ export const useGameStore = defineStore('game', () => {
       apply((s) => selectStationCategory(s, stationId, categoryId)),
     explore: () => apply(exploreBoard),
     claimGuideQuest: () => apply(claimGuideQuest),
+    markGuideRuneOpened: () => {
+      if (save.value.guideQuestRuneOpened) return
+      apply((s) => {
+        markGuideQuestRuneOpened(s)
+        return { ok: true }
+      })
+    },
     startCombat: (index: number, workerIds: string[], guests?: Worker[], runePicks?: RunePickMap) =>
       apply((s) => startCombat(s, index, workerIds, Date.now(), pushCombatLogTip, guests, runePicks)),
     reinforceCombat: (index: number, workerIds: string[], guests?: Worker[], runePicks?: RunePickMap) =>

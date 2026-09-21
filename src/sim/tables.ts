@@ -975,7 +975,7 @@ export function findCategory(stationId: StationId, categoryId: CategoryId): Stat
 
 /**
  * 工坊组 / 工人左栏 / 派入空槽扫描共用上→下顺序，避免三处漂移。
- * 药剂（采药+炼金）→ 食物（狩猎+烹饪）→ 矿符（采矿+铭刻）。伐木 / 钓鱼已藏。
+ * 药剂（采药+炼金）→ 食物（狩猎+烹饪）→ 符文（采矿+铭刻）。伐木 / 钓鱼已藏。
  */
 export const PLAYABLE_CHAINS: readonly (readonly [StationId, StationId])[] = [
   ['herbalism', 'alchemy'],

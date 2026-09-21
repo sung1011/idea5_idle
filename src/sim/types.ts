@@ -406,14 +406,16 @@ export type Save = {
    */
   mainLootClaims: number
   /**
-   * 左下悬浮新手任务当前步。1～4 第一阶段；5～7 第二阶段（骑士 ≥2）；8 表示七步都已领取，浮层不渲染。
+   * 左下悬浮新手任务当前步。1～4 第一阶段；5～7 第二阶段（骑士 ≥2）；8 第三阶段（铭刻已开且战场有可点开战/增援）；9 表示八步都已领取，浮层不渲染。
    * 旧 5 步档或缺 `guideQuestRev`：按现况落到第一未完成新步。
    */
   guideQuestStep: number
-  /** 引导表版本。3 = 第一步抽工人 2 次。缺或低于当前 REV 按现况重落步号。 */
+  /** 引导表版本。4 = 第三阶段点开符文槽。缺或低于当前 REV 按现况重落步号。 */
   guideQuestRev: number
   /** 是否已从药剂槽点用过。hydrate 时若有时效 buff 也算。 */
   guideQuestPotionUsed: boolean
+  /** 是否已在选人面板点开过符文槽。hydrate 缺字段为 false。 */
+  guideQuestRuneOpened: boolean
   /**
    * 是否已成交过至少一笔主线订单（交易完成或敌人已领奖）。成交后即使探索刷掉该格也仍算完成。
    * 字段名沿用旧档；旧档 `true` 或板上已完成开局当仍算完成。

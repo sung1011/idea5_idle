@@ -6,6 +6,7 @@ import {
   GUIDE_QUEST_DONE_STEP,
   GUIDE_QUEST_GOLD,
   GUIDE_QUEST_PHASE2_START,
+  GUIDE_QUEST_PHASE3_START,
   GUIDE_QUEST_REV,
   GUIDE_QUEST_STEPS,
   claimGuideQuest,
@@ -17,7 +18,9 @@ import {
   hydrateGuideQuestFields,
   isGuideQuestCombatFlash,
   isGuideQuestFlash,
+  isGuideQuestRuneFlash,
   isGuideQuestVisible,
+  markGuideQuestRuneOpened,
   normalizeGuideQuestStep,
 } from './guideQuest'
 import { installPotionSlot } from './potionSlots'
@@ -48,6 +51,7 @@ describe('guideQuest normalize and hydrate', () => {
     expect(save.guideQuestStep).toBe(1)
     expect(save.guideQuestRev).toBe(GUIDE_QUEST_REV)
     expect(save.guideQuestPotionUsed).toBe(false)
+    expect(save.guideQuestRuneOpened).toBe(false)
     expect(isGuideQuestVisible(save)).toBe(true)
     expect(guideQuestProgressAt(save, 1)).toBe(0)
     const view = guideQuestView(save)
@@ -114,7 +118,8 @@ describe('guideQuest normalize and hydrate', () => {
     veteran.techLevels = { pathOutpost: 1 }
     const { guideQuestStep: _vs, guideQuestRev: _vr, ...vetRaw } = veteran
     hydrateGuideQuestFields(vetRaw as Save, vetRaw)
-    expect((vetRaw as Save).guideQuestStep).toBe(GUIDE_QUEST_DONE_STEP)
+    expect((vetRaw as Save).guideQuestStep).toBe(8)
+    expect((vetRaw as Save).guideQuestRuneOpened).toBe(false)
     expect(isGuideQuestVisible(vetRaw as Save)).toBe(false)
     expect(guideQuestView(vetRaw as Save)).toBeNull()
   })
@@ -147,12 +152,14 @@ describe('guideQuest normalize and hydrate', () => {
       guideQuestStep: undefined,
       guideQuestRev: undefined,
       guideQuestPotionUsed: undefined,
+      guideQuestRuneOpened: undefined,
       starterCopperPawnDone: undefined,
     }
     const loaded = hydrateLoadedSave(raw as unknown)
     expect(loaded?.guideQuestStep).toBe(1)
     expect(loaded?.guideQuestRev).toBe(GUIDE_QUEST_REV)
     expect(loaded?.guideQuestPotionUsed).toBe(false)
+    expect(loaded?.guideQuestRuneOpened).toBe(false)
 
     const dirty = hydrateLoadedSave({
       ...createSave(),
@@ -165,12 +172,12 @@ describe('guideQuest normalize and hydrate', () => {
 })
 
 describe('guideQuest steps and claim', () => {
-  it('walks seven steps across two phases and pays 20 gold each claim', () => {
+  it('walks eight steps across three phases and pays 20 gold each claim', () => {
     const save = createSave()
     const gold0 = save.gold
     expect(claimGuideQuest(save).ok).toBe(false)
     expect(save.guideQuestStep).toBe(1)
-    expect(GUIDE_QUEST_STEPS).toBe(7)
+    expect(GUIDE_QUEST_STEPS).toBe(8)
 
     expect(recruitWorker(save).ok).toBe(true)
     expect(guideQuestProgressAt(save, 1)).toBe(0)
@@ -219,6 +226,17 @@ describe('guideQuest steps and claim', () => {
     expect(save.guideQuestPotionUsed).toBe(true)
     expect(guideQuestView(save)?.goal).toBe('点药剂槽产生效果')
     expect(claimGuideQuest(save).ok).toBe(true)
+    expect(save.guideQuestStep).toBe(GUIDE_QUEST_PHASE3_START)
+    expect(guideQuestView(save)).toBeNull()
+
+    save.knightLevel = 10
+    expect(guideQuestView(save)?.title).toBe('符文 · 1/1')
+    expect(guideQuestView(save)?.goal).toBe('在选人面板点开符文槽')
+    expect(guideQuestFlashId(save)).toBe('rune')
+    expect(isGuideQuestRuneFlash(save, save.encounters[0])).toBe(true)
+    expect(markGuideQuestRuneOpened(save)).toBe(true)
+    expect(save.guideQuestRuneOpened).toBe(true)
+    expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(GUIDE_QUEST_DONE_STEP)
     expect(isGuideQuestVisible(save)).toBe(false)
     expect(claimGuideQuest(save)).toEqual({ ok: false, reason: '新手任务已完成' })
@@ -253,6 +271,22 @@ describe('guideQuest steps and claim', () => {
       outcome: null,
     }
     expect(guideQuestProgressAt(fighting, 4)).toBe(1)
+  })
+
+  it('shows the rune step only after inscription unlock and a battlefield fight button', () => {
+    const save = createSave()
+    save.guideQuestStep = GUIDE_QUEST_PHASE3_START
+    expect(guideQuestView(save)).toBeNull()
+    save.knightLevel = 10
+    expect(guideQuestView(save)?.title).toBe('符文 · 1/1')
+    for (const enc of save.encounters) {
+      if (enc.kind === 'enemy') enc.lootClaimed = true
+    }
+    expect(guideQuestView(save)).toBeNull()
+    const first = save.encounters[0] as EnemyEncounter
+    first.lootClaimed = false
+    expect(guideQuestView(save)?.goal).toBe('在选人面板点开符文槽')
+    expect(guideQuestFlashId(save)).toBe('rune')
   })
 })
 
@@ -297,6 +331,12 @@ describe('guideQuest flash target', () => {
     expect(guideQuestFlashId(save)).toBe('potionUse')
 
     usePotionSlot(save, 0)
+    expect(guideQuestFlashId(save)).toBeNull()
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBeNull()
+    save.knightLevel = 10
+    expect(guideQuestFlashId(save)).toBe('rune')
+    markGuideQuestRuneOpened(save)
     expect(guideQuestFlashId(save)).toBeNull()
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBeNull()

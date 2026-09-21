@@ -1,5 +1,14 @@
+import { ref } from 'vue'
 import { openWorkshopStation, selectAppTab, type AppTabId } from './appNav'
 import { selectMainlineTab } from './mainlineTabs'
+
+export const pendingGuideRunePick = ref(false)
+
+export function takeGuideRunePickRequest(): boolean {
+  if (!pendingGuideRunePick.value) return false
+  pendingGuideRunePick.value = false
+  return true
+}
 
 export function openGuideQuestStep(step: number, storage?: Storage | null): AppTabId {
   switch (step) {
@@ -15,6 +24,10 @@ export function openGuideQuestStep(step: number, storage?: Storage | null): AppT
     case 5:
       openWorkshopStation('alchemy', storage)
       return 'workshop'
+    case 8:
+      pendingGuideRunePick.value = true
+      selectMainlineTab('battlefield', storage)
+      return selectAppTab('encounters', storage)
     default:
       return selectAppTab('encounters', storage)
   }

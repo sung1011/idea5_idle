@@ -274,7 +274,7 @@ describe('workshop station boards', () => {
 })
 
 describe('assign resting to first empty slot', () => {
-  it('scans workshop groups 药剂 / 食物 / 矿符 top to bottom, left to right', () => {
+    it('scans workshop groups 药剂 / 食物 / 符文 top to bottom, left to right', () => {
     expect(DISPATCH_STATION_IDS).toEqual([...STATION_ORDER])
     expect(DISPATCH_STATION_IDS).toEqual(WORKSHOP_GROUPS.flatMap((row) => [...row.stations]))
     expect(DISPATCH_STATION_IDS).toEqual([
