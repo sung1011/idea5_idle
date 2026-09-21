@@ -457,7 +457,7 @@ export type Save = {
   potionBuffs: PotionBuffs
   /**
    * 主线地牢：按游戏日掷 2 词缀、1 次开战。独立战斗，不进战场板、不被探索刷新。
-   * 旧档缺字段 hydrate 补当天词缀。
+   * 游戏日切强制刷新（先自动发未领宝箱 / 日切判败），旧档缺字段 hydrate 补当天词缀。
    */
   dungeon: DungeonState
 }

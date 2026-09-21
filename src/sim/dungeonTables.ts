@@ -16,7 +16,18 @@ export const DUNGEON_STUN_S = 3
 export const DUNGEON_TIMEOUT_S = 1800
 export const DUNGEON_TARGET_ROTATE_S = 18
 
-export const DUNGEON_NEEDS: EncounterNeedMap = { herb: 6, spice: 3, meal: 2 }
+export const DUNGEON_NEEDS: EncounterNeedMap = { herb: 12, spice: 6, meal: 4, salve: 3 }
+
+export const DUNGEON_DAILY_REFRESH_TIP = '地牢每日自动刷新'
+
+export const DUNGEON_AFFIX_FX = {
+  thickHideHpMul: 1.25,
+  quickenedSpdMul: 0.8,
+  heavyHandsAtkMul: 1.2,
+  ironShieldBonus: 1,
+  jaggedExtra: 2,
+  richVeinDiamondMul: 1.25,
+} as const
 
 export const DUNGEON_BOSS_STATS: CombatStats = { hp: 8000, atk: 5, spd: 4 }
 
@@ -30,13 +41,23 @@ export const DUNGEON_AFFIX_IDS = [
 ] as const
 export type DungeonAffixId = (typeof DUNGEON_AFFIX_IDS)[number]
 
-export const DUNGEON_AFFIX_DEFS: Readonly<Record<DungeonAffixId, { label: string; tip: string }>> = {
-  thickHide: { label: '厚皮', tip: '地牢 Boss 生命更高' },
-  quickened: { label: '迅捷', tip: '地牢 Boss 出手更快' },
-  heavyHands: { label: '重击', tip: '地牢 Boss 伤害更高' },
-  ironShield: { label: '铁盾', tip: '每阶段盾数 +1' },
-  jagged: { label: '尖刺', tip: '工人挨打额外受伤' },
-  richVein: { label: '富矿', tip: '宝箱钻石更多' },
+export function dungeonAffixEffect(id: DungeonAffixId): string {
+  switch (id) {
+    case 'thickHide':
+      return `开战时地牢 Boss 生命 ×${DUNGEON_AFFIX_FX.thickHideHpMul}（基准 ${DUNGEON_BOSS_STATS.hp} → ${Math.round(DUNGEON_BOSS_STATS.hp * DUNGEON_AFFIX_FX.thickHideHpMul)}）。只作用于本日地牢。`
+    case 'quickened': {
+      const spd = Math.max(2, Math.round(DUNGEON_BOSS_STATS.spd * DUNGEON_AFFIX_FX.quickenedSpdMul * 100) / 100)
+      return `开战时地牢 Boss 出手间隔 ×${DUNGEON_AFFIX_FX.quickenedSpdMul}（基准 ${DUNGEON_BOSS_STATS.spd}s → ${spd}s，下限 2s）。只作用于本日地牢。`
+    }
+    case 'heavyHands':
+      return `开战时地牢 Boss 攻击 ×${DUNGEON_AFFIX_FX.heavyHandsAtkMul}（基准 ${DUNGEON_BOSS_STATS.atk} → ${Math.round(DUNGEON_BOSS_STATS.atk * DUNGEON_AFFIX_FX.heavyHandsAtkMul)}）。只作用于本日地牢。`
+    case 'ironShield':
+      return `每个阶段破防盾 +${DUNGEON_AFFIX_FX.ironShieldBonus}（${DUNGEON_PHASES.map((p) => p.shield).join('/')} → ${DUNGEON_PHASES.map((p) => p.shield + DUNGEON_AFFIX_FX.ironShieldBonus).join('/')}）。开战写入，持续整场。`
+    case 'jagged':
+      return `地牢 Boss 每次打中场上工人额外造成 ${DUNGEON_AFFIX_FX.jaggedExtra} 点伤害。只作用于本日地牢，不波及工坊站。`
+    case 'richVein':
+      return `领取宝箱时钻石 ×${DUNGEON_AFFIX_FX.richVeinDiamondMul}（四舍五入）。铜 ${DUNGEON_CHEST.copper.diamonds}→${Math.round(DUNGEON_CHEST.copper.diamonds * DUNGEON_AFFIX_FX.richVeinDiamondMul)}、银 ${DUNGEON_CHEST.silver.diamonds}→${Math.round(DUNGEON_CHEST.silver.diamonds * DUNGEON_AFFIX_FX.richVeinDiamondMul)}、金 ${DUNGEON_CHEST.gold.diamonds}→${Math.round(DUNGEON_CHEST.gold.diamonds * DUNGEON_AFFIX_FX.richVeinDiamondMul)}。`
+  }
 }
 
 export const DUNGEON_MECHANIC_IDS = ['cleave', 'workshopSmash', 'enrage'] as const
@@ -77,6 +98,15 @@ export const DUNGEON_CHEST: Readonly<
   copper: { diamonds: 8, items: { herb: 4, meal: 1 } },
   silver: { diamonds: 14, items: { herb: 4, meal: 2, salve: 1 } },
   gold: { diamonds: 22, items: { herb: 6, meal: 3, salve: 2 } },
+}
+
+export const DUNGEON_AFFIX_DEFS: Readonly<Record<DungeonAffixId, { label: string; tip: string; effect: string }>> = {
+  thickHide: { label: '厚皮', tip: '地牢 Boss 生命更高', effect: dungeonAffixEffect('thickHide') },
+  quickened: { label: '迅捷', tip: '地牢 Boss 出手更快', effect: dungeonAffixEffect('quickened') },
+  heavyHands: { label: '重击', tip: '地牢 Boss 伤害更高', effect: dungeonAffixEffect('heavyHands') },
+  ironShield: { label: '铁盾', tip: '每阶段盾数 +1', effect: dungeonAffixEffect('ironShield') },
+  jagged: { label: '尖刺', tip: '工人挨打额外受伤', effect: dungeonAffixEffect('jagged') },
+  richVein: { label: '富矿', tip: '宝箱钻石更多', effect: dungeonAffixEffect('richVein') },
 }
 
 export function isDungeonAffixId(value: unknown): value is DungeonAffixId {

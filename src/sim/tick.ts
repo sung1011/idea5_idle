@@ -21,7 +21,7 @@ export function applyTick(save: Save, opts: TickOpts = {}): void {
   const now = opts.now ?? Date.now()
   save.elapsedS += 1
   save.lastTick = now
-  ensureDungeonDay(save)
+  ensureDungeonDay(save, now)
   applyPotionTicks(save)
   refreshFoodSlots(save, now)
   for (const id of STATION_IDS) stepStation(save, id, now, opts.onGain)

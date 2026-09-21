@@ -2006,7 +2006,7 @@ export function shouldKeepOnExplore(enc: Encounter, now = Date.now()): boolean {
   return isExploreProtected(enc, now)
 }
 
-/** 探索：扣金币，两板各自只替换可刷新格；战场保留战斗 / 未领本章 Boss，可暂超目标。 */
+/** 探索：扣金币，两板各自只替换可刷新格；战场保留战斗 / 未领本章 Boss，可暂超目标。不碰地牢。 */
 export function exploreBoard(save: Save, now = Date.now()): ActionResult {
   const blocked = exploreBlockReason(save)
   if (blocked) return { ok: false, reason: blocked }

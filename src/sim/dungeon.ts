@@ -5,6 +5,7 @@ import {
   canReinforceCombat,
   combatPartyBlockReason,
   combatStatus,
+  endEnemyCombat,
   fieldFighterCount,
   grantWorkerCombatXp,
   isCombatWon,
@@ -15,6 +16,7 @@ import { findCombatPartyWorker } from './combatAssist'
 import { canAffordCosts, missingCostLabels, takeCosts } from './costs'
 import {
   DUNGEON_AFFIX_DEFS,
+  DUNGEON_AFFIX_FX,
   DUNGEON_ATTEMPTS_PER_DAY,
   DUNGEON_BOSS_STATS,
   DUNGEON_CHEST,
@@ -38,12 +40,14 @@ import type { ActionResult, CombatStats, DungeonState, EncounterNeedMap, EnemyEn
 
 export {
   DUNGEON_AFFIX_DEFS,
+  DUNGEON_AFFIX_FX,
   DUNGEON_AFFIX_IDS,
   DUNGEON_ATTEMPTS_PER_DAY,
   DUNGEON_BOSS_ID,
   DUNGEON_BOSS_LABEL,
   DUNGEON_BOSS_STATS,
   DUNGEON_CHEST,
+  DUNGEON_DAILY_REFRESH_TIP,
   DUNGEON_MECHANIC_LABEL,
   DUNGEON_NEEDS,
   DUNGEON_PARTY_MAX,
@@ -51,6 +55,7 @@ export {
   DUNGEON_STUN_S,
   DUNGEON_TARGET_ROTATION,
   DUNGEON_TIMEOUT_S,
+  dungeonAffixEffect,
   dungeonChestTier,
   isDungeonAffixId,
   isDungeonEncounter,
@@ -91,14 +96,16 @@ export function dungeonBossLiveStats(save: Save): CombatStats {
   let hp = DUNGEON_BOSS_STATS.hp
   let atk = DUNGEON_BOSS_STATS.atk
   let spd = DUNGEON_BOSS_STATS.spd
-  if (hasDungeonAffix(save, 'thickHide')) hp = Math.round(hp * 1.25)
-  if (hasDungeonAffix(save, 'heavyHands')) atk = Math.round(atk * 1.2)
-  if (hasDungeonAffix(save, 'quickened')) spd = Math.max(2, Math.round(spd * 80) / 100)
+  if (hasDungeonAffix(save, 'thickHide')) hp = Math.round(hp * DUNGEON_AFFIX_FX.thickHideHpMul)
+  if (hasDungeonAffix(save, 'heavyHands')) atk = Math.round(atk * DUNGEON_AFFIX_FX.heavyHandsAtkMul)
+  if (hasDungeonAffix(save, 'quickened')) {
+    spd = Math.max(2, Math.round(spd * DUNGEON_AFFIX_FX.quickenedSpdMul * 100) / 100)
+  }
   return { hp, atk, spd }
 }
 
 export function dungeonShieldBonus(save: Save): number {
-  return hasDungeonAffix(save, 'ironShield') ? 1 : 0
+  return hasDungeonAffix(save, 'ironShield') ? DUNGEON_AFFIX_FX.ironShieldBonus : 0
 }
 
 export function dungeonEncounterOf(save: Save): EnemyEncounter {
@@ -112,11 +119,37 @@ export function dungeonAttemptsLeft(save: Save): number {
 }
 
 export function dungeonAffixLabels(save: Save): string[] {
-  ensureDungeonDay(save)
-  return save.dungeon.affixIds.map((id) => DUNGEON_AFFIX_DEFS[id].label)
+  return dungeonAffixRows(save).map((row) => row.label)
 }
 
-export function ensureDungeonDay(save: Save): DungeonState {
+export function dungeonAffixRows(save: Save): Array<{ id: DungeonAffixId; label: string; effect: string }> {
+  ensureDungeonDay(save)
+  return save.dungeon.affixIds.map((id) => ({
+    id,
+    label: DUNGEON_AFFIX_DEFS[id].label,
+    effect: DUNGEON_AFFIX_DEFS[id].effect,
+  }))
+}
+
+function dungeonChestBlockReason(enc: EnemyEncounter): string | null {
+  if (enc.lootClaimed) return '今日宝箱已领取'
+  if (isFighting(enc)) return '战斗未结束'
+  if (!enc.combat || !enc.combat.outcome) return '还没有宝箱'
+  return null
+}
+
+function settleDungeonBeforeRefresh(save: Save, now: number): void {
+  const enc = save.dungeon?.encounter
+  if (!enc || enc.kind !== 'enemy') return
+  if (isFighting(enc)) {
+    endEnemyCombat(save, enc, now, 'lose', '日切判败')
+  }
+  if (!dungeonChestBlockReason(enc)) {
+    grantDungeonChestNow(save, enc)
+  }
+}
+
+export function ensureDungeonDay(save: Save, now = Date.now()): DungeonState {
   const day = gameDay(save.elapsedS)
   if (!save.dungeon || typeof save.dungeon !== 'object') {
     save.dungeon = blankDungeonState(save, day)
@@ -124,7 +157,7 @@ export function ensureDungeonDay(save: Save): DungeonState {
   }
   const enc = save.dungeon.encounter
   if (save.dungeon.day === day && isDungeonEncounter(enc)) return save.dungeon
-  if (isDungeonEncounter(enc) && isFighting(enc)) return save.dungeon
+  if (save.dungeon.day !== day) settleDungeonBeforeRefresh(save, now)
   save.dungeon = blankDungeonState(save, day)
   return save.dungeon
 }
@@ -236,11 +269,7 @@ export function reinforceDungeonCombat(
 }
 
 export function claimDungeonChestBlockReason(save: Save): string | null {
-  const enc = dungeonEncounterOf(save)
-  if (enc.lootClaimed) return '今日宝箱已领取'
-  if (isFighting(enc)) return '战斗未结束'
-  if (!enc.combat || !enc.combat.outcome) return '还没有宝箱'
-  return null
+  return dungeonChestBlockReason(dungeonEncounterOf(save))
 }
 
 function grantDungeonXp(save: Save, enc: EnemyEncounter): boolean {
@@ -264,14 +293,13 @@ export function dungeonChestPayout(save: Save, enc: EnemyEncounter): {
   const tier = dungeonChestTier(enc)
   const row = DUNGEON_CHEST[tier]
   let diamonds = row.diamonds
-  if (hasDungeonAffix(save, 'richVein')) diamonds = Math.round(diamonds * 1.25)
+  if (hasDungeonAffix(save, 'richVein')) diamonds = Math.round(diamonds * DUNGEON_AFFIX_FX.richVeinDiamondMul)
   return { tier, diamonds, items: { ...row.items } }
 }
 
-export function claimDungeonChest(save: Save, _now = Date.now()): ActionResult {
-  const blocked = claimDungeonChestBlockReason(save)
+function grantDungeonChestNow(save: Save, enc: EnemyEncounter): ActionResult {
+  const blocked = dungeonChestBlockReason(enc)
   if (blocked) return { ok: false, reason: blocked }
-  const enc = dungeonEncounterOf(save)
   const payout = dungeonChestPayout(save, enc)
   const grantedXp = grantDungeonXp(save, enc)
   enc.lootClaimed = true
@@ -285,4 +313,9 @@ export function claimDungeonChest(save: Save, _now = Date.now()): ActionResult {
   const xpNote = grantedXp ? '。工人获得经验' : ''
   const itemNote = itemBits.length ? `、${itemBits.join('、')}` : ''
   return { ok: true, message: `地牢宝箱（${payout.tier}）：钻石 ×${payout.diamonds}${itemNote}${xpNote}` }
+}
+
+export function claimDungeonChest(save: Save, now = Date.now()): ActionResult {
+  ensureDungeonDay(save, now)
+  return grantDungeonChestNow(save, save.dungeon.encounter)
 }

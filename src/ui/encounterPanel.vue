@@ -31,12 +31,14 @@ import {
 } from '../sim/encounters'
 import {
   DUNGEON_ATTEMPTS_PER_DAY,
+  DUNGEON_DAILY_REFRESH_TIP,
   DUNGEON_MECHANIC_LABEL,
-  dungeonAffixLabels,
+  dungeonAffixRows,
   dungeonAttemptsLeft,
   dungeonEncounterOf,
   dungeonSupplyBlockReason,
   isDungeonEncounter,
+  type DungeonAffixId,
 } from '../sim/dungeon'
 import { isGuideQuestCombatFlash, isGuideQuestFlash } from '../sim/guideQuest'
 import { mainChapterTitle, mainLootClaimBarLabel, mainLootClaimFillPct } from '../sim/mainChapter'
@@ -45,6 +47,11 @@ import type { Encounter, EncounterKind, EnemyEncounter, Worker } from '../sim/ty
 import EncounterDealLines from './encounterDealLines.vue'
 import EncounterTips from './encounterTips.vue'
 import { CONSUME_SHORT_TIP, isEncounterActionConsumeShort } from './encounterDeal'
+import {
+  dungeonAffixHelpCopy,
+  isDungeonAffixHelpOpen,
+  nextDungeonAffixHelp,
+} from './dungeonAffixHelp'
 import { FIGHTING_DOT_MS, fightingButtonLabel } from './fightingLabel'
 import { formatAtkSpeed } from './formatAtkSpeed'
 import { pushFloatTip } from './floatTips'
@@ -83,10 +90,36 @@ const boardEncounters = computed(() => {
   if (isDungeonTab.value) return [dungeonEncounterOf(game.save)]
   return encountersOf(game.save, currentTab.value === 'market' ? 'market' : 'battlefield')
 })
-const dungeonAffixes = computed(() => (isDungeonTab.value ? dungeonAffixLabels(game.save) : []))
+const dungeonAffixList = computed(() => (isDungeonTab.value ? dungeonAffixRows(game.save) : []))
 const dungeonAttemptLabel = computed(() =>
   isDungeonTab.value ? `次数 ${DUNGEON_ATTEMPTS_PER_DAY - dungeonAttemptsLeft(game.save)}/${DUNGEON_ATTEMPTS_PER_DAY}` : '',
 )
+const affixHelp = ref<DungeonAffixId | null>(null)
+const affixHelpPos = ref({ left: 8, top: 8 })
+const affixHelpBubble = computed(() => (affixHelp.value ? dungeonAffixHelpCopy(affixHelp.value) : null))
+
+function closeAffixHelp() {
+  affixHelp.value = null
+}
+
+function onAffixHelp(ev: MouseEvent, id: DungeonAffixId) {
+  ev.stopPropagation()
+  const next = nextDungeonAffixHelp(affixHelp.value, id)
+  affixHelp.value = next
+  if (!next) return
+  const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect()
+  affixHelpPos.value = {
+    left: Math.min(window.innerWidth - 228, Math.max(8, rect.left)),
+    top: Math.min(window.innerHeight - 160, rect.bottom + 6),
+  }
+}
+
+function onDocAffixHelp(ev: PointerEvent) {
+  const el = ev.target
+  if (!(el instanceof Element)) return
+  if (el.closest('[data-dungeon-affix]') || el.closest('[data-dungeon-affix-bubble]')) return
+  closeAffixHelp()
+}
 const cost = computed(() => exploreCost(game.save))
 const chapterTitle = computed(() => mainChapterTitle(game.save))
 const lootBarLabel = computed(() => mainLootClaimBarLabel(game.save))
@@ -103,9 +136,11 @@ onMounted(() => {
   fightDotTimer = window.setInterval(() => {
     fightNow.value = Date.now()
   }, FIGHTING_DOT_MS)
+  document.addEventListener('pointerdown', onDocAffixHelp)
 })
 onUnmounted(() => {
   window.clearInterval(fightDotTimer)
+  document.removeEventListener('pointerdown', onDocAffixHelp)
 })
 const fightingNowLabel = computed(() => fightingButtonLabel(fightNow.value))
 const buffOn = computed(() => isWorkshopBuffActive(game.save, now.value))
@@ -132,6 +167,15 @@ const pickCandidates = computed(() =>
 function selectTab(id: MainlineTabId) {
   selectMainlineTab(id)
   closePick()
+  closeAffixHelp()
+}
+
+function onExplore() {
+  if (isDungeonTab.value) {
+    pushFloatTip(DUNGEON_DAILY_REFRESH_TIP)
+    return
+  }
+  game.explore()
 }
 
 function activeEnemy(): EnemyEncounter | null {
@@ -330,13 +374,40 @@ function pickRecommend(w: Worker) {
       </div>
     </div>
     <div class="row">
-      <button type="button" @click="game.explore()">
+      <button
+        v-if="!isDungeonTab"
+        type="button"
+        @click="onExplore"
+      >
         探索（{{ cost }} 金）
+      </button>
+      <button
+        v-else
+        type="button"
+        disabled
+        :title="DUNGEON_DAILY_REFRESH_TIP"
+        @click="onExplore"
+      >
+        {{ DUNGEON_DAILY_REFRESH_TIP }}
       </button>
     </div>
     <p v-if="buffOn" class="buff">{{ buffLabel }}</p>
     <div v-if="isDungeonTab" class="dungeon-meta">
-      <p>今日词缀：{{ dungeonAffixes.join('、') || '—' }}</p>
+      <p class="affix-row">
+        <span>今日词缀：</span>
+        <button
+          v-for="row in dungeonAffixList"
+          :key="row.id"
+          type="button"
+          class="affix-chip"
+          data-dungeon-affix
+          :aria-pressed="isDungeonAffixHelpOpen(affixHelp, row.id)"
+          :aria-label="`查看 ${row.label} 效果`"
+          @click="onAffixHelp($event, row.id)"
+        >
+          {{ row.label }}
+        </button>
+      </p>
       <p>{{ dungeonAttemptLabel }}</p>
     </div>
 
@@ -564,6 +635,20 @@ function pickRecommend(w: Worker) {
       </div>
     </div>
   </section>
+
+  <Teleport to="body">
+    <div
+      v-if="affixHelpBubble"
+      class="affix-bubble"
+      data-dungeon-affix-bubble
+      role="dialog"
+      :aria-label="affixHelpBubble.title"
+      :style="{ left: `${affixHelpPos.left}px`, top: `${affixHelpPos.top}px` }"
+    >
+      <b>{{ affixHelpBubble.title }}</b>
+      <p>{{ affixHelpBubble.effect }}</p>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -738,6 +823,54 @@ function pickRecommend(w: Worker) {
 
 .dungeon-meta p {
   margin: 0;
+}
+
+.affix-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.affix-chip {
+  padding: 2px 8px;
+  border: 2px solid var(--gold-deep);
+  border-radius: 999px;
+  background: #fff8e8;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.affix-chip[aria-pressed='true'] {
+  background: var(--gold);
+}
+
+.affix-bubble {
+  position: fixed;
+  z-index: calc(var(--z-sheet) + 8);
+  width: min(240px, calc(100vw - 16px));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 2px solid var(--gold-deep);
+  border-radius: 10px;
+  background: linear-gradient(#fffef8, #fff3d8);
+  box-shadow: 0 4px 0 var(--shadow);
+  color: var(--ink);
+}
+
+.affix-bubble b {
+  font-size: 13px;
+}
+
+.affix-bubble p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 700;
 }
 
 .card {

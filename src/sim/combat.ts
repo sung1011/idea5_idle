@@ -11,6 +11,7 @@ import {
 import { attackIntervalMul, workerAtkMul, workerHpMul } from './tech'
 import { drawEnemyTargetRule, pickEnemyTargets, type CombatTarget } from './combatTarget'
 import {
+  DUNGEON_AFFIX_FX,
   DUNGEON_PARTY_MAX,
   dungeonPhaseIndex,
   isDungeonEncounter,
@@ -447,7 +448,7 @@ function dungeonPhaseLocked(enc: EnemyEncounter): boolean {
 
 function dungeonJaggedBonus(save: Save, enc: EnemyEncounter): number {
   if (!isDungeonEncounter(enc)) return 0
-  return save.dungeon?.affixIds?.includes('jagged') ? 2 : 0
+  return save.dungeon?.affixIds?.includes('jagged') ? DUNGEON_AFFIX_FX.jaggedExtra : 0
 }
 
 function wakeCombatShield(enc: EnemyEncounter, combat: EnemyCombat, at: number): void {
@@ -607,6 +608,19 @@ function finishCombat(
   emitLog(enc, combat, at, text, outcome === 'win' ? 'ok' : 'err', onLog)
   writeBackWorkers(save, combat)
   tryAutoEatAfterCombat(save, combat.workerIds, at)
+}
+
+export function endEnemyCombat(
+  save: Save,
+  enc: EnemyEncounter,
+  at: number,
+  outcome: CombatOutcome,
+  text: string,
+  onLog?: CombatLogSink,
+): void {
+  const combat = enc.combat
+  if (!combat || combat.outcome) return
+  finishCombat(save, enc, combat, at, outcome, text, onLog)
 }
 
 function strike(
