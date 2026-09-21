@@ -10,6 +10,7 @@ import {
 } from './encounters'
 import {
   TIMED_ORDER_CHANCE,
+  TIMED_ORDER_PROB,
   TIMED_ORDER_DURATION_S,
   TIMED_ORDER_EXPIRED_TIP,
   TIMED_ORDER_REWARD_MUL,
@@ -44,6 +45,7 @@ describe('market timed orders', () => {
   it('rolls 25–35% and picks 5/10/15 minute tiers by quality and chapter', () => {
     expect(TIMED_ORDER_CHANCE).toBeGreaterThanOrEqual(0.25)
     expect(TIMED_ORDER_CHANCE).toBeLessThanOrEqual(0.35)
+    expect(TIMED_ORDER_PROB).toBe(TIMED_ORDER_CHANCE)
     expect(shouldRollTimed(0)).toBe(true)
     expect(shouldRollTimed(TIMED_ORDER_CHANCE)).toBe(false)
     expect(timedDurationS('green', 1)).toBe(TIMED_ORDER_DURATION_S.long)
@@ -54,6 +56,12 @@ describe('market timed orders', () => {
     expect(timedDurationS('green', 6)).toBe(TIMED_ORDER_DURATION_S.mid)
     expect(timedDurationS('blue', 6)).toBe(TIMED_ORDER_DURATION_S.short)
     expect(timedDurationS('purple', 6)).toBe(TIMED_ORDER_DURATION_S.short)
+    const save = createSave()
+    save.techLevels = { caravanPermit: 1, s04DraftC: 1 }
+    save.unlockedTechIds = ['caravanPermit', 's04DraftC']
+    expect(timedDurationS('green', 1, save)).toBe(Math.round(TIMED_ORDER_DURATION_S.long * 1.5))
+    expect(shouldRollTimed(TIMED_ORDER_CHANCE, save)).toBe(true)
+    expect(shouldRollTimed(TIMED_ORDER_CHANCE + 0.15, save)).toBe(false)
   })
 
   it('does not consume save.rngState when attaching a timed stamp', () => {

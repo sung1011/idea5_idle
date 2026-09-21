@@ -8,7 +8,15 @@ import {
   roll01Bag,
   scaledAttackDamage,
 } from './combatAttrs'
-import { attackIntervalMul, workerAtkMul, workerHpMul } from './tech'
+import {
+  attackIntervalMul,
+  breakEchoMul,
+  firstStrikeCutS,
+  runeAtkMul,
+  workerAtkMul,
+  workerHpMul,
+  woundedTakenMul,
+} from './tech'
 import { drawEnemyTargetRule, pickEnemyTargets, type CombatTarget } from './combatTarget'
 import { jitterWorkerAtkInterval } from './atkInterval'
 import {
@@ -37,7 +45,7 @@ import {
   runeTakenMul,
 } from './runes'
 import { roll01 } from './rng'
-import { isWoundedHp, restHealAmount, workerFatigueDebt, workerWearHp } from './workshopHp'
+import { HP_WOUNDED_RATIO, isWoundedHp, restHealAmount, workerFatigueDebt, workerWearHp } from './workshopHp'
 import { chapterCombatMul } from './mainChapter'
 import {
   addWorkerXp,
@@ -197,6 +205,7 @@ export function workerCombatStats(
   classId?: ClassId | null,
   level = 1,
   save?: Save,
+  runeId?: RuneItemId,
 ): CombatStats {
   const base = WORKER_COMBAT_BY_TIER[qualityTier]
   const mod = classId ? CLASS_COMBAT_MOD[classId] : { hp: 0, atk: 0, spd: 0 }
@@ -205,14 +214,15 @@ export function workerCombatStats(
     atk: Math.max(1, base.atk + mod.atk),
     spd: Math.max(1, base.spd + mod.spd),
   }
-  return applyCombatTechStats(applyWorkerLevelStats(raw, level), save)
+  return applyCombatTechStats(applyWorkerLevelStats(raw, level), save, runeId)
 }
 
-function applyCombatTechStats(stats: CombatStats, save?: Save): CombatStats {
+function applyCombatTechStats(stats: CombatStats, save?: Save, runeId?: RuneItemId): CombatStats {
   if (!save) return stats
+  const runeMul = runeId ? runeAtkMul(save) : 1
   return {
     hp: Math.max(1, Math.round(stats.hp * workerHpMul(save))),
-    atk: Math.max(1, Math.round(stats.atk * workerAtkMul(save))),
+    atk: Math.max(1, Math.round(stats.atk * workerAtkMul(save) * runeMul)),
     spd: Math.max(1, stats.spd * attackIntervalMul(save)),
   }
 }
@@ -230,8 +240,8 @@ export function applyWorkerLevelStats(base: CombatStats, level = 1): CombatStats
   }
 }
 
-export function workerLiveStats(worker: Worker, save?: Save): CombatStats {
-  const stats = workerCombatStats(worker.qualityTier, worker.classId, worker.level ?? 1, save)
+export function workerLiveStats(worker: Worker, save?: Save, runeId?: RuneItemId): CombatStats {
+  const stats = workerCombatStats(worker.qualityTier, worker.classId, worker.level ?? 1, save, runeId)
   return { ...stats, spd: jitterWorkerAtkInterval(stats.spd, worker.id) }
 }
 
@@ -418,10 +428,12 @@ function makeFighter(
   actImmediately = false,
   save?: Save,
   runeId?: RuneItemId,
+  openingSwing = false,
 ): CombatFighter {
   const spd = Math.max(1, stats.spd * runeSpdMul(runeId))
   const hpMax = Math.max(1, stats.hp)
   const intervalMs = actIntervalMs(spd)
+  const firstCutMs = openingSwing && save ? Math.round(firstStrikeCutS(save) * 1000) : 0
   return {
     id,
     label,
@@ -429,17 +441,34 @@ function makeFighter(
     hpMax,
     atk: Math.max(1, stats.atk),
     spd,
-    nextActAt: actImmediately ? now : now + intervalMs,
+    nextActAt: actImmediately ? now : now + Math.max(0, intervalMs - firstCutMs),
     ...(combatAttrs && combatAttrs.length ? { combatAttrs: [...combatAttrs] } : {}),
     ...(runeId ? { runeId } : {}),
   }
 }
 
-function fighterFromWorker(worker: Worker, now: number, save?: Save, runeId?: RuneItemId): CombatFighter {
-  const stats = workerLiveStats(worker, save)
+function fighterFromWorker(
+  worker: Worker,
+  now: number,
+  save?: Save,
+  runeId?: RuneItemId,
+  openingSwing = false,
+): CombatFighter {
+  const stats = workerLiveStats(worker, save, runeId)
   const hpMax = Math.max(1, stats.hp)
   const hp = worker.hpMax > 0 ? Math.round((worker.hp / worker.hpMax) * hpMax) : hpMax
-  return makeFighter(worker.id, worker.name ?? worker.id, { ...stats, hp: hpMax }, hp, now, worker.combatAttrs, false, save, runeId)
+  return makeFighter(
+    worker.id,
+    worker.name ?? worker.id,
+    { ...stats, hp: hpMax },
+    hp,
+    now,
+    worker.combatAttrs,
+    false,
+    save,
+    runeId,
+    openingSwing,
+  )
 }
 
 function revealInsightWeakness(enc: EnemyEncounter, combat: EnemyCombat): void {
@@ -539,7 +568,7 @@ export function beginEnemyCombat(
     startedAt: now,
     timeoutAt: now + timeoutS * 1000,
     workerIds: workers.map((w) => w.id),
-    workers: workers.map((w) => fighterFromWorker(w, now, save, runes[w.id])),
+    workers: workers.map((w) => fighterFromWorker(w, now, save, runes[w.id], true)),
     enemy: makeFighter('enemy', enc.label, eStats, eStats.hp, now, undefined, true),
     logs: [],
     outcome: null,
@@ -729,9 +758,11 @@ function strike(
       combat.shield = Math.max(0, (combat.shield ?? 0) - hits - runeBreakBonus(fighterRuneId(attacker)))
       if (combat.shield <= 0) applyBreak(enc, combat, at, onLog, save)
     }
-    const vuln = isCombatStunned(combat, at) ? BREAK_VULN_MUL : 1
+    const stunned = isCombatStunned(combat, at)
+    const vuln = stunned ? BREAK_VULN_MUL : 1
+    const echo = stunned ? breakEchoMul(save) : 1
     const dull = hasEncounterAffix(save, enc, 'dullEdge') ? DUNGEON_AFFIX_FX.dullEdgeDamageMul : result.mul
-    const mul = dull * vuln * runeDealMul(fighterRuneId(attacker))
+    const mul = dull * vuln * echo * runeDealMul(fighterRuneId(attacker))
     const damage = scaledAttackDamage(attacker.atk, mul)
     target.hp = Math.max(0, target.hp - damage)
     if (isDungeonEncounter(enc) && dungeonPhaseLocked(enc) && target.id === 'enemy' && target.hp <= 0) {
@@ -743,7 +774,12 @@ function strike(
     emitLog(enc, combat, at, `${attacker.label} 对 ${target.label} 造成 ${damage}${tail}`, 'ok', onLog)
     return
   }
-  const hit = Math.max(1, Math.round((attacker.atk + dungeonJaggedBonus(save, enc)) * runeTakenMul(fighterRuneId(target))))
+  const woundedMul =
+    target.hpMax > 0 && target.hp / target.hpMax <= HP_WOUNDED_RATIO ? woundedTakenMul(save) : 1
+  const hit = Math.max(
+    1,
+    Math.round((attacker.atk + dungeonJaggedBonus(save, enc)) * runeTakenMul(fighterRuneId(target)) * woundedMul),
+  )
   target.hp = Math.max(0, target.hp - hit)
   writeBackFighterHp(save, target)
   emitLog(
@@ -775,7 +811,8 @@ function strikeWorkshop(
     return
   }
   const rage = hasEncounterAffix(save, enc, 'workshopRage') ? DUNGEON_AFFIX_FX.workshopRageMul : 1
-  const hit = Math.max(1, Math.round((attacker.atk + dungeonJaggedBonus(save, enc)) * rage))
+  const woundedMul = isWoundedHp(worker) ? woundedTakenMul(save) : 1
+  const hit = Math.max(1, Math.round((attacker.atk + dungeonJaggedBonus(save, enc)) * rage * woundedMul))
   worker.hp = Math.max(1, worker.hp - hit)
   emitLog(
     enc,

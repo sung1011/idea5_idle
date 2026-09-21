@@ -1,8 +1,11 @@
 import { hashString, roll01Bag } from './combatAttrs'
 import type { CurrencyPayout } from './currencyReward'
-import type { Encounter, EncounterNeedMap, EncounterQuality } from './types'
+import { timedOrderChanceBonus, timedOrderDurationMul } from './tech'
+import type { Encounter, EncounterNeedMap, EncounterQuality, Save } from './types'
 
 export const TIMED_ORDER_CHANCE = 0.3
+/** @deprecated 与 TIMED_ORDER_CHANCE 同值；科技加在 timedOrderChance 上。 */
+export const TIMED_ORDER_PROB = TIMED_ORDER_CHANCE
 export const TIMED_ORDER_REWARD_MUL = 2
 export const TIMED_ORDER_DURATION_S = {
   long: 15 * 60,
@@ -12,7 +15,11 @@ export const TIMED_ORDER_DURATION_S = {
 
 export const TIMED_ORDER_EXPIRED_TIP = '限时订单已过期'
 
-export function timedDurationS(quality: EncounterQuality, chapter = 1): number {
+export function timedOrderChance(save?: Save): number {
+  return Math.min(1, Math.max(0, TIMED_ORDER_CHANCE + timedOrderChanceBonus(save)))
+}
+
+export function timedDurationS(quality: EncounterQuality, chapter = 1, save?: Save): number {
   const ch = Number.isFinite(chapter) ? Math.max(1, Math.floor(chapter)) : 1
   let tier = TIMED_ORDER_DURATION_S.long
   if (quality === 'blue') tier = TIMED_ORDER_DURATION_S.mid
@@ -20,12 +27,12 @@ export function timedDurationS(quality: EncounterQuality, chapter = 1): number {
   if (ch >= 6 && tier > TIMED_ORDER_DURATION_S.short) {
     tier = tier === TIMED_ORDER_DURATION_S.long ? TIMED_ORDER_DURATION_S.mid : TIMED_ORDER_DURATION_S.short
   }
-  return tier
+  return Math.max(1, Math.round(tier * timedOrderDurationMul(save)))
 }
 
-export function shouldRollTimed(roll: number): boolean {
+export function shouldRollTimed(roll: number, save?: Save): boolean {
   const t = Number.isFinite(roll) ? Math.min(1, Math.max(0, roll)) : 0
-  return t < TIMED_ORDER_CHANCE
+  return t < timedOrderChance(save)
 }
 
 export function isMarketTrade(enc: Encounter): boolean {
@@ -83,10 +90,11 @@ export function attachTimedMarketOrder(
   now: number,
   chapter = 1,
   force = false,
+  save?: Save,
 ): Encounter {
   if (!isMarketTrade(enc) || isMarketCompleted(enc)) return enc
-  if (!force && !shouldRollTimed(roll01Bag(hashString(`market-timed:${enc.id}`))())) return enc
-  enc.timedUntil = now + timedDurationS(enc.quality, chapter) * 1000
+  if (!force && !shouldRollTimed(roll01Bag(hashString(`market-timed:${enc.id}`))(), save)) return enc
+  enc.timedUntil = now + timedDurationS(enc.quality, chapter, save) * 1000
   return enc
 }
 

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import { createAssistWorker } from './combatAssist'
 import { ensureEnemyIntel, initialRevealedWeaknessCount, weaknessDamageMul } from './combatAttrs'
-import { workerCombatStats } from './combat'
+import { beginEnemyCombat, BREAK_VULN_MUL, stepEnemyCombat, workerCombatStats } from './combat'
 import { createSave } from './createSave'
 import {
   combatSupplyNeeds,
@@ -27,12 +27,23 @@ import {
   MARKET_SLOT_MAX,
   MARKET_SLOT_MIN,
   MARKET_SLOT_TECH_IDS,
+  ALCHEMY_BATCH_EFFECT,
+  BREAK_ECHO_EFFECT,
+  DIAMOND_ORDER_EFFECT,
   EXPLORE_COST_EFFECT,
+  EXPLORE_COST_FLOOR,
+  EXPLORE_COST_STACK_EFFECT,
+  FIRST_STRIKE_EFFECT,
   FORGE_CYCLE_EFFECT,
+  GROUP_CONFLICT_EFFECT,
+  GROUP_CONFLICT_PENALTY_MUL,
+  HUNT_HAZARD_EFFECT,
   IMPLEMENTED_TECH_MAX_LEVEL,
   LOOT_GOLD_EFFECT,
   MINING_OUTPUT_EFFECT,
   PLACEHOLDER_TECH_MAX_LEVEL,
+  RECRUIT_COST_EFFECT,
+  RUNE_ATK_EFFECT,
   SLAG_COPPER_EFFECT,
   STATION_CONFLICT_BASE_MUL,
   STATION_CONFLICT_CLEARED_MUL,
@@ -42,24 +53,35 @@ import {
   TECH_TAB_LABELS,
   TECH_TABS,
   TECH_TREE,
+  TIMED_ORDER_CHANCE_EFFECT,
+  TIMED_ORDER_DURATION_EFFECT,
   TOOL_UPKEEP_EFFECT,
   TRADE_GOLD_EFFECT,
+  WILD_CRYSTAL_DROP_EFFECT,
+  WOUNDED_GUARD_EFFECT,
   WEAKNESS_CRIT_EFFECT,
   WORKER_ATK_EFFECT,
   WORKER_HP_EFFECT,
+  alchemyBatchBonus,
   applyTechEffects,
   assistQualityFloor,
   attackIntervalMul,
+  breakEchoMul,
+  diamondOrderChanceBonus,
   battlefieldSlotCount,
   encounterSlotCount,
+  marketDiamondChance,
   marketSlotCount,
-  exploreCostMul,
+  miningDualDropBonus,
+  firstStrikeCutS,
   forgeCycleMul,
   fuseStayAssigned,
   hasTech,
   hydrateTechFields,
   hydrateTechLevels,
+  groupBothStaffed,
   hydrateUnlockedTechIds,
+  huntingHazardMul,
   isRowOpen,
   isTechMaxed,
   lootGoldMul,
@@ -70,6 +92,7 @@ import {
   offlineCapS,
   recruitCost,
   rematchSupplyCut,
+  runeAtkMul,
   researchNextTech,
   researchTech,
   resetAllTech,
@@ -89,8 +112,11 @@ import {
   techReadyLabel,
   techRow,
   techTab,
+  timedOrderChanceBonus,
+  timedOrderDurationMul,
   toolUpkeepBonus,
   tradeGoldMul,
+  woundedTakenMul,
   weaknessCritBonus,
   workerAtkMul,
   workerHpMul,
@@ -148,7 +174,6 @@ describe('tech tab row table', () => {
       'marketLicense',
       'scoutRelay',
       'farWatch',
-      'caravanPermit',
     ])
     expect(techRow('affairs', 1)?.options.some((option) => option.id === 'pathOutpost')).toBe(true)
     expect(techRow('affairs', 2)?.options.some((option) => option.id === 'marketLicense')).toBe(true)
@@ -156,9 +181,15 @@ describe('tech tab row table', () => {
     expect(techRow('affairs', 4)?.options.some((option) => option.id === 'farWatch')).toBe(true)
     expect(techRow('affairs', 5)?.options.some((option) => option.id === 'caravanPermit')).toBe(true)
     expect(BATTLEFIELD_SLOT_TECH_IDS).toEqual(['pathOutpost', 'scoutRelay'])
-    expect(MARKET_SLOT_TECH_IDS).toEqual(['marketLicense', 'farWatch', 'caravanPermit'])
+    expect(MARKET_SLOT_TECH_IDS).toEqual(['marketLicense', 'farWatch'])
     expect(TECH_TREE.filter((node) => node.effectId === BATTLEFIELD_SLOT_EFFECT)).toHaveLength(2)
-    expect(TECH_TREE.filter((node) => node.effectId === MARKET_SLOT_EFFECT)).toHaveLength(3)
+    expect(TECH_TREE.filter((node) => node.effectId === MARKET_SLOT_EFFECT)).toHaveLength(2)
+    expect(techNodeById('caravanPermit')).toMatchObject({
+      implemented: true,
+      maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
+      name: '限时加急章',
+    })
+    expect(techNodeById('caravanPermit').effectId).not.toBe(MARKET_SLOT_EFFECT)
 
     const rules = TECH_TREE.find((node) => node.id === 'workshopRules')
     const archive = TECH_TREE.find((node) => node.id === 'artisanArchive')
@@ -194,8 +225,15 @@ describe('tech tab row table', () => {
     expect(techRow('affairs', 1)?.options.map((option) => option.id)).toEqual(['pathOutpost', 'bargainBell'])
     expect(techReadyLabel(techRow('combat', 1)!.options[0])).toBe('已实装')
     expect(techReadyLabel(techRow('production', 4)!.options[0])).toBe('已实装')
-    expect(techRow('combat', 4)!.options.every((option) => !option.implemented)).toBe(true)
-    expect(techReadyLabel(techRow('combat', 4)!.options[0])).toBe('未实装')
+    expect(techRow('combat', 4)!.options.every((option) => option.implemented)).toBe(true)
+    expect(techReadyLabel(techRow('combat', 4)!.options[0])).toBe('已实装')
+    expect(techReadyLabel(techRow('production', 4)!.options[1])).toBe('已实装')
+    expect(techNodeById('workshopCrest')).toMatchObject({
+      name: '轮值章程',
+      implemented: true,
+      maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
+    })
+    expect(techNodeById('toolUpkeep').desc).toMatch(/符文/)
   })
 })
 
@@ -258,11 +296,14 @@ describe('hydrate tech fields', () => {
   it('maps old unlockedTechIds to level=1 and clamps stored levels to maxLevel', () => {
     expect(hydrateTechLevels(undefined, ['workshopLog', 'notATech', 'workshopCrest'])).toEqual({ workshopCrest: 1 })
     expect(hydrateTechLevels({ workshopCrest: 9, skipMe: 3 }, [])).toEqual({
-      workshopCrest: PLACEHOLDER_TECH_MAX_LEVEL,
+      workshopCrest: IMPLEMENTED_TECH_MAX_LEVEL,
     })
     expect(hydrateTechLevels({ workshopCrest: 2, pathOutpost: 4 }, ['pathOutpost'])).toEqual({
-      workshopCrest: 2,
+      workshopCrest: IMPLEMENTED_TECH_MAX_LEVEL,
       pathOutpost: IMPLEMENTED_TECH_MAX_LEVEL,
+    })
+    expect(hydrateTechLevels({ knightCrest: 9 }, [])).toEqual({
+      knightCrest: PLACEHOLDER_TECH_MAX_LEVEL,
     })
   })
 })
@@ -387,18 +428,18 @@ describe('tech multi-level', () => {
     save.unlockedTechIds = ['slagRecycle', 'workshopRules', 'artisanArchive']
     hydrateTechFields(save)
     save.techPoints = 20
-    expect(techProgressText(save, 'workshopCrest')).toBe('0/5')
-    expect(techActivateLabel(save, 'workshopCrest')).toBe('激活 · 8 灵感')
-    expect(researchTech(save, 'workshopCrest')).toEqual({ ok: true, message: '已点亮「工坊纹章」' })
-    expect(techLevel(save, 'workshopCrest')).toBe(1)
-    expect(techProgressText(save, 'workshopCrest')).toBe('1/5')
-    expect(techActivateLabel(save, 'workshopCrest')).toBe('还可再点 · 8 灵感')
+    expect(techProgressText(save, 'knightCrest')).toBe('0/5')
+    expect(techActivateLabel(save, 'knightCrest')).toBe('激活 · 8 灵感')
+    expect(researchTech(save, 'knightCrest')).toEqual({ ok: true, message: '已点亮「骑士工坊纹章」' })
+    expect(techLevel(save, 'knightCrest')).toBe(1)
+    expect(techProgressText(save, 'knightCrest')).toBe('1/5')
+    expect(techActivateLabel(save, 'knightCrest')).toBe('还可再点 · 8 灵感')
     expect(save.techPoints).toBe(12)
-    expect(researchTech(save, 'workshopCrest')).toEqual({ ok: true, message: '已点亮「工坊纹章」' })
-    expect(techLevel(save, 'workshopCrest')).toBe(2)
+    expect(researchTech(save, 'knightCrest')).toEqual({ ok: true, message: '已点亮「骑士工坊纹章」' })
+    expect(techLevel(save, 'knightCrest')).toBe(2)
     expect(save.techPoints).toBe(4)
-    expect(save.techLevels.workshopCrest).toBe(2)
-    expect(save.unlockedTechIds).toContain('workshopCrest')
+    expect(save.techLevels.knightCrest).toBe(2)
+    expect(save.unlockedTechIds).toContain('knightCrest')
   })
 
   it('blocks a node after it reaches maxLevel', () => {
@@ -407,13 +448,13 @@ describe('tech multi-level', () => {
     hydrateTechFields(save)
     save.techPoints = 99
     for (let i = 0; i < PLACEHOLDER_TECH_MAX_LEVEL; i += 1) {
-      expect(researchTech(save, 'workshopCrest').ok).toBe(true)
+      expect(researchTech(save, 'knightCrest').ok).toBe(true)
     }
-    expect(techLevel(save, 'workshopCrest')).toBe(5)
-    expect(techProgressText(save, 'workshopCrest')).toBe('5/5')
-    expect(isTechMaxed(save, 'workshopCrest')).toBe(true)
-    expect(techActivateLabel(save, 'workshopCrest')).toBe('已激活')
-    expect(researchTech(save, 'workshopCrest')).toEqual({ ok: false, reason: '已经点满' })
+    expect(techLevel(save, 'knightCrest')).toBe(5)
+    expect(techProgressText(save, 'knightCrest')).toBe('5/5')
+    expect(isTechMaxed(save, 'knightCrest')).toBe(true)
+    expect(techActivateLabel(save, 'knightCrest')).toBe('已激活')
+    expect(researchTech(save, 'knightCrest')).toEqual({ ok: false, reason: '已经点满' })
     expect(save.techPoints).toBe(99 - 8 * PLACEHOLDER_TECH_MAX_LEVEL)
     expect(researchTech(save, 'pathOutpost').ok).toBe(true)
     expect(researchTech(save, 'pathOutpost')).toEqual({ ok: false, reason: '已经点满' })
@@ -445,7 +486,7 @@ describe('tech multi-level', () => {
       workshopCrest: 1,
       pathOutpost: 1,
     })
-    expect(techProgressText(save, 'workshopCrest')).toBe('1/5')
+    expect(techProgressText(save, 'workshopCrest')).toBe('1/1')
     expect(techProgressText(save, 'workshopRules')).toBe('1/1')
     expect(isRowOpen(save, 'production', 2)).toBe(true)
     expect(isRowOpen(save, 'affairs', 2)).toBe(true)
@@ -481,6 +522,7 @@ describe('battlefieldSlotCount and marketSlotCount', () => {
     expect(buy(save, 'caravanPermit').ok).toBe(true)
     expect(marketSlotCount(save)).toBe(MARKET_SLOT_MAX)
     expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MAX)
+    expect(MARKET_SLOT_TECH_IDS).not.toContain('caravanPermit')
     expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MAX)
 
     expect(buy(save, 'affairsRoadbook').ok).toBe(true)
@@ -495,11 +537,11 @@ describe('tech effects stay no-op where intended', () => {
     maxAllTechs(save)
     applyTechEffects(save)
     expect(techEffectValue(save, 'noop')).toBe(0)
-    expect(recruitCost(save)).toBe(RECRUIT_COST)
+    expect(recruitCost(save)).toBe(RECRUIT_COST - 5)
     expect(stationTechSpeedMul(save, 'cooking')).toBe(1)
     expect(fuseStayAssigned(save)).toBe(true)
-    expect(offlineCapS(save)).toBe(OFFLINE_CAP_S + 2 * 3600)
-    expect(offlineCapHours(save)).toBe(10)
+    expect(offlineCapS(save)).toBe(OFFLINE_CAP_S + 4 * 3600)
+    expect(offlineCapHours(save)).toBe(12)
     expect(exploreCost(save)).toBe(6)
 
     spawnWorker(save)
@@ -602,7 +644,7 @@ describe('resetAllTech', () => {
       { id: 'recipeImprint', times: 1 },
       { id: 'workshopRules', times: 1 },
       { id: 'artisanArchive', times: 1 },
-      { id: 'workshopCrest', times: 3 },
+      { id: 'knightCrest', times: 3 },
       { id: 'pathOutpost', times: 1 },
       { id: 'marketLicense', times: 1 },
     ]
@@ -618,7 +660,7 @@ describe('resetAllTech', () => {
 
     expect(spentTechPoints(save)).toBe(expectedSpent)
     expect(save.techPoints).toBe(leftover)
-    expect(techLevel(save, 'workshopCrest')).toBe(3)
+    expect(techLevel(save, 'knightCrest')).toBe(3)
     expect(battlefieldSlotCount(save)).toBe(3)
     expect(marketSlotCount(save)).toBe(3)
     expect(save.encounters).toHaveLength(3)
@@ -876,3 +918,166 @@ describe('tech effect multipliers', () => {
     expect(exploreCost(save)).toBe(6)
   })
 })
+
+describe('wired placeholder techs', () => {
+  it('halves group conflict when both pair stations are staffed', () => {
+    const save = createSave()
+    spawnWorker(save)
+    spawnWorker(save)
+    spawnWorker(save)
+    assignWorker(save, save.workers[0].id, 'mining')
+    assignWorker(save, save.workers[1].id, 'mining')
+    expect(stationConflictMul(save, 'mining')).toBe(STATION_CONFLICT_BASE_MUL)
+    expect(groupBothStaffed(save, 'mining')).toBe(false)
+    unlock(save, 'workshopCrest')
+    expect(techEffectValue(save, GROUP_CONFLICT_EFFECT)).toBe(GROUP_CONFLICT_PENALTY_MUL)
+    expect(stationConflictMul(save, 'mining')).toBe(STATION_CONFLICT_BASE_MUL)
+    assignWorker(save, save.workers[2].id, 'inscription')
+    expect(groupBothStaffed(save, 'mining')).toBe(true)
+    expect(stationConflictMul(save, 'mining')).toBe(1 - (1 - STATION_CONFLICT_BASE_MUL) * GROUP_CONFLICT_PENALTY_MUL)
+    expect(stationConflictHint(save, 'mining')).toBe('冲突：效率 −15%')
+    expect(currentSpeed(save, 'mining')).toBeGreaterThan(0)
+  })
+
+  it('adds mining wild-crystal dual-drop, alchemy extra bottle, and hunting hazard cut', () => {
+    const save = createSave()
+    expect(miningDualDropBonus(save)).toBe(0)
+    expect(alchemyBatchBonus(save)).toBe(0)
+    expect(huntingHazardMul(save)).toBe(1)
+    unlock(save, 's06DraftA')
+    unlock(save, 's07DraftA')
+    unlock(save, 's08DraftA')
+    expect(techEffectValue(save, WILD_CRYSTAL_DROP_EFFECT)).toBe(0.1)
+    expect(techEffectValue(save, ALCHEMY_BATCH_EFFECT)).toBe(1)
+    expect(techEffectValue(save, HUNT_HAZARD_EFFECT)).toBe(0.2)
+    expect(miningDualDropBonus(save)).toBeCloseTo(0.1)
+    expect(alchemyBatchBonus(save)).toBe(1)
+    expect(huntingHazardMul(save)).toBeCloseTo(0.8)
+
+    setRollOverride(() => 0)
+    spawnWorker(save)
+    assignWorker(save, save.workers[0].id, 'mining')
+    expect(completeCycle(save, 'mining')).toBe(true)
+    expect(save.bank.ore).toBe(1)
+    expect(save.bank.wildCrystal).toBe(2)
+  })
+
+  it('stacks night lamp then long-night lamp to 12h offline', () => {
+    const save = createSave()
+    expect(offlineCapHours(save)).toBe(8)
+    unlock(save, 'nightLamp')
+    expect(offlineCapHours(save)).toBe(10)
+    unlock(save, 's10DraftA')
+    expect(offlineCapHours(save)).toBe(12)
+    expect(offlineCapS(save)).toBe(OFFLINE_CAP_S + 4 * 3600)
+  })
+
+  it('wires first-strike cut, rune ATK, wounded guard and break echo', () => {
+    const save = createSave()
+    expect(firstStrikeCutS(save)).toBe(0)
+    expect(runeAtkMul(save)).toBe(1)
+    expect(woundedTakenMul(save)).toBe(1)
+    expect(breakEchoMul(save)).toBe(1)
+    unlock(save, 'combatBanner')
+    unlock(save, 'combatEdge')
+    unlock(save, 'combatArmor')
+    unlock(save, 'combatLegend')
+    expect(techEffectValue(save, FIRST_STRIKE_EFFECT)).toBe(0.5)
+    expect(techEffectValue(save, RUNE_ATK_EFFECT)).toBe(0.15)
+    expect(techEffectValue(save, WOUNDED_GUARD_EFFECT)).toBe(0.2)
+    expect(techEffectValue(save, BREAK_ECHO_EFFECT)).toBe(0.15)
+    expect(firstStrikeCutS(save)).toBe(0.5)
+    expect(runeAtkMul(save)).toBeCloseTo(1.15)
+    expect(woundedTakenMul(save)).toBeCloseTo(0.8)
+    expect(breakEchoMul(save)).toBeCloseTo(1.15)
+
+    const worker = spawnWorkerWith(save, 1, 'laborer')
+    const bare = workerCombatStats(1, 'laborer', 1, save)
+    const edged = workerCombatStats(1, 'laborer', 1, save, 'runeSharp')
+    expect(edged.atk).toBe(Math.round(bare.atk * 1.15))
+
+    const now = 50_000
+    const enc = testEnemy({ targetRuleId: 'lowestHp' })
+    save.encounters = [enc]
+    const combat = beginEnemyCombat(enc, [worker], now, 1, undefined, save)
+    expect(combat.workers[0].nextActAt).toBe(now + combat.workers[0].spd * 1000 - 500)
+
+    const wounded = createSave()
+    unlock(wounded, 'combatArmor')
+    const tank = spawnWorkerWith(wounded, 1, 'laborer')
+    const liveHp = workerCombatStats(1, 'laborer', 1, wounded).hp
+    tank.hpMax = liveHp
+    tank.hp = Math.max(1, Math.floor(liveHp * 0.2))
+    const hitEnc = testEnemy({ targetRuleId: 'lowestHp' })
+    wounded.encounters = [hitEnc]
+    const startHp = tank.hp
+    const fight = beginEnemyCombat(hitEnc, [tank], 60_000, 1, undefined, wounded)
+    const expected = Math.max(1, Math.round(fight.enemy.atk * 0.8))
+    expect(fight.workers[0].hp).toBe(startHp - expected)
+
+    const echo = createSave()
+    unlock(echo, 'combatLegend')
+    const striker = spawnWorkerWith(echo, 1, 'laborer', ['fire'])
+    const echoEnc = testEnemy({
+      weaknesses: ['fire'],
+      revealedWeaknesses: ['fire'],
+    })
+    echo.encounters = [echoEnc]
+    const echoFight = beginEnemyCombat(echoEnc, [striker], 70_000, 1, undefined, echo, { shield: 1 })
+    echoFight.workers[0].nextActAt = 71_000
+    echoFight.enemy.nextActAt = 90_000
+    const hp0 = echoFight.enemy.hp
+    stepEnemyCombat(echo, echoEnc, 71_000)
+    expect(echoFight.stunnedUntil).toBeGreaterThan(71_000)
+    echoFight.workers[0].nextActAt = 72_000
+    const hp1 = echoFight.enemy.hp
+    stepEnemyCombat(echo, echoEnc, 72_000)
+    expect(echoFight.enemy.hp).toBe(hp1 - Math.round(echoFight.workers[0].atk * 1.2 * BREAK_VULN_MUL * 1.15))
+    expect(hp1).toBeLessThan(hp0)
+  })
+
+  it('rewires caravan permit to timed duration and drops it from market slots', () => {
+    const save = createSave()
+    expect(MARKET_SLOT_TECH_IDS).toEqual(['marketLicense', 'farWatch'])
+    expect(marketSlotCount(save)).toBe(MARKET_SLOT_MIN)
+    unlock(save, 'caravanPermit')
+    expect(marketSlotCount(save)).toBe(MARKET_SLOT_MIN)
+    expect(techEffectValue(save, TIMED_ORDER_DURATION_EFFECT)).toBe(0.5)
+    expect(timedOrderDurationMul(save)).toBeCloseTo(1.5)
+    expect(techNodeById('caravanPermit').desc).toMatch(/不再加商场格/)
+  })
+
+  it('raises timed-order chance, stacks explore cut, trade gold, recruit cost and diamond orders', () => {
+    const save = createSave()
+    expect(timedOrderChanceBonus(save)).toBe(0)
+    expect(exploreCostMul(save)).toBe(1)
+    expect(tradeGoldMul(save)).toBe(1)
+    expect(recruitCost(save)).toBe(RECRUIT_COST)
+    expect(diamondOrderChanceBonus(save)).toBe(0)
+    expect(marketDiamondChance(0.2, save)).toBeCloseTo(0.2)
+
+    unlock(save, 's04DraftC')
+    unlock(save, 's05DraftC')
+    unlock(save, 'rushOrder')
+    unlock(save, 'bargainBell')
+    unlock(save, 'affairsRoadbook')
+    unlock(save, 'affairsRoster')
+    unlock(save, 'affairsSeal')
+
+    expect(techEffectValue(save, TIMED_ORDER_CHANCE_EFFECT)).toBe(0.15)
+    expect(timedOrderChanceBonus(save)).toBeCloseTo(0.15)
+    expect(techEffectValue(save, EXPLORE_COST_STACK_EFFECT)).toBe(0.1)
+    expect(exploreCostMul(save)).toBeCloseTo(0.72)
+    expect(exploreCostMul(save)).toBeGreaterThanOrEqual(EXPLORE_COST_FLOOR)
+    expect(exploreCost(save)).toBe(6)
+    expect(techEffectValue(save, TRADE_GOLD_EFFECT)).toBeCloseTo(0.3)
+    expect(tradeGoldMul(save)).toBeCloseTo(1.15 * 1.15)
+    expect(pawnRewardGold(testPawn(), save)).toBe(26)
+    expect(techEffectValue(save, RECRUIT_COST_EFFECT)).toBe(5)
+    expect(recruitCost(save)).toBe(10)
+    expect(techEffectValue(save, DIAMOND_ORDER_EFFECT)).toBe(0.1)
+    expect(marketDiamondChance(0.2, save)).toBeCloseTo(0.3)
+    expect(marketDiamondChance(0.95, save)).toBe(1)
+  })
+})
+

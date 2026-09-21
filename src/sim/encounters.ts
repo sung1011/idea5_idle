@@ -75,6 +75,7 @@ import {
   battlefieldSlotCount,
   exploreCostMul,
   lootGoldMul,
+  marketDiamondChance,
   marketSlotCount,
   tradeGoldMul,
 } from './tech'
@@ -1151,7 +1152,7 @@ function makePawn(
   const pawnWants = scaledMainNeed(wantItem, quality, chapter)
   const reward = rollCurrencyPayout(
     scaleGold(pawnGoldForMap(pawnWants), q.outputMul / q.demandMul),
-    REWARD_DIAMOND_CHANCE.pawn,
+    marketDiamondChance(REWARD_DIAMOND_CHANCE.pawn, save),
     rewardRoll(rng, seed, slot),
   )
   return {
@@ -1219,7 +1220,7 @@ function makeArtisan(
   const wants = scaledMainNeed(wantItem, quality, chapter)
   const reward = rollCurrencyPayout(
     scaleGold(pawnGoldForMap(wants), q.outputMul / q.demandMul),
-    REWARD_DIAMOND_CHANCE.artisan,
+    marketDiamondChance(REWARD_DIAMOND_CHANCE.artisan, save),
     rewardRoll(rng, seed, slot),
   )
   return {
@@ -1258,7 +1259,7 @@ function makeBulkBuy(
   const wants = scaledMainNeed(wantItem, quality, chapter)
   const reward = rollCurrencyPayout(
     scaleGold(bulkGoldForMap(wants), q.outputMul / q.demandMul),
-    REWARD_DIAMOND_CHANCE.bulkBuy,
+    marketDiamondChance(REWARD_DIAMOND_CHANCE.bulkBuy, save),
     rewardRoll(rng, seed, slot),
   )
   return {
@@ -1315,7 +1316,7 @@ export function encounterFiller(seed: number, opts: EncounterSpawnOpts = {}): (s
     if (forceBoss) reserved = true
     const enc = makeEncounter(safe, slot, quality, kind, forceBoss, chapter, rng, opts.save)
     if (board === 'market' && !(opts.starterCopperPawn && slot === 0)) {
-      attachTimedMarketOrder(enc, opts.now ?? Date.now(), chapter)
+      attachTimedMarketOrder(enc, opts.now ?? Date.now(), chapter, false, opts.save)
     }
     return enc
   }

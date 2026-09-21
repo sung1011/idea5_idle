@@ -20,6 +20,7 @@ import {
   STATION_IDS,
   WARD_DURATION_S,
 } from './tables'
+import { alchemyBatchBonus } from './tech'
 import { isWoundedHp } from './workshopHp'
 import type {
   ActionResult,
@@ -131,7 +132,7 @@ export function rollAlchemyPotionBatch(save: Save): { itemId: PotionItemId; qty:
   const itemId = POTION_ITEM_IDS[idx]
   const range = POTION_BATCH_RANGE[itemId]
   const span = range.max - range.min + 1
-  const qty = range.min + Math.floor(roll01(save) * span)
+  const qty = range.min + Math.floor(roll01(save) * span) + alchemyBatchBonus(save)
   return { itemId, qty }
 }
 

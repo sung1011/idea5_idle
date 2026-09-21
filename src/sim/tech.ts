@@ -1,7 +1,7 @@
 import { resizeEncounterBoard } from './encounters'
 import { syncKnightLevel } from './knightLevel'
 import { roll01 } from './rng'
-import { OFFLINE_CAP_S, RECRUIT_COST } from './tables'
+import { OFFLINE_CAP_S, PLAYABLE_CHAINS, RECRUIT_COST } from './tables'
 import type { ActionResult, Save, StationId, TechId } from './types'
 
 export const BATTLEFIELD_SLOT_MIN = 2
@@ -36,6 +36,24 @@ export const ASSIST_FLOOR_EFFECT = 'assistFloor'
 export const TRADE_GOLD_EFFECT = 'tradeGold'
 export const EXPLORE_COST_EFFECT = 'exploreCost'
 export const LOOT_GOLD_EFFECT = 'lootGold'
+export const GROUP_CONFLICT_EFFECT = 'groupConflict'
+export const WILD_CRYSTAL_DROP_EFFECT = 'wildCrystalDrop'
+export const ALCHEMY_BATCH_EFFECT = 'alchemyBatch'
+export const HUNT_HAZARD_EFFECT = 'huntHazard'
+export const FIRST_STRIKE_EFFECT = 'firstStrike'
+export const RUNE_ATK_EFFECT = 'runeAtk'
+export const WOUNDED_GUARD_EFFECT = 'woundedGuard'
+export const BREAK_ECHO_EFFECT = 'breakEcho'
+export const TIMED_ORDER_DURATION_EFFECT = 'timedOrderDuration'
+export const TIMED_ORDER_CHANCE_EFFECT = 'timedOrderChance'
+export const EXPLORE_COST_STACK_EFFECT = 'exploreCostStack'
+export const RECRUIT_COST_EFFECT = 'recruitCost'
+export const DIAMOND_ORDER_EFFECT = 'diamondOrder'
+
+/** 探索费叠乘下限。 */
+export const EXPLORE_COST_FLOOR = 0.6
+/** 轮值章程：同组两站都有人时，把现有冲突惩罚再乘 0.5。 */
+export const GROUP_CONFLICT_PENALTY_MUL = 0.5
 
 /** 已实装效果的默认数值。`techEffectValue` 按等级叠乘。 */
 export const TECH_EFFECT_BASE: Readonly<Record<string, number>> = {
@@ -55,6 +73,19 @@ export const TECH_EFFECT_BASE: Readonly<Record<string, number>> = {
   [TRADE_GOLD_EFFECT]: 0.15,
   [EXPLORE_COST_EFFECT]: 0.2,
   [LOOT_GOLD_EFFECT]: 0.15,
+  [GROUP_CONFLICT_EFFECT]: 0.5,
+  [WILD_CRYSTAL_DROP_EFFECT]: 0.1,
+  [ALCHEMY_BATCH_EFFECT]: 1,
+  [HUNT_HAZARD_EFFECT]: 0.2,
+  [FIRST_STRIKE_EFFECT]: 0.5,
+  [RUNE_ATK_EFFECT]: 0.15,
+  [WOUNDED_GUARD_EFFECT]: 0.2,
+  [BREAK_ECHO_EFFECT]: 0.15,
+  [TIMED_ORDER_DURATION_EFFECT]: 0.5,
+  [TIMED_ORDER_CHANCE_EFFECT]: 0.15,
+  [EXPLORE_COST_STACK_EFFECT]: 0.1,
+  [RECRUIT_COST_EFFECT]: 5,
+  [DIAMOND_ORDER_EFFECT]: 0.1,
 }
 
 export const TECH_TAB_IDS = ['production', 'combat', 'affairs'] as const
@@ -204,23 +235,53 @@ const PRODUCTION_ROWS: readonly RowSeed[] = [
         icon: '🪔',
         ...implemented(OFFLINE_HOURS_EFFECT),
       },
-      { id: 'workshopCrest', name: '工坊纹章', desc: PLACEHOLDER, icon: '🛡️' },
+      {
+        id: 'workshopCrest',
+        name: '轮值章程',
+        desc: '同组两站都至少派入 1 人时，该组冲突惩罚再减半。',
+        icon: '🛡️',
+        ...implemented(GROUP_CONFLICT_EFFECT),
+      },
       { id: 'knightCrest', name: '骑士工坊纹章', desc: PLACEHOLDER, icon: '🏅' },
     ],
   },
   {
     cost: 10,
     options: [
-      { id: 's06DraftA', name: '炉火手记', desc: PLACEHOLDER, icon: '🔥' },
-      { id: 's07DraftA', name: '典籍目录', desc: PLACEHOLDER, icon: '📚' },
+      {
+        id: 's06DraftA',
+        name: '荒晶提纯',
+        desc: '采矿荒晶双掉概率 +10%。',
+        icon: '🔥',
+        ...implemented(WILD_CRYSTAL_DROP_EFFECT),
+      },
+      {
+        id: 's07DraftA',
+        name: '配伍札记',
+        desc: '炼金每批固定多出 1 瓶，随机池不变。',
+        icon: '📚',
+        ...implemented(ALCHEMY_BATCH_EFFECT),
+      },
     ],
   },
   {
     cost: 12,
     options: [
-      { id: 's08DraftA', name: '号角试音', desc: PLACEHOLDER, icon: '📢' },
+      {
+        id: 's08DraftA',
+        name: '猎场标记',
+        desc: '狩猎遇险概率 −20%。',
+        icon: '📢',
+        ...implemented(HUNT_HAZARD_EFFECT),
+      },
       { id: 's09DraftA', name: '盟约草稿', desc: PLACEHOLDER, icon: '🤝' },
-      { id: 's10DraftA', name: '王庭备忘', desc: PLACEHOLDER, icon: '👑' },
+      {
+        id: 's10DraftA',
+        name: '长夜油灯',
+        desc: '离线上限再 +2 小时（夜班油灯之后到 12 小时）。',
+        icon: '👑',
+        ...implemented(OFFLINE_HOURS_EFFECT),
+      },
     ],
   },
 ]
@@ -293,16 +354,40 @@ const COMBAT_ROWS: readonly RowSeed[] = [
   {
     cost: 9,
     options: [
-      { id: 'combatBanner', name: '纹章战旗', desc: PLACEHOLDER, icon: '🚩' },
-      { id: 'combatEdge', name: '锋刃打磨', desc: PLACEHOLDER, icon: '🗡️' },
-      { id: 'combatArmor', name: '甲胄合缝', desc: PLACEHOLDER, icon: '🪖' },
+      {
+        id: 'combatBanner',
+        name: '破晓号令',
+        desc: '开战时工人首次攻击间隔 −0.5 秒。',
+        icon: '🚩',
+        ...implemented(FIRST_STRIKE_EFFECT),
+      },
+      {
+        id: 'combatEdge',
+        name: '符刃开光',
+        desc: '本场已装备符文的工人 ATK +15%；无符文不加。',
+        icon: '🗡️',
+        ...implemented(RUNE_ATK_EFFECT),
+      },
+      {
+        id: 'combatArmor',
+        name: '残血顽抗',
+        desc: '工人 HP≤30% 上限时受到伤害 −20%。',
+        icon: '🪖',
+        ...implemented(WOUNDED_GUARD_EFFECT),
+      },
     ],
   },
   {
     cost: 11,
     options: [
       { id: 'combatCourt', name: '王庭校场', desc: PLACEHOLDER, icon: '🏰' },
-      { id: 'combatLegend', name: '传奇演武', desc: PLACEHOLDER, icon: '⭐' },
+      {
+        id: 'combatLegend',
+        name: '连破余韵',
+        desc: '敌人处于破防 / 虚弱窗口时，伤害再 ×1.15。',
+        icon: '⭐',
+        ...implemented(BREAK_ECHO_EFFECT),
+      },
     ],
   },
 ]
@@ -379,7 +464,13 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
         effectId: MARKET_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
       },
-      { id: 's04DraftC', name: '夜更口令', desc: PLACEHOLDER, icon: '🌙' },
+      {
+        id: 's04DraftC',
+        name: '双轨急单',
+        desc: '商场刷出限时单概率 +15%。',
+        icon: '🌙',
+        ...implemented(TIMED_ORDER_CHANCE_EFFECT),
+      },
     ],
   },
   {
@@ -387,21 +478,44 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
     options: [
       {
         id: 'caravanPermit',
-        name: '商路执照',
-        desc: '办好商路执照，商场订单格 +1（封顶 4）。',
+        name: '限时加急章',
+        desc: '限时商场订单时限 +50%，不再加商场格。',
         icon: '🐫',
-        effectId: MARKET_SLOT_EFFECT,
-        maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
+        ...implemented(TIMED_ORDER_DURATION_EFFECT),
       },
-      { id: 's05DraftC', name: '关卡印花', desc: PLACEHOLDER, icon: '💮' },
+      {
+        id: 's05DraftC',
+        name: '探路折扣',
+        desc: '探索费再 ×0.9，与急单优先叠乘，下限 0.6。',
+        icon: '💮',
+        ...implemented(EXPLORE_COST_STACK_EFFECT),
+      },
     ],
   },
   {
     cost: 24,
     options: [
-      { id: 'affairsRoadbook', name: '边贸路书', desc: PLACEHOLDER, icon: '🗺️' },
-      { id: 'affairsRoster', name: '驿站号簿', desc: PLACEHOLDER, icon: '📒' },
-      { id: 'affairsSeal', name: '商盟印信', desc: PLACEHOLDER, icon: '🔏' },
+      {
+        id: 'affairsRoadbook',
+        name: '回扣账本',
+        desc: '当铺 / 收购金币再 ×1.15，与议价铜铃叠乘。',
+        icon: '🗺️',
+        ...implemented(TRADE_GOLD_EFFECT),
+      },
+      {
+        id: 'affairsRoster',
+        name: '募兵折',
+        desc: '抽工人钻石费用 15→10。',
+        icon: '📒',
+        ...implemented(RECRUIT_COST_EFFECT),
+      },
+      {
+        id: 'affairsSeal',
+        name: '钻标订单',
+        desc: '商场钻石奖励类订单出现率 +10%。',
+        icon: '🔏',
+        ...implemented(DIAMOND_ORDER_EFFECT),
+      },
     ],
   },
 ]
@@ -717,8 +831,21 @@ export function rematchSupplyCut(_save: Save): number {
   return 0
 }
 
+/** 同 effectId 多节点按「1 + 等级 × 表值」叠乘，不是相加。 */
+export function stackedBonusMul(save: Save, effectId: string): number {
+  const base = TECH_EFFECT_BASE[effectId]
+  if (typeof base !== 'number' || !Number.isFinite(base) || base === 0) return 1
+  let mul = 1
+  for (const node of TECH_TREE) {
+    if (node.effectId !== effectId) continue
+    const lv = techLevel(save, node.id)
+    if (lv > 0) mul *= 1 + base * lv
+  }
+  return mul
+}
+
 export function tradeGoldMul(save: Save): number {
-  return 1 + techEffectValue(save, TRADE_GOLD_EFFECT)
+  return stackedBonusMul(save, TRADE_GOLD_EFFECT)
 }
 
 export function lootGoldMul(save: Save): number {
@@ -726,7 +853,56 @@ export function lootGoldMul(save: Save): number {
 }
 
 export function exploreCostMul(save: Save): number {
-  return Math.max(0, 1 - techEffectValue(save, EXPLORE_COST_EFFECT))
+  let mul = 1 - techEffectValue(save, EXPLORE_COST_EFFECT)
+  const stack = techEffectValue(save, EXPLORE_COST_STACK_EFFECT)
+  if (stack > 0) mul *= 1 - stack
+  return Math.max(EXPLORE_COST_FLOOR, mul)
+}
+
+export function miningDualDropBonus(save: Save): number {
+  return techEffectValue(save, WILD_CRYSTAL_DROP_EFFECT)
+}
+
+export function alchemyBatchBonus(save: Save): number {
+  return Math.max(0, Math.round(techEffectValue(save, ALCHEMY_BATCH_EFFECT)))
+}
+
+export function huntingHazardMul(save: Save): number {
+  return Math.max(0, 1 - techEffectValue(save, HUNT_HAZARD_EFFECT))
+}
+
+export function firstStrikeCutS(save: Save): number {
+  return Math.max(0, techEffectValue(save, FIRST_STRIKE_EFFECT))
+}
+
+export function runeAtkMul(save: Save): number {
+  return 1 + techEffectValue(save, RUNE_ATK_EFFECT)
+}
+
+export function woundedTakenMul(save: Save): number {
+  const cut = techEffectValue(save, WOUNDED_GUARD_EFFECT)
+  return cut > 0 ? Math.max(0, 1 - cut) : 1
+}
+
+export function breakEchoMul(save: Save): number {
+  return 1 + techEffectValue(save, BREAK_ECHO_EFFECT)
+}
+
+export function timedOrderDurationMul(save?: Save): number {
+  return 1 + (save ? techEffectValue(save, TIMED_ORDER_DURATION_EFFECT) : 0)
+}
+
+export function timedOrderChanceBonus(save?: Save): number {
+  return save ? techEffectValue(save, TIMED_ORDER_CHANCE_EFFECT) : 0
+}
+
+export function diamondOrderChanceBonus(save?: Save): number {
+  return save ? techEffectValue(save, DIAMOND_ORDER_EFFECT) : 0
+}
+
+export function marketDiamondChance(base: number, save?: Save): number {
+  const raw = (Number.isFinite(base) ? base : 0) + diamondOrderChanceBonus(save)
+  return Math.min(1, Math.max(0, raw))
 }
 
 export function slagCopperValue(save: Save): number {
@@ -754,9 +930,9 @@ export function scaleQtyByMul(save: Save, qty: number, mul: number): number {
 /** 结算占位。恒 no-op。 */
 export function applyTechEffects(_save: Save): void {}
 
-/** 抽人费数字不受科技影响；现扣钻石。 */
-export function recruitCost(_save: Save): number {
-  return RECRUIT_COST
+/** 抽人费可读科技：募兵折 −5（15→10）。 */
+export function recruitCost(save: Save): number {
+  return Math.max(1, RECRUIT_COST - Math.round(techEffectValue(save, RECRUIT_COST_EFFECT)))
 }
 
 /** 探索费按比例减免；`exploreCost` 用 mul，这里只给旧调用一个整数差。 */
@@ -793,11 +969,25 @@ function assignedAt(save: Save, stationId: StationId): number {
  * 同站正好 2 人时的冲突倍率，乘在人数 / 工具等之后。
  * 1 人或 0 人无冲突。不做吵架、掉血、拆队，也不影响战斗。
  */
+function groupPairOf(stationId: StationId): readonly [StationId, StationId] | undefined {
+  return PLAYABLE_CHAINS.find((pair) => pair[0] === stationId || pair[1] === stationId)
+}
+
+/** 同组两站都至少有 1 个派入工人。 */
+export function groupBothStaffed(save: Save, stationId: StationId): boolean {
+  const pair = groupPairOf(stationId)
+  if (!pair) return false
+  return assignedAt(save, pair[0]) >= 1 && assignedAt(save, pair[1]) >= 1
+}
+
 export function stationConflictMul(save: Save, stationId: StationId): number {
   if (assignedAt(save, stationId) !== 2) return STATION_CONFLICT_CLEARED_MUL
   if (hasTech(save, 'artisanArchive')) return STATION_CONFLICT_CLEARED_MUL
-  if (hasTech(save, 'workshopRules')) return STATION_CONFLICT_RULES_MUL
-  return STATION_CONFLICT_BASE_MUL
+  let mul = hasTech(save, 'workshopRules') ? STATION_CONFLICT_RULES_MUL : STATION_CONFLICT_BASE_MUL
+  if (techEffectValue(save, GROUP_CONFLICT_EFFECT) > 0 && groupBothStaffed(save, stationId)) {
+    mul = 1 - (1 - mul) * GROUP_CONFLICT_PENALTY_MUL
+  }
+  return mul
 }
 
 /** 站卡满 2 人且仍有冲突时的提示。mul === 1 不显示。 */

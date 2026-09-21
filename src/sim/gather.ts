@@ -17,7 +17,7 @@ import {
   type IoRule,
   type MiningCategoryId,
 } from './tables'
-import { miningOutputMul, scaleQtyByMul } from './tech'
+import { huntingHazardMul, miningDualDropBonus, miningOutputMul, scaleQtyByMul } from './tech'
 import { cycleOutputBonus } from './tools'
 import type {
   CategoryId,
@@ -27,6 +27,13 @@ import type {
   Save,
   StationId,
 } from './types'
+
+/** 采矿荒晶再多掉 1 的基础概率。表内已必掉 1 枚；科技加在这上面。 */
+export const MINING_DUAL_DROP_CHANCE = 0
+
+export function miningDualDropChance(save: Save): number {
+  return Math.min(1, Math.max(0, MINING_DUAL_DROP_CHANCE + miningDualDropBonus(save)))
+}
 
 export function pickWeighted<T extends { weight: number }>(rows: T[], roll: number): T {
   const live = rows.filter((row) => row.weight > 0)
@@ -198,6 +205,11 @@ function completeMiningCycle(save: Save, now: number, into?: ItemLot[]): boolean
   if (!node || isMiningNodeRecovering(node, save.elapsedS)) return false
   const cat = selectedCategoryDef(save, 'mining')
   if (!emitRules(save, 'mining', cat.outputs, now, into)) return false
+  const dualChance = miningDualDropChance(save)
+  if (dualChance > 0 && roll01(save) < dualChance) {
+    addToBank(save, 'wildCrystal', 1)
+    pushLot(into, 'wildCrystal', 1)
+  }
   node.nodeHp = Math.max(0, node.nodeHp - 1)
   const key = asMiningCategoryId(node.categoryId)
   if (node.nodeHp <= 0) {
@@ -222,7 +234,7 @@ function completeHerbalismCycle(save: Save, now: number, into?: ItemLot[]): bool
 
 function completeHuntingCycle(save: Save, now: number, into?: ItemLot[]): boolean {
   const prey = huntingPreyByCategory(save.stations.hunting.selectedCategory)
-  const hazard = resolveHazard(prey.hazardChance, roll01(save))
+  const hazard = resolveHazard(prey.hazardChance * huntingHazardMul(save), roll01(save))
   if (hazard.outcome === 'hazard') {
     // TODO: 狩猎真战斗不做；现遇险无即时掉血，劳损由 completeCycle 按 hazard 写入。
     const station = save.stations.hunting
