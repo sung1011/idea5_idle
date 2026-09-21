@@ -69,6 +69,7 @@ const visual = useVisualProgress(() => ({
 }))
 const pct = computed(() => Math.min(100, visual.value * 100))
 const pctLabel = computed(() => Math.round(pct.value))
+/** 制作条按组上色：--workshop-progress-from/to，与 WORKSHOP_GROUP_PROGRESS 同值。 */
 const progressTone = computed(() => stationProgressStyle(props.stationId))
 const xpNeed = computed(() => xpToNextLevel(station.value.stationLevel))
 const xpPct = computed(() => Math.min(100, Math.round((station.value.stationXp / xpNeed.value) * 100)))

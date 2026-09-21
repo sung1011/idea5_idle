@@ -9,17 +9,14 @@ import {
 import { leftoverStockRows } from '../sim/query'
 import { isGuideQuestFlash } from '../sim/guideQuest'
 import { isStationUnlocked, workshopGroupLockedTip } from '../sim/stationUnlock'
-import type { StationId } from '../sim/types'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
 import StationCard from './stationCard.vue'
 import UiIcon from './uiIcon.vue'
-import { useFrameNow } from './visualProgress'
-import { railProgressHalted, railVisualPct, railWorkerDotColors } from './workshopRail'
+import { railGroupSlotDots } from './workshopRail'
 import { selectWorkshopGroup, syncWorkshopTab, workshopGroup, workshopTab } from './appNav'
 import {
   WORKSHOP_GROUPS,
-  stationProgressStyle,
   stationsOfWorkshopGroup,
   workshopGroupLabel,
   type WorkshopGroupId,
@@ -31,7 +28,6 @@ const now = computed(() => {
   void game.save.elapsedS
   return Date.now()
 })
-const frameNow = useFrameNow()
 const buffOn = computed(() => isWorkshopBuffActive(game.save, now.value))
 const buffLabel = computed(() => {
   if (!buffOn.value) return ''
@@ -44,19 +40,11 @@ const activeGroup = workshopGroup
 syncWorkshopTab()
 const leftover = computed(() => leftoverStockRows(game.save))
 const groupStations = computed(() => stationsOfWorkshopGroup(activeGroup.value))
-const railById = computed(() => {
+const railDotsByGroup = computed(() => {
   const save = game.save
-  const clock = frameNow.value
   return Object.fromEntries(
-    WORKSHOP_GROUPS.flatMap((row) => row.stations).map((id) => [
-      id,
-      {
-        dots: railWorkerDotColors(save, id),
-        pct: railVisualPct(save, id, clock),
-        halted: railProgressHalted(save, id),
-      },
-    ]),
-  ) as Record<StationId, { dots: string[]; pct: number; halted: boolean }>
+    WORKSHOP_GROUPS.map((row) => [row.id, railGroupSlotDots(save, row.stations)]),
+  ) as Record<WorkshopGroupId, ReturnType<typeof railGroupSlotDots>>
 })
 
 function selectGroup(id: WorkshopGroupId) {
@@ -96,39 +84,22 @@ watch(activeStation, async () => {
           :aria-selected="activeGroup === row.id"
           :class="{
             on: activeGroup === row.id,
-            halt: railById[row.stations[0]].halted && railById[row.stations[1]].halted,
             locked: groupLocked(row.id),
             'guide-flash': row.stations.includes('alchemy') && guideFlashAlchemy,
           }"
           @click="selectGroup(row.id)"
         >
-          <span class="fills" aria-hidden="true">
-            <span
-              v-for="id in row.stations"
-              :key="id"
-              class="fill-clip"
-              :class="{ halt: railById[id].halted }"
-            >
-              <i
-                class="fill"
-                :style="{
-                  height: railById[id].pct.toFixed(2) + '%',
-                  ...stationProgressStyle(id),
-                }"
-              />
-            </span>
-          </span>
           <span class="face">
             <span class="pair-icos">
               <UiIcon v-for="id in row.stations" :key="id" :name="id" />
             </span>
             <span class="lab">{{ workshopGroupLabel(row.id) }}</span>
-            <span class="pair-dots">
-              <span v-for="id in row.stations" :key="id" class="dots">
+            <span class="pair-dots" aria-hidden="true">
+              <span v-for="(dot, i) in railDotsByGroup[row.id]" :key="i" class="dot-cell">
                 <i
-                  v-for="(color, i) in railById[id].dots"
-                  :key="i"
-                  :style="{ background: color }"
+                  v-if="dot"
+                  :class="{ idle: dot.idle }"
+                  :style="{ background: dot.color }"
                 />
               </span>
             </span>
@@ -198,34 +169,6 @@ watch(activeStation, async () => {
   letter-spacing: 0.04em;
 }
 
-.rail .fills {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.rail .fill-clip {
-  position: relative;
-  overflow: hidden;
-  border-radius: inherit;
-}
-
-.rail .fill {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(0deg, var(--workshop-progress-from), var(--workshop-progress-to));
-}
-
-.rail .fill-clip.halt .fill,
-.rail button.halt .fill {
-  background: linear-gradient(0deg, #9a8f7c, #d4cdc0);
-}
-
 .rail .face {
   position: relative;
   z-index: 1;
@@ -251,26 +194,30 @@ watch(activeStation, async () => {
 
 .rail .pair-dots {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: center;
-  width: 100%;
-  min-height: 7px;
-  gap: 2px;
-}
-
-.rail .dots {
-  display: flex;
-  align-items: center;
+  grid-template-columns: 7px 7px;
+  grid-template-rows: 7px 7px;
   justify-content: center;
-  gap: 2px;
-  min-height: 7px;
+  align-content: center;
+  width: 100%;
+  gap: 3px;
 }
 
-.rail .dots i {
+.rail .dot-cell {
+  width: 7px;
+  height: 7px;
+}
+
+.rail .dot-cell i {
+  display: block;
   width: 7px;
   height: 7px;
   border-radius: 50%;
   box-shadow: 0 0 0 1px rgba(90, 58, 16, 0.28);
+}
+
+.rail .dot-cell i.idle {
+  box-shadow: 0 0 0 1.5px #8b1515;
+  animation: rail-idle-flash 1.1s ease-in-out infinite;
 }
 
 .rail button.on,

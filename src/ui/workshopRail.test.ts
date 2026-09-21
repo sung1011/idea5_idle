@@ -2,9 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { assignWorker } from '../sim/assign'
 import { createSave } from '../sim/createSave'
 import { spawnWorkerWith } from '../sim/recruit'
+import { applyTick } from '../sim/tick'
 import { WORKER_QUALITY_TABLE } from '../sim/tables'
 import { visualStationProgress } from './visualProgress'
-import { railProgressHalted, railVisualInput, railVisualPct, railWorkerDotColors } from './workshopRail'
+import { WORKSHOP_GROUPS } from './workshopTabs'
+import {
+  railGroupSlotDots,
+  railProgressHalted,
+  railStationIdle,
+  railStationSlotDots,
+  railVisualInput,
+  railVisualPct,
+  railWorkerDotColors,
+} from './workshopRail'
 
 describe('workshopRail', () => {
   it('emits one quality-table color per assigned worker', () => {
@@ -46,5 +56,61 @@ describe('workshopRail', () => {
     expect(railProgressHalted(save, 'inscription')).toBe(true)
     expect(railVisualPct(save, 'inscription', 1800)).toBeCloseTo(40)
     expect(railVisualInput(save, 'inscription').stalled).toBe(true)
+  })
+
+  it('maps a group into a 2x2 of station slots, skipping empty dots', () => {
+    const save = createSave()
+    const potion = WORKSHOP_GROUPS[0]
+    expect(potion.stations).toEqual(['herbalism', 'alchemy'])
+    expect(railGroupSlotDots(save, potion.stations)).toEqual([null, null, null, null])
+
+    const topA = spawnWorkerWith(save, 2, 'laborer')
+    const topB = spawnWorkerWith(save, 7, 'laborer')
+    const bot = spawnWorkerWith(save, 5, 'laborer')
+    assignWorker(save, topA.id, 'herbalism')
+    assignWorker(save, topB.id, 'herbalism')
+    assignWorker(save, bot.id, 'alchemy')
+
+    expect(railStationSlotDots(save, 'herbalism')).toEqual([
+      { color: WORKER_QUALITY_TABLE[2].color, idle: false },
+      { color: WORKER_QUALITY_TABLE[7].color, idle: false },
+    ])
+    expect(railGroupSlotDots(save, potion.stations)).toEqual([
+      { color: WORKER_QUALITY_TABLE[2].color, idle: false },
+      { color: WORKER_QUALITY_TABLE[7].color, idle: false },
+      { color: WORKER_QUALITY_TABLE[5].color, idle: false },
+      null,
+    ])
+  })
+
+  it('marks assigned workers idle when the cycle cannot advance', () => {
+    const save = createSave()
+    const worker = spawnWorkerWith(save, 3, 'laborer')
+    assignWorker(save, worker.id, 'inscription')
+    expect(railStationIdle(save, 'inscription')).toBe(false)
+
+    applyTick(save)
+    expect(save.stations.inscription.stallReason).toBe('emptyInput')
+    expect(railStationIdle(save, 'inscription')).toBe(true)
+    expect(railStationIdle(save, 'mining')).toBe(false)
+    expect(railGroupSlotDots(save, ['mining', 'inscription'])).toEqual([
+      null,
+      null,
+      { color: WORKER_QUALITY_TABLE[3].color, idle: true },
+      null,
+    ])
+  })
+
+  it('treats gather freeze as idle, matching currentSpeed=0', () => {
+    const save = createSave()
+    const hunter = spawnWorkerWith(save, 4, 'laborer')
+    assignWorker(save, hunter.id, 'hunting')
+    save.stations.hunting.gatherPauseUntil = save.elapsedS + 8
+    expect(railProgressHalted(save, 'hunting')).toBe(true)
+    expect(railStationIdle(save, 'hunting')).toBe(true)
+    expect(railStationSlotDots(save, 'hunting')[0]).toEqual({
+      color: WORKER_QUALITY_TABLE[4].color,
+      idle: true,
+    })
   })
 })

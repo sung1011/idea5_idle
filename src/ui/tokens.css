@@ -179,6 +179,18 @@ button.on:disabled {
   animation: short-flash 1.25s ease-in-out infinite;
 }
 
+@keyframes rail-idle-flash {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 1.5px #8b1515;
+  }
+  50% {
+    opacity: 0.62;
+    box-shadow: 0 0 0 2px #c21818;
+  }
+}
+
 @keyframes guide-flash {
   0%,
   100% {
@@ -274,7 +286,8 @@ button.on:disabled {
   }
 
   .short-flash,
-  .guide-flash {
+  .guide-flash,
+  .rail .dot-cell i.idle {
     animation: none;
   }
 }

@@ -20,7 +20,7 @@ export type WorkshopGroupProgress = {
   to: string
 }
 
-/** 工坊生产进度按组上色；竖签 chrome 仍走金边羊皮纸。 */
+/** 工坊站卡制作条按组上色（左栏组签不再铺进度底）。 */
 export const WORKSHOP_GROUP_PROGRESS: Record<WorkshopGroupId, WorkshopGroupProgress> = {
   potion: { from: '#6a8f72', to: '#8fb89a' },
   food: { from: '#b07a52', to: '#c99470' },
