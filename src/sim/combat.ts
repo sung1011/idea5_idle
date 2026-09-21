@@ -11,7 +11,9 @@ import {
 import {
   attackIntervalMul,
   breakEchoMul,
+  campBandageHealAmount,
   firstStrikeCutS,
+  reinforceFirstMul,
   runeAtkMul,
   workerAtkMul,
   workerHpMul,
@@ -453,11 +455,12 @@ function fighterFromWorker(
   save?: Save,
   runeId?: RuneItemId,
   openingSwing = false,
+  reinforced = false,
 ): CombatFighter {
   const stats = workerLiveStats(worker, save, runeId)
   const hpMax = Math.max(1, stats.hp)
   const hp = worker.hpMax > 0 ? Math.round((worker.hp / worker.hpMax) * hpMax) : hpMax
-  return makeFighter(
+  const fighter = makeFighter(
     worker.id,
     worker.name ?? worker.id,
     { ...stats, hp: hpMax },
@@ -469,6 +472,11 @@ function fighterFromWorker(
     runeId,
     openingSwing,
   )
+  if (reinforced) {
+    fighter.reinforced = true
+    fighter.reinforceHitPending = true
+  }
+  return fighter
 }
 
 function revealInsightWeakness(enc: EnemyEncounter, combat: EnemyCombat): void {
@@ -606,7 +614,7 @@ export function addCombatReinforcements(
   const added: CombatFighter[] = []
   for (const worker of workers) {
     if (combat.workers.some((row) => row.id === worker.id)) continue
-    const fighter = fighterFromWorker(worker, now, save, runes?.[worker.id])
+    const fighter = fighterFromWorker(worker, now, save, runes?.[worker.id], false, true)
     if (save && hasEncounterAffix(save, enc, 'slowReinforce')) {
       fighter.nextActAt = now + DUNGEON_AFFIX_FX.reinforceDelayMs
     }
@@ -691,7 +699,11 @@ function retireFallenFighters(
   for (const fighter of fallen) {
     writeBackFighterHp(save, fighter)
     const worker = save.workers.find((w) => w.id === fighter.id)
-    if (worker && worker.assignment !== null) worker.assignment = null
+    if (worker) {
+      if (worker.assignment !== null) worker.assignment = null
+      const heal = campBandageHealAmount(save, worker.hpMax)
+      if (heal > 0) worker.hp = Math.min(worker.hpMax, worker.hp + heal)
+    }
     tryAutoEatWhenWounded(save, fighter.id, at)
     emitLog(enc, combat, at, `${fighter.label} 倒下，返回休息`, 'err', onLog)
   }
@@ -762,7 +774,12 @@ function strike(
     const vuln = stunned ? BREAK_VULN_MUL : 1
     const echo = stunned ? breakEchoMul(save) : 1
     const dull = hasEncounterAffix(save, enc, 'dullEdge') ? DUNGEON_AFFIX_FX.dullEdgeDamageMul : result.mul
-    const mul = dull * vuln * echo * runeDealMul(fighterRuneId(attacker))
+    let firstHitMul = 1
+    if (attacker.reinforceHitPending) {
+      if (attacker.reinforced) firstHitMul = reinforceFirstMul(save)
+      attacker.reinforceHitPending = false
+    }
+    const mul = dull * vuln * echo * runeDealMul(fighterRuneId(attacker)) * firstHitMul
     const damage = scaledAttackDamage(attacker.atk, mul)
     target.hp = Math.max(0, target.hp - damage)
     if (isDungeonEncounter(enc) && dungeonPhaseLocked(enc) && target.id === 'enemy' && target.hp <= 0) {

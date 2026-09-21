@@ -12,7 +12,7 @@ import {
   type IoRule,
   type RuneDef,
 } from './tables'
-import { toolUpkeepBonus } from './tech'
+import { runeScrapChance, toolUpkeepBonus } from './tech'
 import { cycleOutputBonus } from './tools'
 import type { Save, SoftFailRoll } from './types'
 
@@ -52,9 +52,15 @@ export function completeInscriptionCycle(save: Save, now = Date.now(), into?: It
 
   if (fail.outcome === 'softFail') {
     if (!takeCosts(save, softFailCosts(rules)).ok) return false
+    const scrap = runeScrapChance(save)
+    if (scrap > 0 && roll01(save) < scrap) {
+      addToBank(save, 'wildCrystal', 1)
+      station.craftNotice = '软失败，退回 1 荒晶'
+    } else {
+      station.craftNotice = '软失败，荒晶损耗'
+    }
     station.completed += 1
     grantStationXp(save, 'inscription', softFailXp(def.xpPerCycle))
-    station.craftNotice = '软失败，荒晶损耗'
     return true
   }
 

@@ -303,7 +303,7 @@ chapterNeedMul(chapter) = 1 + (chapter - 1) * 0.15
 
 科技树见 `src/sim/tech.ts` 的 `TECH_TABS`：三页签 `production` / `combat` / `affairs`（生产 / 战斗 / 事务）各自独立线性层。每层 2～3 个选项、同行同价；**每个节点都可配置 `maxLevel` 并记存档 `techLevels`**，未满级可对同一节点再点（每层同行同价，扣 1 次灵感）。该层任意节点 `level≥1` 即解锁上一层（或本层已有旧档点亮则可补买同行），无互斥加价，最终都能买齐。层自下而上排：第 1 层在屏幕最下。共用 `techPoints` 灵感。图标叠 `level/maxLevel`（未买 `0/N`，点满用已激活样式且不可再点）。
 
-`maxLevel` 约定：已实装节点先 `maxLevel=1`，图标走 `0/1`→`1/1`；占位节点 `maxLevel=5`，只扣灵感、记等级、无玩法效果。旧档若占位点到 2–5 级，hydrate 夹到新 `maxLevel`。战场格按等级叠加（底 2 + 每级 +1，封顶 4）；商场格底 2 + 每级 +1，封顶 4（市集摊位 / 货栈扩容）。冲突仍是规章 ×0.85、密录消除；「轮值章程」在同组两站都有人时把惩罚再减半，**不新开冲突多级线**。灵感只来自新档初始 20 与骑士等级提升（`src/sim/knightLevel.ts`），工坊完成周期不再加灵感。图纸可进物资，不当灵感来源。`techEffectValue(save, effectId)` 按已点等级 × `TECH_EFFECT_BASE` 叠乘；当铺 / 收购金「议价铜铃」与「回扣账本」按节点叠乘。订单格走 `battlefieldSlotCount` / `marketSlotCount`，冲突仍走 `stationConflictMul`。抽人费可读「募兵折」；站速度乘区 / 合并不吃科技。旧 `unlockedTechIds`：能对上新表的 id 写成 `level=1`（不超过 `maxLevel`）并保留效果，对不上的丢掉，灵感不扣。每站仍最多 2 人，站工具已撤。
+`maxLevel` 约定：现表节点均已实装、`maxLevel=1`，图标走 `0/1`→`1/1`。旧档若占位点到 2–5 级，hydrate 夹到新 `maxLevel`。战场格按等级叠加（底 2 + 每级 +1，封顶 4）；商场格底 2 + 每级 +1，封顶 4（市集摊位 / 货栈扩容）。冲突仍是规章 ×0.85、密录消除；「轮值章程」在同组两站都有人时把惩罚再减半，**不新开冲突多级线**。灵感只来自新档初始 20 与骑士等级提升（`src/sim/knightLevel.ts`），工坊完成周期不再加灵感。图纸可进物资，不当灵感来源。`techEffectValue(save, effectId)` 按已点等级 × `TECH_EFFECT_BASE` 叠乘；当铺 / 收购金「议价铜铃」与「回扣账本」按节点叠乘。订单格走 `battlefieldSlotCount` / `marketSlotCount`，冲突仍走 `stationConflictMul`。抽人费可读「募兵折」；站速度乘区 / 合并不吃科技（「匠师印章」只改 `stationCycleS` 周期乘区）。旧 `unlockedTechIds`：能对上新表的 id 写成 `level=1`（不超过 `maxLevel`）并保留效果，对不上的丢掉，灵感不扣。每站仍最多 2 人，站工具已撤。
 
 已实装节点（`src/sim/tech.ts`）：
 
@@ -318,20 +318,23 @@ chapterNeedMul(chapter) = 1 + (chapter - 1) * 0.15
 | 生产 3 | 6 | `forgeHeat` | 炉温调控 | 铭刻耗时 ×0.9 |
 | 生产 4 | 8 | `nightLamp` | 夜班油灯 | 离线上限 +2 小时 |
 | 生产 4 | 8 | `workshopCrest` | 轮值章程 | 同组两站都有人时，该组冲突惩罚再减半 |
+| 生产 4 | 8 | `knightCrest` | 匠师印章 | 骑士每满 5 级，全站制作周期 −1%，最多 −8% |
 | 生产 5 | 10 | `s06DraftA` | 荒晶提纯 | 采矿荒晶双掉概率 +10% |
 | 生产 5 | 10 | `s07DraftA` | 配伍札记 | 炼金每批固定多出 1 瓶 |
 | 生产 6 | 12 | `s08DraftA` | 猎场标记 | 狩猎遇险概率 −20% |
+| 生产 6 | 12 | `s09DraftA` | 符文边角料 | 铭刻软失败时 50% 概率退回 1 荒晶 |
 | 生产 6 | 12 | `s10DraftA` | 长夜油灯 | 离线上限再 +2 小时（到 12） |
 | 战斗 1 | 3 | `dummyDrill` | 木桩加训 | 工人 ATK +10% |
 | 战斗 1 | 3 | `bracerTighten` | 护腕束紧 | 工人 HP +10% |
 | 战斗 2 | 5 | `weaknessNotes` | 弱点札记 | 弱点暴击伤再 +10% |
 | 战斗 2 | 5 | `revealSight` | 揭秘眼力 | 小兵 / 精英初始多露 1 弱点 |
 | 战斗 2 | 5 | `rapidForm` | 急行整队 | 攻击间隔 ×0.9 |
-| 战斗 3 | 7 | `rematchSupply` | 余粮整备 | 暂无效果（再战已取消；旧档点过仍保留节点） |
+| 战斗 3 | 7 | `rematchSupply` | 回营绷带 | 倒地回休息的工人立刻恢复 10% HP（向上取整，至少 1） |
 | 战斗 3 | 7 | `assistHorn` | 助战号角 | 邀请助战品质下限 = max(1, floor(最高品质/2)) |
 | 战斗 4 | 9 | `combatBanner` | 破晓号令 | 开战时工人首次攻击间隔 −0.5s |
 | 战斗 4 | 9 | `combatEdge` | 符刃开光 | 本场已装备符文的工人 ATK +15% |
 | 战斗 4 | 9 | `combatArmor` | 残血顽抗 | 工人 HP≤30% 上限时受到伤害 −20% |
+| 战斗 5 | 11 | `combatCourt` | 增援鼓点 | 经增援上场的工人第一击伤害 +20%；开场选人不加 |
 | 战斗 5 | 11 | `combatLegend` | 连破余韵 | 破防 / 虚弱窗口伤害再 ×1.15 |
 | 事务 1 | 5 | `pathOutpost` | 探路哨岗 | 战场订单格 +1（2→3） |
 | 事务 1 | 5 | `bargainBell` | 议价铜铃 | 当铺 / 收购金币 +15% |
@@ -347,7 +350,7 @@ chapterNeedMul(chapter) = 1 + (chapter - 1) * 0.15
 | 事务 6 | 24 | `affairsRoster` | 募兵折 | 抽工人钻石费用 15→10 |
 | 事务 6 | 24 | `affairsSeal` | 钻标订单 | 商场钻石单出现率 +10% |
 
-不做：联排工位、骑士募款、探路标记。本轮仍不动的占位：骑士工坊纹章、盟约草稿、王庭校场（学徒名册 / 双岗津贴 / 校场加训 / 整备行囊等未点名节点继续占位）。
+不做：联排工位、骑士募款、探路标记。当前科技节点均已实装、`maxLevel=1`；旧档 2–5 级 hydrate 夹到 1。学徒名册 / 双岗津贴 / 校场加训 / 整备行囊等未点名节点不在现表。
 
 ---
 

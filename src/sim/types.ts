@@ -251,6 +251,10 @@ export type CombatFighter = CombatStats & {
   combatAttrs?: CombatAttrId[]
   /** 本场开战消耗的符文；敌人忽略。战后清空。 */
   runeId?: RuneItemId
+  /** 经增援上场，不是开场选人。 */
+  reinforced?: boolean
+  /** 增援后尚未打出第一击。 */
+  reinforceHitPending?: boolean
 }
 
 export type CombatLogEntry = {

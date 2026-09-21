@@ -32,6 +32,7 @@ export const WEAKNESS_CRIT_EFFECT = 'weaknessCrit'
 export const REVEAL_EXTRA_EFFECT = 'revealExtra'
 export const ATK_INTERVAL_EFFECT = 'atkInterval'
 export const REMATCH_SUPPLY_EFFECT = 'rematchSupply'
+export const CAMP_BANDAGE_EFFECT = 'campBandage'
 export const ASSIST_FLOOR_EFFECT = 'assistFloor'
 export const TRADE_GOLD_EFFECT = 'tradeGold'
 export const EXPLORE_COST_EFFECT = 'exploreCost'
@@ -49,7 +50,14 @@ export const TIMED_ORDER_CHANCE_EFFECT = 'timedOrderChance'
 export const EXPLORE_COST_STACK_EFFECT = 'exploreCostStack'
 export const RECRUIT_COST_EFFECT = 'recruitCost'
 export const DIAMOND_ORDER_EFFECT = 'diamondOrder'
+export const RUNE_SCRAP_EFFECT = 'runeScrap'
+export const REINFORCE_FIRST_EFFECT = 'reinforceFirst'
+export const KNIGHT_CYCLE_EFFECT = 'knightCycle'
 
+/** 骑士每满 N 级，全站周期 −1%。 */
+export const KNIGHT_CYCLE_STEP = 5
+/** 匠师印章周期减免软上限。 */
+export const KNIGHT_CYCLE_CAP = 0.08
 /** 探索费叠乘下限。 */
 export const EXPLORE_COST_FLOOR = 0.6
 /** 轮值章程：同组两站都有人时，把现有冲突惩罚再乘 0.5。 */
@@ -69,6 +77,7 @@ export const TECH_EFFECT_BASE: Readonly<Record<string, number>> = {
   [REVEAL_EXTRA_EFFECT]: 1,
   [ATK_INTERVAL_EFFECT]: 0.1,
   [REMATCH_SUPPLY_EFFECT]: 1,
+  [CAMP_BANDAGE_EFFECT]: 0.1,
   [ASSIST_FLOOR_EFFECT]: 1,
   [TRADE_GOLD_EFFECT]: 0.15,
   [EXPLORE_COST_EFFECT]: 0.2,
@@ -86,6 +95,9 @@ export const TECH_EFFECT_BASE: Readonly<Record<string, number>> = {
   [EXPLORE_COST_STACK_EFFECT]: 0.1,
   [RECRUIT_COST_EFFECT]: 5,
   [DIAMOND_ORDER_EFFECT]: 0.1,
+  [RUNE_SCRAP_EFFECT]: 0.5,
+  [REINFORCE_FIRST_EFFECT]: 0.2,
+  [KNIGHT_CYCLE_EFFECT]: 0.01,
 }
 
 export const TECH_TAB_IDS = ['production', 'combat', 'affairs'] as const
@@ -242,7 +254,13 @@ const PRODUCTION_ROWS: readonly RowSeed[] = [
         icon: '🛡️',
         ...implemented(GROUP_CONFLICT_EFFECT),
       },
-      { id: 'knightCrest', name: '骑士工坊纹章', desc: PLACEHOLDER, icon: '🏅' },
+      {
+        id: 'knightCrest',
+        name: '匠师印章',
+        desc: '骑士每满 5 级，全站制作周期 −1%，最多 −8%。',
+        icon: '🏅',
+        ...implemented(KNIGHT_CYCLE_EFFECT),
+      },
     ],
   },
   {
@@ -274,7 +292,13 @@ const PRODUCTION_ROWS: readonly RowSeed[] = [
         icon: '📢',
         ...implemented(HUNT_HAZARD_EFFECT),
       },
-      { id: 's09DraftA', name: '盟约草稿', desc: PLACEHOLDER, icon: '🤝' },
+      {
+        id: 's09DraftA',
+        name: '符文边角料',
+        desc: '铭刻软失败时 50% 概率退回 1 荒晶。',
+        icon: '🤝',
+        ...implemented(RUNE_SCRAP_EFFECT),
+      },
       {
         id: 's10DraftA',
         name: '长夜油灯',
@@ -337,10 +361,10 @@ const COMBAT_ROWS: readonly RowSeed[] = [
     options: [
       {
         id: 'rematchSupply',
-        name: '余粮整备',
-        desc: '暂无效果。再战已取消。',
+        name: '回营绷带',
+        desc: '倒地回休息的工人立刻恢复 10% HP。',
         icon: '🎒',
-        ...implemented(NOOP_TECH_EFFECT),
+        ...implemented(CAMP_BANDAGE_EFFECT),
       },
       {
         id: 'assistHorn',
@@ -380,7 +404,13 @@ const COMBAT_ROWS: readonly RowSeed[] = [
   {
     cost: 11,
     options: [
-      { id: 'combatCourt', name: '王庭校场', desc: PLACEHOLDER, icon: '🏰' },
+      {
+        id: 'combatCourt',
+        name: '增援鼓点',
+        desc: '经增援上场的工人第一击伤害 +20%。',
+        icon: '🏰',
+        ...implemented(REINFORCE_FIRST_EFFECT),
+      },
       {
         id: 'combatLegend',
         name: '连破余韵',
@@ -831,6 +861,36 @@ export function rematchSupplyCut(_save: Save): number {
   return 0
 }
 
+export function campBandageHeal(hpMax: number): number {
+  return Math.max(1, Math.ceil(Math.max(1, hpMax) * techEffectBaseOr(CAMP_BANDAGE_EFFECT, 0.1)))
+}
+
+function techEffectBaseOr(effectId: string, fallback: number): number {
+  const base = TECH_EFFECT_BASE[effectId]
+  return typeof base === 'number' && Number.isFinite(base) && base > 0 ? base : fallback
+}
+
+export function campBandageHealAmount(save: Save, hpMax: number): number {
+  if (techEffectValue(save, CAMP_BANDAGE_EFFECT) <= 0) return 0
+  return campBandageHeal(hpMax)
+}
+
+export function runeScrapChance(save: Save): number {
+  return Math.min(1, Math.max(0, techEffectValue(save, RUNE_SCRAP_EFFECT)))
+}
+
+export function reinforceFirstMul(save: Save): number {
+  return 1 + techEffectValue(save, REINFORCE_FIRST_EFFECT)
+}
+
+export function knightCycleMul(save: Save): number {
+  const per = techEffectValue(save, KNIGHT_CYCLE_EFFECT)
+  if (per <= 0) return 1
+  const level = typeof save.knightLevel === 'number' && Number.isFinite(save.knightLevel) ? save.knightLevel : 1
+  const cut = Math.min(KNIGHT_CYCLE_CAP, per * Math.floor(Math.max(0, level) / KNIGHT_CYCLE_STEP))
+  return Math.max(1 - KNIGHT_CYCLE_CAP, 1 - cut)
+}
+
 /** 同 effectId 多节点按「1 + 等级 × 表值」叠乘，不是相加。 */
 export function stackedBonusMul(save: Save, effectId: string): number {
   const base = TECH_EFFECT_BASE[effectId]
@@ -956,7 +1016,7 @@ export function fuseStayAssigned(_save: Save): boolean {
   return true
 }
 
-/** 站点速度不受科技影响（冲突倍率走 stationConflictMul）。 */
+/** 站速度乘区仍 1；匠师印章走 stationCycleS 的周期乘区。 */
 export function stationTechSpeedMul(_save: Save, _stationId: StationId): number {
   return 1
 }

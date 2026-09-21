@@ -1,8 +1,19 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import { createAssistWorker } from './combatAssist'
-import { ensureEnemyIntel, initialRevealedWeaknessCount, weaknessDamageMul } from './combatAttrs'
-import { beginEnemyCombat, BREAK_VULN_MUL, stepEnemyCombat, workerCombatStats } from './combat'
+import {
+  ensureEnemyIntel,
+  initialRevealedWeaknessCount,
+  scaledAttackDamage,
+  weaknessDamageMul,
+} from './combatAttrs'
+import {
+  addCombatReinforcements,
+  beginEnemyCombat,
+  BREAK_VULN_MUL,
+  stepEnemyCombat,
+  workerCombatStats,
+} from './combat'
 import { createSave } from './createSave'
 import {
   combatSupplyNeeds,
@@ -29,6 +40,7 @@ import {
   MARKET_SLOT_TECH_IDS,
   ALCHEMY_BATCH_EFFECT,
   BREAK_ECHO_EFFECT,
+  CAMP_BANDAGE_EFFECT,
   DIAMOND_ORDER_EFFECT,
   EXPLORE_COST_EFFECT,
   EXPLORE_COST_FLOOR,
@@ -39,11 +51,16 @@ import {
   GROUP_CONFLICT_PENALTY_MUL,
   HUNT_HAZARD_EFFECT,
   IMPLEMENTED_TECH_MAX_LEVEL,
+  KNIGHT_CYCLE_CAP,
+  KNIGHT_CYCLE_EFFECT,
+  KNIGHT_CYCLE_STEP,
   LOOT_GOLD_EFFECT,
   MINING_OUTPUT_EFFECT,
   PLACEHOLDER_TECH_MAX_LEVEL,
   RECRUIT_COST_EFFECT,
+  REINFORCE_FIRST_EFFECT,
   RUNE_ATK_EFFECT,
+  RUNE_SCRAP_EFFECT,
   SLAG_COPPER_EFFECT,
   STATION_CONFLICT_BASE_MUL,
   STATION_CONFLICT_CLEARED_MUL,
@@ -67,6 +84,8 @@ import {
   assistQualityFloor,
   attackIntervalMul,
   breakEchoMul,
+  campBandageHeal,
+  campBandageHealAmount,
   diamondOrderChanceBonus,
   battlefieldSlotCount,
   encounterSlotCount,
@@ -79,6 +98,7 @@ import {
   fuseStayAssigned,
   hasTech,
   hydrateTechFields,
+  knightCycleMul,
   hydrateTechLevels,
   groupBothStaffed,
   hydrateUnlockedTechIds,
@@ -93,7 +113,9 @@ import {
   offlineCapS,
   recruitCost,
   rematchSupplyCut,
+  reinforceFirstMul,
   runeAtkMul,
+  runeScrapChance,
   researchNextTech,
   researchTech,
   resetAllTech,
@@ -234,7 +256,30 @@ describe('tech tab row table', () => {
       implemented: true,
       maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
     })
+    expect(techNodeById('knightCrest')).toMatchObject({
+      name: '匠师印章',
+      implemented: true,
+      maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
+    })
+    expect(techNodeById('s09DraftA')).toMatchObject({
+      name: '符文边角料',
+      implemented: true,
+      maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
+    })
+    expect(techNodeById('rematchSupply')).toMatchObject({
+      name: '回营绷带',
+      implemented: true,
+      maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
+    })
+    expect(techNodeById('combatCourt')).toMatchObject({
+      name: '增援鼓点',
+      implemented: true,
+      maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
+    })
+    expect(TECH_TREE.every((node) => node.implemented && node.maxLevel === IMPLEMENTED_TECH_MAX_LEVEL)).toBe(true)
     expect(techNodeById('toolUpkeep').desc).toMatch(/符文/)
+    expect(techNodeById('rematchSupply').desc).toMatch(/10%/)
+    expect(techNodeById('rematchSupply').desc).not.toMatch(/再战/)
   })
 })
 
@@ -303,8 +348,11 @@ describe('hydrate tech fields', () => {
       workshopCrest: IMPLEMENTED_TECH_MAX_LEVEL,
       pathOutpost: IMPLEMENTED_TECH_MAX_LEVEL,
     })
-    expect(hydrateTechLevels({ knightCrest: 9 }, [])).toEqual({
-      knightCrest: PLACEHOLDER_TECH_MAX_LEVEL,
+    expect(hydrateTechLevels({ knightCrest: 9, rematchSupply: 4, combatCourt: 2, s09DraftA: 5 }, [])).toEqual({
+      knightCrest: IMPLEMENTED_TECH_MAX_LEVEL,
+      rematchSupply: IMPLEMENTED_TECH_MAX_LEVEL,
+      combatCourt: IMPLEMENTED_TECH_MAX_LEVEL,
+      s09DraftA: IMPLEMENTED_TECH_MAX_LEVEL,
     })
   })
 })
@@ -424,22 +472,22 @@ describe('research unlock', () => {
 })
 
 describe('tech multi-level', () => {
-  it('lets a placeholder be bought many times, each click spending the same row cost', () => {
+  it('clamps implemented nodes to one level and spends the row cost once', () => {
     const save = createSave()
     save.unlockedTechIds = ['slagRecycle', 'workshopRules', 'artisanArchive']
     hydrateTechFields(save)
     save.techPoints = 20
-    expect(techProgressText(save, 'knightCrest')).toBe('0/5')
+    expect(techProgressText(save, 'knightCrest')).toBe('0/1')
     expect(techActivateLabel(save, 'knightCrest')).toBe('激活 · 8 灵感')
-    expect(researchTech(save, 'knightCrest')).toEqual({ ok: true, message: '已点亮「骑士工坊纹章」' })
+    expect(researchTech(save, 'knightCrest')).toEqual({ ok: true, message: '已点亮「匠师印章」' })
     expect(techLevel(save, 'knightCrest')).toBe(1)
-    expect(techProgressText(save, 'knightCrest')).toBe('1/5')
-    expect(techActivateLabel(save, 'knightCrest')).toBe('还可再点 · 8 灵感')
+    expect(techProgressText(save, 'knightCrest')).toBe('1/1')
+    expect(techActivateLabel(save, 'knightCrest')).toBe('已激活')
     expect(save.techPoints).toBe(12)
-    expect(researchTech(save, 'knightCrest')).toEqual({ ok: true, message: '已点亮「骑士工坊纹章」' })
-    expect(techLevel(save, 'knightCrest')).toBe(2)
-    expect(save.techPoints).toBe(4)
-    expect(save.techLevels.knightCrest).toBe(2)
+    expect(researchTech(save, 'knightCrest')).toEqual({ ok: false, reason: '已经点满' })
+    expect(techLevel(save, 'knightCrest')).toBe(1)
+    expect(save.techPoints).toBe(12)
+    expect(save.techLevels.knightCrest).toBe(1)
     expect(save.unlockedTechIds).toContain('knightCrest')
   })
 
@@ -448,15 +496,13 @@ describe('tech multi-level', () => {
     save.unlockedTechIds = ['slagRecycle', 'workshopRules', 'artisanArchive']
     hydrateTechFields(save)
     save.techPoints = 99
-    for (let i = 0; i < PLACEHOLDER_TECH_MAX_LEVEL; i += 1) {
-      expect(researchTech(save, 'knightCrest').ok).toBe(true)
-    }
-    expect(techLevel(save, 'knightCrest')).toBe(5)
-    expect(techProgressText(save, 'knightCrest')).toBe('5/5')
+    expect(researchTech(save, 'knightCrest').ok).toBe(true)
+    expect(techLevel(save, 'knightCrest')).toBe(1)
+    expect(techProgressText(save, 'knightCrest')).toBe('1/1')
     expect(isTechMaxed(save, 'knightCrest')).toBe(true)
     expect(techActivateLabel(save, 'knightCrest')).toBe('已激活')
     expect(researchTech(save, 'knightCrest')).toEqual({ ok: false, reason: '已经点满' })
-    expect(save.techPoints).toBe(99 - 8 * PLACEHOLDER_TECH_MAX_LEVEL)
+    expect(save.techPoints).toBe(99 - 8)
     expect(researchTech(save, 'pathOutpost').ok).toBe(true)
     expect(researchTech(save, 'pathOutpost')).toEqual({ ok: false, reason: '已经点满' })
     expect(techProgressText(save, 'pathOutpost')).toBe('1/1')
@@ -645,7 +691,7 @@ describe('resetAllTech', () => {
       { id: 'recipeImprint', times: 1 },
       { id: 'workshopRules', times: 1 },
       { id: 'artisanArchive', times: 1 },
-      { id: 'knightCrest', times: 3 },
+      { id: 'knightCrest', times: 1 },
       { id: 'pathOutpost', times: 1 },
       { id: 'marketLicense', times: 1 },
     ]
@@ -661,7 +707,7 @@ describe('resetAllTech', () => {
 
     expect(spentTechPoints(save)).toBe(expectedSpent)
     expect(save.techPoints).toBe(leftover)
-    expect(techLevel(save, 'knightCrest')).toBe(3)
+    expect(techLevel(save, 'knightCrest')).toBe(1)
     expect(battlefieldSlotCount(save)).toBe(3)
     expect(marketSlotCount(save)).toBe(3)
     expect(save.encounters).toHaveLength(3)
@@ -847,7 +893,7 @@ describe('tech effect multipliers', () => {
     expect(mined.bank.ore).toBe(2)
   })
 
-  it('wires worker combat muls, weakness, reveal, leftover rematch-supply noop and assist floor', () => {
+  it('wires worker combat muls, weakness, reveal, rematch-supply cut still 0 and assist floor', () => {
     const save = createSave()
     unlock(save, 'dummyDrill')
     unlock(save, 'bracerTighten')
@@ -1083,6 +1129,147 @@ describe('wired placeholder techs', () => {
     expect(techEffectValue(save, DIAMOND_ORDER_EFFECT)).toBe(0.1)
     expect(marketDiamondChance(0.2, save)).toBeCloseTo(0.3)
     expect(marketDiamondChance(0.95, save)).toBe(1)
+  })
+
+  it('heals downed workers returning to rest with camp bandage', () => {
+    const save = createSave()
+    expect(campBandageHealAmount(save, 20)).toBe(0)
+    expect(campBandageHeal(10)).toBe(1)
+    expect(campBandageHeal(11)).toBe(2)
+    unlock(save, 'rematchSupply')
+    expect(techEffectValue(save, CAMP_BANDAGE_EFFECT)).toBe(0.1)
+    expect(campBandageHealAmount(save, 20)).toBe(2)
+
+    const front = spawnWorkerWith(save, 1, 'laborer')
+    const now = 80_000
+    const enc = testEnemy({ targetRuleId: 'lowestHp' })
+    save.encounters = [enc]
+    const combat = beginEnemyCombat(enc, [front], now, 1, undefined, save)
+    combat.workers[0].hp = 1
+    front.hp = 1
+    combat.workers[0].nextActAt = now + 9_000
+    combat.enemy.nextActAt = now + 1_000
+    combat.enemy.atk = 3
+    stepEnemyCombat(save, enc, now + 1_000)
+    const heal = campBandageHeal(front.hpMax)
+    expect(heal).toBeGreaterThanOrEqual(1)
+    expect(front.hp).toBe(heal)
+    expect(front.assignment).toBeNull()
+    expect(combat.workers.find((w) => w.id === front.id)).toBeUndefined()
+  })
+
+  it('refunds one wild crystal on inscription soft-fail scrap roll', () => {
+    const miss = createSave()
+    expect(runeScrapChance(miss)).toBe(0)
+    setRollOverride(() => 0)
+    spawnWorker(miss)
+    assignWorker(miss, miss.workers[0].id, 'inscription')
+    miss.bank.wildCrystal = 2
+    expect(completeCycle(miss, 'inscription')).toBe(true)
+    expect(miss.bank.wildCrystal).toBe(1)
+    expect(miss.stations.inscription.craftNotice).toBe('软失败，荒晶损耗')
+
+    const refund = createSave()
+    unlock(refund, 's09DraftA')
+    expect(techEffectValue(refund, RUNE_SCRAP_EFFECT)).toBe(0.5)
+    expect(runeScrapChance(refund)).toBeCloseTo(0.5)
+    spawnWorker(refund)
+    assignWorker(refund, refund.workers[0].id, 'inscription')
+    refund.bank.wildCrystal = 2
+    expect(completeCycle(refund, 'inscription')).toBe(true)
+    expect(refund.bank.wildCrystal).toBe(2)
+    expect(refund.stations.inscription.craftNotice).toBe('软失败，退回 1 荒晶')
+
+    const keep = createSave()
+    unlock(keep, 's09DraftA')
+    spawnWorker(keep)
+    assignWorker(keep, keep.workers[0].id, 'inscription')
+    keep.bank.wildCrystal = 2
+    let i = 0
+    const rolls = [0, 0, 0.6]
+    setRollOverride(() => rolls[i++] ?? 0.99)
+    expect(completeCycle(keep, 'inscription')).toBe(true)
+    expect(keep.bank.wildCrystal).toBe(1)
+    expect(keep.stations.inscription.craftNotice).toBe('软失败，荒晶损耗')
+  })
+
+  it('boosts only the first hit of reinforced fighters', () => {
+    const save = createSave()
+    expect(reinforceFirstMul(save)).toBe(1)
+    unlock(save, 'combatCourt')
+    expect(techEffectValue(save, REINFORCE_FIRST_EFFECT)).toBe(0.2)
+    expect(reinforceFirstMul(save)).toBeCloseTo(1.2)
+
+    const opener = spawnWorkerWith(save, 1, 'laborer')
+    const bench = spawnWorkerWith(save, 1, 'wanderer')
+    opener.combatAttrs = []
+    bench.combatAttrs = []
+    const now = 50_000
+    const enc = testEnemy({
+      weaknesses: ['fire'],
+      revealedWeaknesses: [],
+      targetRuleId: 'lowestHp',
+    })
+    save.encounters = [enc]
+    const combat = beginEnemyCombat(enc, [opener], now, 1, undefined, save)
+    expect(combat.workers[0].reinforced).toBeFalsy()
+    expect(combat.workers[0].reinforceHitPending).toBeFalsy()
+    combat.shield = 0
+    combat.shieldMax = 0
+    combat.stunnedUntil = null
+    combat.workers[0].nextActAt = now + 500
+    combat.enemy.nextActAt = now + 90_000
+    const openHp = combat.enemy.hp
+    stepEnemyCombat(save, enc, now + 500)
+    expect(combat.enemy.hp).toBe(openHp - scaledAttackDamage(combat.workers[0].atk, 1))
+
+    addCombatReinforcements(enc, [bench], now + 600, undefined, save)
+    const extra = combat.workers.find((w) => w.id === bench.id)
+    expect(extra).toBeTruthy()
+    if (!extra) return
+    expect(extra.reinforced).toBe(true)
+    expect(extra.reinforceHitPending).toBe(true)
+    extra.nextActAt = now + 1_000
+    combat.workers[0].nextActAt = now + 90_000
+    combat.enemy.nextActAt = now + 90_000
+    const hp0 = combat.enemy.hp
+    stepEnemyCombat(save, enc, now + 1_000)
+    expect(combat.enemy.hp).toBe(hp0 - scaledAttackDamage(extra.atk, 1.2))
+    expect(extra.reinforceHitPending).toBe(false)
+
+    extra.nextActAt = now + 2_000
+    const hp1 = combat.enemy.hp
+    stepEnemyCombat(save, enc, now + 2_000)
+    expect(combat.enemy.hp).toBe(hp1 - scaledAttackDamage(extra.atk, 1))
+  })
+
+  it('shortens all-station cycle by knight level steps with a soft cap', () => {
+    const save = createSave()
+    expect(knightCycleMul(save)).toBe(1)
+    unlock(save, 'knightCrest')
+    expect(techEffectValue(save, KNIGHT_CYCLE_EFFECT)).toBe(0.01)
+    save.knightLevel = 1
+    expect(knightCycleMul(save)).toBe(1)
+    save.knightLevel = KNIGHT_CYCLE_STEP - 1
+    expect(knightCycleMul(save)).toBe(1)
+    save.knightLevel = KNIGHT_CYCLE_STEP
+    expect(knightCycleMul(save)).toBeCloseTo(0.99)
+    save.knightLevel = KNIGHT_CYCLE_STEP * 2
+    expect(knightCycleMul(save)).toBeCloseTo(0.98)
+    save.knightLevel = KNIGHT_CYCLE_STEP * (KNIGHT_CYCLE_CAP / 0.01)
+    expect(knightCycleMul(save)).toBeCloseTo(1 - KNIGHT_CYCLE_CAP)
+    save.knightLevel = 100
+    expect(knightCycleMul(save)).toBeCloseTo(1 - KNIGHT_CYCLE_CAP)
+
+    const bare = createSave()
+    save.knightLevel = 5
+    expect(stationCycleS(save, 'cooking')).toBeCloseTo(stationCycleS(bare, 'cooking') * 0.99)
+    expect(stationCycleS(save, 'mining')).toBeCloseTo(stationCycleS(bare, 'mining') * 0.99)
+    expect(stationCycleS(save, 'inscription')).toBeCloseTo(stationCycleS(bare, 'inscription') * 0.99)
+    unlock(save, 'forgeHeat')
+    expect(stationCycleS(save, 'inscription')).toBeCloseTo(stationCycleS(bare, 'inscription') * 0.99 * 0.9)
+    expect(stationCycleS(save, 'cooking')).toBeCloseTo(stationCycleS(bare, 'cooking') * 0.99)
+    expect(stationTechSpeedMul(save, 'cooking')).toBe(1)
   })
 })
 

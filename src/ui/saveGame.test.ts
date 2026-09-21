@@ -257,7 +257,7 @@ describe('save migration', () => {
     leveled.unlockedTechIds = ['workshopCrest', 'knightCrest']
     persistSave(leveled, store)
     const reloaded = loadSave(store)
-    expect(reloaded?.techLevels).toEqual({ workshopCrest: 1, knightCrest: 3 })
+    expect(reloaded?.techLevels).toEqual({ workshopCrest: 1, knightCrest: 1 })
     expect(reloaded?.unlockedTechIds).toEqual(['workshopCrest', 'knightCrest'])
 
     const backfill = hydrateLoadedSave({

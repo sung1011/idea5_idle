@@ -153,6 +153,19 @@ describe('inscription soft fail', () => {
     expect(save.stations.inscription.stallReason).toBeNull()
   })
 
+  it('refunds one wildCrystal on soft fail when rune scrap rolls in', () => {
+    setRollOverride(() => 0)
+    const save = roster(1)
+    save.techLevels = { s09DraftA: 1 }
+    save.unlockedTechIds = ['s09DraftA']
+    save.bank.wildCrystal = 2
+    assignWorker(save, save.workers[0].id, 'inscription')
+    expect(completeForgingCycle(save)).toBe(true)
+    expect(bankQty(save, 'wildCrystal')).toBe(2)
+    expect(bankQty(save, 'runeSharp')).toBe(0)
+    expect(save.stations.inscription.craftNotice).toBe('软失败，退回 1 荒晶')
+  })
+
   it('success inscribes a rune from wildCrystal', () => {
     setRollOverride(() => 0.99)
     const save = roster(1)

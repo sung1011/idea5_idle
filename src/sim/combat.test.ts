@@ -766,6 +766,32 @@ describe('death leave and reinforce', () => {
     expect(combat.workerIds).toEqual([front.id, bench.id])
     expect(isWorkerInCombat(save, bench.id)).toBe(true)
     expect(combat.logs.some((row) => row.text.includes('增援'))).toBe(true)
+    expect(combat.workers.find((w) => w.id === bench.id)?.reinforced).toBe(true)
+    expect(combat.workers.find((w) => w.id === bench.id)?.reinforceHitPending).toBe(true)
+  })
+
+  it('restores 10% HP when camp bandage is unlocked and a fighter drops', () => {
+    const save = createSave()
+    save.techLevels = { rematchSupply: 1 }
+    save.unlockedTechIds = ['rematchSupply']
+    const front = spawnWorkerWith(save, 1, 'laborer')
+    const enc = testEnemy({ needs: { meal: 1 }, targetRuleId: 'lowestHp' })
+    putEnemy(save, enc)
+    save.bank.meal = 2
+    const now = 81_000
+    expect(startCombat(save, 0, [front.id], now).ok).toBe(true)
+    const combat = enc.combat
+    expect(combat).toBeTruthy()
+    if (!combat) return
+    combat.workers[0].hp = 1
+    front.hp = 1
+    combat.workers[0].nextActAt = now + 9_000
+    combat.enemy.nextActAt = now + 1_000
+    combat.enemy.atk = 3
+    stepEnemyCombat(save, enc, now + 1_000)
+    expect(front.assignment).toBeNull()
+    expect(front.hp).toBe(Math.max(1, Math.ceil(front.hpMax * 0.1)))
+    expect(front.hp).toBeGreaterThan(0)
   })
 
   it('lets a healed worker reinforce the same ongoing fight', () => {
