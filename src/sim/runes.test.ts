@@ -5,18 +5,23 @@ import { createSave } from './createSave'
 import { spawnWorkerWith } from './recruit'
 import {
   availableRuneQty,
+  confirmableRunePicks,
   consumeRunePicks,
   convertLegacyToolsToFeedstock,
   hasInsightRune,
+  isRuneSlotUnlocked,
   listRunePickOptions,
   normalizeRunePicks,
   runeBloodXp,
   runeBreakBonus,
   runeDealMul,
   runePickBlockReason,
+  runeSlotLockedTip,
+  runeSlotTapKind,
   runeSpdMul,
   runeTakenMul,
 } from './runes'
+import { STATION_UNLOCK_KNIGHT } from './stationUnlock'
 import { RUNE_BLOOD_XP, RUNE_BREAK_SHIELD_BONUS, RUNE_DEAL_MUL, RUNE_ITEM_IDS, RUNE_SWIFT_SPD_MUL, RUNE_TAKEN_MUL } from './tables'
 import type { EnemyEncounter, Save } from './types'
 
@@ -47,6 +52,29 @@ describe('legacy tool hydrate', () => {
     expect(bankQty(save, 'wildCrystal')).toBe(21)
     expect(bankQty(save, 'runeSharp')).toBe(2)
     expect(bankQty(save, 'runeArmor')).toBe(1)
+  })
+})
+
+describe('rune slot unlock', () => {
+  it('grays the slot until inscription knight level and reports the real threshold', () => {
+    const save = createSave()
+    expect(save.knightLevel).toBe(1)
+    expect(isRuneSlotUnlocked(save)).toBe(false)
+    expect(runeSlotLockedTip()).toBe(`铭刻需骑士等级 ${STATION_UNLOCK_KNIGHT.inscription} 解锁`)
+    expect(runeSlotTapKind(save, true)).toBe('locked')
+    expect(runeSlotTapKind(save, false)).toBe('locked')
+    expect(confirmableRunePicks(save, { a: 'runeSharp' }, ['a'])).toEqual({})
+    save.knightLevel = STATION_UNLOCK_KNIGHT.inscription - 1
+    expect(isRuneSlotUnlocked(save)).toBe(false)
+  })
+
+  it('opens the picker after inscription unlocks and keeps injured slots inert', () => {
+    const save = createSave()
+    save.knightLevel = STATION_UNLOCK_KNIGHT.inscription
+    expect(isRuneSlotUnlocked(save)).toBe(true)
+    expect(runeSlotTapKind(save, true)).toBe('open')
+    expect(runeSlotTapKind(save, false)).toBe('ignore')
+    expect(confirmableRunePicks(save, { a: 'runeSharp', b: 'runeArmor' }, ['a'])).toEqual({ a: 'runeSharp' })
   })
 })
 

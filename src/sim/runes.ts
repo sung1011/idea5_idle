@@ -1,5 +1,6 @@
 import { addToBank, bankQty, takeFromBank } from './bank'
 import { roll01 } from './rng'
+import { isStationUnlocked, stationUnlockKnightLevel } from './stationUnlock'
 import {
   inscriptionRecipes,
   isRuneItemId,
@@ -62,6 +63,39 @@ export function normalizeRunePicks(picks: RunePickMap | undefined): Partial<Reco
   for (const [workerId, runeId] of Object.entries(picks)) {
     if (!workerId || !isRuneItemId(runeId)) continue
     out[workerId] = runeId
+  }
+  return out
+}
+
+/** 选人列表符文槽：跟铭刻站同一套骑士门槛。 */
+export function isRuneSlotUnlocked(save: Pick<Save, 'knightLevel'>): boolean {
+  return isStationUnlocked(save, 'inscription')
+}
+
+export function runeSlotLockedTip(): string {
+  return `铭刻需骑士等级 ${stationUnlockKnightLevel('inscription')} 解锁`
+}
+
+export type RuneSlotTapKind = 'open' | 'locked' | 'ignore'
+
+export function runeSlotTapKind(save: Pick<Save, 'knightLevel'>, canFight: boolean): RuneSlotTapKind {
+  if (!isRuneSlotUnlocked(save)) return 'locked'
+  if (!canFight) return 'ignore'
+  return 'open'
+}
+
+/** 开战确认：铭刻未开则丢弃已选，避免未解锁仍消耗。 */
+export function confirmableRunePicks(
+  save: Pick<Save, 'knightLevel'>,
+  picks: RunePickMap | undefined,
+  workerIds: readonly string[],
+): Partial<Record<string, RuneItemId>> {
+  if (!isRuneSlotUnlocked(save)) return {}
+  const normalized = normalizeRunePicks(picks)
+  const out: Partial<Record<string, RuneItemId>> = {}
+  for (const id of workerIds) {
+    const runeId = normalized[id]
+    if (runeId) out[id] = runeId
   }
   return out
 }

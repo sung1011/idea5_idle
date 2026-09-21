@@ -47,7 +47,14 @@ import { isGuideQuestCombatFlash, isGuideQuestFlash } from '../sim/guideQuest'
 import { mainChapterTitle, mainLootClaimBarLabel, mainLootClaimFillPct } from '../sim/mainChapter'
 import { isRuneItemId, RUNE_DEF } from '../sim/tables'
 import { pickWorkerName } from './pickWorkerName'
-import { availableRuneQty, listRunePickOptions } from '../sim/runes'
+import {
+  availableRuneQty,
+  confirmableRunePicks,
+  isRuneSlotUnlocked,
+  listRunePickOptions,
+  runeSlotLockedTip,
+  runeSlotTapKind,
+} from '../sim/runes'
 import type { Encounter, EncounterKind, EnemyEncounter, RuneItemId, Worker } from '../sim/types'
 import EncounterDealLines from './encounterDealLines.vue'
 import EncounterTips from './encounterTips.vue'
@@ -168,6 +175,7 @@ const pickRunes = ref<Partial<Record<string, RuneItemId>>>({})
 const runePickWorkerId = ref<string | null>(null)
 const pickOpen = computed(() => pickIndex.value !== null)
 const runePickOpen = computed(() => runePickWorkerId.value !== null)
+const runeSlotUnlocked = computed(() => isRuneSlotUnlocked(game.save))
 const runeOptions = computed(() => listRunePickOptions(game.save))
 const pickMax = computed(() => {
   const enc = activeEnemy()
@@ -265,7 +273,21 @@ function closePick() {
 
 function openRunePick(workerId: string, ev?: Event) {
   ev?.stopPropagation()
+  if (!isRuneSlotUnlocked(game.save)) {
+    pushFloatTip(runeSlotLockedTip())
+    return
+  }
   runePickWorkerId.value = workerId
+}
+
+function onRuneSlotTap(worker: Worker, ev?: Event) {
+  ev?.stopPropagation()
+  const kind = runeSlotTapKind(game.save, isFullCombatHp(worker))
+  if (kind === 'locked') {
+    pushFloatTip(runeSlotLockedTip())
+    return
+  }
+  if (kind === 'open') openRunePick(worker.id, ev)
 }
 
 function closeRunePick() {
@@ -301,12 +323,7 @@ function pickRune(runeId: RuneItemId | null) {
 }
 
 function runePicksForConfirm() {
-  const out: Partial<Record<string, RuneItemId>> = {}
-  for (const id of picked.value) {
-    const runeId = pickRunes.value[id]
-    if (isRuneItemId(runeId)) out[id] = runeId
-  }
-  return out
+  return confirmableRunePicks(game.save, pickRunes.value, picked.value)
 }
 
 function inviteAssist() {
@@ -719,14 +736,16 @@ function timedLine(enc: Encounter) {
                 >{{ pickRecommend(w) }}</i>
               </span>
             </button>
-            <button
-              type="button"
-              class="rune-slot"
-              :class="{ on: !!equippedRune(w.id) }"
-              :disabled="!isFullCombatHp(w)"
-              :aria-label="`${pickWorkerName(w)} 符文槽`"
-              @click="openRunePick(w.id, $event)"
-            >{{ runeSlotLabel(w.id) }}</button>
+            <span class="act-hit rune-slot-hit" @click="onRuneSlotTap(w, $event)">
+              <button
+                type="button"
+                class="rune-slot"
+                :class="{ on: runeSlotUnlocked && !!equippedRune(w.id), locked: !runeSlotUnlocked }"
+                :disabled="!runeSlotUnlocked || !isFullCombatHp(w)"
+                :aria-label="`${pickWorkerName(w)} 符文槽`"
+                @click.stop="onRuneSlotTap(w, $event)"
+              >{{ runeSlotLabel(w.id) }}</button>
+            </span>
           </li>
           <li v-if="!pickCandidates.length" class="hint">没有休息中的工人</li>
         </ul>
@@ -1367,8 +1386,13 @@ ul {
   text-align: left;
 }
 
+.rune-slot-hit {
+  flex: 0 0 56px;
+}
+
 .rune-slot {
   flex: 0 0 56px;
+  width: 100%;
   min-width: 56px;
   min-height: 44px;
   padding: 4px 6px;
@@ -1379,6 +1403,12 @@ ul {
 
 .rune-slot.on {
   background: linear-gradient(#ffe27a, #f0b83a);
+}
+
+.rune-slot.locked,
+.rune-slot:disabled {
+  opacity: 0.45;
+  filter: grayscale(0.35);
 }
 
 .rune-list {
