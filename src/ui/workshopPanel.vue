@@ -211,7 +211,7 @@ watch(activeStation, async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(0deg, #3e9a2a, #c8f08a 70%, #f3d06a);
+  background: var(--rail-fill-workshop);
 }
 
 .rail .fill-clip.halt .fill,

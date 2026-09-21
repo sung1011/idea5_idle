@@ -41,6 +41,9 @@
   --bar-fill-moss: var(--bar-sheen), linear-gradient(90deg, #9ee65a, var(--moss-deep));
   --bar-fill-gold: var(--bar-sheen), linear-gradient(90deg, #f3d06a, var(--gold-deep));
   --bar-fill-hp: var(--bar-sheen), linear-gradient(90deg, #f0785a, var(--danger));
+  --bar-fill-workshop: var(--bar-sheen), linear-gradient(90deg, #fff8ee, #ffffff);
+  --bar-fill-workshop-halt: var(--bar-sheen), linear-gradient(90deg, #d4cdc0, #9a8f7c);
+  --rail-fill-workshop: linear-gradient(0deg, #fff4e6, #ffffff);
   --z-dock: 3;
   --z-hud: 4;
   --z-sheet: 30;
@@ -215,7 +218,12 @@ button.on:disabled {
 }
 
 .bar.live i {
+  background: var(--bar-fill-workshop);
   transition: none;
+}
+
+.bar.live.halt i {
+  background: var(--bar-fill-workshop-halt);
 }
 
 .bar.xp {

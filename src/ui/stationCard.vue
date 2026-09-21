@@ -219,7 +219,7 @@ function consumeText(row: StationConsumeToken) {
       <li v-else class="crew-empty">空岗</li>
     </ul>
     <div class="bars">
-      <div class="bar live" :aria-valuenow="pctLabel">
+      <div class="bar live" :class="{ halt: !!stall || frozen }" :aria-valuenow="pctLabel">
         <i :style="{ width: pct.toFixed(2) + '%' }" />
       </div>
       <div class="bar xp" :aria-valuenow="xpPct">
