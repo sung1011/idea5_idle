@@ -335,7 +335,7 @@ type ProductionBuff = {
 | 站工具 | 已撤；旧 `selectedToolId` hydrate 清空 |
 | 派驻上限 | `STATION_WORKER_CAP = 2` |
 | 工人品质 | `qualityTier` 1～10；表 `WORKER_QUALITY_TABLE`（白绿蓝青紫橙粉红金彩）；`workerQualityRev` |
-| 工人合成 | 同档两人 → 高一档 1 人；满档不可；职业按新档池随机 |
+| 工人合成 | 同档两人 → 高一档 1 人；满档不可；职业按新档池随机；战斗 XP 相加后按曲线连升 |
 | 工具匹配 | 已废；旧 `matchStationId` 只 hydrate |
 | 工具类型 | 已废；旧 `pick` `hammer`… 只 hydrate |
 | 铭刻提示 | `craftNotice`；旧 `forgedTools` / `selectedToolType` 读档清空 |

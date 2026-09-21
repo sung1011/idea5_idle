@@ -49,7 +49,7 @@ export function workerLevelSpdMul(level: number): number {
   return Math.pow(WORKER_LEVEL_SPD_MUL, levelSteps(level))
 }
 
-/** 从 Lv1 累计到当前级内进度的总 XP。合成均分用。 */
+/** 从 Lv1 累计到当前级内进度的总 XP。合成累加后拆回等级。 */
 export function workerTotalXp(level: number, xp: number): number {
   const lv = Math.max(WORKER_LEVEL_MIN, Math.floor(level))
   const cur = Math.max(0, Math.floor(xp))

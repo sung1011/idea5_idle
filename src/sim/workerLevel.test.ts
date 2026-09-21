@@ -234,8 +234,8 @@ describe('worker level combat stats', () => {
   })
 })
 
-describe('fuse averages total xp', () => {
-  it('sets the new worker from floor of the two parents total xp', () => {
+describe('fuse sums total xp', () => {
+  it('sets the new worker from the sum of both parents total xp', () => {
     const save = createSave()
     const a = spawnWorker(save)
     const b = spawnWorker(save)
@@ -243,8 +243,9 @@ describe('fuse averages total xp', () => {
     a.xp = 6
     b.level = 2
     b.xp = 10
-    const avgTotal = Math.floor((workerTotalXp(4, 6) + workerTotalXp(2, 10)) / 2)
-    const expected = workerFromTotalXp(avgTotal)
+    const sumTotal = workerTotalXp(4, 6) + workerTotalXp(2, 10)
+    const expected = workerFromTotalXp(sumTotal)
+    expect(sumTotal).toBeGreaterThan(Math.floor(sumTotal / 2))
     expect(assignWorker(save, a.id, 'mining').ok).toBe(true)
     expect(assignWorker(save, b.id, 'mining').ok).toBe(true)
     expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
@@ -252,8 +253,30 @@ describe('fuse averages total xp', () => {
     expect(next.qualityTier).toBe(2)
     expect(next.level).toBe(expected.level)
     expect(next.xp).toBe(expected.xp)
+    expect(workerTotalXp(next.level, next.xp)).toBe(sumTotal)
     expect(next.hp).toBe(next.hpMax)
     expect(next.hpMax).toBe(workerLiveStats(next).hp)
     expect(next.assignment).toBe('mining')
+  })
+
+  it('cascades overflow xp into extra levels along the worker curve', () => {
+    const save = createSave()
+    const a = spawnWorker(save)
+    const b = spawnWorker(save)
+    a.level = 1
+    a.xp = 15
+    b.level = 1
+    b.xp = 10
+    const expected = workerFromTotalXp(25)
+    expect(expected.level).toBe(2)
+    expect(expected.xp).toBe(25 - workerXpToNext(1))
+    expect(assignWorker(save, a.id, 'herbalism').ok).toBe(true)
+    expect(assignWorker(save, b.id, 'herbalism').ok).toBe(true)
+    expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
+    const next = save.workers[0]
+    expect(next.qualityTier).toBe(2)
+    expect(next.level).toBe(2)
+    expect(next.xp).toBe(expected.xp)
+    expect(next.xp).toBeLessThan(workerXpToNext(next.level))
   })
 })

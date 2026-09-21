@@ -36,8 +36,8 @@ function fusePairAt(save: Save, a: Worker, b: Worker, stayAt: StationId | null):
   const pool = classPoolForQuality(nextTier)
   const classId = pickClassFromPool(pool, roll01(save))
   const keptAttrs = a.combatAttrs
-  const avgTotal = Math.floor((workerTotalXp(a.level, a.xp) + workerTotalXp(b.level, b.xp)) / 2)
-  const progress = workerFromTotalXp(avgTotal)
+  const sumTotal = workerTotalXp(a.level, a.xp) + workerTotalXp(b.level, b.xp)
+  const progress = workerFromTotalXp(sumTotal)
   save.workers = save.workers.filter((w) => w.id !== a.id && w.id !== b.id)
   const worker = spawnWorkerWith(save, nextTier, classId, keptAttrs)
   worker.level = progress.level
