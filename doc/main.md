@@ -2,7 +2,7 @@
 
 纯前端挂机。定位：**抽工人、排流水线、同站堆人加速**。主线敌人是补给开门闩后的时间轴战斗（HP / ATK / SPD），交易单不动。
 
-工程对齐同作者 idea3_hospital：Vue3 + TypeScript + Vite + Pinia + Vitest，`src/sim` 纯逻辑，`src/ui` 薄门面，在线与离线都走同一个 `applyTick`。不复制医院的房间 / 污染 / 病人。GitHub Pages 为 project site，Vite `base` 为 `/idea5_idle/`，在线地址 https://sung1011.github.io/idea5_idle/ ，推 `main` 即部署。
+工程对齐同作者 idea3_hospital：Vue3 + TypeScript + Vite + Pinia + Vitest，`src/sim` 纯逻辑，`src/ui` 薄门面，在线与离线都走同一个 `applyTick`。不复制医院的房间 / 污染 / 病人。GitHub Pages 为 project site，Vite `base` 为 `/idea5_idle/`，在线地址 https://sung1011.github.io/idea5_idle/ ，推 `main` 即部署。线上为 HTTPS，Chrome / Edge 可安装应用；iOS Safari 多为「添加到主屏幕」。开发服务不注册 Service Worker。manifest 的 `start_url` / `scope` 与 `base` 相同。
 
 另见：[生产定稿](production.md)、[分阶段落地](todo.md)、[站点等级与品类](stationProgress.md)。现玩法六站（钓鱼已撤，鱼/杂物并入狩猎），工人食物槽与明确不做以 production 为准。第 2 期已落地采集差异；第 3 期工具槽已撤，改为铭刻一次性符文；第 4 期已落地烹饪食物槽；第 5 期已落地炼金随机七种药剂批次。食物主职是回血；7 种药剂装进工人页 4 槽后点槽使用、点？看效果，无 CD。已删除站狂暴、战鼓药与站工具。狩猎真战斗本轮不做（TODO），现遇险扣血接到劳损。
 
