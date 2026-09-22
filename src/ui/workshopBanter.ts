@@ -24,6 +24,7 @@ const bubbles = reactive<Partial<Record<StationId, WorkshopBanterBubble | null>>
 const memory: BanterMemory = blankBanterMemory()
 let nextId = 1
 let epoch = 0
+let greeted = false
 
 function storageOf(storage?: Storage | null): Storage | null {
   if (storage) return storage
@@ -110,6 +111,27 @@ export function offerWorkshopBanter(save: Save, successStationIds: readonly Stat
     dragging: isWorkerDragActive(),
     successStationIds,
     rng: Math.random,
+  })
+  if (!event) return
+  playWorkshopBanter(event)
+}
+
+/**
+ * 读档 hydrate 完成、主界面起来后调用一次。
+ * 有符合条件的在岗工人就强制说一句；无人在岗或开关关着则跳过，之后不再补播。
+ */
+export function greetWorkshopBanter(save: Save) {
+  if (greeted) return
+  greeted = true
+  if (!loadWorkshopBanter()) return
+  const event = considerWorkshopBanter({
+    save,
+    nowS: save.elapsedS,
+    memory,
+    dragging: isWorkerDragActive(),
+    successStationIds: [],
+    rng: Math.random,
+    forced: true,
   })
   if (!event) return
   playWorkshopBanter(event)

@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createSave } from '../sim/createSave'
+import type { Worker } from '../sim/types'
 import { appTab, workshopTab } from './appNav'
 import { DEFAULT_APP_TAB } from './appTabs'
 import type { StationId } from '../sim/types'
@@ -6,6 +8,7 @@ import type { AppTabId } from './appTabs'
 import {
   WORKSHOP_BANTER_KEY,
   dismissWorkshopBanter,
+  greetWorkshopBanter,
   loadWorkshopBanter,
   playWorkshopBanter,
   saveWorkshopBanter,
@@ -47,6 +50,7 @@ describe('workshop banter bubbles', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+    vi.unstubAllGlobals()
     dismissWorkshopBanter()
     appTab.value = prevApp
     workshopTab.value = prevStation
@@ -109,5 +113,37 @@ describe('workshop banter bubbles', () => {
     appTab.value = 'workshop'
     vi.advanceTimersByTime(10)
     expect(workshopBanterBubble('herbalism')).toBeNull()
+  })
+
+  it('skips the entry greet when the switch is off and does not replay after it is turned on', () => {
+    const store = memory()
+    vi.stubGlobal('localStorage', store)
+    saveWorkshopBanter(false, store)
+    const save = createSave()
+    const onDuty: Worker = {
+      id: 'a',
+      assignment: 'herbalism',
+      qualityTier: 1,
+      foodSlot: null,
+      fatigueDebt: 0,
+      isNew: true,
+      hp: 20,
+      hpMax: 20,
+      level: 1,
+      xp: 0,
+      combatAttrs: [],
+    }
+    save.workers.push(onDuty)
+    prevApp = appTab.value
+    prevStation = workshopTab.value
+    appTab.value = 'workshop'
+    workshopTab.value = 'herbalism'
+    greetWorkshopBanter(save)
+    expect(workshopBanterBubble('herbalism')).toBeNull()
+    saveWorkshopBanter(true, store)
+    greetWorkshopBanter(save)
+    expect(workshopBanterBubble('herbalism')).toBeNull()
+    expect(onDuty.isNew).toBe(true)
+    vi.unstubAllGlobals()
   })
 })

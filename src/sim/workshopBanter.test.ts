@@ -61,6 +61,7 @@ function run(
   success: StationId[],
   rng: BanterRng,
   dragging = false,
+  forced = false,
 ) {
   return considerWorkshopBanter({
     save,
@@ -69,6 +70,7 @@ function run(
     dragging,
     successStationIds: success,
     rng,
+    forced,
   })
 }
 
@@ -266,5 +268,42 @@ describe('workshop banter trigger', () => {
     expect(newbie.isNew).toBe(true)
     expect(save.workers[1].isNew).toBe(true)
     expect(snapshot(save)).toBe(before)
+  })
+
+  it('forces one entry line through both cooldowns, then the normal gates apply again', () => {
+    const save = createSave()
+    const onDuty = put(save, worker({ id: 'a', assignment: 'herbalism', isNew: true }))
+    const memory = blankBanterMemory()
+    memory.lastEventS = 0
+    memory.cooldownS = BANTER_GLOBAL_COOLDOWN_MAX_S
+    memory.workerAt.a = 0
+    expect(run(save, memory, 10, ['herbalism'], rolls([]))).toBeNull()
+
+    const before = snapshot(save)
+    const forced = run(save, memory, 10, [], rolls([0, 0, 0, 0]), false, true)
+    expect(forced?.kind).toBe('solo')
+    expect(forced?.beats[0].workerId).toBe('a')
+    expect(forced?.beats[0].text).toBe(banterLines('gripe', 'herbalism')[0])
+    expect(memory.lastEventS).toBe(10)
+    expect(memory.cooldownS).toBe(BANTER_GLOBAL_COOLDOWN_MIN_S)
+    expect(memory.workerAt.a).toBe(10)
+    expect(onDuty.isNew).toBe(true)
+    expect(snapshot(save)).toBe(before)
+    expect(run(save, memory, 11, ['herbalism'], rolls([]))).toBeNull()
+  })
+
+  it('skips the entry line when nobody is on duty and does not arm a replay', () => {
+    const save = createSave()
+    put(save, worker({ id: 'rest', assignment: null, isNew: true }))
+    const memory = blankBanterMemory()
+    memory.lastEventS = 3
+    memory.cooldownS = 60
+    memory.workerAt.rest = 3
+    const beforeMemory = JSON.stringify(memory)
+    const before = snapshot(save)
+    expect(run(save, memory, 10, [], rolls([]), false, true)).toBeNull()
+    expect(JSON.stringify(memory)).toBe(beforeMemory)
+    expect(snapshot(save)).toBe(before)
+    expect(save.workers[0].isNew).toBe(true)
   })
 })

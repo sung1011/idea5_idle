@@ -45,7 +45,7 @@ import { pushFloatTip } from './floatTips'
 import { announceWorkerLevelUps, workerLevelSnapshot } from './workerLevelFlash'
 import { clearSave, loadSave, persistSave } from './saveGame'
 import { pushCycleGain } from './stationTips'
-import { offerWorkshopBanter } from './workshopBanter'
+import { greetWorkshopBanter, offerWorkshopBanter } from './workshopBanter'
 import { applyWorkerDrag, type WorkerDragSource, type WorkerDropTarget } from './workerDrag'
 import { assignRestingToFirstEmpty, withdrawWorkshopToRest } from './workerGroups'
 
@@ -140,6 +140,7 @@ export const useGameStore = defineStore('game', () => {
   function startClock() {
     stopClock()
     boot()
+    greetWorkshopBanter(save.value)
     timer = window.setInterval(liveTick, 1000)
     document.addEventListener('visibilitychange', onVis)
     window.addEventListener('pagehide', persist)

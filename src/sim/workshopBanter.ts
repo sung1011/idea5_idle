@@ -246,8 +246,9 @@ function commit(
 
 /**
  * 一次 tick 最多一条。成功吞吐的站，以及在岗空转的站，先按权重挑一个再做 4%～8% 检定。
+ * `forced` 是进游戏那一次：凡有在岗且未战斗的人都可入选，跳过检定、全局冷却、个人冷却；说完仍写入冷却。
  * 不改 save（含 isNew / rngState）。战斗中的人不说；dragging 时整段跳过。
- * 掷骰顺序：选站 → 检定 →（两人）对白检定 → 台词 →（对白）间隔 → 全局冷却。
+ * 掷骰顺序：选站 → 检定（forced 跳过）→（两人）对白检定 → 台词 →（对白）间隔 → 全局冷却。
  */
 export function considerWorkshopBanter(input: {
   save: Save
@@ -256,11 +257,13 @@ export function considerWorkshopBanter(input: {
   dragging: boolean
   successStationIds: readonly StationId[]
   rng: BanterRng
+  forced?: boolean
 }): BanterEvent | null {
   const { save, nowS, memory, dragging, successStationIds, rng } = input
+  const forced = input.forced === true
   if (dragging) return null
-  if (memory.busyUntilS > nowS) return null
-  if (memory.lastEventS >= 0 && nowS < memory.lastEventS + memory.cooldownS) return null
+  if (!forced && memory.busyUntilS > nowS) return null
+  if (!forced && memory.lastEventS >= 0 && nowS < memory.lastEventS + memory.cooldownS) return null
 
   const succeeded = new Set(successStationIds)
   const candidates: {
@@ -277,18 +280,18 @@ export function considerWorkshopBanter(input: {
     if (!crew.length) continue
     const stalled = stationIdle(save, stationId)
     const success = succeeded.has(stationId)
-    if (!success && !stalled) continue
-    const ready = crew.filter((worker) => workerReady(memory, worker.id, nowS))
+    if (!forced && !success && !stalled) continue
+    const ready = forced ? crew : crew.filter((worker) => workerReady(memory, worker.id, nowS))
     if (!ready.length) continue
     const flags = flagsOf(save, stationId, crew)
-    const weight = stationCandidateWeight(flags, success)
+    const weight = stationCandidateWeight(flags, success || forced)
     if (weight <= 0) continue
     candidates.push({ stationId, ready, flags, weight })
   }
   if (!candidates.length) return null
 
   const picked = candidates[pickWeighted(candidates.map((row) => row.weight), rng())]
-  if (!(rng() < banterTriggerChance(picked.flags))) return null
+  if (!forced && !(rng() < banterTriggerChance(picked.flags))) return null
 
   const ready = picked.ready
   if (ready.length >= 2 && rng() < BANTER_DUET_CHANCE) {
