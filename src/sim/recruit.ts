@@ -35,6 +35,16 @@ export function findWorker(save: Save, workerId: string): Worker | undefined {
   return save.workers.find((w) => w.id === workerId)
 }
 
+/** 对该工人任意操作时清掉 NEW 徽记。找不到人则忽略。 */
+export function clearWorkerNew(save: Save, workerId: string): void {
+  const worker = findWorker(save, workerId)
+  if (worker) worker.isNew = false
+}
+
+export function clearWorkersNew(save: Save, workerIds: readonly string[]): void {
+  for (const id of workerIds) clearWorkerNew(save, id)
+}
+
 function isItemId(id: unknown): id is ItemId {
   return typeof id === 'string' && (ITEM_IDS as string[]).includes(id)
 }
@@ -127,6 +137,7 @@ export function hydrateWorker(raw: unknown, index = 0): Worker {
       assignment: resolveStationId(src.assignment),
       foodSlot: hydrateFoodSlot(src.foodSlot, src),
       fatigueDebt: hydrateFatigueDebt(src.fatigueDebt),
+      isNew: src.isNew === true,
       hp: 0,
       hpMax: 1,
       level: progress.level,
@@ -178,6 +189,7 @@ export function spawnWorkerWith(
       assignment: null,
       foodSlot: null,
       fatigueDebt: 0,
+      isNew: false,
       hp: 0,
       hpMax: 1,
       level: WORKER_LEVEL_MIN,
@@ -195,6 +207,7 @@ export function recruitWorker(save: Save): ActionResult {
   const cost = recruitCost(save)
   if (save.diamonds < cost) return { ok: false, reason: '钻石不足' }
   save.diamonds -= cost
-  spawnWorker(save)
+  const worker = spawnWorker(save)
+  worker.isNew = true
   return { ok: true }
 }

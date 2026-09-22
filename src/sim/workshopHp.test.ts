@@ -48,6 +48,7 @@ function stubWorker(hp: number, hpMax: number): Worker {
     assignment: 'mining',
     foodSlot: null,
     fatigueDebt: 0,
+    isNew: false,
     hp,
     hpMax,
     level: 1,

@@ -19,6 +19,7 @@ import {
 } from './combat'
 import { isEnemyTargetRuleId } from './combatTarget'
 import { findCombatPartyWorker } from './combatAssist'
+import { clearWorkersNew } from './recruit'
 import { workerLootXp } from './workerLevel'
 import { ensureEnemyIntel, isEnemyRank, pickEnemyWeaknesses, seedInitialRevealedWeaknesses } from './combatAttrs'
 import { ensureBattlefieldAffix, hydrateDungeonFields, rollBattlefieldAffix } from './dungeon'
@@ -1804,6 +1805,10 @@ export function startCombat(
   }
   const consumed = consumeRunePicks(save, runePicks)
   if (!consumed.ok) return consumed
+  clearWorkersNew(
+    save,
+    party.filter((w) => !w.guest).map((w) => w.id),
+  )
   save.departCount += 1
   save.lastDepartAt = now
   delete enc.submitted
@@ -1835,6 +1840,10 @@ export function reinforceCombat(
   if (!party.length) return { ok: false, reason: '请选择出战工人' }
   const consumed = consumeRunePicks(save, runePicks)
   if (!consumed.ok) return consumed
+  clearWorkersNew(
+    save,
+    party.filter((w) => !w.guest).map((w) => w.id),
+  )
   addCombatReinforcements(enc, party, now, onLog, save, normalizeRunePicks(runePicks))
   return { ok: true }
 }

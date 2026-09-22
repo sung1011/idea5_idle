@@ -75,6 +75,7 @@ Worker = {
   assignment: stationId | null,  // 每站最多 2 人；出战不算派驻
   foodSlot: FoodSlot | null,   // 烹饪产物；主职回血；到期自动吃 1 份刷新槽；残血自动吃 1；可立即换食覆盖；无手动喂
   fatigueDebt,       // 工坊劳损累计；hydrate 缺则 0
+  isNew,             // 新抽徽记；仅 recruit 成功 true；对该人任意操作清 false；hydrate 缺则 false
   hp, hpMax,         // 工坊与战斗共用生命；hydrate 缺则满血；工坊锁 1
   level,             // 战斗等级，从 1；hydrate 缺则 1；抽人 / spawn 默认 1
   xp,                // 当前级内经验；仅战胜领战利品发放；hydrate 缺则 0
@@ -195,7 +196,7 @@ progress >= 1 → 完成一次吞吐，progress -= 1
 
 ## 5. 抽人
 
-表驱动。扣抽人费钻石，按 `WORKER_NAME_POOL` / `CLASS_PLACEHOLDERS` 轮转写花名册，`qualityTier = 1`（白）。抽人费默认 `RECRUIT_COST`（12），点亮「募兵折」后 7。钻石不够失败，不写工人。
+表驱动。扣抽人费钻石，按 `WORKER_NAME_POOL` / `CLASS_PLACEHOLDERS` 轮转写花名册，`qualityTier = 1`（白），新人 `isNew = true`（休息区/在岗角标 NEW；派驻、撤出、拖拽、开详情、装卸食物、合成、点选出战/增援、符文槽等对该人操作清旗；抽人只标新人）。抽人费默认 `RECRUIT_COST`（12），点亮「募兵折」后 7。钻石不够失败，不写工人。
 
 同档两人可在工人页合成升档，见 2.2。
 

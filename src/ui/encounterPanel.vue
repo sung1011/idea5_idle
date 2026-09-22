@@ -303,6 +303,7 @@ function openRunePick(workerId: string, ev?: Event) {
     pushFloatTip(runeSlotLockedTip())
     return
   }
+  game.clearWorkerNew(workerId)
   runePickWorkerId.value = workerId
   game.markGuideRuneOpened()
 }
@@ -363,6 +364,7 @@ function inviteAssist() {
 
 function togglePick(worker: Worker) {
   if (!isFullCombatHp(worker)) return
+  game.clearWorkerNew(worker.id)
   const id = worker.id
   if (picked.value.includes(id)) {
     picked.value = picked.value.filter((x) => x !== id)
@@ -769,6 +771,7 @@ function timedLine(enc: Encounter) {
               <span class="pick-name">
                 <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
                 <i v-if="isAssistWorker(w)" class="pick-assist">助战</i>
+                <i v-else-if="w.isNew" class="pick-new">NEW</i>
                 <CombatAttrRow class="pick-attrs" :attrs="w.combatAttrs" />
                 <b class="pick-worker-name" :style="workerQualityNameStyle(w)">{{ pickWorkerName(w) }}</b>
                 <span class="pick-meta">· Lv{{ w.level }}</span>
@@ -1510,6 +1513,18 @@ ul {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
+}
+
+.pick-new {
+  font-style: normal;
+  padding: 1px 6px;
+  border: 1px solid #7a1808;
+  border-radius: 4px;
+  background: linear-gradient(#ff6a3d, #d62828);
+  color: #fff8e8;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
 }
 
 .pick-worker.assist {

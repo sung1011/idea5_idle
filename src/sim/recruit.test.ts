@@ -4,7 +4,7 @@ import { bankQty } from './bank'
 import { createSave } from './createSave'
 import { loadFood } from './food'
 import { fuseWorkers } from './fuse'
-import { hydrateWorker, hydrateWorkers, recruitWorker, spawnWorker } from './recruit'
+import { hydrateWorker, hydrateWorkers, recruitWorker, spawnWorker, clearWorkerNew } from './recruit'
 import { setRollOverride } from './rng'
 import {
   CLASS_MIN_QUALITY,
@@ -75,6 +75,25 @@ describe('recruitWorker', () => {
     expect(recruitWorker(save)).toEqual({ ok: false, reason: '钻石不足' })
     expect(save.diamonds).toBe(RECRUIT_COST - 1)
     expect(save.workers).toHaveLength(1)
+  })
+
+  it('marks the new recruit isNew, and clears it on assign or clearWorkerNew', () => {
+    const save = createSave()
+    expect(recruitWorker(save).ok).toBe(true)
+    const worker = save.workers[0]
+    expect(worker.isNew).toBe(true)
+    expect(hydrateWorker({ id: 'w-old', assignment: null }).isNew).toBe(false)
+    expect(hydrateWorker({ id: 'w-flag', isNew: true }).isNew).toBe(true)
+
+    const other = spawnWorker(save)
+    expect(other.isNew).toBe(false)
+    other.isNew = true
+    expect(assignWorker(save, worker.id, 'herbalism').ok).toBe(true)
+    expect(worker.isNew).toBe(false)
+    expect(other.isNew).toBe(true)
+
+    clearWorkerNew(save, other.id)
+    expect(other.isNew).toBe(false)
   })
 })
 

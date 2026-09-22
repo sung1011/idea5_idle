@@ -63,6 +63,7 @@ export function createAssistWorker(save: Save, roll: AssistRoll = Math.random): 
       assignment: null,
       foodSlot: null,
       fatigueDebt: 0,
+      isNew: false,
       hp: 0,
       hpMax: 1,
       level,

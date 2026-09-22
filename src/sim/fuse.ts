@@ -1,7 +1,7 @@
 import { assignedWorkers, assignWorker } from './assign'
 import { fillWorkerHp } from './combat'
 import { unloadFood } from './food'
-import { findWorker, spawnWorkerWith } from './recruit'
+import { clearWorkerNew, findWorker, spawnWorkerWith } from './recruit'
 import { workerFromTotalXp, workerTotalXp } from './workerLevel'
 import { roll01 } from './rng'
 import {
@@ -28,6 +28,8 @@ function clearEmptyStation(save: Save, stationId: StationId | null): void {
 }
 
 function fusePairAt(save: Save, a: Worker, b: Worker, stayAt: StationId | null): ActionResult {
+  clearWorkerNew(save, a.id)
+  clearWorkerNew(save, b.id)
   stripSlots(save, a)
   stripSlots(save, b)
   const leftFrom = a.assignment

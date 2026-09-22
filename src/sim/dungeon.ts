@@ -14,6 +14,7 @@ import {
   type CombatLogSink,
 } from './combat'
 import { findCombatPartyWorker } from './combatAssist'
+import { clearWorkersNew } from './recruit'
 import { canAffordCosts, missingCostLabels, takeCosts } from './costs'
 import {
   DUNGEON_AFFIX_DEFS,
@@ -326,6 +327,10 @@ export function startDungeonCombat(
   if (!took.ok) return took
   const consumed = consumeRunePicks(save, runePicks)
   if (!consumed.ok) return consumed
+  clearWorkersNew(
+    save,
+    party.filter((w) => !w.guest).map((w) => w.id),
+  )
   save.dungeon.attemptsUsed = Math.min(DUNGEON_ATTEMPTS_PER_DAY, save.dungeon.attemptsUsed + 1)
   enc.dungeonShieldBonus = dungeonShieldBonus(save)
   enc.lootClaimed = false
@@ -359,6 +364,10 @@ export function reinforceDungeonCombat(
   if (!party.length) return { ok: false, reason: '请选择出战工人' }
   const consumed = consumeRunePicks(save, runePicks)
   if (!consumed.ok) return consumed
+  clearWorkersNew(
+    save,
+    party.filter((w) => !w.guest).map((w) => w.id),
+  )
   addCombatReinforcements(enc, party, now, onLog, save, normalizeRunePicks(runePicks))
   return { ok: true }
 }

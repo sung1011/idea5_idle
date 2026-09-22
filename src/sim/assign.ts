@@ -30,6 +30,7 @@ export function clampStationAssignments(save: Save): void {
 export function assignWorker(save: Save, workerId: string, stationId: StationId | null): ActionResult {
   const worker = findWorker(save, workerId)
   if (!worker) return { ok: false, reason: '没有这个 worker' }
+  worker.isNew = false
   if (isWorkerInCombat(save, workerId)) return { ok: false, reason: '正在战斗' }
   if (stationId !== null && (isDeprecatedStationId(stationId) || !isStationId(stationId))) {
     return { ok: false, reason: '没有这个站点' }

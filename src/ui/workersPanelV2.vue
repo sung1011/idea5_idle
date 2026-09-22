@@ -252,6 +252,7 @@ function hpToneClass(w: Worker) {
 }
 
 function openSheet(w: Worker) {
+  game.clearWorkerNew(w.id)
   selectedId.value = w.id
 }
 
@@ -388,6 +389,7 @@ function onDragMove(ev: PointerEvent) {
     const dy = session.y - session.startY
     if (!shouldStartWorkerDrag(session.source, dx, dy)) return
     session.active = true
+    game.clearWorkerNew(session.workerId)
     const handle = ev.target
     if (handle instanceof Element && handle.setPointerCapture) {
       try {
@@ -482,6 +484,7 @@ onUnmounted(() => {
                 <template v-if="w">
                   <span class="avatar" :style="workerQualityTileStyle(w)">
                     <ClassIcon :name="classIconOf(w)" />
+                    <i v-if="w.isNew" class="worker-new" aria-label="新工人">NEW</i>
                   </span>
                   <span class="slot-main">
                     <b>
@@ -553,6 +556,7 @@ onUnmounted(() => {
               >
                 <span class="avatar" :style="workerQualityTileStyle(w)">
                   <ClassIcon :name="classIconOf(w)" />
+                  <i v-if="w.isNew" class="worker-new" aria-label="新工人">NEW</i>
                 </span>
                 <b class="rest-name" :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</b>
               </button>
@@ -614,6 +618,7 @@ onUnmounted(() => {
               >
                 <span class="avatar" :style="workerQualityTileStyle(w)">
                   <ClassIcon :name="classIconOf(w)" />
+                  <i v-if="w.isNew" class="worker-new" aria-label="新工人">NEW</i>
                 </span>
                 <b class="rest-name" :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</b>
               </button>
@@ -1279,6 +1284,25 @@ onUnmounted(() => {
 .avatar :deep(.class-ico) {
   width: 13px;
   height: 13px;
+}
+
+.worker-new {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  z-index: 2;
+  padding: 0 3px;
+  border: 1px solid #7a1808;
+  border-radius: 3px;
+  background: linear-gradient(#ff6a3d, #d62828);
+  color: #fff8e8;
+  font-size: 7px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  box-shadow: 0 1px 0 #7a1808;
+  pointer-events: none;
 }
 
 .slot-main {

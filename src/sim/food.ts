@@ -1,5 +1,5 @@
 import { addToBank, bankQty, takeFromBank } from './bank'
-import { findWorker } from './recruit'
+import { clearWorkerNew, findWorker } from './recruit'
 import { FOOD_HEAL_RATIO, foodBuffDef, isFoodItemId, ITEM_DEF, type FoodItemId } from './tables'
 import { isWoundedHp } from './workshopHp'
 import type {
@@ -97,6 +97,7 @@ export function loadFood(save: Save, workerId: string, itemId: ItemId, qty: numb
   if (copies < 1) return { ok: false, reason: '数量无效' }
   const worker = findWorker(save, workerId)
   if (!worker) return { ok: false, reason: '没有这个工人' }
+  clearWorkerNew(save, workerId)
   if (bankQty(save, itemId) < copies) return { ok: false, reason: `${ITEM_DEF[itemId].label}见底` }
 
   refreshWorkerFood(worker, now)
@@ -122,6 +123,7 @@ export function loadFood(save: Save, workerId: string, itemId: ItemId, qty: numb
 export function unloadFood(save: Save, workerId: string): ActionResult {
   const worker = findWorker(save, workerId)
   if (!worker) return { ok: false, reason: '没有这个工人' }
+  clearWorkerNew(save, workerId)
   if (!worker.foodSlot) return { ok: false, reason: '没有装食物' }
   returnLeftover(save, worker.foodSlot)
   worker.foodSlot = null

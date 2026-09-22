@@ -199,6 +199,7 @@ onUnmounted(() => {
         <span v-for="w in crew" :key="w.id" class="crew-slot" :class="{ 'crew-empty-hp': crewEmptyHpFlash(w) }">
           <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
           <b class="crew-name" :style="workerQualityNameStyle(w)">{{ w.name ?? w.id }}</b>
+          <i v-if="w.isNew" class="worker-new" aria-label="新工人">NEW</i>
           <span class="crew-lv">Lv{{ w.level }}</span>
         </span>
         <button
@@ -406,6 +407,20 @@ h2.station-title {
   white-space: nowrap;
   font-size: 13px;
   font-weight: 700;
+}
+
+.worker-new {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  border: 1px solid #7a1808;
+  border-radius: 3px;
+  background: linear-gradient(#ff6a3d, #d62828);
+  color: #fff8e8;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
 }
 
 .crew-lv {

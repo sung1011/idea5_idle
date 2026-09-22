@@ -20,7 +20,7 @@ import { clearPotionSlot, installPotionSlot } from '../sim/potionSlots'
 import { usePotionSlot } from '../sim/potions'
 import { loadFood, unloadFood } from '../sim/food'
 import { fuseStationWorkers, fuseWorkerWithStation } from '../sim/fuse'
-import { recruitWorker } from '../sim/recruit'
+import { recruitWorker, clearWorkerNew } from '../sim/recruit'
 import { selectStationCategory } from '../sim/stationProgress'
 import type { RunePickMap } from '../sim/runes'
 import {
@@ -154,6 +154,14 @@ export const useGameStore = defineStore('game', () => {
     startClock,
     stopClock,
     recruit: () => apply(recruitWorker),
+    clearWorkerNew: (workerId: string) => {
+      const worker = save.value.workers.find((w) => w.id === workerId)
+      if (!worker?.isNew) return
+      apply((s) => {
+        clearWorkerNew(s, workerId)
+        return { ok: true }
+      })
+    },
     fuseStation: (stationId: StationId) => apply((s) => fuseStationWorkers(s, stationId)),
     fuseWorker: (workerId: string, stationId: StationId) =>
       apply((s) => fuseWorkerWithStation(s, workerId, stationId)),

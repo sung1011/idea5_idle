@@ -38,6 +38,7 @@ describe('gm debug grants', () => {
       qualityTier: 1,
       foodSlot: null,
       fatigueDebt: 0,
+      isNew: false,
       hp: 24,
       hpMax: 24,
       level: 1,
