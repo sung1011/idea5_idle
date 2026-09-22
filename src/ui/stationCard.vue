@@ -281,7 +281,12 @@ onUnmounted(() => {
             <h3 :id="`station-help-${stationId}`" class="title">{{ help.title }}</h3>
             <button type="button" class="close" @click="closeHelp">关闭</button>
           </header>
-          <p class="help-body">{{ help.body }}</p>
+          <dl class="help-fields">
+            <div v-for="row in help.rows" :key="row.label">
+              <dt>{{ row.label }}</dt>
+              <dd>{{ row.text }}</dd>
+            </div>
+          </dl>
         </section>
       </div>
     </Teleport>
@@ -567,6 +572,8 @@ h2.station-title {
 
 .help-panel {
   width: min(440px, 100%);
+  max-height: calc(100vh - 96px);
+  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -590,14 +597,32 @@ h2.station-title {
   padding: 4px 10px;
 }
 
-.help-body {
+.help-fields {
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.help-fields > div {
+  display: grid;
+  grid-template-columns: 5.5em minmax(0, 1fr);
+  gap: 8px 10px;
   padding: 8px 10px;
   border: 2px solid var(--gold);
   border-radius: 12px;
   background: var(--slot);
-  font-size: 14px;
+}
+
+.help-fields dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.help-fields dd {
+  margin: 0;
+  font-family: var(--font-mono);
   font-weight: 700;
-  line-height: 1.5;
+  line-height: 1.45;
 }
 </style>
