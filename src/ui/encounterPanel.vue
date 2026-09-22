@@ -17,7 +17,6 @@ import {
 } from '../sim/combat'
 import { createAssistWorker, isAssistWorker, pickCombatCandidates } from '../sim/combatAssist'
 import {
-  ENCOUNTER_KIND_LABEL,
   QUALITY_LABEL,
   combatSupplyBlockReason,
   encountersOf,
@@ -75,6 +74,7 @@ import { FIGHTING_DOT_MS, fightingButtonLabel } from './fightingLabel'
 import { actChargeFill, actChargeStunned } from './actCharge'
 import ActChargeBar from './actChargeBar.vue'
 import { pushFloatTip } from './floatTips'
+import { encounterCardKindTitle } from './encounterKindTitle'
 import { useGameStore } from './gameStore'
 import {
   MAINLINE_DENSITY_IDS,
@@ -239,8 +239,8 @@ function showCardHeader(enc: Encounter) {
   return !isBrief.value || enc.kind === 'enemy'
 }
 
-function showCardLabel(enc: Encounter) {
-  return !isBrief.value || enc.kind !== 'enemy'
+function cardKindTitle(enc: Encounter) {
+  return encounterCardKindTitle(enc.kind)
 }
 
 function showFightReadout(enc: Encounter) {
@@ -402,11 +402,6 @@ function confirmPick() {
   if (result.ok) closePick()
 }
 
-function kindTitle(kind: EncounterKind, enc?: Encounter) {
-  if (enc && isDungeonEncounter(enc)) return '地牢'
-  return ENCOUNTER_KIND_LABEL[kind]
-}
-
 function spriteKind(kind: EncounterKind) {
   return kind
 }
@@ -560,7 +555,7 @@ function timedLine(enc: Encounter) {
               aria-hidden="true"
             />
             <div class="titles">
-              <span class="kind">{{ kindTitle(enc.kind, enc) }}</span>
+              <span v-if="cardKindTitle(enc)" class="kind">{{ cardKindTitle(enc) }}</span>
               <span class="tags">
                 <i>{{ isDungeonEncounter(enc) ? '地牢' : ENEMY_RANK_LABEL[enc.enemyRank] }}</i>
                 <i v-if="isDungeonEncounter(enc)">阶段 {{ enc.dungeonPhase ?? 1 }}/3</i>
@@ -570,7 +565,7 @@ function timedLine(enc: Encounter) {
               </span>
             </div>
           </header>
-          <p v-if="showCardLabel(enc)" class="label">{{ enc.label }}</p>
+          <p class="label">{{ enc.label }}</p>
           <p v-if="enemyCardAffix(enc)" class="affix-row card-affix">
             <button
               type="button"
@@ -675,10 +670,10 @@ function timedLine(enc: Encounter) {
           <header v-if="showCardHeader(enc)">
             <i v-if="!isBrief" class="sprite sprite-encounter" :class="spriteKind(enc.kind)" aria-hidden="true" />
             <div class="titles">
-              <span class="kind">{{ kindTitle(enc.kind, enc) }}</span>
+              <span v-if="cardKindTitle(enc)" class="kind">{{ cardKindTitle(enc) }}</span>
             </div>
           </header>
-          <p v-if="showCardLabel(enc)" class="label">{{ enc.label }}</p>
+          <p class="label">{{ enc.label }}</p>
           <p v-if="timedLine(enc)" class="timed">{{ timedLine(enc) }}</p>
           <EncounterDealLines :encounter="enc" />
 
@@ -1123,6 +1118,7 @@ function timedLine(enc: Encounter) {
 .tags {
   display: flex;
   gap: 6px;
+  margin-left: auto;
 }
 
 .tags i {
