@@ -11,8 +11,7 @@ import {
 } from '../sim/workshopBanter'
 import type { Save, StationId } from '../sim/types'
 import { STATION_IDS } from '../sim/tables'
-import { appTab, workshopGroup } from './appNav'
-import { stationsOfWorkshopGroup } from './workshopTabs'
+import { appTab } from './appNav'
 import { isWorkerDragActive } from './workerDrag'
 
 export const WORKSHOP_BANTER_KEY = 'workshopBanter'
@@ -69,13 +68,20 @@ function later(fn: () => void, ms: number) {
   timer(fn, ms)
 }
 
-function stationOnScreen(stationId: StationId): boolean {
-  if (appTab.value !== 'workshop') return false
-  return stationsOfWorkshopGroup(workshopGroup.value).includes(stationId)
+export function workshopBanterText(workerId: string): string {
+  for (const sid of STATION_IDS) {
+    const bubble = bubbles[sid]
+    if (bubble?.workerId === workerId) return bubble.text
+  }
+  return ''
+}
+
+function workersOpen(): boolean {
+  return appTab.value === 'workers'
 }
 
 function showBubble(stationId: StationId, workerId: string, text: string) {
-  if (!stationOnScreen(stationId)) return
+  if (!workersOpen()) return
   const id = nextId++
   for (const sid of STATION_IDS) {
     if (sid !== stationId) bubbles[sid] = null
@@ -86,7 +92,7 @@ function showBubble(stationId: StationId, workerId: string, text: string) {
   }, BANTER_BUBBLE_MS)
 }
 
-/** 当前不在工坊、或该站不在屏上，这一拍丢掉，不排队补播。 */
+/** 不在工人页则这一拍丢掉，不排队补播。 */
 export function playWorkshopBanter(event: BanterEvent) {
   const token = epoch
   for (const beat of event.beats) {
@@ -110,7 +116,7 @@ export function resetWorkshopBanterForTests() {
   for (const sid of STATION_IDS) bubbles[sid] = null
 }
 
-/** 离开工坊页时停掉未播的一拍，清掉还挂着的气泡。 */
+/** 离开工人页时停掉未播的一拍，清掉还挂着的气泡。 */
 export function dismissWorkshopBanter() {
   epoch += 1
   for (const sid of STATION_IDS) bubbles[sid] = null
@@ -135,25 +141,22 @@ function onDutyWorkers(save: Save) {
 }
 
 /**
- * 第一次进入工坊页时调用。人还不在工坊页则直接返回，不记已打招呼、不写冷却。
- * 当前分组屏上有在岗且未战斗的人才播；算出的站不在屏上则不 commit。
- * 人在工坊但无人在岗，或开关关着，记一次跳过，之后不补播。
+ * 第一次进入工人页时调用。人不在工人页则直接返回，不记已打招呼、不写冷却。
+ * 有在岗且未战斗的人才播。人已在工人页但无人在岗，或开关关着，记一次跳过，之后不补播。
  */
 export function greetWorkshopBanter(save: Save, rng: BanterRng = Math.random) {
   if (greeted) return
-  if (appTab.value !== 'workshop') return
+  if (!workersOpen()) return
   if (isWorkerDragActive()) return
   if (!loadWorkshopBanter()) {
     greeted = true
     return
   }
-  const visible = stationsOfWorkshopGroup(workshopGroup.value)
   const crew = onDutyWorkers(save)
   if (!crew.length) {
     greeted = true
     return
   }
-  if (!crew.some((worker) => worker.assignment != null && visible.includes(worker.assignment))) return
   const planned = planWorkshopBanter({
     save,
     nowS: save.elapsedS,
@@ -162,9 +165,8 @@ export function greetWorkshopBanter(save: Save, rng: BanterRng = Math.random) {
     successStationIds: [],
     rng,
     forced: true,
-    onlyStationIds: visible,
   })
-  if (!planned || !stationOnScreen(planned.event.stationId)) return
+  if (!planned || !workersOpen()) return
   planned.apply()
   greeted = true
   playWorkshopBanter(planned.event)

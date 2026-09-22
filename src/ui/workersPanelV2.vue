@@ -38,6 +38,7 @@ import { recruitCost } from '../sim/tech'
 import type { ClassId, PotionItemId, StationId, Worker } from '../sim/types'
 import ClassIcon from './classIcon.vue'
 import { openWorkshopStation } from './appNav'
+import { dismissWorkshopBanter, greetWorkshopBanter, workshopBanterText } from './workshopBanter'
 import { useGameStore } from './gameStore'
 import HpBar from './hpBar.vue'
 import { hpBarFill, hpBarTone } from './hpBar'
@@ -442,10 +443,18 @@ function restDropClass(): string {
   return ''
 }
 
-onMounted(() => document.addEventListener('pointerdown', onDocPotionHelp, true))
+function banterLine(workerId: string): string {
+  return workshopBanterText(workerId)
+}
+
+onMounted(() => {
+  document.addEventListener('pointerdown', onDocPotionHelp, true)
+  greetWorkshopBanter(game.save)
+})
 onUnmounted(() => {
   unbindDrag()
   setWorkerDragActive(false)
+  dismissWorkshopBanter()
   document.removeEventListener('pointerdown', onDocPotionHelp, true)
 })
 </script>
@@ -478,7 +487,7 @@ onUnmounted(() => {
                 type="button"
                 class="slot"
                 :class="[
-                  { empty: !w, 'level-flash': !!w && isWorkerLevelFlashing(w.id) },
+                  { empty: !w, 'level-flash': !!w && isWorkerLevelFlashing(w.id), 'has-banter': !!w && banterLine(w.id) },
                   w ? hpToneClass(w) : '',
                   slotDropClass(board.stationId, i),
                 ]"
@@ -502,6 +511,7 @@ onUnmounted(() => {
                     </b>
                     <small>Lv{{ w.level }}</small>
                   </span>
+                  <span v-if="banterLine(w.id)" class="banter" role="status">{{ banterLine(w.id) }}</span>
                 </template>
                 <template v-else>
                   <span class="empty-mark" aria-hidden="true">＋</span>
@@ -626,9 +636,10 @@ onUnmounted(() => {
               v-for="w in resting"
               :key="w.id"
               class="rest-row"
-              :class="[hpToneClass(w), { 'level-flash': isWorkerLevelFlashing(w.id) }]"
+              :class="[hpToneClass(w), { 'level-flash': isWorkerLevelFlashing(w.id), 'has-banter': !!banterLine(w.id) }]"
             >
               <i class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
+              <span v-if="banterLine(w.id)" class="banter" role="status">{{ banterLine(w.id) }}</span>
               <button
                 type="button"
                 class="rest-face"
@@ -1360,6 +1371,27 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+.banter {
+  position: absolute;
+  z-index: 6;
+  left: 2px;
+  right: 2px;
+  top: 50%;
+  margin: 0;
+  padding: 1px 4px;
+  border: 1px solid var(--gold-deep);
+  border-radius: 6px;
+  background: rgba(255, 248, 230, 0.96);
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  pointer-events: none;
+  transform: translateY(-50%);
+  animation: worker-banter 2.2s ease-out forwards;
+}
+
 .rest-name {
   position: relative;
   z-index: 1;
@@ -1614,5 +1646,24 @@ onUnmounted(() => {
 .pick-list button.locked {
   filter: grayscale(0.8);
   opacity: 0.5;
+}
+
+@keyframes worker-banter {
+  0% {
+    opacity: 0;
+  }
+  12%,
+  78% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banter {
+    animation: none;
+  }
 }
 </style>

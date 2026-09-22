@@ -27,7 +27,6 @@ import { formatConsumeToken } from './encounterDeal'
 import { useGameStore } from './gameStore'
 import { stationHelpCopy } from './stationHelp'
 import StationTips from './stationTips.vue'
-import { workshopBanterBubble } from './workshopBanter'
 import UiIcon from './uiIcon.vue'
 import UiSelect from './uiSelect.vue'
 import type { UiSelectOption } from './uiSelect'
@@ -94,12 +93,6 @@ const help = computed(() => stationHelpCopy(props.stationId))
 /** 在岗且未战斗的空血才闪。残血不闪；战斗中的人不算工坊空血闪。 */
 function crewEmptyHpFlash(worker: (typeof crew.value)[number]): boolean {
   return worker.assignment !== null && isEmptyHp(worker) && !isWorkerInCombat(game.save, worker.id)
-}
-
-function banterLine(workerId: string): string {
-  const bubble = workshopBanterBubble(props.stationId)
-  if (!bubble || bubble.workerId !== workerId) return ''
-  return bubble.text
 }
 
 function onAssignIdle() {
@@ -214,7 +207,6 @@ onUnmounted(() => {
           <b class="crew-name" :style="workerQualityNameStyle(w)">{{ w.name ?? w.id }}</b>
           <i v-if="w.isNew" class="worker-new" aria-label="新工人">NEW</i>
           <span class="crew-lv">Lv{{ w.level }}</span>
-          <span v-if="banterLine(w.id)" class="banter" role="status">{{ banterLine(w.id) }}</span>
         </span>
         <button
           v-if="canMerge"
@@ -396,31 +388,10 @@ h2.station-title {
 }
 
 .crew-slot {
-  position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
   min-width: 0;
-}
-
-.banter {
-  position: absolute;
-  z-index: 4;
-  left: 0;
-  bottom: calc(100% - 2px);
-  width: max-content;
-  max-width: 11em;
-  padding: 2px 6px;
-  border: 2px solid var(--gold-deep);
-  border-radius: 8px;
-  background: rgba(255, 248, 230, 0.96);
-  color: var(--ink);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.35;
-  pointer-events: none;
-  box-shadow: 0 1px 0 var(--gold-deep);
-  animation: banter-hold 2.2s ease-out forwards;
 }
 
 .crew-slot.crew-empty-hp {
@@ -655,38 +626,4 @@ h2.station-title {
   line-height: 1.45;
 }
 
-@keyframes banter-hold {
-  0% {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  12% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  78% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .banter {
-    animation: banter-hold-static 2.2s linear forwards;
-  }
-}
-
-@keyframes banter-hold-static {
-  0%,
-  78% {
-    opacity: 1;
-    transform: none;
-  }
-  100% {
-    opacity: 0;
-    transform: none;
-  }
-}
 </style>
