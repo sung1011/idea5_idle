@@ -8,6 +8,7 @@ import {
   saveMainlineDensity,
   selectMainlineDensity,
 } from './mainlineDensity'
+import { MAINLINE_TAB_IDS, selectMainlineTab } from './mainlineTabs'
 
 function memory(): Storage {
   const bag = new Map<string, string>()
@@ -58,5 +59,15 @@ describe('mainlineDensity', () => {
     expect(store.getItem(MAINLINE_DENSITY_KEY)).toBe('brief')
     expect(selectMainlineDensity('detail', store)).toBe('detail')
     expect(mainlineDensity.value).toBe('detail')
+  })
+
+  it('keeps brief after switching mainline tabs', () => {
+    const store = memory()
+    expect(selectMainlineDensity('brief', store)).toBe('brief')
+    for (const id of MAINLINE_TAB_IDS) {
+      expect(selectMainlineTab(id, store)).toBe(id)
+      expect(mainlineDensity.value).toBe('brief')
+      expect(store.getItem(MAINLINE_DENSITY_KEY)).toBe('brief')
+    }
   })
 })

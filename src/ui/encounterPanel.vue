@@ -474,6 +474,19 @@ function timedLine(enc: Encounter) {
           {{ MAINLINE_TAB_LABELS[id] }}
         </button>
       </nav>
+      <nav class="sub density" role="tablist" aria-label="主线详略">
+        <button
+          v-for="id in MAINLINE_DENSITY_IDS"
+          :key="id"
+          type="button"
+          role="tab"
+          :aria-selected="currentDensity === id"
+          :class="{ on: currentDensity === id }"
+          @click="selectDensity(id)"
+        >
+          {{ MAINLINE_DENSITY_LABELS[id] }}
+        </button>
+      </nav>
     </div>
     <div class="chapter-head">
       <p class="chapter">{{ chapterTitle }}</p>
@@ -505,19 +518,6 @@ function timedLine(enc: Encounter) {
       >
         {{ dungeonRefreshLabel }}
       </p>
-      <nav class="sub density" role="tablist" aria-label="订单详略">
-        <button
-          v-for="id in MAINLINE_DENSITY_IDS"
-          :key="id"
-          type="button"
-          role="tab"
-          :aria-selected="currentDensity === id"
-          :class="{ on: currentDensity === id }"
-          @click="selectDensity(id)"
-        >
-          {{ MAINLINE_DENSITY_LABELS[id] }}
-        </button>
-      </nav>
     </div>
     <p v-if="buffOn" class="buff">{{ buffLabel }}</p>
     <div v-if="isDungeonTab" class="dungeon-meta">
@@ -868,12 +868,17 @@ function timedLine(enc: Encounter) {
 .board-nav {
   display: flex;
   align-items: stretch;
+  flex-wrap: nowrap;
   gap: 8px;
 }
 
 .board-nav .sub {
   flex: 1 1 0;
   min-width: 0;
+}
+
+.board-nav .density {
+  flex: 0 0 auto;
 }
 
 .sub {
@@ -1262,11 +1267,6 @@ ul {
 
 .refresh {
   align-items: center;
-}
-
-.refresh .density {
-  flex: 0 0 auto;
-  margin-left: auto;
 }
 
 .refresh-hint {
