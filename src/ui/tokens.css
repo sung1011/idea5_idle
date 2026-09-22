@@ -287,7 +287,8 @@ button.on:disabled {
 
   .short-flash,
   .guide-flash,
-  .rail .dot-cell i.idle {
+  .rail .dot-cell i.idle,
+  .crew-empty-hp {
     animation: none;
   }
 }

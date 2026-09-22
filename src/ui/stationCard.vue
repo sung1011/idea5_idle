@@ -14,7 +14,8 @@ import {
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
 import { isGuideQuestFlash } from '../sim/guideQuest'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
-import { stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
+import { isWorkerInCombat } from '../sim/combat'
+import { isEmptyHp, stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
 import { pushFloatTip } from './floatTips'
 import { stationConflictHint } from '../sim/tech'
 import { findCategory, STATION_DEF, STATION_WORKER_CAP, xpToNextLevel } from '../sim/tables'
@@ -87,6 +88,11 @@ const locked = computed(() => !isStationUnlocked(game.save, props.stationId))
 const canWithdraw = computed(() => count.value > 0)
 const helpOpen = ref(false)
 const help = computed(() => stationHelpCopy(props.stationId))
+
+/** 在岗且未战斗的空血才闪。残血不闪；战斗中的人不算工坊空血闪。 */
+function crewEmptyHpFlash(worker: (typeof crew.value)[number]): boolean {
+  return worker.assignment !== null && isEmptyHp(worker) && !isWorkerInCombat(game.save, worker.id)
+}
 
 function onAssignIdle() {
   if (locked.value) {
@@ -190,7 +196,7 @@ onUnmounted(() => {
     </header>
     <ul class="crew" aria-label="在岗工人">
       <li v-if="crew.length" class="crew-row">
-        <span v-for="w in crew" :key="w.id" class="crew-slot">
+        <span v-for="w in crew" :key="w.id" class="crew-slot" :class="{ 'crew-empty-hp': crewEmptyHpFlash(w) }">
           <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
           <b class="crew-name" :style="workerQualityNameStyle(w)">{{ w.name ?? w.id }}</b>
           <span class="crew-lv">Lv{{ w.level }}</span>
@@ -374,6 +380,12 @@ h2.station-title {
   align-items: center;
   gap: 4px;
   min-width: 0;
+}
+
+.crew-slot.crew-empty-hp {
+  border-radius: 6px;
+  box-shadow: 0 0 0 1.5px #8b1515;
+  animation: rail-idle-flash 1.1s ease-in-out infinite;
 }
 
 .qmark {

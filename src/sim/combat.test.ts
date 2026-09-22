@@ -47,7 +47,7 @@ import { loadFood } from './food'
 import { claimLoot, reinforceCombat, startCombat } from './encounters'
 import { hydrateWorker, spawnWorker, spawnWorkerWith } from './recruit'
 import { settleOffline } from './offline'
-import { assignWorker } from './assign'
+import { assignWorker, withdrawWorker } from './assign'
 import { tick, ticks } from './tick'
 import type { CombatAttrId, EnemyCombat, EnemyEncounter, Save } from './types'
 
@@ -628,6 +628,38 @@ describe('rest heal', () => {
     expect(busyAfter?.hp).toBe(4)
     const fightAfter = healed.workers.find((w) => w.id === fight.id)
     expect(fightAfter?.hp).toBe(4)
+  })
+
+  it('does not change on-duty hp or fatigue until the worker is withdrawn to rest', () => {
+    const save = createSave()
+    const duty = spawnWorker(save)
+    const fight = spawnWorkerWith(save, 1, 'wanderer')
+    assignWorker(save, duty.id, 'mining')
+    duty.hp = 4
+    duty.fatigueDebt = 0.4
+    fight.hp = 4
+    fight.fatigueDebt = 0.4
+    const enc = testEnemy()
+    putEnemy(save, enc)
+    beginEnemyCombat(enc, [fight], 1_000)
+    if (enc.combat) enc.combat.enemy.nextActAt = 1_000 + 60_000
+
+    save.elapsedS = REST_HEAL_EVERY_S
+    applyRestHeal(save)
+    expect(duty.assignment).toBe('mining')
+    expect(duty.hp).toBe(4)
+    expect(duty.fatigueDebt).toBe(0.4)
+    expect(fight.assignment).toBeNull()
+    expect(fight.hp).toBe(4)
+    expect(fight.fatigueDebt).toBe(0.4)
+
+    expect(withdrawWorker(save, 'mining').ok).toBe(true)
+    applyRestHeal(save)
+    expect(duty.assignment).toBeNull()
+    expect(duty.hp).toBeGreaterThan(4)
+    expect(duty.fatigueDebt).toBeLessThan(0.4)
+    expect(fight.hp).toBe(4)
+    expect(fight.fatigueDebt).toBe(0.4)
   })
 
   it('pays down rest fatigue so effective HP can return to full', () => {
