@@ -1,10 +1,13 @@
 import { reactive } from 'vue'
+import { isWorkerInCombat } from '../sim/combat'
 import {
   BANTER_BUBBLE_MS,
   considerWorkshopBanter,
+  planWorkshopBanter,
   blankBanterMemory,
   type BanterEvent,
   type BanterMemory,
+  type BanterRng,
 } from '../sim/workshopBanter'
 import type { Save, StationId } from '../sim/types'
 import { STATION_IDS } from '../sim/tables'
@@ -96,6 +99,17 @@ export function playWorkshopBanter(event: BanterEvent) {
   }
 }
 
+/** 测例复位。清掉「已经打过招呼」和冷却，避免用例互相吃掉强制那一次。 */
+export function resetWorkshopBanterForTests() {
+  greeted = false
+  epoch += 1
+  memory.lastEventS = -1
+  memory.cooldownS = 0
+  memory.busyUntilS = 0
+  memory.workerAt = {}
+  for (const sid of STATION_IDS) bubbles[sid] = null
+}
+
 /** 离开工坊页时停掉未播的一拍，清掉还挂着的气泡。 */
 export function dismissWorkshopBanter() {
   epoch += 1
@@ -116,23 +130,42 @@ export function offerWorkshopBanter(save: Save, successStationIds: readonly Stat
   playWorkshopBanter(event)
 }
 
+function onDutyWorkers(save: Save) {
+  return save.workers.filter((worker) => worker.assignment != null && !isWorkerInCombat(save, worker.id))
+}
+
 /**
- * 读档 hydrate 完成、主界面起来后调用一次。
- * 有符合条件的在岗工人就强制说一句；无人在岗或开关关着则跳过，之后不再补播。
+ * 第一次进入工坊页时调用。人还不在工坊页则直接返回，不记已打招呼、不写冷却。
+ * 当前分组屏上有在岗且未战斗的人才播；算出的站不在屏上则不 commit。
+ * 人在工坊但无人在岗，或开关关着，记一次跳过，之后不补播。
  */
-export function greetWorkshopBanter(save: Save) {
+export function greetWorkshopBanter(save: Save, rng: BanterRng = Math.random) {
   if (greeted) return
-  greeted = true
-  if (!loadWorkshopBanter()) return
-  const event = considerWorkshopBanter({
+  if (appTab.value !== 'workshop') return
+  if (isWorkerDragActive()) return
+  if (!loadWorkshopBanter()) {
+    greeted = true
+    return
+  }
+  const visible = stationsOfWorkshopGroup(workshopGroup.value)
+  const crew = onDutyWorkers(save)
+  if (!crew.length) {
+    greeted = true
+    return
+  }
+  if (!crew.some((worker) => worker.assignment != null && visible.includes(worker.assignment))) return
+  const planned = planWorkshopBanter({
     save,
     nowS: save.elapsedS,
     memory,
-    dragging: isWorkerDragActive(),
+    dragging: false,
     successStationIds: [],
-    rng: Math.random,
+    rng,
     forced: true,
+    onlyStationIds: visible,
   })
-  if (!event) return
-  playWorkshopBanter(event)
+  if (!planned || !stationOnScreen(planned.event.stationId)) return
+  planned.apply()
+  greeted = true
+  playWorkshopBanter(planned.event)
 }

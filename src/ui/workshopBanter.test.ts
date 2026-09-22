@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createSave } from '../sim/createSave'
+import { banterLines } from '../sim/workshopBanter'
 import type { Worker } from '../sim/types'
 import { appTab, workshopTab } from './appNav'
 import { DEFAULT_APP_TAB } from './appTabs'
@@ -9,6 +10,7 @@ import {
   WORKSHOP_BANTER_KEY,
   dismissWorkshopBanter,
   greetWorkshopBanter,
+  resetWorkshopBanterForTests,
   loadWorkshopBanter,
   playWorkshopBanter,
   saveWorkshopBanter,
@@ -46,6 +48,7 @@ describe('workshop banter bubbles', () => {
   beforeEach(() => {
     prevApp = appTab.value
     prevStation = workshopTab.value
+    resetWorkshopBanterForTests()
   })
 
   afterEach(() => {
@@ -146,4 +149,70 @@ describe('workshop banter bubbles', () => {
     expect(onDuty.isNew).toBe(true)
     vi.unstubAllGlobals()
   })
+
+  it('does not spend the forced line when the clock starts off the workshop tab', () => {
+    appTab.value = 'encounters'
+    workshopTab.value = 'herbalism'
+    const save = createSave()
+    save.workers.push(onDuty('a', 'herbalism'))
+    greetWorkshopBanter(save, () => {
+      throw new Error('开钟不在工坊，不应掷骰')
+    })
+    expect(workshopBanterBubble('herbalism')).toBeNull()
+  })
+
+  it('plays the forced line once on the first visit to the workshop', () => {
+    const save = createSave()
+    save.workers.push(onDuty('a', 'herbalism'))
+    appTab.value = 'encounters'
+    workshopTab.value = 'cooking'
+    greetWorkshopBanter(save, () => 0)
+    expect(workshopBanterBubble('herbalism')).toBeNull()
+
+    appTab.value = 'workshop'
+    workshopTab.value = 'herbalism'
+    greetWorkshopBanter(save, () => 0)
+    expect(workshopBanterBubble('herbalism')).toMatchObject({
+      workerId: 'a',
+      text: banterLines('gripe', 'herbalism')[0],
+    })
+    greetWorkshopBanter(save, () => {
+      throw new Error('已经打过招呼')
+    })
+    expect(workshopBanterBubble('herbalism')?.text).toBe(banterLines('gripe', 'herbalism')[0])
+  })
+
+  it('does not commit the forced line when that station is off the current group', () => {
+    const save = createSave()
+    save.workers.push(onDuty('a', 'cooking'))
+    appTab.value = 'workshop'
+    workshopTab.value = 'herbalism'
+    greetWorkshopBanter(save, () => {
+      throw new Error('当前组看不见烹饪，不应掷骰')
+    })
+    expect(workshopBanterBubble('cooking')).toBeNull()
+
+    workshopTab.value = 'cooking'
+    greetWorkshopBanter(save, () => 0)
+    expect(workshopBanterBubble('cooking')).toMatchObject({
+      workerId: 'a',
+      text: banterLines('gripe', 'cooking')[0],
+    })
+  })
 })
+
+function onDuty(id: string, assignment: Worker['assignment']): Worker {
+  return {
+    id,
+    assignment,
+    qualityTier: 1,
+    foodSlot: null,
+    fatigueDebt: 0,
+    isNew: false,
+    hp: 20,
+    hpMax: 20,
+    level: 1,
+    xp: 0,
+    combatAttrs: [],
+  }
+}

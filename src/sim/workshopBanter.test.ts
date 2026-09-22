@@ -13,6 +13,7 @@ import {
   blankBanterFlags,
   blankBanterMemory,
   considerWorkshopBanter,
+  planWorkshopBanter,
   pickBanterPool,
   poolWeight,
   stationCandidateWeight,
@@ -305,5 +306,26 @@ describe('workshop banter trigger', () => {
     expect(JSON.stringify(memory)).toBe(beforeMemory)
     expect(snapshot(save)).toBe(before)
     expect(save.workers[0].isNew).toBe(true)
+  })
+
+  it('holds the forced commit until the caller applies it', () => {
+    const save = createSave()
+    put(save, worker({ id: 'a', assignment: 'herbalism' }))
+    const memory = blankBanterMemory()
+    const planned = planWorkshopBanter({
+      save,
+      nowS: 10,
+      memory,
+      dragging: false,
+      successStationIds: [],
+      rng: rolls([0, 0, 0, 0]),
+      forced: true,
+    })
+    expect(planned?.event.beats[0].text).toBe(banterLines('gripe', 'herbalism')[0])
+    expect(memory).toEqual(blankBanterMemory())
+    planned?.apply()
+    expect(memory.lastEventS).toBe(10)
+    expect(memory.cooldownS).toBe(BANTER_GLOBAL_COOLDOWN_MIN_S)
+    expect(memory.workerAt.a).toBe(10)
   })
 })

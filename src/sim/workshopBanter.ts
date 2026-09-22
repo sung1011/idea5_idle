@@ -244,13 +244,20 @@ function commit(
   for (const id of speakerIds) memory.workerAt[id] = nowS
 }
 
+export type BanterPlan = {
+  event: BanterEvent
+  /** 写入全局 / 个人冷却。强制招呼确认能上屏后再调用。 */
+  apply: () => void
+}
+
 /**
  * 一次 tick 最多一条。成功吞吐的站，以及在岗空转的站，先按权重挑一个再做 4%～8% 检定。
- * `forced` 是进游戏那一次：凡有在岗且未战斗的人都可入选，跳过检定、全局冷却、个人冷却；说完仍写入冷却。
+ * `forced` 是第一次进工坊那一次：凡有在岗且未战斗的人都可入选，跳过检定、全局冷却、个人冷却。
+ * 默认立刻写入冷却；`deferCommit` 时只返回计划，由调用方在确认上屏后 `apply`。
  * 不改 save（含 isNew / rngState）。战斗中的人不说；dragging 时整段跳过。
  * 掷骰顺序：选站 → 检定（forced 跳过）→（两人）对白检定 → 台词 →（对白）间隔 → 全局冷却。
  */
-export function considerWorkshopBanter(input: {
+export function planWorkshopBanter(input: {
   save: Save
   nowS: number
   memory: BanterMemory
@@ -258,9 +265,12 @@ export function considerWorkshopBanter(input: {
   successStationIds: readonly StationId[]
   rng: BanterRng
   forced?: boolean
-}): BanterEvent | null {
+  /** 只在这些站里挑。强制招呼用来限制当前屏上的站。 */
+  onlyStationIds?: readonly StationId[]
+}): BanterPlan | null {
   const { save, nowS, memory, dragging, successStationIds, rng } = input
   const forced = input.forced === true
+  const only = input.onlyStationIds
   if (dragging) return null
   if (!forced && memory.busyUntilS > nowS) return null
   if (!forced && memory.lastEventS >= 0 && nowS < memory.lastEventS + memory.cooldownS) return null
@@ -274,6 +284,7 @@ export function considerWorkshopBanter(input: {
   }[] = []
 
   for (const stationId of STATION_IDS) {
+    if (only && !only.includes(stationId)) continue
     const crew = save.workers.filter(
       (worker) => worker.assignment === stationId && !isWorkerInCombat(save, worker.id),
     )
@@ -297,16 +308,19 @@ export function considerWorkshopBanter(input: {
   if (ready.length >= 2 && rng() < BANTER_DUET_CHANCE) {
     const pair = BANTER_DUETS[pickWeighted(BANTER_DUETS.map(() => 1), rng())]
     const gap = duetGapMs(rng())
+    const cooldownRoll = rng()
     const left = ready[0]
     const right = ready[1]
-    commit(memory, nowS, [left.id, right.id], gap, rng())
     return {
-      stationId: picked.stationId,
-      kind: 'duet',
-      beats: [
-        { workerId: left.id, stationId: picked.stationId, text: pair[0], delayMs: 0 },
-        { workerId: right.id, stationId: picked.stationId, text: pair[1], delayMs: gap },
-      ],
+      event: {
+        stationId: picked.stationId,
+        kind: 'duet',
+        beats: [
+          { workerId: left.id, stationId: picked.stationId, text: pair[0], delayMs: 0 },
+          { workerId: right.id, stationId: picked.stationId, text: pair[1], delayMs: gap },
+        ],
+      },
+      apply: () => commit(memory, nowS, [left.id, right.id], gap, cooldownRoll),
     }
   }
 
@@ -314,10 +328,29 @@ export function considerWorkshopBanter(input: {
   const pool = pickBanterPool(picked.flags, rng())
   const lines = banterLines(pool, picked.stationId)
   const text = lines[pickWeighted(lines.map(() => 1), rng())]
-  commit(memory, nowS, [speaker.id], 0, rng())
+  const cooldownRoll = rng()
   return {
-    stationId: picked.stationId,
-    kind: 'solo',
-    beats: [{ workerId: speaker.id, stationId: picked.stationId, text, delayMs: 0 }],
+    event: {
+      stationId: picked.stationId,
+      kind: 'solo',
+      beats: [{ workerId: speaker.id, stationId: picked.stationId, text, delayMs: 0 }],
+    },
+    apply: () => commit(memory, nowS, [speaker.id], 0, cooldownRoll),
   }
+}
+
+export function considerWorkshopBanter(input: {
+  save: Save
+  nowS: number
+  memory: BanterMemory
+  dragging: boolean
+  successStationIds: readonly StationId[]
+  rng: BanterRng
+  forced?: boolean
+  onlyStationIds?: readonly StationId[]
+}): BanterEvent | null {
+  const planned = planWorkshopBanter(input)
+  if (!planned) return null
+  planned.apply()
+  return planned.event
 }
