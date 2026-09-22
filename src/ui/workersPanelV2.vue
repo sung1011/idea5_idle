@@ -581,6 +581,28 @@ onUnmounted(() => {
             <span class="recruit-bar-lab">抽工人</span>
             <span class="recruit-bar-cost">{{ recruitPrice }} 钻</span>
           </button>
+          <div class="rest-actions">
+            <button
+              type="button"
+              class="dispatch-btn"
+              :class="{ off: !canDispatch, 'guide-flash': guideFlashAssignHerb }"
+              :aria-disabled="!canDispatch"
+              aria-label="派入"
+              @click="game.assignRestingToFirstEmpty()"
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              class="dispatch-btn"
+              :class="{ off: !canWithdraw }"
+              :aria-disabled="!canWithdraw"
+              aria-label="撤出"
+              @click="game.withdrawWorkshopToRest()"
+            >
+              →
+            </button>
+          </div>
           <div v-if="resting.length" class="zone-list rest-list">
             <div v-for="w in resting" :key="w.id" class="rest-row" :class="hpToneClass(w)">
               <i class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
@@ -615,28 +637,6 @@ onUnmounted(() => {
         {{ drag.name }}
       </div>
     </Teleport>
-    <div class="roster-fabs">
-      <button
-        type="button"
-        class="dispatch-fab"
-        :class="{ off: !canDispatch, 'guide-flash': guideFlashAssignHerb }"
-        :aria-disabled="!canDispatch"
-        aria-label="派入"
-        @click="game.assignRestingToFirstEmpty()"
-      >
-        ←
-      </button>
-      <button
-        type="button"
-        class="dispatch-fab"
-        :class="{ off: !canWithdraw }"
-        :aria-disabled="!canWithdraw"
-        aria-label="撤出"
-        @click="game.withdrawWorkshopToRest()"
-      >
-        →
-      </button>
-    </div>
   </section>
 
   <Teleport to="body">
@@ -936,6 +936,37 @@ onUnmounted(() => {
   box-shadow: none;
 }
 
+.rest-actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 4px;
+  width: calc(100% - 6px);
+  margin: 0 3px 4px;
+}
+
+.dispatch-btn {
+  flex: 1 1 0;
+  display: grid;
+  place-items: center;
+  min-height: 28px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: linear-gradient(#ffe27a, #e2a31a);
+  color: #5a3010;
+  box-shadow: 0 2px 0 var(--gold-deep);
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.dispatch-btn.off {
+  opacity: 0.45;
+  filter: grayscale(0.28);
+  box-shadow: none;
+}
+
 .zone-list {
   flex: 1 1 auto;
   min-height: 0;
@@ -954,7 +985,7 @@ onUnmounted(() => {
 }
 
 .rest-list {
-  padding: 3px 3px 80px;
+  padding: 3px 3px 6px;
 }
 
 .station {
@@ -1351,7 +1382,6 @@ onUnmounted(() => {
 
 .empty-rest {
   margin: 6px 3px;
-  padding-bottom: 80px;
   color: var(--muted);
   font-size: 10px;
   font-weight: 700;
@@ -1373,44 +1403,6 @@ onUnmounted(() => {
   font-size: 12px;
   font-weight: 900;
   box-shadow: 0 4px 0 var(--gold-deep);
-}
-
-.roster-fabs {
-  position: absolute;
-  right: 6px;
-  bottom: 8px;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
-  width: 40px;
-}
-
-.dispatch-fab {
-  display: grid;
-  place-items: center;
-  min-height: 32px;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 10px;
-  background: linear-gradient(#ffe27a, #e2a31a);
-  color: #5a3010;
-  box-shadow: 0 3px 0 var(--gold-deep);
-  font-size: 14px;
-  font-weight: 900;
-  line-height: 1;
-}
-
-.dispatch-fab {
-  font-size: 16px;
-}
-
-.dispatch-fab.off {
-  opacity: 0.45;
-  filter: grayscale(0.28);
-  box-shadow: none;
 }
 
 .hint {
