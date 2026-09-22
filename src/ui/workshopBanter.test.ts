@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import stationCardSource from './stationCard.vue?raw'
 import { createSave } from '../sim/createSave'
-import { banterLines } from '../sim/workshopBanter'
+import { BANTER_BUBBLE_MS, banterLines } from '../sim/workshopBanter'
 import type { Worker } from '../sim/types'
 import { appTab, workshopTab } from './appNav'
 import { DEFAULT_APP_TAB } from './appTabs'
@@ -88,7 +88,9 @@ describe('workshop banter bubbles', () => {
     expect(workshopBanterBubble('cooking')).toMatchObject({ workerId: 'a', text: '先做完这锅带着香味走' })
     vi.advanceTimersByTime(1000)
     expect(workshopBanterBubble('cooking')).toMatchObject({ workerId: 'b', text: '你是高级材料' })
-    vi.advanceTimersByTime(2200)
+    vi.advanceTimersByTime(BANTER_BUBBLE_MS - 1)
+    expect(workshopBanterBubble('cooking')).toMatchObject({ workerId: 'b', text: '你是高级材料' })
+    vi.advanceTimersByTime(1)
     expect(workshopBanterBubble('cooking')).toBeNull()
 
     playWorkshopBanter({

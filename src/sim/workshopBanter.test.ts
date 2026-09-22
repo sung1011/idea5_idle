@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createSave } from './createSave'
 import type { EnemyEncounter, Save, StationId, Worker } from './types'
 import {
+  BANTER_BUBBLE_MS,
   BANTER_CHANCE_MAX,
   BANTER_CHANCE_MIN,
   BANTER_DUETS,
@@ -169,12 +170,13 @@ describe('workshop banter trigger', () => {
     memory.workerAt.a = -1000
     expect(run(save, memory, 12, ['herbalism'], rolls([]))).toBeNull()
 
-    const again = run(save, memory, 12.2, ['herbalism'], rolls([0, 0, 0, 0, 1]))
+    const freeAt = 10 + BANTER_BUBBLE_MS / 1000
+    const again = run(save, memory, freeAt, ['herbalism'], rolls([0, 0, 0, 0, 1]))
     expect(again?.kind).toBe('solo')
     expect(again?.beats[0].workerId).toBe('a')
     expect(memory.cooldownS).toBe(BANTER_GLOBAL_COOLDOWN_MAX_S)
-    expect(run(save, memory, 12.2 + 74, ['herbalism'], rolls([]))).toBeNull()
-    expect(run(save, memory, 12.2 + 75, ['herbalism'], rolls([]))).toBeNull()
+    expect(run(save, memory, freeAt + 74, ['herbalism'], rolls([]))).toBeNull()
+    expect(run(save, memory, freeAt + 75, ['herbalism'], rolls([]))).toBeNull()
   })
 
   it('speaks a duet in order, then blocks that pair until the worker cooldown', () => {

@@ -1389,7 +1389,7 @@ onUnmounted(() => {
   text-align: center;
   pointer-events: none;
   transform: translateY(-50%);
-  animation: worker-banter 2.2s ease-out forwards;
+  animation: worker-banter 10s ease-out forwards;
 }
 
 .rest-name {
@@ -1652,8 +1652,8 @@ onUnmounted(() => {
   0% {
     opacity: 0;
   }
-  12%,
-  78% {
+  2.64%,
+  95.16% {
     opacity: 1;
   }
   100% {

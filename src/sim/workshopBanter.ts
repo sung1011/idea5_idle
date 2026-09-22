@@ -14,7 +14,8 @@ export const BANTER_WORKER_COOLDOWN_S = 120
 export const BANTER_DUET_CHANCE = 0.3
 export const BANTER_DUET_GAP_MIN_MS = 800
 export const BANTER_DUET_GAP_MAX_MS = 1200
-export const BANTER_BUBBLE_MS = 2200
+/** 气泡在工人页上的停留时间。淡入淡出嵌在这段里，不另加。 */
+export const BANTER_BUBBLE_MS = 10000
 
 export const BANTER_POOLS = ['gripe', 'fuseWish', 'gossip', 'idle', 'byStation'] as const
 export type BanterPool = (typeof BANTER_POOLS)[number]
