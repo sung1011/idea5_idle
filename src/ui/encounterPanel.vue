@@ -8,9 +8,7 @@ import {
   combatPartyCap,
   combatRosterFighters,
   fieldFighterCount,
-  isCombatLost,
   isCombatStunned,
-  isCombatWon,
   isFighting,
   isFullCombatHp,
   restCombatCandidates,
@@ -71,6 +69,7 @@ import {
 } from './dungeonAffixHelp'
 import { pendingGuideRunePick, takeGuideRunePickRequest } from './guideQuestNav'
 import { actChargeFill, actChargeStunned } from './actCharge'
+import { enemyCardButton, enemyPickCopy, type EnemyPickMode } from './enemyCardAction'
 import FightingMark from './fightingMark.vue'
 import ActChargeBar from './actChargeBar.vue'
 import { pushFloatTip } from './floatTips'
@@ -111,6 +110,7 @@ function tryOpenGuideRunePick() {
   const enc = game.save.encounters[index]
   if (enc?.kind !== 'enemy') return
   if (isFighting(enc) && canReinforceCombat(enc)) openReinforce(index)
+  else if (enemyCardButton(enc) === 'loseReinforce') openLoseReinforce(index)
   else openPick(index)
 }
 const currentTab = computed(() => mainlineTab.value)
@@ -186,7 +186,7 @@ const buffLabel = computed(() => {
   return `工匠加持：工坊产量 +${pct}% · 剩余 ${formatMarchClock(workshopBuffRemainS(game.save, now.value))}`
 })
 const pickIndex = ref<number | null>(null)
-const pickMode = ref<'start' | 'reinforce'>('start')
+const pickMode = ref<EnemyPickMode>('start')
 const picked = ref<string[]>([])
 const assistWorker = ref<Worker | null>(null)
 const pickRunes = ref<Partial<Record<string, RuneItemId>>>({})
@@ -201,6 +201,7 @@ const pickMax = computed(() => {
   if (pickMode.value === 'reinforce' && enc) return Math.max(0, cap - fieldFighterCount(enc))
   return cap
 })
+const pickCopy = computed(() => enemyPickCopy(pickMode.value, pickMax.value))
 const pickCandidates = computed(() =>
   pickCombatCandidates(restCombatCandidates(game.save), assistWorker.value),
 )
@@ -251,6 +252,15 @@ function warnConsumeShort(index: number) {
   if (consumeShort(index)) pushFloatTip(CONSUME_SHORT_TIP, 'err')
 }
 
+function resetPick(mode: EnemyPickMode, index: number) {
+  pickMode.value = mode
+  pickIndex.value = index
+  picked.value = []
+  assistWorker.value = null
+  pickRunes.value = {}
+  runePickWorkerId.value = null
+}
+
 function openPick(index: number) {
   if (consumeShort(index)) {
     pushFloatTip(CONSUME_SHORT_TIP, 'err')
@@ -261,23 +271,27 @@ function openPick(index: number) {
     pushFloatTip(blocked, 'err')
     return
   }
-  pickMode.value = 'start'
-  pickIndex.value = index
-  picked.value = []
-  assistWorker.value = null
-  pickRunes.value = {}
-  runePickWorkerId.value = null
+  resetPick('start', index)
+}
+
+function openLoseReinforce(index: number) {
+  if (isDungeonTab.value) return
+  if (consumeShort(index)) {
+    pushFloatTip(CONSUME_SHORT_TIP, 'err')
+    return
+  }
+  const blocked = combatSupplyBlockReason(game.save, index)
+  if (blocked) {
+    pushFloatTip(blocked, 'err')
+    return
+  }
+  resetPick('loseReinforce', index)
 }
 
 function openReinforce(index: number) {
   const enc = isDungeonTab.value ? dungeonEncounterOf(game.save) : game.save.encounters[index]
   if (enc?.kind !== 'enemy' || !canReinforceCombat(enc)) return
-  pickMode.value = 'reinforce'
-  pickIndex.value = index
-  picked.value = []
-  assistWorker.value = null
-  pickRunes.value = {}
-  runePickWorkerId.value = null
+  resetPick('reinforce', index)
 }
 
 function closePick() {
@@ -388,9 +402,12 @@ function confirmPick() {
     pushFloatTip(CONSUME_SHORT_TIP, 'err')
     return
   }
-  const result = isDungeonTab.value
-    ? game.startDungeonCombat([...picked.value], guests, runes)
-    : game.startCombat(index, [...picked.value], guests, runes)
+  const result =
+    pickMode.value === 'loseReinforce'
+      ? game.reinforceLostCombat(index, [...picked.value], guests, runes)
+      : isDungeonTab.value
+        ? game.startDungeonCombat([...picked.value], guests, runes)
+        : game.startCombat(index, [...picked.value], guests, runes)
   if (result.ok) closePick()
 }
 
@@ -610,13 +627,13 @@ function timedLine(enc: Encounter) {
           </template>
           <div class="row">
             <button
-              v-if="enc.lootClaimed"
+              v-if="enemyCardButton(enc) === 'claimed'"
               type="button"
               disabled
             >
               已领
             </button>
-            <template v-else-if="isFighting(enc)">
+            <template v-else-if="enemyCardButton(enc) === 'fighting'">
               <FightingMark />
               <button
                 v-if="canReinforceCombat(enc)"
@@ -628,20 +645,30 @@ function timedLine(enc: Encounter) {
               </button>
             </template>
             <button
-              v-else-if="isDungeonEncounter(enc) && (isCombatWon(enc) || isCombatLost(enc))"
+              v-else-if="enemyCardButton(enc) === 'chest'"
               type="button"
               @click="game.claimDungeonChest()"
             >
               宝箱
             </button>
             <button
-              v-else-if="isCombatWon(enc)"
+              v-else-if="enemyCardButton(enc) === 'loot'"
               type="button"
               :class="{ 'guide-flash': guideFlashEnemy(enc) && !pickOpen }"
               @click="game.claimLoot(i)"
             >
               战利品
             </button>
+            <span v-else-if="enemyCardButton(enc) === 'loseReinforce'" class="act-hit" @click="warnConsumeShort(i)">
+              <button
+                type="button"
+                :class="{ 'guide-flash': guideFlashEnemy(enc) && !pickOpen }"
+                :disabled="consumeShort(i)"
+                @click.stop="openLoseReinforce(i)"
+              >
+                增援
+              </button>
+            </span>
             <span v-else class="act-hit" @click="warnConsumeShort(i)">
               <button
                 type="button"
@@ -739,10 +766,10 @@ function timedLine(enc: Encounter) {
       </article>
     </div>
 
-    <div v-if="pickOpen" class="modal" role="dialog" aria-label="选择出战工人" @click.self="closePick">
+    <div v-if="pickOpen" class="modal" role="dialog" :aria-label="pickCopy.title" @click.self="closePick">
       <div class="sheet">
-        <p>{{ pickMode === 'reinforce' ? '选择增援工人' : '选择出战工人' }}（最多 {{ pickMax }} 人）</p>
-        <p class="hint">列出休息工人；未达出战条件的灰显。出战不算派驻工坊。点邀请才加入 1 名临时助战。{{ pickMode === 'reinforce' ? '增援不消耗补给。' : `1～${pickMax} 人即可，不必凑满。` }}</p>
+        <p>{{ pickCopy.title }}（最多 {{ pickMax }} 人）</p>
+        <p class="hint">列出休息工人；未达出战条件的灰显。出战不算派驻工坊。点邀请才加入 1 名临时助战。{{ pickCopy.hintTail }}</p>
         <ul class="pick-list">
           <li v-for="w in pickCandidates" :key="w.id" class="pick-row">
             <button
@@ -780,14 +807,14 @@ function timedLine(enc: Encounter) {
           <li v-if="!pickCandidates.length" class="hint">没有休息中的工人</li>
         </ul>
         <div class="row">
-          <span class="act-hit" @click="pickMode === 'start' && pickIndex != null && warnConsumeShort(pickIndex)">
+          <span class="act-hit" @click="pickCopy.costsSupply && pickIndex != null && warnConsumeShort(pickIndex)">
             <button
               type="button"
               :class="{ 'guide-flash': guideFlashCombat && pickMode === 'start' }"
-              :disabled="!picked.length || (pickMode === 'start' && pickIndex != null && consumeShort(pickIndex))"
+              :disabled="!picked.length || (pickCopy.costsSupply && pickIndex != null && consumeShort(pickIndex))"
               @click.stop="confirmPick"
             >
-              {{ pickMode === 'reinforce' ? '增援' : '开战' }}
+              {{ pickCopy.confirm }}
             </button>
           </span>
           <button type="button" @click="inviteAssist">邀请</button>
@@ -797,7 +824,7 @@ function timedLine(enc: Encounter) {
 
     <div v-if="runePickOpen" class="modal" role="dialog" aria-label="选择符文" @click.self="closeRunePick">
       <div class="sheet rune-sheet">
-        <p>选择符文（一人一槽，开战消耗）</p>
+        <p>选择符文（一人一槽，确认后消耗）</p>
         <p class="hint">列出全部种类与库存；短文案是本场效果。未选则空手出战。</p>
         <ul class="rune-list">
           <li>

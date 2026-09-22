@@ -226,6 +226,7 @@ function settleDungeonBeforeRefresh(save: Save, now: number): void {
   }
 }
 
+/** 地牢到刷新时间仍强制刷新，可清掉进行中或战败的地牢战。与战场探索保留交战单分开。 */
 export function ensureDungeonDay(save: Save, now = Date.now()): DungeonState {
   const day = gameDay(save.elapsedS)
   if (!save.dungeon || typeof save.dungeon !== 'object') {

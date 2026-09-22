@@ -10,6 +10,7 @@ import {
   grantWorkerCombatXp,
   ensureCombatShield,
   hydrateCombatRoster,
+  isCombatLost,
   isCombatWon,
   isEnemyCombat,
   isFighting,
@@ -1608,7 +1609,7 @@ function resizeOneBoard(save: Save, board: EncounterBoardId, now: number, reuseI
   return writeBoard(save, board, placeKeptThenFill(size, previous, kept, fill, reuseIdle))
 }
 
-/** 按当前格数补齐或收两板；战场战斗中 / 胜可领 / 超时战败后可再开战优先保留，可暂超目标格数。 */
+/** 按当前格数补齐或收两板；战场交战中 / 待领胜 / 战败未清优先保留，可暂超目标格数。 */
 export function resizeEncounterBoard(save: Save, now = Date.now()): Encounter[] {
   if (!Array.isArray(save.marketEncounters)) save.marketEncounters = []
   resizeOneBoard(save, 'battlefield', now, true)
@@ -1623,7 +1624,7 @@ function canRecycleForChapterBoss(enc: Encounter): boolean {
 /**
  * 战利品已满 10 且板上没有未领本章 Boss 时，尽快落下 Boss：
  * 先补空位；没空则回收已领敌人格 / 已完成交易格。
- * 不改战斗中 / 胜可领 / 超时战败后可再开战，也不把未完成交易单直接改成 Boss。
+ * 不改交战中 / 待领胜 / 战败未清，也不把未完成交易单直接改成 Boss。
  */
 export function ensureChapterBossSpawn(save: Save, now = Date.now()): void {
   if (Array.isArray(save.encounters)) {
@@ -1818,7 +1819,7 @@ export function startCombat(
   return { ok: true }
 }
 
-/** 战斗中增援：不扣补给，只加满血休息工人。 */
+/** 战斗中增援：不扣补给，只加满血休息工人。不重置敌血与超时。 */
 export function reinforceCombat(
   save: Save,
   index: number,
@@ -1846,6 +1847,22 @@ export function reinforceCombat(
   )
   addCombatReinforcements(enc, party, now, onLog, save, normalizeRunePicks(runePicks))
   return { ok: true }
+}
+
+/** 战败后再增援：同一张订单重新开战，扣补给与首次开战相同。 */
+export function reinforceLostCombat(
+  save: Save,
+  index: number,
+  workerIds: readonly string[],
+  now = Date.now(),
+  onLog?: CombatLogSink,
+  guests: readonly Worker[] = [],
+  runePicks?: RunePickMap,
+): ActionResult {
+  const enc = enemyAt(save, index)
+  if (!enc) return { ok: false, reason: '不是敌人偶遇' }
+  if (!isCombatLost(enc)) return { ok: false, reason: '战败后才能再增援' }
+  return startCombat(save, index, workerIds, now, onLog, guests, runePicks)
 }
 
 /** @deprecated 改走 startCombat。无工人时只报「请选择出战工人」。 */
@@ -2120,7 +2137,7 @@ export function sellBulk(save: Save, index: number, now = Date.now()): ActionRes
   return { ok: true, message: gain ? `收购成交。${gain}` : '收购成交' }
 }
 
-/** 探索不会刷新/替换：战斗中、胜可领、超时战败后可再开战，以及未领的本章 Boss（含待战）。 */
+/** 探索不会刷新/替换：交战中、待领胜、战败未清，以及未领的本章 Boss（含待战）。未开打的普通敌人可刷新。 */
 export function isExploreProtected(enc: Encounter, now = Date.now()): boolean {
   if (enc.kind !== 'enemy') return false
   void now

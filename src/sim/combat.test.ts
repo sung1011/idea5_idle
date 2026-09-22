@@ -44,7 +44,7 @@ import {
 import { jitterWorkerAtkInterval } from './atkInterval'
 import { createSave } from './createSave'
 import { loadFood } from './food'
-import { claimLoot, reinforceCombat, startCombat } from './encounters'
+import { claimLoot, reinforceCombat, reinforceLostCombat, startCombat } from './encounters'
 import { hydrateWorker, spawnWorker, spawnWorkerWith } from './recruit'
 import { settleOffline } from './offline'
 import { assignWorker, withdrawWorker } from './assign'
@@ -908,6 +908,70 @@ describe('death leave and reinforce', () => {
     expect(canReinforceCombat(enc)).toBe(false)
     expect(reinforceCombat(save, 0, [extra.id], 2_000).ok).toBe(false)
     expect(save.bank.meal).toBe(1)
+  })
+})
+
+describe('lose reinforce costs the same supplies as the first start', () => {
+  it('restarts the same order after a loss and deducts a full supply set', () => {
+    const save = createSave()
+    const worker = spawnWorker(save)
+    const enc = testEnemy({ id: 'same-order', needs: { meal: 2 }, revealedWeaknesses: ['fire'] })
+    putEnemy(save, enc)
+    save.bank.meal = 6
+    const now = 40_000
+    expect(startCombat(save, 0, [worker.id], now).ok).toBe(true)
+    expect(save.bank.meal).toBe(4)
+    const firstHp = enc.combat?.enemy.hpMax
+    expect(firstHp).toBeGreaterThan(0)
+    enc.combat!.enemy.hp = Math.max(1, (firstHp ?? 1) - 20)
+    enc.combat!.outcome = 'lose'
+    worker.hp = worker.hpMax
+    worker.fatigueDebt = 0
+
+    expect(reinforceCombat(save, 0, [worker.id], now + 1_000).ok).toBe(false)
+    expect(save.bank.meal).toBe(4)
+    expect(enc.combat?.outcome).toBe('lose')
+
+    const restart = reinforceLostCombat(save, 0, [worker.id], now + 2_000)
+    expect(restart.ok).toBe(true)
+    expect(save.bank.meal).toBe(2)
+    expect(enc.id).toBe('same-order')
+    expect(isFighting(enc)).toBe(true)
+    expect(enc.combat?.enemy.hp).toBe(enc.combat?.enemy.hpMax)
+    expect(enc.combat?.startedAt).toBe(now + 2_000)
+    expect(enc.revealedWeaknesses).toContain('fire')
+  })
+
+  it('does not restart or take goods when supplies are short after a loss', () => {
+    const save = createSave()
+    const worker = spawnWorker(save)
+    const enc = testEnemy({ needs: { meal: 2 } })
+    putEnemy(save, enc)
+    save.bank.meal = 2
+    expect(startCombat(save, 0, [worker.id], 1_000).ok).toBe(true)
+    expect(save.bank.meal ?? 0).toBe(0)
+    enc.combat!.outcome = 'lose'
+    worker.hp = worker.hpMax
+    worker.fatigueDebt = 0
+    const blocked = reinforceLostCombat(save, 0, [worker.id], 2_000)
+    expect(blocked.ok).toBe(false)
+    expect(save.bank.meal ?? 0).toBe(0)
+    expect(isCombatLost(enc)).toBe(true)
+  })
+
+  it('refuses lose-reinforce while the fight is still going', () => {
+    const save = createSave()
+    const worker = spawnWorker(save)
+    const extra = spawnWorker(save)
+    const enc = testEnemy({ needs: { meal: 1 } })
+    putEnemy(save, enc)
+    save.bank.meal = 4
+    expect(startCombat(save, 0, [worker.id], 1_000).ok).toBe(true)
+    const blocked = reinforceLostCombat(save, 0, [extra.id], 2_000)
+    expect(blocked.ok).toBe(false)
+    if (!blocked.ok) expect(blocked.reason).toMatch(/战败后/)
+    expect(save.bank.meal).toBe(3)
+    expect(isFighting(enc)).toBe(true)
   })
 })
 

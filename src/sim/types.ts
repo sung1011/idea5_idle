@@ -543,7 +543,7 @@ export type EnemyEncounter = EncounterBase & {
   chapterBoss?: boolean
   /** 真实弱点。卡面开战前按阶级预暴露（杂兵 2 / 精英 1 / 首领 0），命中未暴露项再揭示。 */
   weaknesses: CombatAttrId[]
-  /** 已揭示弱点（含阶级初始暴露）。同一单增援 / 超时后再开战仍保留；换新敌 / 刷掉本单清空。 */
+  /** 已揭示弱点（含阶级初始暴露）。同一单交战中增援 / 战败后再增援仍保留；换新敌 / 刷掉本单清空。 */
   revealedWeaknesses: CombatAttrId[]
   /**
    * 钉死本单选目标规则。缺省则每次出手按阶级 + 品质权重表抽。

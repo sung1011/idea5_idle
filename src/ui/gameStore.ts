@@ -29,6 +29,7 @@ import {
   claimLoot,
   exploreBoard,
   reinforceCombat,
+  reinforceLostCombat,
   startCombat,
   pawnMerchant,
   sellBulk,
@@ -203,6 +204,8 @@ export const useGameStore = defineStore('game', () => {
       apply((s) => startCombat(s, index, workerIds, Date.now(), pushCombatLogTip, guests, runePicks)),
     reinforceCombat: (index: number, workerIds: string[], guests?: Worker[], runePicks?: RunePickMap) =>
       apply((s) => reinforceCombat(s, index, workerIds, Date.now(), pushCombatLogTip, guests, runePicks)),
+    reinforceLostCombat: (index: number, workerIds: string[], guests?: Worker[], runePicks?: RunePickMap) =>
+      apply((s) => reinforceLostCombat(s, index, workerIds, Date.now(), pushCombatLogTip, guests, runePicks)),
     startDungeonCombat: (workerIds: string[], guests?: Worker[], runePicks?: RunePickMap) =>
       apply((s) => startDungeonCombat(s, workerIds, Date.now(), pushCombatLogTip, guests, runePicks)),
     reinforceDungeonCombat: (workerIds: string[], guests?: Worker[], runePicks?: RunePickMap) =>

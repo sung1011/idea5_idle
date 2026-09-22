@@ -709,6 +709,32 @@ describe('exploreBoard', () => {
     expect(save.marketEncounters.some((enc) => enc.id === 'swap-passerby')).toBe(false)
   })
 
+  it('keeps in-fight, unclaimed wins, and uncleared losses, and still refreshes unfought ordinary enemies', () => {
+    const save = createSave()
+    unlockMaxSlots(save)
+    save.gold = 10_000
+    const now = 2_100_000_000_000
+    const fighting = testEnemy({ id: 'keep-live', departed: true, combat: fightSnap(null) })
+    const won = testEnemy({ id: 'keep-claim', departed: true, combat: fightSnap('win') })
+    const lost = testEnemy({ id: 'keep-defeat', departed: true, combat: fightSnap('lose') })
+    const idle = testEnemy({ id: 'swap-unfought', departed: false, combat: null, chapterBoss: false })
+    save.encounters = [fighting, won, lost, idle]
+    expect(shouldKeepOnExplore(fighting, now)).toBe(true)
+    expect(shouldKeepOnExplore(won, now)).toBe(true)
+    expect(shouldKeepOnExplore(lost, now)).toBe(true)
+    expect(shouldKeepOnExplore(idle, now)).toBe(false)
+
+    expect(exploreBoard(save, now).ok).toBe(true)
+    const ids = save.encounters.map((enc) => enc.id)
+    expect(ids).toContain('keep-live')
+    expect(ids).toContain('keep-claim')
+    expect(ids).toContain('keep-defeat')
+    expect(ids).not.toContain('swap-unfought')
+    const keptLoss = save.encounters.find((enc) => enc.id === 'keep-defeat')
+    expect(keptLoss?.kind).toBe('enemy')
+    if (keptLoss?.kind === 'enemy') expect(keptLoss.combat?.outcome).toBe('lose')
+  })
+
   it('marks explore-protected orders and shares shouldKeepOnExplore', () => {
     const now = 2_000_000_000_000
     const fighting = testEnemy({ id: 'fix-fight', departed: true, combat: fightSnap(null) })
