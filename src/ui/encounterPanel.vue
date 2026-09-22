@@ -70,8 +70,8 @@ import {
   nextDungeonAffixHelp,
 } from './dungeonAffixHelp'
 import { pendingGuideRunePick, takeGuideRunePickRequest } from './guideQuestNav'
-import { FIGHTING_DOT_MS, fightingButtonLabel } from './fightingLabel'
 import { actChargeFill, actChargeStunned } from './actCharge'
+import FightingMark from './fightingMark.vue'
 import ActChargeBar from './actChargeBar.vue'
 import { pushFloatTip } from './floatTips'
 import { encounterCardKindTitle } from './encounterKindTitle'
@@ -165,16 +165,10 @@ const now = computed(() => {
   void game.save.elapsedS
   return Date.now()
 })
-const fightNow = ref(Date.now())
 const actNow = ref(Date.now())
-let fightDotTimer = 0
 let actTimer = 0
 onMounted(() => {
-  fightNow.value = Date.now()
   actNow.value = Date.now()
-  fightDotTimer = window.setInterval(() => {
-    fightNow.value = Date.now()
-  }, FIGHTING_DOT_MS)
   actTimer = window.setInterval(() => {
     actNow.value = Date.now()
   }, 100)
@@ -182,11 +176,9 @@ onMounted(() => {
   tryOpenGuideRunePick()
 })
 onUnmounted(() => {
-  window.clearInterval(fightDotTimer)
   window.clearInterval(actTimer)
   document.removeEventListener('pointerdown', onDocAffixHelp)
 })
-const fightingNowLabel = computed(() => fightingButtonLabel(fightNow.value))
 const buffOn = computed(() => isWorkshopBuffActive(game.save, now.value))
 const buffLabel = computed(() => {
   if (!buffOn.value) return ''
@@ -411,7 +403,7 @@ function cardClass(enc: Encounter) {
     [`q-${enc.quality}`]: true,
     compact: isBrief.value,
     done: isEncounterDone(enc, now.value),
-    stunned: enc.kind === 'enemy' && !!enc.combat && isCombatStunned(enc.combat, fightNow.value),
+    stunned: enc.kind === 'enemy' && !!enc.combat && isCombatStunned(enc.combat, actNow.value),
   }
 }
 
@@ -425,7 +417,7 @@ function enemyActStunned(enc: Encounter) {
 }
 
 function enemyHpShakeKey(enc: Encounter) {
-  void fightNow.value
+  void actNow.value
   return encounterHpShakeAt(enc.id)
 }
 
@@ -625,7 +617,7 @@ function timedLine(enc: Encounter) {
               已领
             </button>
             <template v-else-if="isFighting(enc)">
-              <button type="button" disabled aria-label="战斗中">{{ fightingNowLabel }}</button>
+              <FightingMark />
               <button
                 v-if="canReinforceCombat(enc)"
                 type="button"
