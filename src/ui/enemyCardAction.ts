@@ -25,9 +25,9 @@ export function enemyPickCopy(mode: EnemyPickMode, max: number): {
   if (mode === 'loseReinforce') {
     return {
       title: '选择增援工人',
-      hintTail: '战败后再增援扣一整套补给，敌方回满血重开本单。',
+      hintTail: '增援不消耗补给，敌方回满血重开本单。',
       confirm: '增援',
-      costsSupply: true,
+      costsSupply: false,
     }
   }
   if (mode === 'reinforce') {

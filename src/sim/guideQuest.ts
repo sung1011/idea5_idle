@@ -1,5 +1,5 @@
 import { bankQty } from './bank'
-import { canReinforceCombat, isCombatWon, isFighting } from './combat'
+import { canReinforceCombat, isCombatLost, isCombatWon, isFighting } from './combat'
 import { allEncounters, combatSupplyBlockReason, isEncounterDone, isStarterCopperPawn } from './encounters'
 import { isStationUnlocked, knightLevelOf } from './stationUnlock'
 import { POTION_ITEM_IDS } from './tables'
@@ -157,7 +157,7 @@ export function isBattlefieldRuneGuideFight(enc: Encounter): enc is EnemyEncount
 
 export function canOpenBattlefieldRuneGuidePick(save: Save, enc: Encounter, index: number): boolean {
   if (!isBattlefieldRuneGuideFight(enc)) return false
-  if (isFighting(enc)) return true
+  if (isFighting(enc) || isCombatLost(enc)) return true
   return !combatSupplyBlockReason(save, index)
 }
 

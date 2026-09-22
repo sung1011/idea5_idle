@@ -276,15 +276,8 @@ function openPick(index: number) {
 
 function openLoseReinforce(index: number) {
   if (isDungeonTab.value) return
-  if (consumeShort(index)) {
-    pushFloatTip(CONSUME_SHORT_TIP, 'err')
-    return
-  }
-  const blocked = combatSupplyBlockReason(game.save, index)
-  if (blocked) {
-    pushFloatTip(blocked, 'err')
-    return
-  }
+  const enc = game.save.encounters[index]
+  if (enc?.kind !== 'enemy' || enemyCardButton(enc) !== 'loseReinforce') return
   resetPick('loseReinforce', index)
 }
 
@@ -398,16 +391,18 @@ function confirmPick() {
     if (result.ok) closePick()
     return
   }
+  if (pickMode.value === 'loseReinforce') {
+    const result = game.reinforceLostCombat(index, [...picked.value], guests, runes)
+    if (result.ok) closePick()
+    return
+  }
   if (consumeShort(index)) {
     pushFloatTip(CONSUME_SHORT_TIP, 'err')
     return
   }
-  const result =
-    pickMode.value === 'loseReinforce'
-      ? game.reinforceLostCombat(index, [...picked.value], guests, runes)
-      : isDungeonTab.value
-        ? game.startDungeonCombat([...picked.value], guests, runes)
-        : game.startCombat(index, [...picked.value], guests, runes)
+  const result = isDungeonTab.value
+    ? game.startDungeonCombat([...picked.value], guests, runes)
+    : game.startCombat(index, [...picked.value], guests, runes)
   if (result.ok) closePick()
 }
 
@@ -659,16 +654,14 @@ function timedLine(enc: Encounter) {
             >
               战利品
             </button>
-            <span v-else-if="enemyCardButton(enc) === 'loseReinforce'" class="act-hit" @click="warnConsumeShort(i)">
-              <button
-                type="button"
-                :class="{ 'guide-flash': guideFlashEnemy(enc) && !pickOpen }"
-                :disabled="consumeShort(i)"
-                @click.stop="openLoseReinforce(i)"
-              >
-                增援
-              </button>
-            </span>
+            <button
+              v-else-if="enemyCardButton(enc) === 'loseReinforce'"
+              type="button"
+              :class="{ 'guide-flash': guideFlashEnemy(enc) && !pickOpen }"
+              @click="openLoseReinforce(i)"
+            >
+              增援
+            </button>
             <span v-else class="act-hit" @click="warnConsumeShort(i)">
               <button
                 type="button"

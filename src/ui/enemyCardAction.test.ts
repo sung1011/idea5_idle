@@ -51,14 +51,15 @@ describe('enemyCardButton', () => {
 })
 
 describe('enemyPickCopy', () => {
-  it('uses reinforce copy after a loss and still charges supplies', () => {
+  it('uses reinforce copy after a loss and does not charge supplies', () => {
     const lose = enemyPickCopy('loseReinforce', 3)
     expect(lose.title).toBe('选择增援工人')
     expect(lose.confirm).toBe('增援')
     expect(lose.confirm).not.toBe('开战')
     expect(lose.title).not.toContain('出战')
-    expect(lose.costsSupply).toBe(true)
-    expect(lose.hintTail).toMatch(/扣一整套补给/)
+    expect(lose.costsSupply).toBe(false)
+    expect(lose.hintTail).toMatch(/不消耗补给/)
+    expect(lose.hintTail).not.toMatch(/开战/)
 
     const live = enemyPickCopy('reinforce', 2)
     expect(live.confirm).toBe('增援')

@@ -911,8 +911,8 @@ describe('death leave and reinforce', () => {
   })
 })
 
-describe('lose reinforce costs the same supplies as the first start', () => {
-  it('restarts the same order after a loss and deducts a full supply set', () => {
+describe('lose reinforce does not cost supplies', () => {
+  it('restarts the same order after a loss without taking supplies', () => {
     const save = createSave()
     const worker = spawnWorker(save)
     const enc = testEnemy({ id: 'same-order', needs: { meal: 2 }, revealedWeaknesses: ['fire'] })
@@ -934,7 +934,7 @@ describe('lose reinforce costs the same supplies as the first start', () => {
 
     const restart = reinforceLostCombat(save, 0, [worker.id], now + 2_000)
     expect(restart.ok).toBe(true)
-    expect(save.bank.meal).toBe(2)
+    expect(save.bank.meal).toBe(4)
     expect(enc.id).toBe('same-order')
     expect(isFighting(enc)).toBe(true)
     expect(enc.combat?.enemy.hp).toBe(enc.combat?.enemy.hpMax)
@@ -942,7 +942,7 @@ describe('lose reinforce costs the same supplies as the first start', () => {
     expect(enc.revealedWeaknesses).toContain('fire')
   })
 
-  it('does not restart or take goods when supplies are short after a loss', () => {
+  it('restarts after a loss even when supplies are already gone', () => {
     const save = createSave()
     const worker = spawnWorker(save)
     const enc = testEnemy({ needs: { meal: 2 } })
@@ -953,10 +953,11 @@ describe('lose reinforce costs the same supplies as the first start', () => {
     enc.combat!.outcome = 'lose'
     worker.hp = worker.hpMax
     worker.fatigueDebt = 0
-    const blocked = reinforceLostCombat(save, 0, [worker.id], 2_000)
-    expect(blocked.ok).toBe(false)
+    const restart = reinforceLostCombat(save, 0, [worker.id], 2_000)
+    expect(restart.ok).toBe(true)
     expect(save.bank.meal ?? 0).toBe(0)
-    expect(isCombatLost(enc)).toBe(true)
+    expect(isFighting(enc)).toBe(true)
+    expect(enc.combat?.enemy.hp).toBe(enc.combat?.enemy.hpMax)
   })
 
   it('refuses lose-reinforce while the fight is still going', () => {

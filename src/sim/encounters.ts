@@ -1849,7 +1849,19 @@ export function reinforceCombat(
   return { ok: true }
 }
 
-/** 战败后再增援：同一张订单重新开战，扣补给与首次开战相同。 */
+/** 战败后再增援：同一张订单重开，不扣补给。符文仍消耗。 */
+export function reinforceLostBlockReason(
+  save: Save,
+  index: number,
+  workerIds: readonly string[],
+  guests: readonly Worker[] = [],
+): string | null {
+  const enc = enemyAt(save, index)
+  if (!enc) return '不是敌人偶遇'
+  if (!isCombatLost(enc)) return '战败后才能再增援'
+  return combatPartyBlockReason(save, workerIds, guests)
+}
+
 export function reinforceLostCombat(
   save: Save,
   index: number,
@@ -1859,10 +1871,29 @@ export function reinforceLostCombat(
   guests: readonly Worker[] = [],
   runePicks?: RunePickMap,
 ): ActionResult {
+  const blocked = reinforceLostBlockReason(save, index, workerIds, guests)
+  if (blocked) return { ok: false, reason: blocked }
+  const runeBlocked = runePickBlockReason(save, runePicks)
+  if (runeBlocked) return { ok: false, reason: runeBlocked }
   const enc = enemyAt(save, index)
   if (!enc) return { ok: false, reason: '不是敌人偶遇' }
-  if (!isCombatLost(enc)) return { ok: false, reason: '战败后才能再增援' }
-  return startCombat(save, index, workerIds, now, onLog, guests, runePicks)
+  const party = workerIds
+    .map((id) => findCombatPartyWorker(save, id, guests))
+    .filter((w): w is Worker => !!w)
+  if (!party.length) return { ok: false, reason: '请选择出战工人' }
+  const consumed = consumeRunePicks(save, runePicks)
+  if (!consumed.ok) return consumed
+  clearWorkersNew(
+    save,
+    party.filter((w) => !w.guest).map((w) => w.id),
+  )
+  save.departCount += 1
+  save.lastDepartAt = now
+  delete enc.submitted
+  beginEnemyCombat(enc, party, now, normalizeMainChapter(save.mainChapter), onLog, save, {
+    runes: normalizeRunePicks(runePicks),
+  })
+  return { ok: true }
 }
 
 /** @deprecated 改走 startCombat。无工人时只报「请选择出战工人」。 */
