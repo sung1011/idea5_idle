@@ -521,22 +521,20 @@ function timedLine(enc: Encounter) {
     </div>
     <p v-if="buffOn" class="buff">{{ buffLabel }}</p>
     <div v-if="isDungeonTab" class="dungeon-meta">
-      <p class="affix-row">
-        <span>今日词缀：</span>
-        <button
-          v-for="row in dungeonAffixList"
-          :key="row.id"
-          type="button"
-          class="affix-chip"
-          data-dungeon-affix
-          :aria-pressed="isDungeonAffixHelpOpen(affixHelp, row.id)"
-          :aria-label="`查看 ${row.label} 效果`"
-          @click="onAffixHelp($event, row.id, 'dungeon')"
-        >
-          {{ row.label }}
-        </button>
-      </p>
-      <p>{{ dungeonAttemptLabel }}</p>
+      <span>今日词缀：</span>
+      <button
+        v-for="row in dungeonAffixList"
+        :key="row.id"
+        type="button"
+        class="affix-chip"
+        data-dungeon-affix
+        :aria-pressed="isDungeonAffixHelpOpen(affixHelp, row.id)"
+        :aria-label="`查看 ${row.label} 效果`"
+        @click="onAffixHelp($event, row.id, 'dungeon')"
+      >
+        {{ row.label }}
+      </button>
+      <span>{{ dungeonAttemptLabel }}</span>
     </div>
 
     <div class="board" :class="{ solo: isDungeonTab }">
@@ -562,22 +560,21 @@ function timedLine(enc: Encounter) {
                 <i v-if="isDungeonEncounter(enc) && enc.dungeonMechanic && !isBrief">
                   {{ DUNGEON_MECHANIC_LABEL[enc.dungeonMechanic] }}
                 </i>
+                <button
+                  v-if="enemyCardAffix(enc)"
+                  type="button"
+                  class="affix-chip"
+                  data-dungeon-affix
+                  :aria-pressed="isDungeonAffixHelpOpen(affixHelp, enemyCardAffix(enc)!.id)"
+                  :aria-label="`查看 ${enemyCardAffix(enc)!.label} 效果`"
+                  @click="onAffixHelp($event, enemyCardAffix(enc)!.id, 'battlefield')"
+                >
+                  {{ enemyCardAffix(enc)!.label }}
+                </button>
               </span>
             </div>
           </header>
           <p class="label">{{ enc.label }}</p>
-          <p v-if="enemyCardAffix(enc)" class="affix-row card-affix">
-            <button
-              type="button"
-              class="affix-chip"
-              data-dungeon-affix
-              :aria-pressed="isDungeonAffixHelpOpen(affixHelp, enemyCardAffix(enc)!.id)"
-              :aria-label="`查看 ${enemyCardAffix(enc)!.label} 效果`"
-              @click="onAffixHelp($event, enemyCardAffix(enc)!.id, 'battlefield')"
-            >
-              {{ enemyCardAffix(enc)!.label }}
-            </button>
-          </p>
           <EncounterDealLines :encounter="enc" />
           <p v-if="showFightReadout(enc)" class="weak">
             弱点
@@ -1025,39 +1022,39 @@ function timedLine(enc: Encounter) {
 .dungeon-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 14px;
-  font-family: var(--font-mono);
-  color: var(--ink);
-}
-
-.dungeon-meta p {
-  margin: 0;
-}
-
-.affix-row {
-  display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 4px 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.25;
+  color: var(--ink);
 }
 
 .affix-chip {
-  padding: 2px 8px;
-  border: 2px solid var(--gold-deep);
+  min-height: 0;
+  padding: 1px 6px;
+  border: 1px solid var(--gold-deep);
   border-radius: 999px;
   background: #fff8e8;
+  box-shadow: none;
   color: var(--ink);
-  font: inherit;
+  font-family: inherit;
+  font-size: 12px;
   font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
   cursor: pointer;
+}
+
+.affix-chip:hover:not(:disabled),
+.affix-chip:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  filter: none;
 }
 
 .affix-chip[aria-pressed='true'] {
   background: var(--gold);
-}
-
-.card-affix {
-  margin: 0;
 }
 
 .affix-bubble {
@@ -1122,8 +1119,12 @@ function timedLine(enc: Encounter) {
 
 .tags {
   display: flex;
-  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
   margin-left: auto;
+  margin-right: 30px;
 }
 
 .tags i {
@@ -1134,6 +1135,7 @@ function timedLine(enc: Encounter) {
   background: var(--slot);
   color: var(--ink);
   font-size: 12px;
+  line-height: 1.25;
 }
 
 .qmark {
