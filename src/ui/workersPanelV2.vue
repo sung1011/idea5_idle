@@ -92,6 +92,8 @@ const fightingRoster = computed(() => mainlineCombatWorkers(game.save))
 const resting = computed(() => restingWorkers(game.save))
 const canDispatch = computed(() => canDispatchRestingWorker(game.save))
 const canWithdraw = computed(() => canWithdrawWorkshopWorker(game.save))
+const recruitPrice = computed(() => recruitCost(game.save))
+const canRecruit = computed(() => game.save.diamonds >= recruitPrice.value)
 const selected = computed(() => {
   const id = selectedId.value
   if (!id) return null
@@ -538,15 +540,15 @@ onUnmounted(() => {
         </div>
       </section>
       <div class="col side">
-        <section class="zone combat" :class="{ empty: !fightingRoster.length }" aria-label="战斗中">
-          <header class="zone-head">战斗中 · {{ fightingRoster.length }}</header>
+        <section class="zone combat" :class="{ empty: !fightingRoster.length }" aria-label="战斗区">
+          <header class="zone-head">战斗区 · {{ fightingRoster.length }}</header>
           <div v-if="fightingRoster.length" class="zone-list">
             <div v-for="w in fightingRoster" :key="w.id" class="rest-row" :class="hpToneClass(w)">
               <i class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
               <button
                 type="button"
                 class="rest-face"
-                :aria-label="`战斗中 ${workerShortName(w)}`"
+                :aria-label="`战斗区 ${workerShortName(w)}`"
                 @pointerdown="onWorkerPointerDown($event, w, null, null)"
               >
                 <span class="avatar" :style="workerQualityTileStyle(w)">
@@ -566,8 +568,19 @@ onUnmounted(() => {
             </div>
           </div>
         </section>
-        <section class="zone rest" :class="restDropClass()" aria-label="休息" data-drop="rest">
-          <header class="zone-head">休息 · {{ resting.length }}</header>
+        <section class="zone rest" :class="restDropClass()" aria-label="休息区" data-drop="rest">
+          <header class="zone-head">休息区 · {{ resting.length }}</header>
+          <button
+            type="button"
+            class="recruit-bar"
+            :class="{ off: !canRecruit, 'guide-flash': guideFlashRecruit }"
+            :disabled="!canRecruit"
+            :aria-label="`抽工人 · ${recruitPrice} 钻`"
+            @click="game.recruit()"
+          >
+            <span class="recruit-bar-lab">抽工人</span>
+            <span class="recruit-bar-cost">{{ recruitPrice }} 钻</span>
+          </button>
           <div v-if="resting.length" class="zone-list rest-list">
             <div v-for="w in resting" :key="w.id" class="rest-row" :class="hpToneClass(w)">
               <i class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
@@ -622,15 +635,6 @@ onUnmounted(() => {
         @click="game.withdrawWorkshopToRest()"
       >
         →
-      </button>
-      <button
-        type="button"
-        class="recruit-fab"
-        :class="{ 'guide-flash': guideFlashRecruit }"
-        :aria-label="`抽工人 · ${recruitCost(game.save)} 钻`"
-        @click="game.recruit()"
-      >
-        抽
       </button>
     </div>
   </section>
@@ -897,6 +901,41 @@ onUnmounted(() => {
   color: #8a3228;
 }
 
+.recruit-bar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: calc(100% - 6px);
+  margin: 0 3px 4px;
+  min-height: 36px;
+  padding: 4px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: linear-gradient(#ffe27a, #e2a31a);
+  color: #5a3010;
+  box-shadow: 0 2px 0 var(--gold-deep);
+  font-weight: 900;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.recruit-bar-lab {
+  font-size: 10px;
+}
+
+.recruit-bar-cost {
+  font-size: 11px;
+}
+
+.recruit-bar.off {
+  opacity: 0.45;
+  filter: grayscale(0.28);
+  box-shadow: none;
+}
+
 .zone-list {
   flex: 1 1 auto;
   min-height: 0;
@@ -915,7 +954,7 @@ onUnmounted(() => {
 }
 
 .rest-list {
-  padding: 3px 3px 116px;
+  padding: 3px 3px 80px;
 }
 
 .station {
@@ -1312,7 +1351,7 @@ onUnmounted(() => {
 
 .empty-rest {
   margin: 6px 3px;
-  padding-bottom: 116px;
+  padding-bottom: 80px;
   color: var(--muted);
   font-size: 10px;
   font-weight: 700;
@@ -1348,8 +1387,7 @@ onUnmounted(() => {
   width: 40px;
 }
 
-.dispatch-fab,
-.recruit-fab {
+.dispatch-fab {
   display: grid;
   place-items: center;
   min-height: 32px;
