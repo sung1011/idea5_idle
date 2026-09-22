@@ -1,5 +1,7 @@
 import { alchemyCostLabel, rollAlchemyPotionBatch } from './alchemy'
 import { addToBank } from './bank'
+import { isAssistWorker } from './combatAssist'
+import { grantWorkerCombatXp } from './combat'
 import { takeCosts } from './costs'
 import { completeInscriptionCycle } from './inscription'
 import { applyGatherOutputs, applyHuntingPauseTick, applyMiningRecovery, isGatherFrozen, isGatherStation } from './gather'
@@ -8,9 +10,10 @@ import { tryAutoEatAssigned } from './food'
 import { applyWorkshopFatigue, decayAlchemyFog, workshopHpWorkMul, type FatigueKind } from './workshopHp'
 import { assignedCount, canConsume, currentSpeed, pickConsume } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
-import { ITEM_DEF } from './tables'
+import { isRuneItemId, ITEM_DEF, RUNE_DEF } from './tables'
 import { cycleOutputBonus } from './tools'
 import type { Save, StationId } from './types'
+import { workerStationCycleXp } from './workerLevel'
 
 /** 1/6、1/7 这类 cycle 累加会卡在 0.999…，差一丁点到 1。 */
 const CYCLE_EPS = 1e-9
@@ -49,7 +52,7 @@ function emitOutputs(save: Save, stationId: StationId, now: number, into?: ItemL
   return true
 }
 
-/** 完成一次吞吐：按当前品类扣原料、写入物资，并给站 XP。回调带 stationId；无产出也可带站内 notice。 */
+/** 完成一次吞吐：按当前品类扣原料、写入物资，并给站 XP。成功有产出时另给在岗工人微量 XP。回调带 stationId；无产出也可带站内 notice。 */
 export function completeCycle(
   save: Save,
   stationId: StationId,
@@ -98,6 +101,24 @@ function grantCycleCraftGold(save: Save, lots: ItemLot[]): number {
   return gold
 }
 
+/** 成功产出用的站 xpPerCycle。铭刻成功取本轮配方，不取软失败那份。 */
+function successXpPerCycle(save: Save, stationId: StationId, lots: ItemLot[]): number {
+  if (stationId === 'inscription') {
+    const itemId = lots[0]?.itemId
+    if (isRuneItemId(itemId)) return RUNE_DEF[itemId].xpPerCycle
+  }
+  return selectedCategoryDef(save, stationId).xpPerCycle
+}
+
+/** 只发给 assignment 就是该站、且不是助战的在岗工人。升级走战斗同一条路径。 */
+function grantOnDutyWorkerXp(save: Save, stationId: StationId, xpPerCycle: number): void {
+  const amount = workerStationCycleXp(xpPerCycle)
+  for (const worker of save.workers) {
+    if (worker.assignment !== stationId || isAssistWorker(worker)) continue
+    grantWorkerCombatXp(worker, amount)
+  }
+}
+
 function emitCycleGain(
   save: Save,
   stationId: StationId,
@@ -110,6 +131,9 @@ function emitCycleGain(
   const station = save.stations[stationId]
   applyWorkshopFatigue(save, stationId, now, fatigue)
   tryAutoEatAssigned(save, stationId, now)
+  if (fatigue === 'success' && lots.length > 0) {
+    grantOnDutyWorkerXp(save, stationId, successXpPerCycle(save, stationId, lots))
+  }
   const weak = save.workers.some((worker) => worker.assignment === stationId && workshopHpWorkMul(worker) < 1)
   emitGain(onGain, lots, stationId, station.gatherNotice ?? station.craftNotice ?? null, gold, weak)
 }

@@ -209,6 +209,24 @@ button.on:disabled {
   animation: guide-flash 1s ease-in-out infinite;
 }
 
+@keyframes level-flash {
+  0%,
+  100% {
+    outline-color: rgba(229, 251, 255, 0.35);
+    border-color: #d4a84a;
+  }
+  45% {
+    outline-color: #7af0ff;
+    border-color: #e5fbff;
+  }
+}
+
+.level-flash {
+  outline: 2px solid #7af0ff;
+  outline-offset: 1px;
+  animation: level-flash 0.7s ease-in-out 2;
+}
+
 .item.warn {
   border-color: var(--ember);
 }
@@ -287,8 +305,14 @@ button.on:disabled {
 
   .short-flash,
   .guide-flash,
+  .level-flash,
   .rail .dot-cell i.idle,
   .crew-empty-hp {
     animation: none;
+  }
+
+  .level-flash {
+    outline-color: #7af0ff;
+    border-color: #7af0ff;
   }
 }

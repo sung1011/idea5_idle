@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import {
   applyWorkerLevelHpRatio,
@@ -9,7 +9,11 @@ import {
 import { createSave } from './createSave'
 import { claimLoot, startCombat } from './encounters'
 import { fuseWorkers } from './fuse'
+import { setRollOverride } from './rng'
 import { hydrateWorker, spawnWorker, spawnWorkerWith } from './recruit'
+import { selectedCategoryDef } from './stationProgress'
+import { completeCycle } from './stations'
+import { softFailXp } from './inscription'
 import type { EnemyEncounter, Save } from './types'
 import {
   addWorkerXp,
@@ -17,7 +21,9 @@ import {
   hydrateWorkerXp,
   normalizeWorkerProgress,
   workerFromTotalXp,
+  workerLevelUpTip,
   workerLootXp,
+  workerStationCycleXp,
   workerTotalXp,
   workerXpToNext,
   WORKER_LEVEL_ATK_PER,
@@ -27,6 +33,7 @@ import {
   WORKER_LEVEL_SPD_MUL,
   WORKER_LOOT_XP_BY_RANK,
   WORKER_LOOT_XP_PER_CHAPTER,
+  WORKER_STATION_XP_SHARE,
   WORKER_XP_TO_NEXT_BASE,
   WORKER_XP_TO_NEXT_GROWTH,
 } from './workerLevel'
@@ -123,13 +130,30 @@ describe('worker xp tables', () => {
   })
 
   it('scales loot xp by enemy rank and chapter', () => {
-    expect(workerLootXp('minion', 1)).toBe(WORKER_LOOT_XP_BY_RANK.minion)
-    expect(workerLootXp('elite', 1)).toBe(WORKER_LOOT_XP_BY_RANK.elite)
-    expect(workerLootXp('boss', 1)).toBe(WORKER_LOOT_XP_BY_RANK.boss)
-    expect(workerLootXp('minion', 3)).toBe(
-      WORKER_LOOT_XP_BY_RANK.minion + WORKER_LOOT_XP_PER_CHAPTER * 2,
-    )
+    expect(WORKER_LOOT_XP_BY_RANK).toEqual({ minion: 12, elite: 20, boss: 32 })
+    expect(WORKER_LOOT_XP_PER_CHAPTER).toBe(1)
+    expect(workerLootXp('minion', 1)).toBe(12)
+    expect(workerLootXp('elite', 1)).toBe(20)
+    expect(workerLootXp('boss', 1)).toBe(32)
+    expect(workerLootXp('minion', 3)).toBe(12 + WORKER_LOOT_XP_PER_CHAPTER * 2)
+    expect(workerLootXp('elite', 3)).toBe(22)
+    expect(workerLootXp('boss', 4)).toBe(35)
     expect(workerLootXp('boss', 4)).toBeGreaterThan(workerLootXp('minion', 1))
+  })
+
+  it('shares a slice of station xpPerCycle and at least 1', () => {
+    expect(WORKER_STATION_XP_SHARE).toBe(0.35)
+    expect(workerStationCycleXp(1)).toBe(1)
+    expect(workerStationCycleXp(2)).toBe(1)
+    expect(workerStationCycleXp(3)).toBe(1)
+    expect(workerStationCycleXp(5)).toBe(2)
+    expect(workerStationCycleXp(8)).toBe(3)
+    expect(workerStationCycleXp(0)).toBe(1)
+  })
+
+  it('formats a level-up tip from the reached level', () => {
+    expect(workerLevelUpTip('阿铁', 4)).toBe('阿铁 升至 Lv4')
+    expect(workerLevelUpTip('  ', 2)).toBe('工人 升至 Lv2')
   })
 })
 
@@ -231,6 +255,93 @@ describe('worker level combat stats', () => {
     const granted = grantWorkerCombatXp(viaGrant, workerXpToNext(1) * 3)
     expect(granted.levelsGained).toBeGreaterThanOrEqual(2)
     expect(viaGrant.hpMax).toBe(workerLiveStats(viaGrant).hp)
+  })
+})
+
+describe('workshop cycle grants on-duty xp', () => {
+  afterEach(() => setRollOverride(null))
+
+  it('gives each on-duty worker a share on success and skips rest, other stations, and assists', () => {
+    const save = createSave()
+    const dutyA = spawnWorker(save)
+    const dutyB = spawnWorker(save)
+    const resting = spawnWorker(save)
+    const other = spawnWorker(save)
+    const assist = spawnWorker(save)
+    expect(assignWorker(save, dutyA.id, 'herbalism').ok).toBe(true)
+    expect(assignWorker(save, dutyB.id, 'herbalism').ok).toBe(true)
+    expect(assignWorker(save, other.id, 'mining').ok).toBe(true)
+    assist.guest = true
+    assist.assignment = 'herbalism'
+    const xpPerCycle = selectedCategoryDef(save, 'herbalism').xpPerCycle
+    const share = workerStationCycleXp(xpPerCycle)
+    const stationBefore = save.stations.herbalism.stationXp
+
+    expect(completeCycle(save, 'herbalism')).toBe(true)
+    expect(save.stations.herbalism.stationXp - stationBefore).toBe(xpPerCycle)
+    expect(dutyA.xp).toBe(share)
+    expect(dutyB.xp).toBe(share)
+    expect(dutyA.level).toBe(1)
+    expect(resting.xp).toBe(0)
+    expect(other.xp).toBe(0)
+    expect(assist.xp).toBe(0)
+
+    expect(completeCycle(save, 'herbalism')).toBe(true)
+    expect(dutyA.xp).toBe(share * 2)
+    expect(resting.xp).toBe(0)
+  })
+
+  it('does not grant xp on hazard, soft fail, or a frozen gather with no output', () => {
+    setRollOverride(() => 0)
+    const hazard = createSave()
+    const hunter = spawnWorker(hazard)
+    expect(assignWorker(hazard, hunter.id, 'hunting').ok).toBe(true)
+    expect(completeCycle(hazard, 'hunting')).toBe(true)
+    expect(hazard.stations.hunting.gatherNotice).toContain('遇险')
+    expect(hazard.stations.hunting.stationXp).toBe(selectedCategoryDef(hazard, 'hunting').xpPerCycle)
+    expect(hunter.xp).toBe(0)
+    expect(hunter.level).toBe(1)
+
+    const fail = createSave()
+    fail.bank.wildCrystal = 4
+    const smith = spawnWorker(fail)
+    expect(assignWorker(fail, smith.id, 'inscription').ok).toBe(true)
+    const stationXp = selectedCategoryDef(fail, 'inscription').xpPerCycle
+    expect(completeCycle(fail, 'inscription')).toBe(true)
+    expect(fail.stations.inscription.craftNotice).toContain('软失败')
+    expect(fail.stations.inscription.stationXp).toBe(softFailXp(stationXp))
+    expect(smith.xp).toBe(0)
+
+    const frozen = createSave()
+    const miner = spawnWorker(frozen)
+    expect(assignWorker(frozen, miner.id, 'mining').ok).toBe(true)
+    const node = {
+      categoryId: 'copper' as const,
+      nodeHp: 0,
+      nodeHpMax: 20,
+      recoverAt: frozen.elapsedS + 100,
+    }
+    frozen.stations.mining.miningNode = node
+    frozen.stations.mining.miningNodes = { copper: node }
+    const minedBefore = frozen.stations.mining.stationXp
+    expect(completeCycle(frozen, 'mining')).toBe(false)
+    expect(frozen.stations.mining.stationXp).toBe(minedBefore)
+    expect(miner.xp).toBe(0)
+  })
+
+  it('levels an on-duty worker through the combat xp path and keeps the hp ratio', () => {
+    const save = createSave()
+    const worker = spawnWorker(save)
+    expect(assignWorker(save, worker.id, 'herbalism').ok).toBe(true)
+    worker.xp = workerXpToNext(1) - 1
+    worker.hp = Math.round(worker.hpMax / 2)
+    const oldHp = worker.hp
+    const oldMax = worker.hpMax
+    expect(completeCycle(save, 'herbalism')).toBe(true)
+    expect(worker.level).toBe(2)
+    expect(worker.xp).toBe(workerStationCycleXp(selectedCategoryDef(save, 'herbalism').xpPerCycle) - 1)
+    expect(worker.hpMax).toBe(workerLiveStats(worker).hp)
+    expect(worker.hp).toBe(Math.round((oldHp / oldMax) * worker.hpMax))
   })
 })
 

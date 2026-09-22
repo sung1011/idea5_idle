@@ -42,6 +42,7 @@ import { takeWorkshopHpEfficiencyTip } from '../sim/workshopHp'
 import type { ActionResult, CategoryId, ItemId, PotionItemId, Save, StationId, Worker } from '../sim/types'
 import { pushCombatLogTip } from './encounterTips'
 import { pushFloatTip } from './floatTips'
+import { announceWorkerLevelUps, workerLevelSnapshot } from './workerLevelFlash'
 import { clearSave, loadSave, persistSave } from './saveGame'
 import { pushCycleGain } from './stationTips'
 import { applyWorkerDrag, type WorkerDragSource, type WorkerDropTarget } from './workerDrag'
@@ -65,6 +66,7 @@ export const useGameStore = defineStore('game', () => {
   }
 
   function liveTick() {
+    const levels = workerLevelSnapshot(save.value.workers)
     save.value = tick(save.value, {
       onGain: (gain) => {
         pushCycleGain(gain)
@@ -73,18 +75,21 @@ export const useGameStore = defineStore('game', () => {
         pushCombatLogTip(encounterId, text, kind)
       },
     })
+    announceWorkerLevelUps(levels, save.value.workers)
     notifyWorkshopHpEfficiency(save.value)
     persist()
   }
 
   function apply(fn: (s: Save) => ActionResult): ActionResult {
     const next = cloneSave(save.value)
+    const levels = workerLevelSnapshot(save.value.workers)
     const result = fn(next)
     if (result.ok) {
       save.value = next
       notifyWorkshopHpEfficiency(next)
       persist()
       if (result.message) pushFloatTip(result.message, 'ok')
+      announceWorkerLevelUps(levels, next.workers)
     } else {
       pushFloatTip(result.reason, 'err')
     }

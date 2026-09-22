@@ -10,7 +10,7 @@
 
 - 每个生产站点独立等级 + XP。进度仍在站点上，不在工人身上。
 - 站内多品类；开局每站只解锁 1 个品类。
-- 完成一次生产周期给该站 XP；XP 满则升级。
+- 完成一次生产周期给该站 XP；XP 满则升级。成功有产出时另给在岗工人微量经验（`max(1, round(该次 xpPerCycle × 0.35))`，见 [main.md](main.md)），不改变站 XP。
 - 每 5 级解锁 1 个新品类：Lv5 第 2 类，Lv10 第 3 类。
 - 高阶产出用新 `itemId`（`ironOre`、`mithrilOre`、符文 id），不是同一个 `ore` 换皮。旧 `tool` / `ironTool` / `mithrilTool` / `*ToolNN` 读档转荒晶，不再产出。武器 id 仍可卖。
 - 整站共用一个 `selectedCategory`；同站堆人只加速当前品类。迅雷公式不变；相邻站不再加成。铭刻不另选工具档。

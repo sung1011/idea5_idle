@@ -17,6 +17,7 @@ import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { isWorkerInCombat } from '../sim/combat'
 import { isEmptyHp, stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
 import { pushFloatTip } from './floatTips'
+import { isWorkerLevelFlashing } from './workerLevelFlash'
 import { stationConflictHint } from '../sim/tech'
 import { findCategory, STATION_DEF, STATION_WORKER_CAP, xpToNextLevel } from '../sim/tables'
 import { itemSourceFlashCategories, isItemSourceStationFlash } from './itemSource'
@@ -196,7 +197,12 @@ onUnmounted(() => {
     </header>
     <ul class="crew" aria-label="在岗工人">
       <li v-if="crew.length" class="crew-row">
-        <span v-for="w in crew" :key="w.id" class="crew-slot" :class="{ 'crew-empty-hp': crewEmptyHpFlash(w) }">
+        <span
+          v-for="w in crew"
+          :key="w.id"
+          class="crew-slot"
+          :class="{ 'crew-empty-hp': crewEmptyHpFlash(w), 'level-flash': isWorkerLevelFlashing(w.id) }"
+        >
           <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
           <b class="crew-name" :style="workerQualityNameStyle(w)">{{ w.name ?? w.id }}</b>
           <i v-if="w.isNew" class="worker-new" aria-label="新工人">NEW</i>

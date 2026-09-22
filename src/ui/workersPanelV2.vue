@@ -33,6 +33,7 @@ import type { ItemId } from '../sim/types'
 import { isGuideQuestFlash } from '../sim/guideQuest'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { pushFloatTip } from './floatTips'
+import { isWorkerLevelFlashing } from './workerLevelFlash'
 import { recruitCost } from '../sim/tech'
 import type { ClassId, PotionItemId, StationId, Worker } from '../sim/types'
 import ClassIcon from './classIcon.vue'
@@ -472,7 +473,11 @@ onUnmounted(() => {
                 :key="`${board.stationId}-${i}`"
                 type="button"
                 class="slot"
-                :class="[{ empty: !w }, w ? hpToneClass(w) : '', slotDropClass(board.stationId, i)]"
+                :class="[
+                  { empty: !w, 'level-flash': !!w && isWorkerLevelFlashing(w.id) },
+                  w ? hpToneClass(w) : '',
+                  slotDropClass(board.stationId, i),
+                ]"
                 :data-drop="'slot'"
                 :data-station="board.stationId"
                 :data-slot="i"
@@ -546,7 +551,12 @@ onUnmounted(() => {
         <section class="zone combat" :class="{ empty: !fightingRoster.length }" aria-label="战斗区">
           <header class="zone-head">战斗区 · {{ fightingRoster.length }}</header>
           <div v-if="fightingRoster.length" class="zone-list">
-            <div v-for="w in fightingRoster" :key="w.id" class="rest-row" :class="hpToneClass(w)">
+            <div
+              v-for="w in fightingRoster"
+              :key="w.id"
+              class="rest-row"
+              :class="[hpToneClass(w), { 'level-flash': isWorkerLevelFlashing(w.id) }]"
+            >
               <i class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
               <button
                 type="button"
@@ -608,7 +618,12 @@ onUnmounted(() => {
             </button>
           </div>
           <div v-if="resting.length" class="zone-list rest-list">
-            <div v-for="w in resting" :key="w.id" class="rest-row" :class="hpToneClass(w)">
+            <div
+              v-for="w in resting"
+              :key="w.id"
+              class="rest-row"
+              :class="[hpToneClass(w), { 'level-flash': isWorkerLevelFlashing(w.id) }]"
+            >
               <i class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
               <button
                 type="button"

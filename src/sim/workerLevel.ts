@@ -17,11 +17,27 @@ export function workerXpToNext(level: number): number {
 
 /** 战胜领战利品才发的 XP。阶级底值，章节每高 1 章 +1。 */
 export const WORKER_LOOT_XP_BY_RANK: Readonly<Record<EnemyRank, number>> = {
-  minion: 8,
-  elite: 14,
-  boss: 24,
+  minion: 12,
+  elite: 20,
+  boss: 32,
 }
 export const WORKER_LOOT_XP_PER_CHAPTER = 1
+
+/** 工坊成功吞吐分给在岗工人的比例。至少 1。 */
+export const WORKER_STATION_XP_SHARE = 0.35
+
+/** 该次站 `xpPerCycle` 分给每位在岗工人的经验。 */
+export function workerStationCycleXp(xpPerCycle: number): number {
+  const base = Number.isFinite(xpPerCycle) ? Math.max(0, xpPerCycle) : 0
+  return Math.max(1, Math.round(base * WORKER_STATION_XP_SHARE))
+}
+
+/** 升级浮字。N 为升完后的等级。 */
+export function workerLevelUpTip(shortName: string, level: number): string {
+  const name = shortName.trim() || '工人'
+  const lv = Math.max(1, Math.floor(level))
+  return `${name} 升至 Lv${lv}`
+}
 
 export function workerLootXp(rank: EnemyRank, chapter = 1): number {
   const extra = Math.max(0, Math.floor(chapter) - 1) * WORKER_LOOT_XP_PER_CHAPTER
