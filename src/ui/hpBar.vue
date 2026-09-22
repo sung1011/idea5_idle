@@ -7,6 +7,8 @@ const props = defineProps<{
   hpMax: number
   compact?: boolean
   shakeKey?: number
+  /** 敌方换皮。缺省仍是友方草绿条。 */
+  variant?: 'ally' | 'enemy'
 }>()
 
 const fillPct = computed(() => `${(hpBarFill(props.hp, props.hpMax) * 100).toFixed(2)}%`)
@@ -43,7 +45,7 @@ onUnmounted(() => {
 <template>
   <div
     class="hp"
-    :class="[tone, { compact, shake: shaking }]"
+    :class="[tone, { compact, shake: shaking, enemy: variant === 'enemy' }]"
     role="progressbar"
     :aria-valuenow="hp"
     :aria-valuemin="0"
@@ -79,6 +81,27 @@ onUnmounted(() => {
 
 .hp.low .fill {
   background: var(--bar-fill-hp);
+}
+
+.hp.enemy {
+  border-radius: 2px;
+  border: 2px solid #4a1028;
+  background: #14080e;
+  box-shadow:
+    0 0 0 1px #2a0614,
+    inset 0 0 0 2px #6b1d3a;
+}
+
+.hp.enemy .fill,
+.hp.enemy.low .fill,
+.hp.enemy.mid .fill {
+  background: linear-gradient(90deg, #3a1030 0%, #6b1848 46%, #a32038 100%);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%);
+}
+
+.hp.enemy span {
+  color: #fff4ea;
+  text-shadow: 0 1px 0 #1a0610, 0 0 3px #1a0610;
 }
 
 .hp span {

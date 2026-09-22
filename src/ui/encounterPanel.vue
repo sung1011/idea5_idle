@@ -72,7 +72,8 @@ import {
 } from './dungeonAffixHelp'
 import { pendingGuideRunePick, takeGuideRunePickRequest } from './guideQuestNav'
 import { FIGHTING_DOT_MS, fightingButtonLabel } from './fightingLabel'
-import { formatAtkSpeed } from './formatAtkSpeed'
+import { actChargeFill, actChargeStunned } from './actCharge'
+import ActChargeBar from './actChargeBar.vue'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
 import {
@@ -165,17 +166,24 @@ const now = computed(() => {
   return Date.now()
 })
 const fightNow = ref(Date.now())
+const actNow = ref(Date.now())
 let fightDotTimer = 0
+let actTimer = 0
 onMounted(() => {
   fightNow.value = Date.now()
+  actNow.value = Date.now()
   fightDotTimer = window.setInterval(() => {
     fightNow.value = Date.now()
   }, FIGHTING_DOT_MS)
+  actTimer = window.setInterval(() => {
+    actNow.value = Date.now()
+  }, 100)
   document.addEventListener('pointerdown', onDocAffixHelp)
   tryOpenGuideRunePick()
 })
 onUnmounted(() => {
   window.clearInterval(fightDotTimer)
+  window.clearInterval(actTimer)
   document.removeEventListener('pointerdown', onDocAffixHelp)
 })
 const fightingNowLabel = computed(() => fightingButtonLabel(fightNow.value))
@@ -414,6 +422,11 @@ function enemyCardAffix(enc: Encounter) {
   return enc.kind === 'enemy' ? battlefieldAffixRow(enc) : null
 }
 
+function enemyActStunned(enc: Encounter) {
+  if (enc.kind !== 'enemy' || !enc.combat) return false
+  return actChargeStunned(enc.combat.stunnedUntil, actNow.value)
+}
+
 function enemyHpShakeKey(enc: Encounter) {
   void fightNow.value
   return encounterHpShakeAt(enc.id)
@@ -586,20 +599,26 @@ function timedLine(enc: Encounter) {
           </p>
           <template v-if="enc.combat && (!isBrief || isFighting(enc))">
             <div class="bars">
-              <p v-if="!isBrief" class="bar-line">
-                敌 · ATK {{ enc.combat.enemy.atk }} · 攻速 {{ formatAtkSpeed(enc.combat.enemy.spd) }}
-              </p>
+              <p class="bar-line">敌</p>
               <HpBar
+                variant="enemy"
                 :hp="enc.combat.enemy.hp"
                 :hp-max="enc.combat.enemy.hpMax"
                 :shake-key="enemyHpShakeKey(enc)"
               />
+              <ActChargeBar
+                v-if="isFighting(enc)"
+                enemy
+                :stunned="enemyActStunned(enc)"
+                :fill="actChargeFill(enc.combat.enemy.spd, enc.combat.enemy.nextActAt, actNow)"
+              />
               <template v-for="w in rosterFighters(enc)" :key="w.id">
-                <p v-if="!isBrief" class="bar-line">
-                  {{ w.label }} · ATK {{ w.atk }} · 攻速 {{ formatAtkSpeed(w.spd) }}
-                </p>
-                <p v-else class="bar-line">{{ w.label }}</p>
+                <p class="bar-line">{{ w.label }}</p>
                 <HpBar :hp="w.hp" :hp-max="w.hpMax" />
+                <ActChargeBar
+                  v-if="isFighting(enc)"
+                  :fill="actChargeFill(w.spd, w.nextActAt, actNow)"
+                />
               </template>
             </div>
           </template>

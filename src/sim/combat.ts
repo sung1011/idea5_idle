@@ -416,7 +416,8 @@ export function recentCombatLogs(enc: EnemyEncounter, n = 4): CombatLogEntry[] {
   return logs.slice(-n)
 }
 
-function actIntervalMs(spd: number): number {
+/** 出手周期（毫秒）。结算与卡面蓄力条共用，展示不得另写一套间隔。 */
+export function actIntervalMs(spd: number): number {
   return Math.max(1, spd) * 1000
 }
 
