@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, watch } from 'vue'
+import { computed, nextTick, onUnmounted, watch } from 'vue'
 import {
   formatMarchClock,
   isWorkshopBuffActive,
@@ -12,6 +12,7 @@ import { isStationUnlocked, workshopGroupLockedTip } from '../sim/stationUnlock'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
 import StationCard from './stationCard.vue'
+import { dismissWorkshopBanter } from './workshopBanter'
 import UiIcon from './uiIcon.vue'
 import { railGroupSlotDots } from './workshopRail'
 import { selectWorkshopGroup, syncWorkshopTab, workshopGroup, workshopTab } from './appNav'
@@ -68,6 +69,10 @@ function scrollFocusedStation() {
 watch(activeStation, async () => {
   await nextTick()
   scrollFocusedStation()
+})
+
+onUnmounted(() => {
+  dismissWorkshopBanter()
 })
 </script>
 

@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { formatClock, gameDay, timeOfDayS } from '../sim/tables'
 import { useGameStore } from './gameStore'
 import { loadPrefs, savePrefs, type Prefs } from './prefs'
+import { loadWorkshopBanter, saveWorkshopBanter } from './workshopBanter'
 
 const PAGES = [
   { id: 'stats', label: '统计' },
@@ -16,6 +17,7 @@ const emit = defineEmits<{ close: [] }>()
 const game = useGameStore()
 const page = ref<PageId>('stats')
 const prefs = ref<Prefs>(loadPrefs())
+const banterOn = ref(loadWorkshopBanter())
 
 const day = computed(() => gameDay(game.save.elapsedS))
 const clock = computed(() => formatClock(game.save.elapsedS))
@@ -24,6 +26,10 @@ const recruited = computed(() => Math.max(0, Math.floor(game.save.nextWorkerId) 
 
 function setPref<K extends keyof Prefs>(key: K, value: Prefs[K]) {
   prefs.value = savePrefs({ ...prefs.value, [key]: value })
+}
+
+function setBanter(on: boolean) {
+  banterOn.value = saveWorkshopBanter(on)
 }
 
 function onKey(ev: KeyboardEvent) {
@@ -84,7 +90,11 @@ onUnmounted(() => {
           <input type="checkbox" :checked="prefs.sfx" @change="setPref('sfx', ($event.target as HTMLInputElement).checked)" />
           音效
         </label>
-        <p class="hint">开关先记在本地，音频资源占位。</p>
+        <label class="toggle">
+          <input type="checkbox" :checked="banterOn" @change="setBanter(($event.target as HTMLInputElement).checked)" />
+          工坊闲话
+        </label>
+        <p class="hint">开关先记在本地，音频资源占位。工坊闲话默认开，关掉后在岗不再冒短句。</p>
       </div>
 
       <div v-else class="body">

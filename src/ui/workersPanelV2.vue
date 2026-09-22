@@ -65,6 +65,7 @@ import {
   dropTargetFromDataset,
   FUSE_DRAG_TIP,
   sameDragEndpoint,
+  setWorkerDragActive,
   shouldShowFuseDragTip,
   shouldStartWorkerDrag,
   type WorkerDragSource,
@@ -390,6 +391,7 @@ function onDragMove(ev: PointerEvent) {
     const dy = session.y - session.startY
     if (!shouldStartWorkerDrag(session.source, dx, dy)) return
     session.active = true
+    setWorkerDragActive(true)
     game.clearWorkerNew(session.workerId)
     const handle = ev.target
     if (handle instanceof Element && handle.setPointerCapture) {
@@ -413,6 +415,7 @@ function onDragEnd(ev: PointerEvent) {
   const over = session.over ?? hitTarget(ev.clientX, ev.clientY)
   const wasActive = session.active
   drag.value = null
+  setWorkerDragActive(false)
   if (wasActive) {
     if (source && over && !sameDragEndpoint(source, over)) game.dragAssign(source, over)
     return
@@ -442,6 +445,7 @@ function restDropClass(): string {
 onMounted(() => document.addEventListener('pointerdown', onDocPotionHelp, true))
 onUnmounted(() => {
   unbindDrag()
+  setWorkerDragActive(false)
   document.removeEventListener('pointerdown', onDocPotionHelp, true)
 })
 </script>

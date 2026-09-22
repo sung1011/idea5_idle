@@ -9,6 +9,16 @@ import { workshopStationBoards } from './workerGroups'
 
 export const WORKER_DRAG_THRESHOLD_PX = 12
 
+let workerDragActive = false
+
+export function setWorkerDragActive(active: boolean) {
+  workerDragActive = active
+}
+
+export function isWorkerDragActive(): boolean {
+  return workerDragActive
+}
+
 export type WorkerDragSource =
   | { kind: 'rest'; workerId: string }
   | { kind: 'slot'; workerId: string; stationId: StationId; slotIndex: number }

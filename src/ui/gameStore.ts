@@ -45,6 +45,7 @@ import { pushFloatTip } from './floatTips'
 import { announceWorkerLevelUps, workerLevelSnapshot } from './workerLevelFlash'
 import { clearSave, loadSave, persistSave } from './saveGame'
 import { pushCycleGain } from './stationTips'
+import { offerWorkshopBanter } from './workshopBanter'
 import { applyWorkerDrag, type WorkerDragSource, type WorkerDropTarget } from './workerDrag'
 import { assignRestingToFirstEmpty, withdrawWorkshopToRest } from './workerGroups'
 
@@ -67,15 +68,18 @@ export const useGameStore = defineStore('game', () => {
 
   function liveTick() {
     const levels = workerLevelSnapshot(save.value.workers)
+    const produced: StationId[] = []
     save.value = tick(save.value, {
       onGain: (gain) => {
         pushCycleGain(gain)
+        if (gain.lots.length > 0) produced.push(gain.stationId)
       },
       onCombatLog: (encounterId, text, kind) => {
         pushCombatLogTip(encounterId, text, kind)
       },
     })
     announceWorkerLevelUps(levels, save.value.workers)
+    offerWorkshopBanter(save.value, produced)
     notifyWorkshopHpEfficiency(save.value)
     persist()
   }
