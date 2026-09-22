@@ -63,24 +63,25 @@ onUnmounted(() => {
   width: 100%;
   height: 22px;
   overflow: hidden;
-  border: 2px solid var(--gold-deep);
+  border: 3px solid #b88810;
   border-radius: var(--radius-pill);
   background: linear-gradient(180deg, #efe0b0, var(--bar-track));
-  box-shadow: inset 0 1px 2px rgba(106, 66, 24, 0.16);
+  box-shadow: inset 0 1px 2px rgba(106, 66, 24, 0.2);
 }
 
 .hp .fill {
   display: block;
   height: 100%;
-  background: var(--bar-fill-moss);
+  background: var(--bar-sheen), linear-gradient(90deg, #6fc43a, #2d7a1c);
+  transition: width 0.3s ease;
 }
 
 .hp.mid .fill {
-  background: var(--bar-fill-gold);
+  background: var(--bar-sheen), linear-gradient(90deg, #e0b020, #a8700c);
 }
 
 .hp.low .fill {
-  background: var(--bar-fill-hp);
+  background: var(--bar-sheen), linear-gradient(90deg, #d04a38, #a02820);
 }
 
 .hp.enemy {
@@ -97,6 +98,7 @@ onUnmounted(() => {
 .hp.enemy.mid .fill {
   background: linear-gradient(90deg, #3a1030 0%, #6b1848 46%, #a32038 100%);
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%);
+  transition: none;
 }
 
 .hp.enemy span {
@@ -153,6 +155,10 @@ onUnmounted(() => {
 @media (prefers-reduced-motion: reduce) {
   .hp.shake {
     animation: none;
+  }
+
+  .hp .fill {
+    transition: none;
   }
 }
 </style>

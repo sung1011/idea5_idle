@@ -1173,15 +1173,25 @@ onUnmounted(() => {
   left: 0;
   z-index: 0;
   pointer-events: none;
-  background: linear-gradient(90deg, rgba(243, 208, 106, 0.34), rgba(232, 195, 90, 0.22));
+  background: linear-gradient(90deg, rgba(196, 148, 28, 0.58), rgba(168, 118, 12, 0.46));
+  box-shadow: inset -2px 0 0 rgba(106, 66, 24, 0.28);
+  transition: width 0.3s ease;
 }
 
 .hp-full .hp-fill {
-  background: linear-gradient(90deg, rgba(174, 226, 122, 0.34), rgba(122, 214, 78, 0.22));
+  background: linear-gradient(90deg, rgba(74, 168, 42, 0.58), rgba(46, 132, 28, 0.46));
+  box-shadow: inset -2px 0 0 rgba(46, 100, 24, 0.32);
 }
 
 .hp-low .hp-fill {
-  background: linear-gradient(90deg, rgba(240, 160, 140, 0.34), rgba(226, 110, 96, 0.22));
+  background: linear-gradient(90deg, rgba(196, 72, 58, 0.6), rgba(168, 40, 34, 0.48));
+  box-shadow: inset -2px 0 0 rgba(120, 28, 24, 0.34);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hp-fill {
+    transition: none;
+  }
 }
 
 .avatar {
