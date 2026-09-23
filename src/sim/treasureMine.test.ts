@@ -12,6 +12,7 @@ import {
   mineDigIntervalS,
   workerMatchesMineWeakness,
   hydrateTreasureMines,
+  mineWeaknessSlots,
   TREASURE_REFRESH_COST,
   refreshTreasureMineBoard,
   refreshTreasureMines,
@@ -310,12 +311,66 @@ describe('treasure mines', () => {
     mine.crewIds = []
     expect(addTreasureMiner(save, mine.id, hit.id).ok).toBe(true)
     expect(addTreasureMiner(save, mine.id, miss.id).ok).toBe(true)
+    expect(mine.revealedWeaknesses).toEqual(['fire'])
+    mine.revealedWeaknesses = []
     advance(save, 4)
     expect(vaultQty(save)).toBe(1)
     expect(mine.reserve).toBe(19)
     advance(save, 1)
     expect(vaultQty(save)).toBe(2)
     expect(mine.reserve).toBe(18)
+    expect(mine.revealedWeaknesses).toEqual([])
+  })
+
+  it('hides new weaknesses behind question marks until mining or a raid reveals a match', () => {
+    const save = createSave()
+    for (const hole of save.treasureMines.mines) {
+      expect(hole.revealedWeaknesses).toEqual([])
+      const slots = mineWeaknessSlots(hole)
+      expect(slots).toHaveLength(hole.weaknesses.length)
+      expect(slots.every((slot) => slot == null)).toBe(true)
+    }
+
+    const mine = save.treasureMines.mines[0]
+    mine.weaknesses = ['fire', 'ice', 'sword']
+    delete (mine as { revealedWeaknesses?: unknown }).revealedWeaknesses
+    hydrateTreasureMines(save)
+    const kept = save.treasureMines.mines.find((hole) => hole.id === mine.id)
+    expect(kept?.weaknesses).toEqual(['fire', 'ice', 'sword'])
+    expect(kept?.revealedWeaknesses).toEqual([])
+    expect(kept ? mineWeaknessSlots(kept) : []).toEqual([null, null, null])
+    if (!kept) return
+
+    kept.owner = 'player'
+    kept.shadows = []
+    kept.raid = null
+    const digger = spawnWorker(save)
+    const extra = spawnWorker(save)
+    digger.combatAttrs = ['ice', 'bow']
+    extra.combatAttrs = ['fire']
+    expect(addTreasureMiner(save, kept.id, digger.id).ok).toBe(true)
+    expect(kept.revealedWeaknesses).toEqual(['ice'])
+    expect(mineWeaknessSlots(kept)).toEqual([null, 'ice', null])
+    expect(addTreasureMiner(save, kept.id, extra.id).ok).toBe(true)
+    expect(kept.revealedWeaknesses).toEqual(['ice', 'fire'])
+    expect(mineWeaknessSlots(kept)).toEqual(['fire', 'ice', null])
+
+    const raidHole = save.treasureMines.mines.find((hole) => hole.id !== kept.id)
+    expect(raidHole).toBeTruthy()
+    if (!raidHole) return
+    raidHole.weaknesses = ['sword', 'fire']
+    raidHole.revealedWeaknesses = []
+    const lead = spawnWorker(save)
+    const bench = spawnWorker(save)
+    const late = spawnWorker(save)
+    lead.combatAttrs = ['sword']
+    bench.combatAttrs = ['dark']
+    late.combatAttrs = ['fire']
+    expect(startTreasureRaid(save, raidHole.id, [lead.id, bench.id]).ok).toBe(true)
+    expect(raidHole.revealedWeaknesses).toEqual(['sword'])
+    expect(mineWeaknessSlots(raidHole)).toEqual(['sword', null])
+    expect(startTreasureRaid(save, raidHole.id, [late.id]).ok).toBe(false)
+    expect(raidHole.revealedWeaknesses).toEqual(['sword'])
   })
 
   it('locks only the raiding hole and refuses reinforce until that fight ends', () => {

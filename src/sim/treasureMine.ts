@@ -132,6 +132,7 @@ export function hydrateTreasureMines(save: Save): void {
     }
     if (mine.owner !== 'player' && mine.owner !== 'shadow') mine.owner = 'shadow'
     mine.weaknesses = mineWeaknessesOf(mine)
+    mine.revealedWeaknesses = keptRevealedWeaknesses(mine)
     mine.reserve = clampInt(mine.reserve, 0, TREASURE_RESERVE_MAX)
   }
   refreshTreasureMines(save)
@@ -206,6 +207,7 @@ export function addTreasureMiner(save: Save, mineId: string, workerId: string): 
   clearWorkerNew(save, workerId)
   mine.crewIds.push(workerId)
   mine.digCharge[workerId] = 0
+  revealMineWeaknesses(mine, worker.combatAttrs)
   return { ok: true }
 }
 
@@ -253,6 +255,7 @@ export function startTreasureRaid(
   if (!spent.ok) return spent
   for (const worker of party) clearWorkerNew(save, worker.id)
   mine.raid = openRaid(save, mine, party, runes)
+  for (const worker of party) revealMineWeaknesses(mine, worker.combatAttrs)
   return { ok: true, message: '已向快照守军抢夺' }
 }
 
@@ -472,6 +475,7 @@ function spawnMine(save: Save, elapsed: number): TreasureMine {
     crewIds: [],
     shadows,
     weaknesses: pickEnemyWeaknesses(hashString(id), 0, 'minion'),
+    revealedWeaknesses: [],
     raid: null,
     digCharge: {},
   }
@@ -481,6 +485,35 @@ function mineWeaknessesOf(mine: TreasureMine): CombatAttrId[] {
   const kept = (mine.weaknesses ?? []).filter(isCombatAttrId)
   if (kept.length) return kept
   return pickEnemyWeaknesses(hashString(mine.id), 0, 'minion')
+}
+
+function keptRevealedWeaknesses(mine: TreasureMine): CombatAttrId[] {
+  const trueSet = new Set(mine.weaknesses)
+  const raw = mine.revealedWeaknesses
+  if (!Array.isArray(raw)) return []
+  const out: CombatAttrId[] = []
+  const seen = new Set<CombatAttrId>()
+  for (const id of raw) {
+    if (!isCombatAttrId(id) || !trueSet.has(id) || seen.has(id)) continue
+    seen.add(id)
+    out.push(id)
+  }
+  return out
+}
+
+/** 把工人属性里命中的矿洞弱点记进已揭开。不改开采加速。 */
+export function revealMineWeaknesses(mine: TreasureMine, attrs: readonly CombatAttrId[] | undefined): void {
+  if (!Array.isArray(mine.revealedWeaknesses)) mine.revealedWeaknesses = []
+  for (const id of matchingWeaknesses(attrs ?? [], mine.weaknesses ?? [])) {
+    if (mine.revealedWeaknesses.includes(id)) continue
+    mine.revealedWeaknesses.push(id)
+  }
+}
+
+/** 卡面弱点行。长度跟真实弱点表一致，没揭开的是 null，图标显示问号。 */
+export function mineWeaknessSlots(mine: TreasureMine): Array<CombatAttrId | null> {
+  const revealed = new Set(Array.isArray(mine.revealedWeaknesses) ? mine.revealedWeaknesses : [])
+  return (mine.weaknesses ?? []).filter(isCombatAttrId).map((id) => (revealed.has(id) ? id : null))
 }
 
 function makeShadow(save: Save, mineId: string, index: number, taken: ReadonlySet<string>): TreasureShadow {

@@ -444,6 +444,8 @@ export type TreasureMine = {
   shadows: TreasureShadow[]
   /** 矿洞弱点。工人属性命中则该人开采快 1 秒。不参与抢夺战斗结算。 */
   weaknesses: CombatAttrId[]
+  /** 已揭开的弱点。新洞和旧档缺字段为空，卡面其余格显示问号。开采加速不看这份。 */
+  revealedWeaknesses: CombatAttrId[]
   raid: TreasureRaid | null
   digCharge: Partial<Record<string, number>>
 }

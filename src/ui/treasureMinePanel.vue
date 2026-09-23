@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import ActChargeBar from './actChargeBar.vue'
+import CombatAttrIcon from './combatAttrIcon.vue'
 import HpBar from './hpBar.vue'
 import ModeHelpSheet from './modeHelpSheet.vue'
 import { raidSlotLabel, raidSlotPress, treasureRaidHud, type SlotSheet } from './treasureRaidHud'
@@ -11,9 +12,9 @@ import {
   TREASURE_LABEL,
   TREASURE_REFRESH_COST,
   mineRemainS,
+  mineWeaknessSlots,
 } from '../sim/treasureMine'
 import type { RuneItemId, TreasureMine, Worker } from '../sim/types'
-import { COMBAT_ATTR_LABEL } from '../sim/combatAttrs'
 import CombatPickSheet from './combatPickSheet.vue'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
@@ -143,12 +144,17 @@ function confirmPick() {
             <span class="kind">矿洞</span>
             <span class="tags">
               <i>{{ mine.owner === 'player' ? '我方开采' : '快照驻守' }}</i>
-              <span v-for="id in mine.weaknesses" :key="`${mine.id}-${id}`" class="affix-chip">
-                {{ COMBAT_ATTR_LABEL[id] }}
-              </span>
             </span>
           </div>
         </header>
+        <p class="weak">
+          弱点
+          <CombatAttrIcon
+            v-for="(slot, index) in mineWeaknessSlots(mine)"
+            :key="`${mine.id}-w-${index}`"
+            :attr="slot"
+          />
+        </p>
         <p class="label">储量 {{ mine.reserve }}/{{ mine.reserveMax }}</p>
         <p class="label">消失倒计时 {{ clock(mine) }}</p>
         <p v-if="mine.owner === 'shadow'" class="label">守军 {{ mine.shadows.map((row) => row.name).join('、') || '无' }}</p>
@@ -309,19 +315,13 @@ function confirmPick() {
   line-height: 1.25;
 }
 
-.affix-chip {
-  min-height: 0;
-  padding: 1px 6px;
-  border: 1px solid var(--gold-deep);
-  border-radius: 999px;
-  background: #fff8e8;
-  box-shadow: none;
-  color: var(--ink);
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.25;
-  white-space: nowrap;
+.weak {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
 }
 
 .label {
