@@ -1283,6 +1283,22 @@ onUnmounted(() => {
   transition: width 0.3s ease;
 }
 
+.slot.has-banter,
+.rest-row.has-banter {
+  overflow: visible;
+  z-index: 2;
+}
+
+.slot.has-banter .hp-fill,
+.rest-row.has-banter .hp-fill {
+  border-radius: 6px 0 0 6px;
+}
+
+.slot.has-banter.hp-full .hp-fill,
+.rest-row.has-banter.hp-full .hp-fill {
+  border-radius: 6px;
+}
+
 .hp-full .hp-fill {
   background: linear-gradient(90deg, rgba(74, 168, 42, 0.58), rgba(46, 132, 28, 0.46));
   box-shadow: inset -2px 0 0 rgba(46, 100, 24, 0.32);
@@ -1376,7 +1392,8 @@ onUnmounted(() => {
   z-index: 6;
   left: 2px;
   right: 2px;
-  top: 50%;
+  top: auto;
+  bottom: calc(100% + 2px);
   margin: 0;
   padding: 1px 4px;
   border: 1px solid var(--gold-deep);
@@ -1388,8 +1405,16 @@ onUnmounted(() => {
   line-height: 1.25;
   text-align: center;
   pointer-events: none;
-  transform: translateY(-50%);
+  transform: none;
   animation: worker-banter 10s ease-out forwards;
+}
+
+.station-list:has(> .station:first-child .slot.has-banter) {
+  padding-top: 18px;
+}
+
+.rest-list:has(> .rest-row:first-child.has-banter) {
+  padding-top: 22px;
 }
 
 .rest-name {
