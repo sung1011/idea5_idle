@@ -99,7 +99,7 @@ function attackLine(playerName: unknown, fighter: string): string {
   return `${player} · ${fighter}`
 }
 
-/** 未开战的快照驻守洞：只给守方一条静止 HUD。我方开采洞不画。 */
+/** 未开战的快照驻守洞：只给守方一条静止 HUD。 */
 function standbyDefendHud(mine: TreasureMine): TreasureRaidHud | null {
   const front = mine.shadows[0]
   if (mine.owner !== 'shadow' || mine.raid || !front) return null
@@ -126,13 +126,50 @@ function standbyDefendHud(mine: TreasureMine): TreasureRaidHud | null {
   }
 }
 
-/** 开战画攻守两边。未开战的快照驻守洞只画守方。没有守军、或已是我方开采洞时不画。 */
+/** 我方开采、且没在抢夺：只画守方条。名字是玩家显示名，槽是在采工人。 */
+function playerMineHud(
+  mine: TreasureMine,
+  workers: readonly Worker[],
+  playerName: unknown,
+): TreasureRaidHud | null {
+  if (mine.owner !== 'player' || mine.raid) return null
+  const crew = mine.crewIds.filter((id) => typeof id === 'string' && id)
+  const slots = raidSlotSnapshot(crew)
+  const living = crew.filter((id) => workers.some((worker) => worker.id === id))
+  const openMax = slots.map((id) => {
+    const worker = id ? workers.find((row) => row.id === id) : undefined
+    return worker ? Math.max(0, worker.hpMax) : 0
+  })
+  const bar = squadBarHp(slots, openMax, (id) => {
+    const worker = workers.find((row) => row.id === id)
+    if (!worker || worker.hp <= 0) return null
+    return worker.hp
+  })
+  return {
+    attack: null,
+    defend: {
+      name: playerDisplayName(playerName),
+      hp: bar.hp,
+      hpMax: bar.hpMax,
+      barFill: hpBarFill(bar.hp, bar.hpMax),
+      fill: 0,
+      slots: slotStates(slots, living),
+    },
+    waitingAttack: [],
+    waitingDefend: crew.slice(1).map((id) => fighterName(workers, id)),
+    fighting: false,
+  }
+}
+
+/** 开战画攻守两边。未开战的快照洞、以及我方开采洞，都只画守方。无人矿不画。 */
 export function treasureRaidHud(
   mine: TreasureMine,
   workers: readonly Worker[],
   elapsedS: number,
   playerName?: unknown,
 ): TreasureRaidHud | null {
+  const owned = playerMineHud(mine, workers, playerName)
+  if (owned) return owned
   const raid = mine.raid
   const shadow = mine.shadows[0]
   const attackerId = raid?.queue[0]
@@ -191,6 +228,10 @@ function slotIds(mine: TreasureMine, side: 'attack' | 'defend'): { ids: (string 
       living: mine.shadows.map((row) => row.id),
     }
   }
+  if (mine.owner === 'player') {
+    const living = mine.crewIds.filter((id) => typeof id === 'string' && id)
+    return { ids: raidSlotSnapshot(living), living }
+  }
   const living = mine.owner === 'shadow' ? mine.shadows.map((row) => row.id) : []
   return { ids: raidSlotSnapshot(living), living }
 }
@@ -235,6 +276,25 @@ function attackSheet(
   }
 }
 
+function playerCrewSheet(workers: readonly Worker[], id: string, save: Save | undefined): SlotSheet {
+  const worker = workers.find((row) => row.id === id)
+  const stats = worker ? workerLiveStats(worker, save) : null
+  const name = worker ? workerShortName(worker) : id
+  return {
+    title: name,
+    rows: [
+      { label: '名称', text: name },
+      { label: '职业', text: worker?.classId ? CLASS_LABEL[worker.classId] : '未标' },
+      { label: '品质', text: worker ? workerQualityDef(worker.qualityTier).label : '—' },
+      { label: '等级', text: `Lv${worker?.level ?? 1}` },
+      { label: '生命', text: `${worker?.hp ?? 0}/${worker?.hpMax ?? 0}` },
+      { label: '攻击', text: String(Math.max(1, stats?.atk ?? 0)) },
+      { label: '攻速', text: `${Math.max(1, Math.round(stats?.spd ?? 1))} 秒` },
+      { label: '符文', text: '无' },
+    ],
+  }
+}
+
 function defendSheet(mine: TreasureMine, id: string, index: number): SlotSheet {
   const shadow = mine.shadows.find((row) => row.id === id)
   const raid = mine.raid
@@ -272,8 +332,11 @@ export function raidSlotPress(
   if (mark !== 'filled' || !id) {
     return { kind: 'tip', text: mark === 'dead' ? '已阵亡' : '空槽' }
   }
-  return {
-    kind: 'sheet',
-    sheet: side === 'attack' ? attackSheet(mine, workers, id, index, save) : defendSheet(mine, id, index),
-  }
+  const sheet =
+    side === 'attack'
+      ? attackSheet(mine, workers, id, index, save)
+      : mine.owner === 'player' && !mine.raid
+        ? playerCrewSheet(workers, id, save)
+        : defendSheet(mine, id, index)
+  return { kind: 'sheet', sheet }
 }

@@ -213,7 +213,12 @@ describe('treasure raid hud', () => {
     expect(idle?.waitingDefend).toEqual(['乙守'])
 
     mine.owner = 'player'
-    expect(treasureRaidHud(mine, save.workers, save.elapsedS)).toBeNull()
+    mine.crewIds = []
+    const ownedEmpty = treasureRaidHud(mine, save.workers, save.elapsedS, '   ')
+    expect(ownedEmpty?.attack).toBeNull()
+    expect(ownedEmpty?.fighting).toBe(false)
+    expect(ownedEmpty?.defend.name).toBe('见习勇者')
+    expect(ownedEmpty?.defend.slots).toEqual(['empty', 'empty', 'empty'])
     mine.owner = 'empty'
     expect(treasureRaidHud(mine, save.workers, save.elapsedS)).toBeNull()
     mine.owner = 'shadow'
@@ -315,5 +320,40 @@ describe('treasure raid hud', () => {
     const waiting = raidSlotPress(mine, save.workers, 'defend', 1, save)
     expect(waiting.kind).toBe('sheet')
     if (waiting.kind === 'sheet') expect(waiting.sheet.title).toBe('晚风')
+  })
+
+  it('shows only the player name and mining crew on an owned hole', () => {
+    const save = createSave()
+    save.playerName = '旅人甲'
+    const lead = spawnWorker(save)
+    const bench = spawnWorker(save)
+    lead.name = '甲采'
+    lead.hp = 8
+    lead.hpMax = 10
+    bench.hp = 20
+    bench.hpMax = 20
+    const mine = save.treasureMines.mines[0]
+    mine.owner = 'player'
+    mine.shadows = []
+    mine.raid = null
+    mine.crewIds = [lead.id, bench.id]
+    const hud = treasureRaidHud(mine, save.workers, save.elapsedS, save.playerName)
+    expect(hud?.fighting).toBe(false)
+    expect(hud?.attack).toBeNull()
+    expect(hud?.defend.name).toBe('旅人甲')
+    expect(hud?.defend.hp).toBe(28)
+    expect(hud?.defend.hpMax).toBe(30)
+    expect(hud?.defend.fill).toBe(0)
+    expect(hud?.defend.slots).toEqual(['filled', 'filled', 'empty'])
+    const press = raidSlotPress(mine, save.workers, 'defend', 0, save)
+    expect(press.kind).toBe('sheet')
+    if (press.kind === 'sheet') {
+      expect(press.sheet.title).toBe('甲采')
+      expect(press.sheet.rows.find((row) => row.label === '符文')?.text).toBe('无')
+      expect(press.sheet.rows.find((row) => row.label === '生命')?.text).toBe('8/10')
+    }
+    expect(raidSlotPress(mine, save.workers, 'defend', 2, save)).toEqual({ kind: 'tip', text: '空槽' })
+    expect(startTreasureRaid(save, mine.id, [lead.id]).ok).toBe(false)
+    expect(panel.indexOf('aria-label="开采进度"')).toBeLessThan(panel.indexOf('class="bars"'))
   })
 })

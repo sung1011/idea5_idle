@@ -741,4 +741,53 @@ describe('treasure mines', () => {
     expect(tipped.length).toBe(vaultQty(save))
     expect(tipped.every((text) => text.startsWith('获得 ') && text.includes('×1'))).toBe(true)
   })
+
+  it('keeps revealed weaknesses until the hole is gone', () => {
+    const save = createSave()
+    const digger = spawnWorker(save)
+    const extra = spawnWorker(save)
+    digger.combatAttrs = ['fire']
+    extra.combatAttrs = ['ice']
+    const mine = save.treasureMines.mines[0]
+    mine.owner = 'empty'
+    mine.shadows = []
+    mine.raid = null
+    mine.weaknesses = ['fire', 'ice', 'sword']
+    mine.revealedWeaknesses = []
+    expect(claimTreasureMine(save, mine.id, [digger.id]).ok).toBe(true)
+    expect(mine.revealedWeaknesses).toEqual(['fire'])
+    expect(mineWeaknessSlots(mine)).toEqual(['fire', null, null])
+
+    expect(abandonTreasureMine(save, mine.id).ok).toBe(true)
+    expect(mine.owner).toBe('empty')
+    expect(mine.revealedWeaknesses).toEqual(['fire'])
+    expect(mineWeaknessSlots(mine)).toEqual(['fire', null, null])
+
+    expect(claimTreasureMine(save, mine.id, [extra.id]).ok).toBe(true)
+    expect(mine.revealedWeaknesses).toEqual(['fire', 'ice'])
+    expect(mineWeaknessSlots(mine)).toEqual(['fire', 'ice', null])
+
+    const gone = mine.id
+    const staying = new Set(save.treasureMines.mines.filter((row) => row.id !== gone).map((row) => row.id))
+    mine.reserve = 0
+    refreshTreasureMines(save)
+    expect(save.treasureMines.mines.some((row) => row.id === gone)).toBe(false)
+    const spawned = save.treasureMines.mines.find((row) => !staying.has(row.id))
+    expect(spawned?.revealedWeaknesses).toEqual([])
+    expect(spawned ? mineWeaknessSlots(spawned).every((slot) => slot == null) : false).toBe(true)
+
+    const again = save.treasureMines.mines[0]
+    again.owner = 'empty'
+    again.shadows = []
+    again.raid = null
+    again.weaknesses = ['fire']
+    again.revealedWeaknesses = ['fire']
+    save.diamonds = TREASURE_REFRESH_COST
+    expect(refreshTreasureMineBoard(save).ok).toBe(true)
+    expect(save.treasureMines.mines.some((row) => row.id === again.id)).toBe(false)
+    for (const hole of save.treasureMines.mines) {
+      expect(hole.revealedWeaknesses).toEqual([])
+      expect(mineWeaknessSlots(hole).every((slot) => slot == null)).toBe(true)
+    }
+  })
 })

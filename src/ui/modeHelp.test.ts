@@ -24,6 +24,8 @@ describe('mode help', () => {
     expect(treasure).toContain('放弃')
     expect(treasure).toContain('洞种不同，掉落偏重不同')
     expect(treasure).toContain('一半没有守军')
+    expect(treasure).toContain('揭开后一直留到这个洞消失')
+    expect(treasure).toContain('自己的名字')
     expect(treasure).not.toContain('三分之一')
     expect(treasure).not.toContain('补采')
     expect(treasure).not.toContain('影矿卫')
