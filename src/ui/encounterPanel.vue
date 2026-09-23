@@ -121,8 +121,9 @@ const boardEncounters = computed(() => {
 })
 const dungeonAttemptLabel = computed(() => {
   if (!isDungeonTab.value) return ''
-  const summary = dungeonAttemptSummary(game.save)
-  return `次数 ${summary.used}/${summary.total}`
+  const { used } = dungeonAttemptSummary(game.save)
+  if (used <= 0) return '今日两单'
+  return `今日两单 · 已开战 ${used}`
 })
 const affixHelp = ref<DungeonAffixId | null>(null)
 const affixHelpScope = ref<CombatAffixScope>('dungeon')
