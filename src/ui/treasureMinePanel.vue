@@ -129,7 +129,6 @@ function confirmPick() {
 
 <template>
   <section class="mines" aria-label="夺宝矿洞">
-    <p class="lead">守军是其他玩家的快照，不是联机实时，也不是 NPC。开采不装符文；抢夺可装符文。</p>
     <div class="vault-row">
       <p class="vault">宝库 {{ vaultLine }}</p>
       <button type="button" @click="game.refreshTreasureMines()">刷新 {{ TREASURE_REFRESH_COST }} 钻</button>
@@ -223,7 +222,6 @@ function confirmPick() {
   gap: 8px;
 }
 
-.lead,
 .vault {
   margin: 0;
   font-size: 12px;
