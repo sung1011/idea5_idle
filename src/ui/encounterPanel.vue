@@ -28,14 +28,12 @@ import {
 } from '../sim/encounters'
 import { timedOrderLine } from '../sim/marketTimed'
 import {
-  DUNGEON_ATTEMPTS_PER_DAY,
   DUNGEON_MECHANIC_LABEL,
-  battlefieldAffixRow,
-  dungeonAffixRows,
-  dungeonAttemptsLeft,
-  dungeonEncounterOf,
+  dungeonAttemptSummary,
+  dungeonEncounters,
   dungeonRefreshCountdownLabel,
   dungeonSupplyBlockReason,
+  encounterAffixRows,
   isDungeonEncounter,
   type CombatAffixScope,
   type DungeonAffixId,
@@ -118,13 +116,14 @@ const isDungeonTab = computed(() => currentTab.value === 'dungeon')
 const currentDensity = computed(() => mainlineDensity.value)
 const isBrief = computed(() => currentDensity.value === 'brief')
 const boardEncounters = computed(() => {
-  if (isDungeonTab.value) return [dungeonEncounterOf(game.save)]
+  if (isDungeonTab.value) return dungeonEncounters(game.save)
   return encountersOf(game.save, currentTab.value === 'market' ? 'market' : 'battlefield')
 })
-const dungeonAffixList = computed(() => (isDungeonTab.value ? dungeonAffixRows(game.save) : []))
-const dungeonAttemptLabel = computed(() =>
-  isDungeonTab.value ? `次数 ${DUNGEON_ATTEMPTS_PER_DAY - dungeonAttemptsLeft(game.save)}/${DUNGEON_ATTEMPTS_PER_DAY}` : '',
-)
+const dungeonAttemptLabel = computed(() => {
+  if (!isDungeonTab.value) return ''
+  const summary = dungeonAttemptSummary(game.save)
+  return `次数 ${summary.used}/${summary.total}`
+})
 const affixHelp = ref<DungeonAffixId | null>(null)
 const affixHelpScope = ref<CombatAffixScope>('dungeon')
 const affixHelpPos = ref({ left: 8, top: 8 })
@@ -217,10 +216,9 @@ function onExplore() {
 }
 
 function activeEnemy(): EnemyEncounter | null {
-  if (isDungeonTab.value) return dungeonEncounterOf(game.save)
   const i = pickIndex.value
   if (i == null) return null
-  const enc = game.save.encounters[i]
+  const enc = isDungeonTab.value ? boardEncounters.value[i] : game.save.encounters[i]
   return enc?.kind === 'enemy' ? enc : null
 }
 
@@ -240,9 +238,15 @@ function showFightReadout(enc: Encounter) {
   return enc.kind === 'enemy' && (!isBrief.value || isFighting(enc))
 }
 
+function dungeonCard(index: number): EnemyEncounter | null {
+  const enc = boardEncounters.value[index]
+  return enc?.kind === 'enemy' ? enc : null
+}
+
 function consumeShort(index: number) {
   if (isDungeonTab.value) {
-    const reason = dungeonSupplyBlockReason(game.save)
+    const enc = dungeonCard(index)
+    const reason = enc ? dungeonSupplyBlockReason(game.save, enc.id) : null
     return !!reason && reason.startsWith('货不够')
   }
   return isEncounterActionConsumeShort(game.save, index, currentTab.value === 'market' ? 'market' : 'battlefield')
@@ -266,7 +270,9 @@ function openPick(index: number) {
     pushFloatTip(CONSUME_SHORT_TIP, 'err')
     return
   }
-  const blocked = isDungeonTab.value ? dungeonSupplyBlockReason(game.save) : combatSupplyBlockReason(game.save, index)
+  const blocked = isDungeonTab.value
+    ? dungeonSupplyBlockReason(game.save, dungeonCard(index)?.id)
+    : combatSupplyBlockReason(game.save, index)
   if (blocked) {
     pushFloatTip(blocked, 'err')
     return
@@ -282,7 +288,7 @@ function openLoseReinforce(index: number) {
 }
 
 function openReinforce(index: number) {
-  const enc = isDungeonTab.value ? dungeonEncounterOf(game.save) : game.save.encounters[index]
+  const enc = isDungeonTab.value ? dungeonCard(index) : game.save.encounters[index]
   if (enc?.kind !== 'enemy' || !canReinforceCombat(enc)) return
   resetPick('reinforce', index)
 }
@@ -385,9 +391,11 @@ function confirmPick() {
   const guests = assistWorker.value ? [assistWorker.value] : []
   const runes = runePicksForConfirm()
   if (pickMode.value === 'reinforce') {
-    const result = isDungeonTab.value
-      ? game.reinforceDungeonCombat([...picked.value], guests, runes)
-      : game.reinforceCombat(index, [...picked.value], guests, runes)
+    const dungeonId = isDungeonTab.value ? dungeonCard(index)?.id : null
+    const result =
+      isDungeonTab.value && dungeonId
+        ? game.reinforceDungeonCombat(dungeonId, [...picked.value], guests, runes)
+        : game.reinforceCombat(index, [...picked.value], guests, runes)
     if (result.ok) closePick()
     return
   }
@@ -400,9 +408,11 @@ function confirmPick() {
     pushFloatTip(CONSUME_SHORT_TIP, 'err')
     return
   }
-  const result = isDungeonTab.value
-    ? game.startDungeonCombat([...picked.value], guests, runes)
-    : game.startCombat(index, [...picked.value], guests, runes)
+  const dungeonId = isDungeonTab.value ? dungeonCard(index)?.id : null
+  const result =
+    isDungeonTab.value && dungeonId
+      ? game.startDungeonCombat(dungeonId, [...picked.value], guests, runes)
+      : game.startCombat(index, [...picked.value], guests, runes)
   if (result.ok) closePick()
 }
 
@@ -419,8 +429,8 @@ function cardClass(enc: Encounter) {
   }
 }
 
-function enemyCardAffix(enc: Encounter) {
-  return enc.kind === 'enemy' ? battlefieldAffixRow(enc) : null
+function enemyCardAffixes(enc: Encounter) {
+  return enc.kind === 'enemy' ? encounterAffixRows(enc) : []
 }
 
 function enemyActStunned(enc: Encounter) {
@@ -525,23 +535,10 @@ function timedLine(enc: Encounter) {
     </div>
     <p v-if="buffOn" class="buff">{{ buffLabel }}</p>
     <div v-if="isDungeonTab" class="dungeon-meta">
-      <span>今日词缀：</span>
-      <button
-        v-for="row in dungeonAffixList"
-        :key="row.id"
-        type="button"
-        class="affix-chip"
-        data-dungeon-affix
-        :aria-pressed="isDungeonAffixHelpOpen(affixHelp, row.id)"
-        :aria-label="`查看 ${row.label} 效果`"
-        @click="onAffixHelp($event, row.id, 'dungeon')"
-      >
-        {{ row.label }}
-      </button>
       <span>{{ dungeonAttemptLabel }}</span>
     </div>
 
-    <div class="board" :class="{ solo: isDungeonTab }">
+    <div class="board">
       <article v-for="(enc, i) in boardEncounters" :key="enc.id" class="card" :class="cardClass(enc)">
         <EncounterTips :encounter-id="enc.id" />
         <i v-if="isEncounterDone(enc, now)" class="stamp" aria-hidden="true">{{ stampLabel(enc) }}</i>
@@ -565,15 +562,16 @@ function timedLine(enc: Encounter) {
                   {{ DUNGEON_MECHANIC_LABEL[enc.dungeonMechanic] }}
                 </i>
                 <button
-                  v-if="enemyCardAffix(enc)"
+                  v-for="row in enemyCardAffixes(enc)"
+                  :key="`${enc.id}-${row.id}`"
                   type="button"
                   class="affix-chip"
                   data-dungeon-affix
-                  :aria-pressed="isDungeonAffixHelpOpen(affixHelp, enemyCardAffix(enc)!.id)"
-                  :aria-label="`查看 ${enemyCardAffix(enc)!.label} 效果`"
-                  @click="onAffixHelp($event, enemyCardAffix(enc)!.id, 'battlefield')"
+                  :aria-pressed="isDungeonAffixHelpOpen(affixHelp, row.id)"
+                  :aria-label="`查看 ${row.label} 效果`"
+                  @click="onAffixHelp($event, row.id, isDungeonEncounter(enc) ? 'dungeon' : 'battlefield')"
                 >
-                  {{ enemyCardAffix(enc)!.label }}
+                  {{ row.label }}
                 </button>
               </span>
             </div>
@@ -642,7 +640,7 @@ function timedLine(enc: Encounter) {
             <button
               v-else-if="enemyCardButton(enc) === 'chest'"
               type="button"
-              @click="game.claimDungeonChest()"
+              @click="game.claimDungeonChest(enc.id)"
             >
               宝箱
             </button>
@@ -1025,10 +1023,6 @@ function timedLine(enc: Encounter) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-}
-
-.board.solo {
-  grid-template-columns: minmax(0, 1fr);
 }
 
 .dungeon-meta {

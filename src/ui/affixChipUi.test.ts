@@ -17,20 +17,23 @@ describe('affix chip layout', () => {
     const enemy = sliceBetween(template, "enc.kind === 'enemy'", '{{ enc.label }}')
     const tags = sliceBetween(enemy, 'class="tags"', '</span>')
     expect(tags).toContain('class="affix-chip"')
-    expect(tags).toContain("onAffixHelp($event, enemyCardAffix(enc)!.id, 'battlefield')")
+    expect(tags).toContain("enemyCardAffixes(enc)")
+    expect(tags).toContain("'battlefield'")
     expect(enemy).not.toContain('affix-row')
     expect(enemy).not.toContain('card-affix')
     const afterName = template.slice(template.indexOf('{{ enc.label }}'), template.indexOf('<EncounterDealLines'))
     expect(afterName).not.toContain('affix-chip')
   })
 
-  it('keeps dungeon affixes and attempt count on one wrapping row', () => {
+  it('keeps the dungeon attempt count on the meta row and affixes on the card', () => {
     const meta = sliceBetween(template, 'class="dungeon-meta"', 'class="board"')
-    expect(meta).toContain('今日词缀：')
+    expect(meta).not.toContain('今日词缀')
     expect(meta).toContain('dungeonAttemptLabel')
-    expect(meta).toContain('class="affix-chip"')
-    expect(meta).toContain("onAffixHelp($event, row.id, 'dungeon')")
+    expect(meta).not.toContain('affix-chip')
     expect(meta).not.toContain('<p')
+    const enemy = sliceBetween(template, "enc.kind === 'enemy'", '{{ enc.label }}')
+    const tags = sliceBetween(enemy, 'class="tags"', '</span>')
+    expect(tags).toContain("'dungeon'")
     expect(style).toMatch(/\.dungeon-meta\s*\{[^}]*flex-wrap:\s*wrap/)
   })
 

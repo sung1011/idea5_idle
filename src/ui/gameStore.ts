@@ -206,11 +206,13 @@ export const useGameStore = defineStore('game', () => {
       apply((s) => reinforceCombat(s, index, workerIds, Date.now(), pushCombatLogTip, guests, runePicks)),
     reinforceLostCombat: (index: number, workerIds: string[], guests?: Worker[], runePicks?: RunePickMap) =>
       apply((s) => reinforceLostCombat(s, index, workerIds, Date.now(), pushCombatLogTip, guests, runePicks)),
-    startDungeonCombat: (workerIds: string[], guests?: Worker[], runePicks?: RunePickMap) =>
-      apply((s) => startDungeonCombat(s, workerIds, Date.now(), pushCombatLogTip, guests, runePicks)),
-    reinforceDungeonCombat: (workerIds: string[], guests?: Worker[], runePicks?: RunePickMap) =>
-      apply((s) => reinforceDungeonCombat(s, workerIds, Date.now(), pushCombatLogTip, guests, runePicks)),
-    claimDungeonChest: () => apply((s) => claimDungeonChest(s)),
+    startDungeonCombat: (encounterId: string, workerIds: string[], guests?: Worker[], runePicks?: RunePickMap) =>
+      apply((s) => startDungeonCombat(s, encounterId, workerIds, Date.now(), pushCombatLogTip, guests, runePicks)),
+    reinforceDungeonCombat: (encounterId: string, workerIds: string[], guests?: Worker[], runePicks?: RunePickMap) =>
+      apply((s) =>
+        reinforceDungeonCombat(s, encounterId, workerIds, Date.now(), pushCombatLogTip, guests, runePicks),
+      ),
+    claimDungeonChest: (encounterId: string) => apply((s) => claimDungeonChest(s, encounterId)),
     claimLoot: (index: number) => apply((s) => claimLoot(s, index)),
     barter: (index: number) => apply((s) => barterMerchant(s, index)),
     buyMerchant: (index: number) => apply((s) => buyMerchant(s, index)),

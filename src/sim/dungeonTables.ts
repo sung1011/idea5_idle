@@ -8,9 +8,19 @@ import type {
   ItemId,
 } from './types'
 
-export const DUNGEON_BOSS_ID = 'dungeonWarden'
-export const DUNGEON_BOSS_LABEL = '地牢看守'
+export const DUNGEON_LEGACY_BOSS_ID = 'dungeonWarden'
+export const DUNGEON_JAILER_ID = 'dungeonJailer'
+export const DUNGEON_BROKER_ID = 'dungeonBroker'
+export const DUNGEON_JAILER_LABEL = '深渊狱卒'
+export const DUNGEON_BROKER_LABEL = '黑市掮客'
+/** 钻单。旧档「地牢看守」迁到这一张。 */
+export const DUNGEON_BOSS_ID = DUNGEON_JAILER_ID
+export const DUNGEON_BOSS_LABEL = DUNGEON_JAILER_LABEL
+export const DUNGEON_BOSS_IDS = [DUNGEON_JAILER_ID, DUNGEON_BROKER_ID] as const
+export type DungeonBossId = (typeof DUNGEON_BOSS_IDS)[number]
+export type DungeonRewardKind = 'diamonds' | 'gold'
 export const DUNGEON_PARTY_MAX = 5
+/** 每张地牢单每天 1 次开战。 */
 export const DUNGEON_ATTEMPTS_PER_DAY = 1
 export const DUNGEON_STUN_S = 3
 export const DUNGEON_TIMEOUT_S = 1800
@@ -38,7 +48,11 @@ export const DUNGEON_CHAPTER_FX = {
   shieldFromChapter: 3,
 } as const
 
-export const DUNGEON_BOSS_STATS: CombatStats = { hp: 8000, atk: 5, spd: 4 }
+/** 深渊狱卒：厚血、出手偏慢、攻击略高。 */
+export const DUNGEON_JAILER_STATS: CombatStats = { hp: 9600, atk: 6, spd: 5 }
+/** 黑市掮客：偏脆、出手更勤、攻击更高。 */
+export const DUNGEON_BROKER_STATS: CombatStats = { hp: 6200, atk: 7, spd: 3 }
+export const DUNGEON_BOSS_STATS: CombatStats = DUNGEON_JAILER_STATS
 
 export const DUNGEON_AFFIX_IDS = [
   'thickHide',
@@ -54,7 +68,8 @@ export const DUNGEON_AFFIX_IDS = [
 ] as const
 export type DungeonAffixId = (typeof DUNGEON_AFFIX_IDS)[number]
 
-export const DUNGEON_AFFIX_COUNT = 3
+/** 每张地牢单独立掷的词缀条数。 */
+export const DUNGEON_AFFIX_COUNT = 2
 export const BATTLEFIELD_AFFIX_COUNT = 1
 export type CombatAffixScope = 'dungeon' | 'battlefield'
 
@@ -62,27 +77,25 @@ export function dungeonAffixEffect(id: DungeonAffixId, scope: CombatAffixScope =
   if (scope === 'battlefield') return battlefieldAffixEffect(id)
   switch (id) {
     case 'thickHide':
-      return `开战时地牢 Boss 生命 ×${DUNGEON_AFFIX_FX.thickHideHpMul}（基准 ${DUNGEON_BOSS_STATS.hp} → ${Math.round(DUNGEON_BOSS_STATS.hp * DUNGEON_AFFIX_FX.thickHideHpMul)}）。只作用于本日地牢。`
-    case 'quickened': {
-      const spd = Math.max(2, Math.round(DUNGEON_BOSS_STATS.spd * DUNGEON_AFFIX_FX.quickenedSpdMul * 100) / 100)
-      return `开战时地牢 Boss 出手间隔 ×${DUNGEON_AFFIX_FX.quickenedSpdMul}（基准 ${DUNGEON_BOSS_STATS.spd}s → ${spd}s，下限 2s）。只作用于本日地牢。`
-    }
+      return `开战时本单 Boss 生命 ×${DUNGEON_AFFIX_FX.thickHideHpMul}。只作用于本单。`
+    case 'quickened':
+      return `开战时本单 Boss 出手间隔 ×${DUNGEON_AFFIX_FX.quickenedSpdMul}（下限 2s）。只作用于本单。`
     case 'heavyHands':
-      return `开战时地牢 Boss 攻击 ×${DUNGEON_AFFIX_FX.heavyHandsAtkMul}（基准 ${DUNGEON_BOSS_STATS.atk} → ${Math.round(DUNGEON_BOSS_STATS.atk * DUNGEON_AFFIX_FX.heavyHandsAtkMul)}）。只作用于本日地牢。`
+      return `开战时本单 Boss 攻击 ×${DUNGEON_AFFIX_FX.heavyHandsAtkMul}。只作用于本单。`
     case 'ironShield':
-      return `每个阶段破防盾 +${DUNGEON_AFFIX_FX.ironShieldBonus}（${DUNGEON_PHASES.map((p) => p.shield).join('/')} → ${DUNGEON_PHASES.map((p) => p.shield + DUNGEON_AFFIX_FX.ironShieldBonus).join('/')}）。开战写入，持续整场。`
+      return `每个阶段破防盾 +${DUNGEON_AFFIX_FX.ironShieldBonus}。开战写入，持续整场。只作用于本单。`
     case 'jagged':
-      return `地牢 Boss 每次打中场上工人额外造成 ${DUNGEON_AFFIX_FX.jaggedExtra} 点伤害。只作用于本日地牢，不波及工坊站。`
+      return `本单 Boss 每次打中场上工人额外造成 ${DUNGEON_AFFIX_FX.jaggedExtra} 点伤害。不波及工坊站。只作用于本单。`
     case 'richVein':
-      return `领取宝箱时钻石 ×${DUNGEON_AFFIX_FX.richVeinDiamondMul}（四舍五入）。铜 ${DUNGEON_CHEST.copper.diamonds}→${Math.round(DUNGEON_CHEST.copper.diamonds * DUNGEON_AFFIX_FX.richVeinDiamondMul)}、银 ${DUNGEON_CHEST.silver.diamonds}→${Math.round(DUNGEON_CHEST.silver.diamonds * DUNGEON_AFFIX_FX.richVeinDiamondMul)}、金 ${DUNGEON_CHEST.gold.diamonds}→${Math.round(DUNGEON_CHEST.gold.diamonds * DUNGEON_AFFIX_FX.richVeinDiamondMul)}。`
+      return `领取本单宝箱时，该单货币 ×${DUNGEON_AFFIX_FX.richVeinDiamondMul}（四舍五入）。钻单抬钻石，金单抬金币。`
     case 'shortStun':
-      return `破防硬直 ${DUNGEON_STUN_S + DUNGEON_AFFIX_FX.shortStunDelta}s（基准 ${DUNGEON_STUN_S}s ${DUNGEON_AFFIX_FX.shortStunDelta}s）。只作用于本日地牢。`
+      return `破防硬直 ${DUNGEON_STUN_S + DUNGEON_AFFIX_FX.shortStunDelta}s（基准 ${DUNGEON_STUN_S}s ${DUNGEON_AFFIX_FX.shortStunDelta}s）。只作用于本单。`
     case 'workshopRage':
-      return `地牢 Boss 打中工坊在岗工人的伤害 ×${DUNGEON_AFFIX_FX.workshopRageMul}。不改变对场上工人的伤害。`
+      return `本单 Boss 打中工坊在岗工人的伤害 ×${DUNGEON_AFFIX_FX.workshopRageMul}。不改变对场上工人的伤害。`
     case 'slowReinforce':
-      return `增援入场后延迟 ${DUNGEON_AFFIX_FX.reinforceDelayMs / 1000}s 才能出手。开战首发不受影响。`
+      return `增援入场后延迟 ${DUNGEON_AFFIX_FX.reinforceDelayMs / 1000}s 才能出手。开战首发不受影响。只作用于本单。`
     case 'dullEdge':
-      return `克制伤害倍率固定 ×${DUNGEON_AFFIX_FX.dullEdgeDamageMul}（按无克制结算），破盾与揭示仍算。只作用于本日地牢。`
+      return `克制伤害倍率固定 ×${DUNGEON_AFFIX_FX.dullEdgeDamageMul}（按无克制结算），破盾与揭示仍算。只作用于本单。`
   }
 }
 
@@ -127,11 +140,21 @@ export type DungeonPhaseDef = {
   targetRuleId: EnemyTargetRuleId
 }
 
-export const DUNGEON_PHASES: readonly DungeonPhaseDef[] = [
-  { shield: 5, weaknesses: ['fire', 'sword', 'bow'], mechanic: 'cleave', targetRuleId: 'cleave2' },
-  { shield: 7, weaknesses: ['ice', 'polearm', 'lightning'], mechanic: 'workshopSmash', targetRuleId: 'workshopBias' },
-  { shield: 9, weaknesses: ['dark', 'axe', 'wind'], mechanic: 'enrage', targetRuleId: 'lowestHp' },
+/** 深渊狱卒：砸场 + 工坊目标，盾更厚。 */
+export const DUNGEON_JAILER_PHASES: readonly DungeonPhaseDef[] = [
+  { shield: 7, weaknesses: ['fire', 'axe', 'wind'], mechanic: 'workshopSmash', targetRuleId: 'workshopBias' },
+  { shield: 9, weaknesses: ['ice', 'polearm', 'lightning'], mechanic: 'workshopSmash', targetRuleId: 'sameStation' },
+  { shield: 12, weaknesses: ['dark', 'sword', 'bow'], mechanic: 'enrage', targetRuleId: 'workshopBias' },
 ]
+
+/** 黑市掮客：横扫 + 残血点杀，盾更薄。 */
+export const DUNGEON_BROKER_PHASES: readonly DungeonPhaseDef[] = [
+  { shield: 4, weaknesses: ['sword', 'bow', 'lightning'], mechanic: 'cleave', targetRuleId: 'cleave2' },
+  { shield: 6, weaknesses: ['fire', 'ice', 'axe'], mechanic: 'cleave', targetRuleId: 'lowestHp' },
+  { shield: 8, weaknesses: ['dark', 'wind', 'polearm'], mechanic: 'enrage', targetRuleId: 'lowestHp' },
+]
+
+export const DUNGEON_PHASES: readonly DungeonPhaseDef[] = DUNGEON_JAILER_PHASES
 
 export const DUNGEON_TARGET_ROTATION: readonly EnemyTargetRuleId[] = [
   'cleave2',
@@ -143,13 +166,30 @@ export const DUNGEON_TARGET_ROTATION: readonly EnemyTargetRuleId[] = [
 
 export type DungeonChestTier = 'copper' | 'silver' | 'gold'
 
-export const DUNGEON_CHEST: Readonly<
-  Record<DungeonChestTier, { diamonds: number; items: Readonly<Partial<Record<ItemId, number>>> }>
-> = {
-  copper: { diamonds: 8, items: { herb: 4, meal: 1 } },
-  silver: { diamonds: 14, items: { herb: 4, meal: 2, salve: 1 } },
-  gold: { diamonds: 22, items: { herb: 6, meal: 3, salve: 2 } },
+export type DungeonChestRow = {
+  diamonds: number
+  gold: number
+  items: Readonly<Partial<Record<ItemId, number>>>
 }
+
+/** 钻单宝箱。金箱钻石约为旧金箱 22 的 1.8 倍。物品略减。 */
+export const DUNGEON_DIAMOND_CHEST: Readonly<Record<DungeonChestTier, DungeonChestRow>> = {
+  copper: { diamonds: 12, gold: 0, items: { herb: 3, meal: 1 } },
+  silver: { diamonds: 22, gold: 0, items: { herb: 3, meal: 1, salve: 1 } },
+  gold: { diamonds: 40, gold: 0, items: { herb: 4, meal: 2, salve: 1 } },
+}
+
+/** 金单宝箱底。金箱 100，再随章节略涨。几乎不给钻。 */
+export const DUNGEON_GOLD_CHEST: Readonly<Record<DungeonChestTier, DungeonChestRow>> = {
+  copper: { diamonds: 0, gold: 40, items: { herb: 2 } },
+  silver: { diamonds: 0, gold: 70, items: { herb: 2, meal: 1 } },
+  gold: { diamonds: 0, gold: 100, items: { herb: 3, meal: 1 } },
+}
+
+export const DUNGEON_GOLD_CHAPTER_STEP = 0.08
+
+/** 旧名指向钻单表，方便对照钻石档。 */
+export const DUNGEON_CHEST = DUNGEON_DIAMOND_CHEST
 
 export const DUNGEON_AFFIX_DEFS: Readonly<Record<DungeonAffixId, { label: string; tip: string; effect: string }>> = {
   thickHide: { label: '厚皮', tip: '地牢 Boss 生命更高', effect: dungeonAffixEffect('thickHide') },
@@ -157,7 +197,7 @@ export const DUNGEON_AFFIX_DEFS: Readonly<Record<DungeonAffixId, { label: string
   heavyHands: { label: '重击', tip: '地牢 Boss 伤害更高', effect: dungeonAffixEffect('heavyHands') },
   ironShield: { label: '铁盾', tip: '每阶段盾数 +2', effect: dungeonAffixEffect('ironShield') },
   jagged: { label: '尖刺', tip: '工人挨打额外受伤', effect: dungeonAffixEffect('jagged') },
-  richVein: { label: '富矿', tip: '宝箱钻石更多', effect: dungeonAffixEffect('richVein') },
+  richVein: { label: '富矿', tip: '本单货币更多', effect: dungeonAffixEffect('richVein') },
   shortStun: { label: '急醒', tip: '破防硬直更短', effect: dungeonAffixEffect('shortStun') },
   workshopRage: { label: '砸场强化', tip: '工坊波及更疼', effect: dungeonAffixEffect('workshopRage') },
   slowReinforce: { label: '迟援', tip: '增援出手更慢', effect: dungeonAffixEffect('slowReinforce') },
@@ -193,22 +233,101 @@ export function applyCombatAffixStats(stats: CombatStats, affixIds: readonly Dun
   return { hp, atk, spd }
 }
 
-export function encounterAffixIds(
-  save: { dungeon?: { affixIds?: unknown } } | undefined,
-  enc: EnemyEncounter,
-): DungeonAffixId[] {
-  if (isDungeonEncounter(enc)) {
-    const ids = save?.dungeon?.affixIds
-    return Array.isArray(ids) ? ids.filter(isDungeonAffixId) : []
+export type DungeonBossProfile = {
+  id: DungeonBossId
+  label: string
+  reward: DungeonRewardKind
+  stats: CombatStats
+  phases: readonly DungeonPhaseDef[]
+  /** 增援基准延迟。词缀迟援取更大值。狱卒的迟援味。 */
+  reinforceDelayMs: number
+  /** 打场上工人的基准额外伤。掮客的尖刺味。 */
+  jaggedExtra: number
+  /** 工坊伤害基准倍率。狱卒的砸场味。与词缀砸场强化相乘。 */
+  workshopMul: number
+  /** 克制加成保留比例。1 不削弱；越小越接近钝刃。 */
+  counterKeep: number
+}
+
+export const DUNGEON_BOSS_DEFS: Readonly<Record<DungeonBossId, DungeonBossProfile>> = {
+  dungeonJailer: {
+    id: DUNGEON_JAILER_ID,
+    label: DUNGEON_JAILER_LABEL,
+    reward: 'diamonds',
+    stats: DUNGEON_JAILER_STATS,
+    phases: DUNGEON_JAILER_PHASES,
+    reinforceDelayMs: 2000,
+    jaggedExtra: 0,
+    workshopMul: 1.25,
+    counterKeep: 1,
+  },
+  dungeonBroker: {
+    id: DUNGEON_BROKER_ID,
+    label: DUNGEON_BROKER_LABEL,
+    reward: 'gold',
+    stats: DUNGEON_BROKER_STATS,
+    phases: DUNGEON_BROKER_PHASES,
+    reinforceDelayMs: 0,
+    jaggedExtra: 3,
+    workshopMul: 1,
+    counterKeep: 0.35,
+  },
+}
+
+export function isDungeonBossId(value: unknown): value is DungeonBossId {
+  return value === DUNGEON_JAILER_ID || value === DUNGEON_BROKER_ID
+}
+
+export function dungeonBossProfile(id: unknown): DungeonBossProfile {
+  return isDungeonBossId(id) ? DUNGEON_BOSS_DEFS[id] : DUNGEON_BOSS_DEFS[DUNGEON_JAILER_ID]
+}
+
+export function dungeonBossReward(id: unknown): DungeonRewardKind {
+  return dungeonBossProfile(id).reward
+}
+
+export function dungeonPhasesOf(bossId: unknown): readonly DungeonPhaseDef[] {
+  return dungeonBossProfile(bossId).phases
+}
+
+export function dungeonBossReinforceDelayMs(enc: { id?: unknown; dungeon?: unknown }): number {
+  if (!isDungeonEncounter(enc)) return 0
+  return dungeonBossProfile(enc.id).reinforceDelayMs
+}
+
+export function dungeonBossJaggedExtra(enc: { id?: unknown; dungeon?: unknown }): number {
+  if (!isDungeonEncounter(enc)) return 0
+  return dungeonBossProfile(enc.id).jaggedExtra
+}
+
+export function dungeonBossWorkshopMul(enc: { id?: unknown; dungeon?: unknown }): number {
+  if (!isDungeonEncounter(enc)) return 1
+  return dungeonBossProfile(enc.id).workshopMul
+}
+
+export function dungeonBossCounterKeep(enc: { id?: unknown; dungeon?: unknown }): number {
+  if (!isDungeonEncounter(enc)) return 1
+  return dungeonBossProfile(enc.id).counterKeep
+}
+
+export function dungeonGoldAmount(tier: DungeonChestTier, chapter: unknown): number {
+  const base = DUNGEON_GOLD_CHEST[tier].gold
+  return Math.round(base * (1 + DUNGEON_GOLD_CHAPTER_STEP * dungeonChapterOffset(chapter)))
+}
+
+export function encounterAffixIds(_save: unknown, enc: EnemyEncounter): DungeonAffixId[] {
+  if (Array.isArray(enc.affixIds) && enc.affixIds.length) {
+    const out: DungeonAffixId[] = []
+    for (const id of enc.affixIds) {
+      if (isDungeonAffixId(id) && !out.includes(id)) out.push(id)
+    }
+    if (out.length) return out
   }
+  if (isDungeonEncounter(enc)) return []
   return isDungeonAffixId(enc.affixId) ? [enc.affixId] : []
 }
 
-export function hasEncounterAffix(
-  save: { dungeon?: { affixIds?: unknown } } | undefined,
-  enc: EnemyEncounter,
-  id: DungeonAffixId,
-): boolean {
+export function hasEncounterAffix(save: unknown, enc: EnemyEncounter, id: DungeonAffixId): boolean {
   return encounterAffixIds(save, enc).includes(id)
 }
 
@@ -225,12 +344,13 @@ export function dungeonPhaseIndex(phase: unknown): number {
   return Math.min(DUNGEON_PHASES.length, Math.max(1, n))
 }
 
-export function dungeonPhaseDef(phase: unknown): DungeonPhaseDef {
-  return DUNGEON_PHASES[dungeonPhaseIndex(phase) - 1]
+export function dungeonPhaseDef(phase: unknown, bossId?: unknown): DungeonPhaseDef {
+  const phases = dungeonPhasesOf(bossId)
+  return phases[dungeonPhaseIndex(phase) - 1]
 }
 
-export function dungeonPhaseShield(phase: unknown, bonus = 0): number {
-  return dungeonPhaseDef(phase).shield + Math.max(0, Math.floor(bonus))
+export function dungeonPhaseShield(phase: unknown, bonus = 0, bossId?: unknown): number {
+  return dungeonPhaseDef(phase, bossId).shield + Math.max(0, Math.floor(bonus))
 }
 
 export function dungeonChapterOffset(chapter: unknown): number {
@@ -265,7 +385,7 @@ export function dungeonChestTier(enc: EnemyEncounter): DungeonChestTier {
 }
 
 export function applyDungeonPhaseToEncounter(enc: EnemyEncounter, phase: number, at: number): void {
-  const def = dungeonPhaseDef(phase)
+  const def = dungeonPhaseDef(phase, enc.id)
   enc.dungeonPhase = dungeonPhaseIndex(phase)
   enc.dungeonPhaseReached = Math.max(enc.dungeonPhaseReached ?? 1, enc.dungeonPhase)
   enc.dungeonMechanic = def.mechanic
@@ -274,7 +394,7 @@ export function applyDungeonPhaseToEncounter(enc: EnemyEncounter, phase: number,
   enc.targetRuleId = def.targetRuleId
   enc.targetRuleUntil = at + DUNGEON_TARGET_ROTATE_S * 1000
   const bonus = enc.dungeonShieldBonus ?? 0
-  const shield = dungeonPhaseShield(enc.dungeonPhase, bonus)
+  const shield = dungeonPhaseShield(enc.dungeonPhase, bonus, enc.id)
   if (enc.combat) {
     enc.combat.shieldMax = shield
     enc.combat.shield = shield
@@ -319,16 +439,23 @@ export function maybeRotateDungeonTarget(enc: EnemyEncounter, at: number): void 
   rotateDungeonTarget(enc, at)
 }
 
-export function makeDungeonEncounter(): EnemyEncounter {
-  const phase = DUNGEON_PHASES[0]
+export function makeDungeonEncounter(
+  bossId: DungeonBossId = DUNGEON_JAILER_ID,
+  affixIds: readonly DungeonAffixId[] = [],
+  chapter = 1,
+): EnemyEncounter {
+  const boss = dungeonBossProfile(bossId)
+  const phase = boss.phases[0]
+  const diamonds = boss.reward === 'diamonds' ? DUNGEON_DIAMOND_CHEST.gold.diamonds : 0
+  const gold = boss.reward === 'gold' ? dungeonGoldAmount('gold', chapter) : 0
   return {
     kind: 'enemy',
-    id: DUNGEON_BOSS_ID,
-    label: DUNGEON_BOSS_LABEL,
+    id: boss.id,
+    label: boss.label,
     quality: 'orange',
     needs: { ...DUNGEON_NEEDS },
-    lootGold: 0,
-    lootDiamonds: DUNGEON_CHEST.gold.diamonds,
+    lootGold: gold,
+    lootDiamonds: diamonds,
     departed: false,
     combat: null,
     lootClaimed: false,
@@ -343,5 +470,6 @@ export function makeDungeonEncounter(): EnemyEncounter {
     revealedWeaknesses: [],
     targetRuleId: phase.targetRuleId,
     targetRuleUntil: null,
+    affixIds: [...affixIds],
   }
 }

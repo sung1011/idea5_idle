@@ -25,6 +25,10 @@ import {
   applyCombatAffixStats,
   DUNGEON_AFFIX_FX,
   DUNGEON_PARTY_MAX,
+  dungeonBossCounterKeep,
+  dungeonBossJaggedExtra,
+  dungeonBossReinforceDelayMs,
+  dungeonBossWorkshopMul,
   dungeonPhaseIndex,
   dungeonStunS,
   encounterAffixIds,
@@ -317,7 +321,7 @@ export function combatPartyCap(enc?: EnemyEncounter | null): number {
 export function fightingWorkerIds(save: Save): Set<string> {
   const ids = new Set<string>()
   const boards = [...(save.encounters ?? [])]
-  if (save.dungeon?.encounter) boards.push(save.dungeon.encounter)
+  for (const enc of save.dungeon?.encounters ?? []) boards.push(enc)
   for (const enc of boards) {
     if (enc.kind !== 'enemy' || !isFighting(enc) || !enc.combat) continue
     for (const fighter of combatRosterFighters(enc.combat)) ids.add(fighter.id)
@@ -520,7 +524,8 @@ function dungeonPhaseLocked(enc: EnemyEncounter): boolean {
 }
 
 function dungeonJaggedBonus(save: Save, enc: EnemyEncounter): number {
-  return hasEncounterAffix(save, enc, 'jagged') ? DUNGEON_AFFIX_FX.jaggedExtra : 0
+  const affix = hasEncounterAffix(save, enc, 'jagged') ? DUNGEON_AFFIX_FX.jaggedExtra : 0
+  return affix + dungeonBossJaggedExtra(enc)
 }
 
 function wakeCombatShield(enc: EnemyEncounter, combat: EnemyCombat, at: number): void {
@@ -615,9 +620,11 @@ export function addCombatReinforcements(
   for (const worker of workers) {
     if (combat.workers.some((row) => row.id === worker.id)) continue
     const fighter = fighterFromWorker(worker, now, save, runes?.[worker.id], false, true)
-    if (save && hasEncounterAffix(save, enc, 'slowReinforce')) {
-      fighter.nextActAt = now + DUNGEON_AFFIX_FX.reinforceDelayMs
-    }
+    const reinforceDelay = Math.max(
+      dungeonBossReinforceDelayMs(enc),
+      save && hasEncounterAffix(save, enc, 'slowReinforce') ? DUNGEON_AFFIX_FX.reinforceDelayMs : 0,
+    )
+    if (reinforceDelay > 0) fighter.nextActAt = now + reinforceDelay
     combat.workers.push(fighter)
     added.push(fighter)
     if (!combat.workerIds.includes(worker.id)) combat.workerIds.push(worker.id)
@@ -773,7 +780,12 @@ function strike(
     const stunned = isCombatStunned(combat, at)
     const vuln = stunned ? BREAK_VULN_MUL : 1
     const echo = stunned ? breakEchoMul(save) : 1
-    const dull = hasEncounterAffix(save, enc, 'dullEdge') ? DUNGEON_AFFIX_FX.dullEdgeDamageMul : result.mul
+    const counterKeep = dungeonBossCounterKeep(enc)
+    const dull = hasEncounterAffix(save, enc, 'dullEdge')
+      ? DUNGEON_AFFIX_FX.dullEdgeDamageMul
+      : counterKeep < 1
+        ? 1 + (result.mul - 1) * counterKeep
+        : result.mul
     let firstHitMul = 1
     if (attacker.reinforceHitPending) {
       if (attacker.reinforced) firstHitMul = reinforceFirstMul(save)
@@ -823,7 +835,8 @@ function strikeWorkshop(
   if (attacker.hp <= 0) return
   const worker = save.workers.find((w) => w.id === target.id)
   if (!worker || worker.hp <= 0) return
-  const rage = hasEncounterAffix(save, enc, 'workshopRage') ? DUNGEON_AFFIX_FX.workshopRageMul : 1
+  const affixRage = hasEncounterAffix(save, enc, 'workshopRage') ? DUNGEON_AFFIX_FX.workshopRageMul : 1
+  const rage = affixRage * dungeonBossWorkshopMul(enc)
   const woundedMul = isWoundedHp(worker) ? woundedTakenMul(save) : 1
   const hit = Math.max(1, Math.round((attacker.atk + dungeonJaggedBonus(save, enc)) * rage * woundedMul))
   worker.hp = Math.max(1, worker.hp - hit)
@@ -951,8 +964,9 @@ export function stepCombats(save: Save, now: number, onLog?: CombatLogSink): voi
   for (const enc of save.encounters) {
     if (enc.kind === 'enemy') stepEnemyCombat(save, enc, now, onLog)
   }
-  const dungeonEnc = save.dungeon?.encounter
-  if (dungeonEnc?.kind === 'enemy') stepEnemyCombat(save, dungeonEnc, now, onLog)
+  for (const dungeonEnc of save.dungeon?.encounters ?? []) {
+    if (dungeonEnc?.kind === 'enemy') stepEnemyCombat(save, dungeonEnc, now, onLog)
+  }
 }
 
 export function applyRestHeal(save: Save): void {

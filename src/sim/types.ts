@@ -565,6 +565,8 @@ export type EnemyEncounter = EncounterBase & {
    * 探索刷新该格时重掷。旧档缺字段：非进行中的战斗卡 hydrate 补 1 条。
    */
   affixId?: DungeonAffixId
+  /** 地牢单词缀，每单 2 条、互不重复。战斗与宝箱只读本单。 */
+  affixIds?: DungeonAffixId[]
 }
 
 export type DungeonAffixId =
@@ -581,11 +583,12 @@ export type DungeonAffixId =
 
 export type DungeonState = {
   day: number
-  /** 日切刷新时锁定的主线章节。当日不随章节上涨重算。 */
+  /** 日切刷新时锁定的主线章节。当日不随章节上涨重算。两单共享。 */
   chapter: number
-  affixIds: DungeonAffixId[]
-  attemptsUsed: number
-  encounter: EnemyEncounter
+  /** 固定 2 张：深渊狱卒（钻）、黑市掮客（金）。 */
+  encounters: EnemyEncounter[]
+  /** 每单当日开战次数。键为 encounter id。 */
+  attemptsUsedById: Record<string, number>
 }
 
 export type BlackMerchantEncounter = EncounterBase & {
