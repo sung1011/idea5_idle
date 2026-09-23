@@ -157,8 +157,7 @@ function confirmPick() {
         </p>
         <p class="label">储量 {{ mine.reserve }}/{{ mine.reserveMax }}</p>
         <p class="label">消失倒计时 {{ clock(mine) }}</p>
-        <p v-if="mine.owner === 'shadow'" class="label">守军 {{ mine.shadows.map((row) => row.name).join('、') || '无' }}</p>
-        <p v-else class="label">开采 {{ names(mine.crewIds) }}（{{ mine.crewIds.length }}/{{ TREASURE_CREW_CAP }}，无符文）</p>
+        <p v-if="mine.owner === 'player'" class="label">开采 {{ names(mine.crewIds) }}（{{ mine.crewIds.length }}/{{ TREASURE_CREW_CAP }}，无符文）</p>
         <template v-for="hud in raidHuds(mine)" :key="`${mine.id}-raid`">
           <div class="bars">
             <p class="bar-line">{{ hud.defend.name }}</p>
