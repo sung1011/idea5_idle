@@ -13,6 +13,7 @@ import {
   workerMatchesMineWeakness,
   hydrateTreasureMines,
   refreshTreasureMines,
+  shadowCrewCount,
   rejectTreasureMineRune,
   isTreasureRaidLocked,
   reinforceTreasureRaid,
@@ -62,6 +63,33 @@ describe('treasure mines', () => {
     refreshTreasureMines(save)
     expect(save.treasureMines.mines).toHaveLength(4)
     expect(save.treasureMines.mines.some((mine) => mine.id === aging.id)).toBe(false)
+  })
+
+  it('rolls a new hole into 1, 2, or 3 shadows and does not reroll standing holes', () => {
+    expect(shadowCrewCount(0)).toBe(1)
+    expect(shadowCrewCount(1 / 3 - 1e-12)).toBe(1)
+    expect(shadowCrewCount(1 / 3)).toBe(2)
+    expect(shadowCrewCount(2 / 3 - 1e-12)).toBe(2)
+    expect(shadowCrewCount(2 / 3)).toBe(3)
+    expect(shadowCrewCount(0.999)).toBe(3)
+
+    const save = createSave()
+    const kept = save.treasureMines.mines[0]
+    const before = kept.shadows.map((shadow) => shadow.id)
+    const seen = new Set<number>()
+    for (let i = 0; i < 48 && seen.size < 3; i += 1) {
+      const victim = save.treasureMines.mines.find((mine) => mine.id !== kept.id)
+      if (!victim) break
+      victim.reserve = 0
+      refreshTreasureMines(save)
+      for (const mine of save.treasureMines.mines) {
+        if (mine.id !== kept.id) seen.add(mine.shadows.length)
+      }
+    }
+    expect(save.treasureMines.mines.find((mine) => mine.id === kept.id)?.shadows.map((shadow) => shadow.id)).toEqual(
+      before,
+    )
+    expect([...seen].sort()).toEqual([1, 2, 3])
   })
 
   it('sends the raid queue home with their own hp when a hole expires', () => {

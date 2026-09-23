@@ -372,11 +372,18 @@ function nextMineRoll(state: TreasureMineState): number {
   return state.roll / 4294967296
 }
 
+/** 新洞守军人数。roll 来自矿洞自己的 `nextMineRoll`，三段各约 1/3。 */
+export function shadowCrewCount(roll: number): number {
+  if (roll < 1 / 3) return 1
+  if (roll < 2 / 3) return 2
+  return 3
+}
+
 function spawnMine(save: Save, elapsed: number): TreasureMine {
   const state = save.treasureMines
   const id = `mine-${state.nextId}`
   state.nextId += 1
-  const count = 1 + Math.floor(nextMineRoll(state) * 3)
+  const count = shadowCrewCount(nextMineRoll(state))
   const shadows: TreasureShadow[] = []
   for (let i = 0; i < count; i += 1) shadows.push(makeShadow(save, id, i))
   return {
