@@ -155,7 +155,7 @@ function confirmPick() {
           <div class="titles">
             <span class="kind">{{ TREASURE_KIND_LABEL[mine.kind] }}</span>
             <span class="tags">
-              <i>{{ mine.owner === 'player' ? '我方开采' : mine.owner === 'empty' ? '无人矿' : '快照驻守' }}</i>
+              <i>{{ mine.owner === 'player' ? '我方开采' : mine.owner === 'empty' ? '无人矿' : '敌人驻守' }}</i>
             </span>
           </div>
         </header>

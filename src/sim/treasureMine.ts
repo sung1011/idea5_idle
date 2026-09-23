@@ -564,7 +564,7 @@ function paceReadout(rows: { stretched: number; charge: number }[]): MineDigRead
 
 /**
  * 卡面开采读数，人选与 `stepDig` 相同。
- * 我方未抢夺且有编制；快照驻守全员在挖，抢夺中只算非当前交战的守军。
+ * 我方未抢夺且有编制；敌人驻守全员在挖，抢夺中只算非当前交战的守军。
  * 无人矿、我方抢夺中、没人在挖则不给。
  * 进度条跟剩余时间最短的一人；速度文案跟最短间隔，两人可以不是同一个。
  */
@@ -596,7 +596,7 @@ export function mineDigReadout(save: Save, mine: TreasureMine): MineDigReadout |
   )
 }
 
-/** 我方开采读数。无人矿、快照驻守、抢夺中不给。 */
+/** 我方开采读数。无人矿、敌人驻守、抢夺中不给。 */
 export function playerMineDigReadout(save: Save, mine: TreasureMine): MineDigReadout | null {
   if (mine.owner !== 'player') return null
   return mineDigReadout(save, mine)

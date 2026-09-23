@@ -99,7 +99,7 @@ function attackLine(playerName: unknown, fighter: string): string {
   return `${player} · ${fighter}`
 }
 
-/** 未开战的快照驻守洞：只给守方一条静止 HUD。 */
+/** 未开战的敌人驻守洞：只给守方一条静止 HUD。 */
 function standbyDefendHud(mine: TreasureMine): TreasureRaidHud | null {
   const front = mine.shadows[0]
   if (mine.owner !== 'shadow' || mine.raid || !front) return null
@@ -161,7 +161,7 @@ function playerMineHud(
   }
 }
 
-/** 开战画攻守两边。未开战的快照洞、以及我方开采洞，都只画守方。无人矿不画。 */
+/** 开战画攻守两边。未开战的敌人驻守洞、以及我方开采洞，都只画守方。无人矿不画。 */
 export function treasureRaidHud(
   mine: TreasureMine,
   workers: readonly Worker[],

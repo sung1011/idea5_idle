@@ -444,7 +444,7 @@ export type TreasureMine = {
   reserveMax: number
   bornAtS: number
   expiresAtS: number
-  /** `shadow` 快照驻守，`player` 我方开采，`empty` 放弃后的无人矿。 */
+  /** `shadow` 敌人驻守，`player` 我方开采，`empty` 放弃后的无人矿。 */
   owner: 'shadow' | 'player' | 'empty'
   crewIds: string[]
   shadows: TreasureShadow[]
