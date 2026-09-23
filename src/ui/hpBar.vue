@@ -86,19 +86,25 @@ onUnmounted(() => {
 
 .hp.enemy {
   border-radius: 2px;
-  border: 2px solid #4a1028;
-  background: #14080e;
+  border: 2px solid #1c1622;
+  background: #2a222e;
   box-shadow:
-    0 0 0 1px #2a0614,
-    inset 0 0 0 2px #6b1d3a;
+    0 0 0 1px #141018,
+    inset 0 0 0 2px #3d3544;
 }
 
-.hp.enemy .fill,
-.hp.enemy.low .fill,
-.hp.enemy.mid .fill {
-  background: linear-gradient(90deg, #3a1030 0%, #6b1848 46%, #a32038 100%);
+.hp.enemy .fill {
+  background: var(--bar-sheen), linear-gradient(90deg, #ff8a80 0%, #e84a4a 52%, #c62828 100%);
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%);
   transition: none;
+}
+
+.hp.enemy.mid .fill {
+  background: var(--bar-sheen), linear-gradient(90deg, #ff7468 0%, #e03c3c 52%, #b71c1c 100%);
+}
+
+.hp.enemy.low .fill {
+  background: var(--bar-sheen), linear-gradient(90deg, #ff5f56 0%, #d32f2f 52%, #a11f1f 100%);
 }
 
 .hp.enemy span {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { hpBarFill, hpBarLabel, hpBarTone, shouldShakeHpBar } from './hpBar'
+import hpBarSource from './hpBar.vue?raw'
 
 describe('hpBarFill', () => {
   it('fills by hp/hpMax and caps at 1', () => {
@@ -32,6 +33,24 @@ describe('shouldShakeHpBar', () => {
     expect(shouldShakeHpBar(2, 2)).toBe(false)
     expect(shouldShakeHpBar(1, 0)).toBe(false)
     expect(shouldShakeHpBar(undefined, undefined)).toBe(false)
+  })
+})
+
+describe('enemy hp bar skin', () => {
+  it('uses a dark cool track and a bright crimson fill, leaving the ally green bar alone', () => {
+    const enemy = hpBarSource.slice(hpBarSource.indexOf('.hp.enemy {'), hpBarSource.indexOf('.hp.enemy span'))
+    expect(enemy).toContain('background: #2a222e')
+    expect(enemy).toContain('#ff8a80')
+    expect(enemy).toContain('#e84a4a')
+    expect(enemy).toContain('#c62828')
+    expect(enemy).toContain('clip-path: polygon')
+    expect(enemy).toContain('.hp.enemy.mid .fill')
+    expect(enemy).toContain('.hp.enemy.low .fill')
+    expect(hpBarSource).toContain('linear-gradient(90deg, #6fc43a, #2d7a1c)')
+    expect(hpBarSource).toContain('color: #fff4ea')
+    const ally = hpBarSource.slice(hpBarSource.indexOf('.hp {'), hpBarSource.indexOf('.hp.enemy {'))
+    expect(ally).not.toContain('#ff8a80')
+    expect(ally).not.toContain('#2a222e')
   })
 })
 
