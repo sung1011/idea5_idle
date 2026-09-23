@@ -1,5 +1,5 @@
 import { hydrateBank } from '../sim/bank'
-import { createSave, normalizeDiamonds } from '../sim/createSave'
+import { createSave, normalizeDiamonds, playerDisplayName } from '../sim/createSave'
 import { hydrateEncounterFields } from '../sim/encounters'
 import { hydrateMessages } from '../sim/messages'
 import { normalizeRngState } from '../sim/rng'
@@ -73,6 +73,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
     workerQualityRev: WORKER_QUALITY_REV,
     stations: hydrateStations(parsed.stations),
     diamonds: normalizeDiamonds((parsed as { diamonds?: unknown }).diamonds),
+    playerName: playerDisplayName((parsed as { playerName?: unknown }).playerName),
     messages: mail.messages,
     nextMessageId: mail.nextMessageId,
     offlineCount:

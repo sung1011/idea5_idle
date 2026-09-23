@@ -461,6 +461,8 @@ export type Save = {
   gold: number
   /** 抽工人消耗。新档 100；旧档缺字段 hydrate 补 100，已有字段（含已花到 0）不重灌。战场 / 商场部分订单掉落。 */
   diamonds: number
+  /** 我方玩家显示名。新档与缺字段 / 空串为「见习勇者」；已有非空自定义名 hydrate 保留。 */
+  playerName: string
   /** 站间物资数量。旧档字段名仍叫 bank；无容量。 */
   bank: Partial<Record<ItemId, number>>
   workers: Worker[]

@@ -38,8 +38,45 @@ export const TREASURE_LABEL: Record<TreasureId, string> = {
   jade: '古玉',
 }
 
-const SHADOW_NAMES = ['影矿卫', '影掘手', '影看守'] as const
+/** 新刷快照守军的显示名。同一局里优先没用过的，名单用尽才重复。 */
+export const SNAPSHOT_PLAYER_NAMES = [
+  '青石',
+  '晚风',
+  '小满',
+  '阿栗',
+  '北巷',
+  '白露',
+  '南枝',
+  '木舟',
+  '灯火',
+  '远山',
+  '清禾',
+  '旧桥',
+  '星河',
+  '落叶',
+  '暖阳',
+  '微澜',
+] as const
+
 const SHADOW_RUNES: RuneItemId[] = ['runeSharp', 'runeArmor', 'runeSwift']
+
+/** 按矿洞掷骰从名单取一个显示名。`taken` 里已有的尽量跳过。 */
+export function pickSnapshotPlayerName(roll: number, taken: ReadonlySet<string>): string {
+  const free = SNAPSHOT_PLAYER_NAMES.filter((name) => !taken.has(name))
+  const pool = free.length > 0 ? free : SNAPSHOT_PLAYER_NAMES
+  const index = Math.min(pool.length - 1, Math.max(0, Math.floor(roll * pool.length)))
+  return pool[index] ?? SNAPSHOT_PLAYER_NAMES[0]
+}
+
+function namesOnBoard(save: Save): Set<string> {
+  const taken = new Set<string>()
+  for (const mine of save.treasureMines?.mines ?? []) {
+    for (const shadow of mine.shadows ?? []) {
+      if (shadow.name) taken.add(shadow.name)
+    }
+  }
+  return taken
+}
 
 export function blankTreasureMines(): TreasureMineState {
   return { nextId: 1, roll: 1, vault: {}, mines: [] }
@@ -418,8 +455,13 @@ function spawnMine(save: Save, elapsed: number): TreasureMine {
   const id = `mine-${state.nextId}`
   state.nextId += 1
   const count = shadowCrewCount(nextMineRoll(state))
+  const taken = namesOnBoard(save)
   const shadows: TreasureShadow[] = []
-  for (let i = 0; i < count; i += 1) shadows.push(makeShadow(save, id, i))
+  for (let i = 0; i < count; i += 1) {
+    const shadow = makeShadow(save, id, i, taken)
+    taken.add(shadow.name)
+    shadows.push(shadow)
+  }
   return {
     id,
     reserve: TREASURE_RESERVE_MAX,
@@ -441,9 +483,10 @@ function mineWeaknessesOf(mine: TreasureMine): CombatAttrId[] {
   return pickEnemyWeaknesses(hashString(mine.id), 0, 'minion')
 }
 
-function makeShadow(save: Save, mineId: string, index: number): TreasureShadow {
+function makeShadow(save: Save, mineId: string, index: number, taken: ReadonlySet<string>): TreasureShadow {
   const tier = (3 + ((save.treasureMines.nextId + index) % 3)) as QualityTier
   const runeId = SHADOW_RUNES[(save.knightLevel + index) % SHADOW_RUNES.length]
+  const name = pickSnapshotPlayerName(nextMineRoll(save.treasureMines), taken)
   const fake = {
     id: `${mineId}-shadow-${index}`,
     qualityTier: tier,
@@ -461,7 +504,7 @@ function makeShadow(save: Save, mineId: string, index: number): TreasureShadow {
   const spd = Math.max(1, Math.round(stats.spd * runeSpdMul(runeId)))
   return {
     id: fake.id,
-    name: SHADOW_NAMES[index] ?? '影矿卫',
+    name,
     level: fake.level,
     hp: stats.hp,
     hpMax: stats.hp,

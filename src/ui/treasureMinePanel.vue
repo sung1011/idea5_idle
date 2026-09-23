@@ -98,7 +98,7 @@ function raidElapsed(): number {
 }
 
 function raidHuds(mine: TreasureMine) {
-  const hud = treasureRaidHud(mine, game.save.workers, raidElapsed())
+  const hud = treasureRaidHud(mine, game.save.workers, raidElapsed(), game.save.playerName)
   return hud ? [hud] : []
 }
 

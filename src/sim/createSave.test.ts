@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createSave, normalizeDiamonds } from './createSave'
+import { createSave, normalizeDiamonds, PLAYER_NAME_DEFAULT, playerDisplayName } from './createSave'
 import { GUIDE_QUEST_REV } from './guideQuest'
 import { spawnWorker } from './recruit'
 import { PLAYABLE_STATION_IDS, START_DIAMONDS, START_GOLD, START_TECH_POINTS, STATION_IDS, WORKER_QUALITY_REV } from './tables'
@@ -9,6 +9,13 @@ describe('createSave diamonds', () => {
     const save = createSave()
     expect(save.diamonds).toBe(START_DIAMONDS)
     expect(save.diamonds).toBe(150)
+    expect(save.playerName).toBe(PLAYER_NAME_DEFAULT)
+    expect(save.playerName).toBe('见习勇者')
+    expect(playerDisplayName(undefined)).toBe('见习勇者')
+    expect(playerDisplayName('')).toBe('见习勇者')
+    expect(playerDisplayName('   ')).toBe('见习勇者')
+    expect(playerDisplayName('旅人甲')).toBe('旅人甲')
+    expect(playerDisplayName('  旅人甲  ')).toBe('旅人甲')
     expect(save.gold).toBe(START_GOLD)
   })
 

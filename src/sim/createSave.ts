@@ -12,6 +12,15 @@ import type { Save } from './types'
 
 export { blankStation } from './stationProgress'
 
+/** 我方玩家显示名。存档缺字段、空串或非字符串时用这个，不覆盖已有自定义名。 */
+export const PLAYER_NAME_DEFAULT = '见习勇者'
+
+export function playerDisplayName(value: unknown): string {
+  if (typeof value !== 'string') return PLAYER_NAME_DEFAULT
+  const trimmed = value.trim()
+  return trimmed || PLAYER_NAME_DEFAULT
+}
+
 /** 缺字段 / 非数字 → 新档初始钻石；已有数字（含 0）只夹成非负整数，不每次重灌。 */
 export function normalizeDiamonds(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return START_DIAMONDS
@@ -23,6 +32,7 @@ export function createSave(): Save {
   const save: Save = {
     gold: START_GOLD,
     diamonds: START_DIAMONDS,
+    playerName: PLAYER_NAME_DEFAULT,
     bank: {},
     workers: [],
     stations,

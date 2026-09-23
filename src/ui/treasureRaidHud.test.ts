@@ -23,8 +23,8 @@ describe('treasure raid hud', () => {
     bench.name = '乙等'
     const mine = save.treasureMines.mines[0]
     mine.shadows = [
-      { ...mine.shadows[0], name: '影矿卫' },
-      { ...mine.shadows[0], id: `${mine.id}-wait`, name: '影掘手' },
+      { ...mine.shadows[0], name: '青石' },
+      { ...mine.shadows[0], id: `${mine.id}-wait`, name: '晚风' },
     ]
     expect(startTreasureRaid(save, mine.id, [lead.id, bench.id]).ok).toBe(true)
     const raid = mine.raid
@@ -53,9 +53,9 @@ describe('treasure raid hud', () => {
     expect(hud?.defend.hpMax).toBe(defMax)
     expect(hud?.defend.barFill).toBe(hpBarFill(defHp, defMax))
     expect(hud?.defend.fill).toBe(raidActChargeFill(4, elapsed + 4, elapsed))
-    expect(hud?.attack?.name).toBe('甲攻')
+    expect(hud?.attack?.name).toBe('见习勇者 · 甲攻')
     expect(hud?.waitingAttack).toEqual(['乙等'])
-    expect(hud?.waitingDefend).toEqual(['影掘手'])
+    expect(hud?.waitingDefend).toEqual(['晚风'])
     expect(hud?.attack?.slots).toEqual(['filled', 'filled', 'empty'])
     expect(hud?.defend.slots).toEqual(['filled', 'filled', 'empty'])
   })
@@ -65,8 +65,8 @@ describe('treasure raid hud', () => {
     const lead = spawnWorker(save)
     const bench = spawnWorker(save)
     const mine = save.treasureMines.mines[0]
-    const first = { ...mine.shadows[0], id: `${mine.id}-s0`, name: '影矿卫', hp: 1, hpMax: 20, atk: 1, spd: 30 }
-    const second = { ...mine.shadows[0], id: `${mine.id}-s1`, name: '影掘手', hp: 40, hpMax: 40, atk: 1, spd: 30 }
+    const first = { ...mine.shadows[0], id: `${mine.id}-s0`, name: '青石', hp: 1, hpMax: 20, atk: 1, spd: 30 }
+    const second = { ...mine.shadows[0], id: `${mine.id}-s1`, name: '晚风', hp: 40, hpMax: 40, atk: 1, spd: 30 }
     mine.shadows = [first, second]
     expect(startTreasureRaid(save, mine.id, [lead.id, bench.id]).ok).toBe(true)
     const raid = mine.raid
@@ -128,7 +128,7 @@ describe('treasure raid hud', () => {
     mine.shadows = [0, 1, 2].map((i) => ({
       ...mine.shadows[0],
       id: `${mine.id}-s${i}`,
-      name: `影${i}`,
+      name: `客${i}`,
       hp: (i + 1) * 10,
       hpMax: (i + 1) * 10,
     }))
@@ -147,7 +147,9 @@ describe('treasure raid hud', () => {
     expect(full?.attack?.hpMax).toBe(60)
     expect(full?.defend.hp).toBe(6 + 20 + 30)
     expect(full?.defend.hpMax).toBe(60)
-    expect(full?.attack?.name).toBe(first.name)
+    expect(full?.attack?.name).toBe(`见习勇者 · ${first.name}`)
+    expect(treasureRaidHud(mine, save.workers, save.elapsedS, '旅人甲')?.attack?.name).toBe(`旅人甲 · ${first.name}`)
+    expect(treasureRaidHud(mine, save.workers, save.elapsedS, '  ')?.attack?.name).toBe(`见习勇者 · ${first.name}`)
     expect(full?.attack?.fill).toBe(raidActChargeFill(raid.atkSpd, raid.atkNext, save.elapsedS))
 
     raid.queue = [second.id, third.id]
@@ -204,6 +206,7 @@ describe('treasure raid hud', () => {
     expect(panel).toContain('<HpBar')
     expect(panel).toContain('<ActChargeBar')
     expect(panel).toContain('v-if="hud.attack"')
+    expect(panel).toContain('game.save.playerName')
     expect(panel).toContain('快照驻守')
     expect(panel).toContain('也不是 NPC')
     expect(panel).not.toContain('影子驻守')

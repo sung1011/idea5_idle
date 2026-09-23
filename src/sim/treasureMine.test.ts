@@ -16,6 +16,8 @@ import {
   refreshTreasureMineBoard,
   refreshTreasureMines,
   shadowCrewCount,
+  SNAPSHOT_PLAYER_NAMES,
+  pickSnapshotPlayerName,
   rejectTreasureMineRune,
   isTreasureRaidLocked,
   reinforceTreasureRaid,
@@ -93,6 +95,37 @@ describe('treasure mines', () => {
       before,
     )
     expect([...seen].sort()).toEqual([1, 2, 3])
+  })
+
+  it('names new shadows like players and keeps a name already stored on an old hole', () => {
+    const banned = ['影矿卫', '影掘手', '影看守']
+    expect(pickSnapshotPlayerName(0, new Set(SNAPSHOT_PLAYER_NAMES.slice(0, -1)))).toBe(SNAPSHOT_PLAYER_NAMES.at(-1))
+    const reused = pickSnapshotPlayerName(0.2, new Set(SNAPSHOT_PLAYER_NAMES))
+    expect(SNAPSHOT_PLAYER_NAMES).toContain(reused)
+    expect(banned.some((title) => reused.includes(title))).toBe(false)
+
+    const save = createSave()
+    const standing = save.treasureMines.mines[0]
+    standing.shadows[0].name = '影矿卫'
+    const standingIds = standing.shadows.map((shadow) => shadow.id)
+    hydrateTreasureMines(save)
+    const kept = save.treasureMines.mines.find((mine) => mine.id === standing.id)
+    expect(kept?.shadows.map((shadow) => shadow.id)).toEqual(standingIds)
+    expect(kept?.shadows[0].name).toBe('影矿卫')
+
+    save.treasureMines.mines = save.treasureMines.mines.filter((mine) => mine.id === standing.id)
+    standing.reserve = 0
+    refreshTreasureMines(save)
+    const spawned = save.treasureMines.mines.filter((mine) => mine.id !== standing.id)
+    expect(spawned.length).toBeGreaterThan(0)
+    const names = spawned.flatMap((mine) => mine.shadows.map((shadow) => shadow.name))
+    expect(names.length).toBeGreaterThan(0)
+    for (const name of names) {
+      expect(name.length).toBeGreaterThan(0)
+      expect(SNAPSHOT_PLAYER_NAMES).toContain(name)
+      expect(banned.some((title) => name.includes(title))).toBe(false)
+    }
+    expect(new Set(names).size).toBe(names.length)
   })
 
   it('sends the raid queue home with their own hp when a hole expires', () => {
@@ -216,7 +249,7 @@ describe('treasure mines', () => {
     const expires = mine.expiresAtS
     mine.shadows = [
       { ...mine.shadows[0], hp: 1, spd: 100 },
-      { ...mine.shadows[0], id: `${mine.id}-b`, name: '影掘手', hp: 1, spd: 100 },
+      { ...mine.shadows[0], id: `${mine.id}-b`, name: '晚风', hp: 1, spd: 100 },
     ]
     save.knightLevel = 10
     addToBank(save, 'runeSharp', 1)

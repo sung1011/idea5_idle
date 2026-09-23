@@ -1,3 +1,4 @@
+import { playerDisplayName } from '../sim/createSave'
 import { TREASURE_RAID_CAP, raidSlotSnapshot } from '../sim/treasureMine'
 import type { TreasureMine, Worker } from '../sim/types'
 import { actChargeFill } from './actCharge'
@@ -87,6 +88,13 @@ function fighterName(workers: readonly Worker[], id: string): string {
   return worker ? workerShortName(worker) : id
 }
 
+/** 攻方名字行：玩家显示名，后面带上当前出战者。缺名兜底见习勇者。 */
+function attackLine(playerName: unknown, fighter: string): string {
+  const player = playerDisplayName(playerName)
+  if (!fighter || fighter === player) return player
+  return `${player} · ${fighter}`
+}
+
 /** 未开战的快照驻守洞：只给守方一条静止 HUD。我方开采洞不画。 */
 function standbyDefendHud(mine: TreasureMine): TreasureRaidHud | null {
   const front = mine.shadows[0]
@@ -119,6 +127,7 @@ export function treasureRaidHud(
   mine: TreasureMine,
   workers: readonly Worker[],
   elapsedS: number,
+  playerName?: unknown,
 ): TreasureRaidHud | null {
   const raid = mine.raid
   const shadow = mine.shadows[0]
@@ -138,7 +147,7 @@ export function treasureRaidHud(
   })
   return {
     attack: {
-      name: fighterName(workers, attackerId),
+      name: attackLine(playerName, fighterName(workers, attackerId)),
       hp: attackHp.hp,
       hpMax: attackHp.hpMax,
       barFill: hpBarFill(attackHp.hp, attackHp.hpMax),
