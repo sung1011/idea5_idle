@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { restCombatCandidates } from '../sim/combat'
-import { isRuneSlotUnlocked, listRunePickOptions, runeLabel } from '../sim/runes'
-import type { RuneItemId } from '../sim/types'
+import { isFullCombatHp, restCombatCandidates } from '../sim/combat'
 import {
   TREASURE_CREW_CAP,
   TREASURE_LABEL,
   mineRemainS,
 } from '../sim/treasureMine'
-import type { TreasureMine } from '../sim/types'
+import type { RuneItemId, TreasureMine, Worker } from '../sim/types'
+import CombatPickSheet from './combatPickSheet.vue'
+import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
 import { workerShortName } from './workerGroups'
 
@@ -22,11 +22,17 @@ const vaultLine = computed(() => {
   return bits.join(' · ')
 })
 const idle = computed(() => restCombatCandidates(game.save))
-const runesOpen = computed(() => isRuneSlotUnlocked(game.save))
-const runeOptions = computed(() => listRunePickOptions(game.save))
-const raidMineId = ref<string | null>(null)
+const pickKind = ref<'mine' | 'raid' | null>(null)
+const pickMineId = ref<string | null>(null)
 const picked = ref<string[]>([])
 const runes = ref<Partial<Record<string, RuneItemId>>>({})
+const pickOpen = computed(() => pickMineId.value != null)
+const pickMax = computed(() => {
+  if (pickKind.value === 'raid') return TREASURE_CREW_CAP
+  const mine = mines.value.find((row) => row.id === pickMineId.value)
+  if (!mine) return TREASURE_CREW_CAP
+  return Math.max(0, TREASURE_CREW_CAP - mine.crewIds.length)
+})
 
 function clock(mine: TreasureMine): string {
   const safe = mineRemainS(mine, game.save.elapsedS)
@@ -46,42 +52,51 @@ function names(ids: string[]): string {
     .join('、')
 }
 
-function openRaid(mineId: string) {
-  raidMineId.value = mineId
+function openPick(kind: 'mine' | 'raid', mineId: string) {
+  pickKind.value = kind
+  pickMineId.value = mineId
   picked.value = []
   runes.value = {}
 }
 
-function toggle(id: string) {
+function closePick() {
+  pickKind.value = null
+  pickMineId.value = null
+  picked.value = []
+  runes.value = {}
+}
+
+function togglePick(worker: Worker) {
+  if (!isFullCombatHp(worker)) return
+  game.clearWorkerNew(worker.id)
+  const id = worker.id
   if (picked.value.includes(id)) {
     picked.value = picked.value.filter((row) => row !== id)
-    delete runes.value[id]
+    const next = { ...runes.value }
+    delete next[id]
+    runes.value = next
     return
   }
-  if (picked.value.length >= TREASURE_CREW_CAP) return
+  if (picked.value.length >= pickMax.value) {
+    pushFloatTip(`最多选 ${pickMax.value} 人`, 'err')
+    return
+  }
   picked.value = [...picked.value, id]
 }
 
-function confirmRaid() {
-  const mineId = raidMineId.value
+function confirmPick() {
+  const mineId = pickMineId.value
   if (!mineId) return
-  const result = game.startTreasureRaid(mineId, [...picked.value], runes.value)
-  if (result.ok) raidMineId.value = null
-}
-
-function onRune(id: string, ev: Event) {
-  const value = (ev.target as HTMLSelectElement).value
-  if (!value) {
-    delete runes.value[id]
+  if (pickKind.value === 'raid') {
+    const result = game.startTreasureRaid(mineId, [...picked.value], runes.value)
+    if (result.ok) closePick()
     return
   }
-  runes.value = { ...runes.value, [id]: value as RuneItemId }
-}
-
-function addMiner(mineId: string) {
-  const worker = idle.value[0]
-  if (!worker) return
-  game.addTreasureMiner(mineId, worker.id)
+  for (const id of picked.value) {
+    const result = game.addTreasureMiner(mineId, id)
+    if (!result.ok) return
+  }
+  closePick()
 }
 </script>
 
@@ -101,11 +116,11 @@ function addMiner(mineId: string) {
         抢夺中 {{ names(mine.raid.queue) }} 对 {{ mine.shadows[0]?.name ?? '守军' }}。本洞不能再开，也不能增援
       </p>
       <div class="row">
-        <button v-if="mine.owner === 'shadow' && !mine.raid" type="button" @click="openRaid(mine.id)">抢夺</button>
+        <button v-if="mine.owner === 'shadow' && !mine.raid" type="button" @click="openPick('raid', mine.id)">抢夺</button>
         <button
           v-if="mine.owner === 'player' && !mine.raid && mine.crewIds.length < TREASURE_CREW_CAP"
           type="button"
-          @click="addMiner(mine.id)"
+          @click="openPick('mine', mine.id)"
         >
           补采
         </button>
@@ -120,37 +135,20 @@ function addMiner(mineId: string) {
       </div>
     </article>
 
-    <div v-if="raidMineId" class="modal" role="dialog" aria-label="抢夺编队" @click.self="raidMineId = null">
-      <div class="sheet">
-        <h3>抢夺编队</h3>
-        <p>最多 3 人。可装符文，确认后消耗。</p>
-        <button
-          v-for="worker in idle"
-          :key="worker.id"
-          type="button"
-          :class="{ on: picked.includes(worker.id) }"
-          @click="toggle(worker.id)"
-        >
-          {{ workerShortName(worker) }}
-        </button>
-        <p v-if="!idle.length">没有休息中的工人</p>
-        <label v-for="id in picked" :key="`rune-${id}`" class="rune">
-          <span>{{ names([id]) }}</span>
-          <select
-            :disabled="!runesOpen"
-            :value="runes[id] ?? ''"
-            @change="onRune(id, $event)"
-          >
-            <option value="">{{ runesOpen ? '不带符文' : '铭刻未开' }}</option>
-            <option v-for="row in runeOptions" :key="row.id" :value="row.id">{{ runeLabel(row.id) }} ×{{ row.qty }}</option>
-          </select>
-        </label>
-        <div class="row">
-          <button type="button" @click="confirmRaid">开战</button>
-          <button type="button" @click="raidMineId = null">取消</button>
-        </div>
-      </div>
-    </div>
+    <CombatPickSheet
+      :open="pickOpen"
+      :max="pickMax"
+      :candidates="idle"
+      :picked="picked"
+      :runes="runes"
+      mode="start"
+      :show-runes="pickKind === 'raid'"
+      :show-assist="false"
+      @close="closePick"
+      @confirm="confirmPick"
+      @toggle="togglePick"
+      @update:runes="runes = $event"
+    />
   </section>
 </template>
 
@@ -190,43 +188,5 @@ function addMiner(mineId: string) {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-
-.modal {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-sheet);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding: 12px;
-  background: rgba(40, 24, 8, 0.45);
-}
-
-.sheet {
-  width: min(420px, 100%);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  border: 3px solid var(--gold-deep);
-  border-radius: 12px;
-  background: #fff8ee;
-}
-
-.sheet h3 {
-  margin: 0;
-}
-
-button.on {
-  background: linear-gradient(#ffe27a, #e2a31a);
-}
-
-.rune {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  font-weight: 800;
 }
 </style>

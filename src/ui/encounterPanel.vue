@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ENEMY_RANK_LABEL, enemyWeaknessView, fighterRecommendLabel } from '../sim/combatAttrs'
 import CombatAttrIcon from './combatAttrIcon.vue'
-import CombatAttrRow from './combatAttrRow.vue'
+import CombatPickSheet from './combatPickSheet.vue'
 import {
   canReinforceCombat,
   combatPartyCap,
@@ -13,7 +13,7 @@ import {
   isFullCombatHp,
   restCombatCandidates,
 } from '../sim/combat'
-import { createAssistWorker, isAssistWorker, pickCombatCandidates } from '../sim/combatAssist'
+import { createAssistWorker, pickCombatCandidates } from '../sim/combatAssist'
 import {
   QUALITY_LABEL,
   combatSupplyBlockReason,
@@ -45,16 +45,7 @@ import {
   isGuideQuestRuneFlash,
 } from '../sim/guideQuest'
 import { mainChapterTitle, mainLootClaimBarLabel, mainLootClaimFillPct } from '../sim/mainChapter'
-import { isRuneItemId, RUNE_DEF } from '../sim/tables'
-import { pickWorkerName } from './pickWorkerName'
-import {
-  availableRuneQty,
-  confirmableRunePicks,
-  isRuneSlotUnlocked,
-  listRunePickOptions,
-  runeSlotLockedTip,
-  runeSlotTapKind,
-} from '../sim/runes'
+import { confirmableRunePicks } from '../sim/runes'
 import type { Encounter, EncounterKind, EnemyEncounter, RuneItemId, Worker } from '../sim/types'
 import EncounterDealLines from './encounterDealLines.vue'
 import EncounterTips from './encounterTips.vue'
@@ -88,11 +79,6 @@ import {
   type MainlineTabId,
 } from './mainlineTabs'
 import HpBar from './hpBar.vue'
-import {
-  qualityOf,
-  workerQualityBadgeStyle,
-  workerQualityNameStyle,
-} from './workerQuality'
 
 const game = useGameStore()
 const guideFlashCombat = computed(() => isGuideQuestFlash(game.save, 'combat'))
@@ -190,11 +176,7 @@ const pickMode = ref<EnemyPickMode>('start')
 const picked = ref<string[]>([])
 const assistWorker = ref<Worker | null>(null)
 const pickRunes = ref<Partial<Record<string, RuneItemId>>>({})
-const runePickWorkerId = ref<string | null>(null)
 const pickOpen = computed(() => pickIndex.value !== null)
-const runePickOpen = computed(() => runePickWorkerId.value !== null)
-const runeSlotUnlocked = computed(() => isRuneSlotUnlocked(game.save))
-const runeOptions = computed(() => listRunePickOptions(game.save))
 const pickMax = computed(() => {
   const enc = activeEnemy()
   const cap = combatPartyCap(enc)
@@ -263,7 +245,6 @@ function resetPick(mode: EnemyPickMode, index: number) {
   picked.value = []
   assistWorker.value = null
   pickRunes.value = {}
-  runePickWorkerId.value = null
 }
 
 function openPick(index: number) {
@@ -300,65 +281,11 @@ function closePick() {
   picked.value = []
   assistWorker.value = null
   pickRunes.value = {}
-  runePickWorkerId.value = null
-}
-
-function openRunePick(workerId: string, ev?: Event) {
-  ev?.stopPropagation()
-  if (!isRuneSlotUnlocked(game.save)) {
-    pushFloatTip(runeSlotLockedTip())
-    return
-  }
-  game.clearWorkerNew(workerId)
-  runePickWorkerId.value = workerId
-  game.markGuideRuneOpened()
 }
 
 watch([guideFlashRune, pendingGuideRunePick], () => {
   tryOpenGuideRunePick()
 })
-
-function onRuneSlotTap(worker: Worker, ev?: Event) {
-  ev?.stopPropagation()
-  const kind = runeSlotTapKind(game.save, isFullCombatHp(worker))
-  if (kind === 'locked') {
-    pushFloatTip(runeSlotLockedTip())
-    return
-  }
-  if (kind === 'open') openRunePick(worker.id, ev)
-}
-
-function closeRunePick() {
-  runePickWorkerId.value = null
-}
-
-function equippedRune(workerId: string): RuneItemId | null {
-  const id = pickRunes.value[workerId]
-  return isRuneItemId(id) ? id : null
-}
-
-function runeSlotLabel(workerId: string): string {
-  const id = equippedRune(workerId)
-  return id ? RUNE_DEF[id].label : '符文'
-}
-
-function pickRune(runeId: RuneItemId | null) {
-  const workerId = runePickWorkerId.value
-  if (!workerId) return
-  if (!runeId) {
-    const next = { ...pickRunes.value }
-    delete next[workerId]
-    pickRunes.value = next
-    closeRunePick()
-    return
-  }
-  if (availableRuneQty(game.save, pickRunes.value, runeId, workerId) < 1) {
-    pushFloatTip(`${RUNE_DEF[runeId].label}见底`, 'err')
-    return
-  }
-  pickRunes.value = { ...pickRunes.value, [workerId]: runeId }
-  closeRunePick()
-}
 
 function runePicksForConfirm() {
   return confirmableRunePicks(game.save, pickRunes.value, picked.value)
@@ -758,91 +685,24 @@ function timedLine(enc: Encounter) {
       </article>
     </div>
 
-    <div v-if="pickOpen" class="modal" role="dialog" :aria-label="pickCopy.title" @click.self="closePick">
-      <div class="sheet">
-        <p>{{ pickCopy.title }}（最多 {{ pickMax }} 人）</p>
-        <p class="hint">列出休息工人；未达出战条件的灰显。出战不算派驻工坊。点邀请才加入 1 名临时助战。{{ pickCopy.hintTail }}</p>
-        <ul class="pick-list">
-          <li v-for="w in pickCandidates" :key="w.id" class="pick-row">
-            <button
-              type="button"
-              class="pick-worker"
-              :class="{ on: picked.includes(w.id), assist: isAssistWorker(w), dim: !isFullCombatHp(w) }"
-              :disabled="!isFullCombatHp(w)"
-              @click="togglePick(w)"
-            >
-              <span class="pick-name">
-                <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
-                <i v-if="isAssistWorker(w)" class="pick-assist">助战</i>
-                <i v-else-if="w.isNew" class="pick-new">NEW</i>
-                <CombatAttrRow class="pick-attrs" :attrs="w.combatAttrs" />
-                <b class="pick-worker-name" :style="workerQualityNameStyle(w)">{{ pickWorkerName(w) }}</b>
-                <span class="pick-meta">· Lv{{ w.level }}</span>
-                <i
-                  v-if="pickRecommend(w) && isFullCombatHp(w)"
-                  class="pick-rec"
-                  :class="{ hot: pickRecommend(w) === '强烈推荐' }"
-                >{{ pickRecommend(w) }}</i>
-              </span>
-            </button>
-            <span class="act-hit rune-slot-hit" @click="onRuneSlotTap(w, $event)">
-              <button
-                type="button"
-                class="rune-slot"
-                :class="{ on: runeSlotUnlocked && !!equippedRune(w.id), locked: !runeSlotUnlocked, 'guide-flash': guideFlashRune && runeSlotUnlocked }"
-                :disabled="!runeSlotUnlocked || !isFullCombatHp(w)"
-                :aria-label="`${pickWorkerName(w)} 符文槽`"
-                @click.stop="onRuneSlotTap(w, $event)"
-              >{{ runeSlotLabel(w.id) }}</button>
-            </span>
-          </li>
-          <li v-if="!pickCandidates.length" class="hint">没有休息中的工人</li>
-        </ul>
-        <div class="row">
-          <span class="act-hit" @click="pickCopy.costsSupply && pickIndex != null && warnConsumeShort(pickIndex)">
-            <button
-              type="button"
-              :class="{ 'guide-flash': guideFlashCombat && pickMode === 'start' }"
-              :disabled="!picked.length || (pickCopy.costsSupply && pickIndex != null && consumeShort(pickIndex))"
-              @click.stop="confirmPick"
-            >
-              {{ pickCopy.confirm }}
-            </button>
-          </span>
-          <button type="button" @click="inviteAssist">邀请</button>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="runePickOpen" class="modal" role="dialog" aria-label="选择符文" @click.self="closeRunePick">
-      <div class="sheet rune-sheet">
-        <p>选择符文（一人一槽，确认后消耗）</p>
-        <p class="hint">列出全部种类与库存；短文案是本场效果。未选则空手出战。</p>
-        <ul class="rune-list">
-          <li>
-            <button type="button" class="rune-item" :class="{ on: runePickWorkerId && !equippedRune(runePickWorkerId) }" @click="pickRune(null)">
-              <b>空槽</b>
-              <span>不带符文</span>
-            </button>
-          </li>
-          <li v-for="row in runeOptions" :key="row.id">
-            <button
-              type="button"
-              class="rune-item"
-              :class="{ on: runePickWorkerId ? equippedRune(runePickWorkerId) === row.id : false }"
-              :disabled="availableRuneQty(game.save, pickRunes, row.id, runePickWorkerId ?? undefined) < 1 && !(runePickWorkerId && equippedRune(runePickWorkerId) === row.id)"
-              @click="pickRune(row.id)"
-            >
-              <b>{{ row.label }} ×{{ availableRuneQty(game.save, pickRunes, row.id, runePickWorkerId ?? undefined) }}</b>
-              <span>{{ row.effect }}</span>
-            </button>
-          </li>
-        </ul>
-        <div class="row">
-          <button type="button" @click="closeRunePick">关闭</button>
-        </div>
-      </div>
-    </div>
+    <CombatPickSheet
+      :open="pickOpen"
+      :max="pickMax"
+      :candidates="pickCandidates"
+      :picked="picked"
+      :runes="pickRunes"
+      :mode="pickMode"
+      :supply-blocked="pickCopy.costsSupply && pickIndex != null && consumeShort(pickIndex)"
+      :guide-flash-confirm="guideFlashCombat && pickMode === 'start'"
+      :guide-flash-rune="guideFlashRune"
+      :recommend-label="pickRecommend"
+      @close="closePick"
+      @confirm="confirmPick"
+      @toggle="togglePick"
+      @invite="inviteAssist"
+      @supply-warn="pickIndex != null && warnConsumeShort(pickIndex)"
+      @update:runes="pickRunes = $event"
+    />
   </section>
 
   <Teleport to="body">
@@ -1391,206 +1251,6 @@ ul {
   font-size: 13px;
 }
 
-.modal {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(40, 24, 8, 0.45);
-}
-
-.sheet {
-  width: min(520px, 100%);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 16px;
-  border: 3px solid var(--gold-deep);
-  border-radius: 16px;
-  background: var(--plate);
-  box-shadow: 0 6px 0 var(--shadow);
-}
-
-.pick-list {
-  max-height: 50vh;
-  overflow: auto;
-}
-
-.pick-row {
-  display: flex;
-  align-items: stretch;
-  gap: 6px;
-}
-
-.pick-list .pick-worker {
-  flex: 1 1 auto;
-  min-width: 0;
-  width: auto;
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
-  text-align: left;
-}
-
-.rune-slot-hit {
-  flex: 0 0 56px;
-}
-
-.rune-slot {
-  flex: 0 0 56px;
-  width: 100%;
-  min-width: 56px;
-  min-height: 44px;
-  padding: 4px 6px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-}
-
-.rune-slot.on {
-  background: linear-gradient(#ffe27a, #f0b83a);
-}
-
-.rune-slot.locked,
-.rune-slot:disabled {
-  opacity: 0.45;
-  filter: grayscale(0.35);
-}
-
-.rune-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 46vh;
-  overflow: auto;
-}
-
-.rune-item {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  text-align: left;
-}
-
-.rune-item span {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.rune-item.on {
-  background: linear-gradient(#ffe27a, #f0b83a);
-}
-
-.pick-name {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  color: var(--copper);
-}
-
-.pick-attrs {
-  flex: none;
-}
-
-.pick-worker-name {
-  font-weight: 700;
-}
-
-.pick-assist {
-  font-style: normal;
-  padding: 1px 7px;
-  border: 2px solid #1f7a4a;
-  border-radius: 999px;
-  background: #d8f3e4;
-  color: #14603a;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-}
-
-.pick-new {
-  font-style: normal;
-  padding: 1px 6px;
-  border: 1px solid #7a1808;
-  border-radius: 4px;
-  background: linear-gradient(#ff6a3d, #d62828);
-  color: #fff8e8;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-}
-
-.pick-worker.assist {
-  box-shadow: inset 0 0 0 2px #1f7a4a;
-}
-
-.pick-rec {
-  font-style: normal;
-  padding: 1px 7px;
-  border: 2px solid var(--gold-deep);
-  border-radius: 999px;
-  background: #ffe9a0;
-  color: #6b4218;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.pick-rec.hot {
-  background: #f0c14a;
-  color: #4a2c0a;
-}
-
-.pick-list .qmark {
-  position: static;
-  min-width: 22px;
-  padding: 1px 7px;
-  border: 2px solid currentColor;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-align: center;
-}
-
-.pick-worker.dim,
-.pick-worker:disabled {
-  opacity: 0.5;
-  filter: grayscale(0.15);
-}
-
-.pick-worker.on,
-.pick-worker.on:disabled {
-  color: var(--ink);
-  background: linear-gradient(180deg, #ffe9a0, #f0c14a);
-  border-color: var(--gold-deep);
-  box-shadow:
-    0 3px 0 var(--gold-deep),
-    inset 0 1px 0 #fff6c8,
-    inset 0 0 0 2px #ffe28a;
-  filter: none;
-  opacity: 1;
-}
-
-.pick-list :deep(.chip) {
-  flex: none;
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  aspect-ratio: 1;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .stamp,
