@@ -37,6 +37,7 @@ import { recruitCost } from '../sim/tech'
 import type { ClassId, PotionItemId, StationId, Worker } from '../sim/types'
 import ClassIcon from './classIcon.vue'
 import { openWorkshopStation } from './appNav'
+import { stationCraftLabel } from './stationCraftLabel'
 import StationDetailSheet from './stationDetailSheet.vue'
 import StationMiniBar from './stationMiniBar.vue'
 import { showStationDetail, openStationDetailId } from './stationDetailNav'
@@ -548,6 +549,9 @@ onUnmounted(() => {
                   </template>
                 </button>
               </div>
+              <p class="station-craft" :title="stationCraftLabel(game.save, board.stationId)">
+                {{ stationCraftLabel(game.save, board.stationId) }}
+              </p>
               <StationMiniBar class="station-progress" :station-id="board.stationId" />
             </div>
             <div class="station-side">
@@ -1109,6 +1113,20 @@ onUnmounted(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+.station-craft {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0 4px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--copper);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .station-work :deep(.station-progress) {
