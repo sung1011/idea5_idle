@@ -128,12 +128,14 @@ function confirmPick() {
             <span class="kind">矿洞</span>
             <span class="tags">
               <i>{{ mine.owner === 'player' ? '我方开采' : '影子驻守' }}</i>
-              <i v-for="id in mine.weaknesses" :key="`${mine.id}-${id}`">{{ COMBAT_ATTR_LABEL[id] }}</i>
+              <span v-for="id in mine.weaknesses" :key="`${mine.id}-${id}`" class="affix-chip">
+                {{ COMBAT_ATTR_LABEL[id] }}
+              </span>
             </span>
           </div>
         </header>
         <p class="label">储量 {{ mine.reserve }}/{{ mine.reserveMax }}</p>
-        <p class="label">剩余 {{ clock(mine) }}</p>
+        <p class="label">消失倒计时 {{ clock(mine) }}</p>
         <p v-if="mine.owner === 'shadow'" class="label">守军 {{ mine.shadows.map((row) => row.name).join('、') || '无' }}</p>
         <p v-else class="label">开采 {{ names(mine.crewIds) }}（{{ mine.crewIds.length }}/{{ TREASURE_CREW_CAP }}，无符文）</p>
         <template v-for="hud in raidHuds(mine)" :key="`${mine.id}-raid`">
@@ -254,6 +256,21 @@ function confirmPick() {
   color: var(--ink);
   font-size: 12px;
   line-height: 1.25;
+}
+
+.affix-chip {
+  min-height: 0;
+  padding: 1px 6px;
+  border: 1px solid var(--gold-deep);
+  border-radius: 999px;
+  background: #fff8e8;
+  box-shadow: none;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
 }
 
 .label {
