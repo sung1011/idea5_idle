@@ -5,7 +5,7 @@ import { startTreasureRaid, stepTreasureMines } from '../sim/treasureMine'
 import { actChargeFill } from './actCharge'
 import { hpBarFill } from './hpBar'
 import panel from './treasureMinePanel.vue?raw'
-import { raidActChargeFill, slotStates, squadBarHp, treasureRaidHud } from './treasureRaidHud'
+import { raidActChargeFill, raidSlotPress, slotStates, squadBarHp, treasureRaidHud } from './treasureRaidHud'
 
 describe('treasure raid hud', () => {
   it('feeds the battlefield hp bar and act charge from the current 1v1', () => {
@@ -210,13 +210,16 @@ describe('treasure raid hud', () => {
     expect(panel).toContain('快照驻守')
     expect(panel).toContain('也不是 NPC')
     expect(panel).not.toContain('影子驻守')
-    expect(panel).toContain('hud.fighting')
+    expect(panel).not.toContain('本洞不能再开，也不能增援')
+    expect(panel).not.toContain('守军等待')
+    expect(panel).not.toContain('等待 {{')
     expect(panel).toContain('hud.attack.hp')
     expect(panel).toContain('hud.attack.fill')
     expect(panel).toContain('variant="enemy"')
-    expect(panel).toContain('waitingAttack')
-    expect(panel).toContain('waitingDefend')
-    const bars = panel.slice(panel.indexOf('<div class="bars">'), panel.indexOf('hud.fighting'))
+    expect(panel).toContain('onRaidSlot(mine, \'defend\', index)')
+    expect(panel).toContain('onRaidSlot(mine, \'attack\', index)')
+    expect(panel).toContain('<ModeHelpSheet')
+    const bars = panel.slice(panel.indexOf('<div class="bars">'), panel.indexOf('class="row"'))
     expect(bars.indexOf('hud.defend.name')).toBeLessThan(bars.indexOf('v-if="hud.attack"'))
     expect(bars.indexOf('aria-label="守方槽位"')).toBeLessThan(bars.indexOf('aria-label="攻方槽位"'))
     const defend = bars.slice(bars.indexOf('hud.defend.name'), bars.indexOf('v-if="hud.attack"'))
@@ -232,5 +235,47 @@ describe('treasure raid hud', () => {
     expect(panel).toContain('.raid-slot.filled')
     expect(panel).toContain('.raid-slot.empty')
     expect(panel).toContain('.raid-slot.dead')
+    expect(panel).toContain('<button')
+    expect(panel).not.toContain('<span\n                v-for="(mark, index) in hud.defend.slots"')
+  })
+
+  it('opens a sheet for a filled slot and tips empty or dead ones', () => {
+    const save = createSave()
+    const lead = spawnWorker(save)
+    const bench = spawnWorker(save)
+    lead.name = '甲攻'
+    const mine = save.treasureMines.mines[0]
+    mine.shadows = [
+      { ...mine.shadows[0], id: `${mine.id}-a`, name: '青石', hp: 9, hpMax: 18, atk: 4, spd: 6, level: 2 },
+      { ...mine.shadows[0], id: `${mine.id}-b`, name: '晚风', hp: 7, hpMax: 11, atk: 3, spd: 5, level: 1 },
+    ]
+    const idle = raidSlotPress(mine, save.workers, 'defend', 0, save)
+    expect(idle.kind).toBe('sheet')
+    if (idle.kind === 'sheet') {
+      expect(idle.sheet.title).toBe('青石')
+      expect(idle.sheet.rows.find((row) => row.label === '生命')?.text).toBe('9/18')
+      expect(idle.sheet.rows.find((row) => row.label === '攻击')?.text).toBe('4')
+    }
+    expect(raidSlotPress(mine, save.workers, 'defend', 2, save)).toEqual({ kind: 'tip', text: '空槽' })
+    expect(raidSlotPress(mine, save.workers, 'attack', 0, save)).toEqual({ kind: 'tip', text: '空槽' })
+
+    expect(startTreasureRaid(save, mine.id, [lead.id, bench.id]).ok).toBe(true)
+    const raid = mine.raid
+    expect(raid).toBeTruthy()
+    if (!raid) return
+    const filled = raidSlotPress(mine, save.workers, 'attack', 0, save)
+    expect(filled.kind).toBe('sheet')
+    if (filled.kind === 'sheet') {
+      expect(filled.sheet.title).toBe('甲攻')
+      expect(filled.sheet.rows.find((row) => row.label === '职业')?.text).not.toBe('')
+      expect(filled.sheet.rows.find((row) => row.label === '品质')?.text).toBe('白')
+      expect(filled.sheet.rows.find((row) => row.label === '生命')?.text).toContain(`${raid.atkHp}/`)
+    }
+    expect(raidSlotPress(mine, save.workers, 'attack', 2, save)).toEqual({ kind: 'tip', text: '空槽' })
+    raid.queue = [bench.id]
+    expect(raidSlotPress(mine, save.workers, 'attack', 0, save)).toEqual({ kind: 'tip', text: '已阵亡' })
+    const waiting = raidSlotPress(mine, save.workers, 'defend', 1, save)
+    expect(waiting.kind).toBe('sheet')
+    if (waiting.kind === 'sheet') expect(waiting.sheet.title).toBe('晚风')
   })
 })

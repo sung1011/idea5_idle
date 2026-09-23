@@ -2,7 +2,8 @@
 import { computed, ref } from 'vue'
 import ActChargeBar from './actChargeBar.vue'
 import HpBar from './hpBar.vue'
-import { raidSlotLabel, treasureRaidHud } from './treasureRaidHud'
+import ModeHelpSheet from './modeHelpSheet.vue'
+import { raidSlotLabel, raidSlotPress, treasureRaidHud, type SlotSheet } from './treasureRaidHud'
 import { useFrameNow } from './visualProgress'
 import { isFullCombatHp, restCombatCandidates } from '../sim/combat'
 import {
@@ -41,6 +42,7 @@ const pickMax = computed(() => {
   return Math.max(0, TREASURE_CREW_CAP - activeMine.value.crewIds.length)
 })
 const pickSlotOffset = computed(() => (pickKind.value === 'mine' ? (activeMine.value?.crewIds.length ?? 0) : 0))
+const slotSheet = ref<SlotSheet | null>(null)
 
 function clock(mine: TreasureMine): string {
   const safe = mineRemainS(mine, game.save.elapsedS)
@@ -102,6 +104,15 @@ function raidHuds(mine: TreasureMine) {
   return hud ? [hud] : []
 }
 
+function onRaidSlot(mine: TreasureMine, side: 'attack' | 'defend', index: number) {
+  const press = raidSlotPress(mine, game.save.workers, side, index, game.save)
+  if (press.kind === 'tip') {
+    pushFloatTip(press.text)
+    return
+  }
+  slotSheet.value = press.sheet
+}
+
 function confirmPick() {
   const mineId = pickMineId.value
   if (!mineId) return
@@ -147,33 +158,34 @@ function confirmPick() {
             <p class="bar-line">{{ hud.defend.name }}</p>
             <HpBar variant="enemy" :hp="hud.defend.hp" :hp-max="hud.defend.hpMax" />
             <div class="raid-slots" aria-label="守方槽位">
-              <span
+              <button
                 v-for="(mark, index) in hud.defend.slots"
                 :key="`${mine.id}-def-slot-${index}`"
+                type="button"
                 class="raid-slot"
                 :class="mark"
                 :aria-label="`槽位 ${index + 1} ${raidSlotLabel(mark)}`"
-              >{{ index + 1 }}</span>
+                @click="onRaidSlot(mine, 'defend', index)"
+              >{{ index + 1 }}</button>
             </div>
             <ActChargeBar enemy :fill="hud.defend.fill" />
             <template v-if="hud.attack">
               <p class="bar-line">{{ hud.attack.name }}</p>
               <HpBar :hp="hud.attack.hp" :hp-max="hud.attack.hpMax" />
               <div class="raid-slots" aria-label="攻方槽位">
-                <span
+                <button
                   v-for="(mark, index) in hud.attack.slots"
                   :key="`${mine.id}-atk-slot-${index}`"
+                  type="button"
                   class="raid-slot"
                   :class="mark"
                   :aria-label="`槽位 ${index + 1} ${raidSlotLabel(mark)}`"
-                >{{ index + 1 }}</span>
+                  @click="onRaidSlot(mine, 'attack', index)"
+                >{{ index + 1 }}</button>
               </div>
               <ActChargeBar :fill="hud.attack.fill" />
             </template>
           </div>
-          <p v-if="hud.waitingDefend.length" class="label">守军等待 {{ hud.waitingDefend.join('、') }}</p>
-          <p v-if="hud.waitingAttack.length" class="label">等待 {{ hud.waitingAttack.join('、') }}</p>
-          <p v-if="hud.fighting" class="label">本洞不能再开，也不能增援</p>
         </template>
         <div class="row">
           <button v-if="mine.owner === 'shadow' && !mine.raid" type="button" @click="openPick('raid', mine.id)">抢夺</button>
@@ -211,6 +223,7 @@ function confirmPick() {
       @toggle="togglePick"
       @update:runes="runes = $event"
     />
+    <ModeHelpSheet v-if="slotSheet" :title="slotSheet.title" :rows="slotSheet.rows" @close="slotSheet = null" />
   </section>
 </template>
 
@@ -348,10 +361,19 @@ function confirmPick() {
   box-sizing: border-box;
   width: 18px;
   height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  padding: 0;
   border-radius: 3px;
+  box-shadow: none;
   font-size: 10px;
   font-weight: 800;
   line-height: 1;
+  letter-spacing: 0;
+}
+
+.raid-slot:active:not(:disabled) {
+  transform: none;
 }
 
 .raid-slot.filled {

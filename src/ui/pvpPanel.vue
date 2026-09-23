@@ -1,7 +1,12 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import ModeHelpSheet from './modeHelpSheet.vue'
+import { modeHelpOf } from './modeHelp'
 import TreasureMinePanel from './treasureMinePanel.vue'
 
 const PVP_TABS = ['夺宝'] as const
+const helpOpen = ref(false)
+const help = modeHelpOf('treasure')
 </script>
 
 <template>
@@ -20,8 +25,10 @@ const PVP_TABS = ['夺宝'] as const
           {{ label }}
         </button>
       </nav>
+      <button type="button" class="mode-help" aria-label="玩法说明" @click="helpOpen = true">？</button>
     </div>
     <TreasureMinePanel />
+    <ModeHelpSheet v-if="helpOpen" :title="help.title" :rows="help.rows" @close="helpOpen = false" />
   </section>
 </template>
 
@@ -84,5 +91,20 @@ const PVP_TABS = ['夺宝'] as const
   box-shadow: 0 2px 6px rgba(212, 160, 23, 0.32);
   opacity: 1;
   filter: none;
+}
+
+.mode-help {
+  flex: 0 0 32px;
+  align-self: center;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
 }
 </style>

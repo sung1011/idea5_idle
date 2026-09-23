@@ -27,6 +27,8 @@ import {
   workshopBuffRemainS,
 } from '../sim/encounters'
 import { timedOrderLine } from '../sim/marketTimed'
+import ModeHelpSheet from './modeHelpSheet.vue'
+import { modeHelpIdForMainline, modeHelpOf } from './modeHelp'
 import {
   DUNGEON_MECHANIC_LABEL,
   dungeonAttemptSummary,
@@ -98,6 +100,8 @@ function tryOpenGuideRunePick() {
   else openPick(index)
 }
 const currentTab = computed(() => mainlineTab.value)
+const helpOpen = ref(false)
+const help = computed(() => modeHelpOf(modeHelpIdForMainline(currentTab.value)))
 const isDungeonTab = computed(() => currentTab.value === 'dungeon')
 const currentDensity = computed(() => mainlineDensity.value)
 const isBrief = computed(() => currentDensity.value === 'brief')
@@ -434,7 +438,9 @@ function timedLine(enc: Encounter) {
           {{ MAINLINE_DENSITY_LABELS[id] }}
         </button>
       </nav>
+      <button type="button" class="mode-help" aria-label="玩法说明" @click="helpOpen = true">？</button>
     </div>
+    <ModeHelpSheet v-if="helpOpen" :title="help.title" :rows="help.rows" @close="helpOpen = false" />
     <div class="chapter-head">
       <p class="chapter">{{ chapterTitle }}</p>
       <div
@@ -753,6 +759,21 @@ function timedLine(enc: Encounter) {
 
 .board-nav .density {
   flex: 0 0 auto;
+}
+
+.mode-help {
+  flex: 0 0 32px;
+  align-self: center;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
 }
 
 .sub {
