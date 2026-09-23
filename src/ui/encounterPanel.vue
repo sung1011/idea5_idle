@@ -902,6 +902,11 @@ function timedLine(enc: Encounter) {
   color: #c0392b;
 }
 
+.card .label,
+.card .timed {
+  font-size: 13px;
+}
+
 .buff {
   color: var(--moss-deep);
   font-weight: 700;
@@ -1008,6 +1013,7 @@ function timedLine(enc: Encounter) {
 
 .kind {
   font-family: var(--font-display);
+  font-size: 14px;
   letter-spacing: 0.12em;
 }
 
@@ -1124,7 +1130,7 @@ function timedLine(enc: Encounter) {
   color: #c0392b;
   background: rgba(255, 248, 238, 0.72);
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 14px;
   font-style: normal;
   font-weight: 400;
   letter-spacing: 0.28em;
@@ -1159,6 +1165,10 @@ ul {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.card .row button {
+  font-size: 14px;
 }
 
 .refresh {

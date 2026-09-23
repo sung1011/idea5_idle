@@ -69,6 +69,7 @@ function consumeShort(token: DealToken) {
   margin: 0;
   line-height: 1.55;
   font-family: var(--font-mono);
+  font-size: 13px;
 }
 
 .k {

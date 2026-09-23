@@ -305,6 +305,7 @@ function confirmPick() {
 
 .kind {
   font-family: var(--font-display);
+  font-size: 14px;
   letter-spacing: 0.12em;
 }
 
@@ -368,6 +369,7 @@ function confirmPick() {
 .label {
   margin: 0;
   font-family: var(--font-mono);
+  font-size: 13px;
   color: var(--copper);
   line-height: 1.5;
 }
@@ -376,6 +378,10 @@ function confirmPick() {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.card .row button {
+  font-size: 14px;
 }
 
 .bars {
