@@ -19,7 +19,7 @@ describe('potion help bubble', () => {
       effect: POTION_EFFECT_TEXT.stim,
     })
     expect(potionHelpCopy('salve', 4)).toEqual({
-      title: '初级药膏',
+      title: '回春散',
       effect: POTION_EFFECT_TEXT.salve,
       stock: 4,
     })

@@ -136,7 +136,7 @@ type HazardRoll = {
 
 ### 2.6 炼金 `alchemy`（制造）
 
-一次性消耗：做成即从配方扣光原料。每次成功从 7 种药剂池随机一种，按 `POTION_BATCH_RANGE` 给一批进物资（初级药膏 8–14、兴奋剂 4–8、续命汤 5–10、绝境膏 4–8、护命符药 2–5、凝神剂 3–6、醒神散 3–6）。工人、工具、站 XP 仍按原站规则。药剂不能装 `foodSlot`，必须装进账号 `potionSlots`（4 槽）后点槽使用，无 CD；只打六站在岗，战斗中 / 休息 / 助战不吃，无人在岗不扣瓶并漂「没有在岗工人可用药」。装配面板只写名字和数量，右上角「？」看效果。`potionEffectValue` 仍恒 0；效率 / 额外产出改走 `potionBuffs`（兴奋剂、凝神剂）。旧档通用 `potion` hydrate 成 `salve`；旧档 `warDrum` 槽清空。醒神散：在岗残血抬到 40% hpMax，非残血立刻 +10% hpMax，不清劳损。
+一次性消耗：做成即从配方扣光原料。每次成功从 7 种药剂池随机一种，按 `POTION_BATCH_RANGE` 给一批进物资（回春散 8–14、兴奋剂 4–8、续命汤 5–10、绝境膏 4–8、赶工粉 2–5、双份雾 3–6、醒神散 3–6）。工人、工具、站 XP 仍按原站规则。药剂不能装 `foodSlot`，必须装进账号 `potionSlots`（4 槽）后点槽使用，无 CD；只打六站在岗，战斗中 / 休息 / 助战不吃，无人在岗不扣瓶并漂「没有在岗工人可用药」。装配面板只写名字和数量，右上角「？」看效果。`potionEffectValue` 仍恒 0；速度改走 `potionBuffs`（兴奋剂、赶工粉），下一批倍率走双份雾。旧档通用 `potion` hydrate 成 `salve`；旧档 `focusDraft` / `wardElixir` 库存与已装槽迁成 `doubleMist` / `rushPowder`；旧档 `warDrum` 槽清空。醒神散只奶在岗最残的 1～2 人（第 1 人 35% hpMax，第 2 人须 HP≤50%max 再回 20%），满血不选且不扣瓶。回春散全体在岗立刻回 10% hpMax。绝境膏：HP≤30%max 抬到 40%，否则立刻回 5%。
 
 原料走 `ALCHEMY_COST_OPTIONS`：草或猎副产（`blood` / `tooth` / `eye`）任一 1 个即可，优先扣草。旧「耗木出药剂 + 渣滓」已废。
 
@@ -185,7 +185,7 @@ type HazardRoll = {
 
 ### 4.2 劳损与药剂
 
-成功产出才加劳损：`fatigueDebt += (hpMax * 0.0015 + nearFullPip) * stationMul * comboMul`。`nearFullPip` 仅近满血（`hp >= hpMax-1`）加 `0.18`。`debt≥1` 扣 `floor` 血并减债。HP 锁 1。`stationMul` 约 0.4（铭刻成功 0.55）。血线三档（`hp/hpMax`）：≤1% 空血 ×0.5，≤30% 残血 ×0.8，＞30% 正常 ×1。站卡进度行写「效率 N%」（两人取更低）。工人界面底色读 `hp - fatigueDebt`。已删除站狂暴、战鼓药与站工具。工人页 4 槽短按点用 7 种药剂（兴奋剂加速、护命挡劳损/战斗伤、凝神下一次 +1 等），时效按 `elapsedS`。连招只站内，见 [main.md](main.md) 2.2。
+成功产出才加劳损：`fatigueDebt += (hpMax * 0.0015 + nearFullPip) * stationMul * comboMul`。`nearFullPip` 仅近满血（`hp >= hpMax-1`）加 `0.18`。`debt≥1` 扣 `floor` 血并减债。HP 锁 1。`stationMul` 约 0.4（铭刻成功 0.55）。血线三档（`hp/hpMax`）：≤1% 空血 ×0.5，≤30% 残血 ×0.8，＞30% 正常 ×1。站卡进度行写「效率 N%」（两人取更低）。工人界面底色读 `hp - fatigueDebt`。已删除站狂暴、战鼓药与站工具。工人页 4 槽短按点用 7 种药剂（兴奋剂加速、回春散全体 10%、醒神散奶最残、绝境膏抬残血、双份雾下一批倍率、赶工粉缩短一周期），兴奋剂与续命汤时效按 `elapsedS`。连招只站内，见 [main.md](main.md) 2.2。
 
 ---
 
@@ -299,7 +299,7 @@ type ProductionBuff = {
 
 ## 8. 偶遇补给
 
-敌人开战仍是补给门闩。新刷出的交物单（敌人补给 / 委托 / 收购 / 路人消耗 / 当铺）只要求 1 种已解锁工位的产物，种类跟骑士开站表（1 采药草/香料 → 2 炼金七药+任意药剂 → 5 狩猎 → 6 烹饪 → 9 采矿矿石 → 10 铭刻符文+任意符文），不跟章节号；药类 / 符类订单约 35%～40% 为通配 `anyPotion` / `anyRune`，交单扣库存最多的那一种。数量仍随品质与章节递增；Boss 只加数量。只开采药时只要草/香料；开局商场「铜矿当」仍是 `ore` ×2 特例（采矿要骑士 9 才开）。荒晶不进主线新单池。铭刻已开后订单可要 6 种符文（`MAIN_NEED_TOOL_POOL` = `RUNE_ITEM_IDS`）或通配；旧档 `tool` / `*ToolNN` 读档 remap 成符文。裸 `potion` → `salve`。`itemProducerStation` 对旧通用工具回落铭刻、通配跳炼金/铭刻。市集新报价不再发裸 `tool`。武器搁置，不再作为新单主需求。战场交战中增援与战败后再增援都不扣补给；只有首次开战扣一整套。地牢开战另耗一套苛刻补给（草 ×12、香料 ×6、熟食 ×4、初级药膏 ×3），不走战场格、不被探索刷新；游戏日切仍强制刷新，可清掉进行中或战败的地牢战（与战场探索保留交战单分开），并按当前主线章锁定缩放、先自动发未领宝箱。详见 [main.md](main.md) 6.5。
+敌人开战仍是补给门闩。新刷出的交物单（敌人补给 / 委托 / 收购 / 路人消耗 / 当铺）只要求 1 种已解锁工位的产物，种类跟骑士开站表（1 采药草/香料 → 2 炼金七药+任意药剂 → 5 狩猎 → 6 烹饪 → 9 采矿矿石 → 10 铭刻符文+任意符文），不跟章节号；药类 / 符类订单约 35%～40% 为通配 `anyPotion` / `anyRune`，交单扣库存最多的那一种。数量仍随品质与章节递增；Boss 只加数量。只开采药时只要草/香料；开局商场「铜矿当」仍是 `ore` ×2 特例（采矿要骑士 9 才开）。荒晶不进主线新单池。铭刻已开后订单可要 6 种符文（`MAIN_NEED_TOOL_POOL` = `RUNE_ITEM_IDS`）或通配；旧档 `tool` / `*ToolNN` 读档 remap 成符文。裸 `potion` → `salve`。`itemProducerStation` 对旧通用工具回落铭刻、通配跳炼金/铭刻。市集新报价不再发裸 `tool`。武器搁置，不再作为新单主需求。战场交战中增援与战败后再增援都不扣补给；只有首次开战扣一整套。地牢开战另耗一套苛刻补给（草 ×12、香料 ×6、熟食 ×4、回春散 `salve` ×3），不走战场格、不被探索刷新；游戏日切仍强制刷新，可清掉进行中或战败的地牢战（与战场探索保留交战单分开），并按当前主线章锁定缩放、先自动发未领宝箱。详见 [main.md](main.md) 6.5。
 
 ---
 
@@ -323,7 +323,7 @@ type ProductionBuff = {
 | 荒晶 | `wildCrystal`：采矿双掉，铭刻原料；不进主线新单池 |
 | 符文 | `runeSharp` `runeArmor` `runeBlood` `runeBreak` `runeSwift` `runeInsight`；开战 1 槽消耗 |
 | 旧工具 | 专属 `*ToolNN` / 通用 `tool` `ironTool` `mithrilTool` 不再产出或新刷要；读档转荒晶 + 起步符文，订单 remap 成符文 |
-| 炼金药剂 | `stim` `salve` `renewSoup` `brinkSalve` `wardElixir` `focusDraft` `clearMind`；旧 `potion` hydrate→`salve`；旧 `warDrum` 槽清空 |
+| 炼金药剂 | `stim` `salve`（回春散）`renewSoup` `brinkSalve` `rushPowder` `doubleMist` `clearMind`；旧 `potion` hydrate→`salve`；旧 `focusDraft`→`doubleMist`、`wardElixir`→`rushPowder`；旧 `warDrum` 槽清空 |
 | 工人劳损 | `Worker.fatigueDebt` |
 | 药剂槽 / 时效 | `potionSlots` `potionBuffs`（`elapsedS`） |
 | 站连招 | `fatigueCombo`（streak / key / frustration / fog） |

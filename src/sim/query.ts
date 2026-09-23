@@ -15,7 +15,7 @@ import {
   stationSpeed,
   type IoRule,
 } from './tables'
-import { stimSpeedMul } from './potions'
+import { rushSpeedMul, stimSpeedMul } from './potions'
 import { forgeCycleMul, knightCycleMul, slagCopperValue, stationConflictMul, stationTechSpeedMul } from './tech'
 import { assignedToolWeight } from './tools'
 import { inscriptionRecipes } from './tables'
@@ -47,7 +47,8 @@ export function currentSpeed(save: Save, stationId: StationId, now = Date.now())
     workshopBuffMul(save, now) *
     stationTechSpeedMul(save, stationId) *
     stationConflictMul(save, stationId) *
-    stimSpeedMul(save)
+    stimSpeedMul(save) *
+    rushSpeedMul(save, stationId)
   )
 }
 

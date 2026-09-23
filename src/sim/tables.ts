@@ -56,11 +56,11 @@ const BASE_ITEM_DEF: Record<Exclude<ItemId, StationToolId>, ItemDef> = {
   stew: { id: 'stew', label: '香料炖', sellGold: 14, craftGold: 3 },
   potion: { id: 'potion', label: '药剂', sellGold: 10, craftGold: 2 },
   stim: { id: 'stim', label: '兴奋剂', sellGold: 10, craftGold: 2 },
-  salve: { id: 'salve', label: '初级药膏', sellGold: 8, craftGold: 1 },
+  salve: { id: 'salve', label: '回春散', sellGold: 8, craftGold: 1 },
   renewSoup: { id: 'renewSoup', label: '续命汤', sellGold: 10, craftGold: 2 },
   brinkSalve: { id: 'brinkSalve', label: '绝境膏', sellGold: 12, craftGold: 2 },
-  wardElixir: { id: 'wardElixir', label: '护命符药', sellGold: 16, craftGold: 3 },
-  focusDraft: { id: 'focusDraft', label: '凝神剂', sellGold: 12, craftGold: 2 },
+  rushPowder: { id: 'rushPowder', label: '赶工粉', sellGold: 16, craftGold: 3 },
+  doubleMist: { id: 'doubleMist', label: '双份雾', sellGold: 12, craftGold: 2 },
   clearMind: { id: 'clearMind', label: '醒神散', sellGold: 10, craftGold: 2 },
   anyPotion: { id: 'anyPotion', label: '任意药剂', sellGold: 8, craftGold: 0 },
   anyRune: { id: 'anyRune', label: '任意符文', sellGold: 8, craftGold: 0 },
@@ -454,8 +454,8 @@ export const POTION_ITEM_IDS: readonly PotionItemId[] = [
   'salve',
   'renewSoup',
   'brinkSalve',
-  'wardElixir',
-  'focusDraft',
+  'rushPowder',
+  'doubleMist',
   'clearMind',
 ]
 
@@ -467,19 +467,19 @@ export const POTION_BATCH_RANGE: Readonly<Record<PotionItemId, PotionBatchRange>
   stim: { min: 4, max: 8 },
   renewSoup: { min: 5, max: 10 },
   brinkSalve: { min: 4, max: 8 },
-  wardElixir: { min: 2, max: 5 },
-  focusDraft: { min: 3, max: 6 },
+  rushPowder: { min: 2, max: 5 },
+  doubleMist: { min: 3, max: 6 },
   clearMind: { min: 3, max: 6 },
 }
 
 export const POTION_EFFECT_TEXT: Readonly<Record<PotionItemId, string>> = {
   stim: '在岗工人工作速度 ×1.5，持续 3 分钟',
-  salve: '在岗工人立刻回复 20% 最大生命',
+  salve: '在岗工人立刻回复 10% 最大生命',
   renewSoup: '在岗存活工人每 10 秒回复 5% 最大生命，持续 2 分钟',
-  brinkSalve: '在岗回血，满血约 10%、空血约 45% 最大生命',
-  wardElixir: '1 分钟内在岗工人不受工坊劳损与工坊波及伤害（已有伤口保留）',
-  focusDraft: '5 分钟内每站下一次成功吞吐额外 +1',
-  clearMind: '在岗工人：残血（≤30%）抬到 40% 最大生命；非残血立刻回复 10% 最大生命',
+  brinkSalve: '在岗：生命 ≤30% 抬到 40% 最大生命，其余立刻回复 5%',
+  rushPowder: '随机一个有在岗工人的工位，下一次产出周期缩短 40%',
+  doubleMist: '随机一个有在岗工人的工位，下一批成功产出 80% 为 ×2、20% 为 ×3',
+  clearMind: '只治疗在岗里最残的 1～2 人：第 1 人回复 35% 最大生命；第 2 人若生命 ≤50% 再回复 20%',
 }
 
 export function isPotionItemId(id: unknown): id is PotionItemId {
@@ -488,8 +488,8 @@ export function isPotionItemId(id: unknown): id is PotionItemId {
     id === 'salve' ||
     id === 'renewSoup' ||
     id === 'brinkSalve' ||
-    id === 'wardElixir' ||
-    id === 'focusDraft' ||
+    id === 'rushPowder' ||
+    id === 'doubleMist' ||
     id === 'clearMind'
   )
 }
@@ -931,20 +931,26 @@ export const FOOD_HEAL_RATIO: Record<FoodItemId, number> = {
   stew: 0.55,
 }
 
-/** 旧通用药剂用药比例；现已不用。初级药膏改 20%。 */
+/** 旧通用药剂用药比例；现已不用。回春散为 10%。 */
 export const POTION_HEAL_RATIO = 0.2
-export const SALVE_HEAL_RATIO = 0.2
+export const SALVE_HEAL_RATIO = 0.1
 export const RENEW_HEAL_RATIO = 0.05
-export const BRINK_HEAL_BASE = 0.1
-export const BRINK_HEAL_MISSING = 0.35
-export const CLEAR_MIND_LEAVE_RATIO = 0.4
-export const CLEAR_MIND_HEAL_RATIO = 0.1
+/** 绝境膏：HP/hpMax ≤ 此值则抬到目标比例，否则按少量比例回。 */
+export const BRINK_LOW_RATIO = 0.3
+export const BRINK_LOW_TARGET_RATIO = 0.4
+export const BRINK_HEAL_RATIO = 0.05
+/** 醒神散：最残一人、次残一人（次残还须 HP≤50%）。 */
+export const CLEAR_MIND_PRIMARY_RATIO = 0.35
+export const CLEAR_MIND_SECONDARY_RATIO = 0.2
+export const CLEAR_MIND_SECONDARY_MAX_RATIO = 0.5
+/** 双份雾：低于此掷骰为 ×2，否则 ×3。 */
+export const DOUBLE_MIST_DOUBLE_RATE = 0.8
+/** 赶工粉：下一次周期缩短的比例。 */
+export const RUSH_CYCLE_CUT = 0.4
 export const STIM_SPEED_MUL = 1.5
 export const STIM_DURATION_S = 180
 export const RENEW_DURATION_S = 120
 export const RENEW_TICK_S = 10
-export const WARD_DURATION_S = 60
-export const FOCUS_DURATION_S = 300
 
 export const FOOD_ITEM_IDS = Object.keys(FOOD_BUFF_DEF) as FoodItemId[]
 

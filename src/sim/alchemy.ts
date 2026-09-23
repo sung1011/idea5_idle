@@ -9,7 +9,7 @@ export function potionEffects(_itemId: ItemId): EffectInstance[] {
   return []
 }
 
-/** 与工具 / 食物共用 effectId 解析；药剂恒为 0，效率改走 stim / focus。 */
+/** 与工具 / 食物共用 effectId 解析；药剂恒为 0，效率改走兴奋剂 / 赶工粉，产量改走双份雾。 */
 export function potionEffectValue(_itemId: ItemId | null | undefined, _effectId: EffectId): number {
   return 0
 }

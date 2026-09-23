@@ -1,12 +1,14 @@
 import { addToBank, bankQty, takeFromBank } from './bank'
-import { hydratePotionSlots } from './potionSlots'
+import { hydratePotionSlots, LEGACY_POTION_ID } from './potionSlots'
 import { roll01 } from './rng'
 import {
-  BRINK_HEAL_BASE,
-  BRINK_HEAL_MISSING,
-  CLEAR_MIND_HEAL_RATIO,
-  CLEAR_MIND_LEAVE_RATIO,
-  FOCUS_DURATION_S,
+  BRINK_HEAL_RATIO,
+  BRINK_LOW_RATIO,
+  BRINK_LOW_TARGET_RATIO,
+  CLEAR_MIND_PRIMARY_RATIO,
+  CLEAR_MIND_SECONDARY_MAX_RATIO,
+  CLEAR_MIND_SECONDARY_RATIO,
+  DOUBLE_MIST_DOUBLE_RATE,
   ITEM_DEF,
   PLAYABLE_STATION_IDS,
   POTION_BATCH_RANGE,
@@ -14,14 +16,13 @@ import {
   RENEW_DURATION_S,
   RENEW_HEAL_RATIO,
   RENEW_TICK_S,
+  RUSH_CYCLE_CUT,
   SALVE_HEAL_RATIO,
+  STATION_DEF,
   STIM_DURATION_S,
   STIM_SPEED_MUL,
-  STATION_IDS,
-  WARD_DURATION_S,
 } from './tables'
 import { alchemyBatchBonus } from './tech'
-import { isWoundedHp } from './workshopHp'
 import type {
   ActionResult,
   EncounterNeedMap,
@@ -38,6 +39,7 @@ export { POTION_SLOT_COUNT }
 export { installPotionSlot, unequipPotionSlot } from './potionSlots'
 
 export const POTION_NO_DUTY_TIP = '没有在岗工人可用药'
+export const POTION_FULL_HP_TIP = '在岗工人已满血'
 
 function isAssistLike(worker: Pick<Worker, 'id' | 'guest'>): boolean {
   return worker.guest === true || worker.id.startsWith('assist-')
@@ -59,9 +61,8 @@ export function blankPotionBuffs(): PotionBuffs {
     stimUntil: null,
     renewUntil: null,
     renewNextAt: null,
-    wardUntil: null,
-    focusUntil: null,
-    focusConsumed: [],
+    doubleMist: null,
+    rushStation: null,
   }
 }
 
@@ -104,27 +105,48 @@ export function stimSpeedMul(save: Save): number {
   return isStimActive(save) ? STIM_SPEED_MUL : 1
 }
 
-export function isWardActive(save: Save): boolean {
-  return isActiveUntil(buffsOf(save).wardUntil, save.elapsedS)
+/** 双份雾倍率。没有标记或不是这一站则为 1，不消耗。 */
+export function doubleMistMul(save: Save, stationId: StationId): number {
+  const mark = buffsOf(save).doubleMist
+  if (!mark || mark.stationId !== stationId) return 1
+  return mark.mul
 }
 
-export function isFocusActive(save: Save): boolean {
-  return isActiveUntil(buffsOf(save).focusUntil, save.elapsedS)
+export function mistQty(save: Save, stationId: StationId, qty: number): number {
+  const mul = doubleMistMul(save, stationId)
+  return mul <= 1 ? qty : qty * mul
 }
 
-export function focusOutputBonus(save: Save, stationId: StationId): number {
-  const buffs = buffsOf(save)
-  if (!isFocusActive(save)) return 0
-  return buffs.focusConsumed.includes(stationId) ? 0 : 1
+/** 该站成功产出后清掉双份雾。 */
+export function consumeDoubleMist(save: Save, stationId: StationId): void {
+  if (buffsOf(save).doubleMist?.stationId === stationId) buffsOf(save).doubleMist = null
 }
 
-/** 成功吞吐时领取凝神剂 +1，并标记该站本窗已用。 */
-export function takeFocusOutputBonus(save: Save, stationId: StationId): number {
-  const bonus = focusOutputBonus(save, stationId)
-  if (bonus <= 0) return 0
-  const buffs = buffsOf(save)
-  if (!buffs.focusConsumed.includes(stationId)) buffs.focusConsumed.push(stationId)
-  return bonus
+/** 赶工粉：标记站的周期速度。缩短 40% 即周期 ×0.6，速度 ÷0.6。 */
+export function rushSpeedMul(save: Save, stationId: StationId): number {
+  if (buffsOf(save).rushStation !== stationId) return 1
+  return 1 / (1 - RUSH_CYCLE_CUT)
+}
+
+/** 这一轮产出周期走完后清掉赶工粉。 */
+export function consumeRushCycle(save: Save, stationId: StationId): void {
+  if (buffsOf(save).rushStation === stationId) buffsOf(save).rushStation = null
+}
+
+function dutyStations(save: Save): StationId[] {
+  const taken = new Set<StationId>()
+  for (const worker of potionDutyWorkers(save)) {
+    const station = worker.assignment
+    if (station) taken.add(station)
+  }
+  return PLAYABLE_STATION_IDS.filter((id) => taken.has(id))
+}
+
+function pickDutyStation(save: Save): StationId | null {
+  const stations = dutyStations(save)
+  if (!stations.length) return null
+  const idx = Math.min(stations.length - 1, Math.floor(roll01(save) * stations.length))
+  return stations[idx] ?? null
 }
 
 export function rollAlchemyPotionBatch(save: Save): { itemId: PotionItemId; qty: number } {
@@ -162,10 +184,33 @@ function applyHeal(save: Save, worker: Worker, amount: number): number {
   return healed
 }
 
-function brinkHealAmount(worker: Worker): number {
+function hpRatio(worker: Worker): number {
+  const hpMax = Math.max(1, worker.hpMax)
+  return worker.hp / hpMax
+}
+
+/** 满血不选。按 HP/hpMax 升序，第 2 人还须 ≤50%。 */
+function clearMindTargets(save: Save): Worker[] {
+  const wounded = potionDutyWorkers(save)
+    .filter((worker) => worker.hp < worker.hpMax)
+    .sort((a, b) => hpRatio(a) - hpRatio(b) || a.id.localeCompare(b.id))
+  const picked: Worker[] = []
+  if (wounded[0]) picked.push(wounded[0])
+  if (wounded[1] && hpRatio(wounded[1]) <= CLEAR_MIND_SECONDARY_MAX_RATIO) picked.push(wounded[1])
+  return picked
+}
+
+function applyBrink(save: Save, worker: Worker): number {
   const hpMax = Math.max(1, Math.floor(worker.hpMax))
-  const ratio = Math.max(0, Math.min(1, worker.hp / hpMax))
-  return healAmount(hpMax, BRINK_HEAL_BASE + BRINK_HEAL_MISSING * (1 - ratio))
+  if (worker.hp / hpMax <= BRINK_LOW_RATIO) {
+    const floorHp = Math.min(hpMax, Math.ceil(hpMax * BRINK_LOW_TARGET_RATIO))
+    if (worker.hp >= floorHp) return 0
+    const healed = floorHp - worker.hp
+    worker.hp = floorHp
+    syncCombatHp(save, worker)
+    return healed
+  }
+  return applyHeal(save, worker, Math.ceil(hpMax * BRINK_HEAL_RATIO))
 }
 
 function healDuty(save: Save, amountOf: (worker: Worker) => number, livingOnly = false): number {
@@ -192,34 +237,30 @@ function applyPotionEffect(save: Save, itemId: PotionItemId): string {
     return '续命：每 10 秒回 5% 生命，持续 2 分钟'
   }
   if (itemId === 'brinkSalve') {
-    const healed = healDuty(save, brinkHealAmount)
+    let healed = 0
+    for (const worker of potionDutyWorkers(save)) healed += applyBrink(save, worker)
     return healed > 0 ? `在岗绝境回血，合计 HP+${healed}` : '在岗已满血'
   }
-  if (itemId === 'wardElixir') {
-    buffs.wardUntil = t + WARD_DURATION_S
-    return '护命：1 分钟内不受工坊劳损与战斗伤害'
+  if (itemId === 'rushPowder') {
+    const stationId = pickDutyStation(save)
+    if (!stationId) return POTION_NO_DUTY_TIP
+    buffs.rushStation = stationId
+    return `${STATION_DEF[stationId].label}下一次产出周期缩短 40%`
   }
-  if (itemId === 'focusDraft') {
-    buffs.focusUntil = t + FOCUS_DURATION_S
-    buffs.focusConsumed = []
-    return '凝神：5 分钟内每站下一次成功吞吐 +1'
+  if (itemId === 'doubleMist') {
+    const stationId = pickDutyStation(save)
+    if (!stationId) return POTION_NO_DUTY_TIP
+    const mul = roll01(save) < DOUBLE_MIST_DOUBLE_RATE ? 2 : 3
+    buffs.doubleMist = { stationId, mul }
+    return `${STATION_DEF[stationId].label}下一批成功产出 ×${mul}`
   }
   if (itemId === 'clearMind') {
-    let woke = 0
-    for (const worker of potionDutyWorkers(save)) {
-      if (isWoundedHp(worker)) {
-        const hpMax = Math.max(1, Math.floor(worker.hpMax))
-        const floorHp = Math.ceil(CLEAR_MIND_LEAVE_RATIO * hpMax)
-        if (worker.hp < floorHp) {
-          worker.hp = Math.min(hpMax, floorHp)
-          syncCombatHp(save, worker)
-        }
-      } else {
-        applyHeal(save, worker, healAmount(worker.hpMax, CLEAR_MIND_HEAL_RATIO))
-      }
-      woke += 1
+    const targets = clearMindTargets(save)
+    const ratios = [CLEAR_MIND_PRIMARY_RATIO, CLEAR_MIND_SECONDARY_RATIO]
+    for (let i = 0; i < targets.length; i++) {
+      applyHeal(save, targets[i], healAmount(targets[i].hpMax, ratios[i]))
     }
-    return woke > 0 ? '醒神：在岗残血抬至 40%，其余立刻回 10%' : POTION_NO_DUTY_TIP
+    return targets.length > 0 ? `醒神：最残 ${targets.length} 人回血` : POTION_FULL_HP_TIP
   }
   const _unreachable: never = itemId
   return _unreachable
@@ -232,6 +273,12 @@ export function usePotionSlot(save: Save, index: number, _now = Date.now()): Act
   if (!itemId) return { ok: false, reason: '空槽' }
   if (bankQty(save, itemId) < 1) return { ok: false, reason: `${ITEM_DEF[itemId].label}见底` }
   if (!potionDutyWorkers(save).length) return { ok: false, reason: POTION_NO_DUTY_TIP }
+  if (itemId === 'clearMind' && clearMindTargets(save).length === 0) {
+    return { ok: false, reason: POTION_FULL_HP_TIP }
+  }
+  if ((itemId === 'doubleMist' || itemId === 'rushPowder') && dutyStations(save).length === 0) {
+    return { ok: false, reason: POTION_NO_DUTY_TIP }
+  }
   const took = takeFromBank(save, itemId, 1)
   if (!took.ok) return took
   const detail = applyPotionEffect(save, itemId)
@@ -261,11 +308,6 @@ export function applyPotionTicks(save: Save): void {
     }
   }
   if (buffs.stimUntil != null && t >= buffs.stimUntil) buffs.stimUntil = null
-  if (buffs.wardUntil != null && t >= buffs.wardUntil) buffs.wardUntil = null
-  if (buffs.focusUntil != null && t >= buffs.focusUntil) {
-    buffs.focusUntil = null
-    buffs.focusConsumed = []
-  }
 }
 
 function hydrateBuffs(raw: unknown, elapsedS: number): PotionBuffs {
@@ -274,43 +316,49 @@ function hydrateBuffs(raw: unknown, elapsedS: number): PotionBuffs {
     const n = clampElapsed(value)
     return n != null && n > elapsedS ? n : null
   }
-  const consumed: StationId[] = []
-  if (Array.isArray(src.focusConsumed)) {
-    for (const id of src.focusConsumed) {
-      if ((STATION_IDS as readonly string[]).includes(id as string) && !consumed.includes(id as StationId)) {
-        consumed.push(id as StationId)
-      }
-    }
+  const stationOf = (id: unknown): StationId | null =>
+    (PLAYABLE_STATION_IDS as readonly string[]).includes(id as string) ? (id as StationId) : null
+  let doubleMist: PotionBuffs['doubleMist'] = null
+  const mist = src.doubleMist
+  if (mist && typeof mist === 'object') {
+    const stationId = stationOf(mist.stationId)
+    const mul = mist.mul === 3 ? 3 : mist.mul === 2 ? 2 : null
+    if (stationId && mul) doubleMist = { stationId, mul }
   }
-  const focusUntil = until(src.focusUntil)
   return {
     stimUntil: until(src.stimUntil),
     renewUntil: until(src.renewUntil),
     renewNextAt: clampElapsed(src.renewNextAt),
-    wardUntil: until(src.wardUntil),
-    focusUntil,
-    focusConsumed: focusUntil ? consumed : [],
+    doubleMist,
+    rushStation: stationOf(src.rushStation),
   }
+}
+
+function foldLegacyQty(bag: Record<string, number | undefined>, from: string, to: PotionItemId): void {
+  const qty = bag[from]
+  if (typeof qty === 'number' && qty > 0) bag[to] = (bag[to] ?? 0) + Math.floor(qty)
+  delete bag[from]
 }
 
 function remapNeedMap(map: EncounterNeedMap | undefined): void {
   if (!map) return
   const bag = map as Record<string, number | undefined>
-  const qty = bag.potion
-  if (typeof qty === 'number' && qty > 0) {
-    delete bag.potion
-    bag.salve = (bag.salve ?? 0) + Math.floor(qty)
-  }
+  for (const [from, to] of Object.entries(LEGACY_POTION_ID)) foldLegacyQty(bag, from, to)
   delete bag.warDrum
 }
 
-/** 旧档通用 `potion` 并进初级药膏；清空站上残留狂暴字段（类型已删）。 */
+/**
+ * 旧档通用 `potion` 并进回春散 `salve`。
+ * 凝神剂 `focusDraft`、护命符药 `wardElixir` 的库存与订单迁到双份雾 / 赶工粉；旧时效（护命 / 凝神）不保留。
+ * 库存若已由 hydrateBank 折过，这里再看 save.bank 是空操作。
+ */
 export function hydratePotionState(save: Save, raw?: unknown): void {
   const src = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
-  const qty = bankQty(save, 'potion')
-  if (qty > 0) {
-    addToBank(save, 'salve', qty)
-    delete save.bank.potion
+  const bank = save.bank as Record<string, number | undefined>
+  for (const [from, to] of Object.entries(LEGACY_POTION_ID)) {
+    const qty = bank[from]
+    if (typeof qty === 'number' && qty > 0) addToBank(save, to, Math.floor(qty))
+    delete bank[from]
   }
   save.potionSlots = hydratePotionSlots(src.potionSlots ?? save.potionSlots)
   save.potionBuffs = hydrateBuffs(src.potionBuffs ?? save.potionBuffs, save.elapsedS)

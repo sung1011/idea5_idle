@@ -777,9 +777,10 @@ function remapLegacyNeedMap(
   const bag = map as Record<string, number | undefined>
   for (const [itemId, qty] of Object.entries(bag)) {
     if (typeof qty !== 'number' || qty <= 0) continue
-    if (itemId === 'potion') {
-      delete bag.potion
-      bag.salve = (bag.salve ?? 0) + Math.floor(qty)
+    if (itemId === 'potion' || itemId === 'focusDraft' || itemId === 'wardElixir') {
+      const nextId = itemId === 'focusDraft' ? 'doubleMist' : itemId === 'wardElixir' ? 'rushPowder' : 'salve'
+      delete bag[itemId]
+      bag[nextId] = (bag[nextId] ?? 0) + Math.floor(qty)
       continue
     }
     if (!isLegacyGenericToolNeed(itemId) && !isStationToolId(itemId)) continue

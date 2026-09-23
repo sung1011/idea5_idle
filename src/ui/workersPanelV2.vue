@@ -14,12 +14,11 @@ import {
   ITEM_DEF,
   isFoodItemId,
   isPotionItemId,
+  STATION_DEF,
   type FoodItemId,
 } from '../sim/tables'
 import {
-  isFocusActive,
   isStimActive,
-  isWardActive,
   potionRemainS,
 } from '../sim/potions'
 import {
@@ -158,8 +157,11 @@ const potionBuffLine = computed(() => {
   if (save.potionBuffs.renewUntil != null && t < save.potionBuffs.renewUntil) {
     parts.push(`续命 ${formatMarchClock(potionRemainS(save.potionBuffs.renewUntil, t))}`)
   }
-  if (isWardActive(save)) parts.push(`护命 ${formatMarchClock(potionRemainS(save.potionBuffs.wardUntil, t))}`)
-  if (isFocusActive(save)) parts.push(`凝神 ${formatMarchClock(potionRemainS(save.potionBuffs.focusUntil, t))}`)
+  const mist = save.potionBuffs.doubleMist
+  if (mist) parts.push(`双份雾 ${STATION_DEF[mist.stationId].label} ×${mist.mul}`)
+  if (save.potionBuffs.rushStation) {
+    parts.push(`赶工 ${STATION_DEF[save.potionBuffs.rushStation].label}`)
+  }
   return parts.join(' · ')
 })
 const potionPickOptions = computed(() => availablePotionInstallIds(game.save))

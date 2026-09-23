@@ -11,11 +11,23 @@ function clampSlotIndex(index: number): number | null {
   return index
 }
 
+/**
+ * 旧档槽位迁到现行 7 药。`potion` → 回春散 `salve`；
+ * 凝神剂 `focusDraft` → 双份雾 `doubleMist`；护命符药 `wardElixir` → 赶工粉 `rushPowder`。
+ * 不保留旧药时效。
+ */
+export const LEGACY_POTION_ID: Record<string, PotionItemId> = {
+  potion: 'salve',
+  focusDraft: 'doubleMist',
+  wardElixir: 'rushPowder',
+}
+
 export function hydratePotionSlots(raw: unknown): PotionSlots {
   const slots = blankPotionSlots()
   if (!Array.isArray(raw)) return slots
   for (let i = 0; i < POTION_SLOT_COUNT; i++) {
-    const id = raw[i] === 'potion' ? 'salve' : raw[i]
+    const rawId = raw[i]
+    const id = typeof rawId === 'string' && LEGACY_POTION_ID[rawId] ? LEGACY_POTION_ID[rawId] : rawId
     if (id === 'warDrum' || !isPotionItemId(id)) continue
     if (slots.some((taken) => taken === id)) continue
     slots[i] = id

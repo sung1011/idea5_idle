@@ -1,20 +1,20 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
-import { beginEnemyCombat, stepEnemyCombat } from './combat'
+import { beginEnemyCombat } from './combat'
 import { createAssistWorker } from './combatAssist'
 import { createSave } from './createSave'
 import {
-  BRINK_HEAL_BASE,
-  BRINK_HEAL_MISSING,
-  CLEAR_MIND_HEAL_RATIO,
-  CLEAR_MIND_LEAVE_RATIO,
-  FOCUS_DURATION_S,
+  BRINK_HEAL_RATIO,
+  BRINK_LOW_TARGET_RATIO,
+  CLEAR_MIND_PRIMARY_RATIO,
+  CLEAR_MIND_SECONDARY_RATIO,
   POTION_BATCH_RANGE,
   POTION_ITEM_IDS,
   RENEW_DURATION_S,
   RENEW_HEAL_RATIO,
   RENEW_TICK_S,
+  RUSH_CYCLE_CUT,
   SALVE_HEAL_RATIO,
   STIM_DURATION_S,
   STIM_SPEED_MUL,
@@ -26,6 +26,7 @@ import {
   rollAlchemyPotionBatch,
   stimSpeedMul,
   unequipPotionSlot,
+  POTION_FULL_HP_TIP,
   POTION_NO_DUTY_TIP,
   usePotionSlot,
 } from './potions'
@@ -36,7 +37,6 @@ import { completeCycle } from './stations'
 import { ticks } from './tick'
 import type { EnemyEncounter, Save } from './types'
 import { hydrateLoadedSave } from '../ui/saveGame'
-import { applyWorkshopFatigue } from './workshopHp'
 
 function roster(n = 1): Save {
   const save = createSave()
@@ -73,8 +73,8 @@ describe('alchemy batch roll', () => {
       'salve',
       'renewSoup',
       'brinkSalve',
-      'wardElixir',
-      'focusDraft',
+      'rushPowder',
+      'doubleMist',
       'clearMind',
     ])
     for (const id of POTION_ITEM_IDS) {
@@ -103,7 +103,7 @@ describe('potion slots', () => {
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(bankQty(save, 'salve')).toBe(0)
     expect(save.potionSlots[0]).toBe('salve')
-    expect(usePotionSlot(save, 0)).toEqual({ ok: false, reason: '初级药膏见底' })
+    expect(usePotionSlot(save, 0)).toEqual({ ok: false, reason: '回春散见底' })
     expect(unequipPotionSlot(save, 0).ok).toBe(true)
     expect(save.potionSlots[0]).toBeNull()
   })
@@ -131,7 +131,7 @@ describe('seven potion effects', () => {
     expect(currentSpeed(later, 'mining')).toBeCloseTo(bare)
   })
 
-  it('salve heals every on-duty worker by 20% hpMax', () => {
+  it('salve heals every on-duty worker by 10% hpMax', () => {
     const save = roster(2)
     assignWorker(save, save.workers[0].id, 'herbalism')
     assignWorker(save, save.workers[1].id, 'mining')
@@ -161,87 +161,116 @@ describe('seven potion effects', () => {
     expect(done.potionBuffs.renewUntil).toBeNull()
   })
 
-  it('brinkSalve heals more when missing more HP', () => {
+  it('brinkSalve lifts workers at or under 30% to 40% and heals the rest by 5%', () => {
+    const save = roster(3)
+    const low = save.workers[0]
+    const mid = save.workers[1]
+    const full = save.workers[2]
+    assignWorker(save, low.id, 'herbalism')
+    assignWorker(save, mid.id, 'mining')
+    assignWorker(save, full.id, 'hunting')
+    low.hp = Math.floor(low.hpMax * 0.3)
+    const midStart = Math.max(Math.floor(mid.hpMax * 0.3) + 1, Math.ceil(mid.hpMax * 0.5))
+    mid.hp = midStart
+    full.hp = full.hpMax
+    save.bank.brinkSalve = 1
+    expect(installPotionSlot(save, 0, 'brinkSalve').ok).toBe(true)
+    expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(low.hp).toBe(Math.ceil(low.hpMax * BRINK_LOW_TARGET_RATIO))
+    expect(mid.hp).toBe(Math.min(mid.hpMax, midStart + Math.ceil(mid.hpMax * BRINK_HEAL_RATIO)))
+    expect(full.hp).toBe(full.hpMax)
+    expect(low.hp / low.hpMax).toBeGreaterThan(0.3)
+  })
+
+  it('doubleMist multiplies the next successful output then clears', () => {
+    setRollOverride(() => 0)
+    const save = roster(1)
+    assignWorker(save, save.workers[0].id, 'herbalism')
+    save.bank.doubleMist = 1
+    expect(installPotionSlot(save, 0, 'doubleMist').ok).toBe(true)
+    expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(save.potionBuffs.doubleMist).toEqual({ stationId: 'herbalism', mul: 2 })
+    expect(bankQty(save, 'doubleMist')).toBe(0)
+    expect(completeCycle(save, 'herbalism')).toBe(true)
+    expect(bankQty(save, 'herb') + bankQty(save, 'spice')).toBe(2)
+    expect(save.potionBuffs.doubleMist).toBeNull()
+    expect(completeCycle(save, 'herbalism')).toBe(true)
+    expect(bankQty(save, 'herb') + bankQty(save, 'spice')).toBe(3)
+
+    setRollOverride(() => 0.85)
+    const triple = roster(1)
+    assignWorker(triple, triple.workers[0].id, 'herbalism')
+    triple.bank.doubleMist = 1
+    expect(installPotionSlot(triple, 0, 'doubleMist').ok).toBe(true)
+    expect(usePotionSlot(triple, 0).ok).toBe(true)
+    expect(triple.potionBuffs.doubleMist).toEqual({ stationId: 'herbalism', mul: 3 })
+    expect(completeCycle(triple, 'herbalism')).toBe(true)
+    expect(bankQty(triple, 'herb') + bankQty(triple, 'spice')).toBe(3)
+    expect(triple.potionBuffs.doubleMist).toBeNull()
+  })
+
+  it('rushPowder shortens the next cycle of one on-duty station by 40%', () => {
+    setRollOverride(() => 0)
     const save = roster(2)
     assignWorker(save, save.workers[0].id, 'herbalism')
     assignWorker(save, save.workers[1].id, 'mining')
-    save.workers[0].hp = save.workers[0].hpMax
-    save.workers[1].hp = 1
-    save.bank.brinkSalve = 1
-    const fullHeal = Math.ceil(save.workers[0].hpMax * (BRINK_HEAL_BASE + BRINK_HEAL_MISSING * 0))
-    const emptyRatio = 1 / save.workers[1].hpMax
-    const emptyHeal = Math.ceil(save.workers[1].hpMax * (BRINK_HEAL_BASE + BRINK_HEAL_MISSING * (1 - emptyRatio)))
-    expect(installPotionSlot(save, 0, 'brinkSalve').ok).toBe(true)
+    const herbBare = currentSpeed(save, 'herbalism')
+    const mineBare = currentSpeed(save, 'mining')
+    save.bank.rushPowder = 1
+    expect(installPotionSlot(save, 0, 'rushPowder').ok).toBe(true)
     expect(usePotionSlot(save, 0).ok).toBe(true)
-    expect(save.workers[0].hp).toBe(Math.min(save.workers[0].hpMax, save.workers[0].hpMax))
-    expect(fullHeal).toBeGreaterThan(0)
-    expect(save.workers[1].hp).toBe(1 + emptyHeal)
-    expect(emptyHeal).toBeGreaterThan(fullHeal)
-  })
-
-  it('wardElixir blocks workshop fatigue but not combat HP damage', () => {
-    const save = roster(1)
-    const worker = save.workers[0]
-    assignWorker(save, worker.id, 'herbalism')
-    save.bank.wardElixir = 1
-    expect(installPotionSlot(save, 0, 'wardElixir').ok).toBe(true)
-    expect(usePotionSlot(save, 0).ok).toBe(true)
-    applyWorkshopFatigue(save, 'herbalism', Date.now(), 'success')
-    expect(worker.fatigueDebt).toBe(0)
-    expect(worker.hp).toBe(worker.hpMax)
-
-    const enc = testEnemy()
-    save.encounters[0] = enc
-    worker.assignment = null
-    beginEnemyCombat(enc, [worker], 1_000_000, 1, undefined, save)
-    const fighter = enc.combat!.workers[0]
-    fighter.hp = 20
-    fighter.hpMax = 20
-    worker.hp = 20
-    enc.combat!.enemy.nextActAt = 1_000_050
-    fighter.nextActAt = 1_000_500
-    stepEnemyCombat(save, enc, 1_000_080)
-    expect(fighter.hp).toBeLessThan(20)
-  })
-
-  it('focusDraft gives each station +1 on the next successful cycle for 5 minutes', () => {
-    setRollOverride(() => 0.2)
-    const save = roster(1)
-    assignWorker(save, save.workers[0].id, 'herbalism')
-    save.bank.focusDraft = 1
-    expect(installPotionSlot(save, 0, 'focusDraft').ok).toBe(true)
-    expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(save.potionBuffs.rushStation).toBe('herbalism')
+    expect(bankQty(save, 'rushPowder')).toBe(0)
+    expect(currentSpeed(save, 'herbalism')).toBeCloseTo(herbBare / (1 - RUSH_CYCLE_CUT))
+    expect(currentSpeed(save, 'mining')).toBeCloseTo(mineBare)
     expect(completeCycle(save, 'herbalism')).toBe(true)
-    expect(bankQty(save, 'herb') + bankQty(save, 'spice')).toBe(2)
-    expect(completeCycle(save, 'herbalism')).toBe(true)
-    expect(bankQty(save, 'herb') + bankQty(save, 'spice')).toBe(3)
-    const later = ticks(save, FOCUS_DURATION_S)
-    later.bank.herb = 0
-    later.bank.spice = 0
-    completeCycle(later, 'herbalism')
-    expect(bankQty(later, 'herb') + bankQty(later, 'spice')).toBe(1)
+    expect(save.potionBuffs.rushStation).toBeNull()
+    expect(currentSpeed(save, 'herbalism')).toBeCloseTo(herbBare)
+
+    setRollOverride(() => 0.6)
+    const picked = roster(2)
+    assignWorker(picked, picked.workers[0].id, 'herbalism')
+    assignWorker(picked, picked.workers[1].id, 'mining')
+    picked.bank.rushPowder = 1
+    expect(installPotionSlot(picked, 0, 'rushPowder').ok).toBe(true)
+    expect(usePotionSlot(picked, 0).ok).toBe(true)
+    expect(picked.potionBuffs.rushStation).toBe('mining')
   })
 
-  it('clearMind lifts residual HP to 40% and heals others by 10% without clearing fatigue', () => {
-    const save = roster(2)
-    const residual = save.workers[0]
-    const healthy = save.workers[1]
-    assignWorker(save, residual.id, 'herbalism')
-    assignWorker(save, healthy.id, 'mining')
-    residual.fatigueDebt = 2.4
-    residual.hp = 1
-    healthy.fatigueDebt = 1.1
-    healthy.hp = Math.ceil(healthy.hpMax * 0.6)
-    save.bank.clearMind = 1
+  it('clearMind heals the most wounded on-duty workers and skips full HP', () => {
+    const save = roster(4)
+    const worst = save.workers[0]
+    const second = save.workers[1]
+    const lighter = save.workers[2]
+    const full = save.workers[3]
+    assignWorker(save, worst.id, 'herbalism')
+    assignWorker(save, second.id, 'herbalism')
+    assignWorker(save, lighter.id, 'mining')
+    assignWorker(save, full.id, 'mining')
+    worst.fatigueDebt = 2.4
+    worst.hp = 1
+    second.hp = Math.floor(second.hpMax * 0.45)
+    lighter.hp = Math.min(lighter.hpMax, Math.floor(lighter.hpMax * 0.5) + 1)
+    if (lighter.hp / lighter.hpMax <= 0.5) lighter.hp = Math.min(lighter.hpMax, lighter.hp + 1)
+    const lighterBefore = lighter.hp
+    const secondBefore = second.hp
+    full.hp = full.hpMax
+    save.bank.clearMind = 2
     expect(installPotionSlot(save, 0, 'clearMind').ok).toBe(true)
     expect(usePotionSlot(save, 0).ok).toBe(true)
-    expect(residual.fatigueDebt).toBe(2.4)
-    expect(residual.hp).toBe(Math.ceil(CLEAR_MIND_LEAVE_RATIO * residual.hpMax))
-    expect(residual.hp / residual.hpMax).toBeGreaterThan(0.3)
-    expect(healthy.fatigueDebt).toBe(1.1)
-    expect(healthy.hp).toBe(
-      Math.min(healthy.hpMax, Math.ceil(healthy.hpMax * 0.6) + Math.ceil(healthy.hpMax * CLEAR_MIND_HEAL_RATIO)),
-    )
+    expect(worst.fatigueDebt).toBe(2.4)
+    expect(worst.hp).toBe(1 + Math.ceil(worst.hpMax * CLEAR_MIND_PRIMARY_RATIO))
+    expect(second.hp).toBe(Math.min(second.hpMax, secondBefore + Math.ceil(second.hpMax * CLEAR_MIND_SECONDARY_RATIO)))
+    expect(lighter.hp).toBe(lighterBefore)
+    expect(full.hp).toBe(full.hpMax)
+    expect(bankQty(save, 'clearMind')).toBe(1)
+
+    full.hp = full.hpMax
+    worst.hp = worst.hpMax
+    second.hp = second.hpMax
+    lighter.hp = lighter.hpMax
+    expect(usePotionSlot(save, 0)).toEqual({ ok: false, reason: POTION_FULL_HP_TIP })
+    expect(bankQty(save, 'clearMind')).toBe(1)
   })
 })
 
@@ -367,11 +396,63 @@ describe('hydrate potions', () => {
     const save = createSave()
     save.elapsedS = 40
     save.potionBuffs.stimUntil = 80
-    save.potionBuffs.wardUntil = 10
-    hydratePotionState(save, save)
+    hydratePotionState(save, {
+      potionBuffs: { stimUntil: 80, wardUntil: 200, focusUntil: 200, focusConsumed: ['herbalism'] },
+    })
     expect(save.potionBuffs.stimUntil).toBe(80)
-    expect(save.potionBuffs.wardUntil).toBeNull()
+    expect(save.potionBuffs.doubleMist).toBeNull()
+    expect(save.potionBuffs.rushStation).toBeNull()
     applyPotionTicks(save)
     expect(save.potionBuffs.stimUntil).toBe(80)
+  })
+
+  it('maps focusDraft and wardElixir stock, slots, and orders onto the new potions', () => {
+    const save = hydrateLoadedSave({
+      ...createSave(),
+      bank: { focusDraft: 4, wardElixir: 2, doubleMist: 1, salve: 3 },
+      potionSlots: ['focusDraft', 'wardElixir', null, null],
+      potionBuffs: { stimUntil: 80, wardUntil: 200, focusUntil: 90, focusConsumed: ['herbalism'] },
+      encounters: [
+        {
+          kind: 'enemy',
+          id: 'old-focus',
+          label: '旧凝神单',
+          quality: 'green',
+          needs: { focusDraft: 2, wardElixir: 1 },
+          lootGold: 8,
+          departed: false,
+          combat: null,
+          lootClaimed: false,
+          enemyRank: 'minion',
+          weaknesses: ['fire'],
+          revealedWeaknesses: [],
+        },
+      ],
+      marketEncounters: [
+        {
+          kind: 'passerby',
+          id: 'old-ward',
+          label: '旧护命换货',
+          quality: 'green',
+          wants: { wardElixir: 1 },
+          offers: { focusDraft: 2 },
+          completed: false,
+        },
+      ],
+    } as never)
+    expect(save?.bank.doubleMist).toBe(5)
+    expect(save?.bank.rushPowder).toBe(2)
+    expect(save?.bank.salve).toBe(3)
+    expect((save?.bank as { focusDraft?: number }).focusDraft).toBeUndefined()
+    expect((save?.bank as { wardElixir?: number }).wardElixir).toBeUndefined()
+    expect(save?.potionSlots).toEqual(['doubleMist', 'rushPowder', null, null])
+    const enemy = save?.encounters.find((row) => row.id === 'old-focus')
+    expect(enemy?.kind === 'enemy' && enemy.needs).toEqual({ doubleMist: 2, rushPowder: 1 })
+    const market = save?.marketEncounters.find((row) => row.id === 'old-ward')
+    expect(market?.kind === 'passerby' && market.wants).toEqual({ rushPowder: 1 })
+    expect(market?.kind === 'passerby' && market.offers).toEqual({ doubleMist: 2 })
+    expect(save?.potionBuffs.stimUntil).toBe(80)
+    expect(save?.potionBuffs.doubleMist).toBeNull()
+    expect(save?.potionBuffs.rushStation).toBeNull()
   })
 })

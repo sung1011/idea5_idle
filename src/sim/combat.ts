@@ -35,7 +35,6 @@ import {
   onDungeonWake,
 } from './dungeonTables'
 import { tryAutoEatAfterCombat, tryAutoEatWhenWounded } from './food'
-import { isWardActive } from './potions'
 import { isAssistWorker } from './combatAssist'
 import {
   fighterRuneId,
@@ -824,10 +823,6 @@ function strikeWorkshop(
   if (attacker.hp <= 0) return
   const worker = save.workers.find((w) => w.id === target.id)
   if (!worker || worker.hp <= 0) return
-  if (isWardActive(save)) {
-    emitLog(enc, combat, at, `${attacker.label} 对 ${target.label} 的伤害被护命抵消（工坊）`, 'ok', onLog)
-    return
-  }
   const rage = hasEncounterAffix(save, enc, 'workshopRage') ? DUNGEON_AFFIX_FX.workshopRageMul : 1
   const woundedMul = isWoundedHp(worker) ? woundedTakenMul(save) : 1
   const hit = Math.max(1, Math.round((attacker.atk + dungeonJaggedBonus(save, enc)) * rage * woundedMul))

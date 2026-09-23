@@ -21,6 +21,12 @@ describe('potion skill slots', () => {
       null,
     ])
     expect(hydratePotionSlots(['warDrum', 'salve', null, null])).toEqual([null, 'salve', null, null])
+    expect(hydratePotionSlots(['focusDraft', 'wardElixir', 'salve', null])).toEqual([
+      'doubleMist',
+      'rushPowder',
+      'salve',
+      null,
+    ])
   })
 
   it('installs a unique potion type from inventory and can clear the slot', () => {

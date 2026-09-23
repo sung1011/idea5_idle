@@ -349,7 +349,7 @@ describe('dungeon mvp', () => {
     addToBank(save, 'meal', 4)
     const a = fullWorker(save, '甲')
     expect(startDungeonCombat(save, [a.id], 13_000).ok).toBe(false)
-    expect(dungeonSupplyBlockReason(save)).toMatch(/药膏/)
+    expect(dungeonSupplyBlockReason(save)).toMatch(/回春散/)
     addToBank(save, 'salve', 3)
     expect(startDungeonCombat(save, [a.id], 13_000).ok).toBe(true)
   })

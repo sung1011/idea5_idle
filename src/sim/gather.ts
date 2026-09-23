@@ -18,6 +18,7 @@ import {
   type MiningCategoryId,
 } from './tables'
 import { huntingHazardMul, miningDualDropBonus, miningOutputMul, scaleQtyByMul } from './tech'
+import { consumeDoubleMist, mistQty } from './potions'
 import { cycleOutputBonus } from './tools'
 import type {
   CategoryId,
@@ -149,7 +150,8 @@ function emitRules(
   const techMul = stationId === 'mining' ? miningOutputMul(save) : 1
   for (const io of rules) {
     const raw = io.qty + (io === rules[0] ? bonus : 0)
-    const qty = stationId === 'mining' ? scaleQtyByMul(save, raw, techMul) : raw
+    const scaled = stationId === 'mining' ? scaleQtyByMul(save, raw, techMul) : raw
+    const qty = mistQty(save, stationId, scaled)
     const added = addToBank(save, io.itemId, qty)
     if (!added.ok) return false
     pushLot(into, io.itemId, qty)
@@ -207,9 +209,11 @@ function completeMiningCycle(save: Save, now: number, into?: ItemLot[]): boolean
   if (!emitRules(save, 'mining', cat.outputs, now, into)) return false
   const dualChance = miningDualDropChance(save)
   if (dualChance > 0 && roll01(save) < dualChance) {
-    addToBank(save, 'wildCrystal', 1)
-    pushLot(into, 'wildCrystal', 1)
+    const qty = mistQty(save, 'mining', 1)
+    addToBank(save, 'wildCrystal', qty)
+    pushLot(into, 'wildCrystal', qty)
   }
+  consumeDoubleMist(save, 'mining')
   node.nodeHp = Math.max(0, node.nodeHp - 1)
   const key = asMiningCategoryId(node.categoryId)
   if (node.nodeHp <= 0) {
@@ -228,6 +232,7 @@ function completeMiningCycle(save: Save, now: number, into?: ItemLot[]): boolean
 function completeHerbalismCycle(save: Save, now: number, into?: ItemLot[]): boolean {
   const itemId = resolveHerbalismDrop(roll01(save))
   if (!emitRules(save, 'herbalism', [{ itemId, qty: 1 }], now, into)) return false
+  consumeDoubleMist(save, 'herbalism')
   save.stations.herbalism.gatherNotice = `采到${ITEM_DEF[itemId].label}`
   return true
 }
@@ -250,6 +255,7 @@ function completeHuntingCycle(save: Save, now: number, into?: ItemLot[]): boolea
   const extra = resolveHuntingSideDrop(roll01(save))
   const outputs = extra ? [...prey.outputs, { itemId: extra, qty: 1 }] : prey.outputs
   if (!emitRules(save, 'hunting', outputs, now, into)) return false
+  consumeDoubleMist(save, 'hunting')
   save.stations.hunting.gatherNotice = extra
     ? `安全捕获 · ${prey.label}，顺手${ITEM_DEF[extra].label}`
     : `安全捕获 · ${prey.label}`

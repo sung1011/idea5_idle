@@ -11,6 +11,7 @@ import { applyWorkshopFatigue, decayAlchemyFog, workshopHpWorkMul, type FatigueK
 import { assignedCount, canConsume, currentSpeed, pickConsume } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
 import { isRuneItemId, ITEM_DEF, RUNE_DEF } from './tables'
+import { consumeDoubleMist, consumeRushCycle, mistQty } from './potions'
 import { cycleOutputBonus } from './tools'
 import type { Save, StationId } from './types'
 import { workerStationCycleXp } from './workerLevel'
@@ -31,8 +32,9 @@ function completeAlchemyCycle(save: Save, now: number, into?: ItemLot[]): boolea
   const station = save.stations.alchemy
   const def = selectedCategoryDef(save, 'alchemy')
   const rolled = rollAlchemyPotionBatch(save)
-  const qty = rolled.qty + cycleOutputBonus(save, 'alchemy', now)
+  const qty = mistQty(save, 'alchemy', rolled.qty + cycleOutputBonus(save, 'alchemy', now))
   if (!addToBank(save, rolled.itemId, qty).ok) return false
+  consumeDoubleMist(save, 'alchemy')
   pushLot(into, rolled.itemId, qty)
   station.completed += 1
   grantStationXp(save, 'alchemy', def.xpPerCycle)
@@ -44,11 +46,12 @@ function emitOutputs(save: Save, stationId: StationId, now: number, into?: ItemL
   const def = selectedCategoryDef(save, stationId)
   const bonus = cycleOutputBonus(save, stationId, now)
   for (const io of def.outputs) {
-    const qty = io.qty + (io === def.outputs[0] ? bonus : 0)
+    const qty = mistQty(save, stationId, io.qty + (io === def.outputs[0] ? bonus : 0))
     const added = addToBank(save, io.itemId, qty)
     if (!added.ok) return false
     pushLot(into, io.itemId, qty)
   }
+  consumeDoubleMist(save, stationId)
   return true
 }
 
@@ -66,6 +69,7 @@ export function completeCycle(
     if (ok) {
       const fatigue: FatigueKind = lots.length > 0 ? 'success' : 'softFail'
       emitCycleGain(save, stationId, lots, onGain, now, fatigue)
+      consumeRushCycle(save, stationId)
     }
     return ok
   }
@@ -73,6 +77,7 @@ export function completeCycle(
     const ok = completeAlchemyCycle(save, now, lots)
     if (ok) {
       emitCycleGain(save, stationId, lots, onGain, now, 'success')
+      consumeRushCycle(save, stationId)
     }
     return ok
   }
@@ -86,6 +91,7 @@ export function completeCycle(
   station.completed += 1
   grantStationXp(save, stationId, selectedCategoryDef(save, stationId).xpPerCycle)
   emitCycleGain(save, stationId, lots, onGain, now, gatherFatigueKind(stationId, lots, station.gatherNotice))
+  consumeRushCycle(save, stationId)
   return true
 }
 

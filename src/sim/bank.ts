@@ -34,6 +34,13 @@ export function hydrateBank(raw: unknown): Partial<Record<ItemId, number>> {
     if (typeof qty !== 'number' || !Number.isFinite(qty) || qty <= 0) continue
     out[id] = Math.min(ITEM_QTY_SOFT_CAP, Math.floor(qty))
   }
+  // 旧凝神剂 / 护命符药并进双份雾 / 赶工粉。通用 potion 仍由 hydratePotionState 并进 salve。
+  const legacyPotionBank: Record<string, ItemId> = { focusDraft: 'doubleMist', wardElixir: 'rushPowder' }
+  for (const [from, to] of Object.entries(legacyPotionBank)) {
+    const qty = src[from]
+    if (typeof qty !== 'number' || !Number.isFinite(qty) || qty <= 0) continue
+    out[to] = Math.min(ITEM_QTY_SOFT_CAP, (out[to] ?? 0) + Math.floor(qty))
+  }
   return out
 }
 

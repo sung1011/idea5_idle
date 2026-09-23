@@ -123,8 +123,8 @@ export function hasUsedPotionFromSlot(save: Save): boolean {
   return (
     buffs.stimUntil != null ||
     buffs.renewUntil != null ||
-    buffs.wardUntil != null ||
-    buffs.focusUntil != null
+    buffs.doubleMist != null ||
+    buffs.rushStation != null
   )
 }
 

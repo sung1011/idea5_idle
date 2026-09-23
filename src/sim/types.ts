@@ -58,8 +58,8 @@ export type ItemId =
   | 'salve'
   | 'renewSoup'
   | 'brinkSalve'
-  | 'wardElixir'
-  | 'focusDraft'
+  | 'rushPowder'
+  | 'doubleMist'
   | 'clearMind'
   | 'anyPotion'
   | 'anyRune'
@@ -85,14 +85,14 @@ export type ItemId =
   | 'mithrilTool'
   | StationToolId
 
-/** 7 种可用药剂。旧档通用 `potion` / `warDrum` 不算在内。 */
+/** 7 种可用药剂。旧档通用 `potion` / `warDrum` 不算在内；`focusDraft` / `wardElixir` 读档迁走。 */
 export type PotionItemId =
   | 'stim'
   | 'salve'
   | 'renewSoup'
   | 'brinkSalve'
-  | 'wardElixir'
-  | 'focusDraft'
+  | 'rushPowder'
+  | 'doubleMist'
   | 'clearMind'
 
 /** 开战一人一槽的一次性符文。铭刻产出，进物资堆叠。 */
@@ -104,14 +104,15 @@ export type RuneItemId =
   | 'runeSwift'
   | 'runeInsight'
 
-/** 药剂时效。字段都是 `elapsedS`；到期或未开为 null。 */
+/** 药剂时效与一次性标记。兴奋剂 / 续命用 `elapsedS`；双份雾 / 赶工粉用完即清。 */
 export type PotionBuffs = {
   stimUntil: number | null
   renewUntil: number | null
   renewNextAt: number | null
-  wardUntil: number | null
-  focusUntil: number | null
-  focusConsumed: StationId[]
+  /** 双份雾：该站下一次成功产出的倍率。 */
+  doubleMist: { stationId: StationId; mul: 2 | 3 } | null
+  /** 赶工粉：该站下一次产出周期缩短 40%。 */
+  rushStation: StationId | null
 }
 
 export type ClassId =

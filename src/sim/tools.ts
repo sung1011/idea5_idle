@@ -1,5 +1,4 @@
 import { potionEffectValue } from './alchemy'
-import { takeFocusOutputBonus } from './potions'
 import { workshopHpWorkMul } from './workshopHp'
 import { addToBank } from './bank'
 import { foodEffectValue } from './food'
@@ -190,7 +189,7 @@ export function matchingToolEffectMax(
 }
 
 export function cycleOutputBonus(save: Save, stationId: StationId, now = Date.now()): number {
-  return Math.floor(matchingToolEffectMax(save, stationId, EFFECT_ID.extraOutput, now)) + takeFocusOutputBonus(save, stationId)
+  return Math.floor(matchingToolEffectMax(save, stationId, EFFECT_ID.extraOutput, now))
 }
 
 /** 旧档锻件先留下，hydrate 末尾再由 convertLegacyToolsToFeedstock 转荒晶。 */
