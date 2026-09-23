@@ -322,6 +322,14 @@ header {
   grid-column: 1 / -1;
 }
 
+.fields > div.progress {
+  min-width: 0;
+}
+
+.fields > div.progress dd {
+  min-width: 0;
+}
+
 dt {
   color: var(--muted);
   font-size: 11px;

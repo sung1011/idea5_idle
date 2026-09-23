@@ -69,7 +69,13 @@ const halted = computed(() => stalled.value || assigned.value <= 0)
   overflow: hidden;
 }
 
-.sheet .bar {
+.mini.sheet {
+  width: 100%;
+}
+
+.mini.sheet .bar {
+  flex: 1 1 0;
+  min-width: 6em;
   height: 10px;
 }
 
