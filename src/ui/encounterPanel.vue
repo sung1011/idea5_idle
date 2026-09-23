@@ -13,6 +13,7 @@ import {
   isFullCombatHp,
   restCombatCandidates,
 } from '../sim/combat'
+import { combatPhaseOf, encounterMarchCaption, formatRemainClock } from '../sim/march'
 import { createAssistWorker, pickCombatCandidates } from '../sim/combatAssist'
 import {
   QUALITY_LABEL,
@@ -85,6 +86,13 @@ import HpBar from './hpBar.vue'
 const game = useGameStore()
 const guideFlashCombat = computed(() => isGuideQuestFlash(game.save, 'combat'))
 const guideFlashRune = computed(() => isGuideQuestFlash(game.save, 'rune'))
+function marchCaption(enc: Encounter) {
+  if (enc.kind !== 'enemy') return null
+  return encounterMarchCaption(enc, actNow.value)
+}
+function liveFight(enc: Encounter) {
+  return enc.kind === 'enemy' && combatPhaseOf(enc.combat) === 'fighting'
+}
 function guideFlashEnemy(enc: Encounter) {
   return isGuideQuestCombatFlash(game.save, enc) || (guideFlashRune.value && isGuideQuestRuneFlash(game.save, enc))
 }
@@ -532,7 +540,7 @@ function timedLine(enc: Encounter) {
               {{ cardClass(enc).stunned ? '破防中' : `盾 ${combatShield(enc)}` }}
             </i>
           </p>
-          <template v-if="enc.combat && (!isBrief || isFighting(enc))">
+          <template v-if="enc.combat && liveFight(enc) && (!isBrief || isFighting(enc))">
             <div class="bars">
               <p class="bar-line">敌</p>
               <HpBar
@@ -542,7 +550,7 @@ function timedLine(enc: Encounter) {
                 :shake-key="enemyHpShakeKey(enc)"
               />
               <ActChargeBar
-                v-if="isFighting(enc)"
+                v-if="liveFight(enc)"
                 enemy
                 :stunned="enemyActStunned(enc)"
                 :fill="actChargeFill(enc.combat.enemy.spd, enc.combat.enemy.nextActAt, actNow)"
@@ -551,12 +559,20 @@ function timedLine(enc: Encounter) {
                 <p class="bar-line">{{ w.label }}</p>
                 <HpBar :hp="w.hp" :hp-max="w.hpMax" />
                 <ActChargeBar
-                  v-if="isFighting(enc)"
+                  v-if="liveFight(enc)"
                   :fill="actChargeFill(w.spd, w.nextActAt, actNow)"
                 />
               </template>
             </div>
           </template>
+          <p
+            v-if="marchCaption(enc)"
+            class="march-line"
+            :class="marchCaption(enc)!.phase"
+          >
+            {{ marchCaption(enc)!.label }} {{ formatRemainClock(marchCaption(enc)!.remainS) }}
+            <i class="march-bar" aria-hidden="true"><b :style="{ width: `${Math.round(marchCaption(enc)!.progress * 100)}%` }" /></i>
+          </p>
           <div class="row">
             <button
               v-if="enemyCardButton(enc) === 'claimed'"
@@ -566,7 +582,7 @@ function timedLine(enc: Encounter) {
               已领
             </button>
             <template v-else-if="enemyCardButton(enc) === 'fighting'">
-              <FightingMark />
+              <FightingMark v-if="liveFight(enc)" />
               <button
                 v-if="canReinforceCombat(enc)"
                 type="button"
@@ -1159,6 +1175,47 @@ ul {
   flex-direction: column;
   gap: 4px;
   font-family: var(--font-mono);
+}
+
+.march-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.march-line .march-bar {
+  flex: 1 1 48px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(90, 48, 16, 0.16);
+}
+
+.march-line .march-bar b {
+  display: block;
+  height: 100%;
+}
+
+.march-line.marchOut,
+.march-line.marchHomeWin {
+  color: #8a4e12;
+}
+
+.march-line.marchOut .march-bar b,
+.march-line.marchHomeWin .march-bar b {
+  background: linear-gradient(90deg, #e2a31a, #ffe27a);
+}
+
+.march-line.marchHomeLose {
+  color: #243656;
+}
+
+.march-line.marchHomeLose .march-bar b {
+  background: linear-gradient(90deg, #6d8fd4, #243656);
 }
 
 .row {

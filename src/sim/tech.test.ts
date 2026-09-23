@@ -278,7 +278,13 @@ describe('tech tab row table', () => {
       implemented: true,
       maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
     })
-    expect(TECH_TREE.every((node) => node.implemented && node.maxLevel === IMPLEMENTED_TECH_MAX_LEVEL)).toBe(true)
+    expect(TECH_TREE.filter((node) => node.id !== 'fastRelay').every((node) => node.implemented && node.maxLevel === IMPLEMENTED_TECH_MAX_LEVEL)).toBe(true)
+    expect(techNodeById('fastRelay')).toMatchObject({
+      name: '快马驿路',
+      implemented: true,
+      maxLevel: 3,
+      effectId: 'marchCutS',
+    })
     expect(techNodeById('toolUpkeep').desc).toMatch(/符文/)
     expect(techNodeById('rematchSupply').desc).toMatch(/10%/)
     expect(techNodeById('rematchSupply').desc).not.toMatch(/再战/)
@@ -1118,6 +1124,9 @@ describe('wired placeholder techs', () => {
     combat.enemy.nextActAt = now + 1_000
     combat.enemy.atk = 3
     stepEnemyCombat(save, enc, now + 1_000)
+    expect(front.hp).toBe(0)
+    const until = combat.returning?.find((row) => row.id === front.id)?.until ?? now + 1_000
+    stepEnemyCombat(save, enc, until)
     const heal = campBandageHeal(front.hpMax)
     expect(heal).toBeGreaterThanOrEqual(1)
     expect(front.hp).toBe(heal)

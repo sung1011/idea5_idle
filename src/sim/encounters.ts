@@ -1,7 +1,6 @@
 import { addToBank, bankQty } from './bank'
 import {
-  addCombatReinforcements,
-  beginEnemyCombat,
+  combatReturnBlockReason,
   COMBAT_PARTY_MAX,
   canReinforceCombat,
   combatPartyBlockReason,
@@ -15,6 +14,8 @@ import {
   isEnemyCombat,
   isFighting,
   legacyMarchAsWin,
+  openCombatMarch,
+  queueCombatReinforcements,
   selectableCombatWorkers,
   type CombatLogSink,
 } from './combat'
@@ -1735,6 +1736,11 @@ export function startCombatBlockReason(
 ): string | null {
   const supply = combatSupplyBlockReason(save, index)
   if (supply) return supply
+  const enc = enemyAt(save, index)
+  if (enc) {
+    const pending = combatReturnBlockReason(enc)
+    if (pending) return pending
+  }
   return combatPartyBlockReason(save, workerIds, guests)
 }
 
@@ -1814,7 +1820,7 @@ export function startCombat(
   save.departCount += 1
   save.lastDepartAt = now
   delete enc.submitted
-  beginEnemyCombat(enc, party, now, normalizeMainChapter(save.mainChapter), onLog, save, {
+  openCombatMarch(enc, party, now, normalizeMainChapter(save.mainChapter), onLog, save, {
     runes: normalizeRunePicks(runePicks),
   })
   return { ok: true }
@@ -1846,7 +1852,7 @@ export function reinforceCombat(
     save,
     party.filter((w) => !w.guest).map((w) => w.id),
   )
-  addCombatReinforcements(enc, party, now, onLog, save, normalizeRunePicks(runePicks))
+  queueCombatReinforcements(enc, party, now, onLog, save, normalizeRunePicks(runePicks))
   return { ok: true }
 }
 
@@ -1860,6 +1866,8 @@ export function reinforceLostBlockReason(
   const enc = enemyAt(save, index)
   if (!enc) return '不是敌人偶遇'
   if (!isCombatLost(enc)) return '战败后才能再增援'
+  const pending = combatReturnBlockReason(enc)
+  if (pending) return pending
   return combatPartyBlockReason(save, workerIds, guests)
 }
 
@@ -1891,7 +1899,7 @@ export function reinforceLostCombat(
   save.departCount += 1
   save.lastDepartAt = now
   delete enc.submitted
-  beginEnemyCombat(enc, party, now, normalizeMainChapter(save.mainChapter), onLog, save, {
+  openCombatMarch(enc, party, now, normalizeMainChapter(save.mainChapter), onLog, save, {
     runes: normalizeRunePicks(runePicks),
   })
   return { ok: true }

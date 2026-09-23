@@ -255,7 +255,7 @@ describe('combat timeline', () => {
     expect(a.hp).toBe(enc.combat?.workers.find((w) => w.id === a.id)?.hp)
     expect(b.hp).toBe(enc.combat?.workers.find((w) => w.id === b.id)?.hp)
     expect(a.assignment).toBeNull()
-    expect(isWorkerInCombat(save, a.id)).toBe(false)
+    expect(isWorkerInCombat(save, a.id)).toBe(true)
   })
 
   it('makes the enemy hit the worker with the lowest current hp ratio', () => {
@@ -322,6 +322,7 @@ describe('combat timeline', () => {
     const now = 30_000
     expect(startCombat(save, 0, [worker.id], now).ok).toBe(true)
     expect(save.bank.meal).toBe(4)
+    stepEnemyCombat(save, enc, enc.combat?.phaseEndsAt ?? now)
 
     const combat = enc.combat
     expect(combat).toBeTruthy()
@@ -339,15 +340,19 @@ describe('combat timeline', () => {
 
     worker.hp = worker.hpMax
     worker.fatigueDebt = 0
-    const restartAt = combat.timeoutAt + 1_000
+    const homeAt = combat.phaseEndsAt ?? combat.timeoutAt
+    stepEnemyCombat(save, enc, homeAt)
+    const restartAt = homeAt + 1_000
     const restart = startCombat(save, 0, [worker.id], restartAt)
     expect(restart.ok).toBe(true)
     expect(save.bank.meal).toBe(2)
+    const arrive = enc.combat?.phaseEndsAt ?? restartAt
+    stepEnemyCombat(save, enc, arrive)
     expect(isFighting(enc)).toBe(true)
     expect(enc.combat?.enemy.hp).toBe(enc.combat?.enemy.hpMax)
     expect(enc.combat?.enemy.hp).toBe(enemyCombatStats(enc.quality, enc.enemyRank).hp)
-    expect(enc.combat?.startedAt).toBe(restartAt)
-    expect(enc.combat?.timeoutAt).toBe(restartAt + combatTimeoutS(enc.enemyRank) * 1000)
+    expect(enc.combat?.startedAt).toBe(arrive)
+    expect(enc.combat?.timeoutAt).toBe(arrive + combatTimeoutS(enc.enemyRank) * 1000)
   })
 
   it('resolves the same timeline through applyTick / offline catch-up', () => {
@@ -537,6 +542,8 @@ describe('enemy opening strike', () => {
     worker.fatigueDebt = 0
     const restartAt = now + 8_000
     expect(startCombat(save, 0, [worker.id], restartAt).ok).toBe(true)
+    const arrive = enc.combat?.phaseEndsAt ?? restartAt
+    stepEnemyCombat(save, enc, arrive)
     expect(enc.combat?.enemy.hp).toBe(enc.combat?.enemy.hpMax)
     expect(enc.combat?.enemy.hp).toBeGreaterThan(leftoverHp)
     expect(worker.hp).toBe(worker.hpMax - (enc.combat?.enemy.atk ?? 0))
@@ -578,7 +585,9 @@ describe('fresh start after a loss', () => {
     expect(startCombat(save, 0, [worker.id], restartAt).ok).toBe(true)
     expect(enc.combat?.enemy.hp).toBe(enc.combat?.enemy.hpMax)
     expect(enc.combat?.enemy.hp).toBeGreaterThan(leftoverHp)
-    expect(enc.combat?.timeoutAt).toBe(restartAt + combatTimeoutS(enc.enemyRank) * 1000)
+    const arrive = enc.combat?.phaseEndsAt ?? restartAt
+    stepEnemyCombat(save, enc, arrive)
+    expect(enc.combat?.timeoutAt).toBe(arrive + combatTimeoutS(enc.enemyRank) * 1000)
   })
 
   it('still starts at full enemy hp if a loss left hp<=0', () => {
@@ -771,6 +780,7 @@ describe('death leave and reinforce', () => {
     const now = 80_000
     expect(startCombat(save, 0, [front.id], now).ok).toBe(true)
     expect(save.bank.meal).toBe(3)
+    stepEnemyCombat(save, enc, enc.combat?.phaseEndsAt ?? now)
     const combat = enc.combat
     expect(combat).toBeTruthy()
     if (!combat) return
@@ -785,15 +795,18 @@ describe('death leave and reinforce', () => {
     expect(combat.workers.find((w) => w.id === front.id)).toBeUndefined()
     expect(combatRosterFighters(combat).map((w) => w.id)).toEqual([])
     expect(combat.workers.every((w) => w.hp > 0)).toBe(true)
-    expect(isWorkerInCombat(save, front.id)).toBe(false)
+    expect(isWorkerInCombat(save, front.id)).toBe(true)
     expect(front.assignment).toBeNull()
     expect(front.hp).toBe(0)
     expect(fieldFighterCount(enc)).toBe(0)
     expect(canReinforceCombat(enc)).toBe(true)
-    expect(combat.logs.some((row) => row.text.includes('倒下，返回休息'))).toBe(true)
+    expect(combat.logs.some((row) => row.text.includes('倒下，溃退归来'))).toBe(true)
 
     expect(reinforceCombat(save, 0, [bench.id], now + 2_000).ok).toBe(true)
     expect(save.bank.meal).toBe(3)
+    expect(combat.workers.find((w) => w.id === bench.id)).toBeUndefined()
+    const benchAt = combat.incoming?.find((row) => row.id === bench.id)?.arrivesAt ?? now + 2_000
+    stepEnemyCombat(save, enc, benchAt)
     expect(combat.workers.map((w) => w.id)).toEqual([bench.id])
     expect(combat.workerIds).toEqual([front.id, bench.id])
     expect(isWorkerInCombat(save, bench.id)).toBe(true)
@@ -812,6 +825,7 @@ describe('death leave and reinforce', () => {
     save.bank.meal = 2
     const now = 81_000
     expect(startCombat(save, 0, [front.id], now).ok).toBe(true)
+    stepEnemyCombat(save, enc, enc.combat?.phaseEndsAt ?? now)
     const combat = enc.combat
     expect(combat).toBeTruthy()
     if (!combat) return
@@ -821,9 +835,14 @@ describe('death leave and reinforce', () => {
     combat.enemy.nextActAt = now + 1_000
     combat.enemy.atk = 3
     stepEnemyCombat(save, enc, now + 1_000)
+    expect(front.hp).toBe(0)
+    expect(isWorkerInCombat(save, front.id)).toBe(true)
+    const until = combat.returning?.find((row) => row.id === front.id)?.until ?? now + 1_000
+    stepEnemyCombat(save, enc, until)
     expect(front.assignment).toBeNull()
     expect(front.hp).toBe(Math.max(1, Math.ceil(front.hpMax * 0.1)))
     expect(front.hp).toBeGreaterThan(0)
+    expect(isWorkerInCombat(save, front.id)).toBe(false)
   })
 
   it('lets a healed worker reinforce the same ongoing fight', () => {
@@ -837,6 +856,7 @@ describe('death leave and reinforce', () => {
     save.bank.meal = 2
     const now = 90_000
     expect(startCombat(save, 0, [a.id], now).ok).toBe(true)
+    stepEnemyCombat(save, enc, enc.combat?.phaseEndsAt ?? now)
     const combat = enc.combat
     expect(combat).toBeTruthy()
     if (!combat) return
@@ -844,13 +864,19 @@ describe('death leave and reinforce', () => {
     a.hp = 0
     stepEnemyCombat(save, enc, now + 1)
     expect(isFighting(enc)).toBe(true)
-    expect(isWorkerInCombat(save, a.id)).toBe(false)
+    expect(isWorkerInCombat(save, a.id)).toBe(true)
     expect(reinforceCombat(save, 0, [a.id], now + 2).ok).toBe(false)
 
+    const until = combat.returning?.find((row) => row.id === a.id)?.until ?? now + 1
+    stepEnemyCombat(save, enc, until)
+    expect(isWorkerInCombat(save, a.id)).toBe(false)
     a.hp = a.hpMax
     a.fatigueDebt = 0
     const revealed = [...enc.revealedWeaknesses]
-    expect(reinforceCombat(save, 0, [a.id], now + 3).ok).toBe(true)
+    const rejoinAt = until + 1
+    expect(reinforceCombat(save, 0, [a.id], rejoinAt).ok).toBe(true)
+    const joinedAt = combat.incoming?.find((row) => row.id === a.id)?.arrivesAt ?? rejoinAt
+    stepEnemyCombat(save, enc, joinedAt)
     expect(combat.workers.some((w) => w.id === a.id && w.hp === w.hpMax)).toBe(true)
     expect(isWorkerInCombat(save, a.id)).toBe(true)
     expect(enc.revealedWeaknesses).toEqual(revealed)

@@ -17,6 +17,7 @@ import {
   mineRemainS,
   mineWeaknessSlots,
 } from '../sim/treasureMine'
+import { formatRemainClock, raidMarchCaption, raidPhaseOf } from '../sim/march'
 import type { RuneItemId, TreasureMine, Worker } from '../sim/types'
 import CombatPickSheet from './combatPickSheet.vue'
 import TreasureMineTips from './treasureMineTips.vue'
@@ -24,6 +25,12 @@ import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
 
 const game = useGameStore()
+function raidCaption(mine: TreasureMine) {
+  return raidMarchCaption(mine, game.save.elapsedS)
+}
+function raidLive(mine: TreasureMine) {
+  return raidPhaseOf(mine.raid) === 'fighting'
+}
 const frameNow = useFrameNow()
 const mines = computed(() => game.save.treasureMines.mines)
 const digViews = computed(() => {
@@ -210,7 +217,7 @@ function confirmPick() {
                 @click="onRaidSlot(mine, 'defend', index)"
               >{{ index + 1 }}</button>
             </div>
-            <ActChargeBar enemy :fill="hud.defend.fill" />
+            <ActChargeBar enemy v-if="raidLive(mine)" :fill="hud.defend.fill" />
             <template v-if="hud.attack">
               <p class="bar-line">{{ hud.attack.name }}</p>
               <HpBar :hp="hud.attack.hp" :hp-max="hud.attack.hpMax" />
@@ -225,10 +232,14 @@ function confirmPick() {
                   @click="onRaidSlot(mine, 'attack', index)"
                 >{{ index + 1 }}</button>
               </div>
-              <ActChargeBar :fill="hud.attack.fill" />
+              <ActChargeBar v-if="raidLive(mine)" :fill="hud.attack.fill" />
             </template>
           </div>
         </template>
+        <p v-if="raidCaption(mine)" class="march-line" :class="raidCaption(mine)!.phase">
+          {{ raidCaption(mine)!.label }} {{ formatRemainClock(raidCaption(mine)!.remainS) }}
+          <i class="march-bar" aria-hidden="true"><b :style="{ width: `${Math.round(raidCaption(mine)!.progress * 100)}%` }" /></i>
+        </p>
         <div class="row">
           <button v-if="mine.owner === 'shadow' && !mine.raid" type="button" @click="openPick('raid', mine.id)">抢夺</button>
           <button v-if="mine.owner === 'empty' && !mine.raid" type="button" @click="openPick('mine', mine.id)">开采</button>
@@ -396,6 +407,47 @@ function confirmPick() {
   font-size: 13px;
   color: var(--copper);
   line-height: 1.5;
+}
+
+.march-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.march-line .march-bar {
+  flex: 1 1 48px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(90, 48, 16, 0.16);
+}
+
+.march-line .march-bar b {
+  display: block;
+  height: 100%;
+}
+
+.march-line.marchOut,
+.march-line.marchHomeWin {
+  color: #8a4e12;
+}
+
+.march-line.marchOut .march-bar b,
+.march-line.marchHomeWin .march-bar b {
+  background: linear-gradient(90deg, #e2a31a, #ffe27a);
+}
+
+.march-line.marchHomeLose {
+  color: #243656;
+}
+
+.march-line.marchHomeLose .march-bar b {
+  background: linear-gradient(90deg, #6d8fd4, #243656);
 }
 
 .row {

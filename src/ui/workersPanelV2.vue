@@ -4,6 +4,7 @@ import { bankQty } from '../sim/bank'
 import { formatMarchClock } from '../sim/encounters'
 import { foodBuffRemainS, isFoodBuffActive } from '../sim/food'
 import { isWorkerInCombat, workerLiveStats } from '../sim/combat'
+import { combatZoneRows, formatRemainClock, type CombatZoneRow } from '../sim/march'
 import { workerXpProgress } from '../sim/workerLevel'
 import CombatAttrRow from './combatAttrRow.vue'
 import { availablePotionInstallIds } from '../sim/potionSlots'
@@ -50,7 +51,6 @@ import { hpBarFill, hpBarTone } from './hpBar'
 import { workerWearHp } from '../sim/workshopHp'
 import {
   canGoToAssignedWorkshop,
-  mainlineCombatWorkers,
   restingWorkers,
   workerAssignChoices,
   workerDutyLabel,
@@ -94,7 +94,14 @@ const pickId = ref<string | null>(null)
 const pickPotionIndex = ref<number | null>(null)
 
 const boards = computed(() => workshopStationBoards(game.save))
-const fightingRoster = computed(() => mainlineCombatWorkers(game.save))
+const fightingRoster = computed(() =>
+  combatZoneRows(game.save, now.value)
+    .map((row) => {
+      const worker = game.save.workers.find((item) => item.id === row.workerId)
+      return worker ? { worker, row } : null
+    })
+    .filter((item): item is { worker: Worker; row: CombatZoneRow } => !!item),
+)
 const resting = computed(() => restingWorkers(game.save))
 const recruitPrice = computed(() => recruitCost(game.save))
 const canRecruit = computed(() => game.save.diamonds >= recruitPrice.value)
@@ -635,30 +642,32 @@ onUnmounted(() => {
           <header class="zone-head">战斗区 · {{ fightingRoster.length }}</header>
           <div v-if="fightingRoster.length" class="zone-list">
             <div
-              v-for="w in fightingRoster"
-              :key="w.id"
-              class="rest-row"
-              :class="[hpToneClass(w), { 'level-flash': isWorkerLevelFlashing(w.id) }]"
+              v-for="item in fightingRoster"
+              :key="item.worker.id"
+              class="rest-row march-row"
+              :class="[hpToneClass(item.worker), `tone-${item.row.tone}`, { 'level-flash': isWorkerLevelFlashing(item.worker.id) }]"
             >
-              <i class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
+              <i class="hp-fill" :style="hpFillStyle(item.worker)" aria-hidden="true" />
               <button
                 type="button"
                 class="rest-face"
-                :aria-label="`战斗区 ${workerShortName(w)}`"
-                @pointerdown="onWorkerPointerDown($event, w, null, null)"
+                :aria-label="`战斗区 ${workerShortName(item.worker)} ${item.row.label}`"
+                @pointerdown="onWorkerPointerDown($event, item.worker, null, null)"
               >
-                <span class="avatar" :style="workerQualityTileStyle(w)">
-                  <ClassIcon :name="classIconOf(w)" />
-                  <i v-if="w.isNew" class="worker-new" aria-label="新工人">NEW</i>
+                <span class="avatar" :style="workerQualityTileStyle(item.worker)">
+                  <ClassIcon :name="classIconOf(item.worker)" />
+                  <i v-if="item.worker.isNew" class="worker-new" aria-label="新工人">NEW</i>
                 </span>
-                <b class="rest-name" :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</b>
+                <b class="rest-name" :style="workerQualityNameStyle(item.worker)">{{ workerShortName(item.worker) }}</b>
+                <i class="march-tag">{{ item.row.label }}<template v-if="item.row.tone !== 'fight'"> {{ formatRemainClock(item.row.remainS) }}</template></i>
+                <i v-if="item.row.tone !== 'fight'" class="march-bar" aria-hidden="true"><b :style="{ width: `${Math.round(item.row.progress * 100)}%` }" /></i>
               </button>
               <button
                 type="button"
                 class="rest-go"
-                :aria-label="`${workerShortName(w)} 详情`"
+                :aria-label="`${workerShortName(item.worker)} 详情`"
                 @pointerdown.stop
-                @click="openSheet(w)"
+                @click="openSheet(item.worker)"
               >
                 ›
               </button>
@@ -984,6 +993,82 @@ onUnmounted(() => {
 
 .combat .zone-head {
   color: #8a3228;
+}
+
+.march-row {
+  position: relative;
+}
+
+.march-tag {
+  display: block;
+  margin-top: 1px;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.1;
+}
+
+.march-bar {
+  display: block;
+  height: 3px;
+  margin-top: 2px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(90, 48, 16, 0.16);
+}
+
+.march-bar b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.tone-out {
+  background: linear-gradient(90deg, rgba(232, 176, 74, 0.35), rgba(255, 236, 196, 0.2));
+}
+
+.tone-out .march-tag,
+.tone-win .march-tag {
+  color: #8a4e12;
+}
+
+.tone-out .march-bar b,
+.tone-win .march-bar b {
+  background: linear-gradient(90deg, #e2a31a, #ffe27a);
+}
+
+.tone-win {
+  background: linear-gradient(90deg, rgba(255, 214, 120, 0.72), rgba(255, 244, 214, 0.45));
+  animation: march-glow 1.1s ease-in-out infinite;
+}
+
+.tone-lose {
+  background: linear-gradient(90deg, rgba(58, 74, 112, 0.55), rgba(28, 36, 58, 0.28));
+  animation: march-glow 1.35s ease-in-out infinite;
+}
+
+.tone-lose .march-tag {
+  color: #d5e4ff;
+}
+
+.tone-lose .march-bar b {
+  background: linear-gradient(90deg, #6d8fd4, #d5e4ff);
+}
+
+.tone-fight .march-tag {
+  color: #8a3228;
+}
+
+@keyframes march-glow {
+  50% { filter: brightness(1.12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tone-win,
+  .tone-lose {
+    animation: none;
+  }
 }
 
 .recruit-bar {

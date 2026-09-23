@@ -206,6 +206,7 @@ describe('reveal and later start', () => {
     expect(startCombat(save, 0, [worker.id], now).ok).toBe(true)
     expect(enc.weaknesses).toEqual(before.weaknesses)
     expect(enemyWeaknessView(enc).slots).toEqual(before.slots)
+    stepEnemyCombat(save, enc, enc.combat?.phaseEndsAt ?? now)
 
     const combat = enc.combat!
     combat.workers[0].nextActAt = now + 1_000

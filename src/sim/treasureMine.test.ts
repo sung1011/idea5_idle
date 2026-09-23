@@ -37,6 +37,7 @@ import {
 } from './treasureMine'
 import { treasureMineBlockReason } from './treasureMineQuery'
 import { applyTick } from './tick'
+import { marchDurationS } from './tech'
 import type { Save, TreasureId, TreasureMine } from './types'
 
 function vaultQty(save: Save): number {
@@ -74,6 +75,13 @@ function ensureGarrison(mine: TreasureMine): TreasureMine {
 
 function holdShadows(save: Save): void {
   for (const mine of save.treasureMines.mines) mine.digCharge = {}
+}
+
+function armRaid(save: Save, mine: TreasureMine): void {
+  const raid = mine.raid
+  if (!raid || raid.phase !== 'marchOut') return
+  save.elapsedS = raid.phaseEndsAtS ?? save.elapsedS
+  stepTreasureMines(save)
 }
 
 describe('treasure mines', () => {
@@ -230,6 +238,7 @@ describe('treasure mines', () => {
     mine.shadows[0].atk = 999
     mine.shadows[0].spd = 1
     expect(startTreasureRaid(save, mine.id, [first.id, second.id]).ok).toBe(true)
+    armRaid(save, mine)
     const raid = mine.raid
     expect(raid).toBeTruthy()
     if (!raid) return
@@ -266,6 +275,7 @@ describe('treasure mines', () => {
     const raid = mine.raid
     expect(raid?.garrison).toBe(3)
     if (!raid) return
+    raid.phase = 'fighting'
     raid.atkNext = save.elapsedS + 100
     raid.defNext = save.elapsedS + 100
     holdShadows(save)
@@ -292,6 +302,7 @@ describe('treasure mines', () => {
     addToBank(save, 'runeSharp', 1)
     expect(startTreasureRaid(save, mine.id, [lead.id, fallen.id], { [lead.id]: 'runeSharp' }).ok).toBe(true)
     expect(save.bank.runeSharp ?? 0).toBe(0)
+    armRaid(save, mine)
     const raid = mine.raid
     expect(raid?.runes[lead.id]).toBe('runeSharp')
     if (!raid) return
@@ -307,6 +318,9 @@ describe('treasure mines', () => {
     expect(mine.owner).toBe('shadow')
     expect(mine.shadows).toHaveLength(1)
     advance(save, 1)
+    expect(mine.owner).toBe('shadow')
+    expect(mine.raid?.phase).toBe('marchHomeWin')
+    advance(save, marchDurationS(save))
     expect(mine.owner).toBe('player')
     expect(mine.raid).toBeNull()
     expect(mine.crewIds).toEqual([lead.id, fallen.id])
@@ -443,12 +457,19 @@ describe('treasure mines', () => {
     const raid = locked.raid
     expect(raid).toBeTruthy()
     if (!raid) return
-    raid.atkHp = 1
-    raid.atkNext = save.elapsedS + 100
-    raid.defAtk = 999
-    raid.defSpd = 1
-    raid.defNext = save.elapsedS + 1
+    armRaid(save, locked)
+    const live = locked.raid
+    expect(live).toBeTruthy()
+    if (!live) return
+    live.atkHp = 1
+    live.atkNext = save.elapsedS + 100
+    live.defAtk = 999
+    live.defSpd = 1
+    live.defNext = save.elapsedS + 1
     advance(save, 1)
+    expect(locked.raid).toBeTruthy()
+    expect(isTreasureRaidLocked(locked)).toBe(true)
+    advance(save, marchDurationS(save))
     expect(locked.raid).toBeNull()
     expect(locked.owner).toBe('shadow')
     expect(isTreasureRaidLocked(locked)).toBe(false)
@@ -812,6 +833,8 @@ describe('treasure mines', () => {
     mine.digCharge = {}
     const raider = spawnWorker(save)
     expect(startTreasureRaid(save, mine.id, [raider.id]).ok).toBe(true)
+    const diggingRaid = save.treasureMines.mines.find((row) => row.id === mine.id)?.raid
+    if (diggingRaid) diggingRaid.phase = 'fighting'
     const digging = 1 / (1 / 5 + 1 / 3)
     expect(mineDigReadout(save, mine)?.fill).toBe(0)
     expect(mineDigReadout(save, mine)?.intervalS).toBeCloseTo(digging)

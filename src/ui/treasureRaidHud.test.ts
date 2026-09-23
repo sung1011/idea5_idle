@@ -102,10 +102,15 @@ describe('treasure raid hud', () => {
     expect(slotStates(raid.attackSlots, raid.queue)).toEqual(['filled', 'filled', 'empty'])
     expect(slotStates([null, null, null], [])).toEqual(['empty', 'empty', 'empty'])
 
-    raid.atkHp = 1
-    raid.atkNext = save.elapsedS + 100
-    raid.defAtk = 999
-    raid.defNext = save.elapsedS + 1
+    save.elapsedS = raid.phaseEndsAtS ?? save.elapsedS
+    stepTreasureMines(save)
+    const liveRaid = mine.raid
+    expect(liveRaid).toBeTruthy()
+    if (!liveRaid) return
+    liveRaid.atkHp = 1
+    liveRaid.atkNext = save.elapsedS + 100
+    liveRaid.defAtk = 999
+    liveRaid.defNext = save.elapsedS + 1
     save.elapsedS += 1
     stepTreasureMines(save)
     expect(mine.raid?.attackSlots).toEqual([lead.id, bench.id, null])

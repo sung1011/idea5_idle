@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { addToBank, itemQty } from './bank'
-import { combatRosterFighters, isCombatStunned, isFighting, stepEnemyCombat } from './combat'
+import { combatRosterFighters, isCombatStunned, isFighting, isWorkerInCombat, stepEnemyCombat } from './combat'
 import { createSave } from './createSave'
 import {
   DUNGEON_AFFIX_DEFS,
@@ -219,7 +219,9 @@ describe('dungeon mvp', () => {
     stockDungeon(save)
     const ids = ['甲', '乙', '丙', '丁', '戊', '己'].map((name) => fullWorker(save, name).id)
     expect(startDungeonCombat(save, DUNGEON_JAILER_ID, ids.slice(0, 5), 5_000).ok).toBe(true)
-    expect(dungeonEncounterOf(save).combat?.workers).toHaveLength(5)
+    const enc = dungeonEncounterOf(save)
+    stepEnemyCombat(save, enc, enc.combat?.phaseEndsAt ?? 5_000)
+    expect(enc.combat?.workers).toHaveLength(5)
     const sixth = reinforceDungeonCombat(save, DUNGEON_JAILER_ID, [ids[5]], 5_100)
     expect(sixth.ok).toBe(false)
     if (!sixth.ok) expect(sixth.reason).toContain(String(DUNGEON_PARTY_MAX))
@@ -232,6 +234,7 @@ describe('dungeon mvp', () => {
     const b = fullWorker(save, '乙')
     expect(startDungeonCombat(save, DUNGEON_JAILER_ID, [a.id, b.id], 7_000).ok).toBe(true)
     const enc = dungeonEncounterOf(save)
+    stepEnemyCombat(save, enc, enc.combat?.phaseEndsAt ?? 7_000)
     enc.targetRuleId = 'lowestHp'
     const combat = enc.combat
     expect(combat).toBeTruthy()
@@ -248,10 +251,18 @@ describe('dungeon mvp', () => {
     expect(combatRosterFighters(combat).map((w) => w.id)).toEqual([b.id])
     expect(combat.workers.every((w) => w.hp > 0)).toBe(true)
     expect(a.assignment).toBeNull()
+    expect(isWorkerInCombat(save, a.id)).toBe(true)
     expect(reinforceDungeonCombat(save, DUNGEON_JAILER_ID, [a.id], 7_100).ok).toBe(false)
+    const until = combat.returning?.find((row) => row.id === a.id)?.until ?? 7_050
+    combat.enemy.nextActAt = until + 100_000
+    for (const row of combat.workers) row.nextActAt = until + 100_000
+    stepEnemyCombat(save, enc, until)
     a.hp = a.hpMax
     a.fatigueDebt = 0
-    expect(reinforceDungeonCombat(save, DUNGEON_JAILER_ID, [a.id], 7_200).ok).toBe(true)
+    const rejoinAt = until + 1
+    expect(reinforceDungeonCombat(save, DUNGEON_JAILER_ID, [a.id], rejoinAt).ok).toBe(true)
+    const joinedAt = combat.incoming?.find((row) => row.id === a.id)?.arrivesAt ?? rejoinAt
+    stepEnemyCombat(save, enc, joinedAt)
     expect(combatRosterFighters(combat).map((w) => w.id).sort()).toEqual([a.id, b.id].sort())
   })
 
@@ -264,7 +275,10 @@ describe('dungeon mvp', () => {
     expect(save.dungeon.attemptsUsedById[DUNGEON_JAILER_ID]).toBe(1)
     expect(reinforceDungeonCombat(save, DUNGEON_JAILER_ID, [b.id], 6_100).ok).toBe(true)
     expect(save.dungeon.attemptsUsedById[DUNGEON_JAILER_ID]).toBe(1)
-    expect(dungeonEncounterOf(save).combat?.workers.some((w) => w.id === b.id)).toBe(true)
+    const enc = dungeonEncounterOf(save)
+    const joinedAt = enc.combat?.incoming?.find((row) => row.id === b.id)?.arrivesAt ?? 6_100
+    stepEnemyCombat(save, enc, joinedAt)
+    expect(enc.combat?.workers.some((w) => w.id === b.id)).toBe(true)
   })
 
   it('uses table-driven 3-phase shields and 3s stun', () => {
@@ -350,6 +364,7 @@ describe('dungeon mvp', () => {
     dungeonEncounterOf(save).affixIds = ['thickHide', 'jagged']
     startDungeonCombat(save, DUNGEON_JAILER_ID, [a.id], now)
     const enc = dungeonEncounterOf(save) as EnemyEncounter
+    stepEnemyCombat(save, enc, enc.combat?.phaseEndsAt ?? now)
     enc.combat!.shield = 1
     enc.combat!.workers[0].combatAttrs = ['fire']
     enc.combat!.workers[0].nextActAt = now + 50

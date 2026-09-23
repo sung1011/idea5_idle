@@ -267,7 +267,44 @@ export type CombatLogEntry = {
 
 export type CombatOutcome = 'win' | 'lose'
 
-/** 敌人卡上的一场战斗快照。出战不算派驻；结束把工人 hp 写回。 */
+/** 出征 → 交战 → 凯旋 / 溃退。旧档缺字段且仍在打，视为 `fighting`。 */
+export type CombatPhase = 'marchOut' | 'fighting' | 'marchHomeWin' | 'marchHomeLose'
+
+/** 战中倒地，或战斗结束时尚未入场的人。到点才回休息。 */
+export type CombatReturnee = {
+  id: string
+  /** 归来完成墙钟。 */
+  until: number
+  startedAt: number
+  /** `down` 溃退；整队胜负用 win / lose。 */
+  reason: 'down' | 'win' | 'lose'
+  /** 到点写回的 HP（绷带之前）。 */
+  hp: number
+  label: string
+}
+
+/** 增援已离休息、尚未入编。 */
+export type CombatIncoming = {
+  id: string
+  arrivesAt: number
+  startedAt: number
+  runeId?: RuneItemId
+  reinforced: boolean
+  /** 临时助战不在花名册里，出征期间留一份快照。 */
+  guest?: Worker
+}
+
+/** 出征倒计时结束才真正开打时用的参数。 */
+export type CombatMarchPlan = {
+  chapter: number
+  runes: Partial<Record<string, RuneItemId>>
+  stats?: CombatStats
+  shield?: number
+  timeoutS?: number
+  guests?: Worker[]
+}
+
+/** 敌人卡上的一场战斗快照。出战不算派驻；归来结束才把人放回休息。 */
 export type EnemyCombat = {
   startedAt: number
   timeoutAt: number
@@ -286,6 +323,13 @@ export type EnemyCombat = {
   insightUsed?: boolean
   /** 开战 / 增援消耗的符文，倒下离场后仍用来结算血酬。 */
   runeLoadout?: Partial<Record<string, RuneItemId>>
+  /** 缺省且 `outcome` 为空：旧档进行中，视为交战。 */
+  phase?: CombatPhase
+  phaseStartedAt?: number
+  phaseEndsAt?: number
+  returning?: CombatReturnee[]
+  incoming?: CombatIncoming[]
+  marchPlan?: CombatMarchPlan
 }
 
 export type Worker = {
@@ -434,6 +478,22 @@ export type TreasureRaid = {
   defSpd: number
   defNext: number
   runes: Partial<Record<string, RuneItemId>>
+  /** 缺省视为已在交战（旧档）。 */
+  phase?: CombatPhase
+  phaseStartedAtS?: number
+  phaseEndsAtS?: number
+  /** 倒地或未入场的人，到点才离开这洞。 */
+  returning?: TreasureRaidReturnee[]
+  /** 胜方仍在归来的名单。整队归来结束才占领。 */
+  victors?: string[]
+}
+
+export type TreasureRaidReturnee = {
+  id: string
+  untilS: number
+  startedAtS: number
+  hp: number
+  reason: 'down' | 'win' | 'lose'
 }
 
 export type TreasureMine = {

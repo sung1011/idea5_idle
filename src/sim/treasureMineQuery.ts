@@ -12,6 +12,7 @@ export function treasureMineRaidIds(save: Save): Set<string> {
   const ids = new Set<string>()
   for (const mine of save.treasureMines?.mines ?? []) {
     for (const id of mine.raid?.queue ?? []) ids.add(id)
+    for (const row of mine.raid?.returning ?? []) ids.add(row.id)
   }
   return ids
 }

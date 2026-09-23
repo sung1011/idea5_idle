@@ -1,7 +1,5 @@
 import { addToBank } from './bank'
 import {
-  addCombatReinforcements,
-  beginEnemyCombat,
   canReinforceCombat,
   combatPartyBlockReason,
   combatStatus,
@@ -11,6 +9,8 @@ import {
   hydrateCombatRoster,
   isCombatWon,
   isFighting,
+  openCombatMarch,
+  queueCombatReinforcements,
   type CombatLogSink,
 } from './combat'
 import { findCombatPartyWorker } from './combatAssist'
@@ -496,7 +496,7 @@ export function startDungeonCombat(
   enc.lootClaimed = false
   enc.dungeonPendingPhase = false
   applyDungeonPhaseToEncounter(enc, 1, now)
-  beginEnemyCombat(enc, party, now, 1, onLog, save, {
+  openCombatMarch(enc, party, now, 1, onLog, save, {
     stats: dungeonBossLiveStats(save, enc.id),
     shield: dungeonPhaseShield(1, enc.dungeonShieldBonus, enc.id),
     timeoutS: DUNGEON_TIMEOUT_S,
@@ -530,7 +530,7 @@ export function reinforceDungeonCombat(
     save,
     party.filter((w) => !w.guest).map((w) => w.id),
   )
-  addCombatReinforcements(enc, party, now, onLog, save, normalizeRunePicks(runePicks))
+  queueCombatReinforcements(enc, party, now, onLog, save, normalizeRunePicks(runePicks))
   return { ok: true }
 }
 

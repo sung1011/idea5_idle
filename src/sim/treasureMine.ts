@@ -1,5 +1,7 @@
 import { hashString, isCombatAttrId, matchingWeaknesses, pickEnemyWeaknesses } from './combatAttrs'
-import { workerLiveStats } from './combat'
+import { applyDownedReturn, workerLiveStats } from './combat'
+import { raidPhaseOf } from './march'
+import { marchDurationS } from './tech'
 import { clearWorkerNew } from './recruit'
 import {
   confirmableRunePicks,
@@ -21,6 +23,7 @@ import type {
   TreasureMine,
   TreasureMineState,
   TreasureRaid,
+  TreasureRaidReturnee,
   TreasureShadow,
   Worker,
 } from './types'
@@ -403,10 +406,25 @@ function openRaid(
     defSpd: 1,
     defNext: save.elapsedS,
     runes,
+    phase: 'marchOut',
+    phaseStartedAtS: save.elapsedS,
+    phaseEndsAtS: save.elapsedS + marchDurationS(save),
+    returning: [],
   }
-  loadAttacker(save, raid, true)
-  loadDefender(mine, raid, save.elapsedS)
+  loadAttacker(save, raid, false)
+  loadDefender(mine, raid, null)
+  raid.atkNext = Number.POSITIVE_INFINITY
+  raid.defNext = Number.POSITIVE_INFINITY
   return raid
+}
+
+function armRaidFight(save: Save, mine: TreasureMine, raid: TreasureRaid, atS: number): void {
+  raid.phase = 'fighting'
+  raid.phaseStartedAtS = atS
+  delete raid.phaseEndsAtS
+  loadAttacker(save, raid, false)
+  raid.atkNext = atS + Math.max(1, raid.atkSpd)
+  loadDefender(mine, raid, atS)
 }
 
 export function stepTreasureMines(save: Save, onDrop?: TreasureDropSink): void {
@@ -418,47 +436,135 @@ export function stepTreasureMines(save: Save, onDrop?: TreasureDropSink): void {
   refreshTreasureMines(save)
 }
 
+function pushRaidReturn(
+  raid: TreasureRaid,
+  workerId: string,
+  hp: number,
+  atS: number,
+  reason: 'down' | 'win' | 'lose',
+  dur: number,
+): void {
+  if (!raid.returning) raid.returning = []
+  if (raid.returning.some((row) => row.id === workerId)) return
+  raid.returning.push({
+    id: workerId,
+    untilS: atS + dur,
+    startedAtS: atS,
+    hp,
+    reason,
+  })
+}
+
+function settleRaidReturns(save: Save, raid: TreasureRaid): void {
+  const pending = raid.returning ?? []
+  if (!pending.length) return
+  const stay: TreasureRaidReturnee[] = []
+  for (const row of pending) {
+    if (save.elapsedS < row.untilS) {
+      stay.push(row)
+      continue
+    }
+    if (row.reason === 'down') applyDownedReturn(save, row.id, row.hp, save.lastTick)
+    else {
+      const worker = save.workers.find((workerRow) => workerRow.id === row.id)
+      if (worker) worker.assignment = null
+    }
+  }
+  raid.returning = stay
+}
+
+function beginRaidHome(save: Save, raid: TreasureRaid, outcome: 'win' | 'lose', atS: number): void {
+  const dur = marchDurationS(save)
+  raid.phase = outcome === 'win' ? 'marchHomeWin' : 'marchHomeLose'
+  raid.phaseStartedAtS = atS
+  raid.phaseEndsAtS = atS + dur
+  if (outcome === 'win') raid.victors = [...raid.queue]
+  raid.atkNext = Number.POSITIVE_INFINITY
+  raid.defNext = Number.POSITIVE_INFINITY
+}
+
+function finishRaidHome(save: Save, mine: TreasureMine, raid: TreasureRaid): void {
+  settleRaidReturns(save, raid)
+  if ((raid.returning ?? []).some((row) => row.untilS > save.elapsedS)) return
+  if (save.elapsedS < (raid.phaseEndsAtS ?? 0)) return
+  if (raid.phase === 'marchHomeWin') {
+    raid.queue = (raid.victors ?? raid.queue).filter((id) => save.workers.some((worker) => worker.id === id))
+    takeOver(save, mine, raid)
+    return
+  }
+  for (const id of raid.queue) {
+    const worker = save.workers.find((row) => row.id === id)
+    sendHome(save, id, worker?.hp ?? 0)
+  }
+  mine.raid = null
+}
+
 function stepRaid(save: Save, mine: TreasureMine): void {
   const raid = mine.raid
   if (!raid) return
+  settleRaidReturns(save, raid)
+  const phase = raidPhaseOf(raid)
+  if (phase === 'marchOut') {
+    if (save.elapsedS < (raid.phaseEndsAtS ?? 0)) return
+    armRaidFight(save, mine, raid, raid.phaseEndsAtS ?? save.elapsedS)
+  }
+  if (raid.phase === 'marchHomeWin' || raid.phase === 'marchHomeLose') {
+    finishRaidHome(save, mine, raid)
+    return
+  }
+  if (raidPhaseOf(raid) !== 'fighting') return
   let guard = 0
-  while (raid.queue.length && mine.shadows.length && guard++ < 32) {
+  while (raid.queue.length && mine.shadows.length && guard++ < 64) {
     if (raid.atkNext > save.elapsedS && raid.defNext > save.elapsedS) return
     if (raid.atkNext <= raid.defNext) {
       if (raid.atkNext > save.elapsedS) return
+      const atS = raid.atkNext
       const shadow = mine.shadows[0]
       const dealt = strikeDamage(raid.atkAtk, runeDealMul(raid.runes[raid.queue[0]]), runeTakenMul(shadow.runeId))
       shadow.hp -= dealt
       raid.defHp = shadow.hp
-      raid.atkNext = save.elapsedS + raid.atkSpd
+      raid.atkNext = atS + raid.atkSpd
       if (shadow.hp <= 0) {
         mine.shadows.shift()
         delete mine.digCharge[shadow.id]
         if (!mine.shadows.length) {
-          takeOver(save, mine, raid)
+          beginRaidHome(save, raid, 'win', atS)
+          finishRaidHome(save, mine, raid)
           return
         }
-        loadDefender(mine, raid, save.elapsedS)
+        loadDefender(mine, raid, atS)
       }
     } else {
       if (raid.defNext > save.elapsedS) return
+      const atS = raid.defNext
       const dealt = strikeDamage(raid.defAtk, runeDealMul(mine.shadows[0]?.runeId), runeTakenMul(raid.runes[raid.queue[0]]))
       raid.atkHp -= dealt
       writeAttackerHp(save, raid)
-      raid.defNext = save.elapsedS + raid.defSpd
+      raid.defNext = atS + raid.defSpd
       if (raid.atkHp <= 0) {
         const fallen = raid.queue.shift()
-        if (fallen) sendHome(save, fallen, 0)
+        if (fallen) {
+          const worker = save.workers.find((row) => row.id === fallen)
+          pushRaidReturn(raid, fallen, 0, atS, 'down', marchDurationS(save))
+          if (worker) worker.hp = 0
+        }
         if (!raid.queue.length) {
-          mine.raid = null
+          beginRaidHome(save, raid, 'lose', atS)
+          finishRaidHome(save, mine, raid)
           return
         }
-        loadAttacker(save, raid, true)
+        loadAttacker(save, raid, false)
+        raid.atkNext = atS + Math.max(1, raid.atkSpd)
       }
     }
   }
-  if (!mine.shadows.length && mine.raid) takeOver(save, mine, mine.raid)
-  else if (mine.raid && !mine.raid.queue.length) mine.raid = null
+  if (!mine.shadows.length && mine.raid && raidPhaseOf(mine.raid) === 'fighting') {
+    beginRaidHome(save, mine.raid, 'win', save.elapsedS)
+    finishRaidHome(save, mine, mine.raid)
+  } else if (mine.raid && !mine.raid.queue.length && raidPhaseOf(mine.raid) === 'fighting') {
+    beginRaidHome(save, mine.raid, 'lose', save.elapsedS)
+    finishRaidHome(save, mine, mine.raid)
+  }
 }
 
 function takeOver(save: Save, mine: TreasureMine, raid: TreasureRaid): void {
@@ -499,7 +605,7 @@ function diggingIntervals(save: Save, mine: TreasureMine): number[] | null {
     return intervals.length ? intervals : null
   }
   if (mine.owner !== 'shadow') return null
-  const mining = mine.raid ? mine.shadows.slice(1) : mine.shadows
+  const mining = mine.raid && raidPhaseOf(mine.raid) === 'fighting' ? mine.shadows.slice(1) : mine.shadows
   if (!mining.length) return null
   return mining.map((shadow) => mineDigIntervalS(shadow.level))
 }
@@ -801,6 +907,10 @@ function releaseRaid(save: Save, mine: TreasureMine): void {
   for (const id of [...raid.queue]) {
     const worker = save.workers.find((row) => row.id === id)
     sendHome(save, id, worker?.hp ?? 0)
+  }
+  for (const row of raid.returning ?? []) {
+    if (row.reason === 'down') applyDownedReturn(save, row.id, row.hp, save.lastTick || 0)
+    else sendHome(save, row.id, row.hp)
   }
 }
 

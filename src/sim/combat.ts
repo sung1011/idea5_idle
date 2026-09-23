@@ -14,12 +14,15 @@ import {
   breakEchoMul,
   campBandageHealAmount,
   firstStrikeCutS,
+  marchDurationMs,
   reinforceFirstMul,
   runeAtkMul,
   workerAtkMul,
   workerHpMul,
   woundedTakenMul,
 } from './tech'
+import { combatPhaseOf } from './march'
+import { findCombatPartyWorker, isAssistWorker } from './combatAssist'
 import { drawEnemyTargetRule, pickEnemyTargets, type CombatTarget } from './combatTarget'
 import { jitterWorkerAtkInterval } from './atkInterval'
 import {
@@ -40,7 +43,6 @@ import {
   onDungeonWake,
 } from './dungeonTables'
 import { tryAutoEatAfterCombat, tryAutoEatWhenWounded } from './food'
-import { isAssistWorker } from './combatAssist'
 import {
   fighterRuneId,
   hasInsightRune,
@@ -66,6 +68,7 @@ import type {
   CombatFighter,
   CombatLogEntry,
   CombatOutcome,
+  CombatReturnee,
   CombatStats,
   EncounterQuality,
   EnemyCombat,
@@ -319,13 +322,27 @@ export function combatPartyCap(enc?: EnemyEncounter | null): number {
   return isDungeonEncounter(enc) ? DUNGEON_PARTY_MAX : COMBAT_PARTY_MAX
 }
 
+function addBusyCombatIds(ids: Set<string>, combat: EnemyCombat | null | undefined): void {
+  if (!combat) return
+  const phase = combatPhaseOf(combat)
+  if (phase === 'marchOut') {
+    for (const id of combat.workerIds) ids.add(id)
+  } else if (phase === 'fighting' || phase === 'marchHomeWin' || phase === 'marchHomeLose') {
+    for (const fighter of combat.workers) {
+      if (fighter.hp > 0) ids.add(fighter.id)
+    }
+  }
+  for (const row of combat.incoming ?? []) ids.add(row.id)
+  for (const row of combat.returning ?? []) ids.add(row.id)
+}
+
 export function fightingWorkerIds(save: Save): Set<string> {
   const ids = new Set<string>()
   const boards = [...(save.encounters ?? [])]
   for (const enc of save.dungeon?.encounters ?? []) boards.push(enc)
   for (const enc of boards) {
-    if (enc.kind !== 'enemy' || !isFighting(enc) || !enc.combat) continue
-    for (const fighter of combatRosterFighters(enc.combat)) ids.add(fighter.id)
+    if (enc.kind !== 'enemy') continue
+    addBusyCombatIds(ids, enc.combat)
   }
   return ids
 }
@@ -347,12 +364,35 @@ export function combatRosterFighters(combat: EnemyCombat | null | undefined): Co
 }
 
 export function fieldFighterCount(enc: EnemyEncounter): number {
-  if (!enc.combat || !isFighting(enc)) return 0
-  return combatRosterFighters(enc.combat).length
+  const combat = enc.combat
+  if (!combat) return 0
+  const phase = combatPhaseOf(combat)
+  if (phase === 'marchOut') {
+    const ids = new Set(combat.workerIds)
+    for (const row of combat.incoming ?? []) ids.add(row.id)
+    return ids.size
+  }
+  if (phase !== 'fighting') return 0
+  const ids = new Set(combatRosterFighters(combat).map((fighter) => fighter.id))
+  for (const row of combat.incoming ?? []) ids.add(row.id)
+  return ids.size
 }
 
 export function canReinforceCombat(enc: EnemyEncounter): boolean {
-  return isFighting(enc) && fieldFighterCount(enc) < combatPartyCap(enc)
+  if (!isFighting(enc)) return false
+  const phase = combatPhaseOf(enc.combat)
+  if (phase !== 'fighting' && phase !== 'marchOut') return false
+  return fieldFighterCount(enc) < combatPartyCap(enc)
+}
+
+/** 胜负已定但人还在路上，或仍有个人溃退。不能把这张单重开掉。 */
+export function combatReturnBlockReason(enc: EnemyEncounter): string | null {
+  const combat = enc.combat
+  if (!combat) return null
+  const phase = combatPhaseOf(combat)
+  if (phase === 'marchHomeWin' || phase === 'marchHomeLose') return '工人尚未归来'
+  if (combat.outcome && (combat.returning?.length ?? 0) > 0) return '工人尚未归来'
+  return null
 }
 
 export function isWorkerInCombat(save: Save, workerId: string): boolean {
@@ -570,7 +610,7 @@ export type BeginCombatOpts = {
   runes?: Partial<Record<string, RuneItemId>>
 }
 
-export function beginEnemyCombat(
+function buildEnemyCombat(
   enc: EnemyEncounter,
   workers: Worker[],
   now: number,
@@ -596,6 +636,9 @@ export function beginEnemyCombat(
     stunnedUntil: null,
     insightUsed: false,
     runeLoadout: { ...runes },
+    phase: 'fighting',
+    returning: [],
+    incoming: [],
   }
   enc.combat = combat
   revealInsightWeakness(enc, combat)
@@ -609,7 +652,70 @@ export function beginEnemyCombat(
   emitLog(enc, combat, now, `${workers.map((w) => w.name ?? w.id).join('、')} 出战`, 'ok', onLog)
   enc.departed = true
   enc.lootClaimed = false
+  return combat
+}
+
+/** 直接开打。测试和出征到点后走这里。选人确认走 `openCombatMarch`。 */
+export function beginEnemyCombat(
+  enc: EnemyEncounter,
+  workers: Worker[],
+  now: number,
+  chapter = 1,
+  onLog?: CombatLogSink,
+  save?: Save,
+  opts?: BeginCombatOpts,
+): EnemyCombat {
+  const combat = buildEnemyCombat(enc, workers, now, chapter, onLog, save, opts)
   if (save) stepEnemyCombat(save, enc, now, onLog)
+  return combat
+}
+
+/** 选人确认：人立刻离开休息，到点才 `beginEnemyCombat`。 */
+export function openCombatMarch(
+  enc: EnemyEncounter,
+  workers: Worker[],
+  now: number,
+  chapter = 1,
+  onLog?: CombatLogSink,
+  save?: Save,
+  opts?: BeginCombatOpts,
+): EnemyCombat {
+  ensureEnemyIntel(enc, 0, 0, save)
+  const eStats =
+    opts?.stats ??
+    applyCombatAffixStats(enemyCombatStats(enc.quality, enc.enemyRank, chapter), encounterAffixIds(save, enc))
+  const dur = marchDurationMs(save)
+  const runes = opts?.runes ?? {}
+  const guests = workers.filter((worker) => worker.guest === true || worker.id.startsWith('assist-'))
+  const combat: EnemyCombat = {
+    startedAt: now,
+    timeoutAt: now,
+    workerIds: workers.map((w) => w.id),
+    workers: [],
+    enemy: makeFighter('enemy', enc.label, eStats, eStats.hp, now + dur, undefined, false),
+    logs: [],
+    outcome: null,
+    stunnedUntil: null,
+    insightUsed: false,
+    runeLoadout: { ...runes },
+    phase: 'marchOut',
+    phaseStartedAt: now,
+    phaseEndsAt: now + dur,
+    returning: [],
+    incoming: [],
+    marchPlan: {
+      chapter,
+      runes: { ...runes },
+      stats: opts?.stats,
+      shield: opts?.shield,
+      timeoutS: opts?.timeoutS,
+      guests: guests.map((worker) => structuredClone(worker)),
+    },
+  }
+  enc.combat = combat
+  emitLog(enc, combat, now, `${workers.map((w) => w.name ?? w.id).join('、')} 出征`, 'ok', onLog)
+  enc.departed = true
+  enc.lootClaimed = false
   return combat
 }
 
@@ -644,6 +750,42 @@ export function addCombatReinforcements(
   if (!added.length) return
   revealInsightWeakness(enc, combat)
   emitLog(enc, combat, now, `${added.map((w) => w.label).join('、')} 增援`, 'ok', onLog)
+}
+
+/** 增援先出征，到点再入编。 */
+export function queueCombatReinforcements(
+  enc: EnemyEncounter,
+  workers: Worker[],
+  now: number,
+  onLog?: CombatLogSink,
+  save?: Save,
+  runes?: Partial<Record<string, RuneItemId>>,
+): void {
+  const combat = enc.combat
+  if (!combat || combat.outcome || enc.lootClaimed || !workers.length) return
+  if (!combat.incoming) combat.incoming = []
+  const dur = marchDurationMs(save)
+  const added: string[] = []
+  for (const worker of workers) {
+    if (combat.workers.some((row) => row.id === worker.id)) continue
+    if (combat.incoming.some((row) => row.id === worker.id)) continue
+    if (combatPhaseOf(combat) === 'marchOut' && combat.workerIds.includes(worker.id)) continue
+    combat.incoming.push({
+      id: worker.id,
+      arrivesAt: now + dur,
+      startedAt: now,
+      runeId: runes?.[worker.id],
+      reinforced: true,
+      guest: worker.guest === true || worker.id.startsWith('assist-') ? structuredClone(worker) : undefined,
+    })
+    if (runes?.[worker.id]) {
+      if (!combat.runeLoadout) combat.runeLoadout = {}
+      combat.runeLoadout[worker.id] = runes[worker.id]
+    }
+    added.push(worker.name ?? worker.id)
+  }
+  if (!added.length) return
+  emitLog(enc, combat, now, `${added.join('、')} 出征`, 'ok', onLog)
 }
 
 function livingWorkers(combat: EnemyCombat): CombatFighter[] {
@@ -693,6 +835,19 @@ function writeBackFighterHp(save: Save, fighter: CombatFighter): void {
   worker.hp = clampInt(fighter.hp, 0, worker.hpMax)
 }
 
+/** 倒地归来到点：写回休息，再上绷带和自动吃饭。 */
+export function applyDownedReturn(save: Save, workerId: string, hp: number, now: number): void {
+  const worker = save.workers.find((row) => row.id === workerId)
+  if (!worker || isAssistWorker(worker)) return
+  worker.assignment = null
+  worker.hp = clampInt(hp, 0, worker.hpMax)
+  if (hp <= 0) {
+    const heal = campBandageHealAmount(save, worker.hpMax)
+    if (heal > 0) worker.hp = Math.min(worker.hpMax, worker.hp + heal)
+  }
+  tryAutoEatWhenWounded(save, workerId, now)
+}
+
 function writeBackWorkers(save: Save, combat: EnemyCombat): void {
   for (const fighter of combat.workers) {
     const worker = save.workers.find((w) => w.id === fighter.id)
@@ -711,17 +866,75 @@ function retireFallenFighters(
 ): void {
   const fallen = dropDownedFighters(combat)
   if (!fallen.length) return
+  if (!combat.returning) combat.returning = []
+  const dur = marchDurationMs(save)
   for (const fighter of fallen) {
     writeBackFighterHp(save, fighter)
     const worker = save.workers.find((w) => w.id === fighter.id)
-    if (worker) {
-      if (worker.assignment !== null) worker.assignment = null
-      const heal = campBandageHealAmount(save, worker.hpMax)
-      if (heal > 0) worker.hp = Math.min(worker.hpMax, worker.hp + heal)
+    if (worker && worker.assignment !== null) worker.assignment = null
+    if (!combat.returning.some((row) => row.id === fighter.id)) {
+      combat.returning.push({
+        id: fighter.id,
+        until: at + dur,
+        startedAt: at,
+        reason: 'down',
+        hp: clampInt(fighter.hp, 0, fighter.hpMax),
+        label: fighter.label,
+      })
     }
-    tryAutoEatWhenWounded(save, fighter.id, at)
-    emitLog(enc, combat, at, `${fighter.label} 倒下，返回休息`, 'err', onLog)
+    emitLog(enc, combat, at, `${fighter.label} 倒下，溃退归来`, 'err', onLog)
   }
+}
+
+function settleCombatReturns(save: Save, combat: EnemyCombat, now: number): void {
+  const pending = combat.returning ?? []
+  if (!pending.length) return
+  const stay: CombatReturnee[] = []
+  for (const row of pending) {
+    if (now < row.until) {
+      stay.push(row)
+      continue
+    }
+    if (row.reason === 'down') applyDownedReturn(save, row.id, row.hp, now)
+    else {
+      const worker = save.workers.find((workerRow) => workerRow.id === row.id)
+      if (worker) worker.assignment = null
+    }
+  }
+  combat.returning = stay
+}
+
+function releaseHomePhase(combat: EnemyCombat): void {
+  delete combat.phase
+  delete combat.phaseStartedAt
+  delete combat.phaseEndsAt
+}
+
+function parkUnfielded(save: Save, combat: EnemyCombat, at: number, dur: number): void {
+  if (!combat.returning) combat.returning = []
+  const staying = new Set<string>([
+    ...combat.workers.filter((fighter) => fighter.hp > 0).map((fighter) => fighter.id),
+    ...combat.returning.map((row) => row.id),
+  ])
+  const extras = [
+    ...combat.workerIds.filter((id) => !staying.has(id) && !combat.workers.some((fighter) => fighter.id === id)),
+    ...(combat.incoming ?? []).map((row) => row.id),
+  ]
+  const reason = combat.outcome === 'win' ? 'win' : 'lose'
+  for (const id of extras) {
+    if (staying.has(id)) continue
+    staying.add(id)
+    const worker = save.workers.find((row) => row.id === id)
+    combat.returning.push({
+      id,
+      until: at + dur,
+      startedAt: at,
+      reason,
+      hp: worker?.hp ?? 0,
+      label: worker?.name ?? id,
+    })
+  }
+  combat.incoming = []
 }
 
 function grantRuneBloodXp(save: Save, combat: EnemyCombat): void {
@@ -749,7 +962,16 @@ function finishCombat(
   emitLog(enc, combat, at, text, outcome === 'win' ? 'ok' : 'err', onLog)
   grantRuneBloodXp(save, combat)
   writeBackWorkers(save, combat)
-  tryAutoEatAfterCombat(save, combat.workerIds, at)
+  tryAutoEatAfterCombat(
+    save,
+    combat.workers.filter((fighter) => fighter.hp > 0).map((fighter) => fighter.id),
+    at,
+  )
+  const dur = marchDurationMs(save)
+  combat.phase = outcome === 'win' ? 'marchHomeWin' : 'marchHomeLose'
+  combat.phaseStartedAt = at
+  combat.phaseEndsAt = at + dur
+  parkUnfielded(save, combat, at, dur)
 }
 
 export function endEnemyCombat(
@@ -892,6 +1114,75 @@ function actorSort(a: CombatFighter, b: CombatFighter): number {
   return a.id.localeCompare(b.id)
 }
 
+function nextIncomingAt(combat: EnemyCombat): number | null {
+  const times = (combat.incoming ?? []).map((row) => row.arrivesAt)
+  if (!times.length) return null
+  return Math.min(...times)
+}
+
+function flushDueIncoming(
+  save: Save,
+  enc: EnemyEncounter,
+  combat: EnemyCombat,
+  at: number,
+  onLog?: CombatLogSink,
+): void {
+  const due = (combat.incoming ?? []).filter((row) => row.arrivesAt <= at)
+  if (!due.length) return
+  combat.incoming = (combat.incoming ?? []).filter((row) => row.arrivesAt > at)
+  const guests = combat.marchPlan?.guests ?? due.flatMap((row) => (row.guest ? [row.guest] : []))
+  const extras: Worker[] = []
+  const runes: Partial<Record<string, RuneItemId>> = {}
+  for (const row of due) {
+    const worker = row.guest ?? findCombatPartyWorker(save, row.id, guests)
+    if (!worker) continue
+    extras.push(worker)
+    if (row.runeId) runes[worker.id] = row.runeId
+  }
+  if (extras.length) addCombatReinforcements(enc, extras, at, onLog, save, runes)
+}
+
+function arriveMarch(save: Save, enc: EnemyEncounter, at: number, onLog?: CombatLogSink): void {
+  const prev = enc.combat
+  if (!prev || combatPhaseOf(prev) !== 'marchOut') return
+  const plan = prev.marchPlan ?? { chapter: 1, runes: { ...(prev.runeLoadout ?? {}) } }
+  const guests = plan.guests ?? []
+  const party = prev.workerIds
+    .map((id) => findCombatPartyWorker(save, id, guests))
+    .filter((worker): worker is Worker => !!worker)
+  const oldLogs = [...prev.logs]
+  const returning = [...(prev.returning ?? [])]
+  const incoming = [...(prev.incoming ?? [])]
+  const armed = buildEnemyCombat(enc, party, at, plan.chapter, onLog, save, {
+    stats: plan.stats,
+    shield: plan.shield,
+    timeoutS: plan.timeoutS,
+    runes: plan.runes,
+  })
+  armed.logs = [...oldLogs, ...armed.logs]
+  armed.returning = returning
+  const due = incoming.filter((row) => row.arrivesAt <= at)
+  armed.incoming = incoming.filter((row) => row.arrivesAt > at)
+  if (!due.length) return
+  const extras: Worker[] = []
+  const runes: Partial<Record<string, RuneItemId>> = {}
+  for (const row of due) {
+    const worker = row.guest ?? findCombatPartyWorker(save, row.id, guests)
+    if (!worker) continue
+    extras.push(worker)
+    if (row.runeId) runes[worker.id] = row.runeId
+  }
+  if (extras.length) addCombatReinforcements(enc, extras, at, onLog, save, runes)
+}
+
+function closeMarchHome(save: Save, combat: EnemyCombat, now: number): void {
+  settleCombatReturns(save, combat, now)
+  const phase = combatPhaseOf(combat)
+  if ((phase === 'marchHomeWin' || phase === 'marchHomeLose') && now >= (combat.phaseEndsAt ?? 0)) {
+    releaseHomePhase(combat)
+  }
+}
+
 function nextActionAt(combat: EnemyCombat): number | null {
   const times = livingWorkers(combat).map((f) => f.nextActAt)
   if (combat.enemy.hp > 0) {
@@ -908,8 +1199,28 @@ function nextActionAt(combat: EnemyCombat): number | null {
 }
 
 export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number, onLog?: CombatLogSink): void {
-  const combat = enc.combat
-  if (!combat || combat.outcome || enc.lootClaimed) return
+  let combat = enc.combat
+  if (!combat) return
+  settleCombatReturns(save, combat, now)
+  if (enc.lootClaimed) {
+    closeMarchHome(save, combat, now)
+    return
+  }
+  if (combatPhaseOf(combat) === 'marchOut') {
+    if (now < (combat.phaseEndsAt ?? Number.POSITIVE_INFINITY)) return
+    arriveMarch(save, enc, combat.phaseEndsAt ?? now, onLog)
+    combat = enc.combat
+    if (!combat) return
+  }
+  const phase = combatPhaseOf(combat)
+  if (phase === 'marchHomeWin' || phase === 'marchHomeLose') {
+    closeMarchHome(save, combat, now)
+    return
+  }
+  if (combat.outcome || phase === 'settled') {
+    settleCombatReturns(save, combat, now)
+    return
+  }
   ensureCombatShield(enc, combat.startedAt, save)
 
   let lastAt = combat.startedAt
@@ -920,24 +1231,34 @@ export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number, on
         combat.enemy.hp = 1
       } else {
         finishCombat(save, enc, combat, lastAt, 'win', '战斗胜利', onLog)
-        return
+        break
       }
     }
+    if (combat.outcome) break
 
-    const living = livingWorkers(combat)
-    const nextAt = nextActionAt(combat)
+    const arriveAt = nextIncomingAt(combat)
+    const actAt = nextActionAt(combat)
+    const nextAt =
+      arriveAt == null ? actAt : actAt == null ? arriveAt : Math.min(arriveAt, actAt)
     if (nextAt == null) {
       if (now >= combat.timeoutAt) {
         finishCombat(save, enc, combat, Math.min(now, combat.timeoutAt), 'lose', '超时判败', onLog)
       }
-      return
+      break
     }
     if (nextAt > combat.timeoutAt || (now >= combat.timeoutAt && nextAt > now)) {
       finishCombat(save, enc, combat, Math.min(now, combat.timeoutAt), 'lose', '超时判败', onLog)
-      return
+      break
     }
-    if (nextAt > now) return
+    if (nextAt > now) break
 
+    if (arriveAt != null && arriveAt === nextAt && (actAt == null || arriveAt <= actAt)) {
+      flushDueIncoming(save, enc, combat, nextAt, onLog)
+      lastAt = nextAt
+      continue
+    }
+
+    const living = livingWorkers(combat)
     lastAt = nextAt
     if (isCombatStunned(combat, nextAt) === false && (combat.shield ?? 0) <= 0 && typeof combat.stunnedUntil === 'number') {
       wakeCombatShield(enc, combat, nextAt)
@@ -966,6 +1287,7 @@ export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number, on
       actor.nextActAt = nextAt + actIntervalMs(actor.spd)
     }
   }
+  closeMarchHome(save, combat, now)
 }
 
 export function stepCombats(save: Save, now: number, onLog?: CombatLogSink): void {
