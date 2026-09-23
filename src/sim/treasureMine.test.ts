@@ -12,6 +12,8 @@ import {
   mineDigIntervalS,
   workerMatchesMineWeakness,
   hydrateTreasureMines,
+  TREASURE_REFRESH_COST,
+  refreshTreasureMineBoard,
   refreshTreasureMines,
   shadowCrewCount,
   rejectTreasureMineRune,
@@ -21,6 +23,7 @@ import {
   stepTreasureMines,
   withdrawTreasureMiner,
 } from './treasureMine'
+import { treasureMineBlockReason } from './treasureMineQuery'
 import type { Save } from './types'
 
 function vaultQty(save: Save): number {
@@ -351,5 +354,52 @@ describe('treasure mines', () => {
     const again = save.treasureMines.mines.find((row) => row.id === mine.id)
     expect(again?.raid?.attackSlots).toEqual([lead.id, null, null])
     expect(again?.raid?.defendSlots).toEqual([mine.shadows[0].id, null, null])
+  })
+
+  it('spends diamonds to replace idle holes and keeps raids', () => {
+    const save = createSave()
+    save.diamonds = 25
+    save.treasureMines.vault.sandGold = 4
+    const miner = spawnWorker(save)
+    miner.assignment = 'herbalism'
+    const owned = save.treasureMines.mines[0]
+    owned.owner = 'player'
+    owned.shadows = []
+    owned.crewIds = [miner.id]
+    owned.digCharge[miner.id] = 3
+    const raider = spawnWorker(save)
+    const fighting = save.treasureMines.mines[1]
+    expect(startTreasureRaid(save, fighting.id, [raider.id]).ok).toBe(true)
+    const dropped = save.treasureMines.mines.filter((mine) => mine.id !== fighting.id).map((mine) => mine.id)
+
+    expect(refreshTreasureMineBoard(save).ok).toBe(true)
+    expect(save.diamonds).toBe(25 - TREASURE_REFRESH_COST)
+    expect(save.treasureMines.vault.sandGold).toBe(4)
+    expect(save.treasureMines.mines).toHaveLength(TREASURE_MINE_CAP)
+    expect(save.treasureMines.mines.some((mine) => mine.id === fighting.id)).toBe(true)
+    expect(save.treasureMines.mines.some((mine) => dropped.includes(mine.id))).toBe(false)
+    expect(miner.assignment).toBeNull()
+    expect(save.treasureMines.mines.some((mine) => mine.crewIds.includes(miner.id))).toBe(false)
+    expect(save.treasureMines.mines.some((mine) => miner.id in mine.digCharge)).toBe(false)
+    expect(treasureMineBlockReason(save, miner.id)).toBeNull()
+    expect(treasureMineBlockReason(save, raider.id)).toBe('正在夺宝')
+
+    save.diamonds = TREASURE_REFRESH_COST - 1
+    const ids = save.treasureMines.mines.map((mine) => mine.id)
+    expect(refreshTreasureMineBoard(save)).toEqual({ ok: false, reason: '钻石不足' })
+    expect(save.diamonds).toBe(TREASURE_REFRESH_COST - 1)
+    expect(save.treasureMines.mines.map((mine) => mine.id)).toEqual(ids)
+
+    const locked = createSave()
+    locked.diamonds = 40
+    const before = locked.diamonds
+    const holeIds = locked.treasureMines.mines.map((mine) => mine.id)
+    for (const mine of locked.treasureMines.mines) {
+      const worker = spawnWorker(locked)
+      expect(startTreasureRaid(locked, mine.id, [worker.id]).ok).toBe(true)
+    }
+    expect(refreshTreasureMineBoard(locked)).toEqual({ ok: false, reason: '没有可刷新的矿洞' })
+    expect(locked.diamonds).toBe(before)
+    expect(locked.treasureMines.mines.map((mine) => mine.id)).toEqual(holeIds)
   })
 })

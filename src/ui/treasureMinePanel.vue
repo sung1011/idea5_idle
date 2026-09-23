@@ -8,6 +8,7 @@ import { isFullCombatHp, restCombatCandidates } from '../sim/combat'
 import {
   TREASURE_CREW_CAP,
   TREASURE_LABEL,
+  TREASURE_REFRESH_COST,
   mineRemainS,
 } from '../sim/treasureMine'
 import type { RuneItemId, TreasureMine, Worker } from '../sim/types'
@@ -120,7 +121,10 @@ function confirmPick() {
 <template>
   <section class="mines" aria-label="夺宝矿洞">
     <p class="lead">守军是其他玩家的快照，不是联机实时，也不是 NPC。开采不装符文；抢夺可装符文。</p>
-    <p class="vault">宝库 {{ vaultLine }}</p>
+    <div class="vault-row">
+      <p class="vault">宝库 {{ vaultLine }}</p>
+      <button type="button" @click="game.refreshTreasureMines()">刷新 {{ TREASURE_REFRESH_COST }} 钻</button>
+    </div>
     <div class="board">
       <article v-for="mine in mines" :key="mine.id" class="card">
         <header>
@@ -222,6 +226,20 @@ function confirmPick() {
   margin: 0;
   font-size: 12px;
   font-weight: 700;
+}
+
+.vault-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.vault-row button {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 12px;
 }
 
 .board {

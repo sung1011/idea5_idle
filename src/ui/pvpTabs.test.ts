@@ -10,6 +10,8 @@ describe('pvp treasure tab', () => {
     expect(panel).toContain('<TreasureMinePanel')
     expect(mine).toContain('class="tags"')
     expect(mine).toContain('class="board"')
+    expect(mine).toContain('刷新 {{ TREASURE_REFRESH_COST }} 钻')
+    expect(mine).toContain('game.refreshTreasureMines()')
     const tags = mine.slice(mine.indexOf('class="tags"'), mine.indexOf('</span>', mine.indexOf('class="tags"')))
     expect(tags).toContain('class="affix-chip"')
     expect(tags).toContain('COMBAT_ATTR_LABEL[id]')

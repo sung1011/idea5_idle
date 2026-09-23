@@ -30,6 +30,7 @@ export const TREASURE_LIFE_S = 60 * 60
 export const TREASURE_CREW_CAP = 3
 export const TREASURE_DIG_BASE_S = 5
 export const TREASURE_RAID_CAP = 3
+export const TREASURE_REFRESH_COST = 10
 
 export const TREASURE_LABEL: Record<TreasureId, string> = {
   sandGold: '砂金',
@@ -97,6 +98,39 @@ export function hydrateTreasureMines(save: Save): void {
     mine.reserve = clampInt(mine.reserve, 0, TREASURE_RESERVE_MAX)
   }
   refreshTreasureMines(save)
+}
+
+/**
+ * 花钻石换一批没在打的洞。战斗中的洞留下。
+ * 没有可刷的洞、或钻石不够时不扣钻。
+ */
+export function refreshTreasureMineBoard(save: Save): ActionResult {
+  const state = ensureTreasureMines(save)
+  if (!state.mines.some((mine) => mine.raid == null)) return { ok: false, reason: '没有可刷新的矿洞' }
+  if (save.diamonds < TREASURE_REFRESH_COST) return { ok: false, reason: '钻石不足' }
+  save.diamonds -= TREASURE_REFRESH_COST
+  const kept: TreasureMine[] = []
+  for (const mine of state.mines) {
+    if (mine.raid) {
+      kept.push(mine)
+      continue
+    }
+    releaseMineCrew(save, mine)
+  }
+  state.mines = kept
+  while (state.mines.length < TREASURE_MINE_CAP) {
+    state.mines.push(spawnMine(save, save.elapsedS))
+  }
+  return { ok: true, message: '已刷新矿洞' }
+}
+
+function releaseMineCrew(save: Save, mine: TreasureMine): void {
+  for (const id of mine.crewIds) {
+    const worker = save.workers.find((row) => row.id === id)
+    if (worker) worker.assignment = null
+    delete mine.digCharge[id]
+  }
+  mine.crewIds = []
 }
 
 export function refreshTreasureMines(save: Save): void {
