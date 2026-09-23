@@ -537,40 +537,69 @@ export type MineDigReadout = {
   fastestS: number
 }
 
-/**
- * 我方开采读数。无人矿、快照驻守、抢夺中不给。
- * 进度条跟剩余时间最短的一人；速度文案跟最短间隔，两人可以不是同一个。
- */
-export function playerMineDigReadout(save: Save, mine: TreasureMine): MineDigReadout | null {
-  if (mine.owner !== 'player' || mine.raid) return null
-  const assigned = mine.crewIds.length
-  if (!assigned) return null
+function paceReadout(rows: { stretched: number; charge: number }[]): MineDigReadout | null {
   let soonestFill = 0
   let soonestInterval = 0
   let soonestRemain = Infinity
   let fastestS = Infinity
   let found = false
-  for (const id of mine.crewIds) {
-    const worker = save.workers.find((row) => row.id === id)
-    if (!worker) continue
-    const matched = workerMatchesMineWeakness(worker.combatAttrs, mine.weaknesses)
-    const stretched = digStretchS(mineDigIntervalS(worker.level, matched), assigned, assigned)
-    const charge = Math.max(0, mine.digCharge[id] ?? 0)
-    const remain = Math.max(0, stretched - charge)
-    const fill = stretched > 0 ? Math.min(1, charge / stretched) : 0
-    if (stretched < fastestS) fastestS = stretched
+  for (const row of rows) {
+    const charge = Math.max(0, row.charge)
+    const remain = Math.max(0, row.stretched - charge)
+    const fill = row.stretched > 0 ? Math.min(1, charge / row.stretched) : 0
+    if (row.stretched < fastestS) fastestS = row.stretched
     const closer =
       !found ||
       remain < soonestRemain - 1e-9 ||
-      (Math.abs(remain - soonestRemain) <= 1e-9 && stretched < soonestInterval)
+      (Math.abs(remain - soonestRemain) <= 1e-9 && row.stretched < soonestInterval)
     if (!closer) continue
     found = true
     soonestFill = fill
-    soonestInterval = stretched
+    soonestInterval = row.stretched
     soonestRemain = remain
   }
   if (!found) return null
   return { fill: soonestFill, intervalS: soonestInterval, fastestS }
+}
+
+/**
+ * 卡面开采读数，人选与 `stepDig` 相同。
+ * 我方未抢夺且有编制；快照驻守全员在挖，抢夺中只算非当前交战的守军。
+ * 无人矿、我方抢夺中、没人在挖则不给。
+ * 进度条跟剩余时间最短的一人；速度文案跟最短间隔，两人可以不是同一个。
+ */
+export function mineDigReadout(save: Save, mine: TreasureMine): MineDigReadout | null {
+  if (mine.owner === 'player' && !mine.raid) {
+    const assigned = mine.crewIds.length
+    if (!assigned) return null
+    const rows: { stretched: number; charge: number }[] = []
+    for (const id of mine.crewIds) {
+      const worker = save.workers.find((row) => row.id === id)
+      if (!worker) continue
+      const matched = workerMatchesMineWeakness(worker.combatAttrs, mine.weaknesses)
+      rows.push({
+        stretched: digStretchS(mineDigIntervalS(worker.level, matched), assigned, assigned),
+        charge: mine.digCharge[id] ?? 0,
+      })
+    }
+    return paceReadout(rows)
+  }
+  if (mine.owner !== 'shadow') return null
+  const mining = mine.raid ? mine.shadows.slice(1) : mine.shadows
+  if (!mining.length) return null
+  const assigned = mine.raid ? Math.max(1, mine.raid.garrison) : mining.length
+  return paceReadout(
+    mining.map((shadow) => ({
+      stretched: digStretchS(mineDigIntervalS(shadow.level), mining.length, assigned),
+      charge: mine.digCharge[shadow.id] ?? 0,
+    })),
+  )
+}
+
+/** 我方开采读数。无人矿、快照驻守、抢夺中不给。 */
+export function playerMineDigReadout(save: Save, mine: TreasureMine): MineDigReadout | null {
+  if (mine.owner !== 'player') return null
+  return mineDigReadout(save, mine)
 }
 
 /** 卡面上的开采速度。 */

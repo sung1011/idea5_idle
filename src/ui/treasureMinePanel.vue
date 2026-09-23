@@ -12,10 +12,10 @@ import {
   TREASURE_KIND_LABEL,
   TREASURE_LABEL,
   TREASURE_REFRESH_COST,
+  mineDigReadout,
   mineDigSpeedLabel,
   mineRemainS,
   mineWeaknessSlots,
-  playerMineDigReadout,
 } from '../sim/treasureMine'
 import type { RuneItemId, TreasureMine, Worker } from '../sim/types'
 import CombatPickSheet from './combatPickSheet.vue'
@@ -30,13 +30,13 @@ const digViews = computed(() => {
   const now = frameNow.value
   const views = new Map<string, { pct: number; label: string }>()
   for (const mine of mines.value) {
-    const pace = playerMineDigReadout(game.save, mine)
+    const pace = mineDigReadout(game.save, mine)
     if (!pace) continue
     const fill = visualStationProgress({
       progress: pace.fill,
       speed: pace.intervalS > 0 ? 1 / pace.intervalS : 0,
       stalled: false,
-      assigned: mine.crewIds.length,
+      assigned: 1,
       lastTick: game.save.lastTick,
       now,
     })
@@ -65,6 +65,12 @@ const pickMax = computed(() => {
 })
 const pickSlotOffset = computed(() => (pickKind.value === 'mine' ? (activeMine.value?.crewIds.length ?? 0) : 0))
 const slotSheet = ref<SlotSheet | null>(null)
+
+function reserveWidth(mine: TreasureMine): string {
+  if (mine.reserveMax <= 0) return '0%'
+  const pct = Math.min(100, Math.max(0, (mine.reserve / mine.reserveMax) * 100))
+  return `${pct.toFixed(2)}%`
+}
 
 function clock(mine: TreasureMine): string {
   const safe = mineRemainS(mine, game.save.elapsedS)
@@ -172,20 +178,33 @@ function confirmPick() {
             :attr="slot"
           />
         </p>
-        <p class="label">储量 {{ mine.reserve }}/{{ mine.reserveMax }}</p>
+        <div class="meters">
+          <p class="meter reserve">
+            <i
+              class="dig-bar"
+              role="progressbar"
+              aria-label="储量"
+              :aria-valuenow="mine.reserve"
+              :aria-valuemin="0"
+              :aria-valuemax="mine.reserveMax"
+              :aria-valuetext="`${mine.reserve}/${mine.reserveMax}`"
+            ><b :style="{ width: reserveWidth(mine) }" /></i>
+            <span>{{ mine.reserve }}/{{ mine.reserveMax }}</span>
+          </p>
+          <p v-if="digViews.get(mine.id)" class="meter dig">
+            <i
+              class="dig-bar"
+              role="progressbar"
+              aria-label="开采进度"
+              :aria-valuenow="Math.round(digViews.get(mine.id)!.pct)"
+              aria-valuemin="0"
+              aria-valuemax="100"
+            ><b :style="{ width: digViews.get(mine.id)!.pct.toFixed(2) + '%' }" /></i>
+            <span>{{ digViews.get(mine.id)!.label }}</span>
+          </p>
+        </div>
         <p class="label">消失倒计时 {{ clock(mine) }}</p>
         <p v-if="mine.owner === 'player'" class="label">开采 {{ names(mine.crewIds) }}（{{ mine.crewIds.length }}/{{ TREASURE_CREW_CAP }}，无符文）</p>
-        <p v-if="digViews.get(mine.id)" class="dig">
-          <i
-            class="dig-bar"
-            role="progressbar"
-            aria-label="开采进度"
-            :aria-valuenow="Math.round(digViews.get(mine.id)!.pct)"
-            aria-valuemin="0"
-            aria-valuemax="100"
-          ><b :style="{ width: digViews.get(mine.id)!.pct.toFixed(2) + '%' }" /></i>
-          <span>{{ digViews.get(mine.id)!.label }}</span>
-        </p>
         <template v-for="hud in raidHuds(mine)" :key="`${mine.id}-raid`">
           <div class="bars">
             <p class="bar-line">{{ hud.defend.name }}</p>
@@ -309,11 +328,25 @@ function confirmPick() {
   letter-spacing: 0.12em;
 }
 
-.dig {
+.meters {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meter {
   display: flex;
   align-items: center;
   gap: 6px;
   margin: 0;
+}
+
+.reserve span {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--copper);
 }
 
 .dig-bar {

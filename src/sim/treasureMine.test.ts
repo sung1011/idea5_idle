@@ -12,6 +12,7 @@ import {
   addTreasureMiner,
   claimTreasureMine,
   mineDigIntervalS,
+  mineDigReadout,
   mineDigSpeedLabel,
   playerMineDigReadout,
   rollTreasureDrop,
@@ -740,6 +741,48 @@ describe('treasure mines', () => {
     expect(vaultQty(save)).toBeGreaterThan(0)
     expect(tipped.length).toBe(vaultQty(save))
     expect(tipped.every((text) => text.startsWith('获得 ') && text.includes('×1'))).toBe(true)
+  })
+
+  it('reads shadow dig progress for whoever stepDig is still mining', () => {
+    const save = createSave()
+    const mine = ensureGarrison(save.treasureMines.mines[0])
+    const lead = { ...mine.shadows[0], id: `${mine.id}-lead`, level: 1, name: '甲' }
+    const slow = { ...mine.shadows[0], id: `${mine.id}-slow`, level: 1, name: '乙' }
+    const fast = { ...mine.shadows[0], id: `${mine.id}-fast`, level: 11, name: '丙' }
+    mine.owner = 'shadow'
+    mine.raid = null
+    mine.crewIds = []
+    mine.shadows = [lead, slow, fast]
+    mine.digCharge = {}
+    expect(mineDigReadout(save, mine)).toEqual({ fill: 0, intervalS: 3, fastestS: 3 })
+    expect(playerMineDigReadout(save, mine)).toBeNull()
+
+    mine.shadows = [fast]
+    mine.digCharge = {}
+    save.elapsedS += 1
+    stepTreasureMines(save)
+    expect(mineDigReadout(save, mine)?.fill).toBeCloseTo(1 / 3)
+    expect(mineDigReadout(save, mine)?.fastestS).toBe(3)
+
+    mine.owner = 'empty'
+    mine.shadows = []
+    expect(mineDigReadout(save, mine)).toBeNull()
+
+    mine.owner = 'shadow'
+    mine.shadows = [lead, slow, fast]
+    mine.digCharge = {}
+    const raider = spawnWorker(save)
+    expect(startTreasureRaid(save, mine.id, [raider.id]).ok).toBe(true)
+    expect(mineDigReadout(save, mine)).toEqual({ fill: 0, intervalS: 4.5, fastestS: 4.5 })
+    mine.digCharge[slow.id] = 7
+    mine.digCharge[fast.id] = 0
+    const soonest = mineDigReadout(save, mine)
+    expect(soonest?.intervalS).toBe(7.5)
+    expect(soonest?.fastestS).toBe(4.5)
+    expect(soonest?.fill).toBeCloseTo(7 / 7.5)
+
+    mine.shadows = [lead]
+    expect(mineDigReadout(save, mine)).toBeNull()
   })
 
   it('keeps revealed weaknesses until the hole is gone', () => {

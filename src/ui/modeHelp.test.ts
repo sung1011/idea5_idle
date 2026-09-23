@@ -26,6 +26,8 @@ describe('mode help', () => {
     expect(treasure).toContain('一半没有守军')
     expect(treasure).toContain('揭开后一直留到这个洞消失')
     expect(treasure).toContain('自己的名字')
+    expect(treasure).toContain('每洞都画储量条')
+    expect(treasure).toContain('没人在采不画')
     expect(treasure).not.toContain('三分之一')
     expect(treasure).not.toContain('补采')
     expect(treasure).not.toContain('影矿卫')
