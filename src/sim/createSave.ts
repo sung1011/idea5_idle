@@ -1,4 +1,5 @@
 import { blankDungeonState } from './dungeon'
+import { hydrateTreasureMines } from './treasureMine'
 import { generateEncounterBoard } from './encounters'
 import { GUIDE_QUEST_REV } from './guideQuest'
 import { battlefieldSlotCount, marketSlotCount } from './tech'
@@ -57,6 +58,7 @@ export function createSave(): Save {
     potionSlots: blankPotionSlots(),
     potionBuffs: blankPotionBuffs(),
     dungeon: blankDungeonState(undefined, 1),
+    treasureMines: { nextId: 1, roll: 1, vault: {}, mines: [] },
   }
   save.dungeon = blankDungeonState(save, 1)
   save.knightLevel = computeKnightLevel(save)
@@ -73,5 +75,6 @@ export function createSave(): Save {
     starterCopperPawn: true,
     save,
   })
+  hydrateTreasureMines(save)
   return save
 }

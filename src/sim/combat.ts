@@ -1,3 +1,4 @@
+import { isWorkerInTreasureMine, treasureMineBlockReason } from './treasureMineQuery'
 import {
   enemyRankFor,
   ensureEnemyIntel,
@@ -361,7 +362,12 @@ export function isWorkerInCombat(save: Save, workerId: string): boolean {
 export function restCombatCandidates(save: Save): Worker[] {
   const busy = fightingWorkerIds(save)
   return save.workers.filter(
-    (w) => w.guest !== true && !w.id.startsWith('assist-') && w.assignment === null && !busy.has(w.id),
+    (w) =>
+      w.guest !== true &&
+      !w.id.startsWith('assist-') &&
+      w.assignment === null &&
+      !busy.has(w.id) &&
+      !isWorkerInTreasureMine(save, w.id),
   )
 }
 
@@ -389,6 +395,8 @@ export function combatPartyBlockReason(
     const worker = roster ?? guests.find((w) => w.id === id && (w.guest === true || w.id.startsWith('assist-')))
     if (!worker) return '没有这个工人'
     if (worker.assignment !== null) return `${worker.name ?? worker.id} 不在休息`
+    const mineBusy = treasureMineBlockReason(save, id)
+    if (mineBusy) return `${worker.name ?? worker.id} ${mineBusy}`
     if (busy.has(id)) return `${worker.name ?? worker.id} 正在战斗`
     if (!isFullCombatHp(worker)) return `${worker.name ?? worker.id} 未满血`
   }

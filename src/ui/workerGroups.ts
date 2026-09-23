@@ -1,5 +1,6 @@
 import { assignedWorkers, assignWorker, withdrawWorker } from '../sim/assign'
 import { fightingWorkerIds, isWorkerInCombat } from '../sim/combat'
+import { isWorkerInTreasureMine } from '../sim/treasureMineQuery'
 import { canFuseWorkerWithStation } from '../sim/fuse'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { QUALITY_TIERS, STATION_DEF, STATION_ORDER, STATION_WORKER_CAP, WORKER_QUALITY_TABLE } from '../sim/tables'
@@ -237,7 +238,9 @@ export function mainlineCombatWorkers(save: Save): Worker[] {
 
 /** 未派驻且未在主线战斗。名册原序。 */
 export function restingWorkers(save: Save): Worker[] {
-  return save.workers.filter((worker) => worker.assignment === null && !isWorkerInCombat(save, worker.id))
+  return save.workers.filter(
+    (worker) => worker.assignment === null && !isWorkerInCombat(save, worker.id) && !isWorkerInTreasureMine(save, worker.id),
+  )
 }
 
 /** 药剂→食物→符文，满员跳过。每站 1 槽。 */

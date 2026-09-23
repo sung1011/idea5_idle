@@ -393,6 +393,57 @@ export type GameMessage = {
   read: boolean
 }
 
+export type TreasureId = 'sandGold' | 'jewel' | 'jade'
+
+/** 影子矿卫。快照战力，不是玩家工人，也不读实时联机。 */
+export type TreasureShadow = {
+  id: string
+  name: string
+  level: number
+  hp: number
+  hpMax: number
+  atk: number
+  spd: number
+  runeId: RuneItemId
+}
+
+/** 玩家抢夺中的连环 1v1。queue[0] 对 shadows[0]。 */
+export type TreasureRaid = {
+  queue: string[]
+  garrison: number
+  atkHp: number
+  atkMax: number
+  atkAtk: number
+  atkSpd: number
+  atkNext: number
+  defHp: number
+  defAtk: number
+  defSpd: number
+  defNext: number
+  runes: Partial<Record<string, RuneItemId>>
+}
+
+export type TreasureMine = {
+  id: string
+  reserve: number
+  reserveMax: number
+  bornAtS: number
+  expiresAtS: number
+  owner: 'shadow' | 'player'
+  crewIds: string[]
+  shadows: TreasureShadow[]
+  raid: TreasureRaid | null
+  digCharge: Partial<Record<string, number>>
+}
+
+export type TreasureMineState = {
+  nextId: number
+  /** 矿洞自己的掷骰，不推进工坊 `rngState`。 */
+  roll: number
+  vault: Partial<Record<TreasureId, number>>
+  mines: TreasureMine[]
+}
+
 export type Save = {
   /** 探索 / 黑心商人购买扣金；当铺典当 / 收购 / 部分敌人与商场订单加金。 */
   gold: number
@@ -498,6 +549,11 @@ export type Save = {
    * 旧档若只存 2 条，当日实例保留，下一次日切再掷满 3 条。
    */
   dungeon: DungeonState
+  /**
+   * 夺宝矿洞。本地最多 4 洞，影子守军不是联机玩家。
+   * 旧档缺字段 hydrate 出空池再补满。
+   */
+  treasureMines: TreasureMineState
 }
 
 export type EncounterQuality = 'gray' | 'green' | 'blue' | 'purple' | 'orange'

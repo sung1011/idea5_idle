@@ -88,6 +88,7 @@ import {
   type MainlineTabId,
 } from './mainlineTabs'
 import HpBar from './hpBar.vue'
+import TreasureMinePanel from './treasureMinePanel.vue'
 import {
   qualityOf,
   workerQualityBadgeStyle,
@@ -503,6 +504,8 @@ function timedLine(enc: Encounter) {
         </button>
       </nav>
     </div>
+    <TreasureMinePanel v-if="currentTab === 'mine'" />
+    <template v-else>
     <div class="chapter-head">
       <p class="chapter">{{ chapterTitle }}</p>
       <div
@@ -843,6 +846,7 @@ function timedLine(enc: Encounter) {
         </div>
       </div>
     </div>
+    </template>
   </section>
 
   <Teleport to="body">

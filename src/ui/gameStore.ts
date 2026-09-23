@@ -36,6 +36,7 @@ import {
   submitArtisan,
 } from '../sim/encounters'
 import { claimDungeonChest, reinforceDungeonCombat, startDungeonCombat } from '../sim/dungeon'
+import { addTreasureMiner, startTreasureRaid, withdrawTreasureMiner } from '../sim/treasureMine'
 import { claimGuideQuest, markGuideQuestRuneOpened } from '../sim/guideQuest'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
 import { PLAYABLE_STATION_IDS } from '../sim/tables'
@@ -279,6 +280,11 @@ export const useGameStore = defineStore('game', () => {
         reinforceDungeonCombat(s, encounterId, workerIds, Date.now(), pushCombatLogTip, guests, runePicks),
       ),
     claimDungeonChest: (encounterId: string) => apply((s) => claimDungeonChest(s, encounterId)),
+    startTreasureRaid: (mineId: string, workerIds: string[], runePicks?: RunePickMap) =>
+      apply((s) => startTreasureRaid(s, mineId, workerIds, runePicks)),
+    addTreasureMiner: (mineId: string, workerId: string) => apply((s) => addTreasureMiner(s, mineId, workerId)),
+    withdrawTreasureMiner: (mineId: string, workerId: string) =>
+      apply((s) => withdrawTreasureMiner(s, mineId, workerId)),
     claimLoot: (index: number) => apply((s) => claimLoot(s, index)),
     barter: (index: number) => apply((s) => barterMerchant(s, index)),
     buyMerchant: (index: number) => apply((s) => buyMerchant(s, index)),

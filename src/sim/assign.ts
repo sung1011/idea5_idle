@@ -1,4 +1,5 @@
 import { isWorkerInCombat } from './combat'
+import { isWorkerInTreasureMine, treasureMineBlockReason } from './treasureMineQuery'
 import { findWorker } from './recruit'
 import { isStationUnlocked, stationLockedTip } from './stationUnlock'
 import { isDeprecatedStationId, isStationId, STATION_WORKER_CAP } from './tables'
@@ -32,6 +33,8 @@ export function assignWorker(save: Save, workerId: string, stationId: StationId 
   if (!worker) return { ok: false, reason: '没有这个 worker' }
   worker.isNew = false
   if (isWorkerInCombat(save, workerId)) return { ok: false, reason: '正在战斗' }
+  const mineBusy = treasureMineBlockReason(save, workerId)
+  if (mineBusy) return { ok: false, reason: mineBusy }
   if (stationId !== null && (isDeprecatedStationId(stationId) || !isStationId(stationId))) {
     return { ok: false, reason: '没有这个站点' }
   }
@@ -50,7 +53,9 @@ export function assignWorker(save: Save, workerId: string, stationId: StationId 
 
 export function assignIdleWorker(save: Save, stationId: StationId): ActionResult {
   if (!isStationUnlocked(save, stationId)) return { ok: false, reason: stationLockedTip(stationId) }
-  const idle = save.workers.find((w) => w.assignment === null && !isWorkerInCombat(save, w.id))
+  const idle = save.workers.find(
+    (w) => w.assignment === null && !isWorkerInCombat(save, w.id) && !isWorkerInTreasureMine(save, w.id),
+  )
   if (!idle) return { ok: false, reason: '没有空闲工人' }
   return assignWorker(save, idle.id, stationId)
 }
