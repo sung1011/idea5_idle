@@ -130,7 +130,9 @@ export function hydrateTreasureMines(save: Save): void {
       )
       ensureRaidVitals(save, mine)
     }
-    if (mine.owner !== 'player' && mine.owner !== 'shadow') mine.owner = 'shadow'
+    if (mine.owner !== 'player' && mine.owner !== 'shadow' && mine.owner !== 'empty') {
+      mine.owner = mine.shadows.length > 0 ? 'shadow' : 'empty'
+    }
     mine.weaknesses = mineWeaknessesOf(mine)
     mine.revealedWeaknesses = keptRevealedWeaknesses(mine)
     mine.reserve = clampInt(mine.reserve, 0, TREASURE_RESERVE_MAX)
@@ -193,31 +195,59 @@ export function rejectTreasureMineRune(): ActionResult {
   return { ok: false, reason: '开采不能装符文' }
 }
 
-export function addTreasureMiner(save: Save, mineId: string, workerId: string): ActionResult {
+/** 已占领的洞不能再加人。无人矿用 `claimTreasureMine`。 */
+export function addTreasureMiner(save: Save, mineId: string, _workerId: string): ActionResult {
   const mine = findMine(save, mineId)
   if (!mine) return { ok: false, reason: '没有这个矿洞' }
-  if (mine.owner !== 'player' || mine.raid) return { ok: false, reason: '这洞还不是你的' }
-  if (mine.crewIds.length >= TREASURE_CREW_CAP) return { ok: false, reason: '这洞最多 3 人' }
-  if (mine.crewIds.includes(workerId)) return { ok: false, reason: '已经在这洞里' }
-  const worker = save.workers.find((row) => row.id === workerId)
-  if (!worker) return { ok: false, reason: '没有这个工人' }
-  if (worker.assignment != null) return { ok: false, reason: '工人不在休息区' }
-  const busy = treasureMineBlockReason(save, workerId)
-  if (busy) return { ok: false, reason: busy }
-  clearWorkerNew(save, workerId)
-  mine.crewIds.push(workerId)
-  mine.digCharge[workerId] = 0
-  revealMineWeaknesses(mine, worker.combatAttrs)
-  return { ok: true }
+  if (mine.owner === 'player') return { ok: false, reason: '这洞不能补采' }
+  return { ok: false, reason: '这洞还不是你的' }
 }
 
-export function withdrawTreasureMiner(save: Save, mineId: string, workerId: string): ActionResult {
+/** 无人矿一次选 1～3 人占领。不改储量、倒计时和弱点。 */
+export function claimTreasureMine(save: Save, mineId: string, workerIds: readonly string[]): ActionResult {
   const mine = findMine(save, mineId)
   if (!mine) return { ok: false, reason: '没有这个矿洞' }
-  if (!mine.crewIds.includes(workerId)) return { ok: false, reason: '这人不在洞里' }
-  mine.crewIds = mine.crewIds.filter((id) => id !== workerId)
-  delete mine.digCharge[workerId]
-  return { ok: true }
+  if (mine.owner === 'player') return { ok: false, reason: '这洞不能补采' }
+  if (mine.owner !== 'empty') return { ok: false, reason: '这洞现在不能开采' }
+  if (!workerIds.length) return { ok: false, reason: '请选择开采工人' }
+  if (workerIds.length > TREASURE_CREW_CAP) return { ok: false, reason: '这洞最多 3 人' }
+  const seen = new Set<string>()
+  const party: Worker[] = []
+  for (const id of workerIds) {
+    if (seen.has(id)) return { ok: false, reason: '不能重复选同一个人' }
+    seen.add(id)
+    const worker = save.workers.find((row) => row.id === id)
+    if (!worker) return { ok: false, reason: '没有这个工人' }
+    if (worker.assignment != null) return { ok: false, reason: '工人不在休息区' }
+    const busy = treasureMineBlockReason(save, id)
+    if (busy) return { ok: false, reason: busy }
+    party.push(worker)
+  }
+  mine.owner = 'player'
+  mine.shadows = []
+  mine.raid = null
+  mine.crewIds = party.map((worker) => worker.id)
+  mine.digCharge = {}
+  for (const worker of party) {
+    clearWorkerNew(save, worker.id)
+    mine.digCharge[worker.id] = 0
+    revealMineWeaknesses(mine, worker.combatAttrs)
+  }
+  return { ok: true, message: '已占领矿洞' }
+}
+
+/** 一键放弃。工人回休息，洞变无人矿。储量、倒计时和弱点不动。 */
+export function abandonTreasureMine(save: Save, mineId: string): ActionResult {
+  const mine = findMine(save, mineId)
+  if (!mine) return { ok: false, reason: '没有这个矿洞' }
+  if (mine.owner !== 'player') return { ok: false, reason: '这洞不是你的' }
+  if (mine.raid) return { ok: false, reason: '抢夺进行中不能撤出' }
+  releaseMineCrew(save, mine)
+  mine.owner = 'empty'
+  mine.shadows = []
+  mine.raid = null
+  mine.digCharge = {}
+  return { ok: true, message: '已放弃矿洞' }
 }
 
 /** 只锁这一洞。其它洞的抢夺和开采不看这里。 */
@@ -234,8 +264,8 @@ export function startTreasureRaid(
   const mine = findMine(save, mineId)
   if (!mine) return { ok: false, reason: '没有这个矿洞' }
   if (isTreasureRaidLocked(mine)) return { ok: false, reason: '这洞抢夺进行中' }
+  if (mine.owner === 'empty' || !mine.shadows.length) return { ok: false, reason: '洞里没有守军' }
   if (mine.owner !== 'shadow') return { ok: false, reason: '这洞现在不能抢' }
-  if (!mine.shadows.length) return { ok: false, reason: '洞里没有守军' }
   if (!workerIds.length) return { ok: false, reason: '请选择抢夺工人' }
   if (workerIds.length > TREASURE_RAID_CAP) return { ok: false, reason: '抢夺最多 3 人' }
   const seen = new Set<string>()

@@ -122,11 +122,8 @@ function confirmPick() {
     if (result.ok) closePick()
     return
   }
-  for (const id of picked.value) {
-    const result = game.addTreasureMiner(mineId, id)
-    if (!result.ok) return
-  }
-  closePick()
+  const result = game.claimTreasureMine(mineId, [...picked.value])
+  if (result.ok) closePick()
 }
 </script>
 
@@ -143,7 +140,7 @@ function confirmPick() {
           <div class="titles">
             <span class="kind">矿洞</span>
             <span class="tags">
-              <i>{{ mine.owner === 'player' ? '我方开采' : '快照驻守' }}</i>
+              <i>{{ mine.owner === 'player' ? '我方开采' : mine.owner === 'empty' ? '无人矿' : '快照驻守' }}</i>
             </span>
           </div>
         </header>
@@ -194,21 +191,8 @@ function confirmPick() {
         </template>
         <div class="row">
           <button v-if="mine.owner === 'shadow' && !mine.raid" type="button" @click="openPick('raid', mine.id)">抢夺</button>
-          <button
-            v-if="mine.owner === 'player' && !mine.raid && mine.crewIds.length < TREASURE_CREW_CAP"
-            type="button"
-            @click="openPick('mine', mine.id)"
-          >
-            补采
-          </button>
-          <button
-            v-for="id in mine.crewIds"
-            :key="id"
-            type="button"
-            @click="game.withdrawTreasureMiner(mine.id, id)"
-          >
-            撤出
-          </button>
+          <button v-if="mine.owner === 'empty' && !mine.raid" type="button" @click="openPick('mine', mine.id)">开采</button>
+          <button v-if="mine.owner === 'player' && !mine.raid" type="button" @click="game.abandonTreasureMine(mine.id)">撤出</button>
         </div>
       </article>
     </div>

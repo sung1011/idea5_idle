@@ -192,6 +192,8 @@ describe('treasure raid hud', () => {
 
     mine.owner = 'player'
     expect(treasureRaidHud(mine, save.workers, save.elapsedS)).toBeNull()
+    mine.owner = 'empty'
+    expect(treasureRaidHud(mine, save.workers, save.elapsedS)).toBeNull()
     mine.owner = 'shadow'
 
     const lead = spawnWorker(save)
@@ -208,6 +210,10 @@ describe('treasure raid hud', () => {
     expect(panel).toContain('v-if="hud.attack"')
     expect(panel).toContain('game.save.playerName')
     expect(panel).toContain('快照驻守')
+    expect(panel).toContain('无人矿')
+    expect(panel).toContain('claimTreasureMine')
+    expect(panel).toContain('abandonTreasureMine')
+    expect(panel).not.toContain('补采')
     expect(panel).toContain('也不是 NPC')
     expect(panel).not.toContain('影子驻守')
     expect(panel).not.toContain('本洞不能再开，也不能增援')

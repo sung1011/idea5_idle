@@ -8,7 +8,9 @@ import {
   TREASURE_LIFE_S,
   TREASURE_MINE_CAP,
   TREASURE_RESERVE_MAX,
+  abandonTreasureMine,
   addTreasureMiner,
+  claimTreasureMine,
   mineDigIntervalS,
   workerMatchesMineWeakness,
   hydrateTreasureMines,
@@ -24,7 +26,6 @@ import {
   reinforceTreasureRaid,
   startTreasureRaid,
   stepTreasureMines,
-  withdrawTreasureMiner,
 } from './treasureMine'
 import { treasureMineBlockReason } from './treasureMineQuery'
 import type { Save } from './types'
@@ -163,11 +164,11 @@ describe('treasure mines', () => {
     worker.level = 1
     worker.combatAttrs = []
     const mine = save.treasureMines.mines[0]
-    mine.owner = 'player'
+    mine.owner = 'empty'
     mine.shadows = []
     mine.raid = null
     mine.reserve = 10
-    expect(addTreasureMiner(save, mine.id, worker.id).ok).toBe(true)
+    expect(claimTreasureMine(save, mine.id, [worker.id]).ok).toBe(true)
     expect(rejectTreasureMineRune()).toEqual({ ok: false, reason: '开采不能装符文' })
     advance(save, 4)
     expect(vaultQty(save)).toBe(0)
@@ -180,8 +181,10 @@ describe('treasure mines', () => {
     mine.digCharge[worker.id] = 0
     advance(save, 4)
     expect(vaultQty(save)).toBe(2)
-    expect(withdrawTreasureMiner(save, mine.id, worker.id).ok).toBe(true)
+    expect(abandonTreasureMine(save, mine.id).ok).toBe(true)
+    expect(mine.owner).toBe('empty')
     expect(mine.crewIds).toEqual([])
+    expect(treasureMineBlockReason(save, worker.id)).toBeNull()
   })
 
   it('sends a dead raider home before the queue finishes', () => {
@@ -279,15 +282,14 @@ describe('treasure mines', () => {
     expect(mine.crewIds).toHaveLength(2)
     expect(TREASURE_CREW_CAP).toBe(3)
     const third = spawnWorker(save)
-    expect(addTreasureMiner(save, mine.id, third.id).ok).toBe(true)
-    expect(mine.crewIds).toContain(third.id)
+    expect(addTreasureMiner(save, mine.id, third.id)).toEqual({ ok: false, reason: '这洞不能补采' })
+    expect(mine.crewIds).toEqual([lead.id, fallen.id])
     mine.digCharge = {}
     lead.level = 1
     fallen.level = 1
-    third.level = 1
     advance(save, 5)
-    expect(vaultQty(save)).toBe(3)
-    expect(mine.reserve).toBe(37)
+    expect(vaultQty(save)).toBe(2)
+    expect(mine.reserve).toBe(38)
   })
 
   it('mines every 4s when the worker matches the hole weakness, else 5s', () => {
@@ -303,14 +305,13 @@ describe('treasure mines', () => {
     hit.combatAttrs = ['fire']
     miss.combatAttrs = ['sword']
     const mine = save.treasureMines.mines[0]
-    mine.owner = 'player'
+    mine.owner = 'empty'
     mine.shadows = []
     mine.raid = null
     mine.weaknesses = ['fire']
     mine.reserve = 20
     mine.crewIds = []
-    expect(addTreasureMiner(save, mine.id, hit.id).ok).toBe(true)
-    expect(addTreasureMiner(save, mine.id, miss.id).ok).toBe(true)
+    expect(claimTreasureMine(save, mine.id, [hit.id, miss.id]).ok).toBe(true)
     expect(mine.revealedWeaknesses).toEqual(['fire'])
     mine.revealedWeaknesses = []
     advance(save, 4)
@@ -341,19 +342,18 @@ describe('treasure mines', () => {
     expect(kept ? mineWeaknessSlots(kept) : []).toEqual([null, null, null])
     if (!kept) return
 
-    kept.owner = 'player'
+    kept.owner = 'empty'
     kept.shadows = []
     kept.raid = null
     const digger = spawnWorker(save)
     const extra = spawnWorker(save)
     digger.combatAttrs = ['ice', 'bow']
     extra.combatAttrs = ['fire']
-    expect(addTreasureMiner(save, kept.id, digger.id).ok).toBe(true)
-    expect(kept.revealedWeaknesses).toEqual(['ice'])
-    expect(mineWeaknessSlots(kept)).toEqual([null, 'ice', null])
-    expect(addTreasureMiner(save, kept.id, extra.id).ok).toBe(true)
+    expect(claimTreasureMine(save, kept.id, [digger.id, extra.id]).ok).toBe(true)
     expect(kept.revealedWeaknesses).toEqual(['ice', 'fire'])
     expect(mineWeaknessSlots(kept)).toEqual(['fire', 'ice', null])
+    expect(addTreasureMiner(save, kept.id, extra.id)).toEqual({ ok: false, reason: '这洞不能补采' })
+    expect(kept.crewIds).toEqual([digger.id, extra.id])
 
     const raidHole = save.treasureMines.mines.find((hole) => hole.id !== kept.id)
     expect(raidHole).toBeTruthy()
@@ -400,10 +400,10 @@ describe('treasure mines', () => {
     expect(free.raid?.queue).toEqual([other.id])
     expect(isTreasureRaidLocked(locked)).toBe(true)
 
-    dig.owner = 'player'
+    dig.owner = 'empty'
     dig.shadows = []
     dig.raid = null
-    expect(addTreasureMiner(save, dig.id, miner.id).ok).toBe(true)
+    expect(claimTreasureMine(save, dig.id, [miner.id]).ok).toBe(true)
     expect(dig.crewIds).toEqual([miner.id])
 
     const raid = locked.raid
@@ -444,7 +444,7 @@ describe('treasure mines', () => {
     expect(again?.raid?.defendSlots).toEqual([mine.shadows[0].id, null, null])
   })
 
-  it('spends diamonds to replace idle holes and keeps raids', () => {
+  it('spends diamonds to replace idle holes, including empty ones, and keeps raids', () => {
     const save = createSave()
     save.diamonds = 25
     save.treasureMines.vault.sandGold = 4
@@ -455,6 +455,10 @@ describe('treasure mines', () => {
     owned.shadows = []
     owned.crewIds = [miner.id]
     owned.digCharge[miner.id] = 3
+    const vacant = save.treasureMines.mines[2]
+    vacant.owner = 'empty'
+    vacant.shadows = []
+    vacant.raid = null
     const raider = spawnWorker(save)
     const fighting = save.treasureMines.mines[1]
     expect(startTreasureRaid(save, fighting.id, [raider.id]).ok).toBe(true)
@@ -465,6 +469,7 @@ describe('treasure mines', () => {
     expect(save.treasureMines.vault.sandGold).toBe(4)
     expect(save.treasureMines.mines).toHaveLength(TREASURE_MINE_CAP)
     expect(save.treasureMines.mines.some((mine) => mine.id === fighting.id)).toBe(true)
+    expect(save.treasureMines.mines.some((mine) => mine.id === vacant.id)).toBe(false)
     expect(save.treasureMines.mines.some((mine) => dropped.includes(mine.id))).toBe(false)
     expect(miner.assignment).toBeNull()
     expect(save.treasureMines.mines.some((mine) => mine.crewIds.includes(miner.id))).toBe(false)
@@ -489,5 +494,61 @@ describe('treasure mines', () => {
     expect(refreshTreasureMineBoard(locked)).toEqual({ ok: false, reason: '没有可刷新的矿洞' })
     expect(locked.diamonds).toBe(before)
     expect(locked.treasureMines.mines.map((mine) => mine.id)).toEqual(holeIds)
+  })
+
+  it('abandons a claimed hole without resetting reserve or the timer, then allows a new claim', () => {
+    const save = createSave()
+    const worker = spawnWorker(save)
+    const extra = spawnWorker(save)
+    const mine = save.treasureMines.mines[0]
+    mine.owner = 'empty'
+    mine.shadows = []
+    mine.raid = null
+    mine.reserve = 40
+    mine.reserveMax = TREASURE_RESERVE_MAX
+    mine.bornAtS = 12
+    mine.expiresAtS = save.elapsedS + TREASURE_LIFE_S
+    mine.weaknesses = ['fire', 'ice']
+    mine.revealedWeaknesses = ['fire']
+    expect(claimTreasureMine(save, mine.id, [worker.id]).ok).toBe(true)
+    expect(mine.owner).toBe('player')
+    expect(addTreasureMiner(save, mine.id, extra.id)).toEqual({ ok: false, reason: '这洞不能补采' })
+    expect(mine.crewIds).toEqual([worker.id])
+    const revealed = [...mine.revealedWeaknesses]
+
+    expect(abandonTreasureMine(save, mine.id).ok).toBe(true)
+    expect(mine.owner).toBe('empty')
+    expect(mine.crewIds).toEqual([])
+    expect(mine.shadows).toEqual([])
+    expect(mine.raid).toBeNull()
+    expect(mine.digCharge).toEqual({})
+    expect(mine.reserve).toBe(40)
+    expect(mine.reserveMax).toBe(TREASURE_RESERVE_MAX)
+    expect(mine.bornAtS).toBe(12)
+    expect(mine.expiresAtS).toBe(save.elapsedS + TREASURE_LIFE_S)
+    expect(mine.weaknesses).toEqual(['fire', 'ice'])
+    expect(mine.revealedWeaknesses).toEqual(revealed)
+    expect(worker.assignment).toBeNull()
+    expect(treasureMineBlockReason(save, worker.id)).toBeNull()
+    expect(startTreasureRaid(save, mine.id, [extra.id])).toEqual({ ok: false, reason: '洞里没有守军' })
+
+    expect(claimTreasureMine(save, mine.id, [worker.id, extra.id]).ok).toBe(true)
+    expect(mine.owner).toBe('player')
+    expect(mine.crewIds).toEqual([worker.id, extra.id])
+    expect(mine.reserve).toBe(40)
+    expect(mine.expiresAtS).toBe(save.elapsedS + TREASURE_LIFE_S)
+    expect(addTreasureMiner(save, mine.id, worker.id)).toEqual({ ok: false, reason: '这洞不能补采' })
+  })
+
+  it('maps an illegal owner to shadow when a garrison remains, otherwise to empty', () => {
+    const save = createSave()
+    const withShadows = save.treasureMines.mines[0]
+    ;(withShadows as { owner: string }).owner = 'npc'
+    const bare = save.treasureMines.mines[1]
+    bare.shadows = []
+    ;(bare as { owner: string }).owner = 'gone'
+    hydrateTreasureMines(save)
+    expect(save.treasureMines.mines.find((mine) => mine.id === withShadows.id)?.owner).toBe('shadow')
+    expect(save.treasureMines.mines.find((mine) => mine.id === bare.id)?.owner).toBe('empty')
   })
 })

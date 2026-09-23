@@ -439,7 +439,8 @@ export type TreasureMine = {
   reserveMax: number
   bornAtS: number
   expiresAtS: number
-  owner: 'shadow' | 'player'
+  /** `shadow` 快照驻守，`player` 我方开采，`empty` 放弃后的无人矿。 */
+  owner: 'shadow' | 'player' | 'empty'
   crewIds: string[]
   shadows: TreasureShadow[]
   /** 矿洞弱点。工人属性命中则该人开采快 1 秒。不参与抢夺战斗结算。 */

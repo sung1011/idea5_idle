@@ -37,11 +37,11 @@ import {
 } from '../sim/encounters'
 import { claimDungeonChest, reinforceDungeonCombat, startDungeonCombat } from '../sim/dungeon'
 import {
-  addTreasureMiner,
+  abandonTreasureMine,
+  claimTreasureMine,
   refreshTreasureMineBoard,
   reinforceTreasureRaid,
   startTreasureRaid,
-  withdrawTreasureMiner,
 } from '../sim/treasureMine'
 import { claimGuideQuest, markGuideQuestRuneOpened } from '../sim/guideQuest'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
@@ -290,9 +290,9 @@ export const useGameStore = defineStore('game', () => {
       apply((s) => startTreasureRaid(s, mineId, workerIds, runePicks)),
     reinforceTreasureRaid: (mineId: string, side: 'attack' | 'defend') =>
       apply((s) => reinforceTreasureRaid(s, mineId, side)),
-    addTreasureMiner: (mineId: string, workerId: string) => apply((s) => addTreasureMiner(s, mineId, workerId)),
-    withdrawTreasureMiner: (mineId: string, workerId: string) =>
-      apply((s) => withdrawTreasureMiner(s, mineId, workerId)),
+    claimTreasureMine: (mineId: string, workerIds: string[]) =>
+      apply((s) => claimTreasureMine(s, mineId, workerIds)),
+    abandonTreasureMine: (mineId: string) => apply((s) => abandonTreasureMine(s, mineId)),
     refreshTreasureMines: () => apply((s) => refreshTreasureMineBoard(s)),
     setPlayerProfile: (name: string, avatarId: string) => apply((s) => applyPlayerProfile(s, name, avatarId)),
     claimLoot: (index: number) => apply((s) => claimLoot(s, index)),
