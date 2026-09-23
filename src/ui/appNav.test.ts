@@ -45,8 +45,9 @@ afterEach(() => {
 })
 
 describe('appNav', () => {
-  it('keeps the dock order 工坊 | 工人 | 主线 | 科技 and falls back to 主线', () => {
-    expect(APP_TABS.map((tab) => tab.id)).toEqual(['workshop', 'encounters', 'tech'])
+  it('keeps the dock order 工坊 | PVE | PVP | 科技 and falls back to PVE', () => {
+    expect(APP_TABS.map((tab) => tab.id)).toEqual(['workshop', 'encounters', 'pvp', 'tech'])
+    expect(APP_TABS.map((tab) => tab.label)).toEqual(['工坊', 'PVE', 'PVP', '科技'])
     expect(DEFAULT_APP_TAB).toBe('encounters')
     expect(selectAppTab('nope', memory())).toBe('encounters')
     expect(appTab.value).toBe('encounters')

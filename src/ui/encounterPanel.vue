@@ -88,7 +88,6 @@ import {
   type MainlineTabId,
 } from './mainlineTabs'
 import HpBar from './hpBar.vue'
-import TreasureMinePanel from './treasureMinePanel.vue'
 import {
   qualityOf,
   workerQualityBadgeStyle,
@@ -475,9 +474,9 @@ function timedLine(enc: Encounter) {
 
 <template>
   <section class="panel encounter">
-    <h2 class="title">主线</h2>
+    <h2 class="title">PVE</h2>
     <div class="board-nav">
-      <nav class="sub" role="tablist" aria-label="主线分页">
+      <nav class="sub" role="tablist" aria-label="PVE分页">
         <button
           v-for="id in MAINLINE_TAB_IDS"
           :key="id"
@@ -490,7 +489,7 @@ function timedLine(enc: Encounter) {
           {{ MAINLINE_TAB_LABELS[id] }}
         </button>
       </nav>
-      <nav class="sub density" role="tablist" aria-label="主线详略">
+      <nav class="sub density" role="tablist" aria-label="PVE详略">
         <button
           v-for="id in MAINLINE_DENSITY_IDS"
           :key="id"
@@ -504,8 +503,6 @@ function timedLine(enc: Encounter) {
         </button>
       </nav>
     </div>
-    <TreasureMinePanel v-if="currentTab === 'mine'" />
-    <template v-else>
     <div class="chapter-head">
       <p class="chapter">{{ chapterTitle }}</p>
       <div
@@ -846,7 +843,6 @@ function timedLine(enc: Encounter) {
         </div>
       </div>
     </div>
-    </template>
   </section>
 
   <Teleport to="body">

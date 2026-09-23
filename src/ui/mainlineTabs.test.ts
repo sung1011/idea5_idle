@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_MAINLINE_TAB,
+  MAINLINE_TAB_IDS,
   MAINLINE_TAB_KEY,
   loadMainlineTab,
   mainlineTab,
@@ -35,9 +36,11 @@ function memory(): Storage {
 
 describe('mainlineTabs', () => {
   it('resolves known tabs and falls back to battlefield', () => {
+    expect([...MAINLINE_TAB_IDS]).toEqual(['battlefield', 'dungeon', 'market'])
     expect(mainlineTabOf('battlefield')).toBe('battlefield')
-    expect(mainlineTabOf('market')).toBe('market')
     expect(mainlineTabOf('dungeon')).toBe('dungeon')
+    expect(mainlineTabOf('market')).toBe('market')
+    expect(mainlineTabOf('mine')).toBe('battlefield')
     expect(mainlineTabOf('nope')).toBe(DEFAULT_MAINLINE_TAB)
     expect(DEFAULT_MAINLINE_TAB).toBe('battlefield')
   })
@@ -50,6 +53,9 @@ describe('mainlineTabs', () => {
     expect(loadMainlineTab(store)).toBe('market')
     expect(saveMainlineTab('bad', store)).toBe('battlefield')
     expect(loadMainlineTab(store)).toBe('battlefield')
+    store.setItem(MAINLINE_TAB_KEY, 'mine')
+    expect(loadMainlineTab(store)).toBe('battlefield')
+    expect(store.getItem(MAINLINE_TAB_KEY)).toBe('battlefield')
   })
 
   it('selectMainlineTab updates the shared tab ref', () => {

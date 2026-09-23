@@ -10,7 +10,7 @@ import {
 
 describe('ui icons', () => {
   it('covers dock tabs and workshop stations with compact paths', () => {
-    expect([...DOCK_ICON_IDS]).toEqual(['workshop', 'encounters', 'tech'])
+    expect([...DOCK_ICON_IDS]).toEqual(['workshop', 'encounters', 'pvp', 'tech'])
     expect([...STATION_ICON_IDS]).toEqual([...STATION_ORDER])
     expect(allUiIconsReady()).toBe(true)
     for (const id of [...DOCK_ICON_IDS, ...STATION_ICON_IDS]) {

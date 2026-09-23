@@ -2,14 +2,13 @@ import { ref } from 'vue'
 import { isEncounterBoardId, type EncounterBoardId } from '../sim/encounters'
 
 export const MAINLINE_TAB_KEY = 'idea5IdleMainlineTab'
-export const MAINLINE_TAB_IDS = ['battlefield', 'market', 'dungeon', 'mine'] as const
+export const MAINLINE_TAB_IDS = ['battlefield', 'dungeon', 'market'] as const
 export type MainlineTabId = (typeof MAINLINE_TAB_IDS)[number]
 
 export const MAINLINE_TAB_LABELS: Record<MainlineTabId, string> = {
   battlefield: '战场',
-  market: '商场',
   dungeon: '地牢',
-  mine: '矿洞',
+  market: '商场',
 }
 
 export const DEFAULT_MAINLINE_TAB: MainlineTabId = 'battlefield'
@@ -21,7 +20,7 @@ function storageOf(storage?: Storage | null): Storage | null {
 }
 
 export function isMainlineTabId(id: unknown): id is MainlineTabId {
-  return id === 'battlefield' || id === 'market' || id === 'dungeon' || id === 'mine'
+  return id === 'battlefield' || id === 'dungeon' || id === 'market'
 }
 
 export function mainlineTabOf(id: unknown): MainlineTabId {
@@ -33,7 +32,10 @@ export function loadMainlineTab(storage?: Storage | null): MainlineTabId {
   const store = storageOf(storage)
   if (!store) return DEFAULT_MAINLINE_TAB
   try {
-    return mainlineTabOf(store.getItem(MAINLINE_TAB_KEY))
+    const raw = store.getItem(MAINLINE_TAB_KEY)
+    const next = mainlineTabOf(raw)
+    if (raw === 'mine') store.setItem(MAINLINE_TAB_KEY, next)
+    return next
   } catch {
     return DEFAULT_MAINLINE_TAB
   }

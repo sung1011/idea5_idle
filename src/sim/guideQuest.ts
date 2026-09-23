@@ -25,7 +25,7 @@ export const GUIDE_QUEST_GOALS = [
   '抽取工人 2 次',
   '把工人派入采药',
   '合成两名同品质工人',
-  '在主线弹层中点击开战',
+  '在 PVE 弹层中点击开战',
   '在炼金站炼成药剂',
   '把药剂装进技能槽',
   '点药剂槽产生效果',
@@ -318,7 +318,7 @@ export function guideQuestView(save: Save): GuideQuestView | null {
   const denom = step === 1 ? GUIDE_QUEST_RECRUIT_NEED : 1
   const numer = step === 1 ? recruitHave : progress
   const title =
-    phase === 1 ? `主线 · ${phaseStep}/${phaseTotal}` : phase === 2 ? `进阶 · ${phaseStep}/${phaseTotal}` : `符文 · ${phaseStep}/${phaseTotal}`
+    phase === 1 ? `PVE · ${phaseStep}/${phaseTotal}` : phase === 2 ? `进阶 · ${phaseStep}/${phaseTotal}` : `符文 · ${phaseStep}/${phaseTotal}`
   return {
     step,
     phase,

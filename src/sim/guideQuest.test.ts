@@ -61,7 +61,7 @@ describe('guideQuest normalize and hydrate', () => {
       phase: 1,
       phaseStep: 1,
       phaseTotal: 4,
-      title: '主线 · 1/4',
+      title: 'PVE · 1/4',
       goal: '抽取工人 2 次',
       progress: 0,
       progressLabel: '进度 0/2',
@@ -203,7 +203,7 @@ describe('guideQuest steps and claim', () => {
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(4)
 
-    expect(guideQuestView(save)?.goal).toBe('在主线弹层中点击开战')
+    expect(guideQuestView(save)?.goal).toBe('在 PVE 弹层中点击开战')
     markCombatStarted(save)
     expect(hasStartedBattlefieldCombat(save)).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
@@ -242,7 +242,7 @@ describe('guideQuest steps and claim', () => {
   it('completes step 4 only after the pick-sheet 开战 click starts combat', () => {
     const save = createSave()
     save.guideQuestStep = 4
-    expect(guideQuestView(save)?.goal).toBe('在主线弹层中点击开战')
+    expect(guideQuestView(save)?.goal).toBe('在 PVE 弹层中点击开战')
     expect(guideQuestProgressAt(save, 4)).toBe(0)
     expect(hasStartedBattlefieldCombat(save)).toBe(false)
 

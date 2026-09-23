@@ -1,5 +1,5 @@
 /** 底栏页签 + 工坊竖签：16×16 单色 path，与战斗属性图标同语言（currentColor）。 */
-export const DOCK_ICON_IDS = ['workshop', 'encounters', 'tech'] as const
+export const DOCK_ICON_IDS = ['workshop', 'encounters', 'pvp', 'tech'] as const
 export const STATION_ICON_IDS = [
   'herbalism',
   'alchemy',
@@ -21,6 +21,7 @@ export const UI_ICON_PATHS: Record<UiIconId, readonly string[]> = {
     'M3.15 14.55C3.45 10.95 5.35 9.05 8 9.05s4.55 1.9 4.85 5.5Z',
   ],
   encounters: ['M8 1.4 9.2 6.8 14.6 8 9.2 9.2 8 14.6 6.8 9.2 1.4 8 6.8 6.8Z'],
+  pvp: ['M2.15 3.35 6.35 8 2.15 12.65 3.55 13.95 8 9.35 12.45 13.95 13.85 12.65 9.65 8 13.85 3.35 12.45 2.05 8 6.65 3.55 2.05Z'],
   tech: ['M8 1.15 13.75 4.4V11.6L8 14.85 2.25 11.6V4.4Z'],
   mining: [
     'M2.1 13.2 8.65 6.65 10.35 8.35 3.8 14.9Z',

@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
 import { useGameStore } from './gameStore'
 import EncounterPanel from './encounterPanel.vue'
+import PvpPanel from './pvpPanel.vue'
 import MessagePanel from './messagePanel.vue'
 import SettingsPanel from './settingsPanel.vue'
 import TechPanel from './techPanel.vue'
@@ -91,6 +92,7 @@ onUnmounted(() => {
     <main class="page" :class="tab">
       <WorkersPanelV2 v-if="tab === 'workshop'" />
       <EncounterPanel v-else-if="tab === 'encounters'" />
+      <PvpPanel v-else-if="tab === 'pvp'" />
       <TechPanel v-else />
     </main>
 

@@ -14,8 +14,8 @@ describe('mainline density control placement', () => {
 
   it('keeps 简/详 on the mainline tab row', () => {
     const boardNav = sliceBetween(template, 'class="board-nav"', 'class="chapter-head"')
-    expect(boardNav).toContain('aria-label="主线分页"')
-    expect(boardNav).toContain('aria-label="主线详略"')
+    expect(boardNav).toContain('aria-label="PVE分页"')
+    expect(boardNav).toContain('aria-label="PVE详略"')
     expect(boardNav).toContain('MAINLINE_DENSITY_LABELS')
   })
 
@@ -24,6 +24,6 @@ describe('mainline density control placement', () => {
     expect(refresh).not.toContain('density')
     expect(refresh).not.toContain('MAINLINE_DENSITY')
     expect(refresh).not.toContain('订单详略')
-    expect(refresh).not.toContain('主线详略')
+    expect(refresh).not.toContain('PVE详略')
   })
 })
