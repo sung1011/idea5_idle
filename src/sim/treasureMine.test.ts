@@ -11,6 +11,7 @@ import {
   addTreasureMiner,
   mineDigIntervalS,
   workerMatchesMineWeakness,
+  hydrateTreasureMines,
   refreshTreasureMines,
   rejectTreasureMineRune,
   isTreasureRaidLocked,
@@ -304,5 +305,23 @@ describe('treasure mines', () => {
     })
     const retry = spawnWorker(save)
     expect(startTreasureRaid(save, locked.id, [retry.id]).ok).toBe(true)
+  })
+
+  it('snapshots raid slots at the start and backfills an old raid from whoever is left', () => {
+    const save = createSave()
+    const lead = spawnWorker(save)
+    const mine = save.treasureMines.mines[0]
+    mine.shadows = mine.shadows.slice(0, 1)
+    expect(startTreasureRaid(save, mine.id, [lead.id]).ok).toBe(true)
+    expect(mine.raid?.attackSlots).toEqual([lead.id, null, null])
+    expect(mine.raid?.defendSlots).toEqual([mine.shadows[0].id, null, null])
+    const raid = mine.raid
+    expect(raid).toBeTruthy()
+    if (!raid) return
+    delete (raid as { attackSlots?: (string | null)[] }).attackSlots
+    hydrateTreasureMines(save)
+    const again = save.treasureMines.mines.find((row) => row.id === mine.id)
+    expect(again?.raid?.attackSlots).toEqual([lead.id, null, null])
+    expect(again?.raid?.defendSlots).toEqual([mine.shadows[0].id, null, null])
   })
 })

@@ -410,6 +410,10 @@ export type TreasureShadow = {
 /** 玩家抢夺中的连环 1v1。queue[0] 对 shadows[0]。 */
 export type TreasureRaid = {
   queue: string[]
+  /** 开战时攻方槽，最多 3。null 是开局就空。死后不改这份名单。 */
+  attackSlots: (string | null)[]
+  /** 开战时守方影子 id，最多 3。null 是开局就空。 */
+  defendSlots: (string | null)[]
   garrison: number
   atkHp: number
   atkMax: number

@@ -84,6 +84,13 @@ export function hydrateTreasureMines(save: Save): void {
     if (!Array.isArray(mine.shadows)) mine.shadows = []
     if (!mine.digCharge || typeof mine.digCharge !== 'object') mine.digCharge = {}
     if (mine.raid && !Array.isArray(mine.raid.queue)) mine.raid = null
+    if (mine.raid) {
+      mine.raid.attackSlots = normalizeRaidSlots(mine.raid.attackSlots, mine.raid.queue)
+      mine.raid.defendSlots = normalizeRaidSlots(
+        mine.raid.defendSlots,
+        mine.shadows.map((shadow) => shadow.id),
+      )
+    }
     if (mine.owner !== 'player' && mine.owner !== 'shadow') mine.owner = 'shadow'
     mine.weaknesses = mineWeaknessesOf(mine)
     mine.reserve = clampInt(mine.reserve, 0, TREASURE_RESERVE_MAX)
@@ -201,6 +208,8 @@ function openRaid(
 ): TreasureRaid {
   const raid: TreasureRaid = {
     queue: party.map((worker) => worker.id),
+    attackSlots: raidSlotSnapshot(party.map((worker) => worker.id)),
+    defendSlots: raidSlotSnapshot(mine.shadows.map((shadow) => shadow.id)),
     garrison: mine.shadows.length,
     atkHp: 1,
     atkMax: 1,
@@ -400,6 +409,24 @@ function makeShadow(save: Save, mineId: string, index: number): TreasureShadow {
     spd,
     runeId,
   }
+}
+
+/** 开战槽位快照。不足 3 个用 null 补空，多出来的丢掉。 */
+export function raidSlotSnapshot(ids: readonly string[]): (string | null)[] {
+  const slots: (string | null)[] = []
+  for (const id of ids) {
+    if (slots.length >= TREASURE_RAID_CAP) break
+    slots.push(id)
+  }
+  while (slots.length < TREASURE_RAID_CAP) slots.push(null)
+  return slots
+}
+
+function normalizeRaidSlots(raw: unknown, fallback: readonly string[]): (string | null)[] {
+  if (!Array.isArray(raw)) return raidSlotSnapshot(fallback)
+  const slots = raw.slice(0, TREASURE_RAID_CAP).map((id) => (typeof id === 'string' && id ? id : null))
+  while (slots.length < TREASURE_RAID_CAP) slots.push(null)
+  return slots
 }
 
 function loadAttacker(save: Save, raid: TreasureRaid, armNext: boolean): void {

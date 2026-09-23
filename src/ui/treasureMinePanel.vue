@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import ActChargeBar from './actChargeBar.vue'
 import HpBar from './hpBar.vue'
-import { treasureRaidHud } from './treasureRaidHud'
+import { raidSlotLabel, treasureRaidHud } from './treasureRaidHud'
 import { useFrameNow } from './visualProgress'
 import { isFullCombatHp, restCombatCandidates } from '../sim/combat'
 import {
@@ -142,9 +142,27 @@ function confirmPick() {
           <div class="bars">
             <p class="bar-line">{{ hud.attack.name }}</p>
             <HpBar :hp="hud.attack.hp" :hp-max="hud.attack.hpMax" />
+            <div class="raid-slots" aria-label="攻方槽位">
+              <span
+                v-for="(mark, index) in hud.attack.slots"
+                :key="`${mine.id}-atk-slot-${index}`"
+                class="raid-slot"
+                :class="mark"
+                :aria-label="`槽位 ${index + 1} ${raidSlotLabel(mark)}`"
+              >{{ index + 1 }}</span>
+            </div>
             <ActChargeBar :fill="hud.attack.fill" />
             <p class="bar-line">{{ hud.defend.name }}</p>
             <HpBar variant="enemy" :hp="hud.defend.hp" :hp-max="hud.defend.hpMax" />
+            <div class="raid-slots" aria-label="守方槽位">
+              <span
+                v-for="(mark, index) in hud.defend.slots"
+                :key="`${mine.id}-def-slot-${index}`"
+                class="raid-slot"
+                :class="mark"
+                :aria-label="`槽位 ${index + 1} ${raidSlotLabel(mark)}`"
+              >{{ index + 1 }}</span>
+            </div>
             <ActChargeBar enemy :fill="hud.defend.fill" />
           </div>
           <p v-if="hud.waitingAttack.length" class="label">等待 {{ hud.waitingAttack.join('、') }}</p>
@@ -296,5 +314,42 @@ function confirmPick() {
   margin: 0;
   font-family: var(--font-mono);
   font-size: 13px;
+}
+
+.raid-slots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.raid-slot {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.raid-slot.filled {
+  border: 2px solid var(--gold-deep);
+  background: var(--gold);
+  color: var(--ink);
+}
+
+.raid-slot.empty {
+  border: 1px dashed var(--muted);
+  background: transparent;
+  color: var(--muted);
+}
+
+.raid-slot.dead {
+  border: 2px solid #8a3228;
+  background: #8a3228;
+  color: #fff8ee;
+  text-decoration: line-through;
 }
 </style>
