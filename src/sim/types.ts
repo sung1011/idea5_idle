@@ -395,6 +395,9 @@ export type GameMessage = {
 
 export type TreasureId = 'sandGold' | 'jewel' | 'jade'
 
+/** 矿洞种类。新刷约各 1/3；旧档缺字段按矿洞 id 稳定补上。 */
+export type TreasureKind = TreasureId
+
 /** 其他玩家的快照守军。不是 NPC，也不读实时联机。 */
 export type TreasureShadow = {
   id: string
@@ -435,6 +438,8 @@ export type TreasureRaid = {
 
 export type TreasureMine = {
   id: string
+  /** 砂金洞 / 珠宝洞 / 古玉洞。掉落按这种偏斜。 */
+  kind: TreasureKind
   reserve: number
   reserveMax: number
   bornAtS: number

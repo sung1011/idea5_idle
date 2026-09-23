@@ -12,6 +12,12 @@ import {
   addTreasureMiner,
   claimTreasureMine,
   mineDigIntervalS,
+  mineDigSpeedLabel,
+  playerMineDigReadout,
+  rollTreasureDrop,
+  treasureDropTip,
+  treasureKindFromId,
+  treasureKindOfRoll,
   workerMatchesMineWeakness,
   hydrateTreasureMines,
   mineWeaknessSlots,
@@ -28,7 +34,8 @@ import {
   stepTreasureMines,
 } from './treasureMine'
 import { treasureMineBlockReason } from './treasureMineQuery'
-import type { Save } from './types'
+import { applyTick } from './tick'
+import type { Save, TreasureId } from './types'
 
 function vaultQty(save: Save): number {
   const vault = save.treasureMines.vault
@@ -550,5 +557,159 @@ describe('treasure mines', () => {
     hydrateTreasureMines(save)
     expect(save.treasureMines.mines.find((mine) => mine.id === withShadows.id)?.owner).toBe('shadow')
     expect(save.treasureMines.mines.find((mine) => mine.id === bare.id)?.owner).toBe('empty')
+  })
+
+  it('rolls hole kinds in thirds and keeps a missing kind stable', () => {
+    expect(treasureKindOfRoll(0)).toBe('sandGold')
+    expect(treasureKindOfRoll(1 / 3 - 1e-12)).toBe('sandGold')
+    expect(treasureKindOfRoll(1 / 3)).toBe('jewel')
+    expect(treasureKindOfRoll(2 / 3 - 1e-12)).toBe('jewel')
+    expect(treasureKindOfRoll(2 / 3)).toBe('jade')
+    expect(treasureKindOfRoll(0.999)).toBe('jade')
+
+    const save = createSave()
+    const seen = new Set<string>()
+    for (let i = 0; i < 80 && seen.size < 3; i += 1) {
+      const victim = save.treasureMines.mines[0]
+      if (!victim) break
+      victim.reserve = 0
+      refreshTreasureMines(save)
+      for (const mine of save.treasureMines.mines) seen.add(mine.kind)
+    }
+    expect([...seen].sort()).toEqual(['jade', 'jewel', 'sandGold'])
+
+    const standing = save.treasureMines.mines[0]
+    const expected = treasureKindFromId(standing.id)
+    delete (standing as { kind?: string }).kind
+    hydrateTreasureMines(save)
+    const once = save.treasureMines.mines.find((mine) => mine.id === standing.id)
+    expect(once?.kind).toBe(expected)
+    hydrateTreasureMines(save)
+    expect(save.treasureMines.mines.find((mine) => mine.id === standing.id)?.kind).toBe(expected)
+  })
+
+  it('biases vault drops by hole kind and skips tips while shadows dig', () => {
+    expect(rollTreasureDrop('sandGold', 0)).toBe('sandGold')
+    expect(rollTreasureDrop('sandGold', 0.699)).toBe('sandGold')
+    expect(rollTreasureDrop('sandGold', 0.7)).toBe('jewel')
+    expect(rollTreasureDrop('sandGold', 0.949)).toBe('jewel')
+    expect(rollTreasureDrop('sandGold', 0.95)).toBe('jade')
+    expect(rollTreasureDrop('jewel', 0.199)).toBe('sandGold')
+    expect(rollTreasureDrop('jewel', 0.2)).toBe('jewel')
+    expect(rollTreasureDrop('jewel', 0.899)).toBe('jewel')
+    expect(rollTreasureDrop('jewel', 0.9)).toBe('jade')
+    expect(rollTreasureDrop('jade', 0.149)).toBe('sandGold')
+    expect(rollTreasureDrop('jade', 0.15)).toBe('jewel')
+    expect(rollTreasureDrop('jade', 0.399)).toBe('jewel')
+    expect(rollTreasureDrop('jade', 0.4)).toBe('jade')
+    expect(treasureDropTip('sandGold', 1)).toBe('获得 砂金 ×1')
+
+    const save = createSave()
+    const worker = spawnWorker(save)
+    worker.level = 1
+    worker.combatAttrs = []
+    const mine = save.treasureMines.mines[0]
+    mine.owner = 'empty'
+    mine.shadows = []
+    mine.raid = null
+    mine.kind = 'jade'
+    mine.reserve = 80
+    expect(claimTreasureMine(save, mine.id, [worker.id]).ok).toBe(true)
+    const drops: TreasureId[] = []
+    for (let i = 0; i < 80 * 5; i += 1) {
+      save.elapsedS += 1
+      stepTreasureMines(save, (drop) => drops.push(drop.item))
+    }
+    const tally = { sandGold: 0, jewel: 0, jade: 0 }
+    for (const item of drops) tally[item] += 1
+    expect(drops).toHaveLength(vaultQty(save))
+    expect(tally.jade).toBeGreaterThan(tally.jewel)
+    expect(tally.jade).toBeGreaterThan(tally.sandGold)
+    expect(tally.jade).toBeGreaterThan(drops.length * 0.4)
+
+    const shadow = save.treasureMines.mines.find((row) => row.owner === 'shadow' && row.shadows.length > 0)
+    expect(shadow).toBeTruthy()
+    if (!shadow) return
+    shadow.reserve = 20
+    shadow.shadows.forEach((row) => {
+      row.level = 1
+    })
+    shadow.digCharge = {}
+    const before = vaultQty(save)
+    const shadowDrops: string[] = []
+    for (let i = 0; i < 5; i += 1) {
+      save.elapsedS += 1
+      stepTreasureMines(save, (drop) => shadowDrops.push(drop.mineId))
+    }
+    expect(shadow.reserve).toBeLessThan(20)
+    expect(vaultQty(save)).toBe(before)
+    expect(shadowDrops.filter((id) => id === shadow.id)).toEqual([])
+  })
+
+  it('moves the soonest digger bar after a claim and tips the vault item', () => {
+    const save = createSave()
+    const slow = spawnWorker(save)
+    const fast = spawnWorker(save)
+    slow.level = 1
+    fast.level = 11
+    slow.combatAttrs = []
+    fast.combatAttrs = []
+    const mine = save.treasureMines.mines[0]
+    mine.owner = 'empty'
+    mine.shadows = []
+    mine.raid = null
+    mine.weaknesses = ['fire']
+    mine.reserve = 30
+    expect(playerMineDigReadout(save, mine)).toBeNull()
+    expect(claimTreasureMine(save, mine.id, [slow.id, fast.id]).ok).toBe(true)
+    expect(playerMineDigReadout(save, mine)).toEqual({ fill: 0, intervalS: 3, fastestS: 3 })
+    expect(mineDigSpeedLabel(3)).toBe('最快约 3s/次')
+    save.elapsedS += 1
+    stepTreasureMines(save)
+    const moved = playerMineDigReadout(save, mine)
+    expect(moved?.fill).toBeCloseTo(1 / 3)
+    expect(moved?.intervalS).toBe(3)
+    expect(moved?.fastestS).toBe(3)
+    expect(mine.digCharge[fast.id]).toBe(1)
+    expect(mine.digCharge[slow.id]).toBe(1)
+
+    mine.digCharge[slow.id] = 4
+    mine.digCharge[fast.id] = 0
+    const soonestSlow = playerMineDigReadout(save, mine)
+    expect(soonestSlow).toEqual({ fill: 0.8, intervalS: 5, fastestS: 3 })
+
+    mine.owner = 'empty'
+    expect(playerMineDigReadout(save, mine)).toBeNull()
+    mine.owner = 'player'
+    mine.raid = {
+      queue: [slow.id],
+      attackSlots: [slow.id, null, null],
+      defendSlots: [null, null, null],
+      attackSlotHp: [1, 0, 0],
+      attackSlotMax: [1, 0, 0],
+      defendSlotHp: [0, 0, 0],
+      defendSlotMax: [0, 0, 0],
+      garrison: 0,
+      atkHp: 1,
+      atkMax: 1,
+      atkAtk: 1,
+      atkSpd: 1,
+      atkNext: save.elapsedS + 100,
+      defHp: 1,
+      defAtk: 1,
+      defSpd: 1,
+      defNext: save.elapsedS + 100,
+      runes: {},
+    }
+    expect(playerMineDigReadout(save, mine)).toBeNull()
+    mine.raid = null
+    mine.digCharge = { [slow.id]: 4, [fast.id]: 2 }
+    const tipped: string[] = []
+    applyTick(save, {
+      onTreasureDrop: (drop) => tipped.push(treasureDropTip(drop.item, drop.qty)),
+    })
+    expect(vaultQty(save)).toBeGreaterThan(0)
+    expect(tipped.length).toBe(vaultQty(save))
+    expect(tipped.every((text) => text.startsWith('获得 ') && text.includes('×1'))).toBe(true)
   })
 })

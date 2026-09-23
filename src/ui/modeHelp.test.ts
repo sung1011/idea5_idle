@@ -22,6 +22,7 @@ describe('mode help', () => {
     expect(treasure).toContain('不能再开')
     expect(treasure).toContain('无人矿')
     expect(treasure).toContain('放弃')
+    expect(treasure).toContain('洞种不同，掉落偏重不同')
     expect(treasure).not.toContain('补采')
     expect(treasure).not.toContain('影矿卫')
     const battle = modeHelpOf('battlefield').rows.map((row) => row.text).join('')

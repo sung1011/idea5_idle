@@ -5,14 +5,17 @@ import CombatAttrIcon from './combatAttrIcon.vue'
 import HpBar from './hpBar.vue'
 import ModeHelpSheet from './modeHelpSheet.vue'
 import { raidSlotLabel, raidSlotPress, treasureRaidHud, type SlotSheet } from './treasureRaidHud'
-import { useFrameNow } from './visualProgress'
+import { useFrameNow, visualStationProgress } from './visualProgress'
 import { isFullCombatHp, restCombatCandidates } from '../sim/combat'
 import {
   TREASURE_CREW_CAP,
+  TREASURE_KIND_LABEL,
   TREASURE_LABEL,
   TREASURE_REFRESH_COST,
+  mineDigSpeedLabel,
   mineRemainS,
   mineWeaknessSlots,
+  playerMineDigReadout,
 } from '../sim/treasureMine'
 import type { RuneItemId, TreasureMine, Worker } from '../sim/types'
 import CombatPickSheet from './combatPickSheet.vue'
@@ -23,6 +26,24 @@ import { workerShortName } from './workerGroups'
 const game = useGameStore()
 const frameNow = useFrameNow()
 const mines = computed(() => game.save.treasureMines.mines)
+const digViews = computed(() => {
+  const now = frameNow.value
+  const views = new Map<string, { pct: number; label: string }>()
+  for (const mine of mines.value) {
+    const pace = playerMineDigReadout(game.save, mine)
+    if (!pace) continue
+    const fill = visualStationProgress({
+      progress: pace.fill,
+      speed: pace.intervalS > 0 ? 1 / pace.intervalS : 0,
+      stalled: false,
+      assigned: mine.crewIds.length,
+      lastTick: game.save.lastTick,
+      now,
+    })
+    views.set(mine.id, { pct: Math.min(100, fill * 100), label: mineDigSpeedLabel(pace.fastestS) })
+  }
+  return views
+})
 const vaultLine = computed(() => {
   const vault = game.save.treasureMines.vault
   const bits = (Object.keys(TREASURE_LABEL) as (keyof typeof TREASURE_LABEL)[]).map(
@@ -137,7 +158,7 @@ function confirmPick() {
       <article v-for="mine in mines" :key="mine.id" class="card">
         <header>
           <div class="titles">
-            <span class="kind">矿洞</span>
+            <span class="kind">{{ TREASURE_KIND_LABEL[mine.kind] }}</span>
             <span class="tags">
               <i>{{ mine.owner === 'player' ? '我方开采' : mine.owner === 'empty' ? '无人矿' : '快照驻守' }}</i>
             </span>
@@ -154,6 +175,17 @@ function confirmPick() {
         <p class="label">储量 {{ mine.reserve }}/{{ mine.reserveMax }}</p>
         <p class="label">消失倒计时 {{ clock(mine) }}</p>
         <p v-if="mine.owner === 'player'" class="label">开采 {{ names(mine.crewIds) }}（{{ mine.crewIds.length }}/{{ TREASURE_CREW_CAP }}，无符文）</p>
+        <p v-if="digViews.get(mine.id)" class="dig">
+          <i
+            class="dig-bar"
+            role="progressbar"
+            aria-label="开采进度"
+            :aria-valuenow="Math.round(digViews.get(mine.id)!.pct)"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          ><b :style="{ width: digViews.get(mine.id)!.pct.toFixed(2) + '%' }" /></i>
+          <span>{{ digViews.get(mine.id)!.label }}</span>
+        </p>
         <template v-for="hud in raidHuds(mine)" :key="`${mine.id}-raid`">
           <div class="bars">
             <p class="bar-line">{{ hud.defend.name }}</p>
@@ -274,6 +306,34 @@ function confirmPick() {
 .kind {
   font-family: var(--font-display);
   letter-spacing: 0.12em;
+}
+
+.dig {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.dig-bar {
+  flex: 1 1 auto;
+  height: 7px;
+  border-radius: 99px;
+  background: rgba(90, 58, 20, 0.18);
+  overflow: hidden;
+}
+
+.dig-bar b {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--workshop-progress-from, #d7a441), var(--workshop-progress-to, #f0c14a));
+}
+
+.dig span {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--ink-soft, #6b4e2e);
 }
 
 .tags {

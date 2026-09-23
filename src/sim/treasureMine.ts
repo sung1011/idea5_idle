@@ -17,6 +17,7 @@ import type {
   RuneItemId,
   Save,
   TreasureId,
+  TreasureKind,
   TreasureMine,
   TreasureMineState,
   TreasureRaid,
@@ -36,6 +37,64 @@ export const TREASURE_LABEL: Record<TreasureId, string> = {
   sandGold: '砂金',
   jewel: '珠宝',
   jade: '古玉',
+}
+
+export const TREASURE_KINDS = ['sandGold', 'jewel', 'jade'] as const satisfies readonly TreasureKind[]
+
+export const TREASURE_KIND_LABEL: Record<TreasureKind, string> = {
+  sandGold: '砂金洞',
+  jewel: '珠宝洞',
+  jade: '古玉洞',
+}
+
+/**
+ * 每种洞的掉落权重，顺序砂金、珠宝、古玉，和为 100。
+ * 砂金洞 70/25/5，珠宝洞 20/70/10，古玉洞 15/25/60。
+ */
+export const TREASURE_DROP_WEIGHTS: Record<TreasureKind, Record<TreasureId, number>> = {
+  sandGold: { sandGold: 70, jewel: 25, jade: 5 },
+  jewel: { sandGold: 20, jewel: 70, jade: 10 },
+  jade: { sandGold: 15, jewel: 25, jade: 60 },
+}
+
+export type TreasureDrop = {
+  mineId: string
+  item: TreasureId
+  qty: number
+}
+
+export type TreasureDropSink = (drop: TreasureDrop) => void
+
+/** 新洞种类。roll 来自矿洞自己的 `nextMineRoll`，三段各约 1/3。 */
+export function treasureKindOfRoll(roll: number): TreasureKind {
+  if (roll < 1 / 3) return 'sandGold'
+  if (roll < 2 / 3) return 'jewel'
+  return 'jade'
+}
+
+/** 旧档缺 kind：同一 id 每次都落到同一种。 */
+export function treasureKindFromId(id: string): TreasureKind {
+  const index = hashString(id) % TREASURE_KINDS.length
+  return TREASURE_KINDS[index] ?? 'sandGold'
+}
+
+export function isTreasureKind(value: unknown): value is TreasureKind {
+  return value === 'sandGold' || value === 'jewel' || value === 'jade'
+}
+
+/** 按洞种权重掷 1 件。`roll` 为 0～1。 */
+export function rollTreasureDrop(kind: TreasureKind, roll: number): TreasureId {
+  const weights = TREASURE_DROP_WEIGHTS[isTreasureKind(kind) ? kind : 'sandGold']
+  const total = weights.sandGold + weights.jewel + weights.jade
+  const mark = Math.max(0, roll) * total
+  if (mark < weights.sandGold) return 'sandGold'
+  if (mark < weights.sandGold + weights.jewel) return 'jewel'
+  return 'jade'
+}
+
+/** 我方入库漂字。数量写在后面，可叠。 */
+export function treasureDropTip(item: TreasureId, qty = 1): string {
+  return `获得 ${TREASURE_LABEL[item]} ×${qty}`
 }
 
 /** 新刷快照守军的显示名。同一局里优先没用过的，名单用尽才重复。 */
@@ -133,6 +192,7 @@ export function hydrateTreasureMines(save: Save): void {
     if (mine.owner !== 'player' && mine.owner !== 'shadow' && mine.owner !== 'empty') {
       mine.owner = mine.shadows.length > 0 ? 'shadow' : 'empty'
     }
+    if (!isTreasureKind(mine.kind)) mine.kind = treasureKindFromId(mine.id)
     mine.weaknesses = mineWeaknessesOf(mine)
     mine.revealedWeaknesses = keptRevealedWeaknesses(mine)
     mine.reserve = clampInt(mine.reserve, 0, TREASURE_RESERVE_MAX)
@@ -350,11 +410,11 @@ function openRaid(
   return raid
 }
 
-export function stepTreasureMines(save: Save): void {
+export function stepTreasureMines(save: Save, onDrop?: TreasureDropSink): void {
   const state = ensureTreasureMines(save)
   for (const mine of state.mines) {
     if (mine.raid) stepRaid(save, mine)
-    if (mine.reserve > 0 && save.elapsedS < mine.expiresAtS) stepDig(save, mine)
+    if (mine.reserve > 0 && save.elapsedS < mine.expiresAtS) stepDig(save, mine, onDrop)
   }
   refreshTreasureMines(save)
 }
@@ -416,7 +476,7 @@ function takeOver(save: Save, mine: TreasureMine, raid: TreasureRaid): void {
   }
 }
 
-function stepDig(save: Save, mine: TreasureMine): void {
+function stepDig(save: Save, mine: TreasureMine, onDrop?: TreasureDropSink): void {
   if (mine.owner === 'player' && !mine.raid) {
     const assigned = mine.crewIds.length
     if (!assigned) return
@@ -424,7 +484,7 @@ function stepDig(save: Save, mine: TreasureMine): void {
       const worker = save.workers.find((row) => row.id === id)
       if (!worker) continue
       const matched = workerMatchesMineWeakness(worker.combatAttrs, mine.weaknesses)
-      digOne(save, mine, id, mineDigIntervalS(worker.level, matched), assigned, assigned, true)
+      digOne(save, mine, id, mineDigIntervalS(worker.level, matched), assigned, assigned, true, onDrop)
     }
     return
   }
@@ -445,9 +505,10 @@ function digOne(
   miningCount: number,
   assigned: number,
   toVault: boolean,
+  onDrop?: TreasureDropSink,
 ): void {
   if (mine.reserve <= 0 || miningCount <= 0 || assigned <= 0) return
-  const stretched = intervalS * (assigned / miningCount)
+  const stretched = digStretchS(intervalS, miningCount, assigned)
   const charge = (mine.digCharge[id] ?? 0) + 1
   if (charge + 1e-9 < stretched) {
     mine.digCharge[id] = charge
@@ -455,17 +516,67 @@ function digOne(
   }
   mine.digCharge[id] = charge - stretched
   mine.reserve -= 1
-  if (toVault) {
-    const item = rollTreasure(save)
-    save.treasureMines.vault[item] = (save.treasureMines.vault[item] ?? 0) + 1
-  }
+  if (!toVault) return
+  const item = rollTreasureDrop(mine.kind, nextMineRoll(save.treasureMines))
+  save.treasureMines.vault[item] = (save.treasureMines.vault[item] ?? 0) + 1
+  onDrop?.({ mineId: mine.id, item, qty: 1 })
 }
 
-function rollTreasure(save: Save): TreasureId {
-  const roll = nextMineRoll(save.treasureMines)
-  if (roll < 0.6) return 'sandGold'
-  if (roll < 0.9) return 'jewel'
-  return 'jade'
+/** 人数拉长后的出货间隔。我方在采人数等于编制时，拉长系数是 1。 */
+export function digStretchS(intervalS: number, miningCount: number, assigned: number): number {
+  if (miningCount <= 0 || assigned <= 0) return intervalS
+  return intervalS * (assigned / miningCount)
+}
+
+export type MineDigReadout = {
+  /** 距下一次出货最近的那人，charge / 间隔，0～1。 */
+  fill: number
+  /** 上面那人的拉长间隔，进度条按 1/间隔 往前插。 */
+  intervalS: number
+  /** 洞内最短拉长间隔，文案用「最快约 Ns/次」。 */
+  fastestS: number
+}
+
+/**
+ * 我方开采读数。无人矿、快照驻守、抢夺中不给。
+ * 进度条跟剩余时间最短的一人；速度文案跟最短间隔，两人可以不是同一个。
+ */
+export function playerMineDigReadout(save: Save, mine: TreasureMine): MineDigReadout | null {
+  if (mine.owner !== 'player' || mine.raid) return null
+  const assigned = mine.crewIds.length
+  if (!assigned) return null
+  let soonestFill = 0
+  let soonestInterval = 0
+  let soonestRemain = Infinity
+  let fastestS = Infinity
+  let found = false
+  for (const id of mine.crewIds) {
+    const worker = save.workers.find((row) => row.id === id)
+    if (!worker) continue
+    const matched = workerMatchesMineWeakness(worker.combatAttrs, mine.weaknesses)
+    const stretched = digStretchS(mineDigIntervalS(worker.level, matched), assigned, assigned)
+    const charge = Math.max(0, mine.digCharge[id] ?? 0)
+    const remain = Math.max(0, stretched - charge)
+    const fill = stretched > 0 ? Math.min(1, charge / stretched) : 0
+    if (stretched < fastestS) fastestS = stretched
+    const closer =
+      !found ||
+      remain < soonestRemain - 1e-9 ||
+      (Math.abs(remain - soonestRemain) <= 1e-9 && stretched < soonestInterval)
+    if (!closer) continue
+    found = true
+    soonestFill = fill
+    soonestInterval = stretched
+    soonestRemain = remain
+  }
+  if (!found) return null
+  return { fill: soonestFill, intervalS: soonestInterval, fastestS }
+}
+
+/** 卡面上的开采速度。 */
+export function mineDigSpeedLabel(fastestS: number): string {
+  const shown = Number.isInteger(fastestS) ? String(fastestS) : fastestS.toFixed(1)
+  return `最快约 ${shown}s/次`
 }
 
 function nextMineRoll(state: TreasureMineState): number {
@@ -487,6 +598,7 @@ function spawnMine(save: Save, elapsed: number): TreasureMine {
   const state = save.treasureMines
   const id = `mine-${state.nextId}`
   state.nextId += 1
+  const kind = treasureKindOfRoll(nextMineRoll(state))
   const count = shadowCrewCount(nextMineRoll(state))
   const taken = namesOnBoard(save)
   const shadows: TreasureShadow[] = []
@@ -497,6 +609,7 @@ function spawnMine(save: Save, elapsed: number): TreasureMine {
   }
   return {
     id,
+    kind,
     reserve: TREASURE_RESERVE_MAX,
     reserveMax: TREASURE_RESERVE_MAX,
     bornAtS: elapsed,

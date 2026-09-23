@@ -1,5 +1,5 @@
 import { applyRestHeal, stepCombats, type CombatLogSink } from './combat'
-import { stepTreasureMines } from './treasureMine'
+import { stepTreasureMines, type TreasureDropSink } from './treasureMine'
 import { expireTimedMarketOrders } from './marketTimed'
 import { ensureDungeonDay } from './dungeon'
 import { cloneSave } from './clone'
@@ -16,6 +16,8 @@ export type TickOpts = {
   onGain?: GainSink
   /** 仅在线 tick 传入。离线追赶不要刷订单卡战斗漂字。 */
   onCombatLog?: CombatLogSink
+  /** 仅在线 tick 传入。离线追赶不要刷夺宝入库漂字。 */
+  onTreasureDrop?: TreasureDropSink
 }
 
 /** 在线与离线共用。按站点结算：同站人数加速。 */
@@ -29,7 +31,7 @@ export function applyTick(save: Save, opts: TickOpts = {}): void {
   refreshFoodSlots(save, now)
   for (const id of STATION_IDS) stepStation(save, id, now, opts.onGain)
   stepCombats(save, now, opts.onCombatLog)
-  stepTreasureMines(save)
+  stepTreasureMines(save, opts.onTreasureDrop)
   applyRestHeal(save)
 }
 

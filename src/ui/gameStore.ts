@@ -42,6 +42,7 @@ import {
   refreshTreasureMineBoard,
   reinforceTreasureRaid,
   startTreasureRaid,
+  treasureDropTip,
 } from '../sim/treasureMine'
 import { claimGuideQuest, markGuideQuestRuneOpened } from '../sim/guideQuest'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
@@ -84,6 +85,9 @@ export const useGameStore = defineStore('game', () => {
       },
       onCombatLog: (encounterId, text, kind) => {
         pushCombatLogTip(encounterId, text, kind)
+      },
+      onTreasureDrop: (drop) => {
+        pushFloatTip(treasureDropTip(drop.item, drop.qty), 'ok')
       },
     })
     announceWorkerLevelUps(levels, save.value.workers)
