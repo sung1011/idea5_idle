@@ -119,7 +119,7 @@ function confirmPick() {
 
 <template>
   <section class="mines" aria-label="夺宝矿洞">
-    <p class="lead">影子对手是快照守军，不是实时联机。开采不装符文；抢夺可装符文。</p>
+    <p class="lead">守军是其他玩家的快照，不是联机实时，也不是 NPC。开采不装符文；抢夺可装符文。</p>
     <p class="vault">宝库 {{ vaultLine }}</p>
     <div class="board">
       <article v-for="mine in mines" :key="mine.id" class="card">
@@ -127,7 +127,7 @@ function confirmPick() {
           <div class="titles">
             <span class="kind">矿洞</span>
             <span class="tags">
-              <i>{{ mine.owner === 'player' ? '我方开采' : '影子驻守' }}</i>
+              <i>{{ mine.owner === 'player' ? '我方开采' : '快照驻守' }}</i>
               <span v-for="id in mine.weaknesses" :key="`${mine.id}-${id}`" class="affix-chip">
                 {{ COMBAT_ATTR_LABEL[id] }}
               </span>
@@ -140,18 +140,20 @@ function confirmPick() {
         <p v-else class="label">开采 {{ names(mine.crewIds) }}（{{ mine.crewIds.length }}/{{ TREASURE_CREW_CAP }}，无符文）</p>
         <template v-for="hud in raidHuds(mine)" :key="`${mine.id}-raid`">
           <div class="bars">
-            <p class="bar-line">{{ hud.attack.name }}</p>
-            <HpBar :hp="hud.attack.hp" :hp-max="hud.attack.hpMax" />
-            <div class="raid-slots" aria-label="攻方槽位">
-              <span
-                v-for="(mark, index) in hud.attack.slots"
-                :key="`${mine.id}-atk-slot-${index}`"
-                class="raid-slot"
-                :class="mark"
-                :aria-label="`槽位 ${index + 1} ${raidSlotLabel(mark)}`"
-              >{{ index + 1 }}</span>
-            </div>
-            <ActChargeBar :fill="hud.attack.fill" />
+            <template v-if="hud.attack">
+              <p class="bar-line">{{ hud.attack.name }}</p>
+              <HpBar :hp="hud.attack.hp" :hp-max="hud.attack.hpMax" />
+              <div class="raid-slots" aria-label="攻方槽位">
+                <span
+                  v-for="(mark, index) in hud.attack.slots"
+                  :key="`${mine.id}-atk-slot-${index}`"
+                  class="raid-slot"
+                  :class="mark"
+                  :aria-label="`槽位 ${index + 1} ${raidSlotLabel(mark)}`"
+                >{{ index + 1 }}</span>
+              </div>
+              <ActChargeBar :fill="hud.attack.fill" />
+            </template>
             <p class="bar-line">{{ hud.defend.name }}</p>
             <HpBar variant="enemy" :hp="hud.defend.hp" :hp-max="hud.defend.hpMax" />
             <div class="raid-slots" aria-label="守方槽位">
@@ -167,7 +169,7 @@ function confirmPick() {
           </div>
           <p v-if="hud.waitingAttack.length" class="label">等待 {{ hud.waitingAttack.join('、') }}</p>
           <p v-if="hud.waitingDefend.length" class="label">守军等待 {{ hud.waitingDefend.join('、') }}</p>
-          <p class="label">本洞不能再开，也不能增援</p>
+          <p v-if="hud.fighting" class="label">本洞不能再开，也不能增援</p>
         </template>
         <div class="row">
           <button v-if="mine.owner === 'shadow' && !mine.raid" type="button" @click="openPick('raid', mine.id)">抢夺</button>

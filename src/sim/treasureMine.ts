@@ -162,7 +162,7 @@ export function startTreasureRaid(
   if (!mine) return { ok: false, reason: '没有这个矿洞' }
   if (isTreasureRaidLocked(mine)) return { ok: false, reason: '这洞抢夺进行中' }
   if (mine.owner !== 'shadow') return { ok: false, reason: '这洞现在不能抢' }
-  if (!mine.shadows.length) return { ok: false, reason: '洞里没有影子' }
+  if (!mine.shadows.length) return { ok: false, reason: '洞里没有守军' }
   if (!workerIds.length) return { ok: false, reason: '请选择抢夺工人' }
   if (workerIds.length > TREASURE_RAID_CAP) return { ok: false, reason: '抢夺最多 3 人' }
   const seen = new Set<string>()
@@ -182,7 +182,7 @@ export function startTreasureRaid(
   if (!spent.ok) return spent
   for (const worker of party) clearWorkerNew(save, worker.id)
   mine.raid = openRaid(save, mine, party, runes)
-  return { ok: true, message: '已向影子矿卫抢夺' }
+  return { ok: true, message: '已向快照守军抢夺' }
 }
 
 /**

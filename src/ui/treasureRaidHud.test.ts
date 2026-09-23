@@ -45,18 +45,18 @@ describe('treasure raid hud', () => {
     const atkMax = raid.attackSlotMax[0] + raid.attackSlotMax[1]
     const defHp = 8 + mine.shadows[1].hp
     const defMax = raid.defendSlotMax[0] + raid.defendSlotMax[1]
-    expect(hud?.attack.hp).toBe(atkHp)
-    expect(hud?.attack.hpMax).toBe(atkMax)
-    expect(hud?.attack.barFill).toBe(hpBarFill(atkHp, atkMax))
-    expect(hud?.attack.fill).toBe(raidActChargeFill(spd, next, elapsed))
+    expect(hud?.attack?.hp).toBe(atkHp)
+    expect(hud?.attack?.hpMax).toBe(atkMax)
+    expect(hud?.attack?.barFill).toBe(hpBarFill(atkHp, atkMax))
+    expect(hud?.attack?.fill).toBe(raidActChargeFill(spd, next, elapsed))
     expect(hud?.defend.hp).toBe(defHp)
     expect(hud?.defend.hpMax).toBe(defMax)
     expect(hud?.defend.barFill).toBe(hpBarFill(defHp, defMax))
     expect(hud?.defend.fill).toBe(raidActChargeFill(4, elapsed + 4, elapsed))
-    expect(hud?.attack.name).toBe('甲攻')
+    expect(hud?.attack?.name).toBe('甲攻')
     expect(hud?.waitingAttack).toEqual(['乙等'])
     expect(hud?.waitingDefend).toEqual(['影掘手'])
-    expect(hud?.attack.slots).toEqual(['filled', 'filled', 'empty'])
+    expect(hud?.attack?.slots).toEqual(['filled', 'filled', 'empty'])
     expect(hud?.defend.slots).toEqual(['filled', 'filled', 'empty'])
   })
 
@@ -76,7 +76,7 @@ describe('treasure raid hud', () => {
     expect(raid.defendSlots).toEqual([first.id, second.id, null])
     const atkMax = raid.attackSlotMax.reduce((sum, n) => sum + n, 0)
     const defMax = raid.defendSlotMax.reduce((sum, n) => sum + n, 0)
-    const atkBefore = treasureRaidHud(mine, save.workers, save.elapsedS)?.attack.hp ?? 0
+    const atkBefore = treasureRaidHud(mine, save.workers, save.elapsedS)?.attack?.hp ?? 0
     expect(slotStates(raid.attackSlots, raid.queue)).toEqual(['filled', 'filled', 'empty'])
     expect(slotStates([null, null, null], [])).toEqual(['empty', 'empty', 'empty'])
 
@@ -88,10 +88,10 @@ describe('treasure raid hud', () => {
     stepTreasureMines(save)
     expect(mine.raid?.attackSlots).toEqual([lead.id, bench.id, null])
     const afterLead = treasureRaidHud(mine, save.workers, save.elapsedS)
-    expect(afterLead?.attack.slots).toEqual(['dead', 'filled', 'empty'])
-    expect(afterLead?.attack.hpMax).toBe(atkMax)
-    expect(afterLead?.attack.hp).toBeLessThan(atkBefore)
-    expect(afterLead?.attack.hp).toBe(mine.raid?.atkHp)
+    expect(afterLead?.attack?.slots).toEqual(['dead', 'filled', 'empty'])
+    expect(afterLead?.attack?.hpMax).toBe(atkMax)
+    expect(afterLead?.attack?.hp).toBeLessThan(atkBefore)
+    expect(afterLead?.attack?.hp).toBe(mine.raid?.atkHp)
 
     const live = mine.raid
     expect(live).toBeTruthy()
@@ -143,19 +143,19 @@ describe('treasure raid hud', () => {
     raid.defendSlotMax = [10, 20, 30]
     raid.defHp = 6
     const full = treasureRaidHud(mine, save.workers, save.elapsedS)
-    expect(full?.attack.hp).toBe(54)
-    expect(full?.attack.hpMax).toBe(60)
+    expect(full?.attack?.hp).toBe(54)
+    expect(full?.attack?.hpMax).toBe(60)
     expect(full?.defend.hp).toBe(6 + 20 + 30)
     expect(full?.defend.hpMax).toBe(60)
-    expect(full?.attack.name).toBe(first.name)
-    expect(full?.attack.fill).toBe(raidActChargeFill(raid.atkSpd, raid.atkNext, save.elapsedS))
+    expect(full?.attack?.name).toBe(first.name)
+    expect(full?.attack?.fill).toBe(raidActChargeFill(raid.atkSpd, raid.atkNext, save.elapsedS))
 
     raid.queue = [second.id, third.id]
     raid.atkHp = 20
     const hurt = treasureRaidHud(mine, save.workers, save.elapsedS)
-    expect(hurt?.attack.hp).toBe(50)
-    expect(hurt?.attack.hpMax).toBe(60)
-    expect(hurt?.attack.slots).toEqual(['dead', 'filled', 'filled'])
+    expect(hurt?.attack?.hp).toBe(50)
+    expect(hurt?.attack?.hpMax).toBe(60)
+    expect(hurt?.attack?.slots).toEqual(['dead', 'filled', 'filled'])
 
     const solo = createSave()
     const only = spawnWorker(solo)
@@ -165,15 +165,49 @@ describe('treasure raid hud', () => {
     const one = treasureRaidHud(hole, solo.workers, solo.elapsedS)
     expect(hole.raid?.attackSlotMax.slice(1)).toEqual([0, 0])
     expect(hole.raid?.defendSlotMax.slice(1)).toEqual([0, 0])
-    expect(one?.attack.hp).toBe(hole.raid?.atkHp)
-    expect(one?.attack.hpMax).toBe(hole.raid?.attackSlotMax[0])
+    expect(one?.attack?.hp).toBe(hole.raid?.atkHp)
+    expect(one?.attack?.hpMax).toBe(hole.raid?.attackSlotMax[0])
     expect(one?.defend.hpMax).toBe(hole.raid?.defendSlotMax[0])
-    expect(one?.attack.slots).toEqual(['filled', 'empty', 'empty'])
+    expect(one?.attack?.slots).toEqual(['filled', 'empty', 'empty'])
+  })
+
+  it('shows only the defender hud before a raid and both sides after it starts', () => {
+    const save = createSave()
+    const mine = save.treasureMines.mines[0]
+    mine.shadows = [
+      { ...mine.shadows[0], id: `${mine.id}-a`, name: '甲守', hp: 10, hpMax: 10 },
+      { ...mine.shadows[0], id: `${mine.id}-b`, name: '乙守', hp: 20, hpMax: 20 },
+    ]
+    const idle = treasureRaidHud(mine, save.workers, save.elapsedS)
+    expect(idle?.fighting).toBe(false)
+    expect(idle?.attack).toBeNull()
+    expect(idle?.defend.name).toBe('甲守')
+    expect(idle?.defend.hp).toBe(30)
+    expect(idle?.defend.hpMax).toBe(30)
+    expect(idle?.defend.fill).toBe(0)
+    expect(idle?.defend.slots).toEqual(['filled', 'filled', 'empty'])
+    expect(idle?.waitingDefend).toEqual(['乙守'])
+
+    mine.owner = 'player'
+    expect(treasureRaidHud(mine, save.workers, save.elapsedS)).toBeNull()
+    mine.owner = 'shadow'
+
+    const lead = spawnWorker(save)
+    expect(startTreasureRaid(save, mine.id, [lead.id]).ok).toBe(true)
+    const live = treasureRaidHud(mine, save.workers, save.elapsedS)
+    expect(live?.fighting).toBe(true)
+    expect(live?.attack).toBeTruthy()
+    expect(live?.defend.slots[0]).toBe('filled')
   })
 
   it('mounts the shared hp and act bars only on the raid readout', () => {
     expect(panel).toContain('<HpBar')
     expect(panel).toContain('<ActChargeBar')
+    expect(panel).toContain('v-if="hud.attack"')
+    expect(panel).toContain('快照驻守')
+    expect(panel).toContain('也不是 NPC')
+    expect(panel).not.toContain('影子驻守')
+    expect(panel).toContain('hud.fighting')
     expect(panel).toContain('hud.attack.hp')
     expect(panel).toContain('hud.attack.fill')
     expect(panel).toContain('variant="enemy"')

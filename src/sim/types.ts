@@ -395,7 +395,7 @@ export type GameMessage = {
 
 export type TreasureId = 'sandGold' | 'jewel' | 'jade'
 
-/** 影子矿卫。快照战力，不是玩家工人，也不读实时联机。 */
+/** 其他玩家的快照守军。不是 NPC，也不读实时联机。 */
 export type TreasureShadow = {
   id: string
   name: string
@@ -562,7 +562,7 @@ export type Save = {
    */
   dungeon: DungeonState
   /**
-   * 夺宝矿洞。本地最多 4 洞，影子守军不是联机玩家。
+   * 夺宝矿洞。本地最多 4 洞。守军是其他玩家快照，不是联机实时，也不是 NPC。
    * 旧档缺字段 hydrate 出空池再补满。
    */
   treasureMines: TreasureMineState
