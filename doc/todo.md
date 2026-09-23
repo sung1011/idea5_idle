@@ -4,7 +4,7 @@
 
 技术：Vue 3 + TypeScript + Vite + Pinia + Vitest。`src/sim/` 纯逻辑，`src/ui/` 只读状态、发操作。在线与离线共用 `applyTick`。
 
-底栏现在是 **工坊 | PVE | PVP | 科技**。PVE 内页签 **战场 | 地牢 | 商场**（本地键仍是 `idea5IdleMainlineTab`，旧值 `mine` 回落战场；底栏 PVE 的内部 id 仍是 `encounters`）。PVP 目前只有夺宝矿洞。开采和抢夺选人都用开战选人面板，开采不显示符文槽。
+底栏现在是 **工坊 | PVE | PVP | 科技**。PVE 内页签 **战场 | 地牢 | 商场**（本地键仍是 `idea5IdleMainlineTab`，旧值 `mine` 回落战场；底栏 PVE 的内部 id 仍是 `encounters`）。PVP 目前只有夺宝矿洞。订单开战、增援、夺宝开采和抢夺共用开战选人面板。开采不显示符文槽。选中槽位按入队顺序标 1/2/3，增援和补采从已占槽的下一号起。
 
 每档先写 `sim` 和测试，再挂一层薄 UI。字段名跟 production 对，不要另起一套。
 

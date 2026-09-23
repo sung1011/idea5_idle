@@ -15,6 +15,7 @@ import CombatAttrRow from './combatAttrRow.vue'
 import { enemyPickCopy, type EnemyPickMode } from './enemyCardAction'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
+import { pickSlotNumber } from './pickSlot'
 import { pickWorkerName } from './pickWorkerName'
 import { qualityOf, workerQualityBadgeStyle, workerQualityNameStyle } from './workerQuality'
 
@@ -31,6 +32,7 @@ const props = withDefaults(
     supplyBlocked?: boolean
     guideFlashConfirm?: boolean
     guideFlashRune?: boolean
+    slotOffset?: number
     recommendLabel?: (worker: Worker) => string | null
   }>(),
   {
@@ -40,6 +42,7 @@ const props = withDefaults(
     supplyBlocked: false,
     guideFlashConfirm: false,
     guideFlashRune: false,
+    slotOffset: 0,
   },
 )
 
@@ -64,6 +67,10 @@ const hint = computed(() => {
 
 function recommend(worker: Worker): string | null {
   return props.recommendLabel?.(worker) ?? null
+}
+
+function slotNumber(workerId: string): number | null {
+  return pickSlotNumber(props.picked, workerId, props.slotOffset)
 }
 
 function equippedRune(workerId: string): RuneItemId | null {
@@ -142,6 +149,7 @@ function closeAll() {
             @click="emit('toggle', w)"
           >
             <span class="pick-name">
+              <b v-if="slotNumber(w.id)" class="pick-slot" :aria-label="`槽位 ${slotNumber(w.id)}`">{{ slotNumber(w.id) }}</b>
               <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
               <i v-if="isAssistWorker(w)" class="pick-assist">助战</i>
               <i v-else-if="w.isNew" class="pick-new">NEW</i>
@@ -346,6 +354,20 @@ function closeAll() {
 
 .rune-item.on {
   background: linear-gradient(#ffe27a, #f0b83a);
+}
+
+.pick-slot {
+  flex: none;
+  min-width: 22px;
+  padding: 1px 6px;
+  border: 2px solid var(--gold-deep);
+  border-radius: 999px;
+  background: #ffe9a0;
+  color: #4a2c0a;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 900;
+  text-align: center;
 }
 
 .pick-name {

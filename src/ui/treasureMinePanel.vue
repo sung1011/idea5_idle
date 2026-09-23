@@ -27,12 +27,13 @@ const pickMineId = ref<string | null>(null)
 const picked = ref<string[]>([])
 const runes = ref<Partial<Record<string, RuneItemId>>>({})
 const pickOpen = computed(() => pickMineId.value != null)
+const activeMine = computed(() => mines.value.find((row) => row.id === pickMineId.value) ?? null)
 const pickMax = computed(() => {
   if (pickKind.value === 'raid') return TREASURE_CREW_CAP
-  const mine = mines.value.find((row) => row.id === pickMineId.value)
-  if (!mine) return TREASURE_CREW_CAP
-  return Math.max(0, TREASURE_CREW_CAP - mine.crewIds.length)
+  if (!activeMine.value) return TREASURE_CREW_CAP
+  return Math.max(0, TREASURE_CREW_CAP - activeMine.value.crewIds.length)
 })
+const pickSlotOffset = computed(() => (pickKind.value === 'mine' ? (activeMine.value?.crewIds.length ?? 0) : 0))
 
 function clock(mine: TreasureMine): string {
   const safe = mineRemainS(mine, game.save.elapsedS)
@@ -144,6 +145,7 @@ function confirmPick() {
       mode="start"
       :show-runes="pickKind === 'raid'"
       :show-assist="false"
+      :slot-offset="pickSlotOffset"
       @close="closePick"
       @confirm="confirmPick"
       @toggle="togglePick"

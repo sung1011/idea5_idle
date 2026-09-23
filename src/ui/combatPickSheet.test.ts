@@ -5,6 +5,10 @@ import mine from './treasureMinePanel.vue?raw'
 
 describe('combat pick sheet', () => {
   it('is the only worker pick list, shared by PVE orders and treasure mines', () => {
+    expect(sheet).toContain('class="pick-slot"')
+    expect(sheet).toContain('pickSlotNumber')
+    expect(encounter).toContain(':slot-offset="pickSlotOffset"')
+    expect(mine).toContain(':slot-offset="pickSlotOffset"')
     expect(sheet).toContain('class="pick-list"')
     expect(sheet).toContain('enemyPickCopy')
     expect(sheet).toContain('v-if="showRunes"')

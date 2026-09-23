@@ -184,6 +184,11 @@ const pickMax = computed(() => {
   return cap
 })
 const pickCopy = computed(() => enemyPickCopy(pickMode.value, pickMax.value))
+const pickSlotOffset = computed(() => {
+  if (pickMode.value !== 'reinforce') return 0
+  const enc = activeEnemy()
+  return enc ? fieldFighterCount(enc) : 0
+})
 const pickCandidates = computed(() =>
   pickCombatCandidates(restCombatCandidates(game.save), assistWorker.value),
 )
@@ -695,6 +700,7 @@ function timedLine(enc: Encounter) {
       :supply-blocked="pickCopy.costsSupply && pickIndex != null && consumeShort(pickIndex)"
       :guide-flash-confirm="guideFlashCombat && pickMode === 'start'"
       :guide-flash-rune="guideFlashRune"
+      :slot-offset="pickSlotOffset"
       :recommend-label="pickRecommend"
       @close="closePick"
       @confirm="confirmPick"
