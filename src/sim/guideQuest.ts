@@ -14,8 +14,8 @@ export const GUIDE_QUEST_GOLD = 20
 export const GUIDE_QUEST_DONE_STEP = GUIDE_QUEST_STEPS + 1
 export const GUIDE_QUEST_PHASE2_START = GUIDE_QUEST_PHASE1_STEPS + 1
 export const GUIDE_QUEST_PHASE3_START = GUIDE_QUEST_PHASE1_STEPS + GUIDE_QUEST_PHASE2_STEPS + 1
-/** 骑士 2 级才开第二阶段（炼金 / 装槽 / 点用）。 */
-export const GUIDE_QUEST_PHASE2_KNIGHT = 2
+/** 骑士 1 级即开第二阶段（炼金 / 装槽 / 点用），与炼金开站门槛一致。 */
+export const GUIDE_QUEST_PHASE2_KNIGHT = 1
 /** 第一步须抽工人 2 次。缺字段或旧档按现况重落步号。 */
 export const GUIDE_QUEST_REV = 4
 /** 第一阶段「抽工人」完成所需次数（花名册人数或已生成序号，取较大）。 */
@@ -340,7 +340,7 @@ export function claimGuideQuest(save: Save): ActionResult {
     return { ok: false, reason: '铭刻未解锁' }
   }
   if (step >= GUIDE_QUEST_PHASE2_START && step < GUIDE_QUEST_PHASE3_START && !isGuideQuestPhase2Open(save)) {
-    return { ok: false, reason: '骑士 2 级开放' }
+    return { ok: false, reason: `骑士 ${GUIDE_QUEST_PHASE2_KNIGHT} 级开放进阶` }
   }
   if (guideQuestProgressAt(save, step) < 1) return { ok: false, reason: '尚未完成' }
   save.gold += GUIDE_QUEST_GOLD

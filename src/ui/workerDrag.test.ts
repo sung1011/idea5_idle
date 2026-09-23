@@ -44,7 +44,7 @@ describe('worker drag assign', () => {
 
     const restToEmpty = { kind: 'rest' as const, workerId: idle.id }
     expect(canDropWorker(save, restToEmpty, { kind: 'slot', stationId: 'inscription', slotIndex: 0 })).toBe(true)
-    expect(canDropWorker(save, restToEmpty, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toBe(true)
+    expect(canDropWorker(save, restToEmpty, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toBe(false)
     expect(applyWorkerDrag(save, restToEmpty, { kind: 'slot', stationId: 'inscription', slotIndex: 0 })).toEqual({
       ok: true,
     })
@@ -52,10 +52,11 @@ describe('worker drag assign', () => {
 
     const extra = spawnWorkerWith(save, 1, 'wanderer')
     expect(applyWorkerDrag(save, { kind: 'rest', workerId: extra.id }, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toEqual({
-      ok: true,
+      ok: false,
+      reason: '品质不同，不能合成',
     })
-    expect(extra.assignment).toBe('mining')
-    expect(a.assignment).toBeNull()
+    expect(extra.assignment).toBeNull()
+    expect(a.assignment).toBe('mining')
   })
 
   it('withdraws a slotted worker onto the rest column', () => {
@@ -77,18 +78,18 @@ describe('worker drag assign', () => {
     expect(cook.assignment).toBe('inscription')
   })
 
-  it('swaps onto an occupied station instead of fusing there', () => {
+  it('fuses onto an occupied station of the same tier and keeps the result there', () => {
     const save = unlockPlayableStations(createSave())
     const idle = spawnWorkerWith(save, 1, 'laborer')
     const busy = spawnWorkerWith(save, 1, 'artisan')
     assignWorker(save, busy.id, 'mining')
     const restToMate = { kind: 'rest' as const, workerId: idle.id }
     expect(canDropWorker(save, restToMate, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toBe(true)
-    const swapped = applyWorkerDrag(save, restToMate, { kind: 'slot', stationId: 'mining', slotIndex: 0 })
-    expect(swapped).toEqual({ ok: true })
-    expect(idle.assignment).toBe('mining')
-    expect(busy.assignment).toBeNull()
-    expect(save.workers).toHaveLength(2)
+    const fused = applyWorkerDrag(save, restToMate, { kind: 'slot', stationId: 'mining', slotIndex: 0 })
+    expect(fused.ok).toBe(true)
+    expect(save.workers).toHaveLength(1)
+    expect(save.workers[0].qualityTier).toBe(2)
+    expect(save.workers[0].assignment).toBe('mining')
   })
 
   it('fuses two resting workers of the same tier and leaves the result in rest', () => {
@@ -110,19 +111,51 @@ describe('worker drag assign', () => {
     expect(duty.assignment).toBe('mining')
   })
 
-  it('does not fuse on-duty workers with each other', () => {
+  it('fuses an on-duty worker onto another station mate and onto a resting mate', () => {
     const save = unlockPlayableStations(createSave())
     const miner = spawnWorkerWith(save, 1, 'miner')
     const cook = spawnWorkerWith(save, 1, 'cook')
     assignWorker(save, miner.id, 'mining')
     assignWorker(save, cook.id, 'cooking')
     const fromMine = { kind: 'slot' as const, workerId: miner.id, stationId: 'mining' as const, slotIndex: 0 }
-    expect(canDropWorker(save, fromMine, { kind: 'restWorker', workerId: cook.id })).toBe(false)
-    const swapped = applyWorkerDrag(save, fromMine, { kind: 'slot', stationId: 'cooking', slotIndex: 0 })
-    expect(swapped).toEqual({ ok: true })
-    expect(miner.assignment).toBe('cooking')
-    expect(cook.assignment).toBeNull()
-    expect(save.workers).toHaveLength(2)
+    expect(canDropWorker(save, fromMine, { kind: 'slot', stationId: 'cooking', slotIndex: 0 })).toBe(true)
+    const across = applyWorkerDrag(save, fromMine, { kind: 'slot', stationId: 'cooking', slotIndex: 0 })
+    expect(across.ok).toBe(true)
+    expect(save.workers).toHaveLength(1)
+    expect(save.workers[0].qualityTier).toBe(2)
+    expect(save.workers[0].assignment).toBe('cooking')
+
+    const duty = spawnWorkerWith(save, 3, 'hunter')
+    const resting = spawnWorkerWith(save, 3, 'artisan')
+    assignWorker(save, duty.id, 'mining')
+    const fromDuty = { kind: 'slot' as const, workerId: duty.id, stationId: 'mining' as const, slotIndex: 0 }
+    expect(canDropWorker(save, fromDuty, { kind: 'restWorker', workerId: resting.id })).toBe(true)
+    const intoRest = applyWorkerDrag(save, fromDuty, { kind: 'restWorker', workerId: resting.id })
+    expect(intoRest.ok).toBe(true)
+    const fresh = save.workers.find((worker) => worker.qualityTier === 4)
+    expect(fresh?.assignment).toBeNull()
+    expect(save.workers.find((worker) => worker.id === duty.id)).toBeUndefined()
+    expect(save.workers.find((worker) => worker.id === resting.id)).toBeUndefined()
+  })
+
+  it('refuses a different tier on a rest worker or an occupied slot', () => {
+    const save = unlockPlayableStations(createSave())
+    const idle = spawnWorkerWith(save, 1, 'laborer')
+    const mate = spawnWorkerWith(save, 2, 'artisan')
+    const busy = spawnWorkerWith(save, 3, 'miner')
+    assignWorker(save, busy.id, 'hunting')
+    expect(canDropWorker(save, { kind: 'rest', workerId: idle.id }, { kind: 'restWorker', workerId: mate.id })).toBe(false)
+    expect(applyWorkerDrag(save, { kind: 'rest', workerId: idle.id }, { kind: 'restWorker', workerId: mate.id })).toEqual({
+      ok: false,
+      reason: '品质不同，不能合成',
+    })
+    expect(canDropWorker(save, { kind: 'rest', workerId: idle.id }, { kind: 'slot', stationId: 'hunting', slotIndex: 0 })).toBe(
+      false,
+    )
+    expect(idle.assignment).toBeNull()
+    expect(mate.assignment).toBeNull()
+    expect(busy.assignment).toBe('hunting')
+    expect(save.workers).toHaveLength(3)
   })
 
   it('parses drop targets and keeps combat workers undraggable', () => {
@@ -194,7 +227,7 @@ describe('worker drag assign', () => {
 
 describe('fuse drag tip', () => {
   it('shows only while a drag-fuse pair exists and hides after the first merge', () => {
-    expect(FUSE_DRAG_TIP).toBe('休息区同品质可拖到一起合成')
+    expect(FUSE_DRAG_TIP).toBe('休息区同品质可合；拖到站上同品质也可合')
     const resting = unlockPlayableStations(createSave())
     const left = spawnWorkerWith(resting, 1, 'laborer')
     const right = spawnWorkerWith(resting, 1, 'artisan')

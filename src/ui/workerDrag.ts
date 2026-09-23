@@ -1,6 +1,6 @@
 import { assignedWorkers, assignWorker } from '../sim/assign'
 import { isWorkerInCombat } from '../sim/combat'
-import { canFuseRestWorkers, fuseRestWorkers } from '../sim/fuse'
+import { canFuseRestWorkers, canFuseWorkerOntoOccupant, fuseRestWorkers, fuseWorkerOntoOccupant } from '../sim/fuse'
 import { clearWorkerNew, findWorker } from '../sim/recruit'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { isStationId, STATION_WORKER_CAP } from '../sim/tables'
@@ -70,16 +70,18 @@ export function sameDragEndpoint(source: WorkerDragSource, target: WorkerDropTar
   )
 }
 
-export const FUSE_DRAG_TIP = '休息区同品质可拖到一起合成'
+export const FUSE_DRAG_TIP = '休息区同品质可合；拖到站上同品质也可合'
 
-/** 休息区有两名同档、未满档、可拖的工人。在岗之间不算。 */
+/** 休息区同档，或有人可拖到站上同档工人。满档与战斗中不算。 */
 export function canDragFuseAny(save: Save): boolean {
-  const resting = save.workers.filter(
-    (worker) => worker.assignment == null && canDragWorker(save, worker.id),
-  )
-  for (let i = 0; i < resting.length; i += 1) {
-    for (let j = i + 1; j < resting.length; j += 1) {
-      if (canFuseRestWorkers(save, resting[i].id, resting[j].id)) return true
+  const draggable = save.workers.filter((worker) => canDragWorker(save, worker.id))
+  for (let i = 0; i < draggable.length; i += 1) {
+    for (let j = i + 1; j < draggable.length; j += 1) {
+      const left = draggable[i]
+      const right = draggable[j]
+      if (canFuseRestWorkers(save, left.id, right.id)) return true
+      if (right.assignment && canFuseWorkerOntoOccupant(save, left.id, right.id, right.assignment)) return true
+      if (left.assignment && canFuseWorkerOntoOccupant(save, right.id, left.id, left.assignment)) return true
     }
   }
   return false
@@ -99,20 +101,10 @@ export function canDropWorker(save: Save, source: WorkerDragSource, target: Work
   if (target.kind === 'rest') return source.kind === 'slot'
 
   const occupantId = slotOccupantId(save, target.stationId, target.slotIndex)
-  if (occupantId) return occupantId !== source.workerId
+  if (occupantId) return canFuseWorkerOntoOccupant(save, source.workerId, occupantId, target.stationId)
   if (!isStationUnlocked(save, target.stationId)) return false
   if (worker.assignment === target.stationId) return false
   return assignedWorkers(save, target.stationId).length < STATION_WORKER_CAP
-}
-
-/** 站槽已有人：原在岗回休息，拖来的人上岗。不在站槽合成。 */
-function replaceStationWorker(save: Save, sourceId: string, stationId: StationId): ActionResult {
-  for (const other of assignedWorkers(save, stationId)) {
-    if (other.id === sourceId) continue
-    const back = assignWorker(save, other.id, null)
-    if (!back.ok) return back
-  }
-  return assignWorker(save, sourceId, stationId)
 }
 
 export function applyWorkerDrag(save: Save, source: WorkerDragSource, target: WorkerDropTarget): ActionResult {
@@ -123,20 +115,21 @@ export function applyWorkerDrag(save: Save, source: WorkerDragSource, target: Wo
   if (isWorkerInCombat(save, worker.id)) return { ok: false, reason: '正在战斗' }
   if (!canDropWorker(save, source, target)) {
     if (target.kind === 'restWorker') return fuseRestWorkers(save, source.workerId, target.workerId)
-    if (
-      target.kind === 'slot' &&
-      !isStationUnlocked(save, target.stationId) &&
-      !slotOccupantId(save, target.stationId, target.slotIndex)
-    ) {
-      return { ok: false, reason: stationLockedTip(target.stationId) }
-    }
-    if (
-      target.kind === 'slot' &&
-      !slotOccupantId(save, target.stationId, target.slotIndex) &&
-      worker.assignment !== target.stationId &&
-      assignedWorkers(save, target.stationId).length >= STATION_WORKER_CAP
-    ) {
-      return { ok: false, reason: '该站最多 1 人' }
+    if (target.kind === 'slot') {
+      const blockedId = slotOccupantId(save, target.stationId, target.slotIndex)
+      if (blockedId && blockedId !== source.workerId) {
+        return fuseWorkerOntoOccupant(save, source.workerId, blockedId, target.stationId)
+      }
+      if (!isStationUnlocked(save, target.stationId) && !blockedId) {
+        return { ok: false, reason: stationLockedTip(target.stationId) }
+      }
+      if (
+        !blockedId &&
+        worker.assignment !== target.stationId &&
+        assignedWorkers(save, target.stationId).length >= STATION_WORKER_CAP
+      ) {
+        return { ok: false, reason: '该站最多 1 人' }
+      }
     }
     return { ok: false, reason: '不能派驻到这里' }
   }
@@ -146,7 +139,10 @@ export function applyWorkerDrag(save: Save, source: WorkerDragSource, target: Wo
     return fuseRestWorkers(save, source.workerId, target.workerId)
   }
   const occupantId = slotOccupantId(save, target.stationId, target.slotIndex)
-  if (occupantId && occupantId !== source.workerId) return replaceStationWorker(save, source.workerId, target.stationId)
+  if (occupantId && occupantId !== source.workerId) {
+    clearWorkerNew(save, occupantId)
+    return fuseWorkerOntoOccupant(save, source.workerId, occupantId, target.stationId)
+  }
   return assignWorker(save, source.workerId, target.stationId)
 }
 

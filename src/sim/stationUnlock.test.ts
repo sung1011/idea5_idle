@@ -18,20 +18,20 @@ import {
 import { hydrateLoadedSave } from '../ui/saveGame'
 
 describe('stationUnlock by knight level', () => {
-  it('opens only herbalism at knight 1', () => {
+  it('opens herbalism and alchemy at knight 1', () => {
     const save = createSave()
     expect(save.knightLevel).toBe(1)
-    expect(unlockedStationIds(save)).toEqual(['herbalism'])
+    expect(unlockedStationIds(save)).toEqual(['herbalism', 'alchemy'])
     expect(isStationUnlocked(save, 'herbalism')).toBe(true)
-    expect(isStationUnlocked(save, 'alchemy')).toBe(false)
+    expect(isStationUnlocked(save, 'alchemy')).toBe(true)
     expect(isStationUnlocked(save, 'hunting')).toBe(false)
     expect(isStationUnlocked(save, 'inscription')).toBe(false)
-    expect(stationLockedTip('alchemy')).toBe('骑士 2 级开放炼金')
     expect(stationLockedTip('hunting')).toBe('骑士 5 级开放狩猎')
+    expect(stationUnlockKnightLevel('alchemy')).toBe(1)
     expect(stationUnlockKnightLevel('inscription')).toBe(10)
     expect(STATION_UNLOCK_KNIGHT).toEqual({
       herbalism: 1,
-      alchemy: 2,
+      alchemy: 1,
       hunting: 5,
       cooking: 6,
       mining: 9,
@@ -81,10 +81,11 @@ describe('stationUnlock by knight level', () => {
     })
     expect(save.workers[0].assignment).toBeNull()
     expect(assignIdleWorker(save, 'hunting')).toEqual({ ok: false, reason: '骑士 5 级开放狩猎' })
-    expect(assignIdleWorker(save, 'alchemy')).toEqual({ ok: false, reason: '骑士 2 级开放炼金' })
+    expect(assignIdleWorker(save, 'alchemy').ok).toBe(true)
+    expect(save.workers[0].assignment).toBe('alchemy')
 
     expect(assignIdleWorker(save, 'herbalism').ok).toBe(true)
-    expect(save.workers[0].assignment).toBe('herbalism')
+    expect(save.workers[1].assignment).toBe('herbalism')
     expect(assignWorker(save, save.workers[1].id, 'mining').ok).toBe(true)
     expect(assignWorker(save, save.workers[1].id, null).ok).toBe(true)
   })

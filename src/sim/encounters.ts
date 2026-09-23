@@ -381,7 +381,7 @@ export function mainNeedOutputsOfStation(stationId: StationId): readonly ItemId[
 
 /**
  * 主线需求种类池：只跟当前已解锁工位走（同一套骑士门槛表）。
- * 无存档按骑士 1 级（只开采药）。
+ * 无存档按骑士 1 级（采药与炼金）。
  */
 export function mainNeedItemPool(save?: Pick<Save, 'knightLevel'> | null): readonly ItemId[] {
   const pool: ItemId[] = []

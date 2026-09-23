@@ -168,7 +168,7 @@ describe('station crew dots and assign choices', () => {
     const rest = spawnWorkerWith(save, 1, 'laborer')
     const choices = workerAssignChoices(save, rest)
     expect(choices.find((c) => c.stationId === 'herbalism')?.locked).toBe(false)
-    expect(choices.find((c) => c.stationId === 'alchemy')?.locked).toBe(true)
+    expect(choices.find((c) => c.stationId === 'alchemy')?.locked).toBe(false)
     expect(choices.find((c) => c.stationId === 'mining')?.locked).toBe(true)
     expect(canAssignWorkerTo(save, rest, 'herbalism')).toBe(true)
     expect(canAssignWorkerTo(save, rest, 'mining')).toBe(false)
@@ -323,8 +323,8 @@ describe('assign resting to first empty slot', () => {
     expect(first.assignment).toBe('herbalism')
     expect(second.assignment).toBeNull()
 
-    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '骑士 2 级开放炼金' })
-    expect(second.assignment).toBeNull()
+    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: true })
+    expect(second.assignment).toBe('alchemy')
   })
 
   it('skips full herbalism and fills alchemy, then hunting', () => {
@@ -332,16 +332,16 @@ describe('assign resting to first empty slot', () => {
     const herbA = spawnWorkerWith(save, 1, 'laborer')
     assignWorker(save, herbA.id, 'herbalism')
     const idle = spawnWorkerWith(save, 2, 'miner')
-    expect(firstEmptyDispatchStation(save)).toBeNull()
-    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '骑士 2 级开放炼金' })
-    expect(idle.assignment).toBeNull()
-
-    unlockPlayableStations(save)
     expect(firstEmptyDispatchStation(save)).toBe('alchemy')
     expect(assignRestingToFirstEmpty(save)).toEqual({ ok: true })
     expect(idle.assignment).toBe('alchemy')
 
     const next = spawnWorkerWith(save, 3, 'hunter')
+    expect(firstEmptyDispatchStation(save)).toBeNull()
+    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '骑士 5 级开放狩猎' })
+    expect(next.assignment).toBeNull()
+
+    unlockPlayableStations(save)
     expect(firstEmptyDispatchStation(save)).toBe('hunting')
     expect(assignRestingToFirstEmpty(save)).toEqual({ ok: true })
     expect(next.assignment).toBe('hunting')

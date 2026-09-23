@@ -15,6 +15,7 @@ import {
   guideQuestProgressAt,
   guideQuestView,
   hasStartedBattlefieldCombat,
+  isGuideQuestPhase2Open,
   hydrateGuideQuestFields,
   isGuideQuestCombatFlash,
   isGuideQuestFlash,
@@ -73,13 +74,12 @@ describe('guideQuest normalize and hydrate', () => {
     expect(normalizeGuideQuestStep(9)).toBe(GUIDE_QUEST_DONE_STEP)
   })
 
-  it('hides phase 2 until knight is 2, then shows alchemy', () => {
+  it('shows phase 2 at knight 1 once the main steps are claimed', () => {
     const save = createSave()
     save.guideQuestStep = GUIDE_QUEST_PHASE2_START
     expect(save.knightLevel).toBe(1)
-    expect(guideQuestView(save)).toBeNull()
-    expect(isGuideQuestVisible(save)).toBe(false)
-    save.knightLevel = 2
+    expect(isGuideQuestPhase2Open(save)).toBe(true)
+    expect(isGuideQuestVisible(save)).toBe(true)
     const view = guideQuestView(save)
     expect(view?.title).toBe('进阶 · 1/3')
     expect(view?.goal).toBe('在炼金站炼成药剂')
@@ -208,9 +208,6 @@ describe('guideQuest steps and claim', () => {
     expect(hasStartedBattlefieldCombat(save)).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(5)
-    expect(guideQuestView(save)).toBeNull()
-
-    save.knightLevel = 2
     expect(guideQuestView(save)?.title).toBe('进阶 · 1/3')
     save.stations.alchemy.completed = 1
     expect(claimGuideQuest(save).ok).toBe(true)
@@ -317,8 +314,6 @@ describe('guideQuest flash target', () => {
 
     markCombatStarted(save)
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestFlashId(save)).toBeNull()
-    save.knightLevel = 2
     expect(guideQuestFlashId(save)).toBe('alchemy')
 
     save.stations.alchemy.completed = 1

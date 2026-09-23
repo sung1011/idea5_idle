@@ -126,9 +126,12 @@ describe('rest merge', () => {
     expect(canFuseStationWorkers(save, 'mining')).toBe(false)
     expect(canFuseWorkerWithStation(save, a.id, 'mining')).toBe(false)
     assignWorker(save, b.id, 'mining')
-    expect(canFuseRestWorkers(save, a.id, b.id)).toBe(false)
-    expect(canFuseWorkerWithStation(save, a.id, 'mining')).toBe(false)
-    expect(fuseWorkerWithStation(save, a.id, 'mining')).toEqual({ ok: false, reason: '品质不同，不能合成' })
+    expect(canFuseRestWorkers(save, a.id, b.id)).toBe(true)
+    const fused = fuseRestWorkers(save, a.id, b.id)
+    expect(fused.ok).toBe(true)
+    expect(save.workers).toHaveLength(1)
+    expect(save.workers[0].qualityTier).toBe(2)
+    expect(save.workers[0].assignment).toBeNull()
   })
 
   it('does not assign when the target station crew cannot fuse', () => {

@@ -2,10 +2,10 @@ import { normalizeKnightLevel } from './knightLevel'
 import { PLAYABLE_STATION_IDS, STATION_DEF } from './tables'
 import type { Save, StationId } from './types'
 
-/** 骑士等级门槛：到该级才开放对应站。新档骑士 1 级只开采药。 */
+/** 骑士等级门槛：到该级才开放对应站。新档骑士 1 级开采药与炼金。 */
 export const STATION_UNLOCK_KNIGHT = {
   herbalism: 1,
-  alchemy: 2,
+  alchemy: 1,
   hunting: 5,
   cooking: 6,
   mining: 9,
