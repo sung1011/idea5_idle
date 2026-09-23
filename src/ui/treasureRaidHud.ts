@@ -13,6 +13,29 @@ export function raidSlotLabel(mark: RaidSlotMark): string {
   return '空'
 }
 
+/**
+ * 编制血条。上限是开战快照里实有人数的 hpMax 之和，空槽不加。
+ * 当前值只加还活着的人；`currentHp` 返回 null 表示已死，计 0。
+ */
+export function squadBarHp(
+  slots: readonly (string | null)[] | undefined,
+  openMax: readonly number[] | undefined,
+  currentHp: (id: string, index: number) => number | null,
+): { hp: number; hpMax: number } {
+  let hp = 0
+  let hpMax = 0
+  for (let i = 0; i < TREASURE_RAID_CAP; i += 1) {
+    const id = slots?.[i]
+    if (typeof id !== 'string' || !id) continue
+    const max = openMax?.[i]
+    if (typeof max === 'number' && Number.isFinite(max) && max > 0) hpMax += max
+    const live = currentHp(id, i)
+    if (live == null || !Number.isFinite(live) || live <= 0) continue
+    hp += live
+  }
+  return { hp, hpMax }
+}
+
 /** 用开战快照对照当前存活 id。快照缺位或 null 都是空槽。 */
 export function slotStates(
   snapshot: readonly (string | null)[] | undefined,
@@ -72,22 +95,32 @@ export function treasureRaidHud(
   const shadow = mine.shadows[0]
   const attackerId = raid?.queue[0]
   if (!raid || !attackerId || !shadow) return null
-  const atkMax = Math.max(1, raid.atkMax)
-  const defMax = Math.max(1, shadow.hpMax)
+  const attackHp = squadBarHp(raid.attackSlots, raid.attackSlotMax, (id, index) => {
+    if (!raid.queue.includes(id)) return null
+    if (id === attackerId) return raid.atkHp
+    const snapped = raid.attackSlotHp?.[index]
+    return typeof snapped === 'number' && Number.isFinite(snapped) ? snapped : 0
+  })
+  const defendHp = squadBarHp(raid.defendSlots, raid.defendSlotMax, (id) => {
+    const row = mine.shadows.find((shadowRow) => shadowRow.id === id)
+    if (!row) return null
+    if (id === shadow.id) return raid.defHp
+    return row.hp
+  })
   return {
     attack: {
       name: fighterName(workers, attackerId),
-      hp: raid.atkHp,
-      hpMax: atkMax,
-      barFill: hpBarFill(raid.atkHp, atkMax),
+      hp: attackHp.hp,
+      hpMax: attackHp.hpMax,
+      barFill: hpBarFill(attackHp.hp, attackHp.hpMax),
       fill: raidActChargeFill(raid.atkSpd, raid.atkNext, elapsedS),
       slots: slotStates(raid.attackSlots, raid.queue),
     },
     defend: {
       name: shadow.name || '守军',
-      hp: raid.defHp,
-      hpMax: defMax,
-      barFill: hpBarFill(raid.defHp, defMax),
+      hp: defendHp.hp,
+      hpMax: defendHp.hpMax,
+      barFill: hpBarFill(defendHp.hp, defendHp.hpMax),
       fill: raidActChargeFill(raid.defSpd, raid.defNext, elapsedS),
       slots: slotStates(raid.defendSlots, mine.shadows.map((row) => row.id)),
     },

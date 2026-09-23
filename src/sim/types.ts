@@ -414,6 +414,12 @@ export type TreasureRaid = {
   attackSlots: (string | null)[]
   /** 开战时守方影子 id，最多 3。null 是开局就空。 */
   defendSlots: (string | null)[]
+  /** 与攻方槽对齐的开战血量。空槽为 0，死后不改。 */
+  attackSlotHp: number[]
+  attackSlotMax: number[]
+  /** 与守方槽对齐的开战血量。空槽为 0，死后不改。 */
+  defendSlotHp: number[]
+  defendSlotMax: number[]
   garrison: number
   atkHp: number
   atkMax: number

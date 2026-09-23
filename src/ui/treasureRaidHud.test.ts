@@ -5,7 +5,7 @@ import { startTreasureRaid, stepTreasureMines } from '../sim/treasureMine'
 import { actChargeFill } from './actCharge'
 import { hpBarFill } from './hpBar'
 import panel from './treasureMinePanel.vue?raw'
-import { raidActChargeFill, slotStates, treasureRaidHud } from './treasureRaidHud'
+import { raidActChargeFill, slotStates, squadBarHp, treasureRaidHud } from './treasureRaidHud'
 
 describe('treasure raid hud', () => {
   it('feeds the battlefield hp bar and act charge from the current 1v1', () => {
@@ -41,12 +41,17 @@ describe('treasure raid hud', () => {
     mine.shadows[0].hpMax = 16
 
     const hud = treasureRaidHud(mine, save.workers, elapsed)
-    expect(hud?.attack.hp).toBe(12)
-    expect(hud?.attack.hpMax).toBe(24)
-    expect(hud?.attack.barFill).toBe(hpBarFill(12, 24))
+    const atkHp = 12 + raid.attackSlotHp[1]
+    const atkMax = raid.attackSlotMax[0] + raid.attackSlotMax[1]
+    const defHp = 8 + mine.shadows[1].hp
+    const defMax = raid.defendSlotMax[0] + raid.defendSlotMax[1]
+    expect(hud?.attack.hp).toBe(atkHp)
+    expect(hud?.attack.hpMax).toBe(atkMax)
+    expect(hud?.attack.barFill).toBe(hpBarFill(atkHp, atkMax))
     expect(hud?.attack.fill).toBe(raidActChargeFill(spd, next, elapsed))
-    expect(hud?.defend.hp).toBe(8)
-    expect(hud?.defend.barFill).toBe(hpBarFill(8, 16))
+    expect(hud?.defend.hp).toBe(defHp)
+    expect(hud?.defend.hpMax).toBe(defMax)
+    expect(hud?.defend.barFill).toBe(hpBarFill(defHp, defMax))
     expect(hud?.defend.fill).toBe(raidActChargeFill(4, elapsed + 4, elapsed))
     expect(hud?.attack.name).toBe('甲攻')
     expect(hud?.waitingAttack).toEqual(['乙等'])
@@ -69,6 +74,9 @@ describe('treasure raid hud', () => {
     if (!raid) return
     expect(raid.attackSlots).toEqual([lead.id, bench.id, null])
     expect(raid.defendSlots).toEqual([first.id, second.id, null])
+    const atkMax = raid.attackSlotMax.reduce((sum, n) => sum + n, 0)
+    const defMax = raid.defendSlotMax.reduce((sum, n) => sum + n, 0)
+    const atkBefore = treasureRaidHud(mine, save.workers, save.elapsedS)?.attack.hp ?? 0
     expect(slotStates(raid.attackSlots, raid.queue)).toEqual(['filled', 'filled', 'empty'])
     expect(slotStates([null, null, null], [])).toEqual(['empty', 'empty', 'empty'])
 
@@ -79,7 +87,11 @@ describe('treasure raid hud', () => {
     save.elapsedS += 1
     stepTreasureMines(save)
     expect(mine.raid?.attackSlots).toEqual([lead.id, bench.id, null])
-    expect(treasureRaidHud(mine, save.workers, save.elapsedS)?.attack.slots).toEqual(['dead', 'filled', 'empty'])
+    const afterLead = treasureRaidHud(mine, save.workers, save.elapsedS)
+    expect(afterLead?.attack.slots).toEqual(['dead', 'filled', 'empty'])
+    expect(afterLead?.attack.hpMax).toBe(atkMax)
+    expect(afterLead?.attack.hp).toBeLessThan(atkBefore)
+    expect(afterLead?.attack.hp).toBe(mine.raid?.atkHp)
 
     const live = mine.raid
     expect(live).toBeTruthy()
@@ -91,7 +103,72 @@ describe('treasure raid hud', () => {
     save.elapsedS += 1
     stepTreasureMines(save)
     expect(mine.raid?.defendSlots).toEqual([first.id, second.id, null])
-    expect(treasureRaidHud(mine, save.workers, save.elapsedS)?.defend.slots).toEqual(['dead', 'filled', 'empty'])
+    const afterShadow = treasureRaidHud(mine, save.workers, save.elapsedS)
+    expect(afterShadow?.defend.slots).toEqual(['dead', 'filled', 'empty'])
+    expect(afterShadow?.defend.hpMax).toBe(defMax)
+    expect(afterShadow?.defend.hp).toBe(mine.shadows[0]?.hp)
+  })
+
+  it('sums the opening squad and ignores empty slots', () => {
+    expect(squadBarHp(['a', 'b', 'c'], [10, 20, 30], (id) => (id === 'a' ? 4 : id === 'b' ? 20 : 30))).toEqual({
+      hp: 54,
+      hpMax: 60,
+    })
+    expect(squadBarHp(['a', 'b', 'c'], [10, 20, 30], (id) => (id === 'a' ? null : id === 'b' ? 20 : 30))).toEqual({
+      hp: 50,
+      hpMax: 60,
+    })
+    expect(squadBarHp(['a', null, null], [15, 0, 0], () => 9)).toEqual({ hp: 9, hpMax: 15 })
+
+    const save = createSave()
+    const first = spawnWorker(save)
+    const second = spawnWorker(save)
+    const third = spawnWorker(save)
+    const mine = save.treasureMines.mines[0]
+    mine.shadows = [0, 1, 2].map((i) => ({
+      ...mine.shadows[0],
+      id: `${mine.id}-s${i}`,
+      name: `影${i}`,
+      hp: (i + 1) * 10,
+      hpMax: (i + 1) * 10,
+    }))
+    expect(startTreasureRaid(save, mine.id, [first.id, second.id, third.id]).ok).toBe(true)
+    const raid = mine.raid
+    expect(raid).toBeTruthy()
+    if (!raid) return
+    raid.attackSlotHp = [10, 20, 30]
+    raid.attackSlotMax = [10, 20, 30]
+    raid.atkHp = 4
+    raid.defendSlotHp = [10, 20, 30]
+    raid.defendSlotMax = [10, 20, 30]
+    raid.defHp = 6
+    const full = treasureRaidHud(mine, save.workers, save.elapsedS)
+    expect(full?.attack.hp).toBe(54)
+    expect(full?.attack.hpMax).toBe(60)
+    expect(full?.defend.hp).toBe(6 + 20 + 30)
+    expect(full?.defend.hpMax).toBe(60)
+    expect(full?.attack.name).toBe(first.name)
+    expect(full?.attack.fill).toBe(raidActChargeFill(raid.atkSpd, raid.atkNext, save.elapsedS))
+
+    raid.queue = [second.id, third.id]
+    raid.atkHp = 20
+    const hurt = treasureRaidHud(mine, save.workers, save.elapsedS)
+    expect(hurt?.attack.hp).toBe(50)
+    expect(hurt?.attack.hpMax).toBe(60)
+    expect(hurt?.attack.slots).toEqual(['dead', 'filled', 'filled'])
+
+    const solo = createSave()
+    const only = spawnWorker(solo)
+    const hole = solo.treasureMines.mines[0]
+    hole.shadows = hole.shadows.slice(0, 1)
+    expect(startTreasureRaid(solo, hole.id, [only.id]).ok).toBe(true)
+    const one = treasureRaidHud(hole, solo.workers, solo.elapsedS)
+    expect(hole.raid?.attackSlotMax.slice(1)).toEqual([0, 0])
+    expect(hole.raid?.defendSlotMax.slice(1)).toEqual([0, 0])
+    expect(one?.attack.hp).toBe(hole.raid?.atkHp)
+    expect(one?.attack.hpMax).toBe(hole.raid?.attackSlotMax[0])
+    expect(one?.defend.hpMax).toBe(hole.raid?.defendSlotMax[0])
+    expect(one?.attack.slots).toEqual(['filled', 'empty', 'empty'])
   })
 
   it('mounts the shared hp and act bars only on the raid readout', () => {

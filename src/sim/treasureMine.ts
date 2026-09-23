@@ -90,6 +90,7 @@ export function hydrateTreasureMines(save: Save): void {
         mine.raid.defendSlots,
         mine.shadows.map((shadow) => shadow.id),
       )
+      ensureRaidVitals(save, mine)
     }
     if (mine.owner !== 'player' && mine.owner !== 'shadow') mine.owner = 'shadow'
     mine.weaknesses = mineWeaknessesOf(mine)
@@ -206,10 +207,28 @@ function openRaid(
   party: Worker[],
   runes: Partial<Record<string, RuneItemId>>,
 ): TreasureRaid {
+  const attackSlots = raidSlotSnapshot(party.map((worker) => worker.id))
+  const defendSlots = raidSlotSnapshot(mine.shadows.map((shadow) => shadow.id))
+  const attackVitals = attackSlots.map((id) => {
+    if (!id) return { hp: 0, hpMax: 0 }
+    const worker = party.find((row) => row.id === id)
+    if (!worker) return { hp: 0, hpMax: 0 }
+    const vitals = attackerCombatVitals(save, worker, runes[id])
+    return { hp: Math.max(1, vitals.hp), hpMax: vitals.hpMax }
+  })
+  const defendVitals = defendSlots.map((id) => {
+    if (!id) return { hp: 0, hpMax: 0 }
+    const shadow = mine.shadows.find((row) => row.id === id)
+    return { hp: Math.max(0, shadow?.hp ?? 0), hpMax: Math.max(0, shadow?.hpMax ?? 0) }
+  })
   const raid: TreasureRaid = {
     queue: party.map((worker) => worker.id),
-    attackSlots: raidSlotSnapshot(party.map((worker) => worker.id)),
-    defendSlots: raidSlotSnapshot(mine.shadows.map((shadow) => shadow.id)),
+    attackSlots,
+    defendSlots,
+    attackSlotHp: attackVitals.map((row) => row.hp),
+    attackSlotMax: attackVitals.map((row) => row.hpMax),
+    defendSlotHp: defendVitals.map((row) => row.hp),
+    defendSlotMax: defendVitals.map((row) => row.hpMax),
     garrison: mine.shadows.length,
     atkHp: 1,
     atkMax: 1,
@@ -429,15 +448,77 @@ function normalizeRaidSlots(raw: unknown, fallback: readonly string[]): (string 
   return slots
 }
 
+function isVitalRow(raw: unknown): raw is number[] {
+  return (
+    Array.isArray(raw) &&
+    raw.length === TREASURE_RAID_CAP &&
+    raw.every((n) => typeof n === 'number' && Number.isFinite(n))
+  )
+}
+
+/** 与 `loadAttacker` 同一套战斗血。工坊 `worker.hp` 按比例换算，不直接加进血条。 */
+function attackerCombatVitals(
+  save: Save,
+  worker: Worker,
+  runeId: RuneItemId | undefined,
+): { hp: number; hpMax: number } {
+  const stats = workerLiveStats(worker, save, runeId)
+  const hpMax = Math.max(1, stats.hp)
+  const hp = worker.hp <= 0 ? 0 : worker.hpMax > 0 ? Math.round((worker.hp / worker.hpMax) * hpMax) : hpMax
+  return { hp, hpMax }
+}
+
+function ensureRaidVitals(save: Save, mine: TreasureMine): void {
+  const raid = mine.raid
+  if (!raid) return
+  if (!raid.runes || typeof raid.runes !== 'object') raid.runes = {}
+  if (!isVitalRow(raid.attackSlotHp) || !isVitalRow(raid.attackSlotMax)) {
+    const hp: number[] = []
+    const max: number[] = []
+    for (let i = 0; i < TREASURE_RAID_CAP; i += 1) {
+      const id = raid.attackSlots[i]
+      const worker = id ? save.workers.find((row) => row.id === id) : undefined
+      if (!id || !worker) {
+        hp.push(0)
+        max.push(0)
+        continue
+      }
+      const vitals = attackerCombatVitals(save, worker, raid.runes[id])
+      max.push(vitals.hpMax)
+      if (!raid.queue.includes(id)) hp.push(0)
+      else if (id === raid.queue[0]) hp.push(Math.max(0, raid.atkHp))
+      else hp.push(vitals.hp)
+    }
+    raid.attackSlotHp = hp
+    raid.attackSlotMax = max
+  }
+  if (!isVitalRow(raid.defendSlotHp) || !isVitalRow(raid.defendSlotMax)) {
+    const hp: number[] = []
+    const max: number[] = []
+    for (let i = 0; i < TREASURE_RAID_CAP; i += 1) {
+      const id = raid.defendSlots[i]
+      const shadow = id ? mine.shadows.find((row) => row.id === id) : undefined
+      if (!id || !shadow) {
+        hp.push(0)
+        max.push(0)
+        continue
+      }
+      max.push(Math.max(0, shadow.hpMax))
+      hp.push(id === mine.shadows[0]?.id ? Math.max(0, raid.defHp) : Math.max(0, shadow.hp))
+    }
+    raid.defendSlotHp = hp
+    raid.defendSlotMax = max
+  }
+}
+
 function loadAttacker(save: Save, raid: TreasureRaid, armNext: boolean): void {
   const worker = save.workers.find((row) => row.id === raid.queue[0])
   if (!worker) return
   const runeId = raid.runes[worker.id]
   const stats = workerLiveStats(worker, save, runeId)
-  const hpMax = Math.max(1, stats.hp)
-  const hp = worker.hp <= 0 ? 0 : worker.hpMax > 0 ? Math.round((worker.hp / worker.hpMax) * hpMax) : hpMax
-  raid.atkMax = hpMax
-  raid.atkHp = Math.max(1, hp)
+  const vitals = attackerCombatVitals(save, worker, runeId)
+  raid.atkMax = vitals.hpMax
+  raid.atkHp = Math.max(1, vitals.hp)
   raid.atkAtk = Math.max(1, stats.atk)
   raid.atkSpd = Math.max(1, Math.round(stats.spd * runeSpdMul(runeId)))
   if (armNext) raid.atkNext = save.elapsedS + raid.atkSpd
