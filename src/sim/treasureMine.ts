@@ -587,10 +587,11 @@ function nextMineRoll(state: TreasureMineState): number {
   return state.roll / 4294967296
 }
 
-/** 新洞守军人数。roll 来自矿洞自己的 `nextMineRoll`，三段各约 1/3。 */
+/** 新洞守军人数。roll 来自矿洞自己的 `nextMineRoll`：50% 0 人、20% 1 人、20% 2 人、10% 3 人。 */
 export function shadowCrewCount(roll: number): number {
-  if (roll < 1 / 3) return 1
-  if (roll < 2 / 3) return 2
+  if (roll < 0.5) return 0
+  if (roll < 0.7) return 1
+  if (roll < 0.9) return 2
   return 3
 }
 
@@ -614,7 +615,7 @@ function spawnMine(save: Save, elapsed: number): TreasureMine {
     reserveMax: TREASURE_RESERVE_MAX,
     bornAtS: elapsed,
     expiresAtS: elapsed + TREASURE_LIFE_S,
-    owner: 'shadow',
+    owner: count > 0 ? 'shadow' : 'empty',
     crewIds: [],
     shadows,
     weaknesses: pickEnemyWeaknesses(hashString(id), 0, 'minion'),

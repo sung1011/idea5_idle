@@ -2,6 +2,28 @@ import { describe, expect, it } from 'vitest'
 import { createSave } from '../sim/createSave'
 import { spawnWorker } from '../sim/recruit'
 import { startTreasureRaid, stepTreasureMines } from '../sim/treasureMine'
+import type { TreasureMine } from '../sim/types'
+
+function ensureGarrison(mine: TreasureMine): TreasureMine {
+  if (mine.shadows.length > 0) {
+    if (mine.owner !== 'player') mine.owner = 'shadow'
+    return mine
+  }
+  mine.owner = 'shadow'
+  mine.shadows = [
+    {
+      id: `${mine.id}-shadow-0`,
+      name: '青石',
+      level: 1,
+      hp: 30,
+      hpMax: 30,
+      atk: 4,
+      spd: 5,
+      runeId: 'runeSharp',
+    },
+  ]
+  return mine
+}
 import { actChargeFill } from './actCharge'
 import { hpBarFill } from './hpBar'
 import panel from './treasureMinePanel.vue?raw'
@@ -21,7 +43,7 @@ describe('treasure raid hud', () => {
     const bench = spawnWorker(save)
     lead.name = '甲攻'
     bench.name = '乙等'
-    const mine = save.treasureMines.mines[0]
+    const mine = ensureGarrison(save.treasureMines.mines[0])
     mine.shadows = [
       { ...mine.shadows[0], name: '青石' },
       { ...mine.shadows[0], id: `${mine.id}-wait`, name: '晚风' },
@@ -64,7 +86,7 @@ describe('treasure raid hud', () => {
     const save = createSave()
     const lead = spawnWorker(save)
     const bench = spawnWorker(save)
-    const mine = save.treasureMines.mines[0]
+    const mine = ensureGarrison(save.treasureMines.mines[0])
     const first = { ...mine.shadows[0], id: `${mine.id}-s0`, name: '青石', hp: 1, hpMax: 20, atk: 1, spd: 30 }
     const second = { ...mine.shadows[0], id: `${mine.id}-s1`, name: '晚风', hp: 40, hpMax: 40, atk: 1, spd: 30 }
     mine.shadows = [first, second]
@@ -124,7 +146,7 @@ describe('treasure raid hud', () => {
     const first = spawnWorker(save)
     const second = spawnWorker(save)
     const third = spawnWorker(save)
-    const mine = save.treasureMines.mines[0]
+    const mine = ensureGarrison(save.treasureMines.mines[0])
     mine.shadows = [0, 1, 2].map((i) => ({
       ...mine.shadows[0],
       id: `${mine.id}-s${i}`,
@@ -161,7 +183,7 @@ describe('treasure raid hud', () => {
 
     const solo = createSave()
     const only = spawnWorker(solo)
-    const hole = solo.treasureMines.mines[0]
+    const hole = ensureGarrison(solo.treasureMines.mines[0])
     hole.shadows = hole.shadows.slice(0, 1)
     expect(startTreasureRaid(solo, hole.id, [only.id]).ok).toBe(true)
     const one = treasureRaidHud(hole, solo.workers, solo.elapsedS)
@@ -175,7 +197,7 @@ describe('treasure raid hud', () => {
 
   it('shows only the defender hud before a raid and both sides after it starts', () => {
     const save = createSave()
-    const mine = save.treasureMines.mines[0]
+    const mine = ensureGarrison(save.treasureMines.mines[0])
     mine.shadows = [
       { ...mine.shadows[0], id: `${mine.id}-a`, name: '甲守', hp: 10, hpMax: 10 },
       { ...mine.shadows[0], id: `${mine.id}-b`, name: '乙守', hp: 20, hpMax: 20 },
@@ -260,7 +282,7 @@ describe('treasure raid hud', () => {
     const lead = spawnWorker(save)
     const bench = spawnWorker(save)
     lead.name = '甲攻'
-    const mine = save.treasureMines.mines[0]
+    const mine = ensureGarrison(save.treasureMines.mines[0])
     mine.shadows = [
       { ...mine.shadows[0], id: `${mine.id}-a`, name: '青石', hp: 9, hpMax: 18, atk: 4, spd: 6, level: 2 },
       { ...mine.shadows[0], id: `${mine.id}-b`, name: '晚风', hp: 7, hpMax: 11, atk: 3, spd: 5, level: 1 },

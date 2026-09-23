@@ -35,7 +35,7 @@ import {
 } from './treasureMine'
 import { treasureMineBlockReason } from './treasureMineQuery'
 import { applyTick } from './tick'
-import type { Save, TreasureId } from './types'
+import type { Save, TreasureId, TreasureMine } from './types'
 
 function vaultQty(save: Save): number {
   const vault = save.treasureMines.vault
@@ -47,6 +47,27 @@ function advance(save: Save, seconds: number): void {
     save.elapsedS += 1
     stepTreasureMines(save)
   }
+}
+
+function ensureGarrison(mine: TreasureMine): TreasureMine {
+  if (mine.shadows.length > 0) {
+    if (mine.owner !== 'player') mine.owner = 'shadow'
+    return mine
+  }
+  mine.owner = 'shadow'
+  mine.shadows = [
+    {
+      id: `${mine.id}-shadow-0`,
+      name: '青石',
+      level: 1,
+      hp: 30,
+      hpMax: 30,
+      atk: 4,
+      spd: 5,
+      runeId: 'runeSharp',
+    },
+  ]
+  return mine
 }
 
 function holdShadows(save: Save): void {
@@ -79,31 +100,37 @@ describe('treasure mines', () => {
     expect(save.treasureMines.mines.some((mine) => mine.id === aging.id)).toBe(false)
   })
 
-  it('rolls a new hole into 1, 2, or 3 shadows and does not reroll standing holes', () => {
-    expect(shadowCrewCount(0)).toBe(1)
-    expect(shadowCrewCount(1 / 3 - 1e-12)).toBe(1)
-    expect(shadowCrewCount(1 / 3)).toBe(2)
-    expect(shadowCrewCount(2 / 3 - 1e-12)).toBe(2)
-    expect(shadowCrewCount(2 / 3)).toBe(3)
+  it('rolls a new hole into 0, 1, 2, or 3 shadows and does not reroll standing holes', () => {
+    expect(shadowCrewCount(0)).toBe(0)
+    expect(shadowCrewCount(0.5 - 1e-12)).toBe(0)
+    expect(shadowCrewCount(0.5)).toBe(1)
+    expect(shadowCrewCount(0.7 - 1e-12)).toBe(1)
+    expect(shadowCrewCount(0.7)).toBe(2)
+    expect(shadowCrewCount(0.9 - 1e-12)).toBe(2)
+    expect(shadowCrewCount(0.9)).toBe(3)
     expect(shadowCrewCount(0.999)).toBe(3)
 
     const save = createSave()
     const kept = save.treasureMines.mines[0]
     const before = kept.shadows.map((shadow) => shadow.id)
+    const beforeOwner = kept.owner
     const seen = new Set<number>()
-    for (let i = 0; i < 48 && seen.size < 3; i += 1) {
+    for (let i = 0; i < 120 && seen.size < 4; i += 1) {
       const victim = save.treasureMines.mines.find((mine) => mine.id !== kept.id)
       if (!victim) break
       victim.reserve = 0
       refreshTreasureMines(save)
       for (const mine of save.treasureMines.mines) {
-        if (mine.id !== kept.id) seen.add(mine.shadows.length)
+        if (mine.id === kept.id) continue
+        seen.add(mine.shadows.length)
+        if (mine.shadows.length === 0) expect(mine.owner).toBe('empty')
+        else expect(mine.owner).toBe('shadow')
       }
     }
-    expect(save.treasureMines.mines.find((mine) => mine.id === kept.id)?.shadows.map((shadow) => shadow.id)).toEqual(
-      before,
-    )
-    expect([...seen].sort()).toEqual([1, 2, 3])
+    const standing = save.treasureMines.mines.find((mine) => mine.id === kept.id)
+    expect(standing?.shadows.map((shadow) => shadow.id)).toEqual(before)
+    expect(standing?.owner).toBe(beforeOwner)
+    expect([...seen].sort()).toEqual([0, 1, 2, 3])
   })
 
   it('names new shadows like players and keeps a name already stored on an old hole', () => {
@@ -114,7 +141,7 @@ describe('treasure mines', () => {
     expect(banned.some((title) => reused.includes(title))).toBe(false)
 
     const save = createSave()
-    const standing = save.treasureMines.mines[0]
+    const standing = ensureGarrison(save.treasureMines.mines[0])
     standing.shadows[0].name = '影矿卫'
     const standingIds = standing.shadows.map((shadow) => shadow.id)
     hydrateTreasureMines(save)
@@ -141,7 +168,7 @@ describe('treasure mines', () => {
     const save = createSave()
     const lead = spawnWorker(save)
     const bench = spawnWorker(save)
-    const mine = save.treasureMines.mines[0]
+    const mine = ensureGarrison(save.treasureMines.mines[0])
     lead.hp = lead.hpMax
     bench.hp = bench.hpMax
     expect(startTreasureRaid(save, mine.id, [lead.id, bench.id]).ok).toBe(true)
@@ -198,7 +225,7 @@ describe('treasure mines', () => {
     const save = createSave()
     const first = spawnWorker(save)
     const second = spawnWorker(save)
-    const mine = save.treasureMines.mines[0]
+    const mine = ensureGarrison(save.treasureMines.mines[0])
     mine.shadows = mine.shadows.slice(0, 1)
     mine.shadows[0].hp = 80
     mine.shadows[0].atk = 999
@@ -224,7 +251,7 @@ describe('treasure mines', () => {
   it('discounts defender mining while one shadow is fighting', () => {
     const save = createSave()
     const worker = spawnWorker(save)
-    const mine = save.treasureMines.mines[0]
+    const mine = ensureGarrison(save.treasureMines.mines[0])
     while (mine.shadows.length < 3) {
       const copy = { ...mine.shadows[0], id: `${mine.shadows[0].id}-extra-${mine.shadows.length}` }
       mine.shadows.push(copy)
@@ -255,7 +282,7 @@ describe('treasure mines', () => {
     const save = createSave()
     const lead = spawnWorker(save)
     const fallen = spawnWorker(save)
-    const mine = save.treasureMines.mines[0]
+    const mine = ensureGarrison(save.treasureMines.mines[0])
     mine.reserve = 40
     const expires = mine.expiresAtS
     mine.shadows = [
@@ -363,6 +390,7 @@ describe('treasure mines', () => {
     expect(kept.crewIds).toEqual([digger.id, extra.id])
 
     const raidHole = save.treasureMines.mines.find((hole) => hole.id !== kept.id)
+    if (raidHole) ensureGarrison(raidHole)
     expect(raidHole).toBeTruthy()
     if (!raidHole) return
     raidHole.weaknesses = ['sword', 'fire']
@@ -386,8 +414,8 @@ describe('treasure mines', () => {
     const extra = spawnWorker(save)
     const other = spawnWorker(save)
     const miner = spawnWorker(save)
-    const locked = save.treasureMines.mines[0]
-    const free = save.treasureMines.mines[1]
+    const locked = ensureGarrison(save.treasureMines.mines[0])
+    const free = ensureGarrison(save.treasureMines.mines[1])
     const dig = save.treasureMines.mines[2]
     expect(startTreasureRaid(save, locked.id, [lead.id]).ok).toBe(true)
     expect(isTreasureRaidLocked(locked)).toBe(true)
@@ -436,7 +464,7 @@ describe('treasure mines', () => {
   it('snapshots raid slots at the start and backfills an old raid from whoever is left', () => {
     const save = createSave()
     const lead = spawnWorker(save)
-    const mine = save.treasureMines.mines[0]
+    const mine = ensureGarrison(save.treasureMines.mines[0])
     mine.shadows = mine.shadows.slice(0, 1)
     expect(startTreasureRaid(save, mine.id, [lead.id]).ok).toBe(true)
     expect(mine.raid?.attackSlots).toEqual([lead.id, null, null])
@@ -467,7 +495,7 @@ describe('treasure mines', () => {
     vacant.shadows = []
     vacant.raid = null
     const raider = spawnWorker(save)
-    const fighting = save.treasureMines.mines[1]
+    const fighting = ensureGarrison(save.treasureMines.mines[1])
     expect(startTreasureRaid(save, fighting.id, [raider.id]).ok).toBe(true)
     const dropped = save.treasureMines.mines.filter((mine) => mine.id !== fighting.id).map((mine) => mine.id)
 
@@ -495,6 +523,7 @@ describe('treasure mines', () => {
     const before = locked.diamonds
     const holeIds = locked.treasureMines.mines.map((mine) => mine.id)
     for (const mine of locked.treasureMines.mines) {
+      ensureGarrison(mine)
       const worker = spawnWorker(locked)
       expect(startTreasureRaid(locked, mine.id, [worker.id]).ok).toBe(true)
     }
@@ -549,7 +578,7 @@ describe('treasure mines', () => {
 
   it('maps an illegal owner to shadow when a garrison remains, otherwise to empty', () => {
     const save = createSave()
-    const withShadows = save.treasureMines.mines[0]
+    const withShadows = ensureGarrison(save.treasureMines.mines[0])
     ;(withShadows as { owner: string }).owner = 'npc'
     const bare = save.treasureMines.mines[1]
     bare.shadows = []
@@ -627,9 +656,9 @@ describe('treasure mines', () => {
     expect(tally.jade).toBeGreaterThan(tally.sandGold)
     expect(tally.jade).toBeGreaterThan(drops.length * 0.4)
 
-    const shadow = save.treasureMines.mines.find((row) => row.owner === 'shadow' && row.shadows.length > 0)
-    expect(shadow).toBeTruthy()
-    if (!shadow) return
+    const shadow = ensureGarrison(
+      save.treasureMines.mines.find((row) => row.owner !== 'player') ?? save.treasureMines.mines[0],
+    )
     shadow.reserve = 20
     shadow.shadows.forEach((row) => {
       row.level = 1

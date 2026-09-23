@@ -23,6 +23,8 @@ describe('mode help', () => {
     expect(treasure).toContain('无人矿')
     expect(treasure).toContain('放弃')
     expect(treasure).toContain('洞种不同，掉落偏重不同')
+    expect(treasure).toContain('一半没有守军')
+    expect(treasure).not.toContain('三分之一')
     expect(treasure).not.toContain('补采')
     expect(treasure).not.toContain('影矿卫')
     const battle = modeHelpOf('battlefield').rows.map((row) => row.text).join('')
