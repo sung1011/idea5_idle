@@ -34,10 +34,10 @@ import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { pushFloatTip } from './floatTips'
 import { isWorkerLevelFlashing } from './workerLevelFlash'
 import { recruitCost } from '../sim/tech'
-import type { ClassId, PotionItemId, StationId, Worker } from '../sim/types'
+import type { CategoryId, ClassId, PotionItemId, StationId, Worker } from '../sim/types'
 import ClassIcon from './classIcon.vue'
 import { openWorkshopStation } from './appNav'
-import { stationCraftLabel } from './stationCraftLabel'
+import { stationCraftPickOptions, stationCraftPickReadonly } from './stationCraftLabel'
 import StationDetailSheet from './stationDetailSheet.vue'
 import StationMiniBar from './stationMiniBar.vue'
 import { showStationDetail, openStationDetailId } from './stationDetailNav'
@@ -469,6 +469,12 @@ function restWorkerDropClass(workerId: string): string {
   return ''
 }
 
+function onCraftCategory(stationId: StationId, value: string) {
+  const row = stationCraftPickOptions(game.save, stationId).find((opt) => opt.value === value)
+  if (!row || row.disabled) return
+  game.selectCategory(stationId, value as CategoryId)
+}
+
 function banterLine(workerId: string): string {
   return workshopBanterText(workerId)
 }
@@ -530,12 +536,12 @@ onUnmounted(() => {
                 >
                   <i v-if="w" class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
                   <template v-if="w">
+                    <span v-if="banterLine(w.id)" class="banter" role="status">{{ banterLine(w.id) }}</span>
                     <span class="avatar" :style="workerQualityTileStyle(w)">
                       <ClassIcon :name="classIconOf(w)" />
                       <i v-if="w.isNew" class="worker-new" aria-label="新工人">NEW</i>
                     </span>
                     <span class="slot-main">
-                      <span v-if="banterLine(w.id)" class="banter" role="status">{{ banterLine(w.id) }}</span>
                       <b>
                         <i class="qdot" :style="workerQualityDotStyle(w.qualityTier)" />
                         <em :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</em>
@@ -549,10 +555,17 @@ onUnmounted(() => {
                   </template>
                 </button>
               </div>
-              <p class="station-craft" :title="stationCraftLabel(game.save, board.stationId)">
-                {{ stationCraftLabel(game.save, board.stationId) }}
-              </p>
-              <StationMiniBar class="station-progress" :station-id="board.stationId" />
+              <div class="station-craft-row">
+                <UiSelect
+                  class="station-craft-pick"
+                  :model-value="game.save.stations[board.stationId].selectedCategory"
+                  :options="stationCraftPickOptions(game.save, board.stationId)"
+                  :disabled="stationCraftPickReadonly(game.save, board.stationId)"
+                  :aria-label="`${board.label}产出`"
+                  @update:model-value="onCraftCategory(board.stationId, $event)"
+                />
+                <StationMiniBar class="station-progress" :station-id="board.stationId" />
+              </div>
             </div>
             <div class="station-side">
               <button
@@ -1115,23 +1128,38 @@ onUnmounted(() => {
   flex-direction: column;
 }
 
-.station-craft {
+.station-craft-row {
   flex: 0 0 auto;
-  margin: 0;
-  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
-  overflow: hidden;
-  color: var(--copper);
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1.1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  padding: 0 4px 3px;
 }
 
-.station-work :deep(.station-progress) {
-  flex: 0 0 auto;
-  padding: 0 4px 3px;
+.station-craft-row :deep(.ui-select.station-craft-pick) {
+  flex: 1 1 46%;
+  width: auto;
+  min-width: 0;
+  max-width: 62%;
+}
+
+.station-craft-row :deep(.station-craft-pick .face) {
+  min-height: 26px;
+  padding: 1px 6px;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.station-craft-row :deep(.station-craft-pick .lab) {
+  font-weight: 800;
+  color: var(--copper);
+}
+
+.station-craft-row :deep(.station-progress) {
+  flex: 1 1 0;
+  min-width: 5em;
+  padding: 0;
 }
 
 .potion-row {
@@ -1404,6 +1432,18 @@ onUnmounted(() => {
   height: 13px;
 }
 
+.station .slot .avatar {
+  width: 48px;
+  height: 48px;
+  border-width: 4px;
+  border-radius: 10px;
+}
+
+.station .slot .avatar :deep(.class-ico) {
+  width: 26px;
+  height: 26px;
+}
+
 .worker-new {
   position: absolute;
   top: -5px;
@@ -1459,6 +1499,22 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+.station .slot .slot-main {
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.station .slot .slot-main b {
+  min-width: 0;
+  gap: 6px;
+  font-size: 20px;
+  line-height: 22px;
+}
+
+.station .slot .slot-main small {
+  font-size: 18px;
+}
+
 .banter {
   position: absolute;
   z-index: 6;
@@ -1482,7 +1538,7 @@ onUnmounted(() => {
 }
 
 .station-list:has(> .station:first-child .slot.has-banter) {
-  padding-top: 12px;
+  padding-top: 22px;
 }
 
 .rest-name {
@@ -1499,6 +1555,13 @@ onUnmounted(() => {
   height: 6px;
   border-radius: 50%;
   border: 1px solid #8a6410;
+}
+
+.station .slot .qdot {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
 }
 
 .rest-row {
