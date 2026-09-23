@@ -144,6 +144,18 @@ function confirmPick() {
         <p v-else class="label">开采 {{ names(mine.crewIds) }}（{{ mine.crewIds.length }}/{{ TREASURE_CREW_CAP }}，无符文）</p>
         <template v-for="hud in raidHuds(mine)" :key="`${mine.id}-raid`">
           <div class="bars">
+            <p class="bar-line">{{ hud.defend.name }}</p>
+            <HpBar variant="enemy" :hp="hud.defend.hp" :hp-max="hud.defend.hpMax" />
+            <div class="raid-slots" aria-label="守方槽位">
+              <span
+                v-for="(mark, index) in hud.defend.slots"
+                :key="`${mine.id}-def-slot-${index}`"
+                class="raid-slot"
+                :class="mark"
+                :aria-label="`槽位 ${index + 1} ${raidSlotLabel(mark)}`"
+              >{{ index + 1 }}</span>
+            </div>
+            <ActChargeBar enemy :fill="hud.defend.fill" />
             <template v-if="hud.attack">
               <p class="bar-line">{{ hud.attack.name }}</p>
               <HpBar :hp="hud.attack.hp" :hp-max="hud.attack.hpMax" />
@@ -158,21 +170,9 @@ function confirmPick() {
               </div>
               <ActChargeBar :fill="hud.attack.fill" />
             </template>
-            <p class="bar-line">{{ hud.defend.name }}</p>
-            <HpBar variant="enemy" :hp="hud.defend.hp" :hp-max="hud.defend.hpMax" />
-            <div class="raid-slots" aria-label="守方槽位">
-              <span
-                v-for="(mark, index) in hud.defend.slots"
-                :key="`${mine.id}-def-slot-${index}`"
-                class="raid-slot"
-                :class="mark"
-                :aria-label="`槽位 ${index + 1} ${raidSlotLabel(mark)}`"
-              >{{ index + 1 }}</span>
-            </div>
-            <ActChargeBar enemy :fill="hud.defend.fill" />
           </div>
-          <p v-if="hud.waitingAttack.length" class="label">等待 {{ hud.waitingAttack.join('、') }}</p>
           <p v-if="hud.waitingDefend.length" class="label">守军等待 {{ hud.waitingDefend.join('、') }}</p>
+          <p v-if="hud.waitingAttack.length" class="label">等待 {{ hud.waitingAttack.join('、') }}</p>
           <p v-if="hud.fighting" class="label">本洞不能再开，也不能增援</p>
         </template>
         <div class="row">
