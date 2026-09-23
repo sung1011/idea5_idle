@@ -42,7 +42,6 @@ import {
   refreshTreasureMineBoard,
   reinforceTreasureRaid,
   startTreasureRaid,
-  treasureDropTip,
 } from '../sim/treasureMine'
 import { claimGuideQuest, markGuideQuestRuneOpened } from '../sim/guideQuest'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
@@ -55,6 +54,7 @@ import { pushFloatTip } from './floatTips'
 import { announceWorkerLevelUps, workerLevelSnapshot } from './workerLevelFlash'
 import { clearSave, loadSave, persistSave } from './saveGame'
 import { pushCycleGain } from './stationTips'
+import { noteTreasureDrop } from './treasureMineTips'
 import { offerActionBanter, offerWorkshopBanter } from './workshopBanter'
 import { applyWorkerDrag, type WorkerDragSource, type WorkerDropTarget } from './workerDrag'
 
@@ -87,7 +87,7 @@ export const useGameStore = defineStore('game', () => {
         pushCombatLogTip(encounterId, text, kind)
       },
       onTreasureDrop: (drop) => {
-        pushFloatTip(treasureDropTip(drop.item, drop.qty), 'ok')
+        noteTreasureDrop(drop)
       },
     })
     announceWorkerLevelUps(levels, save.value.workers)

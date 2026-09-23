@@ -290,7 +290,6 @@ export function claimTreasureMine(save: Save, mineId: string, workerIds: readonl
   mine.digCharge = {}
   for (const worker of party) {
     clearWorkerNew(save, worker.id)
-    mine.digCharge[worker.id] = 0
     revealMineWeaknesses(mine, worker.combatAttrs)
   }
   return { ok: true, message: '已占领矿洞' }
@@ -469,131 +468,83 @@ function takeOver(save: Save, mine: TreasureMine, raid: TreasureRaid): void {
   mine.crewIds = raid.queue.filter((id) => save.workers.some((worker) => worker.id === id))
   mine.raid = null
   mine.digCharge = {}
-  for (const id of mine.crewIds) mine.digCharge[id] = 0
   const worker = lead ? save.workers.find((row) => row.id === lead) : undefined
   if (worker && raid.atkMax > 0 && raid.atkHp > 0) {
     worker.hp = clampInt(Math.round((raid.atkHp / raid.atkMax) * worker.hpMax), 1, worker.hpMax)
   }
 }
 
-function stepDig(save: Save, mine: TreasureMine, onDrop?: TreasureDropSink): void {
+/** 整洞共用的开采进度，存在 `digCharge` 的这一格。 */
+export const TREASURE_HOLE_DIG = 'hole'
+
+function holeCharge(mine: TreasureMine): number {
+  const raw = mine.digCharge[TREASURE_HOLE_DIG]
+  return typeof raw === 'number' && Number.isFinite(raw) ? Math.max(0, raw) : 0
+}
+
+function digRate(intervals: readonly number[]): number {
+  return intervals.reduce((sum, intervalS) => sum + (intervalS > 0 ? 1 / intervalS : 0), 0)
+}
+
+/** 正在给这洞填条的个人间隔。人选与出货相同。 */
+function diggingIntervals(save: Save, mine: TreasureMine): number[] | null {
   if (mine.owner === 'player' && !mine.raid) {
-    const assigned = mine.crewIds.length
-    if (!assigned) return
+    const intervals: number[] = []
     for (const id of mine.crewIds) {
       const worker = save.workers.find((row) => row.id === id)
       if (!worker) continue
       const matched = workerMatchesMineWeakness(worker.combatAttrs, mine.weaknesses)
-      digOne(save, mine, id, mineDigIntervalS(worker.level, matched), assigned, assigned, true, onDrop)
+      intervals.push(mineDigIntervalS(worker.level, matched))
     }
-    return
+    return intervals.length ? intervals : null
   }
-  if (mine.owner !== 'shadow') return
+  if (mine.owner !== 'shadow') return null
   const mining = mine.raid ? mine.shadows.slice(1) : mine.shadows
-  if (!mining.length) return
-  const assigned = mine.raid ? Math.max(1, mine.raid.garrison) : mining.length
-  for (const shadow of mining) {
-    digOne(save, mine, shadow.id, mineDigIntervalS(shadow.level), mining.length, assigned, false)
-  }
+  if (!mining.length) return null
+  return mining.map((shadow) => mineDigIntervalS(shadow.level))
 }
 
-function digOne(
-  save: Save,
-  mine: TreasureMine,
-  id: string,
-  intervalS: number,
-  miningCount: number,
-  assigned: number,
-  toVault: boolean,
-  onDrop?: TreasureDropSink,
-): void {
-  if (mine.reserve <= 0 || miningCount <= 0 || assigned <= 0) return
-  const stretched = digStretchS(intervalS, miningCount, assigned)
-  const charge = (mine.digCharge[id] ?? 0) + 1
-  if (charge + 1e-9 < stretched) {
-    mine.digCharge[id] = charge
-    return
+function stepDig(save: Save, mine: TreasureMine, onDrop?: TreasureDropSink): void {
+  const intervals = diggingIntervals(save, mine)
+  if (!intervals || mine.reserve <= 0) return
+  const rate = digRate(intervals)
+  if (rate <= 0) return
+  let charge = holeCharge(mine) + rate
+  const toVault = mine.owner === 'player'
+  let guard = 0
+  while (charge + 1e-9 >= 1 && mine.reserve > 0 && guard++ < 16) {
+    charge -= 1
+    mine.reserve -= 1
+    if (!toVault) continue
+    const item = rollTreasureDrop(mine.kind, nextMineRoll(save.treasureMines))
+    save.treasureMines.vault[item] = (save.treasureMines.vault[item] ?? 0) + 1
+    onDrop?.({ mineId: mine.id, item, qty: 1 })
   }
-  mine.digCharge[id] = charge - stretched
-  mine.reserve -= 1
-  if (!toVault) return
-  const item = rollTreasureDrop(mine.kind, nextMineRoll(save.treasureMines))
-  save.treasureMines.vault[item] = (save.treasureMines.vault[item] ?? 0) + 1
-  onDrop?.({ mineId: mine.id, item, qty: 1 })
-}
-
-/** 人数拉长后的出货间隔。我方在采人数等于编制时，拉长系数是 1。 */
-export function digStretchS(intervalS: number, miningCount: number, assigned: number): number {
-  if (miningCount <= 0 || assigned <= 0) return intervalS
-  return intervalS * (assigned / miningCount)
+  mine.digCharge = { [TREASURE_HOLE_DIG]: charge < 1e-9 ? 0 : charge }
 }
 
 export type MineDigReadout = {
-  /** 距下一次出货最近的那人，charge / 间隔，0～1。 */
+  /** 整洞进度 0～1。满 1 出 1 份。 */
   fill: number
-  /** 上面那人的拉长间隔，进度条按 1/间隔 往前插。 */
+  /** 整洞周期：1 / Σ(1/个人间隔)。进度条按这个速度插值。 */
   intervalS: number
-  /** 洞内最短拉长间隔，文案用「最快约 Ns/次」。 */
+  /** 与整洞周期相同，文案用「最快约 Ns/次」。 */
   fastestS: number
-}
-
-function paceReadout(rows: { stretched: number; charge: number }[]): MineDigReadout | null {
-  let soonestFill = 0
-  let soonestInterval = 0
-  let soonestRemain = Infinity
-  let fastestS = Infinity
-  let found = false
-  for (const row of rows) {
-    const charge = Math.max(0, row.charge)
-    const remain = Math.max(0, row.stretched - charge)
-    const fill = row.stretched > 0 ? Math.min(1, charge / row.stretched) : 0
-    if (row.stretched < fastestS) fastestS = row.stretched
-    const closer =
-      !found ||
-      remain < soonestRemain - 1e-9 ||
-      (Math.abs(remain - soonestRemain) <= 1e-9 && row.stretched < soonestInterval)
-    if (!closer) continue
-    found = true
-    soonestFill = fill
-    soonestInterval = row.stretched
-    soonestRemain = remain
-  }
-  if (!found) return null
-  return { fill: soonestFill, intervalS: soonestInterval, fastestS }
 }
 
 /**
  * 卡面开采读数，人选与 `stepDig` 相同。
  * 我方未抢夺且有编制；敌人驻守全员在挖，抢夺中只算非当前交战的守军。
  * 无人矿、我方抢夺中、没人在挖则不给。
- * 进度条跟剩余时间最短的一人；速度文案跟最短间隔，两人可以不是同一个。
+ * 多人只加快同一条，满一次出 1 份。
  */
 export function mineDigReadout(save: Save, mine: TreasureMine): MineDigReadout | null {
-  if (mine.owner === 'player' && !mine.raid) {
-    const assigned = mine.crewIds.length
-    if (!assigned) return null
-    const rows: { stretched: number; charge: number }[] = []
-    for (const id of mine.crewIds) {
-      const worker = save.workers.find((row) => row.id === id)
-      if (!worker) continue
-      const matched = workerMatchesMineWeakness(worker.combatAttrs, mine.weaknesses)
-      rows.push({
-        stretched: digStretchS(mineDigIntervalS(worker.level, matched), assigned, assigned),
-        charge: mine.digCharge[id] ?? 0,
-      })
-    }
-    return paceReadout(rows)
-  }
-  if (mine.owner !== 'shadow') return null
-  const mining = mine.raid ? mine.shadows.slice(1) : mine.shadows
-  if (!mining.length) return null
-  const assigned = mine.raid ? Math.max(1, mine.raid.garrison) : mining.length
-  return paceReadout(
-    mining.map((shadow) => ({
-      stretched: digStretchS(mineDigIntervalS(shadow.level), mining.length, assigned),
-      charge: mine.digCharge[shadow.id] ?? 0,
-    })),
-  )
+  const intervals = diggingIntervals(save, mine)
+  if (!intervals) return null
+  const rate = digRate(intervals)
+  if (rate <= 0) return null
+  const intervalS = 1 / rate
+  return { fill: Math.min(1, holeCharge(mine)), intervalS, fastestS: intervalS }
 }
 
 /** 我方开采读数。无人矿、敌人驻守、抢夺中不给。 */

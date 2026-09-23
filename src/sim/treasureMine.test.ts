@@ -11,6 +11,7 @@ import {
   abandonTreasureMine,
   addTreasureMiner,
   claimTreasureMine,
+  TREASURE_HOLE_DIG,
   mineDigIntervalS,
   mineDigReadout,
   mineDigSpeedLabel,
@@ -72,10 +73,7 @@ function ensureGarrison(mine: TreasureMine): TreasureMine {
 }
 
 function holdShadows(save: Save): void {
-  for (const mine of save.treasureMines.mines) {
-    mine.digCharge = {}
-    for (const shadow of mine.shadows) mine.digCharge[shadow.id] = 0
-  }
+  for (const mine of save.treasureMines.mines) mine.digCharge = {}
 }
 
 describe('treasure mines', () => {
@@ -213,7 +211,7 @@ describe('treasure mines', () => {
     expect(save.bank).toEqual({})
 
     worker.level = 6
-    mine.digCharge[worker.id] = 0
+    mine.digCharge = {}
     advance(save, 4)
     expect(vaultQty(save)).toBe(2)
     expect(abandonTreasureMine(save, mine.id).ok).toBe(true)
@@ -249,7 +247,7 @@ describe('treasure mines', () => {
     expect(mine.owner).toBe('shadow')
   })
 
-  it('discounts defender mining while one shadow is fighting', () => {
+  it('lets the two shadows still digging share one shipment while one fights', () => {
     const save = createSave()
     const worker = spawnWorker(save)
     const mine = ensureGarrison(save.treasureMines.mines[0])
@@ -271,10 +269,10 @@ describe('treasure mines', () => {
     raid.atkNext = save.elapsedS + 100
     raid.defNext = save.elapsedS + 100
     holdShadows(save)
-    advance(save, 7)
+    advance(save, 2)
     expect(mine.reserve).toBe(100)
     advance(save, 1)
-    expect(mine.reserve).toBe(98)
+    expect(mine.reserve).toBe(99)
     expect(vaultQty(save)).toBe(0)
     expect(mine.crewIds).toEqual([])
   })
@@ -676,7 +674,7 @@ describe('treasure mines', () => {
     expect(shadowDrops.filter((id) => id === shadow.id)).toEqual([])
   })
 
-  it('moves the soonest digger bar after a claim and tips the vault item', () => {
+  it('fills one shared bar from every digger and tips a single vault item', () => {
     const save = createSave()
     const slow = spawnWorker(save)
     const fast = spawnWorker(save)
@@ -690,23 +688,19 @@ describe('treasure mines', () => {
     mine.raid = null
     mine.weaknesses = ['fire']
     mine.reserve = 30
+    const cycle = 1 / (1 / 5 + 1 / 3)
     expect(playerMineDigReadout(save, mine)).toBeNull()
     expect(claimTreasureMine(save, mine.id, [slow.id, fast.id]).ok).toBe(true)
-    expect(playerMineDigReadout(save, mine)).toEqual({ fill: 0, intervalS: 3, fastestS: 3 })
+    expect(playerMineDigReadout(save, mine)?.fill).toBe(0)
+    expect(playerMineDigReadout(save, mine)?.intervalS).toBeCloseTo(cycle)
+    expect(playerMineDigReadout(save, mine)?.fastestS).toBeCloseTo(cycle)
     expect(mineDigSpeedLabel(3)).toBe('最快约 3s/次')
     save.elapsedS += 1
     stepTreasureMines(save)
     const moved = playerMineDigReadout(save, mine)
-    expect(moved?.fill).toBeCloseTo(1 / 3)
-    expect(moved?.intervalS).toBe(3)
-    expect(moved?.fastestS).toBe(3)
-    expect(mine.digCharge[fast.id]).toBe(1)
-    expect(mine.digCharge[slow.id]).toBe(1)
-
-    mine.digCharge[slow.id] = 4
-    mine.digCharge[fast.id] = 0
-    const soonestSlow = playerMineDigReadout(save, mine)
-    expect(soonestSlow).toEqual({ fill: 0.8, intervalS: 5, fastestS: 3 })
+    expect(moved?.fill).toBeCloseTo(1 / cycle)
+    expect(moved?.intervalS).toBeCloseTo(cycle)
+    expect(moved?.fastestS).toBeCloseTo(cycle)
 
     mine.owner = 'empty'
     expect(playerMineDigReadout(save, mine)).toBeNull()
@@ -733,14 +727,56 @@ describe('treasure mines', () => {
     }
     expect(playerMineDigReadout(save, mine)).toBeNull()
     mine.raid = null
-    mine.digCharge = { [slow.id]: 4, [fast.id]: 2 }
+    mine.digCharge = { [TREASURE_HOLE_DIG]: 0.9 }
     const tipped: string[] = []
     applyTick(save, {
       onTreasureDrop: (drop) => tipped.push(treasureDropTip(drop.item, drop.qty)),
     })
-    expect(vaultQty(save)).toBeGreaterThan(0)
-    expect(tipped.length).toBe(vaultQty(save))
-    expect(tipped.every((text) => text.startsWith('获得 ') && text.includes('×1'))).toBe(true)
+    expect(vaultQty(save)).toBe(1)
+    expect(mine.reserve).toBe(29)
+    expect(tipped).toHaveLength(1)
+    expect(tipped[0].startsWith('获得 ') && tipped[0].includes('×1')).toBe(true)
+  })
+
+  it('ships one item per cycle, so three miners finish sooner than one', () => {
+    function claim(count: number) {
+      const save = createSave()
+      const ids: string[] = []
+      for (let i = 0; i < count; i += 1) {
+        const worker = spawnWorker(save)
+        worker.level = 1
+        worker.combatAttrs = []
+        ids.push(worker.id)
+      }
+      const mine = save.treasureMines.mines[0]
+      mine.owner = 'empty'
+      mine.shadows = []
+      mine.raid = null
+      mine.reserve = 10
+      expect(claimTreasureMine(save, mine.id, ids).ok).toBe(true)
+      return { save, mine }
+    }
+
+    const solo = claim(1)
+    advance(solo.save, 4)
+    expect(vaultQty(solo.save)).toBe(0)
+    advance(solo.save, 1)
+    expect(vaultQty(solo.save)).toBe(1)
+    expect(solo.mine.reserve).toBe(9)
+
+    const crew = claim(3)
+    const perTick: number[] = []
+    for (let i = 0; i < 5; i += 1) {
+      const before = vaultQty(crew.save)
+      crew.save.elapsedS += 1
+      stepTreasureMines(crew.save)
+      perTick.push(vaultQty(crew.save) - before)
+    }
+    expect(perTick).toEqual([0, 1, 0, 1, 1])
+    expect(vaultQty(crew.save)).toBe(3)
+    expect(crew.mine.reserve).toBe(7)
+    expect(mineDigReadout(crew.save, crew.mine)?.fastestS).toBeCloseTo(5 / 3)
+    expect(mineDigSpeedLabel(5 / 3)).toBe('最快约 1.7s/次')
   })
 
   it('reads shadow dig progress for whoever stepDig is still mining', () => {
@@ -754,7 +790,10 @@ describe('treasure mines', () => {
     mine.crewIds = []
     mine.shadows = [lead, slow, fast]
     mine.digCharge = {}
-    expect(mineDigReadout(save, mine)).toEqual({ fill: 0, intervalS: 3, fastestS: 3 })
+    const full = 1 / (1 / 5 + 1 / 5 + 1 / 3)
+    expect(mineDigReadout(save, mine)?.fill).toBe(0)
+    expect(mineDigReadout(save, mine)?.intervalS).toBeCloseTo(full)
+    expect(mineDigReadout(save, mine)?.fastestS).toBeCloseTo(full)
     expect(playerMineDigReadout(save, mine)).toBeNull()
 
     mine.shadows = [fast]
@@ -773,13 +812,12 @@ describe('treasure mines', () => {
     mine.digCharge = {}
     const raider = spawnWorker(save)
     expect(startTreasureRaid(save, mine.id, [raider.id]).ok).toBe(true)
-    expect(mineDigReadout(save, mine)).toEqual({ fill: 0, intervalS: 4.5, fastestS: 4.5 })
-    mine.digCharge[slow.id] = 7
-    mine.digCharge[fast.id] = 0
-    const soonest = mineDigReadout(save, mine)
-    expect(soonest?.intervalS).toBe(7.5)
-    expect(soonest?.fastestS).toBe(4.5)
-    expect(soonest?.fill).toBeCloseTo(7 / 7.5)
+    const digging = 1 / (1 / 5 + 1 / 3)
+    expect(mineDigReadout(save, mine)?.fill).toBe(0)
+    expect(mineDigReadout(save, mine)?.intervalS).toBeCloseTo(digging)
+    expect(mineDigReadout(save, mine)?.fastestS).toBeCloseTo(digging)
+    mine.digCharge = { [TREASURE_HOLE_DIG]: 0.4 }
+    expect(mineDigReadout(save, mine)?.fill).toBeCloseTo(0.4)
 
     mine.shadows = [lead]
     expect(mineDigReadout(save, mine)).toBeNull()

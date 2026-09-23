@@ -19,6 +19,7 @@ import {
 } from '../sim/treasureMine'
 import type { RuneItemId, TreasureMine, Worker } from '../sim/types'
 import CombatPickSheet from './combatPickSheet.vue'
+import TreasureMineTips from './treasureMineTips.vue'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
 
@@ -151,6 +152,7 @@ function confirmPick() {
     </div>
     <div class="board">
       <article v-for="mine in mines" :key="mine.id" class="card">
+        <TreasureMineTips :mine-id="mine.id" />
         <header>
           <div class="titles">
             <span class="kind">{{ TREASURE_KIND_LABEL[mine.kind] }}</span>
@@ -288,6 +290,7 @@ function confirmPick() {
 }
 
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;

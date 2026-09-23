@@ -16,7 +16,7 @@ export type TickOpts = {
   onGain?: GainSink
   /** 仅在线 tick 传入。离线追赶不要刷订单卡战斗漂字。 */
   onCombatLog?: CombatLogSink
-  /** 仅在线 tick 传入。离线追赶不要刷夺宝入库漂字。 */
+  /** 仅在线 tick 传入。离线追赶不要刷夺宝矿卡漂字。 */
   onTreasureDrop?: TreasureDropSink
 }
 
