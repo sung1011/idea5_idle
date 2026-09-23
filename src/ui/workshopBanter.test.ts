@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import stationCardSource from './stationCard.vue?raw'
+import workersPanelSource from './workersPanelV2.vue?raw'
 import { createSave } from '../sim/createSave'
 import { BANTER_BUBBLE_MS, banterLines } from '../sim/workshopBanter'
 import type { Worker } from '../sim/types'
@@ -124,6 +125,89 @@ describe('workshop banter bubbles', () => {
 
   it('station card does not render a banter bubble', () => {
     expect(stationCardSource).not.toContain('banter')
+  })
+
+  it('renders banter only on workshop slots, not rest or combat rows', () => {
+    const combatAt = workersPanelSource.indexOf('aria-label="战斗区"')
+    const styleAt = workersPanelSource.indexOf('<style')
+    expect(combatAt).toBeGreaterThan(0)
+    expect(styleAt).toBeGreaterThan(combatAt)
+    expect(workersPanelSource.slice(0, combatAt)).toContain('class="banter"')
+    expect(workersPanelSource.slice(combatAt, styleAt)).not.toContain('banter')
+  })
+
+  it('skips the forced greet when only rest or combat workers are present', () => {
+    const save = createSave()
+    save.workers.push(onDuty('rest', null))
+    appTab.value = 'workers'
+    greetWorkshopBanter(save, () => {
+      throw new Error('休息区不应入选')
+    })
+    expect(workshopBanterText('rest')).toBe('')
+
+    resetWorkshopBanterForTests()
+    const fighting = createSave()
+    const fighter = onDuty('fight', 'mining')
+    fighting.workers.push(fighter)
+    fighting.encounters.push({
+      id: 'enc-1',
+      label: '狼',
+      quality: 'green',
+      kind: 'enemy',
+      needs: {},
+      lootGold: 0,
+      departed: true,
+      lootClaimed: false,
+      enemyRank: 'minion',
+      weaknesses: [],
+      revealedWeaknesses: [],
+      combat: {
+        startedAt: 0,
+        timeoutAt: 900,
+        workerIds: [fighter.id],
+        workers: [{ id: fighter.id, label: '甲', hp: 8, hpMax: 10, atk: 1, spd: 2, nextActAt: 0 }],
+        enemy: { id: 'wolf', label: '狼', hp: 10, hpMax: 10, atk: 1, spd: 2, nextActAt: 0 },
+        logs: [],
+        outcome: null,
+      },
+    } as (typeof fighting.encounters)[number])
+    greetWorkshopBanter(fighting, () => {
+      throw new Error('战斗区不应入选')
+    })
+    expect(workshopBanterText('fight')).toBe('')
+  })
+
+  it('lands the forced greet on a workshop station worker, not a fighter', () => {
+    const save = createSave()
+    const duty = onDuty('duty', 'cooking')
+    const fighter = onDuty('fight', 'mining')
+    save.workers.push(duty, fighter)
+    save.encounters.push({
+      id: 'enc-2',
+      label: '狼',
+      quality: 'green',
+      kind: 'enemy',
+      needs: {},
+      lootGold: 0,
+      departed: true,
+      lootClaimed: false,
+      enemyRank: 'minion',
+      weaknesses: [],
+      revealedWeaknesses: [],
+      combat: {
+        startedAt: 0,
+        timeoutAt: 900,
+        workerIds: [fighter.id],
+        workers: [{ id: fighter.id, label: '乙', hp: 8, hpMax: 10, atk: 1, spd: 2, nextActAt: 0 }],
+        enemy: { id: 'wolf', label: '狼', hp: 10, hpMax: 10, atk: 1, spd: 2, nextActAt: 0 },
+        logs: [],
+        outcome: null,
+      },
+    } as (typeof save.encounters)[number])
+    appTab.value = 'workers'
+    greetWorkshopBanter(save, () => 0)
+    expect(workshopBanterBubble('cooking')?.workerId).toBe('duty')
+    expect(workshopBanterText('fight')).toBe('')
   })
 
   it('skips the entry greet when the switch is off and does not replay after it is turned on', () => {

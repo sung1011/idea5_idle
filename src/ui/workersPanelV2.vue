@@ -507,13 +507,13 @@ onUnmounted(() => {
                     <i v-if="w.isNew" class="worker-new" aria-label="新工人">NEW</i>
                   </span>
                   <span class="slot-main">
+                    <span v-if="banterLine(w.id)" class="banter" role="status">{{ banterLine(w.id) }}</span>
                     <b>
                       <i class="qdot" :style="workerQualityDotStyle(w.qualityTier)" />
                       <em :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</em>
                     </b>
                     <small>Lv{{ w.level }}</small>
                   </span>
-                  <span v-if="banterLine(w.id)" class="banter" role="status">{{ banterLine(w.id) }}</span>
                 </template>
                 <template v-else>
                   <span class="empty-mark" aria-hidden="true">＋</span>
@@ -638,10 +638,9 @@ onUnmounted(() => {
               v-for="w in resting"
               :key="w.id"
               class="rest-row"
-              :class="[hpToneClass(w), { 'level-flash': isWorkerLevelFlashing(w.id), 'has-banter': !!banterLine(w.id) }]"
+              :class="[hpToneClass(w), { 'level-flash': isWorkerLevelFlashing(w.id) }]"
             >
               <i class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
-              <span v-if="banterLine(w.id)" class="banter" role="status">{{ banterLine(w.id) }}</span>
               <button
                 type="button"
                 class="rest-face"
@@ -1285,19 +1284,20 @@ onUnmounted(() => {
   transition: width 0.3s ease;
 }
 
-.slot.has-banter,
-.rest-row.has-banter {
+.slot.has-banter {
   overflow: visible;
   z-index: 2;
 }
 
-.slot.has-banter .hp-fill,
-.rest-row.has-banter .hp-fill {
+.slot.has-banter .slot-main {
+  overflow: visible;
+}
+
+.slot.has-banter .hp-fill {
   border-radius: 6px 0 0 6px;
 }
 
-.slot.has-banter.hp-full .hp-fill,
-.rest-row.has-banter.hp-full .hp-fill {
+.slot.has-banter.hp-full .hp-fill {
   border-radius: 6px;
 }
 
@@ -1392,10 +1392,10 @@ onUnmounted(() => {
 .banter {
   position: absolute;
   z-index: 6;
-  left: 2px;
-  right: 2px;
+  left: 0;
+  right: 0;
   top: auto;
-  bottom: calc(100% + 2px);
+  bottom: calc(100% + 1px);
   margin: 0;
   padding: 1px 4px;
   border: 1px solid var(--gold-deep);
@@ -1412,11 +1412,7 @@ onUnmounted(() => {
 }
 
 .station-list:has(> .station:first-child .slot.has-banter) {
-  padding-top: 18px;
-}
-
-.rest-list:has(> .rest-row:first-child.has-banter) {
-  padding-top: 22px;
+  padding-top: 12px;
 }
 
 .rest-name {

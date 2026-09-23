@@ -253,9 +253,9 @@ export type BanterPlan = {
 
 /**
  * 一次 tick 最多一条。成功吞吐的站，以及在岗空转的站，先按权重挑一个再做 4%～8% 检定。
- * `forced` 是第一次进工坊那一次：凡有在岗且未战斗的人都可入选，跳过检定、全局冷却、个人冷却。
+ * `forced` 是第一次进工人页那一次：只挑六个生产站上在岗且未战斗的人，跳过检定、全局冷却、个人冷却。
  * 默认立刻写入冷却；`deferCommit` 时只返回计划，由调用方在确认上屏后 `apply`。
- * 不改 save（含 isNew / rngState）。战斗中的人不说；dragging 时整段跳过。
+ * 不改 save（含 isNew / rngState）。休息区（无派驻）和战斗中的人不说；dragging 时整段跳过。
  * 掷骰顺序：选站 → 检定（forced 跳过）→（两人）对白检定 → 台词 →（对白）间隔 → 全局冷却。
  */
 export function planWorkshopBanter(input: {

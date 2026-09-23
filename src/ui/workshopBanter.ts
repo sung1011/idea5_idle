@@ -10,7 +10,7 @@ import {
   type BanterRng,
 } from '../sim/workshopBanter'
 import type { Save, StationId } from '../sim/types'
-import { STATION_IDS } from '../sim/tables'
+import { PLAYABLE_STATION_IDS, STATION_IDS } from '../sim/tables'
 import { appTab } from './appNav'
 import { isWorkerDragActive } from './workerDrag'
 
@@ -136,13 +136,19 @@ export function offerWorkshopBanter(save: Save, successStationIds: readonly Stat
   playWorkshopBanter(event)
 }
 
+/** 工作区六个生产站上、且当前不在战斗的人。休息区与战斗区不算。 */
 function onDutyWorkers(save: Save) {
-  return save.workers.filter((worker) => worker.assignment != null && !isWorkerInCombat(save, worker.id))
+  return save.workers.filter(
+    (worker) =>
+      worker.assignment != null &&
+      (PLAYABLE_STATION_IDS as readonly string[]).includes(worker.assignment) &&
+      !isWorkerInCombat(save, worker.id),
+  )
 }
 
 /**
  * 第一次进入工人页时调用。人不在工人页则直接返回，不记已打招呼、不写冷却。
- * 有在岗且未战斗的人才播。人已在工人页但无人在岗，或开关关着，记一次跳过，之后不补播。
+ * 只挑工作区在岗且未战斗的人。当时工作区无人在岗，或开关关着，记一次跳过，之后不补播。
  */
 export function greetWorkshopBanter(save: Save, rng: BanterRng = Math.random) {
   if (greeted) return
@@ -165,6 +171,7 @@ export function greetWorkshopBanter(save: Save, rng: BanterRng = Math.random) {
     successStationIds: [],
     rng,
     forced: true,
+    onlyStationIds: PLAYABLE_STATION_IDS,
   })
   if (!planned || !workersOpen()) return
   planned.apply()
