@@ -1,3 +1,4 @@
+import { hashString, isCombatAttrId, matchingWeaknesses, pickEnemyWeaknesses } from './combatAttrs'
 import { workerLiveStats } from './combat'
 import { clearWorkerNew } from './recruit'
 import {
@@ -11,6 +12,7 @@ import {
 import { treasureMineBlockReason } from './treasureMineQuery'
 import type {
   ActionResult,
+  CombatAttrId,
   QualityTier,
   RuneItemId,
   Save,
@@ -42,10 +44,19 @@ export function blankTreasureMines(): TreasureMineState {
   return { nextId: 1, roll: 1, vault: {}, mines: [] }
 }
 
-/** 等级微调：1～5 级 5 秒，之后每 5 级快 1 秒，最快 3 秒。 */
-export function mineDigIntervalS(level: number): number {
+/** 等级微调：1～5 级 5 秒，之后每 5 级快 1 秒，最快 3 秒。命中矿弱点再快 1 秒。 */
+export function mineDigIntervalS(level: number, matchesWeakness = false): number {
   const bonus = Math.min(2, Math.floor(Math.max(0, Math.floor(level) - 1) / 5))
-  return TREASURE_DIG_BASE_S - bonus
+  const weak = matchesWeakness ? 1 : 0
+  return Math.max(1, TREASURE_DIG_BASE_S - bonus - weak)
+}
+
+/** 与战场相同：工人属性命中矿洞弱点表才算吃到。多条命中也只快 1 秒。 */
+export function workerMatchesMineWeakness(
+  attrs: readonly CombatAttrId[] | undefined,
+  weaknesses: readonly CombatAttrId[] | undefined,
+): boolean {
+  return matchingWeaknesses(attrs ?? [], weaknesses ?? []).length > 0
 }
 
 export function mineRemainS(mine: TreasureMine, elapsedS: number): number {
@@ -74,6 +85,7 @@ export function hydrateTreasureMines(save: Save): void {
     if (!mine.digCharge || typeof mine.digCharge !== 'object') mine.digCharge = {}
     if (mine.raid && !Array.isArray(mine.raid.queue)) mine.raid = null
     if (mine.owner !== 'player' && mine.owner !== 'shadow') mine.owner = 'shadow'
+    mine.weaknesses = mineWeaknessesOf(mine)
     mine.reserve = clampInt(mine.reserve, 0, TREASURE_RESERVE_MAX)
   }
   refreshTreasureMines(save)
@@ -279,7 +291,8 @@ function stepDig(save: Save, mine: TreasureMine): void {
     for (const id of mine.crewIds) {
       const worker = save.workers.find((row) => row.id === id)
       if (!worker) continue
-      digOne(save, mine, id, mineDigIntervalS(worker.level), assigned, assigned, true)
+      const matched = workerMatchesMineWeakness(worker.combatAttrs, mine.weaknesses)
+      digOne(save, mine, id, mineDigIntervalS(worker.level, matched), assigned, assigned, true)
     }
     return
   }
@@ -347,9 +360,16 @@ function spawnMine(save: Save, elapsed: number): TreasureMine {
     owner: 'shadow',
     crewIds: [],
     shadows,
+    weaknesses: pickEnemyWeaknesses(hashString(id), 0, 'minion'),
     raid: null,
     digCharge: {},
   }
+}
+
+function mineWeaknessesOf(mine: TreasureMine): CombatAttrId[] {
+  const kept = (mine.weaknesses ?? []).filter(isCombatAttrId)
+  if (kept.length) return kept
+  return pickEnemyWeaknesses(hashString(mine.id), 0, 'minion')
 }
 
 function makeShadow(save: Save, mineId: string, index: number): TreasureShadow {

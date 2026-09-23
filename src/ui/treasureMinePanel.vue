@@ -7,6 +7,7 @@ import {
   mineRemainS,
 } from '../sim/treasureMine'
 import type { RuneItemId, TreasureMine, Worker } from '../sim/types'
+import { COMBAT_ATTR_LABEL } from '../sim/combatAttrs'
 import CombatPickSheet from './combatPickSheet.vue'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
@@ -105,36 +106,44 @@ function confirmPick() {
   <section class="mines" aria-label="夺宝矿洞">
     <p class="lead">影子对手是快照守军，不是实时联机。开采不装符文；抢夺可装符文。</p>
     <p class="vault">宝库 {{ vaultLine }}</p>
-    <article v-for="mine in mines" :key="mine.id" class="card">
-      <header>
-        <b>{{ mine.owner === 'player' ? '我方开采' : '影子驻守' }}</b>
-        <span>储量 {{ mine.reserve }}/{{ mine.reserveMax }}</span>
-        <span>剩余 {{ clock(mine) }}</span>
-      </header>
-      <p v-if="mine.owner === 'shadow'">守军 {{ mine.shadows.map((row) => row.name).join('、') || '无' }}</p>
-      <p v-else>开采 {{ names(mine.crewIds) }}（{{ mine.crewIds.length }}/{{ TREASURE_CREW_CAP }}，无符文）</p>
-      <p v-if="mine.raid">
-        抢夺中 {{ names(mine.raid.queue) }} 对 {{ mine.shadows[0]?.name ?? '守军' }}。本洞不能再开，也不能增援
-      </p>
-      <div class="row">
-        <button v-if="mine.owner === 'shadow' && !mine.raid" type="button" @click="openPick('raid', mine.id)">抢夺</button>
-        <button
-          v-if="mine.owner === 'player' && !mine.raid && mine.crewIds.length < TREASURE_CREW_CAP"
-          type="button"
-          @click="openPick('mine', mine.id)"
-        >
-          补采
-        </button>
-        <button
-          v-for="id in mine.crewIds"
-          :key="id"
-          type="button"
-          @click="game.withdrawTreasureMiner(mine.id, id)"
-        >
-          撤出
-        </button>
-      </div>
-    </article>
+    <div class="board">
+      <article v-for="mine in mines" :key="mine.id" class="card">
+        <header>
+          <div class="titles">
+            <span class="kind">矿洞</span>
+            <span class="tags">
+              <i>{{ mine.owner === 'player' ? '我方开采' : '影子驻守' }}</i>
+              <i v-for="id in mine.weaknesses" :key="`${mine.id}-${id}`">{{ COMBAT_ATTR_LABEL[id] }}</i>
+            </span>
+          </div>
+        </header>
+        <p class="label">储量 {{ mine.reserve }}/{{ mine.reserveMax }}</p>
+        <p class="label">剩余 {{ clock(mine) }}</p>
+        <p v-if="mine.owner === 'shadow'" class="label">守军 {{ mine.shadows.map((row) => row.name).join('、') || '无' }}</p>
+        <p v-else class="label">开采 {{ names(mine.crewIds) }}（{{ mine.crewIds.length }}/{{ TREASURE_CREW_CAP }}，无符文）</p>
+        <p v-if="mine.raid" class="label">
+          抢夺中 {{ names(mine.raid.queue) }} 对 {{ mine.shadows[0]?.name ?? '守军' }}。本洞不能再开，也不能增援
+        </p>
+        <div class="row">
+          <button v-if="mine.owner === 'shadow' && !mine.raid" type="button" @click="openPick('raid', mine.id)">抢夺</button>
+          <button
+            v-if="mine.owner === 'player' && !mine.raid && mine.crewIds.length < TREASURE_CREW_CAP"
+            type="button"
+            @click="openPick('mine', mine.id)"
+          >
+            补采
+          </button>
+          <button
+            v-for="id in mine.crewIds"
+            :key="id"
+            type="button"
+            @click="game.withdrawTreasureMiner(mine.id, id)"
+          >
+            撤出
+          </button>
+        </div>
+      </article>
+    </div>
 
     <CombatPickSheet
       :open="pickOpen"
@@ -162,28 +171,71 @@ function confirmPick() {
 }
 
 .lead,
-.vault,
-.card p {
+.vault {
   margin: 0;
   font-size: 12px;
   font-weight: 700;
 }
 
+.board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px;
-  border: 2px solid var(--gold);
-  border-radius: 10px;
-  background: linear-gradient(180deg, #fffef8, #fff3d8);
+  gap: 8px;
+  padding: 12px;
+  overflow: visible;
 }
 
 .card header {
   display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.titles {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.kind {
+  font-family: var(--font-display);
+  letter-spacing: 0.12em;
+}
+
+.tags {
+  display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.tags i {
+  font-style: normal;
+  padding: 1px 8px;
+  border: 2px solid var(--gold-deep);
+  border-radius: 999px;
+  background: var(--slot);
+  color: var(--ink);
   font-size: 12px;
+  line-height: 1.25;
+}
+
+.label {
+  margin: 0;
+  font-family: var(--font-mono);
+  color: var(--copper);
+  line-height: 1.5;
 }
 
 .row {

@@ -432,6 +432,8 @@ export type TreasureMine = {
   owner: 'shadow' | 'player'
   crewIds: string[]
   shadows: TreasureShadow[]
+  /** 矿洞弱点。工人属性命中则该人开采快 1 秒。不参与抢夺战斗结算。 */
+  weaknesses: CombatAttrId[]
   raid: TreasureRaid | null
   digCharge: Partial<Record<string, number>>
 }

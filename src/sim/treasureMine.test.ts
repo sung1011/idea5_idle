@@ -10,6 +10,7 @@ import {
   TREASURE_RESERVE_MAX,
   addTreasureMiner,
   mineDigIntervalS,
+  workerMatchesMineWeakness,
   refreshTreasureMines,
   rejectTreasureMineRune,
   isTreasureRaidLocked,
@@ -94,6 +95,7 @@ describe('treasure mines', () => {
     const save = createSave()
     const worker = spawnWorker(save)
     worker.level = 1
+    worker.combatAttrs = []
     const mine = save.treasureMines.mines[0]
     mine.owner = 'player'
     mine.shadows = []
@@ -220,6 +222,35 @@ describe('treasure mines', () => {
     advance(save, 5)
     expect(vaultQty(save)).toBe(3)
     expect(mine.reserve).toBe(37)
+  })
+
+  it('mines every 4s when the worker matches the hole weakness, else 5s', () => {
+    expect(mineDigIntervalS(1, false)).toBe(5)
+    expect(mineDigIntervalS(1, true)).toBe(4)
+    expect(workerMatchesMineWeakness(['fire'], ['fire'])).toBe(true)
+    expect(workerMatchesMineWeakness(['sword'], ['fire'])).toBe(false)
+    const save = createSave()
+    const hit = spawnWorker(save)
+    const miss = spawnWorker(save)
+    hit.level = 1
+    miss.level = 1
+    hit.combatAttrs = ['fire']
+    miss.combatAttrs = ['sword']
+    const mine = save.treasureMines.mines[0]
+    mine.owner = 'player'
+    mine.shadows = []
+    mine.raid = null
+    mine.weaknesses = ['fire']
+    mine.reserve = 20
+    mine.crewIds = []
+    expect(addTreasureMiner(save, mine.id, hit.id).ok).toBe(true)
+    expect(addTreasureMiner(save, mine.id, miss.id).ok).toBe(true)
+    advance(save, 4)
+    expect(vaultQty(save)).toBe(1)
+    expect(mine.reserve).toBe(19)
+    advance(save, 1)
+    expect(vaultQty(save)).toBe(2)
+    expect(mine.reserve).toBe(18)
   })
 
   it('locks only the raiding hole and refuses reinforce until that fight ends', () => {
