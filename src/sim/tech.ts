@@ -38,6 +38,17 @@ export const TRADE_GOLD_EFFECT = 'tradeGold'
 export const EXPLORE_COST_EFFECT = 'exploreCost'
 export const LOOT_GOLD_EFFECT = 'lootGold'
 export const GROUP_CONFLICT_EFFECT = 'groupConflict'
+/** 工坊规章：全站周期 −5%。 */
+export const WORKSHOP_RULES_CYCLE_EFFECT = 'workshopRulesCycle'
+export const WORKSHOP_RULES_CYCLE_CUT = 0.05
+/** 工匠密录：成功吞吐时在岗工人 XP ×1.25。 */
+export const ARTISAN_ARCHIVE_XP_EFFECT = 'artisanXp'
+export const ARTISAN_ARCHIVE_XP_MUL = 1.25
+/** 轮值章程：同组两站都有人时，该组速度 ×1.08。 */
+export const GROUP_STAFF_SPEED_EFFECT = 'groupStaffSpeed'
+export const GROUP_STAFF_SPEED_MUL = 1.08
+/** 该站正好 1 人时的速度乘区。 */
+export const SOLO_STAFF_MUL = 1.5
 export const WILD_CRYSTAL_DROP_EFFECT = 'wildCrystalDrop'
 export const ALCHEMY_BATCH_EFFECT = 'alchemyBatch'
 export const HUNT_HAZARD_EFFECT = 'huntHazard'
@@ -83,6 +94,9 @@ export const TECH_EFFECT_BASE: Readonly<Record<string, number>> = {
   [EXPLORE_COST_EFFECT]: 0.2,
   [LOOT_GOLD_EFFECT]: 0.15,
   [GROUP_CONFLICT_EFFECT]: 0.5,
+  [WORKSHOP_RULES_CYCLE_EFFECT]: WORKSHOP_RULES_CYCLE_CUT,
+  [ARTISAN_ARCHIVE_XP_EFFECT]: ARTISAN_ARCHIVE_XP_MUL - 1,
+  [GROUP_STAFF_SPEED_EFFECT]: GROUP_STAFF_SPEED_MUL - 1,
   [WILD_CRYSTAL_DROP_EFFECT]: 0.1,
   [ALCHEMY_BATCH_EFFECT]: 1,
   [HUNT_HAZARD_EFFECT]: 0.2,
@@ -201,10 +215,9 @@ const PRODUCTION_ROWS: readonly RowSeed[] = [
       {
         id: 'workshopRules',
         name: '工坊规章',
-        desc: '排班规矩减轻同站两人冲突（效率 −15%）。',
+        desc: '全站制作周期 −5%。',
         icon: '📜',
-        implemented: true,
-        maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
+        ...implemented(WORKSHOP_RULES_CYCLE_EFFECT),
       },
       {
         id: 'toolUpkeep',
@@ -221,10 +234,9 @@ const PRODUCTION_ROWS: readonly RowSeed[] = [
       {
         id: 'artisanArchive',
         name: '工匠密录',
-        desc: '密录消除同站两人冲突，满员按人数全速。',
+        desc: '成功吞吐时，在岗工人获得的经验 ×1.25。',
         icon: '📗',
-        implemented: true,
-        maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
+        ...implemented(ARTISAN_ARCHIVE_XP_EFFECT),
       },
       {
         id: 'forgeHeat',
@@ -248,9 +260,9 @@ const PRODUCTION_ROWS: readonly RowSeed[] = [
       {
         id: 'workshopCrest',
         name: '轮值章程',
-        desc: '同组两站都至少派入 1 人时，该组冲突惩罚再减半。',
+        desc: '同组两站都有人时，该组速度 ×1.08。',
         icon: '🛡️',
-        ...implemented(GROUP_CONFLICT_EFFECT),
+        ...implemented(GROUP_STAFF_SPEED_EFFECT),
       },
       {
         id: 'knightCrest',
@@ -1009,9 +1021,28 @@ export function offlineCapHours(save: Save): number {
   return Math.round(offlineCapS(save) / 3600)
 }
 
-/** 合成后新人留在原站。 */
+/** 合成后新人回休息。站槽不再留合成结果。 */
 export function fuseStayAssigned(_save: Save): boolean {
-  return true
+  return false
+}
+
+/** 工坊规章：全站周期乘区。未点为 1。 */
+export function workshopRulesCycleMul(save: Save): number {
+  const cut = techEffectValue(save, WORKSHOP_RULES_CYCLE_EFFECT)
+  if (cut <= 0) return 1
+  return Math.max(0.5, 1 - cut)
+}
+
+/** 正好 1 人在岗才乘。0 人或旧档夹紧前的多人都不乘。 */
+export function soloStaffMul(save: Save, stationId: StationId): number {
+  return assignedAt(save, stationId) === 1 ? SOLO_STAFF_MUL : 1
+}
+
+/** 轮值章程：同组两站都有人时再乘。不再改冲突。 */
+export function groupStaffSpeedMul(save: Save, stationId: StationId): number {
+  if (techEffectValue(save, GROUP_STAFF_SPEED_EFFECT) <= 0) return 1
+  if (!groupBothStaffed(save, stationId)) return 1
+  return 1 + techEffectValue(save, GROUP_STAFF_SPEED_EFFECT)
 }
 
 /** 站速度乘区仍 1；匠师印章走 stationCycleS 的周期乘区。 */
@@ -1023,10 +1054,7 @@ function assignedAt(save: Save, stationId: StationId): number {
   return save.workers.filter((w) => w.assignment === stationId).length
 }
 
-/**
- * 同站正好 2 人时的冲突倍率，乘在人数 / 工具等之后。
- * 1 人或 0 人无冲突。不做吵架、掉血、拆队，也不影响战斗。
- */
+/** 生产组配对。轮值章程用它看同组是否都有人。 */
 function groupPairOf(stationId: StationId): readonly [StationId, StationId] | undefined {
   return PLAYABLE_CHAINS.find((pair) => pair[0] === stationId || pair[1] === stationId)
 }
@@ -1038,22 +1066,14 @@ export function groupBothStaffed(save: Save, stationId: StationId): boolean {
   return assignedAt(save, pair[0]) >= 1 && assignedAt(save, pair[1]) >= 1
 }
 
-export function stationConflictMul(save: Save, stationId: StationId): number {
-  if (assignedAt(save, stationId) !== 2) return STATION_CONFLICT_CLEARED_MUL
-  if (hasTech(save, 'artisanArchive')) return STATION_CONFLICT_CLEARED_MUL
-  let mul = hasTech(save, 'workshopRules') ? STATION_CONFLICT_RULES_MUL : STATION_CONFLICT_BASE_MUL
-  if (techEffectValue(save, GROUP_CONFLICT_EFFECT) > 0 && groupBothStaffed(save, stationId)) {
-    mul = 1 - (1 - mul) * GROUP_CONFLICT_PENALTY_MUL
-  }
-  return mul
+/** 同站冲突已废弃。恒为 1，避免旧调用再扣速。 */
+export function stationConflictMul(_save: Save, _stationId: StationId): number {
+  return 1
 }
 
-/** 站卡满 2 人且仍有冲突时的提示。mul === 1 不显示。 */
-export function stationConflictHint(save: Save, stationId: StationId): string | null {
-  const mul = stationConflictMul(save, stationId)
-  if (mul >= 1) return null
-  const cutPct = Math.round((1 - mul) * 100)
-  return `冲突：效率 −${cutPct}%`
+/** 冲突提示已停用。 */
+export function stationConflictHint(_save: Save, _stationId: StationId): string | null {
+  return null
 }
 
 export function researchTech(save: Save, techId: string): ActionResult {

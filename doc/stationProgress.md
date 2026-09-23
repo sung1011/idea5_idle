@@ -91,11 +91,11 @@ xpToNext(L) = Math.round(100 * Math.pow(1.45, L - 1) * 0.175)  // L >= 5
 
 铜档 1 XP / 次，到 Lv5 要 50 次吞吐。
 
-- 采矿 20s：1 人约 17 分钟；3 人约 6 分钟。
-- 铭刻 32s：1 人约 27 分钟；3 人约 9 分钟。
+- 采矿 20s：在岗 1 人再 ×1.5，约 11 分钟。
+- 铭刻 32s：在岗 1 人再 ×1.5，约 18 分钟。
 - 骑士等级由站等级汇总，前期四级压低 XP 墙，骑士升级会跟着更快。
 
-铁档解锁后 2 XP / 次。采矿 Lv5→Lv6 要 77 XP ≈ 39 次，24s 周期单人约 16 分钟。秘银档 3 XP / 次，用来对冲更长周期和更高升级门槛。
+铁档解锁后 2 XP / 次。采矿 Lv5→Lv6 要 77 XP ≈ 39 次，24s 周期、在岗 1 人 ×1.5，约 10 分钟。秘银档 3 XP / 次，用来对冲更长周期和更高升级门槛。
 
 铭刻只吃荒晶。荒晶见底或已解锁配方都付不起 → 空转，提示缺「荒晶」。产出不受库存数量限制。站工具已撤。
 
@@ -103,13 +103,13 @@ xpToNext(L) = Math.round(100 * Math.pow(1.45, L - 1) * 0.175)  // L >= 5
 
 ## 结算
 
-`stepStation` / `completeCycle` 读当前品类的周期、消耗、产出。堆人（玩法 n≤2；站工具已撤，速度乘区恒 1）：
+`stepStation` / `completeCycle` 读当前品类的周期、消耗、产出。每站最多 1 人（站工具已撤，工具速度乘区恒 1）：
 
 ```
-speed = (1 / 当前品类 cycleS) * n * stationConflictMul
+speed = (1 / 当前品类 cycleS) * 加权人数 * soloStaffMul * groupStaffSpeedMul
 ```
 
-满 2 人未研究冲突 ×0.7，工坊规章 ×0.85，工匠密录 ×1.0。1 人无冲突。
+在岗正好 1 人时 `soloStaffMul = 1.5`，否则为 1。`stationConflictMul` 恒为 1。工坊规章把周期再 ×0.95；轮值章程在同组两站都有人时 `groupStaffSpeedMul = 1.08`。
 
 完成周期后 `grantStationXp`（点亮「配方拓印」后再 ×1.15）。升级时把 `unlockLevel <= 新等级` 的品类写入 `unlockedCategories`，并写 `progressNotice`（如「采矿升到 Lv5，解锁铁矿」）。UI 不展示该升级文案；停产不再整卡描边，缺料看消耗轻闪与堵点句。
 

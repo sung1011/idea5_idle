@@ -269,7 +269,7 @@ describe('workshop cycle grants on-duty xp', () => {
     const other = spawnWorker(save)
     const assist = spawnWorker(save)
     expect(assignWorker(save, dutyA.id, 'herbalism').ok).toBe(true)
-    expect(assignWorker(save, dutyB.id, 'herbalism').ok).toBe(true)
+    expect(assignWorker(save, dutyB.id, 'herbalism').ok).toBe(false)
     expect(assignWorker(save, other.id, 'mining').ok).toBe(true)
     assist.guest = true
     assist.assignment = 'herbalism'
@@ -280,7 +280,7 @@ describe('workshop cycle grants on-duty xp', () => {
     expect(completeCycle(save, 'herbalism')).toBe(true)
     expect(save.stations.herbalism.stationXp - stationBefore).toBe(xpPerCycle)
     expect(dutyA.xp).toBe(share)
-    expect(dutyB.xp).toBe(share)
+    expect(dutyB.xp).toBe(0)
     expect(dutyA.level).toBe(1)
     expect(resting.xp).toBe(0)
     expect(other.xp).toBe(0)
@@ -358,7 +358,7 @@ describe('fuse sums total xp', () => {
     const expected = workerFromTotalXp(sumTotal)
     expect(sumTotal).toBeGreaterThan(Math.floor(sumTotal / 2))
     expect(assignWorker(save, a.id, 'mining').ok).toBe(true)
-    expect(assignWorker(save, b.id, 'mining').ok).toBe(true)
+    b.assignment = 'mining'
     expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
     const next = save.workers[0]
     expect(next.qualityTier).toBe(2)
@@ -367,7 +367,7 @@ describe('fuse sums total xp', () => {
     expect(workerTotalXp(next.level, next.xp)).toBe(sumTotal)
     expect(next.hp).toBe(next.hpMax)
     expect(next.hpMax).toBe(workerLiveStats(next).hp)
-    expect(next.assignment).toBe('mining')
+    expect(next.assignment).toBeNull()
   })
 
   it('cascades overflow xp into extra levels along the worker curve', () => {
@@ -382,7 +382,7 @@ describe('fuse sums total xp', () => {
     expect(expected.level).toBe(2)
     expect(expected.xp).toBe(25 - workerXpToNext(1))
     expect(assignWorker(save, a.id, 'herbalism').ok).toBe(true)
-    expect(assignWorker(save, b.id, 'herbalism').ok).toBe(true)
+    b.assignment = 'herbalism'
     expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
     const next = save.workers[0]
     expect(next.qualityTier).toBe(2)

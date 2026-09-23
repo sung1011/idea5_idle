@@ -3,7 +3,6 @@ import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
 import { collectHints, currentSpeed } from './query'
-import { STATION_CONFLICT_BASE_MUL } from './tech'
 import { recruitWorker } from './recruit'
 import { setRollOverride } from './rng'
 import { PLAYABLE_STATION_IDS, STATION_DEF, STATION_IDS, stationSpeed } from './tables'
@@ -39,21 +38,21 @@ describe('mining → bank', () => {
     const next = ticks(save, 20)
     expect(bankQty(next, 'ore')).toBe(1)
     expect(next.stations.mining.completed).toBe(1)
-    expect(next.stations.mining.progress).toBeCloseTo(0)
+    expect(next.stations.mining.progress).toBeCloseTo(0.5)
   })
 
-  it('two miners without conflict tech are faster than one miner', () => {
+  it('one miner at solo speed finishes inside a 20s cycle', () => {
     const one = roster(1)
     assignWorker(one, one.workers[0].id, 'mining')
     const two = roster(2)
-    for (const w of two.workers) assignWorker(two, w.id, 'mining')
-    expect(currentSpeed(two, 'mining')).toBeCloseTo(currentSpeed(one, 'mining') * 2 * STATION_CONFLICT_BASE_MUL)
+    expect(assignWorker(two, two.workers[0].id, 'mining').ok).toBe(true)
+    expect(assignWorker(two, two.workers[1].id, 'mining').ok).toBe(false)
+    expect(currentSpeed(two, 'mining')).toBeCloseTo(currentSpeed(one, 'mining'))
+    expect(currentSpeed(one, 'mining')).toBeCloseTo((1 / 20) * 1.5)
 
-    const a = ticks(one, 15)
-    const b = ticks(two, 15)
-    expect(bankQty(a, 'ore')).toBe(0)
-    expect(bankQty(b, 'ore')).toBe(1)
-    expect(b.stations.mining.completed).toBe(1)
+    const a = ticks(one, 14)
+    expect(bankQty(a, 'ore')).toBe(1)
+    expect(a.stations.mining.completed).toBe(1)
   })
 
   it('keeps mining after stock exceeds the old bank cap', () => {
@@ -139,7 +138,7 @@ describe('cooking pipeline', () => {
     const save = roster(1)
     save.bank.fish = 1
     assignWorker(save, save.workers[0].id, 'cooking')
-    const next = ticks(save, 28)
+    const next = ticks(save, 19)
     expect(bankQty(next, 'fish')).toBe(0)
     expect(bankQty(next, 'meal')).toBe(1)
     expect(next.stations.cooking.completed).toBe(1)
@@ -151,7 +150,7 @@ describe('cooking pipeline', () => {
     save.stations.cooking.selectedCategory = 'iron'
     save.bank.meat = 1
     assignWorker(save, save.workers[0].id, 'cooking')
-    const next = ticks(save, 28)
+    const next = ticks(save, 19)
     expect(bankQty(next, 'meat')).toBe(0)
     expect(bankQty(next, 'roast')).toBe(1)
     expect(next.stations.cooking.completed).toBe(1)
@@ -199,7 +198,7 @@ describe('inscription pipeline', () => {
     const save = roster(1)
     save.bank.wildCrystal = 2
     assignWorker(save, save.workers[0].id, 'inscription')
-    const next = ticks(save, 32)
+    const next = ticks(save, 22)
     expect(bankQty(next, 'wildCrystal')).toBe(0)
     expect(
       ['runeSharp', 'runeArmor', 'runeBlood', 'runeBreak', 'runeSwift', 'runeInsight'].some(

@@ -7,7 +7,6 @@ import MessagePanel from './messagePanel.vue'
 import SettingsPanel from './settingsPanel.vue'
 import TechPanel from './techPanel.vue'
 import WorkersPanelV2 from './workersPanelV2.vue'
-import WorkshopPanel from './workshopPanel.vue'
 import FloatTips from './floatTips.vue'
 import GuideQuestFloat from './guideQuestFloat.vue'
 import {
@@ -90,8 +89,7 @@ onUnmounted(() => {
     </header>
 
     <main class="page" :class="tab">
-      <WorkshopPanel v-if="tab === 'workshop'" />
-      <WorkersPanelV2 v-else-if="tab === 'workers'" />
+      <WorkersPanelV2 v-if="tab === 'workshop'" />
       <EncounterPanel v-else-if="tab === 'encounters'" />
       <TechPanel v-else />
     </main>

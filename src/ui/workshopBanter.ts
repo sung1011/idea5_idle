@@ -79,7 +79,7 @@ export function workshopBanterText(workerId: string): string {
 }
 
 function workersOpen(): boolean {
-  return appTab.value === 'workers'
+  return appTab.value === 'workshop'
 }
 
 function showBubble(stationId: StationId, workerId: string, text: string) {

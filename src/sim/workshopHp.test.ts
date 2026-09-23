@@ -139,11 +139,11 @@ describe('workshop HP formulas', () => {
   it('adds fatigue to each assigned worker on that station only', () => {
     const save = roster(3)
     assignWorker(save, save.workers[0].id, 'mining')
-    assignWorker(save, save.workers[1].id, 'mining')
+    expect(assignWorker(save, save.workers[1].id, 'mining').ok).toBe(false)
     assignWorker(save, save.workers[2].id, 'herbalism')
     expect(completeCycle(save, 'mining')).toBe(true)
     expect(save.workers[0].fatigueDebt).toBeGreaterThan(0)
-    expect(save.workers[1].fatigueDebt).toBeGreaterThan(0)
+    expect(save.workers[1].fatigueDebt).toBe(0)
     expect(save.workers[2].fatigueDebt).toBe(0)
     expect(completeCycle(save, 'herbalism')).toBe(true)
     expect(save.workers[2].fatigueDebt).toBeGreaterThan(0)
@@ -153,11 +153,11 @@ describe('workshop HP formulas', () => {
     expect(stationHpWorkMul(createSave(), 'mining')).toBe(1)
     const save = roster(2)
     assignWorker(save, save.workers[0].id, 'mining')
-    assignWorker(save, save.workers[1].id, 'mining')
+    expect(assignWorker(save, save.workers[1].id, 'mining').ok).toBe(false)
     save.workers[0].hpMax = 100
-    save.workers[0].hp = 31
+    save.workers[0].hp = 20
     save.workers[1].hpMax = 100
-    save.workers[1].hp = 20
+    save.workers[1].hp = 1
     expect(stationHpWorkMul(save, 'mining')).toBe(WORKSHOP_WOUNDED_WORK_MUL)
     expect(stationHpEfficiencyLabel(stationHpWorkMul(save, 'mining'))).toBe('效率 80%')
     save.workers[0].hp = 1

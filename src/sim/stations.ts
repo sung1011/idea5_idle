@@ -14,7 +14,8 @@ import { isRuneItemId, ITEM_DEF, RUNE_DEF } from './tables'
 import { consumeDoubleMist, consumeRushCycle, mistQty } from './potions'
 import { cycleOutputBonus } from './tools'
 import type { Save, StationId } from './types'
-import { workerStationCycleXp } from './workerLevel'
+import { ARTISAN_ARCHIVE_XP_EFFECT, techEffectValue } from './tech'
+import { scaleArtisanStationXp, workerStationCycleXp } from './workerLevel'
 
 /** 1/6、1/7 这类 cycle 累加会卡在 0.999…，差一丁点到 1。 */
 const CYCLE_EPS = 1e-9
@@ -118,7 +119,9 @@ function successXpPerCycle(save: Save, stationId: StationId, lots: ItemLot[]): n
 
 /** 只发给 assignment 就是该站、且不是助战的在岗工人。升级走战斗同一条路径。 */
 function grantOnDutyWorkerXp(save: Save, stationId: StationId, xpPerCycle: number): void {
-  const amount = workerStationCycleXp(xpPerCycle)
+  const base = workerStationCycleXp(xpPerCycle)
+  const extra = techEffectValue(save, ARTISAN_ARCHIVE_XP_EFFECT)
+  const amount = extra > 0 ? scaleArtisanStationXp(base, 1 + extra) : base
   for (const worker of save.workers) {
     if (worker.assignment !== stationId || isAssistWorker(worker)) continue
     grantWorkerCombatXp(worker, amount)

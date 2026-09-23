@@ -72,10 +72,10 @@ describe('mining node recover', () => {
     assignWorker(save, save.workers[0].id, 'mining')
     save.workers[0].hpMax = 10_000
     save.workers[0].hp = 10_000
-    const depleted = ticks(save, 20 * 20)
+    const depleted = ticks(save, 267)
     expect(bankQty(depleted, 'ore')).toBe(20)
     expect(depleted.stations.mining.miningNode?.nodeHp).toBe(0)
-    expect(depleted.stations.mining.miningNode?.recoverAt).toBe(400 + 50)
+    expect(depleted.stations.mining.miningNode?.recoverAt).toBe(267 + 50)
     expect(isGatherFrozen(depleted, 'mining')).toBe(true)
 
     const stillBlocked = ticks(depleted, 10)
@@ -116,7 +116,7 @@ describe('herbalism settlement', () => {
     setRollOverride(() => 0.85)
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'herbalism')
-    const next = ticks(save, 40)
+    const next = ticks(save, 27)
     expect(next.stations.herbalism.completed).toBe(2)
     expect(next.stations.herbalism.miningNode).toBeUndefined()
     expect(bankQty(next, 'spice')).toBe(2)
@@ -146,14 +146,14 @@ describe('hunting settlement', () => {
     const save = roster(1)
     save.bank.meal = 1
     assignWorker(save, save.workers[0].id, 'hunting')
-    const next = ticks(save, 24)
+    const next = ticks(save, 16)
     expect(bankQty(next, 'meat')).toBe(0)
     expect(bankQty(next, 'fish')).toBe(0)
     expect(bankQty(next, 'meal')).toBe(0)
     expect(next.stations.hunting.completed).toBe(1)
     expect(next.stations.hunting.stationXp).toBe(1)
     expect(next.stations.hunting.gatherNotice).toContain('遇险')
-    expect(next.stations.hunting.gatherPauseUntil).toBe(24 + HUNTING_HAZARD_PAUSE_S)
+    expect(next.stations.hunting.gatherPauseUntil).toBe(16 + HUNTING_HAZARD_PAUSE_S)
     expect(isGatherFrozen(next, 'hunting')).toBe(true)
 
     const paused = ticks(next, 4)

@@ -155,7 +155,7 @@ export function stationAssignCaption(save: Save, stationId: StationId | null): s
   return `${STATION_DEF[stationId].label} · ${n}/${STATION_WORKER_CAP}`
 }
 
-/** 图标下工坊钮：休息只写站名；在岗带该站 0/1/2。 */
+/** 图标下工坊钮：休息只写站名；在岗带该站 0/1。 */
 export function workerShopCaption(save: Save, worker: Worker): string {
   return stationAssignCaption(save, worker.assignment)
 }
@@ -199,7 +199,7 @@ export type WorkshopStationBoard = {
   slots: Array<Worker | null>
 }
 
-/** 现玩法站按 STATION_ORDER（工坊组上→下），每站固定 2 槽，空位 null 占位。 */
+/** 现玩法站按 STATION_ORDER（工坊组上→下），每站 1 槽，空位 null 占位。 */
 export function workshopStationBoards(save: Save): WorkshopStationBoard[] {
   return STATION_ORDER.map((stationId) => {
     const crew = assignedWorkers(save, stationId)
@@ -240,7 +240,7 @@ export function restingWorkers(save: Save): Worker[] {
   return save.workers.filter((worker) => worker.assignment === null && !isWorkerInCombat(save, worker.id))
 }
 
-/** 药剂→食物→符文，站内左槽先于右槽；满员跳过。 */
+/** 药剂→食物→符文，满员跳过。每站 1 槽。 */
 export function firstEmptyDispatchStation(save: Save): StationId | null {
   for (const stationId of STATION_ORDER) {
     if (!isStationUnlocked(save, stationId)) continue

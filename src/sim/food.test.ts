@@ -91,11 +91,11 @@ describe('food slot buff', () => {
     expect(loadFood(save, save.workers[0].id, 'meal', 1, t0).ok).toBe(true)
     expect(save.workers[0].foodSlot?.qty).toBe(0)
     const fed = currentSpeed(save, 'mining', t0)
-    expect(fed).toBeCloseTo((1 / 20) * FOOD_BUFF_DEF.meal.mul)
+    expect(fed).toBeCloseTo((1 / 20) * FOOD_BUFF_DEF.meal.mul * 1.5)
 
     applyTick(save, { now: t0 + 180_000 })
     expect(save.workers[0].foodSlot).toBeNull()
-    expect(currentSpeed(save, 'mining', t0 + 180_000)).toBeCloseTo(1 / 20)
+    expect(currentSpeed(save, 'mining', t0 + 180_000)).toBeCloseTo((1 / 20) * 1.5)
     expect(fed).toBeGreaterThan(currentSpeed(save, 'mining', t0 + 180_000))
 
     const next = ticks(save, 20, { now: t0 + 180_000 })
@@ -141,7 +141,7 @@ describe('food slot buff', () => {
     expect(loadFood(save, save.workers[0].id, 'stew', 1, t0).ok).toBe(true)
     expect(workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.prodSpeed, t0)).toBeCloseTo(1.03)
     expect(workerToolSpeedMul(save, save.workers[0], 'mining', t0)).toBeCloseTo(1.03)
-    expect(currentSpeed(save, 'mining', t0)).toBeCloseTo((1 / 20) * 1.03)
+    expect(currentSpeed(save, 'mining', t0)).toBeCloseTo((1 / 20) * 1.03 * 1.5)
   })
 
   it('keeps food extraOutput at zero while mining still dual-drops ore and wildCrystal', () => {

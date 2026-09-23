@@ -81,7 +81,27 @@ export function fuseWorkers(save: Save, workerIdA: string, workerIdB: string): A
   return fusePairAt(save, a, b, stayAt)
 }
 
-/** 拖放到目标槽：与该槽工人合成，不先派驻（满站也能合），新人留在 stationId。 */
+/** 休息区两人同档、都未派驻、未满档。 */
+export function canFuseRestWorkers(save: Save, workerIdA: string, workerIdB: string): boolean {
+  if (!workerIdA || !workerIdB || workerIdA === workerIdB) return false
+  const a = findWorker(save, workerIdA)
+  const b = findWorker(save, workerIdB)
+  if (!a || !b || a.assignment != null || b.assignment != null) return false
+  return fusePairReady(a, b) == null
+}
+
+/** 休息区同档合成。新人回休息，不留在工位。 */
+export function fuseRestWorkers(save: Save, workerIdA: string, workerIdB: string): ActionResult {
+  if (!workerIdA || !workerIdB) return { ok: false, reason: '请选两个同品质工人' }
+  const a = findWorker(save, workerIdA)
+  const b = findWorker(save, workerIdB)
+  const ready = fusePairReady(a, b)
+  if (ready || !a || !b) return ready ?? { ok: false, reason: '没有这个工人' }
+  if (a.assignment != null || b.assignment != null) return { ok: false, reason: '只能在休息区合成' }
+  return fusePairAt(save, a, b, null)
+}
+
+/** 拖放到目标槽：与该槽工人合成，不先派驻。新人回休息（`fuseStayAssigned` 为 false）。 */
 export function canFuseWorkerOntoOccupant(
   save: Save,
   sourceId: string,

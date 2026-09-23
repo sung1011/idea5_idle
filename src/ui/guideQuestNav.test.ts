@@ -32,12 +32,12 @@ function memory(): Storage {
 describe('guideQuestNav', () => {
   it('opens the matching dock and sub-tab for each guide step', () => {
     const store = memory()
-    expect(openGuideQuestStep(1, store)).toBe('workers')
-    expect(appTab.value).toBe('workers')
-    expect(store.getItem(APP_TAB_KEY)).toBe('workers')
+    expect(openGuideQuestStep(1, store)).toBe('workshop')
+    expect(appTab.value).toBe('workshop')
+    expect(store.getItem(APP_TAB_KEY)).toBe('workshop')
 
-    expect(openGuideQuestStep(2, store)).toBe('workers')
-    expect(openGuideQuestStep(3, store)).toBe('workers')
+    expect(openGuideQuestStep(2, store)).toBe('workshop')
+    expect(openGuideQuestStep(3, store)).toBe('workshop')
 
     expect(openGuideQuestStep(4, store)).toBe('encounters')
     expect(mainlineTab.value).toBe('battlefield')
@@ -48,8 +48,8 @@ describe('guideQuestNav', () => {
     expect(workshopTab.value).toBe('alchemy')
     expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('alchemy')
 
-    expect(openGuideQuestStep(6, store)).toBe('workers')
-    expect(openGuideQuestStep(7, store)).toBe('workers')
+    expect(openGuideQuestStep(6, store)).toBe('workshop')
+    expect(openGuideQuestStep(7, store)).toBe('workshop')
 
     expect(pendingGuideRunePick.value).toBe(false)
     expect(openGuideQuestStep(8, store)).toBe('encounters')

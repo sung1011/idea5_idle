@@ -26,29 +26,29 @@ function memory(): Storage {
 }
 
 describe('appTabs', () => {
-  it('keeps the dock order 工坊 | 工人 | 主线 | 科技 and falls back to 主线', () => {
-    expect(APP_TABS.map((tab) => tab.id)).toEqual(['workshop', 'workers', 'encounters', 'tech'])
+  it('keeps the dock order 工坊 | 主线 | 科技 and falls back to 主线', () => {
+    expect(APP_TABS.map((tab) => tab.id)).toEqual(['workshop', 'encounters', 'tech'])
     expect(appTabOf('workshop')).toBe('workshop')
-    expect(appTabOf('workers')).toBe('workers')
-    expect(appTabOf('workersV2')).toBe('workers')
+    expect(appTabOf('workers')).toBe('workshop')
+    expect(appTabOf('workersV2')).toBe('workshop')
     expect(appTabOf('encounters')).toBe('encounters')
     expect(appTabOf('tech')).toBe('tech')
     expect(appTabOf('nope')).toBe(DEFAULT_APP_TAB)
     expect(DEFAULT_APP_TAB).toBe('encounters')
   })
 
-  it('persists the last dock tab and maps workersV2 to workers', () => {
+  it('persists the last dock tab and maps old worker tabs onto 工坊', () => {
     const store = memory()
     expect(loadAppTab(store)).toBe('encounters')
-    expect(saveAppTab('workers', store)).toBe('workers')
-    expect(store.getItem(APP_TAB_KEY)).toBe('workers')
-    expect(loadAppTab(store)).toBe('workers')
-    expect(saveAppTab('workersV2', store)).toBe('workers')
-    expect(store.getItem(APP_TAB_KEY)).toBe('workers')
-    expect(loadAppTab(store)).toBe('workers')
+    expect(saveAppTab('workers', store)).toBe('workshop')
+    expect(store.getItem(APP_TAB_KEY)).toBe('workshop')
+    expect(loadAppTab(store)).toBe('workshop')
+    expect(saveAppTab('workersV2', store)).toBe('workshop')
+    expect(store.getItem(APP_TAB_KEY)).toBe('workshop')
+    expect(loadAppTab(store)).toBe('workshop')
     store.setItem(APP_TAB_KEY, 'workersV2')
-    expect(loadAppTab(store)).toBe('workers')
-    expect(store.getItem(APP_TAB_KEY)).toBe('workers')
+    expect(loadAppTab(store)).toBe('workshop')
+    expect(store.getItem(APP_TAB_KEY)).toBe('workshop')
     expect(saveAppTab('tech', store)).toBe('tech')
     expect(loadAppTab(store)).toBe('tech')
     expect(saveAppTab('bad', store)).toBe('encounters')

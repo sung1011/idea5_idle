@@ -34,7 +34,7 @@ export type RailSlotDot = {
   idle: boolean
 }
 
-/** 一站两槽：有人则品质色 + 该站空转旗；空槽 null，左栏不画点。 */
+/** 一站一槽：有人则品质色 + 该站空转旗；空槽 null，左栏不画点。 */
 export function railStationSlotDots(
   save: Save,
   stationId: StationId,
@@ -50,7 +50,7 @@ export function railStationSlotDots(
   return slots
 }
 
-/** 组签 2×2：上排=上站两槽，下排=下站两槽。 */
+/** 一组两站各一槽，先上站后下站。 */
 export function railGroupSlotDots(
   save: Save,
   stations: readonly [StationId, StationId],

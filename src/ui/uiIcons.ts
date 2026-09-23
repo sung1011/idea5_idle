@@ -1,5 +1,5 @@
 /** 底栏页签 + 工坊竖签：16×16 单色 path，与战斗属性图标同语言（currentColor）。 */
-export const DOCK_ICON_IDS = ['encounters', 'workshop', 'workers', 'tech'] as const
+export const DOCK_ICON_IDS = ['workshop', 'encounters', 'tech'] as const
 export const STATION_ICON_IDS = [
   'herbalism',
   'alchemy',
@@ -12,7 +12,7 @@ export const STATION_ICON_IDS = [
 export type DockIconId = (typeof DOCK_ICON_IDS)[number]
 export type StationIconId = (typeof STATION_ICON_IDS)[number]
 export type ExtraIconId = 'fishing' | 'forging'
-export type UiIconId = DockIconId | StationIconId | ExtraIconId
+export type UiIconId = DockIconId | StationIconId | ExtraIconId | 'workers'
 
 export const UI_ICON_PATHS: Record<UiIconId, readonly string[]> = {
   workshop: ['M1.7 7.7 8 2.15 14.3 7.7V13.85H9.35V9.55H6.65V13.85H1.7Z'],

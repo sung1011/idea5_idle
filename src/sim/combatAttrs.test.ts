@@ -89,7 +89,7 @@ describe('distinct attr roll', () => {
     const b = spawnWorkerWith(save, 4, 'hunter', ['ice'])
     expect(a.combatAttrs).toEqual(['fire'])
     expect(assignWorker(save, a.id, 'hunting').ok).toBe(true)
-    expect(assignWorker(save, b.id, 'hunting').ok).toBe(true)
+    b.assignment = 'hunting'
     expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
     const next = save.workers[0]
     expect(next.qualityTier).toBe(5)

@@ -163,7 +163,7 @@ describe('save migration', () => {
     expect(save?.bank.ironTool).toBeUndefined()
     expect((save?.bank.wildCrystal ?? 0) >= 5).toBe(true)
     expect((save?.bank.runeSharp ?? 0) >= 1).toBe(true)
-    expect(save?.workers.map((w) => w.assignment)).toEqual(['mining', 'mining', null])
+    expect(save?.workers.map((w) => w.assignment)).toEqual(['mining', null, null])
     expect(save?.workers.every((w) => !('toolSlot' in w) || (w as { toolSlot?: unknown }).toolSlot == null)).toBe(true)
   })
 

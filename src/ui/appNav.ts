@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { itemProducerStation } from '../sim/tables'
 import type { ItemId, StationId } from '../sim/types'
 import { loadAppTab, saveAppTab, type AppTabId } from './appTabs'
+import { showStationDetail } from './stationDetailNav'
 import {
   loadWorkshopTab,
   saveWorkshopTab,
@@ -50,6 +51,7 @@ export function syncWorkshopTab(storage?: Storage | null): StationId {
 export function openWorkshopStation(stationId: unknown, storage?: Storage | null): StationId {
   const next = selectWorkshopStation(stationId, storage)
   selectAppTab('workshop', storage)
+  showStationDetail(next)
   return next
 }
 

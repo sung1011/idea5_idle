@@ -14,12 +14,14 @@ describe('messages', () => {
     save.lastTick = 0
     const result = settleOffline(save, 80_000)
     expect(hasUnread(result.save)).toBe(true)
-    expect(unreadCount(result.save)).toBe(1)
-    const first = listedMessages(result.save)[0]
-    expect(first.title).toBe('离线收益')
-    expect(first.read).toBe(false)
+    expect(unreadCount(result.save)).toBe(2)
+    const offline = listedMessages(result.save).find((m) => m.title === '离线收益')
+    const knight = listedMessages(result.save).find((m) => m.title === '骑士升级')
+    expect(offline?.read).toBe(false)
+    expect(knight?.read).toBe(false)
+    const first = offline!
     expect(first.body).toContain('离线 1 分钟 20 秒')
-    expect(first.body).toContain('铜矿 +4')
+    expect(first.body).toContain('铜矿 +6')
   })
 
   it('clears the unread flag after markAllRead', () => {

@@ -17,7 +17,7 @@ export function openGuideQuestStep(step: number, storage?: Storage | null): AppT
     case 3:
     case 6:
     case 7:
-      return selectAppTab('workers', storage)
+      return selectAppTab('workshop', storage)
     case 4:
       selectMainlineTab('battlefield', storage)
       return selectAppTab('encounters', storage)

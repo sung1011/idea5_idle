@@ -16,7 +16,16 @@ import {
   type IoRule,
 } from './tables'
 import { rushSpeedMul, stimSpeedMul } from './potions'
-import { forgeCycleMul, knightCycleMul, slagCopperValue, stationConflictMul, stationTechSpeedMul } from './tech'
+import {
+  forgeCycleMul,
+  groupStaffSpeedMul,
+  knightCycleMul,
+  slagCopperValue,
+  soloStaffMul,
+  stationConflictMul,
+  stationTechSpeedMul,
+  workshopRulesCycleMul,
+} from './tech'
 import { assignedToolWeight } from './tools'
 import { inscriptionRecipes } from './tables'
 import type { Hint, ItemId, Save, StationId } from './types'
@@ -33,7 +42,7 @@ export function idleCount(save: Save): number {
 
 export function stationCycleS(save: Save, stationId: StationId): number {
   const cycleS = selectedCategoryDef(save, stationId).cycleS
-  let mul = knightCycleMul(save)
+  let mul = knightCycleMul(save) * workshopRulesCycleMul(save)
   if (stationId === 'inscription') mul *= forgeCycleMul(save)
   return Math.max(1, cycleS * mul)
 }
@@ -48,7 +57,9 @@ export function currentSpeed(save: Save, stationId: StationId, now = Date.now())
     stationTechSpeedMul(save, stationId) *
     stationConflictMul(save, stationId) *
     stimSpeedMul(save) *
-    rushSpeedMul(save, stationId)
+    rushSpeedMul(save, stationId) *
+    soloStaffMul(save, stationId) *
+    groupStaffSpeedMul(save, stationId)
   )
 }
 

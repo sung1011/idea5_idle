@@ -27,11 +27,9 @@ describe('workshopRail', () => {
     expect(railWorkerDotColors(save, 'inscription')).toEqual([])
 
     const pink = spawnWorkerWith(save, 7, 'laborer')
-    assignWorker(save, pink.id, 'mining')
-    expect(railWorkerDotColors(save, 'mining')).toEqual([
-      WORKER_QUALITY_TABLE[2].color,
-      WORKER_QUALITY_TABLE[7].color,
-    ])
+    expect(assignWorker(save, pink.id, 'mining').ok).toBe(false)
+    expect(railWorkerDotColors(save, 'mining')).toEqual([WORKER_QUALITY_TABLE[2].color])
+    expect(pink.assignment).toBeNull()
   })
 
   it('uses the same visual progress as the station card', () => {
@@ -58,28 +56,23 @@ describe('workshopRail', () => {
     expect(railVisualInput(save, 'inscription').stalled).toBe(true)
   })
 
-  it('maps a group into a 2x2 of station slots, skipping empty dots', () => {
+  it('maps a group into one slot per station', () => {
     const save = createSave()
     const potion = WORKSHOP_GROUPS[0]
     expect(potion.stations).toEqual(['herbalism', 'alchemy'])
-    expect(railGroupSlotDots(save, potion.stations)).toEqual([null, null, null, null])
+    expect(railGroupSlotDots(save, potion.stations)).toEqual([null, null])
 
     const topA = spawnWorkerWith(save, 2, 'laborer')
     const topB = spawnWorkerWith(save, 7, 'laborer')
     const bot = spawnWorkerWith(save, 5, 'laborer')
     assignWorker(save, topA.id, 'herbalism')
-    assignWorker(save, topB.id, 'herbalism')
+    expect(assignWorker(save, topB.id, 'herbalism').ok).toBe(false)
     assignWorker(save, bot.id, 'alchemy')
 
-    expect(railStationSlotDots(save, 'herbalism')).toEqual([
-      { color: WORKER_QUALITY_TABLE[2].color, idle: false },
-      { color: WORKER_QUALITY_TABLE[7].color, idle: false },
-    ])
+    expect(railStationSlotDots(save, 'herbalism')).toEqual([{ color: WORKER_QUALITY_TABLE[2].color, idle: false }])
     expect(railGroupSlotDots(save, potion.stations)).toEqual([
       { color: WORKER_QUALITY_TABLE[2].color, idle: false },
-      { color: WORKER_QUALITY_TABLE[7].color, idle: false },
       { color: WORKER_QUALITY_TABLE[5].color, idle: false },
-      null,
     ])
   })
 
@@ -95,9 +88,7 @@ describe('workshopRail', () => {
     expect(railStationIdle(save, 'mining')).toBe(false)
     expect(railGroupSlotDots(save, ['mining', 'inscription'])).toEqual([
       null,
-      null,
       { color: WORKER_QUALITY_TABLE[3].color, idle: true },
-      null,
     ])
   })
 

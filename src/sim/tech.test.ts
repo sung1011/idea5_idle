@@ -23,6 +23,7 @@ import {
 } from './encounters'
 import { fuseWorkers } from './fuse'
 import { currentSpeed, slagCopperCostSet, stationCycleS } from './query'
+import { scaleArtisanStationXp } from './workerLevel'
 import { recruitWorker, spawnWorker, spawnWorkerWith } from './recruit'
 import { setRollOverride } from './rng'
 import { grantStationXp } from './stationProgress'
@@ -47,8 +48,6 @@ import {
   EXPLORE_COST_STACK_EFFECT,
   FIRST_STRIKE_EFFECT,
   FORGE_CYCLE_EFFECT,
-  GROUP_CONFLICT_EFFECT,
-  GROUP_CONFLICT_PENALTY_MUL,
   HUNT_HAZARD_EFFECT,
   IMPLEMENTED_TECH_MAX_LEVEL,
   KNIGHT_CYCLE_CAP,
@@ -62,9 +61,6 @@ import {
   RUNE_ATK_EFFECT,
   RUNE_SCRAP_EFFECT,
   SLAG_COPPER_EFFECT,
-  STATION_CONFLICT_BASE_MUL,
-  STATION_CONFLICT_CLEARED_MUL,
-  STATION_CONFLICT_RULES_MUL,
   STATION_XP_EFFECT,
   TECH_TAB_IDS,
   TECH_TAB_LABELS,
@@ -101,6 +97,12 @@ import {
   knightCycleMul,
   hydrateTechLevels,
   groupBothStaffed,
+  groupStaffSpeedMul,
+  GROUP_STAFF_SPEED_MUL,
+  SOLO_STAFF_MUL,
+  soloStaffMul,
+  workshopRulesCycleMul,
+  WORKSHOP_RULES_CYCLE_CUT,
   hydrateUnlockedTechIds,
   huntingHazardMul,
   isRowOpen,
@@ -586,7 +588,7 @@ describe('tech effects stay no-op where intended', () => {
     expect(techEffectValue(save, 'noop')).toBe(0)
     expect(recruitCost(save)).toBe(RECRUIT_COST - 5)
     expect(stationTechSpeedMul(save, 'cooking')).toBe(1)
-    expect(fuseStayAssigned(save)).toBe(true)
+    expect(fuseStayAssigned(save)).toBe(false)
     expect(offlineCapS(save)).toBe(OFFLINE_CAP_S + 4 * 3600)
     expect(offlineCapHours(save)).toBe(12)
     expect(exploreCost(save)).toBe(6)
@@ -597,78 +599,31 @@ describe('tech effects stay no-op where intended', () => {
     const bare = createSave()
     spawnWorker(bare)
     assignWorker(bare, bare.workers[0].id, 'cooking')
-    expect(withTech).toBeCloseTo(currentSpeed(bare, 'cooking'))
+    expect(withTech).toBeGreaterThan(currentSpeed(bare, 'cooking'))
+    expect(stationCycleS(save, 'cooking')).toBeLessThan(stationCycleS(bare, 'cooking'))
 
     expect(recruitWorker(save).ok).toBe(true)
 
     const merge = createSave()
     const a = spawnWorker(merge)
     const b = spawnWorker(merge)
-    assignWorker(merge, a.id, 'mining')
-    assignWorker(merge, b.id, 'mining')
-    maxAllTechs(merge)
-    expect(fuseWorkers(merge, a.id, b.id).ok).toBe(true)
-    expect(merge.workers[0].assignment).toBe('mining')
+    expect(fuseWorkers(merge, a.id, b.id)).toEqual({ ok: false, reason: '只能合并同一工坊的两人' })
+    expect(merge.workers).toHaveLength(2)
   })
 })
 
-describe('station conflict', () => {
-  it('cuts two-worker speed by 30% before conflict techs', () => {
-    const two = createSave()
-    spawnWorker(two)
-    spawnWorker(two)
-    assignWorker(two, two.workers[0].id, 'mining')
-    assignWorker(two, two.workers[1].id, 'mining')
-    const one = createSave()
-    spawnWorker(one)
-    assignWorker(one, one.workers[0].id, 'mining')
-    const noConflictTwo = currentSpeed(one, 'mining') * 2
-
-    expect(STATION_CONFLICT_BASE_MUL).toBe(0.7)
-    expect(stationConflictMul(two, 'mining')).toBe(STATION_CONFLICT_BASE_MUL)
-    expect(currentSpeed(two, 'mining')).toBeCloseTo(noConflictTwo * STATION_CONFLICT_BASE_MUL)
-    expect(currentSpeed(two, 'mining')).toBeGreaterThan(currentSpeed(one, 'mining'))
-    expect(stationConflictHint(two, 'mining')).toBe('冲突：效率 −30%')
-  })
-
-  it('changes mul after researching workshopRules then artisanArchive', () => {
-    const two = createSave()
-    spawnWorker(two)
-    spawnWorker(two)
-    assignWorker(two, two.workers[0].id, 'mining')
-    assignWorker(two, two.workers[1].id, 'mining')
-    const one = createSave()
-    spawnWorker(one)
-    assignWorker(one, one.workers[0].id, 'mining')
-    const stacked = currentSpeed(one, 'mining') * 2
-    two.techPoints = 999
-
-    expect(stationConflictMul(two, 'mining')).toBe(STATION_CONFLICT_BASE_MUL)
-    while (!hasTech(two, 'workshopRules')) {
-      expect(researchNextTech(two).ok).toBe(true)
-    }
-    expect(STATION_CONFLICT_RULES_MUL).toBe(0.85)
-    expect(stationConflictMul(two, 'mining')).toBe(STATION_CONFLICT_RULES_MUL)
-    expect(currentSpeed(two, 'mining')).toBeCloseTo(stacked * STATION_CONFLICT_RULES_MUL)
-    expect(stationConflictHint(two, 'mining')).toBe('冲突：效率 −15%')
-
-    while (!hasTech(two, 'artisanArchive')) {
-      expect(researchNextTech(two).ok).toBe(true)
-    }
-    expect(stationConflictMul(two, 'mining')).toBe(STATION_CONFLICT_CLEARED_MUL)
-    expect(currentSpeed(two, 'mining')).toBeCloseTo(stacked)
-    expect(stationConflictHint(two, 'mining')).toBeNull()
-  })
-
-  it('does not apply when 0 or 1 worker is assigned', () => {
+describe('solo staff and retired conflict', () => {
+  it('multiplies a single on-duty worker by 1.5 and never applies conflict', () => {
     const save = createSave()
     expect(stationConflictMul(save, 'mining')).toBe(1)
     expect(stationConflictHint(save, 'mining')).toBeNull()
+    expect(soloStaffMul(save, 'mining')).toBe(1)
     spawnWorker(save)
     assignWorker(save, save.workers[0].id, 'mining')
+    expect(soloStaffMul(save, 'mining')).toBe(SOLO_STAFF_MUL)
     expect(stationConflictMul(save, 'mining')).toBe(1)
-    expect(stationConflictHint(save, 'mining')).toBeNull()
-    expect(currentSpeed(save, 'mining')).toBeCloseTo(1 / 20)
+    expect(currentSpeed(save, 'mining')).toBeCloseTo((1 / 20) * SOLO_STAFF_MUL)
+    expect(assignWorker(save, spawnWorker(save).id, 'mining')).toEqual({ ok: false, reason: '该站最多 1 人' })
   })
 })
 
@@ -712,7 +667,7 @@ describe('resetAllTech', () => {
     expect(marketSlotCount(save)).toBe(3)
     expect(save.encounters).toHaveLength(3)
     expect(save.marketEncounters).toHaveLength(3)
-    expect(stationConflictMul(save, 'mining')).toBe(STATION_CONFLICT_CLEARED_MUL)
+    expect(stationConflictMul(save, 'mining')).toBe(1)
 
     const gold = save.gold
     const diamonds = save.diamonds
@@ -733,8 +688,8 @@ describe('resetAllTech', () => {
     expect(marketSlotCount(save)).toBe(MARKET_SLOT_MIN)
     expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MIN)
     expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MIN)
-    expect(stationConflictMul(save, 'mining')).toBe(STATION_CONFLICT_BASE_MUL)
-    expect(stationConflictHint(save, 'mining')).toBe('冲突：效率 −30%')
+    expect(stationConflictMul(save, 'mining')).toBe(1)
+    expect(stationConflictHint(save, 'mining')).toBeNull()
     expect(save.gold).toBe(gold)
     expect(save.diamonds).toBe(diamonds)
     expect(save.bank.wood).toBe(wood)
@@ -967,23 +922,35 @@ describe('tech effect multipliers', () => {
 })
 
 describe('wired placeholder techs', () => {
-  it('halves group conflict when both pair stations are staffed', () => {
+  it('speeds a staffed pair with 轮值章程 and shortens cycles with 工坊规章', () => {
     const save = createSave()
     spawnWorker(save)
     spawnWorker(save)
-    spawnWorker(save)
     assignWorker(save, save.workers[0].id, 'mining')
-    assignWorker(save, save.workers[1].id, 'mining')
-    expect(stationConflictMul(save, 'mining')).toBe(STATION_CONFLICT_BASE_MUL)
     expect(groupBothStaffed(save, 'mining')).toBe(false)
+    expect(workshopRulesCycleMul(save)).toBe(1)
+    expect(groupStaffSpeedMul(save, 'mining')).toBe(1)
+    const bareCycle = stationCycleS(save, 'mining')
+    const bareSpeed = currentSpeed(save, 'mining')
+    unlock(save, 'workshopRules')
+    expect(techNodeById('workshopRules').desc).toContain('周期 −5%')
+    expect(workshopRulesCycleMul(save)).toBeCloseTo(1 - WORKSHOP_RULES_CYCLE_CUT)
+    expect(stationCycleS(save, 'mining')).toBeCloseTo(bareCycle * (1 - WORKSHOP_RULES_CYCLE_CUT))
     unlock(save, 'workshopCrest')
-    expect(techEffectValue(save, GROUP_CONFLICT_EFFECT)).toBe(GROUP_CONFLICT_PENALTY_MUL)
-    expect(stationConflictMul(save, 'mining')).toBe(STATION_CONFLICT_BASE_MUL)
-    assignWorker(save, save.workers[2].id, 'inscription')
+    expect(techNodeById('workshopCrest').desc).toContain('×1.08')
+    expect(groupStaffSpeedMul(save, 'mining')).toBe(1)
+    assignWorker(save, save.workers[1].id, 'inscription')
     expect(groupBothStaffed(save, 'mining')).toBe(true)
-    expect(stationConflictMul(save, 'mining')).toBe(1 - (1 - STATION_CONFLICT_BASE_MUL) * GROUP_CONFLICT_PENALTY_MUL)
-    expect(stationConflictHint(save, 'mining')).toBe('冲突：效率 −15%')
-    expect(currentSpeed(save, 'mining')).toBeGreaterThan(0)
+    expect(groupStaffSpeedMul(save, 'mining')).toBeCloseTo(GROUP_STAFF_SPEED_MUL)
+    expect(stationConflictMul(save, 'mining')).toBe(1)
+    expect(currentSpeed(save, 'mining')).toBeCloseTo(
+      (bareSpeed / (1 - WORKSHOP_RULES_CYCLE_CUT)) * GROUP_STAFF_SPEED_MUL,
+    )
+    expect(currentSpeed(save, 'mining')).toBeGreaterThan(bareSpeed)
+    expect(techNodeById('artisanArchive').desc).toContain('×1.25')
+    expect(scaleArtisanStationXp(1, 1)).toBe(1)
+    expect(scaleArtisanStationXp(1, 1.25)).toBe(2)
+    expect(scaleArtisanStationXp(4, 1.25)).toBe(5)
   })
 
   it('adds mining wild-crystal dual-drop, alchemy extra bottle, and hunting hazard cut', () => {

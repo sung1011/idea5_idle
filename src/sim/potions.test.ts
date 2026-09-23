@@ -119,16 +119,16 @@ describe('potion slots', () => {
 describe('seven potion effects', () => {
   it('stim speeds on-duty stations for 3 minutes of sim time', () => {
     const save = roster(1)
-    assignWorker(save, save.workers[0].id, 'mining')
-    const bare = currentSpeed(save, 'mining')
+    assignWorker(save, save.workers[0].id, 'herbalism')
+    const bare = currentSpeed(save, 'herbalism')
     save.bank.stim = 1
     expect(installPotionSlot(save, 0, 'stim').ok).toBe(true)
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(stimSpeedMul(save)).toBe(STIM_SPEED_MUL)
-    expect(currentSpeed(save, 'mining')).toBeCloseTo(bare * STIM_SPEED_MUL)
+    expect(currentSpeed(save, 'herbalism')).toBeCloseTo(bare * STIM_SPEED_MUL)
     const later = ticks(save, STIM_DURATION_S)
     expect(stimSpeedMul(later)).toBe(1)
-    expect(currentSpeed(later, 'mining')).toBeCloseTo(bare)
+    expect(currentSpeed(later, 'herbalism')).toBeCloseTo(bare)
   })
 
   it('salve heals every on-duty worker by 10% hpMax', () => {
@@ -244,9 +244,9 @@ describe('seven potion effects', () => {
     const lighter = save.workers[2]
     const full = save.workers[3]
     assignWorker(save, worst.id, 'herbalism')
-    assignWorker(save, second.id, 'herbalism')
-    assignWorker(save, lighter.id, 'mining')
-    assignWorker(save, full.id, 'mining')
+    assignWorker(save, second.id, 'alchemy')
+    assignWorker(save, lighter.id, 'hunting')
+    assignWorker(save, full.id, 'cooking')
     worst.fatigueDebt = 2.4
     worst.hp = 1
     second.hp = Math.floor(second.hpMax * 0.45)

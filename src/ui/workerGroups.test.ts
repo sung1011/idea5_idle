@@ -111,31 +111,22 @@ describe('worker duty and names', () => {
 })
 
 describe('station crew dots and assign choices', () => {
-  it('pads two slots: quality color when occupied, gray when empty', () => {
+  it('pads one slot: quality color when occupied, gray when empty', () => {
     const save = unlockPlayableStations(createSave())
-    expect(stationCrewDots(save, null)).toEqual([
-      { empty: true, color: CREW_DOT_EMPTY },
-      { empty: true, color: CREW_DOT_EMPTY },
-    ])
+    expect(stationCrewDots(save, null)).toEqual([{ empty: true, color: CREW_DOT_EMPTY }])
     expect(stationAssignCaption(save, null)).toBe('休息')
 
     const orange = spawnWorkerWith(save, 6, 'hunter')
     const blue = spawnWorkerWith(save, 3, 'laborer')
     assignWorker(save, orange.id, 'hunting')
-    expect(stationCrewDots(save, 'hunting')).toEqual([
-      { empty: false, color: WORKER_QUALITY_TABLE[6].color },
-      { empty: true, color: CREW_DOT_EMPTY },
-    ])
+    expect(stationCrewDots(save, 'hunting')).toEqual([{ empty: false, color: WORKER_QUALITY_TABLE[6].color }])
     expect(stationAssignCaption(save, 'hunting')).toBe(`狩猎 · 1/${STATION_WORKER_CAP}`)
     expect(workerShopCaption(save, orange)).toBe(`狩猎 · 1/${STATION_WORKER_CAP}`)
     expect(workerShopCaption(save, blue)).toBe('休息')
 
-    assignWorker(save, blue.id, 'hunting')
-    expect(stationCrewDots(save, 'hunting')).toEqual([
-      { empty: false, color: WORKER_QUALITY_TABLE[6].color },
-      { empty: false, color: WORKER_QUALITY_TABLE[3].color },
-    ])
-    expect(stationAssignCaption(save, 'hunting')).toBe(`狩猎 · 2/${STATION_WORKER_CAP}`)
+    expect(assignWorker(save, blue.id, 'hunting').ok).toBe(false)
+    expect(stationCrewDots(save, 'hunting')).toEqual([{ empty: false, color: WORKER_QUALITY_TABLE[6].color }])
+    expect(stationAssignCaption(save, 'hunting')).toBe(`狩猎 · 1/${STATION_WORKER_CAP}`)
   })
 
   it('lists workshop tabs plus rest; full stations cannot take another worker', () => {
@@ -183,7 +174,7 @@ describe('station crew dots and assign choices', () => {
     expect(canAssignWorkerTo(save, rest, 'mining')).toBe(false)
   })
 
-  it('marks a station fusable when the picker matches an existing same-tier worker', () => {
+  it('does not mark an occupied station as a fuse target', () => {
     const save = unlockPlayableStations(createSave())
     const idle = spawnWorkerWith(save, 1, 'laborer')
     const mate = spawnWorkerWith(save, 1, 'artisan')
@@ -192,19 +183,14 @@ describe('station crew dots and assign choices', () => {
     assignWorker(save, other.id, 'mining')
 
     const idleChoices = workerAssignChoices(save, idle)
-    expect(idleChoices.find((c) => c.stationId === 'hunting')?.canFuse).toBe(true)
-    expect(idleChoices.find((c) => c.stationId === 'mining')?.canFuse).toBe(false)
-    expect(idleChoices.find((c) => c.stationId === null)?.canFuse).toBe(false)
-
-    assignWorker(save, idle.id, 'hunting')
-    const together = workerAssignChoices(save, idle)
-    expect(together.find((c) => c.stationId === 'hunting')?.canFuse).toBe(true)
-    expect(together.find((c) => c.stationId === 'mining')?.canFuse).toBe(false)
+    expect(idleChoices.every((c) => c.canFuse === false)).toBe(true)
+    expect(assignWorker(save, idle.id, 'hunting').ok).toBe(false)
+    expect(idle.assignment).toBeNull()
   })
 })
 
 describe('workshop station boards', () => {
-  it('lists playable stations with two padded slots and unassigned rest list', () => {
+  it('lists playable stations with one padded slot and unassigned rest list', () => {
     const save = unlockPlayableStations(createSave())
     const rest = spawnWorkerWith(save, 1, 'laborer')
     const miner = spawnWorkerWith(save, 2, 'miner')
@@ -229,10 +215,10 @@ describe('workshop station boards', () => {
     expect(mining?.label).toBe('采矿')
     expect(mining?.filled).toBe(1)
     expect(mining?.cap).toBe(STATION_WORKER_CAP)
-    expect(mining?.slots).toEqual([miner, null])
-    expect(cooking?.slots).toEqual([cook, null])
-    expect(hunting?.slots).toEqual([null, null])
-    expect(rosterSlotCounts(save)).toEqual({ stations: 6, filled: 2, cap: 12 })
+    expect(mining?.slots).toEqual([miner])
+    expect(cooking?.slots).toEqual([cook])
+    expect(hunting?.slots).toEqual([null])
+    expect(rosterSlotCounts(save)).toEqual({ stations: 6, filled: 2, cap: 6 })
     expect(unassignedWorkers(save).map((worker) => worker.id)).toEqual([rest.id])
   })
 
@@ -337,16 +323,14 @@ describe('assign resting to first empty slot', () => {
     expect(first.assignment).toBe('herbalism')
     expect(second.assignment).toBeNull()
 
-    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: true })
-    expect(second.assignment).toBe('herbalism')
+    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '骑士 2 级开放炼金' })
+    expect(second.assignment).toBeNull()
   })
 
   it('skips full herbalism and fills alchemy, then hunting', () => {
     const save = createSave()
     const herbA = spawnWorkerWith(save, 1, 'laborer')
-    const herbB = spawnWorkerWith(save, 1, 'artisan')
     assignWorker(save, herbA.id, 'herbalism')
-    assignWorker(save, herbB.id, 'herbalism')
     const idle = spawnWorkerWith(save, 2, 'miner')
     expect(firstEmptyDispatchStation(save)).toBeNull()
     expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '骑士 2 级开放炼金' })
@@ -357,8 +341,6 @@ describe('assign resting to first empty slot', () => {
     expect(assignRestingToFirstEmpty(save)).toEqual({ ok: true })
     expect(idle.assignment).toBe('alchemy')
 
-    const alcB = spawnWorkerWith(save, 1, 'wanderer')
-    assignWorker(save, alcB.id, 'alchemy')
     const next = spawnWorkerWith(save, 3, 'hunter')
     expect(firstEmptyDispatchStation(save)).toBe('hunting')
     expect(assignRestingToFirstEmpty(save)).toEqual({ ok: true })
@@ -403,21 +385,18 @@ describe('withdraw workshop to rest', () => {
     const huntB = spawnWorkerWith(save, 2, 'artisan')
     assignWorker(save, herb.id, 'herbalism')
     assignWorker(save, huntA.id, 'hunting')
-    assignWorker(save, huntB.id, 'hunting')
+    expect(assignWorker(save, huntB.id, 'hunting').ok).toBe(false)
     expect(lastOccupiedDispatchStation(save)).toBe('hunting')
     expect(canWithdrawWorkshopWorker(save)).toBe(true)
     expect(withdrawWorkshopToRest(save)).toEqual({ ok: true })
     expect(huntB.assignment).toBeNull()
-    expect(huntA.assignment).toBe('hunting')
-    expect(herb.assignment).toBe('herbalism')
-
-    expect(withdrawWorkshopToRest(save)).toEqual({ ok: true })
     expect(huntA.assignment).toBeNull()
     expect(herb.assignment).toBe('herbalism')
-    expect(lastOccupiedDispatchStation(save)).toBe('herbalism')
 
     expect(withdrawWorkshopToRest(save)).toEqual({ ok: true })
     expect(herb.assignment).toBeNull()
+    expect(lastOccupiedDispatchStation(save)).toBeNull()
+    expect(withdrawWorkshopToRest(save)).toEqual({ ok: false, reason: '没有可撤的工人' })
     expect(canWithdrawWorkshopWorker(save)).toBe(false)
   })
 

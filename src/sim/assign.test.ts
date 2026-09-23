@@ -3,11 +3,11 @@ import { assignIdleWorker, assignWorker, clampStationAssignments } from './assig
 import { beginEnemyCombat } from './combat'
 import { createSave } from './createSave'
 import {
+  canFuseRestWorkers,
   canFuseStationWorkers,
-  canFuseWorkerOntoOccupant,
   canFuseWorkerWithStation,
+  fuseRestWorkers,
   fuseStationWorkers,
-  fuseWorkerOntoOccupant,
   fuseWorkerWithStation,
   fuseWorkers,
   stationMergeLabel,
@@ -24,20 +24,19 @@ function roster(n: number) {
 }
 
 describe('station worker cap', () => {
-  it('rejects a third worker at the same station', () => {
-    const save = roster(3)
+  it('rejects a second worker at the same station', () => {
+    const save = roster(2)
+    expect(STATION_WORKER_CAP).toBe(1)
     expect(assignWorker(save, save.workers[0].id, 'mining').ok).toBe(true)
-    expect(assignWorker(save, save.workers[1].id, 'mining').ok).toBe(true)
-    const third = assignWorker(save, save.workers[2].id, 'mining')
-    expect(third).toEqual({ ok: false, reason: '该站最多 2 人' })
-    expect(save.workers[2].assignment).toBeNull()
-    expect(save.workers.filter((w) => w.assignment === 'mining')).toHaveLength(STATION_WORKER_CAP)
+    const second = assignWorker(save, save.workers[1].id, 'mining')
+    expect(second).toEqual({ ok: false, reason: '该站最多 1 人' })
+    expect(save.workers[1].assignment).toBeNull()
+    expect(save.workers.filter((w) => w.assignment === 'mining')).toHaveLength(1)
   })
 
   it('lets a worker stay when already at a full station', () => {
-    const save = roster(2)
+    const save = roster(1)
     assignWorker(save, save.workers[0].id, 'mining')
-    assignWorker(save, save.workers[1].id, 'mining')
     expect(assignWorker(save, save.workers[0].id, 'mining').ok).toBe(true)
     expect(save.workers[0].assignment).toBe('mining')
   })
@@ -68,8 +67,7 @@ describe('station worker cap', () => {
   it('blocks assignIdle when the station is full', () => {
     const save = roster(3)
     assignWorker(save, save.workers[0].id, 'cooking')
-    assignWorker(save, save.workers[1].id, 'cooking')
-    expect(assignIdleWorker(save, 'cooking')).toEqual({ ok: false, reason: '该站最多 2 人' })
+    expect(assignIdleWorker(save, 'cooking')).toEqual({ ok: false, reason: '该站最多 1 人' })
     expect(save.workers[2].assignment).toBeNull()
   })
 
@@ -79,21 +77,19 @@ describe('station worker cap', () => {
     save.workers[1].assignment = 'hunting'
     save.workers[2].assignment = 'hunting'
     clampStationAssignments(save)
-    expect(save.workers.map((w) => w.assignment)).toEqual(['hunting', 'hunting', null])
+    expect(save.workers.map((w) => w.assignment)).toEqual(['hunting', null, null])
   })
 })
 
-describe('station merge', () => {
-  it('merges two same-tier workers at one station', () => {
+describe('rest merge', () => {
+  it('merges two same-tier workers in rest and sends the result back to rest', () => {
     const save = roster(2)
-    assignWorker(save, save.workers[0].id, 'mining')
-    assignWorker(save, save.workers[1].id, 'mining')
-    const result = fuseStationWorkers(save, 'mining')
+    const result = fuseRestWorkers(save, save.workers[0].id, save.workers[1].id)
     expect(result.ok).toBe(true)
     expect(save.fuseDragTipDone).toBe(true)
     expect(save.workers).toHaveLength(1)
     expect(save.workers[0].qualityTier).toBe(2)
-    expect(save.workers[0].assignment).toBe('mining')
+    expect(save.workers[0].assignment).toBeNull()
   })
 
   it('labels the station merge button as 合成', () => {
@@ -123,57 +119,16 @@ describe('station merge', () => {
     expect(save.workers).toHaveLength(2)
   })
 
-  it('shows fuse only when the current worker can merge with the station crew', () => {
+  it('fuses in rest and does not fuse across stations or onto a filled post', () => {
     const save = roster(2)
     const [a, b] = save.workers
+    expect(canFuseRestWorkers(save, a.id, b.id)).toBe(true)
     expect(canFuseStationWorkers(save, 'mining')).toBe(false)
-    expect(canFuseWorkerWithStation(save, a.id, null)).toBe(false)
     expect(canFuseWorkerWithStation(save, a.id, 'mining')).toBe(false)
-
     assignWorker(save, b.id, 'mining')
-    expect(canFuseWorkerWithStation(save, a.id, 'mining')).toBe(true)
-    expect(canFuseStationWorkers(save, 'mining')).toBe(false)
-
-    assignWorker(save, a.id, 'mining')
-    expect(canFuseStationWorkers(save, 'mining')).toBe(true)
-    expect(canFuseWorkerWithStation(save, a.id, 'mining')).toBe(true)
-
-    b.qualityTier = 2
-    expect(canFuseStationWorkers(save, 'mining')).toBe(false)
+    expect(canFuseRestWorkers(save, a.id, b.id)).toBe(false)
     expect(canFuseWorkerWithStation(save, a.id, 'mining')).toBe(false)
-
-    a.qualityTier = QUALITY_MAX
-    b.qualityTier = QUALITY_MAX
-    expect(canFuseStationWorkers(save, 'mining')).toBe(false)
-    expect(canFuseWorkerWithStation(save, a.id, 'mining')).toBe(false)
-  })
-
-  it('assigns then fuses a matching worker into the target station', () => {
-    const save = roster(2)
-    const [a, b] = save.workers
-    assignWorker(save, b.id, 'cooking')
-    const result = fuseWorkerWithStation(save, a.id, 'cooking')
-    expect(result.ok).toBe(true)
-    expect(save.workers).toHaveLength(1)
-    expect(save.workers[0].qualityTier).toBe(2)
-    expect(save.workers[0].assignment).toBe('cooking')
-  })
-
-  it('fuses onto an occupant without assigning first, even if the station is full', () => {
-    const save = roster(3)
-    const [idle, left, right] = save.workers
-    assignWorker(save, left.id, 'mining')
-    assignWorker(save, right.id, 'mining')
-    expect(canFuseWorkerWithStation(save, idle.id, 'mining')).toBe(false)
-    expect(canFuseWorkerOntoOccupant(save, idle.id, left.id, 'mining')).toBe(true)
-    const result = fuseWorkerOntoOccupant(save, idle.id, left.id, 'mining')
-    expect(result.ok).toBe(true)
-    expect(save.workers).toHaveLength(2)
-    expect(save.workers.find((w) => w.id === idle.id)).toBeUndefined()
-    expect(save.workers.find((w) => w.id === left.id)).toBeUndefined()
-    expect(save.workers.find((w) => w.id === right.id)?.assignment).toBe('mining')
-    expect(save.workers.find((w) => w.id !== right.id)?.assignment).toBe('mining')
-    expect(save.workers.find((w) => w.id !== right.id)?.qualityTier).toBe(2)
+    expect(fuseWorkerWithStation(save, a.id, 'mining')).toEqual({ ok: false, reason: '品质不同，不能合成' })
   })
 
   it('does not assign when the target station crew cannot fuse', () => {

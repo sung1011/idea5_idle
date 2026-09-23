@@ -78,7 +78,7 @@ describe('workshop banter bubbles', () => {
 
   it('plays the second beat in order only on the workers page', () => {
     vi.useFakeTimers()
-    appTab.value = 'workers'
+    appTab.value = 'workshop'
     playWorkshopBanter({
       stationId: 'cooking',
       kind: 'duet',
@@ -111,7 +111,7 @@ describe('workshop banter bubbles', () => {
 
   it('does not show a line that fires off the workers page, and does not replay it later', () => {
     vi.useFakeTimers()
-    appTab.value = 'workshop'
+    appTab.value = 'tech'
     playWorkshopBanter({
       stationId: 'herbalism',
       kind: 'solo',
@@ -119,7 +119,7 @@ describe('workshop banter bubbles', () => {
     })
     expect(workshopBanterBubble('herbalism')).toBeNull()
     expect(workshopBanterText('a')).toBe('')
-    appTab.value = 'workers'
+    appTab.value = 'workshop'
     vi.advanceTimersByTime(10)
     expect(workshopBanterBubble('herbalism')).toBeNull()
   })
@@ -140,7 +140,7 @@ describe('workshop banter bubbles', () => {
   it('skips the forced greet when only rest or combat workers are present', () => {
     const save = createSave()
     save.workers.push(onDuty('rest', null))
-    appTab.value = 'workers'
+    appTab.value = 'workshop'
     greetWorkshopBanter(save, () => {
       throw new Error('休息区不应入选')
     })
@@ -205,7 +205,7 @@ describe('workshop banter bubbles', () => {
         outcome: null,
       },
     } as (typeof save.encounters)[number])
-    appTab.value = 'workers'
+    appTab.value = 'workshop'
     greetWorkshopBanter(save, () => 0)
     expect(workshopBanterBubble('cooking')?.workerId).toBe('duty')
     expect(workshopBanterText('fight')).toBe('')
@@ -232,7 +232,7 @@ describe('workshop banter bubbles', () => {
     save.workers.push(onDuty)
     prevApp = appTab.value
     prevStation = workshopTab.value
-    appTab.value = 'workers'
+    appTab.value = 'workshop'
     greetWorkshopBanter(save)
     expect(workshopBanterBubble('herbalism')).toBeNull()
     saveWorkshopBanter(true, store)
@@ -243,7 +243,7 @@ describe('workshop banter bubbles', () => {
   })
 
   it('does not spend the forced line while the workers page is closed', () => {
-    appTab.value = 'workshop'
+    appTab.value = 'tech'
     const save = createSave()
     save.workers.push(onDuty('a', 'cooking'))
     greetWorkshopBanter(save, () => {
@@ -256,11 +256,11 @@ describe('workshop banter bubbles', () => {
   it('plays the forced line once on the first visit to the workers page', () => {
     const save = createSave()
     save.workers.push(onDuty('a', 'cooking'))
-    appTab.value = 'workshop'
+    appTab.value = 'tech'
     greetWorkshopBanter(save, () => 0)
     expect(workshopBanterText('a')).toBe('')
 
-    appTab.value = 'workers'
+    appTab.value = 'workshop'
     greetWorkshopBanter(save, () => 0)
     expect(workshopBanterBubble('cooking')).toMatchObject({
       workerId: 'a',
@@ -274,7 +274,7 @@ describe('workshop banter bubbles', () => {
   })
 
   it('plays an assign line only while the workers page is open', () => {
-    appTab.value = 'workers'
+    appTab.value = 'workshop'
     const save = createSave()
     save.workers.push(onDuty('a', 'cooking'))
     offerActionBanter(save, 'assign', { workerId: 'a', stationId: 'cooking' }, () => 0)
@@ -284,12 +284,12 @@ describe('workshop banter bubbles', () => {
     })
 
     resetWorkshopBanterForTests()
-    appTab.value = 'workshop'
+    appTab.value = 'tech'
     offerActionBanter(save, 'assign', { workerId: 'a', stationId: 'cooking' }, () => {
       throw new Error('不在工人页，不应掷骰')
     })
     expect(workshopBanterBubble('cooking')).toBeNull()
-    appTab.value = 'workers'
+    appTab.value = 'workshop'
     expect(workshopBanterText('a')).toBe('')
   })
 })

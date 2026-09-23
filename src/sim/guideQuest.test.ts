@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import { createSave } from './createSave'
-import { fuseStationWorkers } from './fuse'
+import { fuseRestWorkers } from './fuse'
 import {
   GUIDE_QUEST_DONE_STEP,
   GUIDE_QUEST_GOLD,
@@ -197,8 +197,8 @@ describe('guideQuest steps and claim', () => {
     expect(save.guideQuestStep).toBe(3)
 
     spawnWorker(save)
-    assignWorker(save, save.workers[1].id, 'herbalism')
-    expect(fuseStationWorkers(save, 'herbalism').ok).toBe(true)
+    spawnWorker(save)
+    expect(fuseRestWorkers(save, save.workers[1].id, save.workers[2].id).ok).toBe(true)
     expect(guideQuestView(save)?.goal).toBe('合成两名同品质工人')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(4)
@@ -309,8 +309,8 @@ describe('guideQuest flash target', () => {
     expect(guideQuestFlashId(save)).toBe('fuse')
 
     spawnWorker(save)
-    assignWorker(save, save.workers[1].id, 'herbalism')
-    fuseStationWorkers(save, 'herbalism')
+    spawnWorker(save)
+    fuseRestWorkers(save, save.workers[1].id, save.workers[2].id)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('combat')
     expect(isGuideQuestCombatFlash(save, save.encounters[0])).toBe(true)

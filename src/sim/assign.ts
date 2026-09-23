@@ -26,7 +26,7 @@ export function clampStationAssignments(save: Save): void {
   }
 }
 
-/** 派工人到站点。每站最多 2 人。同一 worker 同时只有一份 assignment。伐木等废弃站不可派。 */
+/** 派工人到站点。每站最多 1 人。同一 worker 同时只有一份 assignment。伐木等废弃站不可派。 */
 export function assignWorker(save: Save, workerId: string, stationId: StationId | null): ActionResult {
   const worker = findWorker(save, workerId)
   if (!worker) return { ok: false, reason: '没有这个 worker' }
@@ -37,7 +37,7 @@ export function assignWorker(save: Save, workerId: string, stationId: StationId 
   }
   if (stationId !== null && worker.assignment !== stationId) {
     const n = assignedWorkers(save, stationId).length
-    if (n >= STATION_WORKER_CAP) return { ok: false, reason: '该站最多 2 人' }
+    if (n >= STATION_WORKER_CAP) return { ok: false, reason: '该站最多 1 人' }
   }
   const prev = worker.assignment
   worker.assignment = stationId

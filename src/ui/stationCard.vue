@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { stationMergeLabel } from '../sim/fuse'
 import { gatherStatusText, isGatherFrozen } from '../sim/gather'
 import {
   assignedCount,
@@ -18,8 +17,7 @@ import { isWorkerInCombat } from '../sim/combat'
 import { isEmptyHp, stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
 import { pushFloatTip } from './floatTips'
 import { isWorkerLevelFlashing } from './workerLevelFlash'
-import { stationConflictHint } from '../sim/tech'
-import { findCategory, STATION_DEF, STATION_WORKER_CAP, xpToNextLevel } from '../sim/tables'
+import { findCategory, STATION_DEF, xpToNextLevel } from '../sim/tables'
 import { itemSourceFlashCategories, isItemSourceStationFlash } from './itemSource'
 import type { CategoryId, StationId } from '../sim/types'
 import ConsumeJumpItem from './consumeJumpItem.vue'
@@ -47,8 +45,6 @@ const game = useGameStore()
 const def = computed(() => STATION_DEF[props.stationId])
 const count = computed(() => assignedCount(game.save, props.stationId))
 const crew = computed(() => assignedWorkers(game.save, props.stationId))
-const canMerge = computed(() => crew.value.length >= STATION_WORKER_CAP)
-const mergeLabel = computed(() => stationMergeLabel(game.save, props.stationId))
 const station = computed(() => game.save.stations[props.stationId])
 const cat = computed(() => selectedCategoryDef(game.save, props.stationId))
 const speed = computed(() => currentSpeed(game.save, props.stationId))
@@ -79,7 +75,6 @@ const xpPct = computed(() => Math.min(100, Math.round((station.value.stationXp /
 const pickOptions = computed(() => categoryPickOptions(game.save, props.stationId))
 const consumeGroups = computed(() => stationConsumeGroups(game.save, props.stationId))
 const stallLine = computed(() => stationBottleneckText(game.save, props.stationId))
-const conflictLine = computed(() => stationConflictHint(game.save, props.stationId))
 const guideFlashAlchemy = computed(
   () => props.stationId === 'alchemy' && isGuideQuestFlash(game.save, 'alchemy'),
 )
@@ -137,10 +132,6 @@ function onPick(value: string) {
   const opt = pickOptions.value.find((c) => c.id === value)
   if (!opt?.unlocked) return
   pick(value as CategoryId)
-}
-
-function onMerge() {
-  game.fuseStation(props.stationId)
 }
 
 function consumeText(row: StationConsumeToken) {
@@ -208,13 +199,6 @@ onUnmounted(() => {
           <i v-if="w.isNew" class="worker-new" aria-label="新工人">NEW</i>
           <span class="crew-lv">Lv{{ w.level }}</span>
         </span>
-        <button
-          v-if="canMerge"
-          type="button"
-          class="crew-merge"
-          :class="{ 'guide-flash': isGuideQuestFlash(game.save, 'fuse') }"
-          @click="onMerge"
-        >{{ mergeLabel }}</button>
       </li>
       <li v-else class="crew-empty">空岗</li>
     </ul>
@@ -231,7 +215,6 @@ onUnmounted(() => {
       · <span :class="{ low: hpMul < 1 }">{{ hpEffLabel }}</span>
     </p>
     <div class="sub">
-      <p v-if="conflictLine" class="stat conflict">{{ conflictLine }}</p>
       <p v-if="gatherLine" class="stat gather">{{ gatherLine }}</p>
       <p v-if="station.craftNotice" class="stat gather">{{ station.craftNotice }}</p>
       <p v-if="stallLine" class="stat jam">{{ stallLine }}</p>

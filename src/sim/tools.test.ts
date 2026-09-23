@@ -104,7 +104,7 @@ describe('retired station tool APIs', () => {
     assignWorker(save, save.workers[0].id, 'mining')
     expect(assignedToolWeight(save, 'mining')).toBe(1)
     expect(workerToolSpeedMul(save, save.workers[0], 'mining')).toBe(1)
-    expect(currentSpeed(save, 'mining')).toBeCloseTo(1 / 20)
+    expect(currentSpeed(save, 'mining')).toBeCloseTo((1 / 20) * 1.5)
     consumeSelectedStationTool(save, 'mining')
     expect(bankQty(save, 'miningTool01')).toBe(3)
   })

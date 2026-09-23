@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { bankQty } from '../sim/bank'
 import { formatMarchClock } from '../sim/encounters'
 import { foodBuffRemainS, isFoodBuffActive } from '../sim/food'
@@ -37,6 +37,11 @@ import { recruitCost } from '../sim/tech'
 import type { ClassId, PotionItemId, StationId, Worker } from '../sim/types'
 import ClassIcon from './classIcon.vue'
 import { openWorkshopStation } from './appNav'
+import StationDetailSheet from './stationDetailSheet.vue'
+import StationMiniBar from './stationMiniBar.vue'
+import { showStationDetail, openStationDetailId } from './stationDetailNav'
+import { isItemSourceStationFlash } from './itemSource'
+import StationTips from './stationTips.vue'
 import { dismissWorkshopBanter, greetWorkshopBanter, workshopBanterText } from './workshopBanter'
 import { useGameStore } from './gameStore'
 import HpBar from './hpBar.vue'
@@ -280,6 +285,18 @@ function goWorkshop() {
   closePick()
 }
 
+function openStationDetail(stationId: StationId) {
+  if (!isStationUnlocked(game.save, stationId)) {
+    pushFloatTip(stationLockedTip(stationId))
+    return
+  }
+  showStationDetail(stationId)
+}
+
+function closeStationDetail() {
+  showStationDetail(null)
+}
+
 function onPickStation(stationId: StationId | null) {
   const w = picking.value
   if (!w) return
@@ -291,21 +308,9 @@ function onPickStation(stationId: StationId | null) {
   if (result.ok) closePick()
 }
 
-function onFuseChoice(stationId: StationId | null) {
-  const w = picking.value
-  if (!w || !stationId) return
-  const result = game.fuseWorker(w.id, stationId)
-  if (!result.ok) return
-  pickId.value = game.save.workers.find((next) => next.assignment === stationId)?.id ?? null
-}
-
 function onEmptySlot(stationId: StationId) {
   if (drag.value?.active) return
-  if (!isStationUnlocked(game.save, stationId)) {
-    pushFloatTip(stationLockedTip(stationId))
-    return
-  }
-  game.assignIdle(stationId)
+  openStationDetail(stationId)
 }
 
 function stationLocked(stationId: StationId) {
@@ -313,7 +318,7 @@ function stationLocked(stationId: StationId) {
 }
 
 function tapLockedStation(stationId: StationId) {
-  if (stationLocked(stationId)) pushFloatTip(stationLockedTip(stationId))
+  openStationDetail(stationId)
 }
 
 function potionSlotLabel(itemId: ItemId | null) {
@@ -423,6 +428,10 @@ function onDragEnd(ev: PointerEvent) {
     if (source && over && !sameDragEndpoint(source, over)) game.dragAssign(source, over)
     return
   }
+  if (source?.kind === 'slot') {
+    openStationDetail(source.stationId)
+    return
+  }
   if (source?.kind === 'rest') return
   if (worker) openSheet(worker)
 }
@@ -445,9 +454,22 @@ function restDropClass(): string {
   return ''
 }
 
+function restWorkerDropClass(workerId: string): string {
+  const session = drag.value
+  if (!session?.active || !session.source) return ''
+  const target: WorkerDropTarget = { kind: 'restWorker', workerId }
+  if (canDropWorker(game.save, session.source, target)) return 'drop-ok'
+  if (dropTargetEquals(session.over, target)) return 'drop-no'
+  return ''
+}
+
 function banterLine(workerId: string): string {
   return workshopBanterText(workerId)
 }
+
+watch(openStationDetailId, (id) => {
+  if (id && !isStationUnlocked(game.save, id)) showStationDetail(null)
+})
 
 onMounted(() => {
   document.addEventListener('pointerdown', onDocPotionHelp, true)
@@ -475,9 +497,10 @@ onUnmounted(() => {
               locked: stationLocked(board.stationId),
               'guide-flash':
                 (guideFlashAssignHerb && board.stationId === 'herbalism') ||
-                (guideFlashFuse && board.stationId === 'herbalism'),
+                isItemSourceStationFlash(board.stationId),
             }"
           >
+            <StationTips :station-id="board.stationId" />
             <div class="station-name" @click="tapLockedStation(board.stationId)">
               <UiIcon :name="board.stationId" />
               <b>{{ board.label }}</b>
@@ -496,7 +519,7 @@ onUnmounted(() => {
                 :data-drop="'slot'"
                 :data-station="board.stationId"
                 :data-slot="i"
-                :aria-label="w ? `${workerShortName(w)} ${sheetMeta(w)}` : `${board.label}空槽 · 派驻`"
+                :aria-label="w ? `${workerShortName(w)} ${sheetMeta(w)}` : `${board.label}空岗 · 点此派入`"
                 @pointerdown="w ? onWorkerPointerDown($event, w, board.stationId, i) : undefined"
                 @click="w ? undefined : onEmptySlot(board.stationId)"
               >
@@ -513,11 +536,12 @@ onUnmounted(() => {
                       <em :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</em>
                     </b>
                     <small>Lv{{ w.level }}</small>
+                    <StationMiniBar :station-id="board.stationId" />
                   </span>
                 </template>
                 <template v-else>
                   <span class="empty-mark" aria-hidden="true">＋</span>
-                  <span class="empty-lab">空</span>
+                  <span class="empty-lab">点此派入</span>
                 </template>
               </button>
             </div>
@@ -598,7 +622,12 @@ onUnmounted(() => {
             </div>
           </div>
         </section>
-        <section class="zone rest" :class="restDropClass()" aria-label="休息区" data-drop="rest">
+        <section
+          class="zone rest"
+          :class="[restDropClass(), { 'guide-flash': guideFlashFuse }]"
+          aria-label="休息区"
+          data-drop="rest"
+        >
           <header class="zone-head">休息区 · {{ resting.length }}</header>
           <button
             type="button"
@@ -638,7 +667,9 @@ onUnmounted(() => {
               v-for="w in resting"
               :key="w.id"
               class="rest-row"
-              :class="[hpToneClass(w), { 'level-flash': isWorkerLevelFlashing(w.id) }]"
+              :class="[hpToneClass(w), restWorkerDropClass(w.id), { 'level-flash': isWorkerLevelFlashing(w.id) }]"
+              data-drop="rest-worker"
+              :data-worker="w.id"
             >
               <i class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
               <button
@@ -728,6 +759,13 @@ onUnmounted(() => {
     </div>
   </Teleport>
 
+  <StationDetailSheet
+    v-if="openStationDetailId"
+    :station-id="openStationDetailId"
+    @close="closeStationDetail"
+    @open-worker="openSheet"
+  />
+
   <Teleport to="body">
     <div
       v-if="picking"
@@ -749,8 +787,7 @@ onUnmounted(() => {
                 on: choice.current,
                 locked: choice.locked,
                 'guide-flash':
-                  (guideFlashAssignHerb && choice.stationId === 'herbalism') ||
-                  (guideFlashFuse && choice.canFuse),
+                  guideFlashAssignHerb && choice.stationId === 'herbalism',
               }"
               :disabled="choice.disabled && !choice.locked"
               :aria-pressed="choice.current"
@@ -765,15 +802,6 @@ onUnmounted(() => {
                 />
               </span>
               <span>{{ choice.label }}</span>
-            </button>
-            <button
-              v-if="choice.canFuse"
-              type="button"
-              class="fuse-main"
-              :class="{ 'guide-flash': guideFlashFuse }"
-              @click="onFuseChoice(choice.stationId)"
-            >
-              合成
             </button>
           </div>
         </div>
@@ -1025,6 +1053,8 @@ onUnmounted(() => {
 }
 
 .station {
+  position: relative;
+
   display: flex;
   align-items: stretch;
   min-height: var(--workshop-rail-row-min);
@@ -1252,12 +1282,14 @@ onUnmounted(() => {
 }
 
 .slot.drop-ok,
-.rest.drop-ok {
+.rest.drop-ok,
+.rest-row.drop-ok {
   box-shadow: 0 0 0 2px var(--moss);
 }
 
 .slot.drop-no,
-.rest.drop-no {
+.rest.drop-no,
+.rest-row.drop-no {
   box-shadow: 0 0 0 2px var(--danger);
 }
 

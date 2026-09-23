@@ -32,6 +32,12 @@ export function workerStationCycleXp(xpPerCycle: number): number {
   return Math.max(1, Math.round(base * WORKER_STATION_XP_SHARE))
 }
 
+/** 工匠密录：在基础份额上再乘。mul≤1 不变；乘完至少比原份额多 1，避免 1 点经验被四舍五入吃掉。 */
+export function scaleArtisanStationXp(amount: number, mul: number): number {
+  if (!(mul > 1) || !(amount > 0)) return amount
+  return Math.max(amount + 1, Math.ceil(amount * mul))
+}
+
 /** 升级浮字。N 为升完后的等级。 */
 export function workerLevelUpTip(shortName: string, level: number): string {
   const name = shortName.trim() || '工人'

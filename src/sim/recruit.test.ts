@@ -160,12 +160,12 @@ describe('fuseWorkers', () => {
     const a = spawnWorker(save)
     const b = spawnWorker(save)
     expect(assignWorker(save, a.id, 'mining').ok).toBe(true)
-    expect(assignWorker(save, b.id, 'mining').ok).toBe(true)
+    b.assignment = 'mining'
     const result = fuseWorkers(save, a.id, b.id)
     expect(result.ok).toBe(true)
     expect(save.workers).toHaveLength(1)
     expect(save.workers[0].qualityTier).toBe(2)
-    expect(save.workers[0].assignment).toBe('mining')
+    expect(save.workers[0].assignment).toBeNull()
     expect(save.workers[0].foodSlot).toBeNull()
     expect(save.workers[0].id).toBe('w-3')
     expect(save.workers[0].name).toBe(WORKER_NAME_POOL[2])
@@ -179,7 +179,7 @@ describe('fuseWorkers', () => {
     a.classId = 'laborer'
     b.classId = 'laborer'
     expect(assignWorker(save, a.id, 'cooking').ok).toBe(true)
-    expect(assignWorker(save, b.id, 'cooking').ok).toBe(true)
+    b.assignment = 'cooking'
     setRollOverride(() => 0.99)
     expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
     expect(save.workers[0].classId).toBe('miner')
@@ -193,13 +193,12 @@ describe('fuseWorkers', () => {
     save.bank.meal = 2
     expect(loadFood(save, a.id, 'meal', 2).ok).toBe(true)
     expect(assignWorker(save, a.id, 'mining').ok).toBe(true)
-    expect(assignWorker(save, b.id, 'mining').ok).toBe(true)
+    b.assignment = 'mining'
     expect(bankQty(save, 'meal')).toBe(0)
 
     expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
     expect(bankQty(save, 'meal')).toBe(1)
-    expect(save.workers[0].assignment).toBe('mining')
-    expect(save.workers.every((w) => w.assignment === 'mining')).toBe(true)
+    expect(save.workers[0].assignment).toBeNull()
   })
 
   it('rejects missing, same, mixed-tier, and max-tier pairs', () => {
@@ -211,7 +210,7 @@ describe('fuseWorkers', () => {
     expect(fuseWorkers(save, '', b.id)).toEqual({ ok: false, reason: '请选两个同品质工人' })
 
     expect(assignWorker(save, a.id, 'herbalism').ok).toBe(true)
-    expect(assignWorker(save, b.id, 'herbalism').ok).toBe(true)
+    b.assignment = 'herbalism'
     b.qualityTier = 2
     expect(fuseWorkers(save, a.id, b.id)).toEqual({ ok: false, reason: '品质不同，不能合成' })
     expect(save.workers).toHaveLength(2)
