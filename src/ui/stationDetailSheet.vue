@@ -9,6 +9,7 @@ import { stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
 import { findCategory, ITEM_DEF, STATION_DEF, xpToNextLevel } from '../sim/tables'
 import type { CategoryId, StationId, Worker } from '../sim/types'
 import ConsumeJumpItem from './consumeJumpItem.vue'
+import StationMiniBar from './stationMiniBar.vue'
 import { formatConsumeToken } from './encounterDeal'
 import { useGameStore } from './gameStore'
 import { itemSourceFlashCategories, isItemSourceStationFlash } from './itemSource'
@@ -182,6 +183,10 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
             <dt>效率 / 体力</dt>
             <dd :class="{ low: hpMul < 1 }">{{ hpLabel }}</dd>
           </div>
+          <div class="progress">
+            <dt>制造进度</dt>
+            <dd><StationMiniBar :station-id="stationId" layout="sheet" /></dd>
+          </div>
           <div>
             <dt>周期 / 速度</dt>
             <dd>{{ cycleS }}s · ×{{ speedFactor.toFixed(2) }}</dd>
@@ -312,7 +317,8 @@ header {
   background: rgba(255, 252, 244, 0.8);
 }
 
-.fields > div:nth-child(n + 5) {
+.fields > div.progress,
+.fields > div:nth-child(n + 6) {
   grid-column: 1 / -1;
 }
 

@@ -310,15 +310,12 @@ function onPickStation(stationId: StationId | null) {
 
 function onEmptySlot(stationId: StationId) {
   if (drag.value?.active) return
-  openStationDetail(stationId)
+  const result = game.assignIdle(stationId)
+  if (!result.ok) pushFloatTip(result.reason)
 }
 
 function stationLocked(stationId: StationId) {
   return !isStationUnlocked(game.save, stationId)
-}
-
-function tapLockedStation(stationId: StationId) {
-  openStationDetail(stationId)
 }
 
 function potionSlotLabel(itemId: ItemId | null) {
@@ -428,10 +425,7 @@ function onDragEnd(ev: PointerEvent) {
     if (source && over && !sameDragEndpoint(source, over)) game.dragAssign(source, over)
     return
   }
-  if (source?.kind === 'slot') {
-    openStationDetail(source.stationId)
-    return
-  }
+  if (source?.kind === 'slot') return
   if (source?.kind === 'rest') return
   if (worker) openSheet(worker)
 }
@@ -501,49 +495,59 @@ onUnmounted(() => {
             }"
           >
             <StationTips :station-id="board.stationId" />
-            <div class="station-name" @click="tapLockedStation(board.stationId)">
+            <div class="station-name">
               <UiIcon :name="board.stationId" />
               <b>{{ board.label }}</b>
             </div>
-            <div class="slots">
-              <button
-                v-for="(w, i) in board.slots"
-                :key="`${board.stationId}-${i}`"
-                type="button"
-                class="slot"
-                :class="[
-                  { empty: !w, 'level-flash': !!w && isWorkerLevelFlashing(w.id), 'has-banter': !!w && banterLine(w.id) },
-                  w ? hpToneClass(w) : '',
-                  slotDropClass(board.stationId, i),
-                ]"
-                :data-drop="'slot'"
-                :data-station="board.stationId"
-                :data-slot="i"
-                :aria-label="w ? `${workerShortName(w)} ${sheetMeta(w)}` : `${board.label}空岗 · 点此派入`"
-                @pointerdown="w ? onWorkerPointerDown($event, w, board.stationId, i) : undefined"
-                @click="w ? undefined : onEmptySlot(board.stationId)"
-              >
-                <i v-if="w" class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
-                <template v-if="w">
-                  <span class="avatar" :style="workerQualityTileStyle(w)">
-                    <ClassIcon :name="classIconOf(w)" />
-                    <i v-if="w.isNew" class="worker-new" aria-label="新工人">NEW</i>
-                  </span>
-                  <span class="slot-main">
-                    <span v-if="banterLine(w.id)" class="banter" role="status">{{ banterLine(w.id) }}</span>
-                    <b>
-                      <i class="qdot" :style="workerQualityDotStyle(w.qualityTier)" />
-                      <em :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</em>
-                    </b>
-                    <small>Lv{{ w.level }}</small>
-                    <StationMiniBar :station-id="board.stationId" />
-                  </span>
-                </template>
-                <template v-else>
-                  <span class="empty-mark" aria-hidden="true">＋</span>
-                  <span class="empty-lab">点此派入</span>
-                </template>
-              </button>
+            <button
+              type="button"
+              class="station-detail"
+              :aria-label="`查看${board.label}详情`"
+              @click.stop="openStationDetail(board.stationId)"
+            >
+              详情
+            </button>
+            <div class="station-work">
+              <div class="slots">
+                <button
+                  v-for="(w, i) in board.slots"
+                  :key="`${board.stationId}-${i}`"
+                  type="button"
+                  class="slot"
+                  :class="[
+                    { empty: !w, 'level-flash': !!w && isWorkerLevelFlashing(w.id), 'has-banter': !!w && banterLine(w.id) },
+                    w ? hpToneClass(w) : '',
+                    slotDropClass(board.stationId, i),
+                  ]"
+                  :data-drop="'slot'"
+                  :data-station="board.stationId"
+                  :data-slot="i"
+                  :aria-label="w ? `${workerShortName(w)} ${sheetMeta(w)}` : `${board.label}空岗 · 点此派入`"
+                  @pointerdown="w ? onWorkerPointerDown($event, w, board.stationId, i) : undefined"
+                  @click="w ? undefined : onEmptySlot(board.stationId)"
+                >
+                  <i v-if="w" class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
+                  <template v-if="w">
+                    <span class="avatar" :style="workerQualityTileStyle(w)">
+                      <ClassIcon :name="classIconOf(w)" />
+                      <i v-if="w.isNew" class="worker-new" aria-label="新工人">NEW</i>
+                    </span>
+                    <span class="slot-main">
+                      <span v-if="banterLine(w.id)" class="banter" role="status">{{ banterLine(w.id) }}</span>
+                      <b>
+                        <i class="qdot" :style="workerQualityDotStyle(w.qualityTier)" />
+                        <em :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</em>
+                      </b>
+                      <small>Lv{{ w.level }}</small>
+                    </span>
+                  </template>
+                  <template v-else>
+                    <span class="empty-mark" aria-hidden="true">＋</span>
+                    <span class="empty-lab">点此派入</span>
+                  </template>
+                </button>
+              </div>
+              <StationMiniBar class="station-progress" :station-id="board.stationId" />
             </div>
           </article>
           <div class="potion-row" aria-label="药剂技能槽">
@@ -1094,6 +1098,35 @@ onUnmounted(() => {
   line-height: 1.1;
   letter-spacing: 0.04em;
   writing-mode: vertical-rl;
+}
+
+.station-detail {
+  flex: 0 0 auto;
+  align-self: center;
+  margin: 0 2px;
+  padding: 3px 2px;
+  border: 1px solid var(--gold-deep);
+  border-radius: 4px;
+  background: linear-gradient(180deg, #fff9de, #f3ddaa);
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: 0.06em;
+  writing-mode: vertical-rl;
+}
+
+.station-work {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.station-work :deep(.station-progress) {
+  flex: 0 0 auto;
+  padding: 0 4px 3px;
 }
 
 .potion-row {
