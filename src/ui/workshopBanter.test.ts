@@ -12,6 +12,7 @@ import {
   WORKSHOP_BANTER_KEY,
   dismissWorkshopBanter,
   greetWorkshopBanter,
+  offerActionBanter,
   resetWorkshopBanterForTests,
   loadWorkshopBanter,
   playWorkshopBanter,
@@ -270,6 +271,26 @@ describe('workshop banter bubbles', () => {
       throw new Error('已经打过招呼')
     })
     expect(workshopBanterText('a')).toBe(banterLines('gripe', 'cooking')[0])
+  })
+
+  it('plays an assign line only while the workers page is open', () => {
+    appTab.value = 'workers'
+    const save = createSave()
+    save.workers.push(onDuty('a', 'cooking'))
+    offerActionBanter(save, 'assign', { workerId: 'a', stationId: 'cooking' }, () => 0)
+    expect(workshopBanterBubble('cooking')).toMatchObject({
+      workerId: 'a',
+      text: banterLines('byStation', 'cooking')[0],
+    })
+
+    resetWorkshopBanterForTests()
+    appTab.value = 'workshop'
+    offerActionBanter(save, 'assign', { workerId: 'a', stationId: 'cooking' }, () => {
+      throw new Error('不在工人页，不应掷骰')
+    })
+    expect(workshopBanterBubble('cooking')).toBeNull()
+    appTab.value = 'workers'
+    expect(workshopBanterText('a')).toBe('')
   })
 })
 

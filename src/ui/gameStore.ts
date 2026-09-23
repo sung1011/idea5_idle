@@ -17,7 +17,7 @@ import {
 import { hasUnread, listedMessages, markAllRead } from '../sim/messages'
 import { settleOffline } from '../sim/offline'
 import { clearPotionSlot, installPotionSlot } from '../sim/potionSlots'
-import { usePotionSlot } from '../sim/potions'
+import { potionSlotItem, usePotionSlot } from '../sim/potions'
 import { loadFood, unloadFood } from '../sim/food'
 import { fuseStationWorkers, fuseWorkerWithStation } from '../sim/fuse'
 import { recruitWorker, clearWorkerNew } from '../sim/recruit'
@@ -38,6 +38,7 @@ import {
 import { claimDungeonChest, reinforceDungeonCombat, startDungeonCombat } from '../sim/dungeon'
 import { claimGuideQuest, markGuideQuestRuneOpened } from '../sim/guideQuest'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
+import { PLAYABLE_STATION_IDS } from '../sim/tables'
 import { tick } from '../sim/tick'
 import { takeWorkshopHpEfficiencyTip } from '../sim/workshopHp'
 import type { ActionResult, CategoryId, ItemId, PotionItemId, Save, StationId, Worker } from '../sim/types'
@@ -46,7 +47,7 @@ import { pushFloatTip } from './floatTips'
 import { announceWorkerLevelUps, workerLevelSnapshot } from './workerLevelFlash'
 import { clearSave, loadSave, persistSave } from './saveGame'
 import { pushCycleGain } from './stationTips'
-import { offerWorkshopBanter } from './workshopBanter'
+import { offerActionBanter, offerWorkshopBanter } from './workshopBanter'
 import { applyWorkerDrag, type WorkerDragSource, type WorkerDropTarget } from './workerDrag'
 import { assignRestingToFirstEmpty, withdrawWorkshopToRest } from './workerGroups'
 
@@ -83,6 +84,32 @@ export const useGameStore = defineStore('game', () => {
     offerWorkshopBanter(save.value, produced)
     notifyWorkshopHpEfficiency(save.value)
     persist()
+  }
+
+  function assignmentSnapshot(): Map<string, StationId | null> {
+    return new Map(save.value.workers.map((worker) => [worker.id, worker.assignment]))
+  }
+
+  function isPlayableStation(stationId: StationId | null | undefined): stationId is StationId {
+    return !!stationId && (PLAYABLE_STATION_IDS as readonly string[]).includes(stationId)
+  }
+
+  function offerFreshAssign(before: Map<string, StationId | null>) {
+    for (const worker of save.value.workers) {
+      if (!before.has(worker.id)) continue
+      if (before.get(worker.id) != null) continue
+      if (!isPlayableStation(worker.assignment)) continue
+      offerActionBanter(save.value, 'assign', { workerId: worker.id, stationId: worker.assignment })
+      return
+    }
+  }
+
+  function offerFused(beforeIds: ReadonlySet<string>) {
+    const created = save.value.workers.find(
+      (worker) => !beforeIds.has(worker.id) && isPlayableStation(worker.assignment),
+    )
+    if (!created?.assignment) return
+    offerActionBanter(save.value, 'fuse', { workerId: created.id, stationId: created.assignment })
   }
 
   function apply(fn: (s: Save) => ActionResult): ActionResult {
@@ -172,15 +199,50 @@ export const useGameStore = defineStore('game', () => {
         return { ok: true }
       })
     },
-    fuseStation: (stationId: StationId) => apply((s) => fuseStationWorkers(s, stationId)),
-    fuseWorker: (workerId: string, stationId: StationId) =>
-      apply((s) => fuseWorkerWithStation(s, workerId, stationId)),
-    assignIdle: (stationId: StationId) => apply((s) => assignIdleWorker(s, stationId)),
-    assignRestingToFirstEmpty: () => apply(assignRestingToFirstEmpty),
+    fuseStation: (stationId: StationId) => {
+      const beforeIds = new Set(save.value.workers.map((worker) => worker.id))
+      const result = apply((s) => fuseStationWorkers(s, stationId))
+      if (result.ok) offerFused(beforeIds)
+      return result
+    },
+    fuseWorker: (workerId: string, stationId: StationId) => {
+      const beforeIds = new Set(save.value.workers.map((worker) => worker.id))
+      const result = apply((s) => fuseWorkerWithStation(s, workerId, stationId))
+      if (result.ok) offerFused(beforeIds)
+      return result
+    },
+    assignIdle: (stationId: StationId) => {
+      const before = assignmentSnapshot()
+      const result = apply((s) => assignIdleWorker(s, stationId))
+      if (result.ok) offerFreshAssign(before)
+      return result
+    },
+    assignRestingToFirstEmpty: () => {
+      const before = assignmentSnapshot()
+      const result = apply(assignRestingToFirstEmpty)
+      if (result.ok) offerFreshAssign(before)
+      return result
+    },
     withdrawWorkshopToRest: () => apply(withdrawWorkshopToRest),
     withdraw: (stationId: StationId) => apply((s) => withdrawWorker(s, stationId)),
-    assign: (workerId: string, stationId: StationId | null) => apply((s) => assignWorker(s, workerId, stationId)),
-    dragAssign: (source: WorkerDragSource, target: WorkerDropTarget) => apply((s) => applyWorkerDrag(s, source, target)),
+    assign: (workerId: string, stationId: StationId | null) => {
+      const before = assignmentSnapshot()
+      const result = apply((s) => assignWorker(s, workerId, stationId))
+      if (result.ok) offerFreshAssign(before)
+      return result
+    },
+    dragAssign: (source: WorkerDragSource, target: WorkerDropTarget) => {
+      const before = assignmentSnapshot()
+      const beforeIds = new Set(before.keys())
+      const result = apply((s) => applyWorkerDrag(s, source, target))
+      if (!result.ok) return result
+      const created = save.value.workers.some(
+        (worker) => !beforeIds.has(worker.id) && isPlayableStation(worker.assignment),
+      )
+      if (created) offerFused(beforeIds)
+      else offerFreshAssign(before)
+      return result
+    },
     loadFood: (workerId: string, itemId: ItemId, qty: number) =>
       apply((s) => loadFood(s, workerId, itemId, qty)),
     unloadFood: (workerId: string) => apply((s) => unloadFood(s, workerId)),
@@ -188,7 +250,19 @@ export const useGameStore = defineStore('game', () => {
     installPotion: (index: number, itemId: PotionItemId) => apply((s) => installPotionSlot(s, index, itemId)),
     clearPotionSlot: (index: number) => apply((s) => clearPotionSlot(s, index)),
     unequipPotion: (index: number) => apply((s) => clearPotionSlot(s, index)),
-    usePotionSlot: (index: number) => apply((s) => usePotionSlot(s, index)),
+    usePotionSlot: (index: number) => {
+      const itemId = potionSlotItem(save.value, index)
+      const result = apply((s) => usePotionSlot(s, index))
+      if (!result.ok || !itemId) return result
+      const stationId =
+        itemId === 'rushPowder'
+          ? save.value.potionBuffs.rushStation
+          : itemId === 'doubleMist'
+            ? (save.value.potionBuffs.doubleMist?.stationId ?? null)
+            : null
+      offerActionBanter(save.value, 'potion', { stationId })
+      return result
+    },
     selectCategory: (stationId: StationId, categoryId: CategoryId) =>
       apply((s) => selectStationCategory(s, stationId, categoryId)),
     explore: () => apply(exploreBoard),

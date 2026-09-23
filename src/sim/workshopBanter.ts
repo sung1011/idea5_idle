@@ -1,7 +1,7 @@
 import { isWorkerInCombat } from './combat'
 import { canFuseStationWorkers } from './fuse'
 import { isGatherFrozen } from './gather'
-import { STATION_IDS } from './tables'
+import { PLAYABLE_STATION_IDS, STATION_IDS } from './tables'
 import type { Save, StationId, Worker } from './types'
 import { isEmptyHp, isWoundedHp } from './workshopHp'
 
@@ -87,6 +87,10 @@ const GOSSIP = [
   '消息红点比我眼红',
   '顶栏不写劳损',
 ] as const
+
+const FUSE_DONE = ['合完了，人还在', '升了一档，班接着上', '两个人并成这一口'] as const
+
+const POTION_LINES = ['这一口顶半班', '药效先走', '先喝再干活', '苦的是嘴，快的是手'] as const
 
 const IDLE = [
   '我还在岗吗',
@@ -338,6 +342,123 @@ export function planWorkshopBanter(input: {
     },
     apply: () => commit(memory, nowS, [speaker.id], 0, cooldownRoll),
   }
+}
+
+export type ActionBanterKind = 'assign' | 'fuse' | 'potion'
+
+/** 休息区派到生产站成功。 */
+export const BANTER_ASSIGN_CHANCE = 0.25
+/** 合成成功。 */
+export const BANTER_FUSE_CHANCE = 0.4
+/** 药剂槽点用成功。 */
+export const BANTER_POTION_CHANCE = 0.25
+/** 派驻台词里，本站句相对发呆的比重。 */
+export const BANTER_ASSIGN_STATION_BIAS = 0.7
+/** 合成台词里，合成心愿相对「合完」短句的比重。 */
+export const BANTER_FUSE_WISH_BIAS = 0.75
+
+const ACTION_CHANCE: Record<ActionBanterKind, number> = {
+  assign: BANTER_ASSIGN_CHANCE,
+  fuse: BANTER_FUSE_CHANCE,
+  potion: BANTER_POTION_CHANCE,
+}
+
+export function actionBanterLines(
+  kind: ActionBanterKind,
+  stationId: StationId,
+  poolRoll = 0,
+): readonly string[] {
+  if (kind === 'assign') {
+    return poolRoll < BANTER_ASSIGN_STATION_BIAS ? BY_STATION[stationId] : IDLE
+  }
+  if (kind === 'fuse') return poolRoll < BANTER_FUSE_WISH_BIAS ? FUSE_WISH : FUSE_DONE
+  return POTION_LINES.length >= 2 ? POTION_LINES : IDLE
+}
+
+function isPlayableDuty(save: Save, worker: Worker): boolean {
+  const stationId = worker.assignment
+  return (
+    stationId != null &&
+    (PLAYABLE_STATION_IDS as readonly string[]).includes(stationId) &&
+    !isWorkerInCombat(save, worker.id)
+  )
+}
+
+function actionSpeakers(
+  save: Save,
+  memory: BanterMemory,
+  nowS: number,
+  kind: ActionBanterKind,
+  workerId?: string,
+  stationId?: StationId | null,
+): Worker[] {
+  if (kind === 'assign' || kind === 'fuse') {
+    const worker = workerId ? save.workers.find((row) => row.id === workerId) : undefined
+    if (!worker || !isPlayableDuty(save, worker)) return []
+    if (stationId && worker.assignment !== stationId) return []
+    return workerReady(memory, worker.id, nowS) ? [worker] : []
+  }
+  const duty = save.workers.filter((worker) => isPlayableDuty(save, worker))
+  if (!duty.length) return []
+  const onStation = stationId ? duty.filter((worker) => worker.assignment === stationId) : []
+  const pool = onStation.length ? onStation : duty
+  return pool.filter((worker) => workerReady(memory, worker.id, nowS))
+}
+
+/**
+ * 派驻 / 合成 / 吃药成功后的独白。不接对白，不跳过冷却。
+ * 拖拽中、气泡还占着、全局或个人冷却中直接失败，不写冷却。
+ * 检定未中也不写冷却。工作区没有可挂气泡的在岗工人则跳过。
+ * 掷骰：检定 →（多人）说话人 →（派驻/合成）文案池 → 台词 → 全局冷却。
+ */
+export function planActionBanter(input: {
+  save: Save
+  nowS: number
+  memory: BanterMemory
+  dragging: boolean
+  rng: BanterRng
+  kind: ActionBanterKind
+  workerId?: string
+  stationId?: StationId | null
+}): BanterPlan | null {
+  const { save, nowS, memory, dragging, rng, kind } = input
+  if (dragging) return null
+  if (memory.busyUntilS > nowS) return null
+  if (memory.lastEventS >= 0 && nowS < memory.lastEventS + memory.cooldownS) return null
+  const ready = actionSpeakers(save, memory, nowS, kind, input.workerId, input.stationId)
+  if (!ready.length) return null
+  if (!(rng() < ACTION_CHANCE[kind])) return null
+  const speaker = ready.length === 1 ? ready[0] : ready[pickWeighted(ready.map(workerBanterWeight), rng())]
+  const stationId = speaker.assignment
+  if (!stationId) return null
+  const poolRoll = kind === 'potion' ? 0 : rng()
+  const lines = actionBanterLines(kind, stationId, poolRoll)
+  const text = lines[pickWeighted(lines.map(() => 1), rng())]
+  const cooldownRoll = rng()
+  return {
+    event: {
+      stationId,
+      kind: 'solo',
+      beats: [{ workerId: speaker.id, stationId, text, delayMs: 0 }],
+    },
+    apply: () => commit(memory, nowS, [speaker.id], 0, cooldownRoll),
+  }
+}
+
+export function considerActionBanter(input: {
+  save: Save
+  nowS: number
+  memory: BanterMemory
+  dragging: boolean
+  rng: BanterRng
+  kind: ActionBanterKind
+  workerId?: string
+  stationId?: StationId | null
+}): BanterEvent | null {
+  const planned = planActionBanter(input)
+  if (!planned) return null
+  planned.apply()
+  return planned.event
 }
 
 export function considerWorkshopBanter(input: {

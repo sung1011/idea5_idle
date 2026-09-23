@@ -13,6 +13,11 @@ import {
   banterTriggerChance,
   blankBanterFlags,
   blankBanterMemory,
+  BANTER_ASSIGN_CHANCE,
+  BANTER_FUSE_CHANCE,
+  BANTER_POTION_CHANCE,
+  actionBanterLines,
+  considerActionBanter,
   considerWorkshopBanter,
   planWorkshopBanter,
   pickBanterPool,
@@ -329,5 +334,114 @@ describe('workshop banter trigger', () => {
     expect(memory.lastEventS).toBe(10)
     expect(memory.cooldownS).toBe(BANTER_GLOBAL_COOLDOWN_MIN_S)
     expect(memory.workerAt.a).toBe(10)
+  })
+})
+
+function act(
+  save: Save,
+  memory: BanterMemory,
+  kind: 'assign' | 'fuse' | 'potion',
+  rng: BanterRng,
+  extra: { workerId?: string; stationId?: StationId | null; nowS?: number; dragging?: boolean } = {},
+) {
+  return considerActionBanter({
+    save,
+    nowS: extra.nowS ?? 10,
+    memory,
+    dragging: extra.dragging === true,
+    rng,
+    kind,
+    workerId: extra.workerId,
+    stationId: extra.stationId,
+  })
+}
+
+describe('action banter', () => {
+  it('speaks a solo station line for a successful assign and starts cooldown', () => {
+    const save = createSave()
+    put(save, worker({ id: 'a', assignment: 'cooking' }))
+    const memory = blankBanterMemory()
+    const event = act(save, memory, 'assign', rolls([0, 0, 0, 0]), { workerId: 'a', stationId: 'cooking' })
+    expect(event?.kind).toBe('solo')
+    expect(event?.beats).toHaveLength(1)
+    expect(event?.beats[0]).toMatchObject({
+      workerId: 'a',
+      stationId: 'cooking',
+      text: banterLines('byStation', 'cooking')[0],
+    })
+    expect(memory.lastEventS).toBe(10)
+    expect(memory.workerAt.a).toBe(10)
+    expect(memory.busyUntilS).toBeGreaterThan(10)
+  })
+
+  it('drops an assign miss and a rest worker without writing cooldown', () => {
+    const save = createSave()
+    put(save, worker({ id: 'a', assignment: 'cooking' }))
+    const memory = blankBanterMemory()
+    expect(act(save, memory, 'assign', rolls([BANTER_ASSIGN_CHANCE]), { workerId: 'a' })).toBeNull()
+    expect(memory).toEqual(blankBanterMemory())
+    put(save, worker({ id: 'rest', assignment: null }))
+    expect(act(save, memory, 'assign', rolls([]), { workerId: 'rest' })).toBeNull()
+    expect(memory).toEqual(blankBanterMemory())
+  })
+
+  it('fails on global, personal, and busy cooldowns without rolling past them', () => {
+    const save = createSave()
+    put(save, worker({ id: 'a', assignment: 'mining' }))
+    const global = blankBanterMemory()
+    global.lastEventS = 10
+    global.cooldownS = 45
+    expect(act(save, global, 'assign', rolls([]), { workerId: 'a', nowS: 20 })).toBeNull()
+    expect(global.workerAt.a).toBeUndefined()
+
+    const personal = blankBanterMemory()
+    personal.workerAt.a = 10
+    expect(act(save, personal, 'fuse', rolls([]), { workerId: 'a', nowS: 20 })).toBeNull()
+    expect(personal.lastEventS).toBe(-1)
+
+    const busy = blankBanterMemory()
+    busy.busyUntilS = 21
+    expect(act(save, busy, 'potion', rolls([]), { nowS: 20 })).toBeNull()
+  })
+
+  it('uses a fuse-wish line for the worker who stayed, and a short done line on the other roll', () => {
+    const save = createSave()
+    put(save, worker({ id: 'kept', assignment: 'alchemy' }))
+    put(save, worker({ id: 'mate', assignment: 'alchemy' }))
+    const memory = blankBanterMemory()
+    const wish = act(save, memory, 'fuse', rolls([0, 0, 0, 0]), { workerId: 'kept', stationId: 'alchemy' })
+    expect(wish?.kind).toBe('solo')
+    expect(wish?.beats[0].workerId).toBe('kept')
+    expect(wish?.beats[0].text).toBe(banterLines('fuseWish', 'alchemy')[0])
+
+    const again = blankBanterMemory()
+    const done = act(save, again, 'fuse', rolls([BANTER_FUSE_CHANCE - 0.01, 0.8, 0, 0]), {
+      workerId: 'kept',
+    })
+    expect(done?.beats[0].text).toBe(actionBanterLines('fuse', 'alchemy', 0.8)[0])
+    expect(done?.beats).toHaveLength(1)
+  })
+
+  it('prefers the potion station and skips when nobody on duty can hold a bubble', () => {
+    const save = createSave()
+    put(save, worker({ id: 'cook', assignment: 'cooking' }))
+    put(save, worker({ id: 'mine', assignment: 'mining' }))
+    const memory = blankBanterMemory()
+    const event = act(save, memory, 'potion', rolls([0, 0, 0]), { stationId: 'cooking' })
+    expect(event?.beats[0].workerId).toBe('cook')
+    expect(event?.beats[0].text).toBe('这一口顶半班')
+    expect(BANTER_POTION_CHANCE).toBe(0.25)
+    expect(actionBanterLines('potion', 'cooking').length).toBeGreaterThanOrEqual(2)
+    expect(actionBanterLines('potion', 'cooking')).toContain('药效先走')
+
+    const empty = createSave()
+    put(empty, worker({ id: 'rest', assignment: null }))
+    expect(act(empty, blankBanterMemory(), 'potion', rolls([]))).toBeNull()
+  })
+
+  it('does not speak while a drag is active', () => {
+    const save = createSave()
+    put(save, worker({ id: 'a', assignment: 'herbalism' }))
+    expect(act(save, blankBanterMemory(), 'assign', rolls([]), { workerId: 'a', dragging: true })).toBeNull()
   })
 })

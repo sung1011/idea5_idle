@@ -2,9 +2,11 @@ import { reactive } from 'vue'
 import { isWorkerInCombat } from '../sim/combat'
 import {
   BANTER_BUBBLE_MS,
+  considerActionBanter,
   considerWorkshopBanter,
   planWorkshopBanter,
   blankBanterMemory,
+  type ActionBanterKind,
   type BanterEvent,
   type BanterMemory,
   type BanterRng,
@@ -120,6 +122,32 @@ export function resetWorkshopBanterForTests() {
 export function dismissWorkshopBanter() {
   epoch += 1
   for (const sid of STATION_IDS) bubbles[sid] = null
+}
+
+/**
+ * 派驻 / 合成 / 吃药成功后的独白。开关、冷却、拖拽与 tick 闲话共用。
+ * 人不在工人页则这一拍丢掉，不写冷却、不补播。
+ */
+export function offerActionBanter(
+  save: Save,
+  kind: ActionBanterKind,
+  target: { workerId?: string; stationId?: StationId | null } = {},
+  rng: BanterRng = Math.random,
+) {
+  if (!loadWorkshopBanter()) return
+  if (!workersOpen()) return
+  const event = considerActionBanter({
+    save,
+    nowS: save.elapsedS,
+    memory,
+    dragging: isWorkerDragActive(),
+    rng,
+    kind,
+    workerId: target.workerId,
+    stationId: target.stationId,
+  })
+  if (!event || !workersOpen()) return
+  playWorkshopBanter(event)
 }
 
 export function offerWorkshopBanter(save: Save, successStationIds: readonly StationId[]) {
