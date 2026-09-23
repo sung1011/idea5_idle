@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { createSave, normalizeDiamonds, PLAYER_NAME_DEFAULT, playerDisplayName } from './createSave'
+import {
+  applyPlayerProfile,
+  createSave,
+  normalizeDiamonds,
+  PLAYER_AVATAR_DEFAULT,
+  PLAYER_AVATAR_IDS,
+  PLAYER_NAME_DEFAULT,
+  playerAvatarId,
+  playerDisplayName,
+} from './createSave'
 import { GUIDE_QUEST_REV } from './guideQuest'
 import { spawnWorker } from './recruit'
 import { PLAYABLE_STATION_IDS, START_DIAMONDS, START_GOLD, START_TECH_POINTS, STATION_IDS, WORKER_QUALITY_REV } from './tables'
@@ -16,6 +25,18 @@ describe('createSave diamonds', () => {
     expect(playerDisplayName('   ')).toBe('见习勇者')
     expect(playerDisplayName('旅人甲')).toBe('旅人甲')
     expect(playerDisplayName('  旅人甲  ')).toBe('旅人甲')
+    expect(save.playerAvatarId).toBe(PLAYER_AVATAR_DEFAULT)
+    expect(save.playerAvatarId).toBe('helm')
+    expect(PLAYER_AVATAR_IDS).toHaveLength(8)
+    expect(playerAvatarId(undefined)).toBe('helm')
+    expect(playerAvatarId('nope')).toBe('helm')
+    expect(playerAvatarId('lion')).toBe('lion')
+    applyPlayerProfile(save, '  旅人甲  ', 'rose')
+    expect(save.playerName).toBe('旅人甲')
+    expect(save.playerAvatarId).toBe('rose')
+    applyPlayerProfile(save, '   ', 'missing')
+    expect(save.playerName).toBe('见习勇者')
+    expect(save.playerAvatarId).toBe('helm')
     expect(save.gold).toBe(START_GOLD)
   })
 

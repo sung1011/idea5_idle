@@ -8,7 +8,7 @@ import { blankPotionBuffs } from './potions'
 import { hydrateStations } from './stationProgress'
 import { blankPotionSlots } from './potionSlots'
 import { START_DIAMONDS, START_GOLD, START_TECH_POINTS, WORKER_QUALITY_REV } from './tables'
-import type { Save } from './types'
+import type { ActionResult, Save } from './types'
 
 export { blankStation } from './stationProgress'
 
@@ -19,6 +19,27 @@ export function playerDisplayName(value: unknown): string {
   if (typeof value !== 'string') return PLAYER_NAME_DEFAULT
   const trimmed = value.trim()
   return trimmed || PLAYER_NAME_DEFAULT
+}
+
+/** 顶栏头像。缺字段或未知 id 回落到盔。 */
+export const PLAYER_AVATAR_IDS = ['helm', 'crest', 'lion', 'rose', 'sun', 'shield', 'crown', 'lance'] as const
+
+export type PlayerAvatarId = (typeof PLAYER_AVATAR_IDS)[number]
+
+export const PLAYER_AVATAR_DEFAULT: PlayerAvatarId = 'helm'
+
+const PLAYER_AVATAR_ID_SET = new Set<string>(PLAYER_AVATAR_IDS)
+
+export function playerAvatarId(value: unknown): PlayerAvatarId {
+  if (typeof value === 'string' && PLAYER_AVATAR_ID_SET.has(value)) return value as PlayerAvatarId
+  return PLAYER_AVATAR_DEFAULT
+}
+
+/** 确认改名改头像。空名字兜底见习勇者，未知头像兜底盔。 */
+export function applyPlayerProfile(save: Save, name: unknown, avatar: unknown): ActionResult {
+  save.playerName = playerDisplayName(name)
+  save.playerAvatarId = playerAvatarId(avatar)
+  return { ok: true }
 }
 
 /** 缺字段 / 非数字 → 新档初始钻石；已有数字（含 0）只夹成非负整数，不每次重灌。 */
@@ -33,6 +54,7 @@ export function createSave(): Save {
     gold: START_GOLD,
     diamonds: START_DIAMONDS,
     playerName: PLAYER_NAME_DEFAULT,
+    playerAvatarId: PLAYER_AVATAR_DEFAULT,
     bank: {},
     workers: [],
     stations,

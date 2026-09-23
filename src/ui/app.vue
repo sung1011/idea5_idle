@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { playerDisplayName, type PlayerAvatarId } from '../sim/createSave'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
 import { useGameStore } from './gameStore'
 import EncounterPanel from './encounterPanel.vue'
@@ -18,6 +19,8 @@ import {
   type HudChipId,
 } from './hudResource'
 import HudResourceSheet from './hudResourceSheet.vue'
+import PlayerAvatar from './playerAvatar.vue'
+import PlayerProfileSheet from './playerProfileSheet.vue'
 import UiIcon from './uiIcon.vue'
 
 const game = useGameStore()
@@ -25,6 +28,8 @@ const tab = appTab
 const mailOpen = ref(false)
 const settingsOpen = ref(false)
 const resourceOpen = ref<HudChipId | null>(null)
+const profileOpen = ref(false)
+const playerName = computed(() => playerDisplayName(game.save.playerName))
 const chips = computed(() => listHudChips(game.save))
 const resourceDetail = computed(() => (resourceOpen.value ? hudChipDetail(game.save, resourceOpen.value) : null))
 
@@ -35,11 +40,20 @@ onMounted(() => {
 onUnmounted(() => {
   game.stopClock()
 })
+
+function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
+  game.setPlayerProfile(payload.name, payload.avatarId)
+  profileOpen.value = false
+}
 </script>
 
 <template>
   <div class="shell">
     <header class="hud" aria-label="资源">
+      <button type="button" class="player" aria-label="玩家" @click="profileOpen = true">
+        <PlayerAvatar :id="game.save.playerAvatarId" />
+        <span class="player-name">{{ playerName }}</span>
+      </button>
       <div class="resources">
         <button
           v-for="chip in chips"
@@ -115,6 +129,13 @@ onUnmounted(() => {
     <MessagePanel v-if="mailOpen" @close="mailOpen = false" />
     <SettingsPanel v-if="settingsOpen" @close="settingsOpen = false" />
     <HudResourceSheet v-if="resourceDetail" :detail="resourceDetail" @close="resourceOpen = null" />
+    <PlayerProfileSheet
+      v-if="profileOpen"
+      :name="game.save.playerName"
+      :avatar-id="game.save.playerAvatarId"
+      @close="profileOpen = false"
+      @confirm="confirmProfile"
+    />
     <FloatTips />
   </div>
 </template>
@@ -146,6 +167,26 @@ onUnmounted(() => {
   background-blend-mode: multiply, normal;
   border-bottom: 3px solid var(--gold);
   box-shadow: 0 2px 0 var(--gold-deep);
+}
+
+.player {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+  max-width: 46%;
+  min-height: 36px;
+  padding: 2px 8px 2px 2px;
+  border-radius: 999px;
+}
+
+.player-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 5.5em;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .resources {

@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, shallowRef } from 'vue'
 import { assignIdleWorker, assignWorker, withdrawWorker } from '../sim/assign'
 import { cloneSave } from '../sim/clone'
-import { createSave } from '../sim/createSave'
+import { applyPlayerProfile, createSave } from '../sim/createSave'
 import {
   gmAddDiamonds,
   gmAddGold,
@@ -294,6 +294,7 @@ export const useGameStore = defineStore('game', () => {
     withdrawTreasureMiner: (mineId: string, workerId: string) =>
       apply((s) => withdrawTreasureMiner(s, mineId, workerId)),
     refreshTreasureMines: () => apply((s) => refreshTreasureMineBoard(s)),
+    setPlayerProfile: (name: string, avatarId: string) => apply((s) => applyPlayerProfile(s, name, avatarId)),
     claimLoot: (index: number) => apply((s) => claimLoot(s, index)),
     barter: (index: number) => apply((s) => barterMerchant(s, index)),
     buyMerchant: (index: number) => apply((s) => buyMerchant(s, index)),

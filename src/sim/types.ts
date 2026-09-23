@@ -465,6 +465,8 @@ export type Save = {
   diamonds: number
   /** 我方玩家显示名。新档与缺字段 / 空串为「见习勇者」；已有非空自定义名 hydrate 保留。 */
   playerName: string
+  /** 顶栏头像。`PLAYER_AVATAR_IDS` 之一；新档与缺字段 / 未知值是 `helm`。 */
+  playerAvatarId: string
   /** 站间物资数量。旧档字段名仍叫 bank；无容量。 */
   bank: Partial<Record<ItemId, number>>
   workers: Worker[]

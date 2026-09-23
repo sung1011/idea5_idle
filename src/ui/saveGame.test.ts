@@ -426,4 +426,12 @@ describe('save migration', () => {
     expect(hydrateLoadedSave({ ...createSave(), playerName: '  ' })?.playerName).toBe('见习勇者')
     expect(hydrateLoadedSave({ ...createSave(), playerName: '旅人甲' })?.playerName).toBe('旅人甲')
   })
+
+  it('falls back to the helm avatar and keeps a known custom one', () => {
+    const missing = { ...createSave() }
+    delete (missing as { playerAvatarId?: string }).playerAvatarId
+    expect(hydrateLoadedSave(missing)?.playerAvatarId).toBe('helm')
+    expect(hydrateLoadedSave({ ...createSave(), playerAvatarId: 'nope' })?.playerAvatarId).toBe('helm')
+    expect(hydrateLoadedSave({ ...createSave(), playerAvatarId: 'crown' })?.playerAvatarId).toBe('crown')
+  })
 })

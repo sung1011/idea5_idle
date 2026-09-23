@@ -1,5 +1,5 @@
 import { hydrateBank } from '../sim/bank'
-import { createSave, normalizeDiamonds, playerDisplayName } from '../sim/createSave'
+import { createSave, normalizeDiamonds, playerAvatarId, playerDisplayName } from '../sim/createSave'
 import { hydrateEncounterFields } from '../sim/encounters'
 import { hydrateMessages } from '../sim/messages'
 import { normalizeRngState } from '../sim/rng'
@@ -74,6 +74,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
     stations: hydrateStations(parsed.stations),
     diamonds: normalizeDiamonds((parsed as { diamonds?: unknown }).diamonds),
     playerName: playerDisplayName((parsed as { playerName?: unknown }).playerName),
+    playerAvatarId: playerAvatarId((parsed as { playerAvatarId?: unknown }).playerAvatarId),
     messages: mail.messages,
     nextMessageId: mail.nextMessageId,
     offlineCount:
