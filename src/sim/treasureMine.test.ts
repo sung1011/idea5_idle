@@ -12,6 +12,8 @@ import {
   mineDigIntervalS,
   refreshTreasureMines,
   rejectTreasureMineRune,
+  isTreasureRaidLocked,
+  reinforceTreasureRaid,
   startTreasureRaid,
   stepTreasureMines,
   withdrawTreasureMiner,
@@ -218,5 +220,58 @@ describe('treasure mines', () => {
     advance(save, 5)
     expect(vaultQty(save)).toBe(3)
     expect(mine.reserve).toBe(37)
+  })
+
+  it('locks only the raiding hole and refuses reinforce until that fight ends', () => {
+    const save = createSave()
+    const lead = spawnWorker(save)
+    const extra = spawnWorker(save)
+    const other = spawnWorker(save)
+    const miner = spawnWorker(save)
+    const locked = save.treasureMines.mines[0]
+    const free = save.treasureMines.mines[1]
+    const dig = save.treasureMines.mines[2]
+    expect(startTreasureRaid(save, locked.id, [lead.id]).ok).toBe(true)
+    expect(isTreasureRaidLocked(locked)).toBe(true)
+    expect(isTreasureRaidLocked(free)).toBe(false)
+    const queue = [...(locked.raid?.queue ?? [])]
+    const shadowCount = locked.shadows.length
+
+    expect(startTreasureRaid(save, locked.id, [extra.id])).toEqual({ ok: false, reason: '这洞抢夺进行中' })
+    expect(reinforceTreasureRaid(save, locked.id, 'attack')).toEqual({ ok: false, reason: '抢夺进行中不能增援' })
+    expect(reinforceTreasureRaid(save, locked.id, 'defend')).toEqual({ ok: false, reason: '抢夺进行中不能增援' })
+    expect(locked.raid?.queue).toEqual(queue)
+    expect(locked.shadows).toHaveLength(shadowCount)
+    expect(extra.assignment).toBeNull()
+    expect(queue).not.toContain(extra.id)
+
+    expect(startTreasureRaid(save, free.id, [other.id]).ok).toBe(true)
+    expect(free.raid?.queue).toEqual([other.id])
+    expect(isTreasureRaidLocked(locked)).toBe(true)
+
+    dig.owner = 'player'
+    dig.shadows = []
+    dig.raid = null
+    expect(addTreasureMiner(save, dig.id, miner.id).ok).toBe(true)
+    expect(dig.crewIds).toEqual([miner.id])
+
+    const raid = locked.raid
+    expect(raid).toBeTruthy()
+    if (!raid) return
+    raid.atkHp = 1
+    raid.atkNext = save.elapsedS + 100
+    raid.defAtk = 999
+    raid.defSpd = 1
+    raid.defNext = save.elapsedS + 1
+    advance(save, 1)
+    expect(locked.raid).toBeNull()
+    expect(locked.owner).toBe('shadow')
+    expect(isTreasureRaidLocked(locked)).toBe(false)
+    expect(reinforceTreasureRaid(save, locked.id, 'attack')).toEqual({
+      ok: false,
+      reason: '这洞没有进行中的抢夺',
+    })
+    const retry = spawnWorker(save)
+    expect(startTreasureRaid(save, locked.id, [retry.id]).ok).toBe(true)
   })
 })

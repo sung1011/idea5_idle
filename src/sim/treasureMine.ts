@@ -127,6 +127,11 @@ export function withdrawTreasureMiner(save: Save, mineId: string, workerId: stri
   return { ok: true }
 }
 
+/** 只锁这一洞。其它洞的抢夺和开采不看这里。 */
+export function isTreasureRaidLocked(mine: TreasureMine): boolean {
+  return mine.raid != null
+}
+
 export function startTreasureRaid(
   save: Save,
   mineId: string,
@@ -135,7 +140,8 @@ export function startTreasureRaid(
 ): ActionResult {
   const mine = findMine(save, mineId)
   if (!mine) return { ok: false, reason: '没有这个矿洞' }
-  if (mine.owner !== 'shadow' || mine.raid) return { ok: false, reason: '这洞现在不能抢' }
+  if (isTreasureRaidLocked(mine)) return { ok: false, reason: '这洞抢夺进行中' }
+  if (mine.owner !== 'shadow') return { ok: false, reason: '这洞现在不能抢' }
   if (!mine.shadows.length) return { ok: false, reason: '洞里没有影子' }
   if (!workerIds.length) return { ok: false, reason: '请选择抢夺工人' }
   if (workerIds.length > TREASURE_RAID_CAP) return { ok: false, reason: '抢夺最多 3 人' }
@@ -157,6 +163,22 @@ export function startTreasureRaid(
   for (const worker of party) clearWorkerNew(save, worker.id)
   mine.raid = openRaid(save, mine, party, runes)
   return { ok: true, message: '已向影子矿卫抢夺' }
+}
+
+/**
+ * 夺宝没有增援。进行中的这一洞，攻方加人和守方加人都不进队列。
+ * 与订单「开过打后续可增援」分开。战斗结束（raid 清空）后洞锁解开，但增援仍然不存在。
+ */
+export function reinforceTreasureRaid(
+  save: Save,
+  mineId: string,
+  side: 'attack' | 'defend',
+): ActionResult {
+  const mine = findMine(save, mineId)
+  if (!mine) return { ok: false, reason: '没有这个矿洞' }
+  if (side !== 'attack' && side !== 'defend') return { ok: false, reason: '抢夺进行中不能增援' }
+  if (isTreasureRaidLocked(mine)) return { ok: false, reason: '抢夺进行中不能增援' }
+  return { ok: false, reason: '这洞没有进行中的抢夺' }
 }
 
 function openRaid(

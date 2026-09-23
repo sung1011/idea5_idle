@@ -97,7 +97,9 @@ function addMiner(mineId: string) {
       </header>
       <p v-if="mine.owner === 'shadow'">守军 {{ mine.shadows.map((row) => row.name).join('、') || '无' }}</p>
       <p v-else>开采 {{ names(mine.crewIds) }}（{{ mine.crewIds.length }}/{{ TREASURE_CREW_CAP }}，无符文）</p>
-      <p v-if="mine.raid">抢夺中 {{ names(mine.raid.queue) }} 对 {{ mine.shadows[0]?.name ?? '守军' }}</p>
+      <p v-if="mine.raid">
+        抢夺中 {{ names(mine.raid.queue) }} 对 {{ mine.shadows[0]?.name ?? '守军' }}。本洞不能再开，也不能增援
+      </p>
       <div class="row">
         <button v-if="mine.owner === 'shadow' && !mine.raid" type="button" @click="openRaid(mine.id)">抢夺</button>
         <button
