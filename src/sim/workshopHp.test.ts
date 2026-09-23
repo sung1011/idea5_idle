@@ -59,12 +59,15 @@ function stubWorker(hp: number, hpMax: number): Worker {
 
 describe('workshop HP formulas', () => {
   it('locks HP at 1 and scales work by empty / wounded / normal bands', () => {
-    expect(HP_EMPTY_RATIO).toBe(0.01)
+    expect(HP_EMPTY_RATIO).toBe(0.1)
     expect(HP_WOUNDED_RATIO).toBe(0.3)
-    expect(workshopHpWorkMul(stubWorker(1, 100))).toBe(WORKSHOP_EMPTY_WORK_MUL)
-    expect(workshopHpWorkMul(stubWorker(2, 100))).toBe(WORKSHOP_WOUNDED_WORK_MUL)
+    expect(workshopHpWorkMul(stubWorker(5, 100))).toBe(WORKSHOP_EMPTY_WORK_MUL)
+    expect(workshopHpWorkMul(stubWorker(10, 100))).toBe(WORKSHOP_EMPTY_WORK_MUL)
+    expect(workshopHpWorkMul(stubWorker(11, 100))).toBe(WORKSHOP_WOUNDED_WORK_MUL)
+    expect(workshopHpWorkMul(stubWorker(15, 100))).toBe(WORKSHOP_WOUNDED_WORK_MUL)
     expect(workshopHpWorkMul(stubWorker(30, 100))).toBe(WORKSHOP_WOUNDED_WORK_MUL)
     expect(workshopHpWorkMul(stubWorker(31, 100))).toBe(1)
+    expect(workshopHpWorkMul(stubWorker(50, 100))).toBe(1)
     expect(workshopHpWorkMul(stubWorker(26, 26))).toBe(1)
     expect(stationHpEfficiencyLabel(1)).toBe('效率 100%')
     expect(stationHpEfficiencyLabel(WORKSHOP_WOUNDED_WORK_MUL)).toBe('效率 80%')

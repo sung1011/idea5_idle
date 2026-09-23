@@ -5,7 +5,7 @@ import { gatherStatusText, isGatherFrozen } from '../sim/gather'
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
 import { isWorkerInCombat } from '../sim/combat'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
-import { stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
+import { isEmptyHp, isWoundedHp, stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
 import { findCategory, ITEM_DEF, STATION_DEF, xpToNextLevel } from '../sim/tables'
 import type { CategoryId, StationId, Worker } from '../sim/types'
 import ConsumeJumpItem from './consumeJumpItem.vue'
@@ -44,8 +44,7 @@ const hpMul = computed(() => stationHpWorkMul(game.save, props.stationId))
 const hpLabel = computed(() => {
   const worker = duty.value
   if (!worker) return '空岗'
-  const ratio = worker.hpMax > 0 ? worker.hp / worker.hpMax : 1
-  const body = ratio >= 0.999 ? '满血' : ratio <= 0 ? '空血' : '残血'
+  const body = isEmptyHp(worker) ? '空血' : isWoundedHp(worker) ? '残血' : '满血'
   return `${stationHpEfficiencyLabel(hpMul.value)} · ${body}`
 })
 const xpNeed = computed(() => xpToNextLevel(station.value.stationLevel))

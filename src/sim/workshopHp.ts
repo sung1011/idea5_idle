@@ -19,9 +19,9 @@ export const FATIGUE_STATION_MUL: Readonly<Record<StationId, number>> = {
 /** 6h 等价产出（裸效率单人周期次数）用此时长。 */
 export const FATIGUE_SIX_HOUR_S = 6 * 3600
 export const WORKSHOP_REST_HEAL_RATIO = 0.05
-/** hp/hpMax ≤1%：空血，生产 ×0.5。 */
-export const HP_EMPTY_RATIO = 0.01
-/** hp/hpMax ≤30%：残血，生产 ×0.8。 */
+/** hp/hpMax ≤10%：空血，生产 ×0.5。 */
+export const HP_EMPTY_RATIO = 0.1
+/** hp/hpMax ≤30%：残血（含空血），生产 ×0.8。空血档优先，故 10%～30% 才是 ×0.8。 */
 export const HP_WOUNDED_RATIO = 0.3
 export const WORKSHOP_EMPTY_WORK_MUL = 0.5
 export const WORKSHOP_WOUNDED_WORK_MUL = 0.8

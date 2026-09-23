@@ -25,7 +25,7 @@
 2. **一站一人（迅雷手感）**：同一站点最多派 1 人。在岗正好 1 人时速度再 ×`SOLO_STAFF_MUL`（1.5）。第 2 人派入失败，文案「该站最多 1 人」。同站冲突废弃，`stationConflictMul` 恒为 1。
 3. **堵点可见**：原料见底提示。物资无容量，堆再多也不停产。不恢复银行容量停产。
 
-工人另存 `fatigueDebt`（劳损累计）。成功产出才加债：`+= (hpMax * 0.0015 + 近满血一口) * stationMul * comboMul`；`debt≥1` 时扣 `floor(debt)` 血并减掉对应债。近满血一口仅 `hp >= hpMax-1` 时加 `0.18`，让短时吞吐先看到掉 1～2 点，之后回落比例债。HP 最低锁 1。禁止每次产出无脑 `max(1, floor(hpMax*0.02))`。空转 / 空杆不加劳损。血线三档（`hp/hpMax`）：≤1% 空血 ×0.5，≤30% 残血 ×0.8，＞30% 正常 ×1。站内连招乘在劳损上，无跨站 combo。工人 v2 底色血条读 `hp - fatigueDebt`。
+工人另存 `fatigueDebt`（劳损累计）。成功产出才加债：`+= (hpMax * 0.0015 + 近满血一口) * stationMul * comboMul`；`debt≥1` 时扣 `floor(debt)` 血并减掉对应债。近满血一口仅 `hp >= hpMax-1` 时加 `0.18`，让短时吞吐先看到掉 1～2 点，之后回落比例债。HP 最低锁 1。禁止每次产出无脑 `max(1, floor(hpMax*0.02))`。空转 / 空杆不加劳损。血线三档（`hp/hpMax`）：≤10% 空血 ×0.5，≤30% 残血 ×0.8，＞30% 正常 ×1。站内连招乘在劳损上，无跨站 combo。工人 v2 底色血条读 `hp - fatigueDebt`。
 
 ---
 
@@ -154,7 +154,7 @@ HP -= floor(fatigueDebt)；fatigueDebt -= floor(fatigueDebt)
 ```
 stackFactor(n) = n
 人数项按工人加权：每人贡献 = 工具/食物速度乘区 × HP 效率
-HP 效率：hp/hpMax ≤1% 空血 ×0.5；≤30% 残血 ×0.8；＞30% 正常 ×1
+HP 效率：hp/hpMax ≤10% 空血 ×0.5；≤30% 残血 ×0.8；＞30% 正常 ×1
 speed = (1 / cycleS) * 加权人数项 * soloStaffMul * groupStaffSpeedMul * 兴奋剂
 兴奋剂：工坊页药剂槽点用（须有在岗工人），在岗速度 ×1.5，持续 180s（`elapsedS`）
 存档：StationState.fatigueCombo；账号 `potionSlots` / `potionBuffs`
