@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assignIdleWorker, assignWorker, clampStationAssignments } from './assign'
+import { assignIdleWorker, assignWorker, clampStationAssignments, withdrawWorker } from './assign'
 import { beginEnemyCombat } from './combat'
 import { createSave } from './createSave'
 import {
@@ -62,6 +62,16 @@ describe('station worker cap', () => {
     expect(assignWorker(save, worker.id, 'mining')).toEqual({ ok: false, reason: '正在战斗' })
     expect(worker.assignment).toBeNull()
     expect(assignIdleWorker(save, 'mining')).toEqual({ ok: false, reason: '没有空闲工人' })
+  })
+
+  it('withdraws one station worker back to rest', () => {
+    const save = roster(2)
+    assignWorker(save, save.workers[0].id, 'herbalism')
+    assignWorker(save, save.workers[1].id, 'alchemy')
+    expect(withdrawWorker(save, 'herbalism')).toEqual({ ok: true })
+    expect(save.workers[0].assignment).toBeNull()
+    expect(save.workers[1].assignment).toBe('alchemy')
+    expect(withdrawWorker(save, 'herbalism')).toEqual({ ok: false, reason: '该站没有工人' })
   })
 
   it('blocks assignIdle when the station is full', () => {

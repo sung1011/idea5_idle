@@ -12,6 +12,13 @@ describe('station detail button', () => {
     expect(name?.[0]).toBeTruthy()
     expect(name?.[0]).not.toContain('@click')
     expect(workersPanelSource).toContain('game.assignIdle(stationId)')
+    expect(workersPanelSource).toContain('game.withdraw(stationId)')
+    expect(workersPanelSource).toContain(':aria-label="board.filled ? `从${board.label}撤出` : `驻入到${board.label}`"')
+    expect(workersPanelSource).toContain("guideFlashAssignHerb && board.stationId === 'herbalism' && board.filled === 0")
+    expect(workersPanelSource).not.toContain('rest-actions')
+    expect(workersPanelSource).not.toContain('aria-label="派入"')
+    expect(workersPanelSource).not.toContain('canDispatch')
+    expect(workersPanelSource).not.toContain('canWithdraw')
     expect(workersPanelSource).not.toContain('tapLockedStation')
     const dragEnd = workersPanelSource.slice(
       workersPanelSource.indexOf('function onDragEnd'),

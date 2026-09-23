@@ -49,7 +49,6 @@ import { clearSave, loadSave, persistSave } from './saveGame'
 import { pushCycleGain } from './stationTips'
 import { offerActionBanter, offerWorkshopBanter } from './workshopBanter'
 import { applyWorkerDrag, type WorkerDragSource, type WorkerDropTarget } from './workerDrag'
-import { assignRestingToFirstEmpty, withdrawWorkshopToRest } from './workerGroups'
 
 export const useGameStore = defineStore('game', () => {
   // 整份 Save 替换，不用深层响应式，避免 structuredClone 撞上 Proxy。
@@ -217,13 +216,6 @@ export const useGameStore = defineStore('game', () => {
       if (result.ok) offerFreshAssign(before)
       return result
     },
-    assignRestingToFirstEmpty: () => {
-      const before = assignmentSnapshot()
-      const result = apply(assignRestingToFirstEmpty)
-      if (result.ok) offerFreshAssign(before)
-      return result
-    },
-    withdrawWorkshopToRest: () => apply(withdrawWorkshopToRest),
     withdraw: (stationId: StationId) => apply((s) => withdrawWorker(s, stationId)),
     assign: (workerId: string, stationId: StationId | null) => {
       const before = assignmentSnapshot()

@@ -48,9 +48,7 @@ import HpBar from './hpBar.vue'
 import { hpBarFill, hpBarTone } from './hpBar'
 import { workerWearHp } from '../sim/workshopHp'
 import {
-  canDispatchRestingWorker,
   canGoToAssignedWorkshop,
-  canWithdrawWorkshopWorker,
   mainlineCombatWorkers,
   restingWorkers,
   workerAssignChoices,
@@ -97,8 +95,6 @@ const pickPotionIndex = ref<number | null>(null)
 const boards = computed(() => workshopStationBoards(game.save))
 const fightingRoster = computed(() => mainlineCombatWorkers(game.save))
 const resting = computed(() => restingWorkers(game.save))
-const canDispatch = computed(() => canDispatchRestingWorker(game.save))
-const canWithdraw = computed(() => canWithdrawWorkshopWorker(game.save))
 const recruitPrice = computed(() => recruitCost(game.save))
 const canRecruit = computed(() => game.save.diamonds >= recruitPrice.value)
 const selected = computed(() => {
@@ -314,6 +310,21 @@ function onEmptySlot(stationId: StationId) {
   if (!result.ok) pushFloatTip(result.reason)
 }
 
+function onStationArrow(stationId: StationId) {
+  if (drag.value?.active) return
+  if (stationLocked(stationId)) {
+    pushFloatTip(stationLockedTip(stationId))
+    return
+  }
+  const board = boards.value.find((row) => row.stationId === stationId)
+  if (!board?.filled) {
+    onEmptySlot(stationId)
+    return
+  }
+  const result = game.withdraw(stationId)
+  if (!result.ok) pushFloatTip(result.reason)
+}
+
 function stationLocked(stationId: StationId) {
   return !isStationUnlocked(game.save, stationId)
 }
@@ -489,9 +500,7 @@ onUnmounted(() => {
             class="station"
             :class="{
               locked: stationLocked(board.stationId),
-              'guide-flash':
-                (guideFlashAssignHerb && board.stationId === 'herbalism') ||
-                isItemSourceStationFlash(board.stationId),
+              'guide-flash': isItemSourceStationFlash(board.stationId),
             }"
           >
             <StationTips :station-id="board.stationId" />
@@ -499,14 +508,6 @@ onUnmounted(() => {
               <UiIcon :name="board.stationId" />
               <b>{{ board.label }}</b>
             </div>
-            <button
-              type="button"
-              class="station-detail"
-              :aria-label="`查看${board.label}详情`"
-              @click.stop="openStationDetail(board.stationId)"
-            >
-              详情
-            </button>
             <div class="station-work">
               <div class="slots">
                 <button
@@ -548,6 +549,27 @@ onUnmounted(() => {
                 </button>
               </div>
               <StationMiniBar class="station-progress" :station-id="board.stationId" />
+            </div>
+            <div class="station-side">
+              <button
+                type="button"
+                class="station-arrow"
+                :class="{
+                  'guide-flash': guideFlashAssignHerb && board.stationId === 'herbalism' && board.filled === 0,
+                }"
+                :aria-label="board.filled ? `从${board.label}撤出` : `驻入到${board.label}`"
+                @click.stop="onStationArrow(board.stationId)"
+              >
+                {{ board.filled ? '→' : '←' }}
+              </button>
+              <button
+                type="button"
+                class="station-detail"
+                :aria-label="`查看${board.label}详情`"
+                @click.stop="openStationDetail(board.stationId)"
+              >
+                详情
+              </button>
             </div>
           </article>
           <div class="potion-row" aria-label="药剂技能槽">
@@ -644,28 +666,6 @@ onUnmounted(() => {
             <span class="recruit-bar-lab">抽工人</span>
             <span class="recruit-bar-cost">{{ recruitPrice }} 钻</span>
           </button>
-          <div class="rest-actions">
-            <button
-              type="button"
-              class="dispatch-btn"
-              :class="{ off: !canDispatch, 'guide-flash': guideFlashAssignHerb }"
-              :aria-disabled="!canDispatch"
-              aria-label="派入"
-              @click="game.assignRestingToFirstEmpty()"
-            >
-              ←
-            </button>
-            <button
-              type="button"
-              class="dispatch-btn"
-              :class="{ off: !canWithdraw }"
-              :aria-disabled="!canWithdraw"
-              aria-label="撤出"
-              @click="game.withdrawWorkshopToRest()"
-            >
-              →
-            </button>
-          </div>
           <div v-if="resting.length" class="zone-list rest-list">
             <div
               v-for="w in resting"
@@ -1004,37 +1004,6 @@ onUnmounted(() => {
   box-shadow: none;
 }
 
-.rest-actions {
-  flex: 0 0 auto;
-  display: flex;
-  gap: 4px;
-  width: calc(100% - 6px);
-  margin: 0 3px 4px;
-}
-
-.dispatch-btn {
-  flex: 1 1 0;
-  display: grid;
-  place-items: center;
-  min-height: 28px;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: linear-gradient(#ffe27a, #e2a31a);
-  color: #5a3010;
-  box-shadow: 0 2px 0 var(--gold-deep);
-  font-size: 14px;
-  font-weight: 900;
-  line-height: 1;
-}
-
-.dispatch-btn.off {
-  opacity: 0.45;
-  filter: grayscale(0.28);
-  box-shadow: none;
-}
-
 .zone-list {
   flex: 1 1 auto;
   min-height: 0;
@@ -1100,18 +1069,36 @@ onUnmounted(() => {
   writing-mode: vertical-rl;
 }
 
+.station-side {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  gap: 2px;
+  padding: 2px;
+}
+
+.station-arrow,
 .station-detail {
   flex: 0 0 auto;
-  align-self: center;
-  margin: 0 2px;
-  padding: 3px 2px;
+  margin: 0;
+  padding: 2px 1px;
   border: 1px solid var(--gold-deep);
   border-radius: 4px;
   background: linear-gradient(180deg, #fff9de, #f3ddaa);
   color: var(--ink);
-  font-size: 10px;
   font-weight: 800;
   line-height: 1.05;
+}
+
+.station-arrow {
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.station-detail {
+  font-size: 10px;
   letter-spacing: 0.06em;
   writing-mode: vertical-rl;
 }
