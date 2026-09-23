@@ -21,7 +21,6 @@ import type { RuneItemId, TreasureMine, Worker } from '../sim/types'
 import CombatPickSheet from './combatPickSheet.vue'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
-import { workerShortName } from './workerGroups'
 
 const game = useGameStore()
 const frameNow = useFrameNow()
@@ -78,16 +77,6 @@ function clock(mine: TreasureMine): string {
   const m = Math.floor((safe % 3600) / 60)
   const s = safe % 60
   return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-}
-
-function names(ids: string[]): string {
-  if (!ids.length) return '空'
-  return ids
-    .map((id) => {
-      const worker = game.save.workers.find((row) => row.id === id)
-      return worker ? workerShortName(worker) : id
-    })
-    .join('、')
 }
 
 function openPick(kind: 'mine' | 'raid', mineId: string) {
@@ -204,7 +193,6 @@ function confirmPick() {
           </p>
         </div>
         <p class="label">消失倒计时 {{ clock(mine) }}</p>
-        <p v-if="mine.owner === 'player'" class="label">开采 {{ names(mine.crewIds) }}（{{ mine.crewIds.length }}/{{ TREASURE_CREW_CAP }}，无符文）</p>
         <template v-for="hud in raidHuds(mine)" :key="`${mine.id}-raid`">
           <div class="bars">
             <p class="bar-line">{{ hud.defend.name }}</p>
