@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import ActChargeBar from './actChargeBar.vue'
+import HpBar from './hpBar.vue'
+import { treasureRaidHud } from './treasureRaidHud'
+import { useFrameNow } from './visualProgress'
 import { isFullCombatHp, restCombatCandidates } from '../sim/combat'
 import {
   TREASURE_CREW_CAP,
@@ -14,6 +18,7 @@ import { useGameStore } from './gameStore'
 import { workerShortName } from './workerGroups'
 
 const game = useGameStore()
+const frameNow = useFrameNow()
 const mines = computed(() => game.save.treasureMines.mines)
 const vaultLine = computed(() => {
   const vault = game.save.treasureMines.vault
@@ -86,6 +91,16 @@ function togglePick(worker: Worker) {
   picked.value = [...picked.value, id]
 }
 
+function raidElapsed(): number {
+  const dt = Math.max(0, Math.min(1, (frameNow.value - game.save.lastTick) / 1000))
+  return game.save.elapsedS + dt
+}
+
+function raidHuds(mine: TreasureMine) {
+  const hud = treasureRaidHud(mine, game.save.workers, raidElapsed())
+  return hud ? [hud] : []
+}
+
 function confirmPick() {
   const mineId = pickMineId.value
   if (!mineId) return
@@ -121,9 +136,19 @@ function confirmPick() {
         <p class="label">剩余 {{ clock(mine) }}</p>
         <p v-if="mine.owner === 'shadow'" class="label">守军 {{ mine.shadows.map((row) => row.name).join('、') || '无' }}</p>
         <p v-else class="label">开采 {{ names(mine.crewIds) }}（{{ mine.crewIds.length }}/{{ TREASURE_CREW_CAP }}，无符文）</p>
-        <p v-if="mine.raid" class="label">
-          抢夺中 {{ names(mine.raid.queue) }} 对 {{ mine.shadows[0]?.name ?? '守军' }}。本洞不能再开，也不能增援
-        </p>
+        <template v-for="hud in raidHuds(mine)" :key="`${mine.id}-raid`">
+          <div class="bars">
+            <p class="bar-line">{{ hud.attack.name }}</p>
+            <HpBar :hp="hud.attack.hp" :hp-max="hud.attack.hpMax" />
+            <ActChargeBar :fill="hud.attack.fill" />
+            <p class="bar-line">{{ hud.defend.name }}</p>
+            <HpBar variant="enemy" :hp="hud.defend.hp" :hp-max="hud.defend.hpMax" />
+            <ActChargeBar enemy :fill="hud.defend.fill" />
+          </div>
+          <p v-if="hud.waitingAttack.length" class="label">等待 {{ hud.waitingAttack.join('、') }}</p>
+          <p v-if="hud.waitingDefend.length" class="label">守军等待 {{ hud.waitingDefend.join('、') }}</p>
+          <p class="label">本洞不能再开，也不能增援</p>
+        </template>
         <div class="row">
           <button v-if="mine.owner === 'shadow' && !mine.raid" type="button" @click="openPick('raid', mine.id)">抢夺</button>
           <button
@@ -242,5 +267,17 @@ function confirmPick() {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bar-line {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
 }
 </style>
