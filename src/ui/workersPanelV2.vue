@@ -87,8 +87,19 @@ const guideFlashFuse = computed(() => isGuideQuestFlash(game.save, 'fuse'))
 const guideFlashPotionInstall = computed(() => isGuideQuestFlash(game.save, 'potionInstall'))
 const guideFlashPotionUse = computed(() => isGuideQuestFlash(game.save, 'potionUse'))
 const frameNow = useFrameNow()
-function onRestFood(itemId: FoodItemId) {
-  game.selectRestFood(game.save.restFoodId === itemId ? null : itemId)
+const restFoodOpen = ref(false)
+const restFoodLabel = computed(() => {
+  const id = game.save.restFoodId
+  if (!id) return '未选伙食'
+  return `${ITEM_DEF[id].label} ×${bankQty(game.save, id)}`
+})
+const restFoodDry = computed(() => {
+  const id = game.save.restFoodId
+  return !!id && bankQty(game.save, id) <= 0
+})
+function onPickRestFood(itemId: FoodItemId | null) {
+  game.selectRestFood(itemId)
+  restFoodOpen.value = false
 }
 const selectedId = ref<string | null>(null)
 const pickId = ref<string | null>(null)
@@ -678,19 +689,15 @@ onUnmounted(() => {
             <span class="recruit-bar-lab">抽工人</span>
             <span class="recruit-bar-cost">{{ recruitPrice }} 钻</span>
           </button>
-          <div class="rest-food" aria-label="休息区伙食">
-            <button
-              v-for="id in FOOD_ITEM_IDS"
-              :key="id"
-              type="button"
-              class="rest-food-btn"
-              :class="{ on: game.save.restFoodId === id, dry: bankQty(game.save, id) <= 0 }"
-              :aria-pressed="game.save.restFoodId === id"
-              @click="onRestFood(id)"
-            >
-              {{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}
-            </button>
-          </div>
+          <button
+            type="button"
+            class="rest-food"
+            :class="{ dry: restFoodDry }"
+            :aria-label="`休息区伙食 · ${restFoodLabel}`"
+            @click="restFoodOpen = true"
+          >
+            {{ restFoodLabel }}
+          </button>
           <div v-if="resting.length" class="zone-list rest-list">
             <div
               v-for="w in resting"
@@ -813,6 +820,46 @@ onUnmounted(() => {
             前往
           </button>
           <button type="button" class="close" @click="closePick">关闭</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <Teleport to="body">
+    <div
+      v-if="restFoodOpen"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="选择伙食"
+      @click.self="restFoodOpen = false"
+    >
+      <div class="sheet">
+        <header>
+          <h2 class="title">选择伙食</h2>
+          <button type="button" class="close" @click="restFoodOpen = false">关闭</button>
+        </header>
+        <div class="pick-list">
+          <div v-for="id in FOOD_ITEM_IDS" :key="id" class="pick-cell">
+            <button
+              type="button"
+              :class="{ on: game.save.restFoodId === id }"
+              :aria-pressed="game.save.restFoodId === id"
+              @click="onPickRestFood(id)"
+            >
+              {{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}
+            </button>
+          </div>
+          <div class="pick-cell">
+            <button
+              type="button"
+              :class="{ on: !game.save.restFoodId }"
+              :aria-pressed="!game.save.restFoodId"
+              @click="onPickRestFood(null)"
+            >
+              不选
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1081,15 +1128,9 @@ onUnmounted(() => {
 }
 
 .rest-food {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex: 0 0 auto;
   width: calc(100% - 6px);
   margin: 0 3px 4px;
-}
-
-.rest-food-btn {
-  margin: 0;
   min-height: 22px;
   padding: 2px 4px;
   border: 1px solid var(--gold-deep);
@@ -1101,11 +1142,7 @@ onUnmounted(() => {
   line-height: 1.1;
 }
 
-.rest-food-btn.on {
-  background: linear-gradient(#ffe27a, #f0b83a);
-}
-
-.rest-food-btn.dry {
+.rest-food.dry {
   opacity: 0.55;
 }
 
