@@ -56,7 +56,7 @@ export const STATION_HELP: Record<StationId, StationHelpEntry> = {
   },
   alchemy: {
     play: '每次成功从 7 种药剂里随机一种并给一批。',
-    output: '药剂装进工人页 4 槽后点槽使用，点？看效果。',
+    output: '药剂装进工人页 4 槽后点槽使用，点 i 看效果。',
     cost: '做成即扣光 1 个草或猎副产（血 / 牙 / 眼，优先扣草）。',
   },
 }

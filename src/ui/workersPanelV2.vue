@@ -151,9 +151,9 @@ function closePotionHelp() {
   potionHelp.value = null
 }
 
-function onPotionHelp(ev: MouseEvent, source: PotionHelpKey['source'], id: PotionItemId) {
+function onPotionHelp(ev: MouseEvent, source: PotionHelpKey['source'], id: PotionItemId, index?: number) {
   ev.stopPropagation()
-  const next = nextPotionHelp(potionHelp.value, { source, id })
+  const next = nextPotionHelp(potionHelp.value, source === 'slot' ? { source, id, index } : { source, id })
   potionHelp.value = next
   if (!next) return
   const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect()
@@ -161,6 +161,19 @@ function onPotionHelp(ev: MouseEvent, source: PotionHelpKey['source'], id: Potio
     left: Math.min(window.innerWidth - 228, Math.max(8, rect.left)),
     top: Math.min(window.innerHeight - 120, rect.bottom + 6),
   }
+}
+
+const canUnequipPotionHelp = computed(() => {
+  const key = potionHelp.value
+  if (!key || key.source !== 'slot' || key.index == null) return false
+  return game.save.potionSlots[key.index] != null
+})
+
+function onUnequipPotionHelp() {
+  const key = potionHelp.value
+  if (!key || key.source !== 'slot' || key.index == null) return
+  game.clearPotionSlot(key.index)
+  closePotionHelp()
 }
 
 function onDocPotionHelp(ev: PointerEvent) {
@@ -563,19 +576,13 @@ onUnmounted(() => {
                 <UiIcon name="alchemy" />
                 <span class="potion-lab">{{ potionSlotLabel(itemId) }}</span>
                 <span
-                  class="unequip"
-                  role="button"
-                  :aria-label="`卸下 ${ITEM_DEF[itemId].label}`"
-                  @click.stop="game.clearPotionSlot(i)"
-                >×</span>
-                <span
                   class="potion-help"
                   data-potion-help
                   role="button"
-                  :aria-pressed="isPotionHelpOpen(potionHelp, 'slot', itemId)"
+                  :aria-pressed="isPotionHelpOpen(potionHelp, 'slot', itemId, i)"
                   :aria-label="`查看 ${ITEM_DEF[itemId].label} 效果`"
-                  @click.stop="onPotionHelp($event, 'slot', itemId)"
-                >？</span>
+                  @click.stop="onPotionHelp($event, 'slot', itemId, i)"
+                >i</span>
               </template>
               <template v-else>
                 <span class="empty-mark" aria-hidden="true">＋</span>
@@ -832,6 +839,7 @@ onUnmounted(() => {
       <b>{{ potionHelpBubble.title }}</b>
       <p>{{ potionHelpBubble.effect }}</p>
       <small v-if="potionHelpBubble.stock != null">库存 ×{{ potionHelpBubble.stock }}</small>
+      <button v-if="canUnequipPotionHelp" type="button" class="potion-bubble-unequip" @click="onUnequipPotionHelp">卸下</button>
     </div>
   </Teleport>
 </template>
@@ -1252,7 +1260,6 @@ onUnmounted(() => {
   box-shadow: none;
 }
 
-.potion-slot .unequip,
 .potion-slot .potion-help {
   position: absolute;
   top: -2px;
@@ -1268,17 +1275,10 @@ onUnmounted(() => {
   text-align: center;
 }
 
-.potion-slot .unequip::before,
 .potion-slot .potion-help::before {
   content: '';
   position: absolute;
   inset: -6px;
-}
-
-.potion-slot .unequip {
-  left: -2px;
-  background: #8a3228;
-  color: #fff8ee;
 }
 
 .potion-slot .potion-help {
@@ -1342,6 +1342,15 @@ onUnmounted(() => {
 
 .potion-bubble small {
   color: var(--muted);
+}
+
+.potion-bubble-unequip {
+  align-self: flex-start;
+  min-height: 22px;
+  margin-top: 2px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .potion-buffs {
