@@ -17,6 +17,8 @@ import {
   REST_HEAL_EVERY_S,
   WORKER_COMBAT_BY_TIER,
   applyRestHeal,
+  ENEMY_ACT_HELD_AT,
+  actIntervalMs,
   beginEnemyCombat,
   canReinforceCombat,
   combatPartyBlockReason,
@@ -41,6 +43,7 @@ import {
   workerCombatStats,
   workerLiveStats,
 } from './combat'
+import { actChargeFill } from '../ui/actCharge'
 import { jitterWorkerAtkInterval } from './atkInterval'
 import { createSave } from './createSave'
 import { claimLoot, reinforceCombat, reinforceLostCombat, startCombat } from './encounters'
@@ -750,6 +753,53 @@ describe('enemy hits workshop crew', () => {
     expect(save.stations.mining.stallReason).toBeNull()
     expect(combat.returning?.some((row) => row.id === shop.id)).toBe(false)
     expect(enc.combat?.logs.some((row) => row.text.includes('工坊'))).toBe(true)
+  })
+
+  it('holds the enemy bar at 0 with no workshop hits until a reinforcement lands', () => {
+    const save = createSave()
+    const front = spawnWorkerWith(save, 1, 'laborer')
+    const shop = spawnWorkerWith(save, 1, 'miner')
+    const bench = spawnWorkerWith(save, 1, 'wanderer')
+    assignWorker(save, shop.id, 'mining')
+    const enc = testEnemy({
+      targetRuleId: 'workshopBias',
+      dungeon: true,
+      dungeonMechanic: 'workshopSmash',
+      targetRuleUntil: 200_000,
+    })
+    putEnemy(save, enc)
+    const t0 = 80_000
+    const combat = beginEnemyCombat(enc, [front], t0)
+    combat.workers[0].hp = 0
+    combat.enemy.nextActAt = t0 + 1_000
+    combat.enemy.atk = 9
+    const shopHp = shop.hp
+    stepEnemyCombat(save, enc, t0 + 6_000)
+    expect(combatRosterFighters(combat)).toEqual([])
+    expect(combat.outcome).toBeNull()
+    expect(shop.hp).toBe(shopHp)
+    expect(shop.assignment).toBe('mining')
+    expect(combat.logs.some((row) => row.text.includes('工坊'))).toBe(false)
+    expect(combat.enemy.nextActAt).toBe(ENEMY_ACT_HELD_AT)
+    expect(actChargeFill(combat.enemy.spd, combat.enemy.nextActAt, t0 + 6_000)).toBe(0)
+
+    combat.incoming = [{ id: bench.id, arrivesAt: t0 + 9_000, startedAt: t0 + 6_000, reinforced: true }]
+    stepEnemyCombat(save, enc, t0 + 8_000)
+    expect(combatRosterFighters(combat)).toEqual([])
+    expect(shop.hp).toBe(shopHp)
+    expect(combat.enemy.nextActAt).toBe(ENEMY_ACT_HELD_AT)
+    expect(actChargeFill(combat.enemy.spd, combat.enemy.nextActAt, t0 + 8_500)).toBe(0)
+
+    stepEnemyCombat(save, enc, t0 + 9_000)
+    expect(combatRosterFighters(combat).map((fighter) => fighter.id)).toEqual([bench.id])
+    const interval = actIntervalMs(combat.enemy.spd)
+    expect(combat.enemy.nextActAt).toBe(t0 + 9_000 + interval)
+    expect(actChargeFill(combat.enemy.spd, combat.enemy.nextActAt, t0 + 9_000)).toBe(0)
+    expect(shop.hp).toBe(shopHp)
+
+    stepEnemyCombat(save, enc, combat.enemy.nextActAt)
+    expect(shop.hp).toBeLessThan(shopHp)
+    expect(combat.logs.some((row) => row.text.includes('工坊'))).toBe(true)
   })
 
   it('does not eat rest food when a workshop hit leaves residual HP', () => {

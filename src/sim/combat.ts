@@ -471,6 +471,22 @@ export function actIntervalMs(spd: number): number {
   return Math.max(1, spd) * 1000
 }
 
+/** 场上没活人时敌方 nextActAt 停在这里。有限大数，存档可写；蓄力条算出来是 0。 */
+export const ENEMY_ACT_HELD_AT = Number.MAX_SAFE_INTEGER
+
+function holdEnemyIfFieldEmpty(combat: EnemyCombat): void {
+  if (combat.enemy.hp <= 0) return
+  if (livingWorkers(combat).length > 0) return
+  combat.enemy.nextActAt = ENEMY_ACT_HELD_AT
+}
+
+function releaseEnemyAct(combat: EnemyCombat, now: number): void {
+  let next = now + actIntervalMs(combat.enemy.spd)
+  const stunUntil = combat.stunnedUntil
+  if (typeof stunUntil === 'number' && stunUntil > next && (combat.shield ?? 0) <= 0) next = stunUntil
+  combat.enemy.nextActAt = next
+}
+
 function makeFighter(
   id: string,
   label: string,
@@ -729,6 +745,7 @@ export function addCombatReinforcements(
 ): void {
   const combat = enc.combat
   if (!combat || combat.outcome || enc.lootClaimed || !workers.length) return
+  const fieldWasEmpty = livingWorkers(combat).length === 0
   const added: CombatFighter[] = []
   for (const worker of workers) {
     if (combat.workers.some((row) => row.id === worker.id)) continue
@@ -747,6 +764,7 @@ export function addCombatReinforcements(
     }
   }
   if (!added.length) return
+  if (fieldWasEmpty && livingWorkers(combat).length > 0) releaseEnemyAct(combat, now)
   revealInsightWeakness(enc, combat)
   emitLog(enc, combat, now, `${added.map((w) => w.label).join('、')} 增援`, 'ok', onLog)
 }
@@ -1083,6 +1101,7 @@ function resolveEnemyStrikeTargets(
   combat: EnemyCombat,
   at = 0,
 ): CombatTarget[] {
+  if (livingWorkers(combat).length === 0) return []
   if (isDungeonEncounter(enc)) maybeRotateDungeonTarget(enc, at)
   let rule = drawEnemyTargetRule(save, enc)
   if (isDungeonEncounter(enc) && enc.dungeonMechanic === 'cleave' && rule === 'rand1') rule = 'cleave2'
@@ -1182,8 +1201,9 @@ function closeMarchHome(save: Save, combat: EnemyCombat, now: number): void {
 }
 
 function nextActionAt(combat: EnemyCombat): number | null {
-  const times = livingWorkers(combat).map((f) => f.nextActAt)
-  if (combat.enemy.hp > 0) {
+  const living = livingWorkers(combat)
+  const times = living.map((f) => f.nextActAt)
+  if (living.length > 0 && combat.enemy.hp > 0) {
     const stunUntil = combat.stunnedUntil
     if (typeof stunUntil === 'number' && stunUntil > 0 && (combat.shield ?? 0) <= 0) {
       times.push(stunUntil)
@@ -1233,6 +1253,7 @@ export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number, on
       }
     }
     if (combat.outcome) break
+    holdEnemyIfFieldEmpty(combat)
 
     const arriveAt = nextIncomingAt(combat)
     const actAt = nextActionAt(combat)

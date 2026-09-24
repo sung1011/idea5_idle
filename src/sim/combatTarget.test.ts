@@ -165,4 +165,16 @@ describe('enemy target pool and rules', () => {
     expect(hits.map((row) => row.id)).toEqual([shop.id])
     expect(pickEnemyTargets(save, combat, 'frontlineBias', () => 0).map((row) => row.id)).toEqual([front.id])
   })
+
+  it('drops the workshop out of the pool when nobody is left on the field', () => {
+    const { save, front, shop } = partySave()
+    const enc = testEnemy({ targetRuleId: 'workshopBias' })
+    const combat = beginEnemyCombat(enc, [front], 2_000)
+    combat.workers[0].hp = 0
+    expect(collectEnemyTargetPool(save, combat)).toEqual([])
+    expect(pickEnemyTargets(save, combat, 'workshopBias', () => 0)).toEqual([])
+    expect(pickEnemyTargets(save, combat, 'all', () => 0)).toEqual([])
+    expect(pickEnemyTargets(save, combat, 'frontlineBias', () => 0)).toEqual([])
+    expect(shop.assignment).toBe('mining')
+  })
 })

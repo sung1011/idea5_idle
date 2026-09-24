@@ -212,10 +212,12 @@ function fighterTarget(fighter: CombatFighter): CombatTarget {
 /**
  * 本场出战（战斗快照里仍活着的）+ 当前工坊在岗。
  * 休息中、助战花名册外、已倒下的不进池。
+ * 场上没有存活出战工人时整池为空，避免工坊变成敌方目标。
  */
 export function collectEnemyTargetPool(save: Save, combat: EnemyCombat): CombatTarget[] {
   const fighting = new Set(combat.workerIds)
   const frontline = combat.workers.filter((fighter) => fighter.hp > 0).map(fighterTarget)
+  if (!frontline.length) return []
   const workshop: CombatTarget[] = []
   for (const worker of save.workers) {
     if (worker.guest === true || worker.id.startsWith('assist-')) continue
