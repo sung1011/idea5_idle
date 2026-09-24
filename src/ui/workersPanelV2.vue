@@ -31,6 +31,12 @@ import { isGuideQuestFlash } from '../sim/guideQuest'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { pushFloatTip } from './floatTips'
 import { isWorkerLevelFlashing } from './workerLevelFlash'
+import {
+  announceWorkerStationEnters,
+  isWorkerEntering,
+  workerAssignSnapshot,
+  workerEnterDelayMs,
+} from './workerEnterFlash'
 import { recruitCost } from '../sim/tech'
 import type { CategoryId, ClassId, PotionItemId, StationId, Worker } from '../sim/types'
 import ClassIcon from './classIcon.vue'
@@ -448,6 +454,25 @@ watch(openStationDetailId, (id) => {
   if (id && !isStationUnlocked(game.save, id)) showStationDetail(null)
 })
 
+let assignBefore = workerAssignSnapshot(game.save.workers)
+watch(
+  () => game.save.workers,
+  (workers) => {
+    announceWorkerStationEnters(assignBefore, workers)
+    assignBefore = workerAssignSnapshot(workers)
+  },
+)
+
+function stationAvatarStyle(worker: Worker) {
+  const face = workerQualityTileStyle(worker)
+  if (!isWorkerEntering(worker.id)) return face
+  return {
+    ...face,
+    '--enter-delay': `${workerEnterDelayMs(worker.id)}ms`,
+    '--enter-edge': face.borderColor,
+  }
+}
+
 onMounted(() => {
   document.addEventListener('pointerdown', onDocPotionHelp, true)
   greetWorkshopBanter(game.save)
@@ -511,6 +536,7 @@ onUnmounted(() => {
                     {
                       empty: !w,
                       'level-flash': !!w && isWorkerLevelFlashing(w.id),
+                      'enter-slot': !!w && isWorkerEntering(w.id),
                       'has-banter': !!w && banterLine(w.id),
                       'guide-flash': !w && guideFlashAssignHerb && board.stationId === 'herbalism' && board.filled === 0,
                     },
@@ -527,7 +553,11 @@ onUnmounted(() => {
                   <i v-if="w" class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
                   <template v-if="w">
                     <span v-if="banterLine(w.id)" class="banter" role="status">{{ banterLine(w.id) }}</span>
-                    <span class="avatar" :style="workerQualityTileStyle(w)">
+                    <span
+                      class="avatar"
+                      :class="{ 'enter-land': isWorkerEntering(w.id) }"
+                      :style="stationAvatarStyle(w)"
+                    >
                       <ClassIcon :name="classIconOf(w)" />
                       <i v-if="w.isNew" class="worker-new" aria-label="新工人">NEW</i>
                     </span>
@@ -1478,6 +1508,10 @@ onUnmounted(() => {
   .hp-fill {
     transition: none;
   }
+
+  .station .slot .avatar.enter-land {
+    animation: none;
+  }
 }
 
 .avatar {
@@ -1497,11 +1531,37 @@ onUnmounted(() => {
   height: 13px;
 }
 
+.station .slot.enter-slot {
+  overflow: visible;
+  z-index: 2;
+}
+
 .station .slot .avatar {
   width: 48px;
   height: 48px;
   border-width: 4px;
   border-radius: 10px;
+}
+
+.station .slot .avatar.enter-land {
+  z-index: 2;
+  animation: worker-enter 0.45s cubic-bezier(0.22, 0.9, 0.24, 1) both;
+  animation-delay: var(--enter-delay, 0ms);
+}
+
+@keyframes worker-enter {
+  0% {
+    transform: translateY(-8px) scale(0.55);
+    box-shadow: 0 0 0 0 transparent;
+  }
+  62% {
+    transform: translateY(1px) scale(1.08);
+    box-shadow: 0 0 0 3px var(--enter-edge, #d4a84a);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 0 transparent;
+  }
 }
 
 .station .slot .avatar :deep(.class-ico) {
