@@ -57,12 +57,12 @@ import { hpBarFill, hpBarTone } from './hpBar'
 import { workerWearHp } from '../sim/workshopHp'
 import {
   canGoToAssignedWorkshop,
-  restingWorkers,
   workerAssignChoices,
   workerDutyLabel,
   workerShortName,
   workshopStationBoards,
 } from './workerGroups'
+import { REST_HEAD_BADGE, restQueueRows, restZoneTitle } from './restQueue'
 import { formatAtkSpeed } from './formatAtkSpeed'
 import UiIcon from './uiIcon.vue'
 import UiSelect from './uiSelect.vue'
@@ -117,7 +117,7 @@ const fightingRoster = computed(() =>
     })
     .filter((item): item is { worker: Worker; row: CombatZoneRow } => !!item),
 )
-const resting = computed(() => restingWorkers(game.save))
+const restRows = computed(() => restQueueRows(game.save))
 const recruitPrice = computed(() => recruitCost(game.save))
 const canRecruit = computed(() => game.save.diamonds >= recruitPrice.value)
 const selected = computed(() => {
@@ -709,7 +709,7 @@ onUnmounted(() => {
           aria-label="休息区"
           data-drop="rest"
         >
-          <header class="zone-head">休息区 · {{ resting.length }}</header>
+          <header class="zone-head">{{ restZoneTitle(restRows.length) }}</header>
           <button
             type="button"
             class="recruit-bar"
@@ -730,53 +730,60 @@ onUnmounted(() => {
           >
             {{ restFoodLabel }}
           </button>
-          <div v-if="resting.length" class="zone-list rest-list">
+          <div v-if="restRows.length" class="zone-list rest-list">
             <div
-              v-for="w in resting"
-              :key="w.id"
+              v-for="row in restRows"
+              :key="row.id"
               class="rest-row"
               :class="[
-                hpToneClass(w),
-                restWorkerDropClass(w.id),
+                hpToneClass(row.worker),
+                restWorkerDropClass(row.id),
                 {
-                  'level-flash': isWorkerLevelFlashing(w.id),
-                  'eat-flash': isWorkerEatFlashing(w.id),
-                  'has-tutor': tutorLine(w.id),
+                  'level-flash': isWorkerLevelFlashing(row.id),
+                  'eat-flash': isWorkerEatFlashing(row.id),
+                  'has-tutor': tutorLine(row.id),
+                  'queue-ready': row.badge === REST_HEAD_BADGE,
+                  'queue-blocked': row.badge === '堵队',
+                  'queue-dim': row.dim,
                 },
               ]"
               data-drop="rest-worker"
-              :data-worker="w.id"
+              :data-worker="row.id"
             >
-              <i class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
+              <i class="hp-fill" :style="hpFillStyle(row.worker)" aria-hidden="true" />
               <button
                 type="button"
                 class="rest-face"
-                :aria-label="`拖动派驻 ${workerShortName(w)}`"
-                @pointerdown="onWorkerPointerDown($event, w, null, null)"
+                :aria-label="`${row.order}${row.badge ? ' ' + row.badge : ''} 拖动派驻 ${workerShortName(row.worker)}`"
+                @pointerdown="onWorkerPointerDown($event, row.worker, null, null)"
               >
-                <span class="avatar" :style="workerQualityTileStyle(w)">
-                  <ClassIcon :name="classIconOf(w)" />
-                  <i v-if="w.isNew" class="worker-new" aria-label="新工人">NEW</i>
+                <span class="rest-queue">
+                  <span class="rest-order">{{ row.order }}</span>
+                  <i v-if="row.badge" class="rest-badge">{{ row.badge }}</i>
                 </span>
-                <em v-if="workerEatFlashText(w.id)" class="eat-float">{{ workerEatFlashText(w.id) }}</em>
-                <b class="rest-name" :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</b>
+                <span class="avatar" :style="workerQualityTileStyle(row.worker)">
+                  <ClassIcon :name="classIconOf(row.worker)" />
+                  <i v-if="row.worker.isNew" class="worker-new" aria-label="新工人">NEW</i>
+                </span>
+                <em v-if="workerEatFlashText(row.id)" class="eat-float">{{ workerEatFlashText(row.id) }}</em>
+                <b class="rest-name" :style="workerQualityNameStyle(row.worker)">{{ workerShortName(row.worker) }}</b>
               </button>
               <button
-                v-if="tutorLine(w.id)"
+                v-if="tutorLine(row.id)"
                 type="button"
                 class="tutor-tip"
-                :aria-label="`关掉教程：${tutorLine(w.id)}`"
+                :aria-label="`关掉教程：${tutorLine(row.id)}`"
                 @pointerdown.stop
                 @click.stop="onDismissTutor"
               >
-                {{ tutorLine(w.id) }}
+                {{ tutorLine(row.id) }}
               </button>
               <button
                 type="button"
                 class="rest-go"
-                :aria-label="`${workerShortName(w)} 详情`"
+                :aria-label="`${workerShortName(row.worker)} 详情`"
                 @pointerdown.stop
-                @click="openSheet(w)"
+                @click="openSheet(row.worker)"
               >
                 ›
               </button>
@@ -1065,6 +1072,11 @@ onUnmounted(() => {
 
 .combat .zone-head {
   color: #8a3228;
+}
+
+.rest > .zone-head {
+  font-size: 9px;
+  line-height: 1.25;
 }
 
 .march-row {
@@ -1890,6 +1902,64 @@ onUnmounted(() => {
   border-radius: 7px;
   background: rgba(255, 247, 212, 0.45);
   box-shadow: 0 2px 0 rgba(170, 108, 31, 0.28);
+}
+
+.rest-row.queue-ready {
+  background: rgba(255, 236, 160, 0.95);
+  box-shadow:
+    inset 0 0 0 1px rgba(62, 154, 42, 0.55),
+    0 2px 0 rgba(170, 108, 31, 0.28);
+}
+
+.rest-row.queue-blocked {
+  box-shadow:
+    inset 0 0 0 1px rgba(176, 72, 64, 0.7),
+    0 2px 0 rgba(170, 108, 31, 0.28);
+}
+
+.rest-row.queue-dim {
+  opacity: 0.5;
+}
+
+.rest-queue {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  gap: 1px;
+}
+
+.rest-order {
+  color: var(--ink);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+}
+
+.rest-badge {
+  padding: 0 1px;
+  border-radius: 3px;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.queue-ready .rest-badge {
+  background: rgba(122, 214, 78, 0.45);
+  color: var(--moss-deep);
+}
+
+.queue-blocked .rest-badge {
+  background: rgba(226, 74, 58, 0.22);
+  color: #8a3228;
 }
 
 .rest-face {

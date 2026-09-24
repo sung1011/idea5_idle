@@ -34,9 +34,9 @@ describe('worker eat flash', () => {
   })
 
   it('shows the glow and the float on the rest row', () => {
-    expect(workersPanelSource).toContain("'eat-flash': isWorkerEatFlashing(w.id)")
+    expect(workersPanelSource).toContain("'eat-flash': isWorkerEatFlashing(row.id)")
     expect(workersPanelSource).toContain('class="eat-float"')
-    expect(workersPanelSource).toContain('workerEatFlashText(w.id)')
+    expect(workersPanelSource).toContain('workerEatFlashText(row.id)')
     expect(workersPanelSource).toContain('eat-glow 0.7s')
     expect(gameStoreSource).toContain('announceWorkerEats')
     expect(gameStoreSource).toContain('takeRestEatNotices')
