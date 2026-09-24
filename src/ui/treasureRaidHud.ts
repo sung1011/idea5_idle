@@ -1,5 +1,7 @@
 import { workerLiveStats } from '../sim/combat'
 import { playerDisplayName } from '../sim/createSave'
+import { playerAvatarId } from '../sim/playerAvatarIds'
+import { normalizeMineAvatarId } from '../sim/treasureMine'
 import { runeSpdMul } from '../sim/runes'
 import { CLASS_LABEL, RUNE_DEF, workerQualityDef } from '../sim/tables'
 import { TREASURE_RAID_CAP, raidSlotSnapshot } from '../sim/treasureMine'
@@ -68,6 +70,8 @@ export function raidActChargeFill(spd: number, nextAtS: number, elapsedS: number
 
 export type TreasureRaidFighterHud = {
   name: string
+  /** 守方是洞上的假玩家头像，我方开采和攻方是存档头像。 */
+  avatarId: string
   hp: number
   hpMax: number
   /** 血条填充，与 `hpBarFill` 相同。 */
@@ -114,6 +118,7 @@ function standbyDefendHud(mine: TreasureMine): TreasureRaidHud | null {
     attack: null,
     defend: {
       name: front.name || '守军',
+      avatarId: normalizeMineAvatarId(mine.ownerAvatarId, mine.id),
       hp: bar.hp,
       hpMax: bar.hpMax,
       barFill: hpBarFill(bar.hp, bar.hpMax),
@@ -131,6 +136,7 @@ function playerMineHud(
   mine: TreasureMine,
   workers: readonly Worker[],
   playerName: unknown,
+  playerAvatar: unknown,
 ): TreasureRaidHud | null {
   if (mine.owner !== 'player' || mine.raid) return null
   const crew = mine.crewIds.filter((id) => typeof id === 'string' && id)
@@ -149,6 +155,7 @@ function playerMineHud(
     attack: null,
     defend: {
       name: playerDisplayName(playerName),
+      avatarId: playerAvatarId(playerAvatar),
       hp: bar.hp,
       hpMax: bar.hpMax,
       barFill: hpBarFill(bar.hp, bar.hpMax),
@@ -169,6 +176,7 @@ function fallenDefendHud(mine: TreasureMine): TreasureRaidFighterHud {
   }, 0)
   return {
     name: '守军',
+    avatarId: normalizeMineAvatarId(mine.ownerAvatarId, mine.id),
     hp: 0,
     hpMax,
     barFill: hpBarFill(0, hpMax),
@@ -183,8 +191,9 @@ export function treasureRaidHud(
   workers: readonly Worker[],
   elapsedS: number,
   playerName?: unknown,
+  playerAvatar?: unknown,
 ): TreasureRaidHud | null {
-  const owned = playerMineHud(mine, workers, playerName)
+  const owned = playerMineHud(mine, workers, playerName, playerAvatar)
   if (owned) return owned
   const raid = mine.raid
   const shadow = mine.shadows[0]
@@ -211,6 +220,7 @@ export function treasureRaidHud(
       attackerId && attackHp
         ? {
             name: attackLine(playerName, fighterName(workers, attackerId)),
+            avatarId: playerAvatarId(playerAvatar),
             hp: attackHp.hp,
             hpMax: attackHp.hpMax,
             barFill: hpBarFill(attackHp.hp, attackHp.hpMax),
@@ -221,6 +231,7 @@ export function treasureRaidHud(
     defend: shadow && defendHp
       ? {
           name: shadow.name || '守军',
+          avatarId: normalizeMineAvatarId(mine.ownerAvatarId, mine.id),
           hp: defendHp.hp,
           hpMax: defendHp.hpMax,
           barFill: hpBarFill(defendHp.hp, defendHp.hpMax),

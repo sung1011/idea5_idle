@@ -1,4 +1,5 @@
 import { blankDungeonState } from './dungeon'
+import { PLAYER_AVATAR_DEFAULT, playerAvatarId } from './playerAvatarIds'
 import { hydrateTreasureMines } from './treasureMine'
 import { generateEncounterBoard } from './encounters'
 import { GUIDE_QUEST_REV } from './guideQuest'
@@ -21,19 +22,7 @@ export function playerDisplayName(value: unknown): string {
   return trimmed || PLAYER_NAME_DEFAULT
 }
 
-/** 顶栏头像。缺字段或未知 id 回落到盔。 */
-export const PLAYER_AVATAR_IDS = ['helm', 'crest', 'lion', 'rose', 'sun', 'shield', 'crown', 'lance'] as const
-
-export type PlayerAvatarId = (typeof PLAYER_AVATAR_IDS)[number]
-
-export const PLAYER_AVATAR_DEFAULT: PlayerAvatarId = 'helm'
-
-const PLAYER_AVATAR_ID_SET = new Set<string>(PLAYER_AVATAR_IDS)
-
-export function playerAvatarId(value: unknown): PlayerAvatarId {
-  if (typeof value === 'string' && PLAYER_AVATAR_ID_SET.has(value)) return value as PlayerAvatarId
-  return PLAYER_AVATAR_DEFAULT
-}
+export { PLAYER_AVATAR_DEFAULT, PLAYER_AVATAR_IDS, playerAvatarId, type PlayerAvatarId } from './playerAvatarIds'
 
 /** 确认改名改头像。空名字兜底见习勇者，未知头像兜底盔。 */
 export function applyPlayerProfile(save: Save, name: unknown, avatar: unknown): ActionResult {

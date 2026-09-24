@@ -514,6 +514,11 @@ export type TreasureMine = {
   expiresAtS: number
   /** `shadow` 敌人驻守，`player` 我方开采，`empty` 放弃后的无人矿。 */
   owner: 'shadow' | 'player' | 'empty'
+  /**
+   * 整洞共用的守方头像，`PLAYER_AVATAR_IDS` 之一。
+   * 新刷有守军时用矿洞骰抽一个；缺字段按洞 id 稳定。我方开采 HUD 不读这份。
+   */
+  ownerAvatarId: string
   crewIds: string[]
   shadows: TreasureShadow[]
   /** 矿洞弱点。工人属性命中则该人开采快 1 秒。不参与抢夺战斗结算。 */

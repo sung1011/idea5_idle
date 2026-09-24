@@ -1,4 +1,5 @@
 import { hashString, isCombatAttrId, matchingWeaknesses, pickEnemyWeaknesses } from './combatAttrs'
+import { PLAYER_AVATAR_DEFAULT, PLAYER_AVATAR_IDS, type PlayerAvatarId } from './playerAvatarIds'
 import { applyDownedReturn, workerLiveStats } from './combat'
 import { offerRestFood } from './food'
 import { raidPhaseOf } from './march'
@@ -122,6 +123,23 @@ export const SNAPSHOT_PLAYER_NAMES = [
 ] as const
 
 const SHADOW_RUNES: RuneItemId[] = ['runeSharp', 'runeArmor', 'runeSwift']
+const PLAYER_AVATAR_ID_SET = new Set<string>(PLAYER_AVATAR_IDS)
+
+/** 新刷有守军的洞抽一个头像。roll 来自矿洞自己的 `nextMineRoll`，整洞共用。 */
+export function pickMineAvatarId(roll: number): PlayerAvatarId {
+  const index = Math.min(PLAYER_AVATAR_IDS.length - 1, Math.max(0, Math.floor(Math.max(0, roll) * PLAYER_AVATAR_IDS.length)))
+  return PLAYER_AVATAR_IDS[index] ?? PLAYER_AVATAR_DEFAULT
+}
+
+/** 旧洞缺头像时按洞 id 落到固定一张，重复读档不换。 */
+export function stableMineAvatarId(mineId: string): PlayerAvatarId {
+  return PLAYER_AVATAR_IDS[hashString(mineId) % PLAYER_AVATAR_IDS.length] ?? PLAYER_AVATAR_DEFAULT
+}
+
+export function normalizeMineAvatarId(value: unknown, mineId: string): PlayerAvatarId {
+  if (typeof value === 'string' && PLAYER_AVATAR_ID_SET.has(value)) return value as PlayerAvatarId
+  return stableMineAvatarId(mineId)
+}
 
 /** 按矿洞掷骰从名单取一个显示名。`taken` 里已有的尽量跳过。 */
 export function pickSnapshotPlayerName(roll: number, taken: ReadonlySet<string>): string {
@@ -197,6 +215,7 @@ export function hydrateTreasureMines(save: Save): void {
       mine.owner = mine.shadows.length > 0 ? 'shadow' : 'empty'
     }
     if (!isTreasureKind(mine.kind)) mine.kind = treasureKindFromId(mine.id)
+    mine.ownerAvatarId = normalizeMineAvatarId(mine.ownerAvatarId, mine.id)
     mine.weaknesses = mineWeaknessesOf(mine)
     mine.revealedWeaknesses = keptRevealedWeaknesses(mine)
     mine.reserve = clampInt(mine.reserve, 0, TREASURE_RESERVE_MAX)
@@ -716,6 +735,7 @@ function spawnMine(save: Save, elapsed: number): TreasureMine {
     bornAtS: elapsed,
     expiresAtS: elapsed + TREASURE_LIFE_S,
     owner: count > 0 ? 'shadow' : 'empty',
+    ownerAvatarId: count > 0 ? pickMineAvatarId(nextMineRoll(state)) : stableMineAvatarId(id),
     crewIds: [],
     shadows,
     weaknesses: pickEnemyWeaknesses(hashString(id), 0, 'minion'),

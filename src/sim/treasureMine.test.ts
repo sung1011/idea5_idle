@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createSave } from './createSave'
+import { PLAYER_AVATAR_IDS } from './playerAvatarIds'
 import { spawnWorker } from './recruit'
 import { addToBank } from './bank'
 import { hydrateLoadedSave } from '../ui/saveGame'
@@ -28,7 +29,9 @@ import {
   refreshTreasureMines,
   shadowCrewCount,
   SNAPSHOT_PLAYER_NAMES,
+  pickMineAvatarId,
   pickSnapshotPlayerName,
+  stableMineAvatarId,
   rejectTreasureMineRune,
   isTreasureRaidLocked,
   reinforceTreasureRaid,
@@ -138,6 +141,44 @@ describe('treasure mines', () => {
     expect(standing?.shadows.map((shadow) => shadow.id)).toEqual(before)
     expect(standing?.owner).toBe(beforeOwner)
     expect([...seen].sort()).toEqual([0, 1, 2, 3])
+  })
+
+  it('rolls one shared avatar for a new garrison and keeps a missing one stable', () => {
+    expect(pickMineAvatarId(0)).toBe(PLAYER_AVATAR_IDS[0])
+    expect(pickMineAvatarId(0.999)).toBe(PLAYER_AVATAR_IDS.at(-1))
+    expect(stableMineAvatarId('mine-1')).toBe(stableMineAvatarId('mine-1'))
+    expect(PLAYER_AVATAR_IDS).toContain(stableMineAvatarId('mine-9'))
+
+    const save = createSave()
+    const seen = new Set<string>()
+    for (let i = 0; i < 80; i += 1) {
+      const victim = save.treasureMines.mines[save.treasureMines.mines.length - 1]
+      victim.reserve = 0
+      refreshTreasureMines(save)
+      const born = save.treasureMines.mines.find((mine) => mine.id === `mine-${save.treasureMines.nextId - 1}`)
+      expect(born).toBeTruthy()
+      if (!born) return
+      expect(PLAYER_AVATAR_IDS).toContain(born.ownerAvatarId)
+      if (born.owner === 'shadow') seen.add(born.ownerAvatarId)
+      else expect(born.ownerAvatarId).toBe(stableMineAvatarId(born.id))
+    }
+    expect(seen.size).toBeGreaterThan(1)
+
+    const kept = createSave()
+    const hole = kept.treasureMines.mines[0]
+    const standing = hole.ownerAvatarId
+    delete (hole as { ownerAvatarId?: string }).ownerAvatarId
+    hydrateTreasureMines(kept)
+    expect(kept.treasureMines.mines.find((mine) => mine.id === hole.id)?.ownerAvatarId).toBe(stableMineAvatarId(hole.id))
+    hydrateTreasureMines(kept)
+    expect(kept.treasureMines.mines.find((mine) => mine.id === hole.id)?.ownerAvatarId).toBe(stableMineAvatarId(hole.id))
+    const again = kept.treasureMines.mines.find((mine) => mine.id === hole.id)
+    expect(again).toBeTruthy()
+    if (!again) return
+    again.ownerAvatarId = 'lance'
+    hydrateTreasureMines(kept)
+    expect(kept.treasureMines.mines.find((mine) => mine.id === hole.id)?.ownerAvatarId).toBe('lance')
+    expect(standing === 'lance' || PLAYER_AVATAR_IDS.includes(standing as (typeof PLAYER_AVATAR_IDS)[number])).toBe(true)
   })
 
   it('names new shadows like players and keeps a name already stored on an old hole', () => {

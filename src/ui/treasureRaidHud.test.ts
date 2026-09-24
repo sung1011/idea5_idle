@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createSave } from '../sim/createSave'
+import { stableMineAvatarId } from '../sim/treasureMine'
 import { spawnWorker } from '../sim/recruit'
 import { startTreasureRaid, stepTreasureMines } from '../sim/treasureMine'
 import type { TreasureMine } from '../sim/types'
@@ -201,6 +202,38 @@ describe('treasure raid hud', () => {
     expect(one?.attack?.slots).toEqual(['filled', 'empty', 'empty'])
   })
 
+  it('uses the hole avatar for defenders and the save avatar for our side', () => {
+    const save = createSave()
+    const mine = ensureGarrison(save.treasureMines.mines[0])
+    mine.ownerAvatarId = 'lion'
+    const idle = treasureRaidHud(mine, save.workers, save.elapsedS, save.playerName, 'crown')
+    expect(idle?.attack).toBeNull()
+    expect(idle?.defend.avatarId).toBe('lion')
+
+    mine.owner = 'player'
+    const owned = treasureRaidHud(mine, save.workers, save.elapsedS, save.playerName, 'rose')
+    expect(owned?.defend.avatarId).toBe('rose')
+
+    mine.owner = 'shadow'
+    const lead = spawnWorker(save)
+    expect(startTreasureRaid(save, mine.id, [lead.id]).ok).toBe(true)
+    const live = treasureRaidHud(mine, save.workers, save.elapsedS, save.playerName, 'shield')
+    expect(live?.attack?.avatarId).toBe('shield')
+    expect(live?.defend.avatarId).toBe('lion')
+    mine.shadows = []
+    const fallen = treasureRaidHud(mine, save.workers, save.elapsedS, save.playerName, 'shield')
+    expect(fallen?.attack?.avatarId).toBe('shield')
+    expect(fallen?.defend.avatarId).toBe('lion')
+
+    delete (mine as { ownerAvatarId?: string }).ownerAvatarId
+    expect(treasureRaidHud(mine, save.workers, save.elapsedS, save.playerName, 'shield')?.defend.avatarId).toBe(
+      stableMineAvatarId(mine.id),
+    )
+    mine.owner = 'empty'
+    mine.raid = null
+    expect(treasureRaidHud(mine, save.workers, save.elapsedS, save.playerName, 'shield')).toBeNull()
+  })
+
   it('shows only the defender hud before a raid and both sides after it starts', () => {
     const save = createSave()
     const mine = ensureGarrison(save.treasureMines.mines[0])
@@ -242,6 +275,10 @@ describe('treasure raid hud', () => {
     expect(panel).toContain('<ActChargeBar')
     expect(panel).toContain('v-if="hud.attack"')
     expect(panel).toContain('game.save.playerName')
+    expect(panel).toContain('game.save.playerAvatarId')
+    expect(panel).toContain('<PlayerAvatar')
+    expect(panel).toContain('hud.defend.avatarId')
+    expect(panel).toContain('hud.attack.avatarId')
     expect(panel).toContain('敌人驻守')
     expect(panel).not.toContain('快照驻守')
     expect(panel).toContain('无人矿')

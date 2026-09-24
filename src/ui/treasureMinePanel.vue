@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import ActChargeBar from './actChargeBar.vue'
 import CombatAttrIcon from './combatAttrIcon.vue'
 import HpBar from './hpBar.vue'
+import PlayerAvatar from './playerAvatar.vue'
 import ModeHelpSheet from './modeHelpSheet.vue'
 import { raidSlotLabel, raidSlotPress, treasureRaidHud, type SlotSheet } from './treasureRaidHud'
 import { useFrameNow, visualStationProgress } from './visualProgress'
@@ -125,7 +126,7 @@ function raidElapsed(): number {
 }
 
 function raidHuds(mine: TreasureMine) {
-  const hud = treasureRaidHud(mine, game.save.workers, raidElapsed(), game.save.playerName)
+  const hud = treasureRaidHud(mine, game.save.workers, raidElapsed(), game.save.playerName, game.save.playerAvatarId)
   return hud ? [hud] : []
 }
 
@@ -204,7 +205,10 @@ function confirmPick() {
         <p class="label">消失倒计时 {{ clock(mine) }}</p>
         <template v-for="hud in raidHuds(mine)" :key="`${mine.id}-raid`">
           <div class="bars">
-            <p class="bar-line">{{ hud.defend.name }}</p>
+            <p class="bar-line">
+              <PlayerAvatar :id="hud.defend.avatarId" />
+              <span>{{ hud.defend.name }}</span>
+            </p>
             <HpBar variant="enemy" :hp="hud.defend.hp" :hp-max="hud.defend.hpMax" />
             <div class="raid-slots" aria-label="守方槽位">
               <button
@@ -219,7 +223,10 @@ function confirmPick() {
             </div>
             <ActChargeBar enemy v-if="raidLive(mine)" :fill="hud.defend.fill" />
             <template v-if="hud.attack">
-              <p class="bar-line">{{ hud.attack.name }}</p>
+              <p class="bar-line">
+                <PlayerAvatar :id="hud.attack.avatarId" />
+                <span>{{ hud.attack.name }}</span>
+              </p>
               <HpBar :hp="hud.attack.hp" :hp-max="hud.attack.hpMax" />
               <div class="raid-slots" aria-label="攻方槽位">
                 <button
@@ -468,6 +475,9 @@ function confirmPick() {
 }
 
 .bar-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 0;
   font-family: var(--font-mono);
   font-size: 13px;
