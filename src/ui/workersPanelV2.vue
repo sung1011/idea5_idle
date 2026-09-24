@@ -1340,9 +1340,8 @@ onUnmounted(() => {
 }
 
 .station-name :deep(.ui-ico) {
-  width: 15px;
-  height: 15px;
-  color: #fff4d8;
+  width: 20px;
+  height: 20px;
 }
 
 .station-name b {

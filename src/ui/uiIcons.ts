@@ -1,4 +1,5 @@
-/** 底栏页签 + 工坊竖签：16×16 单色 path，与战斗属性图标同语言（currentColor）。 */
+/** 底栏页签与六站由彩色 sprite 绘制（见 icons.css）。
+ *  这里的 path 仍留给职业小图标复用；钓鱼 / 锻造没有新格，继续走 path。 */
 export const DOCK_ICON_IDS = ['workshop', 'encounters', 'pvp', 'tech'] as const
 export const STATION_ICON_IDS = [
   'herbalism',
@@ -59,6 +60,15 @@ export const UI_ICON_PATHS: Record<UiIconId, readonly string[]> = {
     'M13.15 8 15.15 5.35V10.65Z',
     'M4.55 7.15H5.75V8.35H4.55Z',
   ],
+}
+
+const TAB_SPRITE_IDS = new Set<string>(['workshop', 'encounters', 'pvp', 'tech', 'workers'])
+
+/** 页签走 tabs.webp，六站走 stations.webp；废弃站与无图 id 返回 null。 */
+export function uiIconSprite(id: string): 'tab' | 'station' | null {
+  if (TAB_SPRITE_IDS.has(id)) return 'tab'
+  if ((STATION_ICON_IDS as readonly string[]).includes(id)) return 'station'
+  return null
 }
 
 export function uiIconPaths(id: UiIconId): readonly string[] {

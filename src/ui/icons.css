@@ -1,4 +1,5 @@
-/* Sprite 切图：640×360 真透明 webp（角 alpha=0），用 background-position 取格。 */
+/* Sprite 切图：真透明 webp（角 alpha=0），用 background-position 取格。
+   资源条与遭遇图集仍是旧 sheet；六站与底栏页签已换新彩色图。 */
 
 .sprite {
   display: inline-block;
@@ -28,67 +29,60 @@
   background-position: 100% 50%;
 }
 
-/* 工坊 / 工人 / 主线 · 原 2×2 切图仍用三角 */
+/* 底栏页签 · 2×2：左上工坊、右上 PVE、左下 PVP、右下科技。workers 兼容指向工坊。 */
 .sprite-tab {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   background-image: url('../assets/icons/tabs.webp');
   background-size: 200% 200%;
 }
 
-.sprite-tab.workshop {
-  background-position: 0% 0%;
-}
-
+.sprite-tab.workshop,
 .sprite-tab.workers {
-  background-position: 0% 100%;
+  background-position: 0% 0%;
 }
 
 .sprite-tab.encounters {
-  background-position: 100% 100%;
-}
-
-.sprite-tab.tech {
   background-position: 100% 0%;
 }
 
-/* 采矿 锻造 钓鱼 烹饪 / 旧斧闲置 · 狩猎(锯占位) · 采药(苗) · 炼金 · 2×4 */
-.sprite-station {
-  width: 64px;
-  height: 72px;
-  background-image: url('../assets/icons/stations.webp');
-  background-size: 400% 200%;
-}
-
-.sprite-station.mining {
-  background-position: 0% 0%;
-}
-
-.sprite-station.forging {
-  background-position: 33.333% 0%;
-}
-
-.sprite-station.fishing {
-  background-position: 66.667% 0%;
-}
-
-.sprite-station.cooking {
-  background-position: 100% 0%;
-}
-
-.sprite-station.woodcutting {
+.sprite-tab.pvp {
   background-position: 0% 100%;
 }
 
-.sprite-station.hunting {
-  background-position: 33.333% 100%;
+.sprite-tab.tech {
+  background-position: 100% 100%;
+}
+
+/* 六站 · 2×3，左→右、上→下：采药 炼金 狩猎 / 烹饪 采矿 铭刻 */
+.sprite-station {
+  width: 20px;
+  height: 20px;
+  background-image: url('../assets/icons/stations.webp');
+  background-size: 300% 200%;
 }
 
 .sprite-station.herbalism {
-  background-position: 66.667% 100%;
+  background-position: 0% 0%;
 }
 
 .sprite-station.alchemy {
+  background-position: 50% 0%;
+}
+
+.sprite-station.hunting {
+  background-position: 100% 0%;
+}
+
+.sprite-station.cooking {
+  background-position: 0% 100%;
+}
+
+.sprite-station.mining {
+  background-position: 50% 100%;
+}
+
+.sprite-station.inscription {
   background-position: 100% 100%;
 }
 

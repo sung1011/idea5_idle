@@ -372,8 +372,8 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
 }
 
 .dock .ui-ico {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
 }
 
 @media (prefers-reduced-motion: reduce) {
