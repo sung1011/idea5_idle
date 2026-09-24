@@ -3,10 +3,11 @@ import { assignWorker } from './assign'
 import { applyRestHeal, REST_HEAL_EVERY_S } from './combat'
 import { createSave } from './createSave'
 import { loadFood } from './food'
+import { campBandageHealAmount } from './tech'
 import { currentSpeed } from './query'
 import { recruitWorker } from './recruit'
 import { setRollOverride } from './rng'
-import { completeCycle } from './stations'
+import { completeCycle, stepStation } from './stations'
 import { ticks } from './tick'
 import type { Save, Worker } from './types'
 import { hpBarFill, hpBarTone } from '../ui/hpBar'
@@ -58,7 +59,7 @@ function stubWorker(hp: number, hpMax: number): Worker {
 }
 
 describe('workshop HP formulas', () => {
-  it('locks HP at 1 and scales work by empty / wounded / normal bands', () => {
+  it('scales work by empty / wounded / normal bands', () => {
     expect(HP_EMPTY_RATIO).toBe(0.1)
     expect(HP_WOUNDED_RATIO).toBe(0.3)
     expect(workshopHpWorkMul(stubWorker(5, 100))).toBe(WORKSHOP_EMPTY_WORK_MUL)
@@ -85,11 +86,11 @@ describe('workshop HP formulas', () => {
     expect(hpBarFill(workerWearHp(worker), worker.hpMax)).toBeLessThan(1)
     expect(hpBarTone(workerWearHp(worker), worker.hpMax)).toBe('mid')
 
-    worker.hp = 1
+    worker.hp = Math.ceil(worker.hpMax * 0.2)
     worker.fatigueDebt = 0
     expect(completeCycle(save, 'mining')).toBe(true)
-    expect(worker.hp).toBe(1)
     expect(worker.assignment).toBe('mining')
+    expect(worker.hp).toBeGreaterThan(0)
   })
 
   it('does not add fatigue on stall; hazard and soft fail add light debt only', () => {
@@ -334,6 +335,36 @@ describe('6h equivalent production', () => {
     expect(worker.hp).toBeGreaterThanOrEqual(2)
     expect(worker.hp).toBeLessThan(worker.hpMax)
     expect(FATIGUE_DEBT_RATIO).toBe(0.0015)
+  })
+})
+
+describe('workshop death', () => {
+  it('returns a worker at 0 HP to rest with bandage and auto-eat, without a march', () => {
+    const save = roster(1)
+    const worker = save.workers[0]
+    expect(assignWorker(save, worker.id, 'mining').ok).toBe(true)
+    worker.hpMax = 20
+    worker.hp = 1
+    worker.fatigueDebt = 1
+    save.techLevels = { rematchSupply: 1 }
+    save.unlockedTechIds = ['rematchSupply']
+    save.bank.meal = 2
+    expect(loadFood(save, worker.id, 'meal', 2).ok).toBe(true)
+    const qty = worker.foodSlot?.qty ?? 0
+    expect(qty).toBeGreaterThan(0)
+    save.stations.mining.progress = 5
+    stepStation(save, 'mining', 1_000)
+    expect(worker.assignment).toBeNull()
+    const bandage = campBandageHealAmount(save, worker.hpMax)
+    expect(bandage).toBeGreaterThan(0)
+    expect(worker.hp).toBeGreaterThan(bandage)
+    expect(worker.foodSlot?.qty).toBe(qty - 1)
+    expect(save.stations.mining.progress).toBe(0)
+    expect(save.stations.mining.stallReason).toBeNull()
+    const marching = save.encounters.some(
+      (enc) => enc.kind === 'enemy' && enc.combat?.returning?.some((row) => row.id === worker.id),
+    )
+    expect(marching).toBe(false)
   })
 })
 

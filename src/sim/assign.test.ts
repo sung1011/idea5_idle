@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { assignIdleWorker, assignWorker, clampStationAssignments, withdrawWorker } from './assign'
+import {
+  assignIdleWorker,
+  assignRestingToFirstEmpty,
+  assignWorker,
+  clampStationAssignments,
+  toggleStationClosed,
+  withdrawWorker,
+} from './assign'
 import { beginEnemyCombat } from './combat'
 import { createSave } from './createSave'
 import {
@@ -15,6 +22,7 @@ import {
 import { spawnWorker } from './recruit'
 import { unlockPlayableStations } from './stationUnlock'
 import { QUALITY_MAX, STATION_WORKER_CAP } from './tables'
+import { ticks } from './tick'
 import type { EnemyEncounter } from './types'
 
 function roster(n: number) {
@@ -155,5 +163,67 @@ describe('rest merge', () => {
     })
     expect(a.assignment).toBeNull()
     expect(save.workers).toHaveLength(2)
+  })
+})
+
+describe('workshop full hp gate', () => {
+  it('rejects wounded or indebted workers and still allows withdraw and the closed toggle', () => {
+    const save = createSave()
+    const worker = spawnWorker(save)
+    expect(assignWorker(save, worker.id, 'herbalism')).toEqual({ ok: true })
+    worker.hp = worker.hpMax - 1
+    expect(assignWorker(save, worker.id, 'alchemy')).toEqual({ ok: false, reason: '满血才能上岗' })
+    expect(worker.assignment).toBe('herbalism')
+    expect(withdrawWorker(save, 'herbalism')).toEqual({ ok: true })
+    worker.hp = worker.hpMax
+    worker.fatigueDebt = 0.2
+    expect(assignWorker(save, worker.id, 'herbalism')).toEqual({ ok: false, reason: '满血才能上岗' })
+    expect(toggleStationClosed(save, 'alchemy')).toEqual({ ok: true })
+    expect(save.stations.alchemy.closed).toBe(true)
+    expect(toggleStationClosed(save, 'alchemy')).toEqual({ ok: true })
+    expect(save.stations.alchemy.closed).toBe(false)
+  })
+
+  it('blocks the queue on a wounded head and skips closed stations until they reopen', () => {
+    const blocked = createSave()
+    const head = spawnWorker(blocked)
+    const next = spawnWorker(blocked)
+    head.hp -= 1
+    expect(assignRestingToFirstEmpty(blocked)).toEqual({ ok: false, reason: '满血才能上岗' })
+    expect(assignIdleWorker(blocked, 'herbalism')).toEqual({ ok: false, reason: '满血才能上岗' })
+    expect(head.assignment).toBeNull()
+    expect(next.assignment).toBeNull()
+    expect(assignWorker(blocked, next.id, 'herbalism')).toEqual({ ok: true })
+
+    const save = createSave()
+    const idle = spawnWorker(save)
+    save.stations.herbalism.closed = true
+    save.stations.alchemy.closed = true
+    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '骑士 5 级开放狩猎' })
+    expect(assignWorker(save, idle.id, 'herbalism')).toEqual({ ok: true })
+    expect(withdrawWorker(save, 'herbalism')).toEqual({ ok: true })
+    save.stations.herbalism.closed = false
+    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: true })
+    expect(idle.assignment).toBe('herbalism')
+  })
+
+  it('auto-fills one full rest head per tick and does not pass a wounded head', () => {
+    const open = createSave()
+    const first = spawnWorker(open)
+    const second = spawnWorker(open)
+    open.stations.herbalism.closed = true
+    const filled = ticks(open, 1)
+    expect(filled.workers.find((worker) => worker.id === first.id)?.assignment).toBe('alchemy')
+    expect(filled.workers.find((worker) => worker.id === second.id)?.assignment).toBeNull()
+    const still = ticks(filled, 1)
+    expect(still.workers.find((worker) => worker.id === second.id)?.assignment).toBeNull()
+
+    const wounded = createSave()
+    const head = spawnWorker(wounded)
+    const tail = spawnWorker(wounded)
+    head.hp -= 1
+    const stayed = ticks(wounded, 3)
+    expect(stayed.workers.find((worker) => worker.id === head.id)?.assignment).toBeNull()
+    expect(stayed.workers.find((worker) => worker.id === tail.id)?.assignment).toBeNull()
   })
 })

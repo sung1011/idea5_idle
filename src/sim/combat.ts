@@ -12,7 +12,6 @@ import {
 import {
   attackIntervalMul,
   breakEchoMul,
-  campBandageHealAmount,
   firstStrikeCutS,
   marchDurationMs,
   reinforceFirstMul,
@@ -53,7 +52,7 @@ import {
   runeTakenMul,
 } from './runes'
 import { roll01 } from './rng'
-import { HP_WOUNDED_RATIO, isWoundedHp, restHealAmount, workerFatigueDebt, workerWearHp } from './workshopHp'
+import { applyDownedRecovery, HP_WOUNDED_RATIO, isWoundedHp, restHealAmount, workerFatigueDebt, workerWearHp } from './workshopHp'
 import { chapterCombatMul } from './mainChapter'
 import {
   addWorkerXp,
@@ -841,11 +840,7 @@ export function applyDownedReturn(save: Save, workerId: string, hp: number, now:
   if (!worker || isAssistWorker(worker)) return
   worker.assignment = null
   worker.hp = clampInt(hp, 0, worker.hpMax)
-  if (hp <= 0) {
-    const heal = campBandageHealAmount(save, worker.hpMax)
-    if (heal > 0) worker.hp = Math.min(worker.hpMax, worker.hp + heal)
-  }
-  tryAutoEatWhenWounded(save, workerId, now)
+  applyDownedRecovery(save, worker, now)
 }
 
 function writeBackWorkers(save: Save, combat: EnemyCombat): void {

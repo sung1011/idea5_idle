@@ -165,6 +165,7 @@ export function blankStation(stationId: StationId): StationState {
     gatherPauseUntil: null,
     craftNotice: null,
     fatigueCombo: blankFatigueCombo(),
+    closed: false,
     ...(stationId === 'mining'
       ? (() => {
           const bundle = hydrateMiningNodes(undefined, first.id)
@@ -201,6 +202,7 @@ export function hydrateStationState(stationId: StationId, incoming?: Partial<Sta
         : null,
     craftNotice: typeof incoming.craftNotice === 'string' ? incoming.craftNotice : null,
     fatigueCombo: hydrateFatigueCombo(incoming.fatigueCombo),
+    closed: incoming.closed === true,
     ...(stationId === 'mining'
       ? hydrateMiningNodes(incoming, incoming.selectedCategory ?? blank.selectedCategory)
       : {}),

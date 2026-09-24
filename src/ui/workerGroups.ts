@@ -1,8 +1,15 @@
-import { assignedWorkers, assignWorker, withdrawWorker } from '../sim/assign'
+import {
+  assignedWorkers,
+  assignRestingToFirstEmpty,
+  firstEmptyDispatchStation,
+  restingWorkers,
+  withdrawWorker,
+} from '../sim/assign'
+
+export { assignRestingToFirstEmpty, firstEmptyDispatchStation, restingWorkers }
 import { fightingWorkerIds, isWorkerInCombat } from '../sim/combat'
-import { isWorkerInTreasureMine } from '../sim/treasureMineQuery'
 import { canFuseWorkerWithStation } from '../sim/fuse'
-import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
+import { isStationUnlocked } from '../sim/stationUnlock'
 import { QUALITY_TIERS, STATION_DEF, STATION_ORDER, STATION_WORKER_CAP, WORKER_QUALITY_TABLE } from '../sim/tables'
 import type { ActionResult, QualityTier, Save, StationId, Worker, WorkerQualityId } from '../sim/types'
 import { railWorkerDotColors } from './workshopRail'
@@ -236,39 +243,8 @@ export function mainlineCombatWorkers(save: Save): Worker[] {
   return save.workers.filter((worker) => worker.assignment === null && fighting.has(worker.id))
 }
 
-/** 未派驻且未在主线战斗。名册原序。 */
-export function restingWorkers(save: Save): Worker[] {
-  return save.workers.filter(
-    (worker) => worker.assignment === null && !isWorkerInCombat(save, worker.id) && !isWorkerInTreasureMine(save, worker.id),
-  )
-}
-
-/** 药剂→食物→符文，满员跳过。每站 1 槽。 */
-export function firstEmptyDispatchStation(save: Save): StationId | null {
-  for (const stationId of STATION_ORDER) {
-    if (!isStationUnlocked(save, stationId)) continue
-    if (assignedWorkers(save, stationId).length < STATION_WORKER_CAP) return stationId
-  }
-  return null
-}
-
 export function canDispatchRestingWorker(save: Save): boolean {
   return restingWorkers(save).length > 0 && firstEmptyDispatchStation(save) != null
-}
-
-/** 休息区首位派到第一空槽。沿用 assignWorker。 */
-export function assignRestingToFirstEmpty(save: Save): ActionResult {
-  const idle = restingWorkers(save)[0]
-  if (!idle) return { ok: false, reason: '没有可派的工人' }
-  const stationId = firstEmptyDispatchStation(save)
-  if (!stationId) {
-    const lockedEmpty = STATION_ORDER.find(
-      (id) => !isStationUnlocked(save, id) && assignedWorkers(save, id).length < STATION_WORKER_CAP,
-    )
-    if (lockedEmpty) return { ok: false, reason: stationLockedTip(lockedEmpty) }
-    return { ok: false, reason: '工位已满' }
-  }
-  return assignWorker(save, idle.id, stationId)
 }
 
 /** 派入扫描逆序：武器→食物→药剂，站内后派的先撤。出战不计入。 */

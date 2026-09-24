@@ -5,7 +5,7 @@ import { gatherStatusText, isGatherFrozen } from '../sim/gather'
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
 import { isWorkerInCombat } from '../sim/combat'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
-import { isEmptyHp, isWoundedHp, stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
+import { isEmptyHp, isFullWorkshopHp, isWoundedHp, stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
 import { findCategory, ITEM_DEF, STATION_DEF, xpToNextLevel } from '../sim/tables'
 import type { CategoryId, StationId, Worker } from '../sim/types'
 import ConsumeJumpItem from './consumeJumpItem.vue'
@@ -119,8 +119,13 @@ function onSwap() {
     pushFloatTip(current ? '没有可换的休息工人' : '没有空闲工人')
     return
   }
+  if (!isFullWorkshopHp(idle)) {
+    pushFloatTip('满血才能上岗')
+    return
+  }
   if (current) game.withdraw(props.stationId)
-  game.assign(idle.id, props.stationId)
+  const result = game.assign(idle.id, props.stationId)
+  if (!result.ok) pushFloatTip(result.reason ?? '满血才能上岗')
 }
 
 function onWorker() {

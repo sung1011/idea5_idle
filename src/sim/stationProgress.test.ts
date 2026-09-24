@@ -248,5 +248,7 @@ describe('hydrate old station save', () => {
     })
     expect(stations.mining.selectedCategory).toBe('copper')
     expect(stations.mining.unlockedCategories).toEqual(['copper'])
+    expect(stations.mining.closed).toBe(false)
+    expect(hydrateStationState('herbalism', { closed: true }).closed).toBe(true)
   })
 })

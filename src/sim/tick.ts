@@ -1,3 +1,4 @@
+import { assignRestingToFirstEmpty } from './assign'
 import { applyRestHeal, stepCombats, type CombatLogSink } from './combat'
 import { stepTreasureMines, type TreasureDropSink } from './treasureMine'
 import { expireTimedMarketOrders } from './marketTimed'
@@ -30,6 +31,7 @@ export function applyTick(save: Save, opts: TickOpts = {}): void {
   applyPotionTicks(save)
   refreshFoodSlots(save, now)
   for (const id of STATION_IDS) stepStation(save, id, now, opts.onGain)
+  assignRestingToFirstEmpty(save)
   stepCombats(save, now, opts.onCombatLog)
   stepTreasureMines(save, opts.onTreasureDrop)
   applyRestHeal(save)

@@ -312,6 +312,7 @@ function onPickStation(stationId: StationId | null) {
   }
   const result = game.assign(w.id, stationId)
   if (result.ok) closePick()
+  else if (result.reason) pushFloatTip(result.reason)
 }
 
 function onEmptySlot(stationId: StationId) {
@@ -320,19 +321,9 @@ function onEmptySlot(stationId: StationId) {
   if (!result.ok) pushFloatTip(result.reason)
 }
 
-function onStationArrow(stationId: StationId) {
+function onToggleClosed(stationId: StationId) {
   if (drag.value?.active) return
-  if (stationLocked(stationId)) {
-    pushFloatTip(stationLockedTip(stationId))
-    return
-  }
-  const board = boards.value.find((row) => row.stationId === stationId)
-  if (!board?.filled) {
-    onEmptySlot(stationId)
-    return
-  }
-  const result = game.withdraw(stationId)
-  if (!result.ok) pushFloatTip(result.reason)
+  game.toggleStationClosed(stationId)
 }
 
 function stationLocked(stationId: StationId) {
@@ -532,7 +523,12 @@ onUnmounted(() => {
                   type="button"
                   class="slot"
                   :class="[
-                    { empty: !w, 'level-flash': !!w && isWorkerLevelFlashing(w.id), 'has-banter': !!w && banterLine(w.id) },
+                    {
+                      empty: !w,
+                      'level-flash': !!w && isWorkerLevelFlashing(w.id),
+                      'has-banter': !!w && banterLine(w.id),
+                      'guide-flash': !w && guideFlashAssignHerb && board.stationId === 'herbalism' && board.filled === 0,
+                    },
                     w ? hpToneClass(w) : '',
                     slotDropClass(board.stationId, i),
                   ]"
@@ -579,14 +575,13 @@ onUnmounted(() => {
             <div class="station-side">
               <button
                 type="button"
-                class="station-arrow"
-                :class="{
-                  'guide-flash': guideFlashAssignHerb && board.stationId === 'herbalism' && board.filled === 0,
-                }"
-                :aria-label="board.filled ? `从${board.label}撤出` : `驻入到${board.label}`"
-                @click.stop="onStationArrow(board.stationId)"
+                class="station-closed"
+                :class="{ on: game.save.stations[board.stationId].closed }"
+                :aria-pressed="!!game.save.stations[board.stationId].closed"
+                :aria-label="game.save.stations[board.stationId].closed ? `开放${board.label}` : `封闭${board.label}`"
+                @click.stop="onToggleClosed(board.stationId)"
               >
-                {{ board.filled ? '→' : '←' }}
+                封闭
               </button>
               <button
                 type="button"
@@ -1183,7 +1178,7 @@ onUnmounted(() => {
   padding: 2px;
 }
 
-.station-arrow,
+.station-closed,
 .station-detail {
   flex: 0 0 auto;
   margin: 0;
@@ -1196,9 +1191,16 @@ onUnmounted(() => {
   line-height: 1.05;
 }
 
-.station-arrow {
-  font-size: 12px;
-  letter-spacing: 0;
+.station-closed {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  writing-mode: vertical-rl;
+}
+
+.station-closed.on {
+  background: linear-gradient(180deg, #8a3a2a, #5c2418);
+  color: #fff4d8;
+  border-color: #3d140e;
 }
 
 .station-detail {

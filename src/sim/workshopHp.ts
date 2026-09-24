@@ -1,3 +1,5 @@
+import { tryAutoEatWhenWounded } from './food'
+import { campBandageHealAmount } from './tech'
 import type { Save, StationFatigueCombo, StationId, Worker } from './types'
 
 /** 每次成功产出写入的劳损比例。禁止再走 max(1, floor(hpMax*0.02))。 */
@@ -47,6 +49,23 @@ export function workerHpRatio(worker: Worker): number {
 /** 工人界面底色：整数 HP 再扣未入账劳损，成功吞吐立刻能看出缺口。 */
 export function workerWearHp(worker: Worker): number {
   return Math.max(0, worker.hp - workerFatigueDebt(worker))
+}
+
+/** 工坊上岗满血：整数 HP 满，且没有未入账劳损。与界面 wear 一致。 */
+export function isFullWorkshopHp(worker: Worker): boolean {
+  return worker.hp === worker.hpMax && workerFatigueDebt(worker) === 0
+}
+
+/**
+ * 倒地 / 工坊力竭后的回血：HP≤0 先上绷带，再按残血自动吃饭。
+ * 不走行军，不写入 returning。
+ */
+export function applyDownedRecovery(save: Save, worker: Worker, now: number): void {
+  if (worker.hp <= 0) {
+    const heal = campBandageHealAmount(save, worker.hpMax)
+    if (heal > 0) worker.hp = Math.min(worker.hpMax, worker.hp + heal)
+  }
+  tryAutoEatWhenWounded(save, worker.id, now)
 }
 
 function nearFullPip(worker: Worker): number {
@@ -178,8 +197,19 @@ function addDebt(worker: Worker, amount: number): void {
   worker.fatigueDebt = workerFatigueDebt(worker) + amount
   const drop = Math.floor(worker.fatigueDebt)
   if (drop < 1) return
-  worker.hp = Math.max(1, worker.hp - drop)
+  worker.hp = Math.max(0, worker.hp - drop)
   worker.fatigueDebt -= drop
+}
+
+/** HP 到 0：立刻回休息，清空岗进度，再绷带 + 自动吃饭。 */
+function releaseDeadWorker(save: Save, stationId: StationId, worker: Worker, now: number): void {
+  if (worker.hp > 0 || worker.assignment !== stationId) return
+  worker.assignment = null
+  if (assignedOf(save, stationId).length <= 0) {
+    save.stations[stationId].progress = 0
+    save.stations[stationId].stallReason = null
+  }
+  applyDownedRecovery(save, worker, now)
 }
 
 function debtAmount(
@@ -236,12 +266,15 @@ export function applyWorkshopFatigue(save: Save, stationId: StationId, now: numb
   let weak = markWeak(crew)
   for (const worker of crew) {
     addDebt(worker, debtAmount(save, worker, stationId, kind, now))
-    if (workshopHpWorkMul(worker) < 1) weak = true
+    releaseDeadWorker(save, stationId, worker, now)
+    if (worker.assignment === stationId && workshopHpWorkMul(worker) < 1) weak = true
   }
   if (stationId === 'mining' && kind === 'success' && miningJustEmptied(save)) {
     for (const worker of crew) {
+      if (worker.assignment !== stationId || worker.hp <= 0) continue
       addDebt(worker, debtAmount(save, worker, stationId, kind, now, 1))
-      if (workshopHpWorkMul(worker) < 1) weak = true
+      releaseDeadWorker(save, stationId, worker, now)
+      if (worker.assignment === stationId && workshopHpWorkMul(worker) < 1) weak = true
     }
   }
   if (stationId === 'inscription' && kind === 'success') comboOf(save, 'inscription').frustration = 0

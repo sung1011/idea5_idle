@@ -185,7 +185,7 @@ type HazardRoll = {
 
 ### 4.2 劳损与药剂
 
-成功产出才加劳损：`fatigueDebt += (hpMax * 0.0015 + nearFullPip) * stationMul * comboMul`。`nearFullPip` 仅近满血（`hp >= hpMax-1`）加 `0.18`。`debt≥1` 扣 `floor` 血并减债。HP 锁 1。`stationMul` 约 0.4（铭刻成功 0.55）。血线三档（`hp/hpMax`）：≤10% 空血 ×0.5，≤30% 残血 ×0.8，＞30% 正常 ×1。详情层写「效率 N%」。工坊页底色读 `hp - fatigueDebt`。已删除站狂暴、战鼓药与站工具。工坊页 4 槽短按点用 7 种药剂（兴奋剂加速、回春散全体 10%、醒神散奶最残、绝境膏抬残血、双份雾下一批倍率、赶工粉缩短一周期），兴奋剂与续命汤时效按 `elapsedS`。连招只站内，见 [main.md](main.md) 2.2。
+成功产出才加劳损：`fatigueDebt += (hpMax * 0.0015 + nearFullPip) * stationMul * comboMul`。`nearFullPip` 仅近满血（`hp >= hpMax-1`）加 `0.18`。`debt≥1` 扣 `floor` 血并减债，可以到 0。到 0 立刻回休息，绷带 + 自动吃饭，不行军；残血不撤岗。满血（`hp === hpMax` 且 `fatigueDebt === 0`）才能上岗。休息区队首未满血挡住自动填岗。站 `closed` 只挡自动填岗。`stationMul` 约 0.4（铭刻成功 0.55）。血线三档（`hp/hpMax`）：≤10% 空血 ×0.5，≤30% 残血 ×0.8，＞30% 正常 ×1。详情层写「效率 N%」。工坊页底色读 `hp - fatigueDebt`。已删除站狂暴、战鼓药与站工具。工坊页 4 槽短按点用 7 种药剂（兴奋剂加速、回春散全体 10%、醒神散奶最残、绝境膏抬残血、双份雾下一批倍率、赶工粉缩短一周期），兴奋剂与续命汤时效按 `elapsedS`。连招只站内，见 [main.md](main.md) 2.2。
 
 ---
 

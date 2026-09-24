@@ -174,6 +174,11 @@ export function stepStation(save: Save, stationId: StationId, now = Date.now(), 
   station.progress += speed
 
   while (station.progress + CYCLE_EPS >= 1) {
+    if (assignedCount(save, stationId) <= 0) {
+      station.progress = 0
+      station.stallReason = null
+      break
+    }
     if (!canConsume(save, stationId)) {
       station.stallReason = 'emptyInput'
       break
@@ -181,5 +186,9 @@ export function stepStation(save: Save, stationId: StationId, now = Date.now(), 
     if (!completeCycle(save, stationId, now, onGain)) break
     station.progress -= 1
     if (Math.abs(station.progress) < CYCLE_EPS) station.progress = 0
+  }
+  if (assignedCount(save, stationId) <= 0) {
+    station.progress = 0
+    station.stallReason = null
   }
 }

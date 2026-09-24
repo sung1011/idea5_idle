@@ -115,9 +115,9 @@ describe('settleOffline', () => {
     const miner = result.save.workers[0]
     expect(miner.level).toBeGreaterThan(1)
     expect(miner.hp).toBeGreaterThanOrEqual(1)
-    expect(miner.hp).toBeLessThanOrEqual(2)
-    expect(miner.hp).toBeLessThan(miner.hpMax)
-    expect(miner.assignment).toBe('mining')
+    expect(miner.hp).toBeLessThanOrEqual(miner.hpMax)
+    // 力竭回休息并回满后，自动填岗按站序进采药。
+    expect(miner.assignment).toBe('herbalism')
     expect(result.save.stations.mining.stallReason).toBeNull()
     expect(result.summary.stations.some((s) => s.stationId === 'mining' && s.completed > 0)).toBe(true)
   })

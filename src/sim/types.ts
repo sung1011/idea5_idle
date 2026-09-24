@@ -404,6 +404,8 @@ export type StationState = {
   craftNotice?: string | null
   /** 站内连招 / 毒雾 / 挫败。旧档缺字段 hydrate 为零。 */
   fatigueCombo: StationFatigueCombo
+  /** 封闭：休息区自动填岗跳过。已在岗的人继续干。旧档缺省 false。 */
+  closed: boolean
 }
 
 /** 站内劳损连招。不跨站。 */
