@@ -459,6 +459,12 @@ export const POTION_ITEM_IDS: readonly PotionItemId[] = [
   'clearMind',
 ]
 
+/** 装配列表分组。顺序固定；过滤后某组为空则整组不画。 */
+export const POTION_INSTALL_GROUPS: readonly { label: string; ids: readonly PotionItemId[] }[] = [
+  { label: '提效', ids: ['stim', 'rushPowder', 'doubleMist'] },
+  { label: '加血', ids: ['salve', 'renewSoup', 'brinkSalve', 'clearMind'] },
+]
+
 export type PotionBatchRange = { min: number; max: number }
 
 /** 炼金一次成功随机一种，数量落在该区间（含端点）。 */

@@ -6,7 +6,7 @@ import { isWorkerInCombat, workerLiveStats } from '../sim/combat'
 import { combatZoneRows, formatRemainClock, type CombatZoneRow } from '../sim/march'
 import { workerXpProgress } from '../sim/workerLevel'
 import CombatAttrRow from './combatAttrRow.vue'
-import { availablePotionInstallIds } from '../sim/potionSlots'
+import { potionInstallGroups } from '../sim/potionSlots'
 import {
   CLASS_LABEL,
   FOOD_ITEM_IDS,
@@ -194,7 +194,7 @@ const potionBuffLine = computed(() => {
   }
   return parts.join(' · ')
 })
-const potionPickOptions = computed(() => availablePotionInstallIds(game.save))
+const potionPickGroups = computed(() => potionInstallGroups(game.save))
 
 function potionSlotQty(id: PotionItemId | null) {
   return id ? bankQty(game.save, id) : 0
@@ -989,24 +989,29 @@ onUnmounted(() => {
           <button type="button" class="close" @click="closePotionPick">关闭</button>
         </header>
         <p class="hint">{{ POTION_EQUIP_HINT }}</p>
-        <div class="pick-list">
-          <div v-for="id in potionPickOptions" :key="id" class="pick-cell">
-            <div class="potion-pick-row">
-              <button type="button" class="potion-pick-main" @click="onInstallPotion(id)">
-                <span>{{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}</span>
-              </button>
-              <button
-                type="button"
-                class="potion-help pick"
-                data-potion-help
-                :aria-pressed="isPotionHelpOpen(potionHelp, 'pick', id)"
-                :aria-label="`查看 ${ITEM_DEF[id].label} 效果`"
-                @click.stop="onPotionHelp($event, 'pick', id)"
-              >i</button>
+        <div v-if="potionPickGroups.length" class="potion-groups">
+          <section v-for="group in potionPickGroups" :key="group.label" class="potion-group">
+            <h3 class="potion-group-title">{{ group.label }}</h3>
+            <div class="pick-list">
+              <div v-for="id in group.ids" :key="id" class="pick-cell">
+                <div class="potion-pick-row">
+                  <button type="button" class="potion-pick-main" @click="onInstallPotion(id)">
+                    <span>{{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="potion-help pick"
+                    data-potion-help
+                    :aria-pressed="isPotionHelpOpen(potionHelp, 'pick', id)"
+                    :aria-label="`查看 ${ITEM_DEF[id].label} 效果`"
+                    @click.stop="onPotionHelp($event, 'pick', id)"
+                  >i</button>
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
         </div>
-        <p v-if="!potionPickOptions.length" class="hint">没有可装的药剂</p>
+        <p v-else class="hint">没有可装的药剂</p>
       </div>
     </div>
   </Teleport>
@@ -1476,6 +1481,20 @@ onUnmounted(() => {
   right: -2px;
   background: #6a4a18;
   color: #fff8ee;
+}
+
+.potion-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.potion-group-title {
+  margin: 0 0 6px;
+  color: #8a6410;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
 }
 
 .potion-pick-row {

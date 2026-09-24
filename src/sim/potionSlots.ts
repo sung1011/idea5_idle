@@ -1,5 +1,5 @@
 import { bankQty } from './bank'
-import { ITEM_DEF, isPotionItemId, POTION_ITEM_IDS } from './tables'
+import { ITEM_DEF, isPotionItemId, POTION_INSTALL_GROUPS, POTION_ITEM_IDS } from './tables'
 import { POTION_SLOT_COUNT, type ActionResult, type ItemId, type PotionItemId, type PotionSlotId, type PotionSlots, type Save } from './types'
 
 export function blankPotionSlots(): PotionSlots {
@@ -44,6 +44,17 @@ export function potionSlotItem(save: Save, index: number): PotionSlotId {
 export function availablePotionInstallIds(save: Save): PotionItemId[] {
   const taken = new Set(save.potionSlots.filter((id): id is PotionItemId => id != null))
   return POTION_ITEM_IDS.filter((id) => bankQty(save, id) > 0 && !taken.has(id))
+}
+
+/** 装配弹层分组。只保留可装种类；空组整组去掉。 */
+export function potionInstallGroups(save: Save): { label: string; ids: PotionItemId[] }[] {
+  const open = new Set(availablePotionInstallIds(save))
+  const groups: { label: string; ids: PotionItemId[] }[] = []
+  for (const group of POTION_INSTALL_GROUPS) {
+    const ids = group.ids.filter((id) => open.has(id))
+    if (ids.length) groups.push({ label: group.label, ids })
+  }
+  return groups
 }
 
 export function installPotionSlot(save: Save, index: number, itemId: ItemId): ActionResult {
