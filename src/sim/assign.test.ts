@@ -4,6 +4,7 @@ import {
   assignRestingToFirstEmpty,
   assignWorker,
   clampStationAssignments,
+  restingWorkers,
   toggleStationClosed,
   withdrawWorker,
 } from './assign'
@@ -24,6 +25,7 @@ import { unlockPlayableStations } from './stationUnlock'
 import { QUALITY_MAX, STATION_WORKER_CAP } from './tables'
 import { ticks } from './tick'
 import type { EnemyEncounter } from './types'
+import { releaseDeadWorker } from './workshopHp'
 
 function roster(n: number) {
   const save = unlockPlayableStations(createSave())
@@ -74,11 +76,14 @@ describe('station worker cap', () => {
 
   it('withdraws one station worker back to rest', () => {
     const save = roster(2)
-    assignWorker(save, save.workers[0].id, 'herbalism')
-    assignWorker(save, save.workers[1].id, 'alchemy')
+    const first = save.workers[0]
+    const second = save.workers[1]
+    assignWorker(save, first.id, 'herbalism')
+    assignWorker(save, second.id, 'alchemy')
     expect(withdrawWorker(save, 'herbalism')).toEqual({ ok: true })
-    expect(save.workers[0].assignment).toBeNull()
-    expect(save.workers[1].assignment).toBe('alchemy')
+    expect(first.assignment).toBeNull()
+    expect(second.assignment).toBe('alchemy')
+    expect(save.workers.map((worker) => worker.id)).toEqual([second.id, first.id])
     expect(withdrawWorker(save, 'herbalism')).toEqual({ ok: false, reason: '该站没有工人' })
   })
 
@@ -225,5 +230,27 @@ describe('workshop full hp gate', () => {
     const stayed = ticks(wounded, 3)
     expect(stayed.workers.find((worker) => worker.id === head.id)?.assignment).toBeNull()
     expect(stayed.workers.find((worker) => worker.id === tail.id)?.assignment).toBeNull()
+  })
+
+  it('puts a withdrawn worker at the tail of the rest list', () => {
+    const save = createSave()
+    const withdrawn = spawnWorker(save)
+    const head = spawnWorker(save)
+    const middle = spawnWorker(save)
+    expect(assignWorker(save, withdrawn.id, 'herbalism')).toEqual({ ok: true })
+    expect(withdrawWorker(save, 'herbalism')).toEqual({ ok: true })
+    expect(restingWorkers(save).map((worker) => worker.id)).toEqual([head.id, middle.id, withdrawn.id])
+  })
+
+  it('puts a worker who hits 0 HP at the tail of the rest list', () => {
+    const save = createSave()
+    const fallen = spawnWorker(save)
+    const head = spawnWorker(save)
+    const middle = spawnWorker(save)
+    expect(assignWorker(save, fallen.id, 'herbalism')).toEqual({ ok: true })
+    fallen.hp = 0
+    releaseDeadWorker(save, 'herbalism', fallen, 1_000)
+    expect(fallen.assignment).toBeNull()
+    expect(restingWorkers(save).map((worker) => worker.id)).toEqual([head.id, middle.id, fallen.id])
   })
 })

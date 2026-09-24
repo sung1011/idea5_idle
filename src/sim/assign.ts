@@ -11,10 +11,10 @@ export function assignedWorkers(save: Save, stationId: StationId) {
   return save.workers.filter((w) => w.assignment === stationId)
 }
 
-/** 旧档同站超过上限的人撤到休息，按名册顺序保留先派的。 */
+/** 旧档同站超过上限的人撤到休息，按名册顺序保留先派的。清岗时会把人挪到队尾，所以先拷贝再遍历。 */
 export function clampStationAssignments(save: Save): void {
   const counts: Partial<Record<StationId, number>> = {}
-  for (const worker of save.workers) {
+  for (const worker of [...save.workers]) {
     const id = worker.assignment
     if (!id || !isStationId(id) || isDeprecatedStationId(id)) {
       if (id) {
@@ -61,7 +61,7 @@ export function assignWorker(save: Save, workerId: string, stationId: StationId 
   return { ok: true }
 }
 
-/** 未派驻且未在战斗 / 夺宝。名册原序，队首挡住后面的人。 */
+/** 未派驻且未在战斗 / 夺宝。名册顺序，回休息的人在队尾；队首挡住后面的人。 */
 export function restingWorkers(save: Save): Worker[] {
   return save.workers.filter(
     (worker) => worker.assignment === null && !isWorkerInCombat(save, worker.id) && !isWorkerInTreasureMine(save, worker.id),

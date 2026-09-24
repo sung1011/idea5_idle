@@ -108,14 +108,29 @@ export function foodBuffEffectValue(worker: Worker, effectId: EffectId, now: num
 }
 
 /**
- * 刚进入休息且残血：从物资扣 1 份当前伙食并回血。
+ * 已在休息（无岗、不在战斗/夺宝）时把该工人挪到名册末尾。
+ * 仍在岗或行军中不动，避免伤员撤岗后堵在休息队首。
+ */
+export function sendWorkerToRestTail(save: Save, workerId: string): boolean {
+  const index = save.workers.findIndex((worker) => worker.id === workerId)
+  if (index < 0) return false
+  const worker = save.workers[index]
+  if (!worker || worker.assignment !== null) return false
+  if (isWorkerInCombat(save, workerId) || isWorkerInTreasureMine(save, workerId)) return false
+  if (index === save.workers.length - 1) return true
+  const [moved] = save.workers.splice(index, 1)
+  if (moved) save.workers.push(moved)
+  return true
+}
+
+/**
+ * 刚进入休息：先排到名册队尾。残血且选了伙食时再从物资扣 1 份并回血。
  * 未选、没货、不在休息、或仍在战斗/夺宝时不吃。
  */
 export function offerRestFood(save: Save, workerId: string, now = save.lastTick || Date.now()): ActionResult | null {
+  if (!sendWorkerToRestTail(save, workerId)) return null
   const worker = findWorker(save, workerId)
-  if (!worker || worker.assignment !== null) return null
-  if (isWorkerInCombat(save, workerId) || isWorkerInTreasureMine(save, workerId)) return null
-  if (!isWoundedHp(worker)) return null
+  if (!worker || !isWoundedHp(worker)) return null
   const itemId = save.restFoodId
   if (!itemId || !isFoodItemId(itemId)) return null
   if (bankQty(save, itemId) < 1) return null
