@@ -91,14 +91,6 @@ function crewEmptyHpFlash(worker: (typeof crew.value)[number]): boolean {
   return worker.assignment !== null && isEmptyHp(worker) && !isWorkerInCombat(game.save, worker.id)
 }
 
-function onAssignIdle() {
-  if (locked.value) {
-    pushFloatTip(stationLockedTip(props.stationId))
-    return
-  }
-  game.assignIdle(props.stationId)
-}
-
 function onLockedTap(ev: Event) {
   if (!locked.value) return
   if (ev.target instanceof HTMLElement && ev.target.closest('button, select, label, input')) return
@@ -251,7 +243,7 @@ onUnmounted(() => {
         type="button"
         class="act"
         :class="{ 'guide-flash': guideFlashAlchemy }"
-        @click="onAssignIdle"
+        @click="pushFloatTip(MANUAL_DUTY_REASON)"
       >派入</button>
     </div>
     <Teleport to="body">

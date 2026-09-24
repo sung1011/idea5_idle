@@ -11,7 +11,9 @@ describe('station detail button', () => {
     const name = workersPanelSource.match(/<div class="station-name">[\s\S]*?<\/div>/)
     expect(name?.[0]).toBeTruthy()
     expect(name?.[0]).not.toContain('@click')
-    expect(workersPanelSource).toContain('game.assignIdle(stationId)')
+    expect(workersPanelSource).not.toContain('game.assignIdle')
+    expect(workersPanelSource).not.toContain('点此派入')
+    expect(workersPanelSource).toContain('空岗`"')
     expect(workersPanelSource).toContain('game.toggleStationClosed(stationId)')
     expect(workersPanelSource).toContain('封闭')
     const rail = workersPanelSource.slice(

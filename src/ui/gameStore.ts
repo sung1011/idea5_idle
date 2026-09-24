@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, shallowRef } from 'vue'
-import { assignIdleWorker, assignWorker, toggleStationClosed, withdrawWorker } from '../sim/assign'
+import { assignWorker, toggleStationClosed, withdrawWorker } from '../sim/assign'
 import { cloneSave } from '../sim/clone'
 import { applyPlayerProfile, createSave } from '../sim/createSave'
 import {
@@ -229,12 +229,6 @@ export const useGameStore = defineStore('game', () => {
       const beforeIds = new Set(save.value.workers.map((worker) => worker.id))
       const result = apply((s) => fuseWorkerWithStation(s, workerId, stationId))
       if (result.ok) offerFused(beforeIds)
-      return result
-    },
-    assignIdle: (stationId: StationId) => {
-      const before = assignmentSnapshot()
-      const result = apply((s) => assignIdleWorker(s, stationId))
-      if (result.ok) offerFreshAssign(before)
       return result
     },
     withdraw: (stationId: StationId) => apply((s) => withdrawWorker(s, stationId)),

@@ -104,6 +104,7 @@ export function toggleStationClosed(save: Save, stationId: StationId): ActionRes
   return { ok: true }
 }
 
+/** 队首派到指定站。工坊空岗不再点这个；进人走 `assignRestingToFirstEmpty`。 */
 export function assignIdleWorker(save: Save, stationId: StationId): ActionResult {
   if (!isStationUnlocked(save, stationId)) return { ok: false, reason: stationLockedTip(stationId) }
   const idle = restingWorkers(save)[0]

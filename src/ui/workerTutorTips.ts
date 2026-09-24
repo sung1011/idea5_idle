@@ -28,7 +28,7 @@ export const WORKER_TUTOR_LINES = [
   '满血才能上岗',
   '站可以封闭，封闭后不再自动进人',
   '回休息排到队尾，不会堵在队首',
-  '不能手动上下岗，点空岗或等队首自动上',
+  '不能手动上下岗，等队首自动上',
 ] as const
 
 export type WorkerTutorBubble = {

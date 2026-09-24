@@ -284,7 +284,10 @@ describe('fuse drag tip', () => {
     expect(detailSheetSource).toContain('MANUAL_DUTY_REASON')
     expect(detailSheetSource).not.toContain('game.withdraw')
     expect(panelSource).toContain('MANUAL_DUTY_REASON')
-    expect(panelSource).toContain('game.assignIdle(stationId)')
+    expect(panelSource).not.toContain('game.assignIdle')
+    expect(panelSource).not.toContain('onEmptySlot')
+    expect(panelSource).not.toContain('点此派入')
+    expect(panelSource).toContain('>空</span>')
   })
 
   it('does not treat max-tier or in-combat workers as a drag-fuse pair', () => {

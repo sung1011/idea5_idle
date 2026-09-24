@@ -339,12 +339,6 @@ function onPickStation(stationId: StationId | null) {
   else if (result.reason) pushFloatTip(result.reason)
 }
 
-function onEmptySlot(stationId: StationId) {
-  if (drag.value?.active) return
-  const result = game.assignIdle(stationId)
-  if (!result.ok) pushFloatTip(result.reason)
-}
-
 function onToggleClosed(stationId: StationId) {
   if (drag.value?.active) return
   game.toggleStationClosed(stationId)
@@ -613,9 +607,8 @@ onUnmounted(() => {
                   :data-drop="'slot'"
                   :data-station="board.stationId"
                   :data-slot="i"
-                  :aria-label="w ? `${workerShortName(w)} ${sheetMeta(w)}` : `${board.label}空岗 · 点此派入`"
+                  :aria-label="w ? `${workerShortName(w)} ${sheetMeta(w)}` : `${board.label}空岗`"
                   @pointerdown="w ? onWorkerPointerDown($event, w, board.stationId, i) : undefined"
-                  @click="w ? undefined : onEmptySlot(board.stationId)"
                 >
                   <i v-if="w" class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
                   <template v-if="w">
@@ -648,8 +641,7 @@ onUnmounted(() => {
                     </span>
                   </template>
                   <template v-else>
-                    <span class="empty-mark" aria-hidden="true">＋</span>
-                    <span class="empty-lab">点此派入</span>
+                    <span class="empty-lab">空</span>
                   </template>
                 </button>
               </div>
@@ -1607,6 +1599,7 @@ onUnmounted(() => {
   border-style: dashed;
   background: rgba(255, 241, 190, 0.35);
   color: #a77840;
+  cursor: default;
   touch-action: manipulation;
 }
 
