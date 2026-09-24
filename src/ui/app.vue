@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { playerDisplayName, type PlayerAvatarId } from '../sim/createSave'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
+import { dockStationHp } from './dockStationHp'
 import { useGameStore } from './gameStore'
 import EncounterPanel from './encounterPanel.vue'
 import PvpPanel from './pvpPanel.vue'
@@ -31,6 +32,7 @@ const resourceOpen = ref<HudChipId | null>(null)
 const profileOpen = ref(false)
 const playerName = computed(() => playerDisplayName(game.save.playerName))
 const chips = computed(() => listHudChips(game.save))
+const stationHp = computed(() => dockStationHp(game.save))
 const resourceDetail = computed(() => (resourceOpen.value ? hudChipDetail(game.save, resourceOpen.value) : null))
 
 onMounted(() => {
@@ -111,18 +113,25 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
     </main>
 
     <nav class="dock" role="tablist" aria-label="主界面页签">
-      <button
-        v-for="t in APP_TABS"
-        :key="t.id"
-        type="button"
-        role="tab"
-        :aria-selected="tab === t.id"
-        :class="{ on: tab === t.id }"
-        @click="selectAppTab(t.id)"
-      >
-        <UiIcon :name="t.id" />
-        <span>{{ t.label }}</span>
-      </button>
+      <div class="dock-hp" aria-hidden="true">
+        <i v-for="cell in stationHp" :key="cell.stationId" class="cell">
+          <b class="fill" :class="cell.tone" :style="{ width: `${(cell.fill * 100).toFixed(2)}%` }" />
+        </i>
+      </div>
+      <div class="dock-tabs">
+        <button
+          v-for="t in APP_TABS"
+          :key="t.id"
+          type="button"
+          role="tab"
+          :aria-selected="tab === t.id"
+          :class="{ on: tab === t.id }"
+          @click="selectAppTab(t.id)"
+        >
+          <UiIcon :name="t.id" />
+          <span>{{ t.label }}</span>
+        </button>
+      </div>
     </nav>
 
     <GuideQuestFloat />
@@ -292,6 +301,7 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
 .dock {
   z-index: var(--z-dock);
   display: flex;
+  flex-direction: column;
   gap: 4px;
   flex: 0 0 auto;
   padding: var(--dock-pad-y) 8px calc(var(--dock-pad-y) + env(safe-area-inset-bottom, 0px));
@@ -301,6 +311,41 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
   background-blend-mode: multiply, normal;
   border-top: var(--border) solid var(--gold);
   box-shadow: 0 -2px 0 var(--gold-deep);
+}
+
+.dock-hp {
+  display: flex;
+  gap: 3px;
+  height: 5px;
+  pointer-events: none;
+}
+
+.dock-hp .cell {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #efe0b0, var(--bar-track));
+}
+
+.dock-hp .fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #e0b020, #a8700c);
+}
+
+.dock-hp .fill.full {
+  background: linear-gradient(90deg, #6fc43a, #2d7a1c);
+}
+
+.dock-hp .fill.low {
+  background: linear-gradient(90deg, #d04a38, #a02820);
+}
+
+.dock-tabs {
+  display: flex;
+  gap: 4px;
 }
 
 .dock button {
