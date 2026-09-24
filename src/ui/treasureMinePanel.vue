@@ -26,7 +26,7 @@ import { useGameStore } from './gameStore'
 
 const game = useGameStore()
 function raidCaption(mine: TreasureMine) {
-  return raidMarchCaption(mine, game.save.elapsedS)
+  return raidMarchCaption(mine, raidElapsed())
 }
 function raidLive(mine: TreasureMine) {
   return raidPhaseOf(mine.raid) === 'fighting'
@@ -414,13 +414,14 @@ function confirmPick() {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
+  width: 100%;
   margin: 4px 0;
   font-size: 12px;
   font-weight: 800;
 }
 
 .march-line .march-bar {
-  flex: 1 1 48px;
+  flex: 1 1 100%;
   height: 4px;
   overflow: hidden;
   border-radius: 99px;

@@ -45,6 +45,7 @@ import { showStationDetail, openStationDetailId } from './stationDetailNav'
 import { isItemSourceStationFlash } from './itemSource'
 import StationTips from './stationTips.vue'
 import { dismissWorkshopBanter, greetWorkshopBanter, workshopBanterText } from './workshopBanter'
+import { useFrameNow } from './visualProgress'
 import { useGameStore } from './gameStore'
 import HpBar from './hpBar.vue'
 import { hpBarFill, hpBarTone } from './hpBar'
@@ -87,6 +88,7 @@ const now = computed(() => {
   void game.save.elapsedS
   return Date.now()
 })
+const frameNow = useFrameNow()
 const pickFood = reactive<Record<string, FoodItemId>>({})
 const pickFoodQty = reactive<Record<string, number>>({})
 const selectedId = ref<string | null>(null)
@@ -95,7 +97,7 @@ const pickPotionIndex = ref<number | null>(null)
 
 const boards = computed(() => workshopStationBoards(game.save))
 const fightingRoster = computed(() =>
-  combatZoneRows(game.save, now.value)
+  combatZoneRows(game.save, frameNow.value)
     .map((row) => {
       const worker = game.save.workers.find((item) => item.id === row.workerId)
       return worker ? { worker, row } : null

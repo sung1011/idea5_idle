@@ -27,6 +27,7 @@ function ensureGarrison(mine: TreasureMine): TreasureMine {
 import { actChargeFill } from './actCharge'
 import { hpBarFill } from './hpBar'
 import panel from './treasureMinePanel.vue?raw'
+import workers from './workersPanelV2.vue?raw'
 import { raidActChargeFill, raidSlotPress, slotStates, squadBarHp, treasureRaidHud } from './treasureRaidHud'
 
 describe('treasure raid hud', () => {
@@ -258,6 +259,10 @@ describe('treasure raid hud', () => {
     expect(panel.indexOf('aria-label="储量"')).toBeLessThan(panel.indexOf('aria-label="开采进度"'))
     expect(panel.indexOf('aria-label="开采进度"')).toBeLessThan(panel.indexOf('消失倒计时'))
     expect(panel).toContain('visualStationProgress')
+    expect(panel).toContain('raidMarchCaption(mine, raidElapsed())')
+    expect(panel).toContain('class="march-line"')
+    expect(workers).toContain('useFrameNow')
+    expect(workers).toContain('combatZoneRows(game.save, frameNow.value)')
     expect(panel).toContain('mineDigSpeedLabel')
     expect(panel).not.toContain('影子驻守')
     expect(panel).not.toContain('本洞不能再开，也不能增援')
@@ -366,5 +371,28 @@ describe('treasure raid hud', () => {
     expect(raidSlotPress(mine, save.workers, 'defend', 2, save)).toEqual({ kind: 'tip', text: '空槽' })
     expect(startTreasureRaid(save, mine.id, [lead.id]).ok).toBe(false)
     expect(panel.indexOf('aria-label="开采进度"')).toBeLessThan(panel.indexOf('class="bars"'))
+  })
+
+  it('keeps the attacker hud on a later hole after the garrison is gone', () => {
+    const save = createSave()
+    const lead = spawnWorker(save)
+    lead.name = '乙攻'
+    const hole = ensureGarrison(save.treasureMines.mines[1])
+    expect(save.treasureMines.mines.indexOf(hole)).toBe(1)
+    expect(startTreasureRaid(save, hole.id, [lead.id]).ok).toBe(true)
+    const raid = hole.raid
+    expect(raid).toBeTruthy()
+    if (!raid) return
+    hole.shadows = []
+    raid.phase = 'marchHomeWin'
+    raid.phaseStartedAtS = save.elapsedS
+    raid.phaseEndsAtS = save.elapsedS + 20
+    const hud = treasureRaidHud(hole, save.workers, save.elapsedS + 4, '旅人甲')
+    expect(hud?.attack?.name).toContain('乙攻')
+    expect(hud?.attack?.hp).toBeGreaterThan(0)
+    expect(hud?.defend.hp).toBe(0)
+    expect(hud?.defend.hpMax).toBeGreaterThan(0)
+    expect(hud?.defend.slots[0]).toBe('dead')
+    expect(save.treasureMines.mines[0].raid).toBeNull()
   })
 })

@@ -3,7 +3,7 @@ import { isWorkerInCombat, stepEnemyCombat } from './combat'
 import { createSave } from './createSave'
 import { claimLoot, reinforceCombat, startCombat } from './encounters'
 import { marchDurationMs, marchDurationS } from './tech'
-import { combatPhaseOf } from './march'
+import { COMBAT_PHASE_LABEL, combatPhaseOf, combatZoneRows, raidMarchCaption, visualRaidElapsedS } from './march'
 import { settleOffline } from './offline'
 import { spawnWorkerWith } from './recruit'
 import { attackIntervalMul } from './tech'
@@ -285,5 +285,67 @@ describe('treasure raid march', () => {
     expect(hole.owner).toBe('player')
     expect(hole.crewIds).toContain(winner.id)
     expect(isWorkerInTreasureMine(jumped, winner.id)).toBe(true)
+  })
+
+  it('gives the second hole a march caption, a return caption, and combat-zone rows', () => {
+    const save = createSave()
+    const raider = spawnWorkerWith(save, 4, 'knight')
+    const mate = spawnWorkerWith(save, 4, 'wanderer')
+    raider.hp = raider.hpMax
+    mate.hp = mate.hpMax
+    raider.fatigueDebt = 0
+    mate.fatigueDebt = 0
+    const hole = ensureGarrison(save.treasureMines.mines[1])
+    expect(save.treasureMines.mines.indexOf(hole)).toBe(1)
+    expect(save.treasureMines.mines[0].raid).toBeNull()
+    expect(startTreasureRaid(save, hole.id, [raider.id, mate.id]).ok).toBe(true)
+
+    const dur = marchDurationS(save)
+    const out = raidMarchCaption(hole, save.elapsedS)
+    expect(out?.phase).toBe('marchOut')
+    expect(out?.label).toBe(COMBAT_PHASE_LABEL.marchOut)
+    expect(out?.progress).toBe(0)
+    expect(raidMarchCaption(hole, save.elapsedS + dur / 2)?.progress).toBeCloseTo(0.5)
+
+    save.lastTick = 5_000_000
+    expect(visualRaidElapsedS(save, save.lastTick + 4_000)).toBeCloseTo(save.elapsedS + 1)
+    const marching = combatZoneRows(save, save.lastTick + 500)
+    const outRow = marching.find((row) => row.workerId === raider.id)
+    expect(outRow?.label).toBe(COMBAT_PHASE_LABEL.marchOut)
+    expect(outRow?.tone).toBe('out')
+    expect(outRow?.progress).toBeCloseTo(0.5 / dur)
+    expect(marching.some((row) => row.workerId === mate.id && row.label === COMBAT_PHASE_LABEL.marchOut)).toBe(true)
+
+    const raid = hole.raid
+    expect(raid).toBeTruthy()
+    if (!raid) return
+    raid.phase = 'fighting'
+    delete raid.phaseEndsAtS
+    raid.queue = [raider.id]
+    raid.returning = [
+      { id: mate.id, untilS: save.elapsedS + 10, startedAtS: save.elapsedS, hp: 0, reason: 'down' },
+    ]
+    const retreat = raidMarchCaption(hole, save.elapsedS + 2)
+    expect(retreat?.phase).toBe('marchHomeLose')
+    expect(retreat?.label).toBe(COMBAT_PHASE_LABEL.marchHomeLose)
+    expect(retreat?.progress).toBeCloseTo(0.2)
+    const retreating = combatZoneRows(save, save.lastTick + 1_000)
+    expect(retreating.find((row) => row.workerId === mate.id)?.label).toBe(COMBAT_PHASE_LABEL.marchHomeLose)
+    expect(retreating.find((row) => row.workerId === mate.id)?.progress).toBeCloseTo(0.1)
+
+    hole.shadows = []
+    raid.phase = 'marchHomeWin'
+    raid.phaseStartedAtS = save.elapsedS
+    raid.phaseEndsAtS = save.elapsedS + dur
+    raid.queue = [raider.id]
+    raid.returning = []
+    const home = raidMarchCaption(hole, save.elapsedS + 4)
+    expect(home?.phase).toBe('marchHomeWin')
+    expect(home?.label).toBe(COMBAT_PHASE_LABEL.marchHomeWin)
+    expect(home?.progress).toBeCloseTo(4 / dur)
+    const homeRows = combatZoneRows(save, save.lastTick)
+    expect(homeRows.find((row) => row.workerId === raider.id)?.label).toBe(COMBAT_PHASE_LABEL.marchHomeWin)
+    expect(homeRows.find((row) => row.workerId === raider.id)?.tone).toBe('win')
+    expect(save.treasureMines.mines[0].raid).toBeNull()
   })
 })

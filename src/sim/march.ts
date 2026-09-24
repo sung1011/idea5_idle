@@ -42,6 +42,18 @@ export function formatRemainClock(remainS: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
+/**
+ * 矿洞读条用的游戏秒。权威仍是 `elapsedS`，两拍之间按墙钟往前插，最多 1 秒。
+ * 与矿卡出手条、战场 `actNow` 同一路：不要等下一次 sim tick 才动。
+ */
+export function visualRaidElapsedS(save: Save, now = Date.now()): number {
+  const elapsed = save.elapsedS
+  const last = save.lastTick
+  if (typeof last !== 'number' || !Number.isFinite(last) || !Number.isFinite(now)) return elapsed
+  const dt = Math.max(0, Math.min(1, (now - last) / 1000))
+  return elapsed + dt
+}
+
 function remainFrom(endsAt: number | undefined, now: number): number {
   if (typeof endsAt !== 'number' || !Number.isFinite(endsAt)) return 0
   return Math.max(0, Math.ceil((endsAt - now) / 1000))
@@ -227,8 +239,9 @@ export function combatZoneRows(save: Save, now = Date.now()): CombatZoneRow[] {
     if (enc.kind !== 'enemy' || !enc.combat) continue
     rowsFromCombat(enc.combat, now, rows, seen)
   }
+  const raidNow = visualRaidElapsedS(save, now)
   for (const mine of save.treasureMines?.mines ?? []) {
-    rowsFromRaid(mine, save.elapsedS, rows, seen)
+    rowsFromRaid(mine, raidNow, rows, seen)
   }
   return rows.filter((row) => save.workers.some((worker) => worker.id === row.workerId))
 }

@@ -161,7 +161,23 @@ function playerMineHud(
   }
 }
 
-/** 开战画攻守两边。未开战的敌人驻守洞、以及我方开采洞，都只画守方。无人矿不画。 */
+/** 凯旋后守军已清掉，仍用开战快照画一条空的守方，避免卡面只剩空白。 */
+function fallenDefendHud(mine: TreasureMine): TreasureRaidFighterHud {
+  const slots = mine.raid?.defendSlots ?? raidSlotSnapshot([])
+  const hpMax = (mine.raid?.defendSlotMax ?? []).reduce((sum, value) => {
+    return sum + (typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0)
+  }, 0)
+  return {
+    name: '守军',
+    hp: 0,
+    hpMax,
+    barFill: hpBarFill(0, hpMax),
+    fill: 0,
+    slots: slotStates(slots, []),
+  }
+}
+
+/** 开战画攻守两边。未开战的敌人驻守洞、以及我方开采洞，都只画守方。无人矿不画。凯旋守军已空时仍留攻方。 */
 export function treasureRaidHud(
   mine: TreasureMine,
   workers: readonly Worker[],
@@ -173,36 +189,45 @@ export function treasureRaidHud(
   const raid = mine.raid
   const shadow = mine.shadows[0]
   const attackerId = raid?.queue[0]
-  if (!raid || !attackerId || !shadow) return standbyDefendHud(mine)
-  const attackHp = squadBarHp(raid.attackSlots, raid.attackSlotMax, (id, index) => {
-    if (!raid.queue.includes(id)) return null
-    if (id === attackerId) return raid.atkHp
-    const snapped = raid.attackSlotHp?.[index]
-    return typeof snapped === 'number' && Number.isFinite(snapped) ? snapped : 0
-  })
-  const defendHp = squadBarHp(raid.defendSlots, raid.defendSlotMax, (id) => {
-    const row = mine.shadows.find((shadowRow) => shadowRow.id === id)
-    if (!row) return null
-    if (id === shadow.id) return raid.defHp
-    return row.hp
-  })
+  if (!raid || (!attackerId && !shadow)) return standbyDefendHud(mine)
+  const attackHp = attackerId
+    ? squadBarHp(raid.attackSlots, raid.attackSlotMax, (id, index) => {
+        if (!raid.queue.includes(id)) return null
+        if (id === attackerId) return raid.atkHp
+        const snapped = raid.attackSlotHp?.[index]
+        return typeof snapped === 'number' && Number.isFinite(snapped) ? snapped : 0
+      })
+    : null
+  const defendHp = shadow
+    ? squadBarHp(raid.defendSlots, raid.defendSlotMax, (id) => {
+        const row = mine.shadows.find((shadowRow) => shadowRow.id === id)
+        if (!row) return null
+        if (id === shadow.id) return raid.defHp
+        return row.hp
+      })
+    : null
   return {
-    attack: {
-      name: attackLine(playerName, fighterName(workers, attackerId)),
-      hp: attackHp.hp,
-      hpMax: attackHp.hpMax,
-      barFill: hpBarFill(attackHp.hp, attackHp.hpMax),
-      fill: raidActChargeFill(raid.atkSpd, raid.atkNext, elapsedS),
-      slots: slotStates(raid.attackSlots, raid.queue),
-    },
-    defend: {
-      name: shadow.name || '守军',
-      hp: defendHp.hp,
-      hpMax: defendHp.hpMax,
-      barFill: hpBarFill(defendHp.hp, defendHp.hpMax),
-      fill: raidActChargeFill(raid.defSpd, raid.defNext, elapsedS),
-      slots: slotStates(raid.defendSlots, mine.shadows.map((row) => row.id)),
-    },
+    attack:
+      attackerId && attackHp
+        ? {
+            name: attackLine(playerName, fighterName(workers, attackerId)),
+            hp: attackHp.hp,
+            hpMax: attackHp.hpMax,
+            barFill: hpBarFill(attackHp.hp, attackHp.hpMax),
+            fill: raidActChargeFill(raid.atkSpd, raid.atkNext, elapsedS),
+            slots: slotStates(raid.attackSlots, raid.queue),
+          }
+        : null,
+    defend: shadow && defendHp
+      ? {
+          name: shadow.name || '守军',
+          hp: defendHp.hp,
+          hpMax: defendHp.hpMax,
+          barFill: hpBarFill(defendHp.hp, defendHp.hpMax),
+          fill: raidActChargeFill(raid.defSpd, raid.defNext, elapsedS),
+          slots: slotStates(raid.defendSlots, mine.shadows.map((row) => row.id)),
+        }
+      : fallenDefendHud(mine),
     waitingAttack: raid.queue.slice(1).map((id) => fighterName(workers, id)),
     waitingDefend: mine.shadows.slice(1).map((row) => row.name),
     fighting: true,
