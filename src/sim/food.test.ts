@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { assignWorker, withdrawWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
-import { offerRestFood, selectRestFood } from './food'
+import { offerRestFood, selectRestFood, takeRestEatNotices } from './food'
 import { currentSpeed } from './query'
 import { recruitWorker } from './recruit'
 import { selectStationCategory } from './stationProgress'
@@ -11,6 +11,10 @@ import { ticks } from './tick'
 import { workerEffectValue } from './tools'
 import type { Save } from './types'
 import workersPanelSource from '../ui/workersPanelV2.vue?raw'
+
+function eatNoticesFor(workerId: string) {
+  return takeRestEatNotices().filter((notice) => notice.workerId === workerId)
+}
 
 function roster(n: number): Save {
   const save = createSave()
@@ -96,6 +100,29 @@ describe('rest area shared food', () => {
     expect(workerEffectValue(save, worker, 'herbalism', EFFECT_ID.prodSpeed, worker.foodBuff!.expiresAt)).toBe(0)
     expect(offerRestFood(save, worker.id, now + 1)).toBeNull()
     expect(bankQty(save, 'meal')).toBe(1)
+    expect(eatNoticesFor(worker.id)).toEqual([{ workerId: worker.id, message: '吃了熟食 +25' }])
+  })
+
+  it('marks a successful rest meal and skips when nothing is eaten', () => {
+    const save = roster(1)
+    const worker = save.workers[0]
+    assignWorker(save, worker.id, 'herbalism')
+    worker.hpMax = 100
+    worker.hp = 20
+    save.bank.meal = 1
+    expect(offerRestFood(save, worker.id)).toBeNull()
+    expect(eatNoticesFor(worker.id)).toEqual([])
+
+    expect(withdrawWorker(save, 'herbalism')).toEqual({ ok: true })
+    expect(eatNoticesFor(worker.id)).toEqual([])
+
+    worker.hp = worker.hpMax
+    worker.fatigueDebt = 0
+    expect(assignWorker(save, worker.id, 'herbalism').ok).toBe(true)
+    save.restFoodId = 'meal'
+    worker.hp = 20
+    expect(withdrawWorker(save, 'herbalism')).toEqual({ ok: true })
+    expect(eatNoticesFor(worker.id)).toEqual([{ workerId: worker.id, message: '吃了熟食 +25' }])
   })
 
   it('does not eat when food is unselected, out of stock, or the worker is not wounded', () => {

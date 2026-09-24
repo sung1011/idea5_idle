@@ -30,6 +30,7 @@ import type { ItemId } from '../sim/types'
 import { isGuideQuestFlash } from '../sim/guideQuest'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { pushFloatTip } from './floatTips'
+import { isWorkerEatFlashing, workerEatFlashText } from './workerEatFlash'
 import { isWorkerLevelFlashing } from './workerLevelFlash'
 import {
   announceWorkerStationEnters,
@@ -703,7 +704,11 @@ onUnmounted(() => {
               v-for="w in resting"
               :key="w.id"
               class="rest-row"
-              :class="[hpToneClass(w), restWorkerDropClass(w.id), { 'level-flash': isWorkerLevelFlashing(w.id) }]"
+              :class="[
+                hpToneClass(w),
+                restWorkerDropClass(w.id),
+                { 'level-flash': isWorkerLevelFlashing(w.id), 'eat-flash': isWorkerEatFlashing(w.id) },
+              ]"
               data-drop="rest-worker"
               :data-worker="w.id"
             >
@@ -718,6 +723,7 @@ onUnmounted(() => {
                   <ClassIcon :name="classIconOf(w)" />
                   <i v-if="w.isNew" class="worker-new" aria-label="新工人">NEW</i>
                 </span>
+                <em v-if="workerEatFlashText(w.id)" class="eat-float">{{ workerEatFlashText(w.id) }}</em>
                 <b class="rest-name" :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</b>
               </button>
               <button
@@ -1541,12 +1547,69 @@ onUnmounted(() => {
   box-shadow: inset -2px 0 0 rgba(120, 28, 24, 0.34);
 }
 
+.rest-row.eat-flash {
+  overflow: visible;
+  z-index: 3;
+  animation: eat-glow 0.7s ease-out;
+}
+
+.rest-row.eat-flash .hp-fill {
+  background: linear-gradient(90deg, rgba(150, 230, 110, 0.88), rgba(90, 190, 70, 0.72));
+  box-shadow: inset 0 0 8px rgba(230, 255, 200, 0.95);
+}
+
+.eat-float {
+  position: absolute;
+  left: 26px;
+  top: 1px;
+  z-index: 4;
+  color: #2f7a22;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+  white-space: nowrap;
+  animation: eat-float 0.7s ease-out forwards;
+}
+
+@keyframes eat-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(120, 210, 90, 0);
+  }
+  40% {
+    box-shadow:
+      inset 0 0 0 2px rgba(170, 235, 120, 0.95),
+      0 0 10px 2px rgba(120, 210, 90, 0.7);
+  }
+  100% {
+    box-shadow: 0 2px 0 rgba(170, 108, 31, 0.28);
+  }
+}
+
+@keyframes eat-float {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hp-fill {
     transition: none;
   }
 
-  .station .slot .avatar.enter-land {
+  .station .slot .avatar.enter-land,
+  .rest-row.eat-flash,
+  .eat-float {
     animation: none;
   }
 }

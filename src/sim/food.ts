@@ -123,9 +123,23 @@ export function sendWorkerToRestTail(save: Save, workerId: string): boolean {
   return true
 }
 
+export type RestEatNotice = { workerId: string; message: string }
+
+const restEatNotices: RestEatNotice[] = []
+
+/** 取出并清空本拍进食标记。离线追赶调用后丢掉，不播动画。 */
+export function takeRestEatNotices(): RestEatNotice[] {
+  if (restEatNotices.length === 0) return []
+  return restEatNotices.splice(0, restEatNotices.length)
+}
+
+function restEatMessage(label: string, healed: number): string {
+  return healed > 0 ? `吃了${label} +${healed}` : `吃了${label}`
+}
+
 /**
  * 刚进入休息：先排到名册队尾。残血且选了伙食时再从物资扣 1 份并回血。
- * 未选、没货、不在休息、或仍在战斗/夺宝时不吃。
+ * 未选、没货、不在休息、或仍在战斗/夺宝时不吃。吃到才记一条供界面播。
  */
 export function offerRestFood(save: Save, workerId: string, now = save.lastTick || Date.now()): ActionResult | null {
   if (!sendWorkerToRestTail(save, workerId)) return null
@@ -138,8 +152,9 @@ export function offerRestFood(save: Save, workerId: string, now = save.lastTick 
   if (!took.ok) return null
   const healed = applyFoodHeal(worker, itemId)
   applyRestFoodBuff(worker, itemId, now)
-  const label = ITEM_DEF[itemId].label
-  return { ok: true, message: healed > 0 ? `吃了1份${label}，HP+${healed}` : `吃了1份${label}` }
+  const message = restEatMessage(ITEM_DEF[itemId].label, healed)
+  restEatNotices.push({ workerId, message })
+  return { ok: true, message }
 }
 
 export function refreshFoodSlots(save: Save, now: number): void {

@@ -18,7 +18,7 @@ import { hasUnread, listedMessages, markAllRead } from '../sim/messages'
 import { settleOffline } from '../sim/offline'
 import { clearPotionSlot, installPotionSlot } from '../sim/potionSlots'
 import { potionSlotItem, usePotionSlot } from '../sim/potions'
-import { selectRestFood } from '../sim/food'
+import { selectRestFood, takeRestEatNotices } from '../sim/food'
 import { fuseStationWorkers, fuseWorkerWithStation } from '../sim/fuse'
 import { recruitWorker, clearWorkerNew } from '../sim/recruit'
 import { selectStationCategory } from '../sim/stationProgress'
@@ -51,6 +51,7 @@ import { takeWorkshopHpEfficiencyTip } from '../sim/workshopHp'
 import type { ActionResult, CategoryId, ItemId, PotionItemId, Save, StationId, Worker } from '../sim/types'
 import { pushCombatLogTip } from './encounterTips'
 import { pushFloatTip } from './floatTips'
+import { announceWorkerEats } from './workerEatFlash'
 import { announceWorkerLevelUps, workerLevelSnapshot } from './workerLevelFlash'
 import { clearSave, loadSave, persistSave } from './saveGame'
 import { pushCycleGain } from './stationTips'
@@ -75,6 +76,11 @@ export const useGameStore = defineStore('game', () => {
     if (tip) pushFloatTip(tip)
   }
 
+  function flushRestEats(show: boolean) {
+    const notices = takeRestEatNotices()
+    if (show) announceWorkerEats(notices)
+  }
+
   function liveTick() {
     const levels = workerLevelSnapshot(save.value.workers)
     const produced: StationId[] = []
@@ -91,6 +97,7 @@ export const useGameStore = defineStore('game', () => {
       },
     })
     announceWorkerLevelUps(levels, save.value.workers)
+    flushRestEats(true)
     offerWorkshopBanter(save.value, produced)
     notifyWorkshopHpEfficiency(save.value)
     persist()
@@ -132,7 +139,9 @@ export const useGameStore = defineStore('game', () => {
       persist()
       if (result.message) pushFloatTip(result.message, 'ok')
       announceWorkerLevelUps(levels, next.workers)
+      flushRestEats(true)
     } else {
+      flushRestEats(false)
       pushFloatTip(result.reason, 'err')
     }
     return result
@@ -142,6 +151,7 @@ export const useGameStore = defineStore('game', () => {
     const result = settleOffline(from)
     save.value = result.save
     notifyWorkshopHpEfficiency(save.value)
+    flushRestEats(false)
     persist()
     return result
   }
