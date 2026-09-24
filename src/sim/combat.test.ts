@@ -43,7 +43,6 @@ import {
 } from './combat'
 import { jitterWorkerAtkInterval } from './atkInterval'
 import { createSave } from './createSave'
-import { loadFood } from './food'
 import { claimLoot, reinforceCombat, reinforceLostCombat, startCombat } from './encounters'
 import { hydrateWorker, spawnWorker, spawnWorkerWith } from './recruit'
 import { settleOffline } from './offline'
@@ -720,14 +719,14 @@ describe('enemy hits workshop crew', () => {
     expect(shop.assignment).toBe('mining')
   })
 
-  it('auto-eats workshop food when a hit leaves residual HP', () => {
+  it('does not eat rest food when a workshop hit leaves residual HP', () => {
     const save = createSave()
     const front = spawnWorkerWith(save, 1, 'laborer')
     const shop = spawnWorkerWith(save, 1, 'miner')
     assignWorker(save, shop.id, 'mining')
     save.bank.meal = 2
+    save.restFoodId = 'meal'
     const t0 = 60_000
-    expect(loadFood(save, shop.id, 'meal', 2, t0).ok).toBe(true)
     shop.hp = 3
     const enc = testEnemy({ targetRuleId: 'workshopBias' })
     putEnemy(save, enc)
@@ -736,20 +735,20 @@ describe('enemy hits workshop crew', () => {
     combat.enemy.nextActAt = t0 + 1_000
     combat.enemy.atk = 2
     stepEnemyCombat(save, enc, t0 + 1_000)
-    expect(shop.hp).toBeGreaterThan(1)
-    expect(shop.foodSlot?.qty).toBe(0)
+    expect(shop.hp).toBe(1)
+    expect(save.bank.meal).toBe(2)
     expect(shop.assignment).toBe('mining')
     expect(combat.workers[0].hp).toBe(combat.workers[0].hpMax)
   })
 })
 
 describe('combat food heal', () => {
-  it('auto-eats one food after settlement when residual HP ≤30%', () => {
+  it('eats one rest food when a wounded fighter gets home, not at the moment of victory', () => {
     const save = createSave()
     const worker = spawnWorker(save)
-    save.bank.meal = 2
+    save.bank.meal = 1
+    save.restFoodId = 'meal'
     const t0 = 20_000
-    expect(loadFood(save, worker.id, 'meal', 2, t0).ok).toBe(true)
     worker.hpMax = 100
     worker.hp = 25
     const enc = testEnemy()
@@ -762,8 +761,12 @@ describe('combat food heal', () => {
     }
     stepEnemyCombat(save, enc, t0 + 1_000)
     expect(isCombatWon(enc)).toBe(true)
+    expect(worker.hp).toBe(25)
+    expect(save.bank.meal).toBe(1)
+    stepEnemyCombat(save, enc, t0 + 30_000)
+    expect(worker.assignment).toBeNull()
     expect(worker.hp).toBe(25 + Math.ceil(100 * 0.25))
-    expect(worker.foodSlot?.qty).toBe(0)
+    expect(save.bank.meal ?? 0).toBe(0)
   })
 })
 

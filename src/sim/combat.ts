@@ -41,7 +41,7 @@ import {
   onDungeonBreak,
   onDungeonWake,
 } from './dungeonTables'
-import { tryAutoEatAfterCombat, tryAutoEatWhenWounded } from './food'
+import { offerRestFood } from './food'
 import {
   fighterRuneId,
   hasInsightRune,
@@ -806,6 +806,7 @@ export function hydrateCombatRoster(save: Save, enc: EnemyEncounter): void {
     writeBackFighterHp(save, fighter)
     const worker = save.workers.find((w) => w.id === fighter.id)
     if (worker && worker.assignment !== null) worker.assignment = null
+    if (worker) offerRestFood(save, worker.id, save.lastTick || Date.now())
   }
 }
 
@@ -841,6 +842,7 @@ export function applyDownedReturn(save: Save, workerId: string, hp: number, now:
   worker.assignment = null
   worker.hp = clampInt(hp, 0, worker.hpMax)
   applyDownedRecovery(save, worker, now)
+  offerRestFood(save, workerId, now)
 }
 
 function writeBackWorkers(save: Save, combat: EnemyCombat): void {
@@ -885,6 +887,7 @@ function settleCombatReturns(save: Save, combat: EnemyCombat, now: number): void
   const pending = combat.returning ?? []
   if (!pending.length) return
   const stay: CombatReturnee[] = []
+  const arrived: string[] = []
   for (const row of pending) {
     if (now < row.until) {
       stay.push(row)
@@ -895,8 +898,10 @@ function settleCombatReturns(save: Save, combat: EnemyCombat, now: number): void
       const worker = save.workers.find((workerRow) => workerRow.id === row.id)
       if (worker) worker.assignment = null
     }
+    arrived.push(row.id)
   }
   combat.returning = stay
+  for (const id of arrived) offerRestFood(save, id, now)
 }
 
 function releaseHomePhase(combat: EnemyCombat): void {
@@ -957,11 +962,6 @@ function finishCombat(
   emitLog(enc, combat, at, text, outcome === 'win' ? 'ok' : 'err', onLog)
   grantRuneBloodXp(save, combat)
   writeBackWorkers(save, combat)
-  tryAutoEatAfterCombat(
-    save,
-    combat.workers.filter((fighter) => fighter.hp > 0).map((fighter) => fighter.id),
-    at,
-  )
   const dur = marchDurationMs(save)
   combat.phase = outcome === 'win' ? 'marchHomeWin' : 'marchHomeLose'
   combat.phaseStartedAt = at
@@ -1073,7 +1073,6 @@ function strikeWorkshop(
     'err',
     onLog,
   )
-  if (isWoundedHp(worker)) tryAutoEatWhenWounded(save, worker.id, at)
 }
 
 function resolveEnemyStrikeTargets(
@@ -1174,7 +1173,9 @@ function closeMarchHome(save: Save, combat: EnemyCombat, now: number): void {
   settleCombatReturns(save, combat, now)
   const phase = combatPhaseOf(combat)
   if ((phase === 'marchHomeWin' || phase === 'marchHomeLose') && now >= (combat.phaseEndsAt ?? 0)) {
+    const ids = combat.workers.filter((fighter) => fighter.hp > 0).map((fighter) => fighter.id)
     releaseHomePhase(combat)
+    for (const id of ids) offerRestFood(save, id, now)
   }
 }
 

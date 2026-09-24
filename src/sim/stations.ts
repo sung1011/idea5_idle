@@ -6,7 +6,6 @@ import { takeCosts } from './costs'
 import { completeInscriptionCycle } from './inscription'
 import { applyGatherOutputs, applyHuntingPauseTick, applyMiningRecovery, isGatherFrozen, isGatherStation } from './gather'
 import { craftGoldForLots, emitGain, mergeLots, pushLot, type GainSink, type ItemLot } from './gains'
-import { tryAutoEatAssigned } from './food'
 import { applyWorkshopFatigue, decayAlchemyFog, workshopHpWorkMul, type FatigueKind } from './workshopHp'
 import { assignedCount, canConsume, currentSpeed, pickConsume } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
@@ -139,7 +138,6 @@ function emitCycleGain(
   const gold = grantCycleCraftGold(save, lots)
   const station = save.stations[stationId]
   applyWorkshopFatigue(save, stationId, now, fatigue)
-  tryAutoEatAssigned(save, stationId, now)
   if (fatigue === 'success' && lots.length > 0) {
     grantOnDutyWorkerXp(save, stationId, successXpPerCycle(save, stationId, lots))
   }

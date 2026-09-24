@@ -340,7 +340,13 @@ export type Worker = {
   /** 1～10。抽人默认白档；旧档缺字段 hydrate 补 1。 */
   qualityTier: QualityTier
   assignment: StationId | null
+  /** 旧个人食物槽。hydrate 把余粮退回物资后清空，不再用于进食。 */
   foodSlot: FoodSlot | null
+  /**
+   * 入休息吃到的短时生产效果，不占食物槽。
+   * 旧档缺字段视为没有。
+   */
+  foodBuff?: { itemId: 'meal' | 'roast' | 'stew'; expiresAt: number } | null
   /** 当前生命。hydrate 缺字段则按表满血。 */
   hp: number
   hpMax: number
@@ -537,6 +543,11 @@ export type Save = {
   playerAvatarId: string
   /** 站间物资数量。旧档字段名仍叫 bank；无容量。 */
   bank: Partial<Record<ItemId, number>>
+  /**
+   * 休息区当前伙食。残血工人进入休息时从物资扣 1 份。
+   * 缺省 null 表示未选。
+   */
+  restFoodId: 'meal' | 'roast' | 'stew' | null
   workers: Worker[]
   stations: Record<StationId, StationState>
   lastTick: number

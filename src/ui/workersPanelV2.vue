@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { bankQty } from '../sim/bank'
 import { formatMarchClock } from '../sim/encounters'
-import { foodBuffRemainS, isFoodBuffActive } from '../sim/food'
 import { isWorkerInCombat, workerLiveStats } from '../sim/combat'
 import { combatZoneRows, formatRemainClock, type CombatZoneRow } from '../sim/march'
 import { workerXpProgress } from '../sim/workerLevel'
@@ -10,10 +9,8 @@ import CombatAttrRow from './combatAttrRow.vue'
 import { availablePotionInstallIds } from '../sim/potionSlots'
 import {
   CLASS_LABEL,
-  FOOD_HEAL_RATIO,
   FOOD_ITEM_IDS,
   ITEM_DEF,
-  isFoodItemId,
   isPotionItemId,
   STATION_DEF,
   type FoodItemId,
@@ -61,7 +58,6 @@ import {
 import { formatAtkSpeed } from './formatAtkSpeed'
 import UiIcon from './uiIcon.vue'
 import UiSelect from './uiSelect.vue'
-import type { UiSelectOption } from './uiSelect'
 import { qualityOf, workerQualityDotStyle, workerQualityNameStyle, workerQualityTileStyle } from './workerQuality'
 import {
   canDragWorker,
@@ -84,13 +80,10 @@ const guideFlashAssignHerb = computed(() => isGuideQuestFlash(game.save, 'assign
 const guideFlashFuse = computed(() => isGuideQuestFlash(game.save, 'fuse'))
 const guideFlashPotionInstall = computed(() => isGuideQuestFlash(game.save, 'potionInstall'))
 const guideFlashPotionUse = computed(() => isGuideQuestFlash(game.save, 'potionUse'))
-const now = computed(() => {
-  void game.save.elapsedS
-  return Date.now()
-})
 const frameNow = useFrameNow()
-const pickFood = reactive<Record<string, FoodItemId>>({})
-const pickFoodQty = reactive<Record<string, number>>({})
+function onRestFood(itemId: FoodItemId) {
+  game.selectRestFood(game.save.restFoodId === itemId ? null : itemId)
+}
 const selectedId = ref<string | null>(null)
 const pickId = ref<string | null>(null)
 const pickPotionIndex = ref<number | null>(null)
@@ -127,36 +120,6 @@ function combatTail(w: Worker) {
   const stats = workerLiveStats(w, game.save)
   const xp = workerXpProgress(w)
   return `Lv${w.level} · ATK ${stats.atk} · 攻速 ${formatAtkSpeed(stats.spd)} · XP ${xp.xp}/${xp.need}`
-}
-
-function availableFoods() {
-  return FOOD_ITEM_IDS.filter((id) => bankQty(game.save, id) > 0)
-}
-
-const foodPickOptions = computed<UiSelectOption[]>(() =>
-  availableFoods().map((id) => ({
-    value: id,
-    label: `${ITEM_DEF[id].label} ×${bankQty(game.save, id)}`,
-  })),
-)
-
-function onPickFood(value: string) {
-  const w = selected.value
-  if (!w) return
-  pickFood[w.id] = value as FoodItemId
-}
-
-function foodLine(w: Worker) {
-  const slot = w.foodSlot
-  if (!slot) return '未装食物 · 裸生产'
-  const item = ITEM_DEF[slot.itemId]
-  if (!isFoodBuffActive(slot, now.value)) {
-    return `${item.label} ×${slot.qty} · Buff 已到期`
-  }
-  const remain = formatMarchClock(foodBuffRemainS(slot, now.value))
-  const healPct = isFoodItemId(slot.itemId) ? Math.round(FOOD_HEAL_RATIO[slot.itemId] * 100) : 0
-  const heal = healPct > 0 ? `回血 ${healPct}%` : '随身粮'
-  return `${item.label} ×${slot.qty} · ${heal} · 剩余 ${remain}`
 }
 
 const potionSlots = computed(() => game.save.potionSlots)
@@ -234,17 +197,6 @@ function onInstallPotion(itemId: PotionItemId) {
 function closePotionPick() {
   pickPotionIndex.value = null
   closePotionHelp()
-}
-
-function foodQtyMax(id: FoodItemId) {
-  return Math.max(1, bankQty(game.save, id))
-}
-
-function onLoadFood(w: Worker) {
-  const itemId = pickFood[w.id] ?? availableFoods()[0]
-  if (!itemId) return
-  const qty = Math.max(1, Math.min(foodQtyMax(itemId), Math.floor(pickFoodQty[w.id] ?? 1)))
-  game.loadFood(w.id, itemId, qty)
 }
 
 function jobLabel(w: Worker) {
@@ -689,6 +641,19 @@ onUnmounted(() => {
             <span class="recruit-bar-lab">抽工人</span>
             <span class="recruit-bar-cost">{{ recruitPrice }} 钻</span>
           </button>
+          <div class="rest-food" aria-label="休息区伙食">
+            <button
+              v-for="id in FOOD_ITEM_IDS"
+              :key="id"
+              type="button"
+              class="rest-food-btn"
+              :class="{ on: game.save.restFoodId === id, dry: bankQty(game.save, id) <= 0 }"
+              :aria-pressed="game.save.restFoodId === id"
+              @click="onRestFood(id)"
+            >
+              {{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}
+            </button>
+          </div>
           <div v-if="resting.length" class="zone-list rest-list">
             <div
               v-for="w in resting"
@@ -753,32 +718,6 @@ onUnmounted(() => {
         <p class="attrs">
           <CombatAttrRow :attrs="selected.combatAttrs" />
         </p>
-        <p class="hint">{{ foodLine(selected) }}</p>
-        <div class="row tool-row">
-          <template v-if="selected.foodSlot">
-            <button type="button" @click="game.unloadFood(selected.id)">卸下食物</button>
-          </template>
-          <template v-if="availableFoods().length">
-            <UiSelect
-              :model-value="pickFood[selected.id] ?? availableFoods()[0]"
-              :options="foodPickOptions"
-              aria-label="食物"
-              @update:model-value="onPickFood"
-            />
-            <input
-              class="qty-input"
-              type="number"
-              min="1"
-              :max="foodQtyMax(pickFood[selected.id] ?? availableFoods()[0])"
-              :value="pickFoodQty[selected.id] ?? 1"
-              @change="pickFoodQty[selected.id] = Math.max(1, Math.floor(Number(($event.target as HTMLInputElement).value) || 1))"
-            />
-            <button type="button" @click="onLoadFood(selected)">
-              {{ selected.foodSlot ? '换食' : '装入' }}
-            </button>
-          </template>
-          <span v-else-if="!selected.foodSlot" class="hint">物资里没有食物</span>
-        </div>
         <div class="sheet-actions">
           <button type="button" class="go" @click="openSheetThenPick(selected)">派驻</button>
         </div>
@@ -1101,6 +1040,35 @@ onUnmounted(() => {
   opacity: 0.45;
   filter: grayscale(0.28);
   box-shadow: none;
+}
+
+.rest-food {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: calc(100% - 6px);
+  margin: 0 3px 4px;
+}
+
+.rest-food-btn {
+  margin: 0;
+  min-height: 22px;
+  padding: 2px 4px;
+  border: 1px solid var(--gold-deep);
+  border-radius: 6px;
+  background: #fff9de;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.rest-food-btn.on {
+  background: linear-gradient(#ffe27a, #f0b83a);
+}
+
+.rest-food-btn.dry {
+  opacity: 0.55;
 }
 
 .zone-list {

@@ -45,7 +45,7 @@ export const STATION_HELP: Record<StationId, StationHelpEntry> = {
   },
   cooking: {
     play: '按菜谱消耗鱼 / 肉 / 香料做食物。',
-    output: '烤鱼出熟食、烤肉出烤肉（开局可做）。食物装工人食物槽，主职回血。',
+    output: '烤鱼出熟食、烤肉出烤肉（开局可做）。休息区点选伙食，残血回来再吃。',
     cost: '鱼 / 肉 / 香料。香料炖耗肉或鱼加香料（Lv5）。',
   },
   herbalism: {
@@ -62,7 +62,7 @@ export const STATION_HELP: Record<StationId, StationHelpEntry> = {
 }
 
 export const STATION_HP_HELP =
-  '在岗体力影响效率：正常 100%，残血 80%，空血 50%。残血会自动吃熟食；药剂点槽给在岗救急。'
+  '在岗体力影响效率：正常 100%，残血 80%，空血 50%。残血进入休息区才吃当前伙食；药剂点槽给在岗救急。'
 
 const FIELD_LABEL = {
   name: '名称',

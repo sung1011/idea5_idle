@@ -18,7 +18,7 @@ import { hasUnread, listedMessages, markAllRead } from '../sim/messages'
 import { settleOffline } from '../sim/offline'
 import { clearPotionSlot, installPotionSlot } from '../sim/potionSlots'
 import { potionSlotItem, usePotionSlot } from '../sim/potions'
-import { loadFood, unloadFood } from '../sim/food'
+import { selectRestFood } from '../sim/food'
 import { fuseStationWorkers, fuseWorkerWithStation } from '../sim/fuse'
 import { recruitWorker, clearWorkerNew } from '../sim/recruit'
 import { selectStationCategory } from '../sim/stationProgress'
@@ -45,7 +45,7 @@ import {
 } from '../sim/treasureMine'
 import { claimGuideQuest, markGuideQuestRuneOpened } from '../sim/guideQuest'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
-import { PLAYABLE_STATION_IDS } from '../sim/tables'
+import { PLAYABLE_STATION_IDS, type FoodItemId } from '../sim/tables'
 import { tick } from '../sim/tick'
 import { takeWorkshopHpEfficiencyTip } from '../sim/workshopHp'
 import type { ActionResult, CategoryId, ItemId, PotionItemId, Save, StationId, Worker } from '../sim/types'
@@ -247,9 +247,7 @@ export const useGameStore = defineStore('game', () => {
       else offerFreshAssign(before)
       return result
     },
-    loadFood: (workerId: string, itemId: ItemId, qty: number) =>
-      apply((s) => loadFood(s, workerId, itemId, qty)),
-    unloadFood: (workerId: string) => apply((s) => unloadFood(s, workerId)),
+    selectRestFood: (itemId: FoodItemId | null) => apply((s) => selectRestFood(s, itemId)),
     installPotionSlot: (index: number, itemId: ItemId) => apply((s) => installPotionSlot(s, index, itemId)),
     installPotion: (index: number, itemId: PotionItemId) => apply((s) => installPotionSlot(s, index, itemId)),
     clearPotionSlot: (index: number) => apply((s) => clearPotionSlot(s, index)),

@@ -1,4 +1,4 @@
-import { tryAutoEatWhenWounded } from './food'
+import { offerRestFood } from './food'
 import { campBandageHealAmount } from './tech'
 import type { Save, StationFatigueCombo, StationId, Worker } from './types'
 
@@ -57,15 +57,14 @@ export function isFullWorkshopHp(worker: Worker): boolean {
 }
 
 /**
- * 倒地 / 工坊力竭后的回血：HP≤0 先上绷带，再按残血自动吃饭。
- * 不走行军，不写入 returning。
+ * 倒地 / 工坊力竭后的回血：HP≤0 先上绷带。
+ * 伙食在进入休息后再吃。不走行军，不写入 returning。
  */
-export function applyDownedRecovery(save: Save, worker: Worker, now: number): void {
+export function applyDownedRecovery(save: Save, worker: Worker, _now: number): void {
   if (worker.hp <= 0) {
     const heal = campBandageHealAmount(save, worker.hpMax)
     if (heal > 0) worker.hp = Math.min(worker.hpMax, worker.hp + heal)
   }
-  tryAutoEatWhenWounded(save, worker.id, now)
 }
 
 function nearFullPip(worker: Worker): number {
@@ -101,7 +100,7 @@ export function stationHpEfficiencyLabel(mul: number): string {
 }
 
 export const WORKSHOP_HP_EFFICIENCY_TIP =
-  '工人体力不足，工坊效率下降。装备熟食可自动回血；紧急可用药剂。'
+  '工人体力不足，工坊效率下降。休息区选好伙食，残血回来会自动吃；紧急可用药剂。'
 
 export function anyOnDutyHpEfficiencyDropped(save: Save): boolean {
   return save.workers.some((worker) => worker.assignment != null && workshopHpWorkMul(worker) < 1)
@@ -210,6 +209,7 @@ function releaseDeadWorker(save: Save, stationId: StationId, worker: Worker, now
     save.stations[stationId].stallReason = null
   }
   applyDownedRecovery(save, worker, now)
+  offerRestFood(save, worker.id, now)
 }
 
 function debtAmount(

@@ -1,7 +1,7 @@
 import { potionEffectValue } from './alchemy'
 import { workshopHpWorkMul } from './workshopHp'
 import { addToBank } from './bank'
-import { foodEffectValue } from './food'
+import { foodBuffEffectValue, foodEffectValue } from './food'
 import { convertLegacyToolsToFeedstock } from './runes'
 import {
   EFFECT_ID,
@@ -150,7 +150,7 @@ export function stationToolSpeedMul(_save: Save, _stationId: StationId): number 
 
 /** 食物 / 炼金词条；站工具已撤，不再走 effectId。 */
 export function workerEffectValue(save: Save, worker: Worker, stationId: StationId, effectId: EffectId, now = Date.now()): number {
-  const fromFood = foodEffectValue(worker.foodSlot, effectId, now)
+  const fromFood = Math.max(foodEffectValue(worker.foodSlot, effectId, now), foodBuffEffectValue(worker, effectId, now))
   const fromPotion = potionEffectValue(null, effectId)
   return Math.max(fromFood, fromPotion)
 }

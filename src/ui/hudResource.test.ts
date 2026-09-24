@@ -73,7 +73,7 @@ describe('hud resource chips', () => {
     expect(itemHudSource('ore')).toBe('采矿产出')
     expect(itemHudUsage('ore')).toMatch(/库存暂无常规消耗/)
     expect(itemHudSource('meal')).toBe('烹饪产出')
-    expect(itemHudUsage('meal')).toMatch(/食物槽/)
+    expect(itemHudUsage('meal')).toMatch(/休息区伙食/)
     expect(itemHudSource('stim')).toBe('炼金产出')
     expect(itemHudUsage('stim')).toMatch(/药剂槽/)
     expect(itemHudSource('anyPotion')).toBe('炼金产出')

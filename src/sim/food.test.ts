@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { assignWorker } from './assign'
+import { assignWorker, withdrawWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
-import { eatFood, loadFood, tryAutoEatWhenWounded, unloadFood } from './food'
+import { offerRestFood, selectRestFood } from './food'
 import { currentSpeed } from './query'
 import { recruitWorker } from './recruit'
 import { selectStationCategory } from './stationProgress'
 import { EFFECT_ID, FOOD_BUFF_DEF } from './tables'
-import { applyTick, ticks } from './tick'
-import { matchingToolEffectMax, stationToolSpeedMul, workerEffectValue, workerToolSpeedMul } from './tools'
+import { ticks } from './tick'
+import { workerEffectValue } from './tools'
 import type { Save } from './types'
+import workersPanelSource from '../ui/workersPanelV2.vue?raw'
 
 function roster(n: number): Save {
   const save = createSave()
@@ -63,190 +64,92 @@ describe('cooking recipes', () => {
   })
 })
 
-describe('food slot buff', () => {
-  it('refreshes the same buff when leftover food remains', () => {
-    const t0 = 1_000_000
-    const save = roster(1)
-    save.bank.meal = 3
-    const id = save.workers[0].id
-    expect(loadFood(save, id, 'meal', 2, t0).ok).toBe(true)
-    expect(bankQty(save, 'meal')).toBe(1)
-    expect(save.workers[0].foodSlot?.qty).toBe(1)
-    expect(save.workers[0].foodSlot?.buff.effectId).toBe(EFFECT_ID.prodSpeed)
-    expect(save.workers[0].foodSlot?.expiresAt).toBe(t0 + FOOD_BUFF_DEF.meal.durationS * 1000)
-
-    applyTick(save, { now: t0 + 180_000 })
-    expect(save.workers[0].foodSlot?.itemId).toBe('meal')
-    expect(save.workers[0].foodSlot?.qty).toBe(0)
-    expect(save.workers[0].foodSlot?.expiresAt).toBe(t0 + 360_000)
-    expect(save.workers[0].foodSlot?.buff.mul).toBe(FOOD_BUFF_DEF.meal.mul)
-    expect(bankQty(save, 'meal')).toBe(1)
+describe('rest area shared food', () => {
+  it('selects a cooked food and can clear it', () => {
+    const save = createSave()
+    expect(save.restFoodId).toBeNull()
+    expect(selectRestFood(save, 'roast')).toEqual({ ok: true })
+    expect(save.restFoodId).toBe('roast')
+    expect(selectRestFood(save, null)).toEqual({ ok: true })
+    expect(save.restFoodId).toBeNull()
+    expect(selectRestFood(save, 'stim' as 'meal').ok).toBe(false)
   })
 
-  it('clears the buff when the slot runs out and still allows bare work', () => {
-    const t0 = 2_000_000
-    const save = roster(1)
-    save.bank.meal = 1
-    assignWorker(save, save.workers[0].id, 'mining')
-    expect(loadFood(save, save.workers[0].id, 'meal', 1, t0).ok).toBe(true)
-    expect(save.workers[0].foodSlot?.qty).toBe(0)
-    const fed = currentSpeed(save, 'mining', t0)
-    expect(fed).toBeCloseTo((1 / 20) * FOOD_BUFF_DEF.meal.mul * 1.5)
-
-    applyTick(save, { now: t0 + 180_000 })
-    expect(save.workers[0].foodSlot).toBeNull()
-    expect(currentSpeed(save, 'mining', t0 + 180_000)).toBeCloseTo((1 / 20) * 1.5)
-    expect(fed).toBeGreaterThan(currentSpeed(save, 'mining', t0 + 180_000))
-
-    const next = ticks(save, 20, { now: t0 + 180_000 })
-    expect(bankQty(next, 'ore')).toBe(1)
-    expect(next.stations.mining.completed).toBe(1)
-    expect(next.workers[0].foodSlot).toBeNull()
-  })
-
-  it('overrides the current buff immediately when changing food', () => {
-    const t0 = 3_000_000
-    const save = roster(1)
-    save.bank.meal = 2
-    save.bank.roast = 1
-    const id = save.workers[0].id
-    expect(loadFood(save, id, 'meal', 2, t0).ok).toBe(true)
-    expect(save.workers[0].foodSlot?.buff.effectId).toBe(EFFECT_ID.prodSpeed)
-    expect(save.workers[0].foodSlot?.qty).toBe(1)
-
-    expect(loadFood(save, id, 'roast', 1, t0 + 5_000).ok).toBe(true)
-    expect(bankQty(save, 'meal')).toBe(1)
-    expect(bankQty(save, 'roast')).toBe(0)
-    expect(save.workers[0].foodSlot?.itemId).toBe('roast')
-    expect(save.workers[0].foodSlot?.buff.effectId).toBe(EFFECT_ID.extraOutput)
-    expect(save.workers[0].foodSlot?.buff.mul).toBe(0)
-    expect(save.workers[0].foodSlot?.qty).toBe(0)
-    expect(save.workers[0].foodSlot?.expiresAt).toBe(t0 + 5_000 + FOOD_BUFF_DEF.roast.durationS * 1000)
-  })
-
-  it('stacks food prodSpeed onto bare station speed', () => {
-    const t0 = 4_000_000
-    const save = roster(1)
-    save.bank.meal = 1
-    save.bank.stew = 1
-    assignWorker(save, save.workers[0].id, 'mining')
-    expect(workerToolSpeedMul(save, save.workers[0], 'mining', t0)).toBe(1)
-    expect(stationToolSpeedMul(save, 'mining')).toBe(1)
-
-    expect(loadFood(save, save.workers[0].id, 'meal', 1, t0).ok).toBe(true)
-    expect(workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.prodSpeed, t0)).toBeCloseTo(1.02)
-    expect(workerToolSpeedMul(save, save.workers[0], 'mining', t0)).toBeCloseTo(1.02)
-
-    expect(unloadFood(save, save.workers[0].id).ok).toBe(true)
-    expect(loadFood(save, save.workers[0].id, 'stew', 1, t0).ok).toBe(true)
-    expect(workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.prodSpeed, t0)).toBeCloseTo(1.03)
-    expect(workerToolSpeedMul(save, save.workers[0], 'mining', t0)).toBeCloseTo(1.03)
-    expect(currentSpeed(save, 'mining', t0)).toBeCloseTo((1 / 20) * 1.03 * 1.5)
-  })
-
-  it('keeps food extraOutput at zero while mining still dual-drops ore and wildCrystal', () => {
-    const t0 = 5_000_000
-    const save = roster(1)
-    save.bank.roast = 1
-    assignWorker(save, save.workers[0].id, 'mining')
-    expect(loadFood(save, save.workers[0].id, 'roast', 1, t0).ok).toBe(true)
-
-    expect(workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.prodSpeed, t0)).toBe(0)
-    expect(workerEffectValue(save, save.workers[0], 'mining', EFFECT_ID.extraOutput, t0)).toBe(0)
-    expect(matchingToolEffectMax(save, 'mining', EFFECT_ID.extraOutput, t0)).toBe(0)
-
-    const next = ticks(save, 20, { now: t0 })
-    expect(bankQty(next, 'ore')).toBe(1)
-    expect(bankQty(next, 'wildCrystal')).toBe(1)
-    expect(next.stations.mining.completed).toBe(1)
-  })
-})
-
-describe('eatFood', () => {
-  it('eats one leftover and restarts the same buff from now', () => {
-    const t0 = 6_000_000
-    const save = roster(1)
-    save.bank.meal = 3
-    const id = save.workers[0].id
-    const hp = save.workers[0].hp
-    expect(loadFood(save, id, 'meal', 3, t0).ok).toBe(true)
-    expect(save.workers[0].foodSlot?.qty).toBe(2)
-    expect(save.workers[0].foodSlot?.expiresAt).toBe(t0 + FOOD_BUFF_DEF.meal.durationS * 1000)
-
-    const later = t0 + 60_000
-    expect(eatFood(save, id, later)).toEqual({ ok: true, message: '吃了1份熟食' })
-    expect(save.workers[0].foodSlot?.itemId).toBe('meal')
-    expect(save.workers[0].foodSlot?.qty).toBe(1)
-    expect(save.workers[0].foodSlot?.expiresAt).toBe(later + FOOD_BUFF_DEF.meal.durationS * 1000)
-    expect(save.workers[0].foodSlot?.buff.effectId).toBe(EFFECT_ID.prodSpeed)
-    expect(save.workers[0].foodSlot?.buff.mul).toBe(FOOD_BUFF_DEF.meal.mul)
-    expect(save.workers[0].hp).toBe(hp)
-    expect(bankQty(save, 'meal')).toBe(0)
-  })
-
-  it('fails when leftover is gone and does not change the slot', () => {
-    const t0 = 7_000_000
-    const save = roster(1)
-    save.bank.meal = 1
-    const id = save.workers[0].id
-    expect(loadFood(save, id, 'meal', 1, t0).ok).toBe(true)
-    expect(save.workers[0].foodSlot?.qty).toBe(0)
-    const expiresAt = save.workers[0].foodSlot?.expiresAt
-    expect(eatFood(save, id, t0 + 1_000)).toEqual({ ok: false, reason: '没有余粮' })
-    expect(save.workers[0].foodSlot?.qty).toBe(0)
-    expect(save.workers[0].foodSlot?.expiresAt).toBe(expiresAt)
-  })
-
-  it('fails without a slot', () => {
-    const save = roster(1)
-    expect(eatFood(save, save.workers[0].id)).toEqual({ ok: false, reason: '没有装食物' })
-    expect(save.workers[0].foodSlot).toBeNull()
-  })
-
-  it('still refreshes leftover after an extra eat', () => {
-    const t0 = 8_000_000
-    const save = roster(1)
-    save.bank.meal = 3
-    const id = save.workers[0].id
-    expect(loadFood(save, id, 'meal', 3, t0).ok).toBe(true)
-    expect(eatFood(save, id, t0 + 10_000).ok).toBe(true)
-    expect(save.workers[0].foodSlot?.qty).toBe(1)
-    expect(save.workers[0].foodSlot?.expiresAt).toBe(t0 + 10_000 + FOOD_BUFF_DEF.meal.durationS * 1000)
-
-    applyTick(save, { now: t0 + 10_000 + FOOD_BUFF_DEF.meal.durationS * 1000 })
-    expect(save.workers[0].foodSlot?.itemId).toBe('meal')
-    expect(save.workers[0].foodSlot?.qty).toBe(0)
-    expect(save.workers[0].foodSlot?.expiresAt).toBe(t0 + 10_000 + FOOD_BUFF_DEF.meal.durationS * 2000)
-    expect(save.workers[0].foodSlot?.buff.mul).toBe(FOOD_BUFF_DEF.meal.mul)
-  })
-
-  it('heals about 25% hpMax when eating at low HP, at least above 1', () => {
-    const t0 = 9_000_000
-    const save = roster(1)
-    save.bank.meal = 2
-    const worker = save.workers[0]
-    worker.hp = 1
-    expect(loadFood(save, worker.id, 'meal', 2, t0).ok).toBe(true)
-    expect(eatFood(save, worker.id, t0 + 1_000).ok).toBe(true)
-    expect(worker.hp).toBe(1 + Math.ceil(worker.hpMax * 0.25))
-    expect(worker.hp).toBeGreaterThan(1)
-  })
-
-  it('auto-eats at residual HP ≤30% and skips above that', () => {
-    const t0 = 10_000_000
+  it('feeds one portion when a wounded worker enters rest', () => {
     const save = roster(1)
     const worker = save.workers[0]
-    save.bank.meal = 3
-    expect(loadFood(save, worker.id, 'meal', 3, t0).ok).toBe(true)
+    assignWorker(save, worker.id, 'herbalism')
     worker.hpMax = 100
-    worker.hp = 31
-    expect(tryAutoEatWhenWounded(save, worker.id, t0 + 1_000)).toBeNull()
-    expect(worker.foodSlot?.qty).toBe(2)
-    expect(worker.hp).toBe(31)
-
     worker.hp = 30
-    expect(tryAutoEatWhenWounded(save, worker.id, t0 + 2_000)?.ok).toBe(true)
+    save.bank.meal = 2
+    save.restFoodId = 'meal'
+    const now = 1_000_000
+    save.lastTick = now
+    expect(withdrawWorker(save, 'herbalism')).toEqual({ ok: true })
+    expect(worker.assignment).toBeNull()
+    expect(bankQty(save, 'meal')).toBe(1)
     expect(worker.hp).toBe(30 + Math.ceil(100 * 0.25))
-    expect(worker.foodSlot?.qty).toBe(1)
+    expect(worker.foodSlot).toBeNull()
+    expect(worker.foodBuff?.itemId).toBe('meal')
+    expect(worker.foodBuff?.expiresAt).toBe(now + FOOD_BUFF_DEF.meal.durationS * 1000)
+    expect(workerEffectValue(save, worker, 'herbalism', EFFECT_ID.prodSpeed, now)).toBeCloseTo(1.02)
+    expect(workerEffectValue(save, worker, 'herbalism', EFFECT_ID.prodSpeed, worker.foodBuff!.expiresAt)).toBe(0)
+    expect(offerRestFood(save, worker.id, now + 1)).toBeNull()
+    expect(bankQty(save, 'meal')).toBe(1)
+  })
+
+  it('does not eat when food is unselected, out of stock, or the worker is not wounded', () => {
+    const save = roster(1)
+    const worker = save.workers[0]
+    assignWorker(save, worker.id, 'herbalism')
+    worker.hpMax = 100
+    worker.hp = 20
+    save.bank.meal = 1
+    expect(withdrawWorker(save, 'herbalism')).toEqual({ ok: true })
+    expect(worker.hp).toBe(20)
+    expect(bankQty(save, 'meal')).toBe(1)
+
+    worker.hp = worker.hpMax
+    worker.fatigueDebt = 0
+    expect(assignWorker(save, worker.id, 'herbalism').ok).toBe(true)
+    save.restFoodId = 'meal'
+    save.bank.meal = 0
+    worker.hp = 20
+    expect(withdrawWorker(save, 'herbalism')).toEqual({ ok: true })
+    expect(worker.hp).toBe(20)
+    expect(bankQty(save, 'meal')).toBe(0)
+
+    worker.hp = worker.hpMax
+    worker.fatigueDebt = 0
+    expect(assignWorker(save, worker.id, 'herbalism').ok).toBe(true)
+    save.bank.meal = 3
+    expect(withdrawWorker(save, 'herbalism')).toEqual({ ok: true })
+    expect(worker.hp).toBe(worker.hpMax)
+    expect(bankQty(save, 'meal')).toBe(3)
+  })
+
+  it('does not eat while the worker stays on duty', () => {
+    const save = roster(1)
+    const worker = save.workers[0]
+    assignWorker(save, worker.id, 'mining')
+    worker.hpMax = 100
+    worker.hp = 20
+    save.restFoodId = 'meal'
+    save.bank.meal = 2
+    save.lastTick = 4_000_000
+    expect(offerRestFood(save, worker.id)).toBeNull()
+    expect(worker.hp).toBe(20)
+    expect(bankQty(save, 'meal')).toBe(2)
+    expect(currentSpeed(save, 'mining', save.lastTick)).toBeGreaterThan(0)
+  })
+
+  it('does not show personal food loading in the worker sheet', () => {
+    expect(workersPanelSource).toContain('onRestFood')
+    expect(workersPanelSource).toContain('休息区伙食')
+    expect(workersPanelSource).toContain('game.selectRestFood')
+    expect(workersPanelSource).not.toContain('卸下食物')
+    expect(workersPanelSource).not.toContain('换食')
+    expect(workersPanelSource).not.toContain('game.loadFood')
+    expect(workersPanelSource).not.toContain('game.unloadFood')
   })
 })

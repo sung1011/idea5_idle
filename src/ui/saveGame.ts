@@ -6,6 +6,7 @@ import { normalizeRngState } from '../sim/rng'
 import { hydrateStations } from '../sim/stationProgress'
 import { clampStationAssignments } from '../sim/assign'
 import { isAssistWorker } from '../sim/combatAssist'
+import { hydrateRestFoodId, migrateWorkerFoodSlots } from '../sim/food'
 import { hydrateWorkers } from '../sim/recruit'
 import {
   hydrateForgedTools,
@@ -66,6 +67,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
     ...blank,
     ...rest,
     bank: { ...hydrateBank(items), ...hydrateBank(bank) },
+    restFoodId: hydrateRestFoodId((parsed as { restFoodId?: unknown }).restFoodId),
     workers: hydrateWorkers(
       parsed.workers,
       (parsed as { workerQualityRev?: unknown }).workerQualityRev,
@@ -87,6 +89,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
     forgedTools: hydrateForgedTools((parsed as { forgedTools?: unknown }).forgedTools),
     potionSlots: hydratePotionSlots((parsed as { potionSlots?: unknown }).potionSlots),
   }
+  migrateWorkerFoodSlots(merged)
   migrateWorkerToolsToStations(merged, parsed.workers)
   returnLegacyStationToolSlots(merged, parsed.stations)
   sanitizeAllStationTools(merged)

@@ -127,7 +127,7 @@ export function itemHudUsage(itemId: ItemId): string {
     (id) => STATION_DEF[id].label,
   )
   const extras: string[] = []
-  if (isFoodItemId(itemId)) extras.push('工人食物槽回血')
+  if (isFoodItemId(itemId)) extras.push('休息区伙食，残血入休息回血')
   if (isPotionItemId(itemId) || itemId === 'potion') extras.push('工人页药剂槽短按使用')
   if (itemId === 'anyPotion') extras.push('主线订单通配：扣库存最多的一种药剂')
   if (isRuneItemId(itemId)) extras.push('开战选人一槽装备，本场消耗')

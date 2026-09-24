@@ -917,7 +917,7 @@ export function isToolItemId(id: unknown): id is ToolItemId {
 
 export type FoodItemId = 'meal' | 'roast' | 'stew'
 
-/** 食物槽仍续期；主职是回血，生产加速压到很弱。 */
+/** 入休息吃到的短时弱生产效果。主职是回血，加速压得很低。 */
 export const FOOD_BUFF_DEF: Record<FoodItemId, ProductionBuff> = {
   meal: { effectId: EFFECT_ID.prodSpeed, mul: 1.02, durationS: 180 },
   roast: { effectId: EFFECT_ID.extraOutput, mul: 0, durationS: 180 },

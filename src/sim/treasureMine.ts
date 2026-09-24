@@ -1,5 +1,6 @@
 import { hashString, isCombatAttrId, matchingWeaknesses, pickEnemyWeaknesses } from './combatAttrs'
 import { applyDownedReturn, workerLiveStats } from './combat'
+import { offerRestFood } from './food'
 import { raidPhaseOf } from './march'
 import { marchDurationS } from './tech'
 import { clearWorkerNew } from './recruit'
@@ -234,12 +235,14 @@ export function refreshTreasureMineBoard(save: Save): ActionResult {
 }
 
 function releaseMineCrew(save: Save, mine: TreasureMine): void {
-  for (const id of mine.crewIds) {
+  const ids = [...mine.crewIds]
+  for (const id of ids) {
     const worker = save.workers.find((row) => row.id === id)
     if (worker) worker.assignment = null
     delete mine.digCharge[id]
   }
   mine.crewIds = []
+  for (const id of ids) offerRestFood(save, id)
 }
 
 export function refreshTreasureMines(save: Save): void {
@@ -465,6 +468,7 @@ function settleRaidReturns(save: Save, raid: TreasureRaid): void {
   const pending = raid.returning ?? []
   if (!pending.length) return
   const stay: TreasureRaidReturnee[] = []
+  const arrived: string[] = []
   for (const row of pending) {
     if (save.elapsedS < row.untilS) {
       stay.push(row)
@@ -475,8 +479,10 @@ function settleRaidReturns(save: Save, raid: TreasureRaid): void {
       const worker = save.workers.find((workerRow) => workerRow.id === row.id)
       if (worker) worker.assignment = null
     }
+    arrived.push(row.id)
   }
   raid.returning = stay
+  for (const id of arrived) offerRestFood(save, id, save.lastTick || 0)
 }
 
 function beginRaidHome(save: Save, raid: TreasureRaid, outcome: 'win' | 'lose', atS: number): void {
@@ -498,11 +504,13 @@ function finishRaidHome(save: Save, mine: TreasureMine, raid: TreasureRaid): voi
     takeOver(save, mine, raid)
     return
   }
-  for (const id of raid.queue) {
+  const ids = [...raid.queue]
+  for (const id of ids) {
     const worker = save.workers.find((row) => row.id === id)
     sendHome(save, id, worker?.hp ?? 0)
   }
   mine.raid = null
+  for (const id of ids) offerRestFood(save, id)
 }
 
 function stepRaid(save: Save, mine: TreasureMine): void {
@@ -903,6 +911,7 @@ function sendHome(save: Save, workerId: string, hp: number): void {
     mine.crewIds = mine.crewIds.filter((id) => id !== workerId)
     delete mine.digCharge[workerId]
   }
+  offerRestFood(save, workerId)
 }
 
 function releaseRaid(save: Save, mine: TreasureMine): void {

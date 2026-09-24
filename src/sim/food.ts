@@ -1,6 +1,8 @@
 import { addToBank, bankQty, takeFromBank } from './bank'
+import { isWorkerInCombat } from './combat'
 import { clearWorkerNew, findWorker } from './recruit'
 import { FOOD_HEAL_RATIO, foodBuffDef, isFoodItemId, ITEM_DEF, type FoodItemId } from './tables'
+import { isWorkerInTreasureMine } from './treasureMineQuery'
 import { isWoundedHp } from './workshopHp'
 import type {
   ActionResult,
@@ -65,26 +67,64 @@ function applyFreshBuff(slot: FoodSlot, now: number): void {
   slot.effects = foodEffectsOf(slot.buff)
 }
 
-function chainRefresh(slot: FoodSlot): void {
-  const fresh = foodBuffDef(slot.itemId)
-  if (fresh) slot.buff = { ...fresh }
-  slot.expiresAt += slot.buff.durationS * 1000
-  slot.effects = foodEffectsOf(slot.buff)
+/** 个人食物槽已废弃，不再按到期续吃。 */
+export function refreshWorkerFood(_worker: Worker, _now: number): void {}
+
+/** 旧档个人槽余粮退回物资，然后清空。 */
+export function migrateWorkerFoodSlots(save: Save): void {
+  for (const worker of save.workers) {
+    const slot = worker.foodSlot
+    if (slot && slot.qty > 0) addToBank(save, slot.itemId, Math.floor(slot.qty))
+    worker.foodSlot = null
+  }
 }
 
-/** 到期吃槽内 1 份刷新；槽空则清空。now 远超截止时连吃多份。 */
-export function refreshWorkerFood(worker: Worker, now: number): void {
-  let slot = worker.foodSlot
-  if (!slot) return
-  while (slot && now >= slot.expiresAt) {
-    if (slot.qty >= 1) {
-      slot.qty -= 1
-      chainRefresh(slot)
-    } else {
-      worker.foodSlot = null
-      slot = null
-    }
+export function hydrateRestFoodId(raw: unknown): FoodItemId | null {
+  return isFoodItemId(raw) ? raw : null
+}
+
+export function selectRestFood(save: Save, itemId: FoodItemId | null): ActionResult {
+  if (itemId !== null && !isFoodItemId(itemId)) return { ok: false, reason: '不是烹饪食物' }
+  save.restFoodId = itemId
+  return { ok: true }
+}
+
+function applyRestFoodBuff(worker: Worker, itemId: FoodItemId, now: number): void {
+  const def = foodBuffDef(itemId)
+  if (!def) {
+    worker.foodBuff = null
+    return
   }
+  worker.foodBuff = { itemId, expiresAt: now + def.durationS * 1000 }
+}
+
+/** 进食挂上的短时效果。过期视为没有。 */
+export function foodBuffEffectValue(worker: Worker, effectId: EffectId, now: number): number {
+  const buff = worker.foodBuff
+  if (!buff || !(now < buff.expiresAt)) return 0
+  const def = foodBuffDef(buff.itemId)
+  if (!def || def.effectId !== effectId || !(def.mul > 0)) return 0
+  return def.mul
+}
+
+/**
+ * 刚进入休息且残血：从物资扣 1 份当前伙食并回血。
+ * 未选、没货、不在休息、或仍在战斗/夺宝时不吃。
+ */
+export function offerRestFood(save: Save, workerId: string, now = save.lastTick || Date.now()): ActionResult | null {
+  const worker = findWorker(save, workerId)
+  if (!worker || worker.assignment !== null) return null
+  if (isWorkerInCombat(save, workerId) || isWorkerInTreasureMine(save, workerId)) return null
+  if (!isWoundedHp(worker)) return null
+  const itemId = save.restFoodId
+  if (!itemId || !isFoodItemId(itemId)) return null
+  if (bankQty(save, itemId) < 1) return null
+  const took = takeFromBank(save, itemId, 1)
+  if (!took.ok) return null
+  const healed = applyFoodHeal(worker, itemId)
+  applyRestFoodBuff(worker, itemId, now)
+  const label = ITEM_DEF[itemId].label
+  return { ok: true, message: healed > 0 ? `吃了1份${label}，HP+${healed}` : `吃了1份${label}` }
 }
 
 export function refreshFoodSlots(save: Save, now: number): void {
@@ -169,25 +209,15 @@ export function eatFood(save: Save, workerId: string, now = Date.now()): ActionR
   return { ok: true, message: healed > 0 ? `吃了1份${label}，HP+${healed}` : `吃了1份${label}` }
 }
 
-/** 残血（≤30%）且槽内有余粮则自动吃 1 回血。 */
+/** 旧入口：在岗 / 战后不再吃个人槽。进食只在进入休息时。 */
 export function tryAutoEatWhenWounded(save: Save, workerId: string, now = Date.now()): ActionResult | null {
-  const worker = findWorker(save, workerId)
-  if (!worker || !isWoundedHp(worker)) return null
-  const slot = worker.foodSlot
-  if (!slot || !canEatSlot(slot)) return null
-  return eatFood(save, workerId, now)
+  return offerRestFood(save, workerId, now)
 }
 
-export function tryAutoEatAssigned(save: Save, stationId: StationId, now = Date.now()): void {
-  for (const worker of save.workers) {
-    if (worker.assignment !== stationId) continue
-    tryAutoEatWhenWounded(save, worker.id, now)
-  }
-}
+export function tryAutoEatAssigned(_save: Save, _stationId: StationId, _now = Date.now()): void {}
 
-/** 主线战斗结算后：残血（≤30%）且槽内有余粮则自动吃 1 回血。 */
 export function tryAutoEatAfterCombat(save: Save, workerIds: readonly string[], now = Date.now()): void {
-  for (const id of workerIds) tryAutoEatWhenWounded(save, id, now)
+  for (const id of workerIds) offerRestFood(save, id, now)
 }
 
 /** 测试 / hydrate：按表重写当前 Buff 截止。 */

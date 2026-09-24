@@ -56,6 +56,7 @@ export function createSave(): Save {
     playerName: PLAYER_NAME_DEFAULT,
     playerAvatarId: PLAYER_AVATAR_DEFAULT,
     bank: {},
+    restFoodId: null,
     workers: [],
     stations,
     lastTick: Date.now(),

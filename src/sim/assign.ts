@@ -4,6 +4,7 @@ import { findWorker } from './recruit'
 import { isStationUnlocked, stationLockedTip } from './stationUnlock'
 import { isDeprecatedStationId, isStationId, STATION_ORDER, STATION_WORKER_CAP } from './tables'
 import type { ActionResult, Save, StationId, Worker } from './types'
+import { offerRestFood } from './food'
 import { isFullWorkshopHp } from './workshopHp'
 
 export function assignedWorkers(save: Save, stationId: StationId) {
@@ -16,12 +17,18 @@ export function clampStationAssignments(save: Save): void {
   for (const worker of save.workers) {
     const id = worker.assignment
     if (!id || !isStationId(id) || isDeprecatedStationId(id)) {
-      worker.assignment = null
+      if (id) {
+        worker.assignment = null
+        offerRestFood(save, worker.id)
+      } else {
+        worker.assignment = null
+      }
       continue
     }
     const n = counts[id] ?? 0
     if (n >= STATION_WORKER_CAP) {
       worker.assignment = null
+      offerRestFood(save, worker.id)
       continue
     }
     counts[id] = n + 1
@@ -50,6 +57,7 @@ export function assignWorker(save: Save, workerId: string, stationId: StationId 
     save.stations[prev].progress = 0
     save.stations[prev].stallReason = null
   }
+  if (stationId === null && prev) offerRestFood(save, worker.id)
   return { ok: true }
 }
 

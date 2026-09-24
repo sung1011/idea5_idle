@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { assignWorker } from './assign'
 import { applyRestHeal, REST_HEAL_EVERY_S } from './combat'
 import { createSave } from './createSave'
-import { loadFood } from './food'
 import { campBandageHealAmount } from './tech'
 import { currentSpeed } from './query'
 import { recruitWorker } from './recruit'
@@ -126,10 +125,6 @@ describe('workshop HP formulas', () => {
 
   it('does not use food to cut workshop drain; empty/wounded bands slow the station', () => {
     const t0 = 8_000_000
-    const save = roster(1)
-    save.bank.meal = 1
-    expect(loadFood(save, save.workers[0].id, 'meal', 1, t0).ok).toBe(true)
-
     const slow = roster(1)
     assignWorker(slow, slow.workers[0].id, 'mining')
     const full = currentSpeed(slow, 'mining', t0)
@@ -202,19 +197,19 @@ describe('workshop HP formulas', () => {
     expect(rest.workers[0].hp).toBe(15)
   })
 
-  it('auto-eats one leftover after a cycle when an assigned worker is wounded', () => {
+  it('does not auto-eat from the bank while an assigned worker stays wounded', () => {
     const t0 = 9_000_000
     const save = roster(1)
     const worker = save.workers[0]
     assignWorker(save, worker.id, 'mining')
     save.bank.meal = 2
-    expect(loadFood(save, worker.id, 'meal', 2, t0).ok).toBe(true)
+    save.restFoodId = 'meal'
     worker.hpMax = 100
     worker.hp = 20
-    expect(worker.foodSlot?.qty).toBe(1)
     expect(completeCycle(save, 'mining', t0)).toBe(true)
-    expect(worker.hp).toBe(20 + Math.ceil(100 * 0.25))
-    expect(worker.foodSlot?.qty).toBe(0)
+    expect(worker.hp).toBe(20)
+    expect(worker.assignment).toBe('mining')
+    expect(save.bank.meal).toBe(2)
   })
 })
 
@@ -349,16 +344,15 @@ describe('workshop death', () => {
     save.techLevels = { rematchSupply: 1 }
     save.unlockedTechIds = ['rematchSupply']
     save.bank.meal = 2
-    expect(loadFood(save, worker.id, 'meal', 2).ok).toBe(true)
-    const qty = worker.foodSlot?.qty ?? 0
-    expect(qty).toBeGreaterThan(0)
+    save.restFoodId = 'meal'
     save.stations.mining.progress = 5
     stepStation(save, 'mining', 1_000)
     expect(worker.assignment).toBeNull()
     const bandage = campBandageHealAmount(save, worker.hpMax)
     expect(bandage).toBeGreaterThan(0)
     expect(worker.hp).toBeGreaterThan(bandage)
-    expect(worker.foodSlot?.qty).toBe(qty - 1)
+    expect(worker.foodSlot).toBeNull()
+    expect(save.bank.meal).toBe(1)
     expect(save.stations.mining.progress).toBe(0)
     expect(save.stations.mining.stallReason).toBeNull()
     const marching = save.encounters.some(

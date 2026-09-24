@@ -47,7 +47,7 @@ describe('station help copy', () => {
     expect(STATION_HP_HELP).toContain('正常 100%')
     expect(STATION_HP_HELP).toContain('残血 80%')
     expect(STATION_HP_HELP).toContain('空血 50%')
-    expect(STATION_HP_HELP).toContain('熟食')
+    expect(STATION_HP_HELP).toContain('伙食')
     expect(STATION_HP_HELP).toContain('药剂')
   })
 
