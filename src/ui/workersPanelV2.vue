@@ -26,6 +26,8 @@ import {
   potionHelpCopy,
   type PotionHelpKey,
 } from './potionHelp'
+import { foodHelpCopy, nextFoodHelp, REST_FOOD_HELP_ROWS, REST_FOOD_HELP_TITLE } from './foodHelp'
+import ModeHelpSheet from './modeHelpSheet.vue'
 import type { ItemId } from '../sim/types'
 import { isGuideQuestFlash } from '../sim/guideQuest'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
@@ -100,9 +102,42 @@ const restFoodDry = computed(() => {
   const id = game.save.restFoodId
   return !!id && bankQty(game.save, id) <= 0
 })
-function onPickRestFood(itemId: FoodItemId | null) {
-  game.selectRestFood(itemId)
+const foodHelp = ref<FoodItemId | null>(null)
+const foodHelpPos = ref({ left: 8, top: 8 })
+const foodRuleOpen = ref(false)
+
+function closeFoodHelp() {
+  foodHelp.value = null
+}
+
+function closeRestFood() {
   restFoodOpen.value = false
+  foodRuleOpen.value = false
+  closeFoodHelp()
+}
+
+function onFoodHelp(ev: MouseEvent, id: FoodItemId) {
+  ev.stopPropagation()
+  const next = nextFoodHelp(foodHelp.value, id)
+  foodHelp.value = next
+  if (!next) return
+  const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect()
+  foodHelpPos.value = {
+    left: Math.min(window.innerWidth - 228, Math.max(8, rect.left)),
+    top: Math.min(window.innerHeight - 120, rect.bottom + 6),
+  }
+}
+
+const foodHelpBubble = computed(() => {
+  const id = foodHelp.value
+  if (!id) return null
+  return foodHelpCopy(id, bankQty(game.save, id))
+})
+
+function onPickRestFood(itemId: FoodItemId | null) {
+  closeFoodHelp()
+  game.selectRestFood(itemId)
+  closeRestFood()
 }
 const selectedId = ref<string | null>(null)
 const pickId = ref<string | null>(null)
@@ -199,8 +234,8 @@ function onUnequipPotionHelp() {
 function onDocPotionHelp(ev: PointerEvent) {
   const el = ev.target
   if (!(el instanceof Element)) return
-  if (el.closest('[data-potion-help]') || el.closest('[data-potion-bubble]')) return
-  closePotionHelp()
+  if (!(el.closest('[data-potion-help]') || el.closest('[data-potion-bubble]'))) closePotionHelp()
+  if (!(el.closest('[data-food-help]') || el.closest('[data-food-bubble]'))) closeFoodHelp()
 }
 
 const potionHelpBubble = computed(() => {
@@ -890,23 +925,37 @@ onUnmounted(() => {
       role="dialog"
       aria-modal="true"
       aria-label="选择伙食"
-      @click.self="restFoodOpen = false"
+      @click.self="closeRestFood"
     >
       <div class="sheet">
         <header>
           <h2 class="title">选择伙食</h2>
-          <button type="button" class="close" @click="restFoodOpen = false">关闭</button>
+          <span class="sheet-head-actions">
+            <button type="button" class="food-rule" aria-label="伙食说明" @click="closeFoodHelp(); foodRuleOpen = true">？</button>
+            <button type="button" class="close" @click="closeRestFood">关闭</button>
+          </span>
         </header>
         <div class="pick-list">
           <div v-for="id in FOOD_ITEM_IDS" :key="id" class="pick-cell">
-            <button
-              type="button"
-              :class="{ on: game.save.restFoodId === id }"
-              :aria-pressed="game.save.restFoodId === id"
-              @click="onPickRestFood(id)"
-            >
-              {{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}
-            </button>
+            <div class="potion-pick-row">
+              <button
+                type="button"
+                class="potion-pick-main"
+                :class="{ on: game.save.restFoodId === id }"
+                :aria-pressed="game.save.restFoodId === id"
+                @click="onPickRestFood(id)"
+              >
+                {{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}
+              </button>
+              <button
+                type="button"
+                class="potion-help pick"
+                data-food-help
+                :aria-pressed="foodHelp === id"
+                :aria-label="`查看 ${ITEM_DEF[id].label} 效果`"
+                @click.stop="onFoodHelp($event, id)"
+              >i</button>
+            </div>
           </div>
           <div class="pick-cell">
             <button
@@ -921,6 +970,15 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+  </Teleport>
+
+  <Teleport to="body">
+    <ModeHelpSheet
+      v-if="foodRuleOpen"
+      :title="REST_FOOD_HELP_TITLE"
+      :rows="REST_FOOD_HELP_ROWS"
+      @close="foodRuleOpen = false"
+    />
   </Teleport>
 
   <Teleport to="body">
@@ -951,9 +1009,7 @@ onUnmounted(() => {
                 :aria-pressed="isPotionHelpOpen(potionHelp, 'pick', id)"
                 :aria-label="`查看 ${ITEM_DEF[id].label} 效果`"
                 @click.stop="onPotionHelp($event, 'pick', id)"
-              >
-                ？
-              </button>
+              >i</button>
             </div>
           </div>
         </div>
@@ -975,6 +1031,18 @@ onUnmounted(() => {
       <p>{{ potionHelpBubble.effect }}</p>
       <small v-if="potionHelpBubble.stock != null">库存 ×{{ potionHelpBubble.stock }}</small>
       <button v-if="canUnequipPotionHelp" type="button" class="potion-bubble-unequip" @click="onUnequipPotionHelp">卸下</button>
+    </div>
+    <div
+      v-if="foodHelpBubble"
+      class="potion-bubble"
+      data-food-bubble
+      role="dialog"
+      :aria-label="foodHelpBubble.title"
+      :style="{ left: `${foodHelpPos.left}px`, top: `${foodHelpPos.top}px` }"
+    >
+      <b>{{ foodHelpBubble.title }}</b>
+      <p>{{ foodHelpBubble.effect }}</p>
+      <small>库存 ×{{ foodHelpBubble.stock }}</small>
     </div>
   </Teleport>
 </template>
@@ -2065,6 +2133,24 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.sheet-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.food-rule {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .sheet .title {

@@ -35,10 +35,17 @@ describe('potion help bubble', () => {
     })
     expect(POTION_EQUIP_HINT).toContain('点 i 看效果')
     expect(POTION_EQUIP_HINT).not.toContain('按住')
+    expect(POTION_EQUIP_HINT).not.toContain('问号')
+    expect(POTION_EQUIP_HINT).not.toContain('？')
   })
 
   it('puts an info button on filled slots and unloads from the bubble', () => {
     expect(workersPanelSource).toContain('>i</span>')
+    const equipAt = workersPanelSource.indexOf('aria-label="装配药剂"')
+    const bubbleAt = workersPanelSource.indexOf('data-potion-bubble', equipAt)
+    const equip = workersPanelSource.slice(equipAt, bubbleAt)
+    expect(equip).toContain('>i</button>')
+    expect(equip).not.toContain('？')
     expect(workersPanelSource).toContain('aria-label="`查看 ${ITEM_DEF[itemId].label} 效果`"')
     expect(workersPanelSource).toContain('canUnequipPotionHelp')
     expect(workersPanelSource).toContain('game.clearPotionSlot(key.index)')
