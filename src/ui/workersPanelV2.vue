@@ -49,6 +49,7 @@ import { showStationDetail, openStationDetailId } from './stationDetailNav'
 import { isItemSourceStationFlash } from './itemSource'
 import StationTips from './stationTips.vue'
 import { dismissWorkshopBanter, greetWorkshopBanter, workshopBanterText } from './workshopBanter'
+import { considerWorkerTutor, dismissWorkerTutor, hideWorkerTutor, workerTutorText } from './workerTutorTips'
 import { useFrameNow } from './visualProgress'
 import { useGameStore } from './gameStore'
 import HpBar from './hpBar.vue'
@@ -467,6 +468,14 @@ function banterLine(workerId: string): string {
   return workshopBanterText(workerId)
 }
 
+function tutorLine(workerId: string): string {
+  return workerTutorText(workerId)
+}
+
+function onDismissTutor() {
+  dismissWorkerTutor(Date.now())
+}
+
 watch(openStationDetailId, (id) => {
   if (id && !isStationUnlocked(game.save, id)) showStationDetail(null)
 })
@@ -490,14 +499,19 @@ function stationAvatarStyle(worker: Worker) {
   }
 }
 
+let tutorTimer = 0
 onMounted(() => {
   document.addEventListener('pointerdown', onDocPotionHelp, true)
   greetWorkshopBanter(game.save)
+  considerWorkerTutor(game.save, Date.now())
+  tutorTimer = window.setInterval(() => considerWorkerTutor(game.save, Date.now()), 1000)
 })
 onUnmounted(() => {
   unbindDrag()
   setWorkerDragActive(false)
   dismissWorkshopBanter()
+  window.clearInterval(tutorTimer)
+  hideWorkerTutor()
   document.removeEventListener('pointerdown', onDocPotionHelp, true)
 })
 </script>
@@ -555,6 +569,7 @@ onUnmounted(() => {
                       'level-flash': !!w && isWorkerLevelFlashing(w.id),
                       'enter-slot': !!w && isWorkerEntering(w.id),
                       'has-banter': !!w && banterLine(w.id),
+                      'has-tutor': !!w && tutorLine(w.id),
                       'guide-flash': !w && guideFlashAssignHerb && board.stationId === 'herbalism' && board.filled === 0,
                     },
                     w ? hpToneClass(w) : '',
@@ -570,6 +585,17 @@ onUnmounted(() => {
                   <i v-if="w" class="hp-fill" :style="hpFillStyle(w)" aria-hidden="true" />
                   <template v-if="w">
                     <span v-if="banterLine(w.id)" class="banter" role="status">{{ banterLine(w.id) }}</span>
+                    <span
+                      v-if="tutorLine(w.id)"
+                      class="tutor-tip"
+                      role="button"
+                      tabindex="0"
+                      :aria-label="`关掉教程：${tutorLine(w.id)}`"
+                      @pointerdown.stop
+                      @click.stop="onDismissTutor"
+                      @keydown.enter.stop.prevent="onDismissTutor"
+                      @keydown.space.stop.prevent="onDismissTutor"
+                    >{{ tutorLine(w.id) }}</span>
                     <span
                       class="avatar"
                       :class="{ 'enter-land': isWorkerEntering(w.id) }"
@@ -712,7 +738,11 @@ onUnmounted(() => {
               :class="[
                 hpToneClass(w),
                 restWorkerDropClass(w.id),
-                { 'level-flash': isWorkerLevelFlashing(w.id), 'eat-flash': isWorkerEatFlashing(w.id) },
+                {
+                  'level-flash': isWorkerLevelFlashing(w.id),
+                  'eat-flash': isWorkerEatFlashing(w.id),
+                  'has-tutor': tutorLine(w.id),
+                },
               ]"
               data-drop="rest-worker"
               :data-worker="w.id"
@@ -730,6 +760,16 @@ onUnmounted(() => {
                 </span>
                 <em v-if="workerEatFlashText(w.id)" class="eat-float">{{ workerEatFlashText(w.id) }}</em>
                 <b class="rest-name" :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</b>
+              </button>
+              <button
+                v-if="tutorLine(w.id)"
+                type="button"
+                class="tutor-tip"
+                :aria-label="`关掉教程：${tutorLine(w.id)}`"
+                @pointerdown.stop
+                @click.stop="onDismissTutor"
+              >
+                {{ tutorLine(w.id) }}
               </button>
               <button
                 type="button"
@@ -1769,6 +1809,50 @@ onUnmounted(() => {
 
 .station-list:has(> .station:first-child .slot.has-banter) {
   padding-top: 22px;
+}
+
+.tutor-tip {
+  position: absolute;
+  z-index: 2;
+  left: 28px;
+  bottom: calc(100% - 8px);
+  max-width: 168px;
+  margin: 0;
+  padding: 2px 5px;
+  border: 1px solid var(--gold-deep);
+  border-radius: 6px;
+  background: rgba(255, 248, 230, 0.96);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: left;
+  pointer-events: auto;
+  cursor: pointer;
+  appearance: none;
+}
+
+.slot.has-tutor {
+  overflow: visible;
+  z-index: 2;
+}
+
+.station .slot .tutor-tip {
+  left: 56px;
+  right: 4px;
+  bottom: auto;
+  top: 4px;
+  max-width: none;
+}
+
+.rest-row.has-tutor {
+  overflow: visible;
+  z-index: 2;
+}
+
+.rest-list:has(> .rest-row.has-tutor) {
+  padding-top: 36px;
 }
 
 .rest-name {
