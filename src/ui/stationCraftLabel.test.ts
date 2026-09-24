@@ -54,7 +54,7 @@ describe('station craft label', () => {
   it('puts the output dropdown on the left of the progress bar', () => {
     const work = workersPanelSource.slice(
       workersPanelSource.indexOf('<div class="station-work">'),
-      workersPanelSource.indexOf('<div class="station-side">'),
+      workersPanelSource.indexOf('</article>'),
     )
     expect(work).toContain('class="slots"')
     expect(work).not.toContain('class="station-craft"')

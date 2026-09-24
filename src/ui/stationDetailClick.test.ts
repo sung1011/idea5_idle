@@ -14,6 +14,25 @@ describe('station detail button', () => {
     expect(workersPanelSource).toContain('game.assignIdle(stationId)')
     expect(workersPanelSource).toContain('game.toggleStationClosed(stationId)')
     expect(workersPanelSource).toContain('封闭')
+    const rail = workersPanelSource.slice(
+      workersPanelSource.indexOf('<div class="station-rail">'),
+      workersPanelSource.indexOf('<div class="station-work">'),
+    )
+    expect(rail.indexOf('class="station-name"')).toBeGreaterThanOrEqual(0)
+    expect(rail.indexOf('class="station-name"')).toBeLessThan(rail.indexOf('class="station-closed"'))
+    expect(rail.indexOf('class="station-closed"')).toBeLessThan(rail.indexOf('class="station-detail"'))
+    expect(workersPanelSource.indexOf('<div class="station-rail">')).toBeLessThan(
+      workersPanelSource.indexOf('<div class="station-work">'),
+    )
+    expect(workersPanelSource).not.toContain('station-side')
+    const railCss = workersPanelSource.slice(
+      workersPanelSource.indexOf('.station-rail {'),
+      workersPanelSource.indexOf('.station-work {'),
+    )
+    expect(railCss).toContain('flex: 1 1 0')
+    expect(railCss).toContain('width: 100%')
+    expect(railCss).toMatch(/\.station-name b\s*\{[^}]*font-size:\s*13px/)
+    expect(railCss).toMatch(/\.station-closed,\s*\.station-detail\s*\{[^}]*font-size:\s*10px/)
     expect(workersPanelSource).not.toContain('game.withdraw(stationId)')
     expect(workersPanelSource).not.toContain('从${board.label}撤出')
     expect(workersPanelSource).toContain("guideFlashAssignHerb && board.stationId === 'herbalism' && board.filled === 0")

@@ -511,9 +511,29 @@ onUnmounted(() => {
             }"
           >
             <StationTips :station-id="board.stationId" />
-            <div class="station-name">
-              <UiIcon :name="board.stationId" />
-              <b>{{ board.label }}</b>
+            <div class="station-rail">
+              <div class="station-name">
+                <UiIcon :name="board.stationId" />
+                <b>{{ board.label }}</b>
+              </div>
+              <button
+                type="button"
+                class="station-closed"
+                :class="{ on: game.save.stations[board.stationId].closed }"
+                :aria-pressed="!!game.save.stations[board.stationId].closed"
+                :aria-label="game.save.stations[board.stationId].closed ? `开放${board.label}` : `封闭${board.label}`"
+                @click.stop="onToggleClosed(board.stationId)"
+              >
+                封闭
+              </button>
+              <button
+                type="button"
+                class="station-detail"
+                :aria-label="`查看${board.label}详情`"
+                @click.stop="openStationDetail(board.stationId)"
+              >
+                详情
+              </button>
             </div>
             <div class="station-work">
               <div class="slots">
@@ -571,26 +591,6 @@ onUnmounted(() => {
                 />
                 <StationMiniBar class="station-progress" :station-id="board.stationId" />
               </div>
-            </div>
-            <div class="station-side">
-              <button
-                type="button"
-                class="station-closed"
-                :class="{ on: game.save.stations[board.stationId].closed }"
-                :aria-pressed="!!game.save.stations[board.stationId].closed"
-                :aria-label="game.save.stations[board.stationId].closed ? `开放${board.label}` : `封闭${board.label}`"
-                @click.stop="onToggleClosed(board.stationId)"
-              >
-                封闭
-              </button>
-              <button
-                type="button"
-                class="station-detail"
-                :aria-label="`查看${board.label}详情`"
-                @click.stop="openStationDetail(board.stationId)"
-              >
-                详情
-              </button>
             </div>
           </article>
           <div class="potion-row" aria-label="药剂技能槽">
@@ -1142,58 +1142,63 @@ onUnmounted(() => {
   opacity: 0.48;
 }
 
+.station-rail {
+  flex: 0 0 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 0;
+  min-height: 0;
+  padding: 2px;
+}
+
 .station-name {
-  flex: 0 0 28px;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 1px;
   min-width: 0;
-  padding: 2px 1px;
+  padding: 3px 1px;
+  border-radius: 4px;
   background: linear-gradient(180deg, #6a3218, #4a2214);
   color: #fff4d8;
 }
 
 .station-name :deep(.ui-ico) {
-  width: 13px;
-  height: 13px;
+  width: 15px;
+  height: 15px;
   color: #fff4d8;
 }
 
 .station-name b {
-  font-size: 10px;
+  font-size: 13px;
   line-height: 1.1;
   letter-spacing: 0.04em;
   writing-mode: vertical-rl;
 }
 
-.station-side {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: stretch;
-  gap: 2px;
-  padding: 2px;
-}
-
 .station-closed,
 .station-detail {
-  flex: 0 0 auto;
+  flex: 1 1 0;
+  width: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin: 0;
-  padding: 2px 1px;
+  padding: 2px 0;
   border: 1px solid var(--gold-deep);
   border-radius: 4px;
   background: linear-gradient(180deg, #fff9de, #f3ddaa);
   color: var(--ink);
-  font-weight: 800;
-  line-height: 1.05;
-}
-
-.station-closed {
   font-size: 10px;
+  font-weight: 800;
   letter-spacing: 0.06em;
+  line-height: 1.05;
   writing-mode: vertical-rl;
 }
 
@@ -1201,12 +1206,6 @@ onUnmounted(() => {
   background: linear-gradient(180deg, #8a3a2a, #5c2418);
   color: #fff4d8;
   border-color: #3d140e;
-}
-
-.station-detail {
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  writing-mode: vertical-rl;
 }
 
 .station-work {
