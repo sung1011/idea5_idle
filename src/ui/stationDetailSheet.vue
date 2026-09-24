@@ -3,9 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { assignedWorkers, currentSpeed, stationBottleneckText, stationConsumeGroups, stationCycleS } from '../sim/query'
 import { gatherStatusText, isGatherFrozen } from '../sim/gather'
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
-import { isWorkerInCombat } from '../sim/combat'
-import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
-import { isEmptyHp, isFullWorkshopHp, isWoundedHp, stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
+import { isEmptyHp, isWoundedHp, stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
 import { findCategory, ITEM_DEF, STATION_DEF, xpToNextLevel } from '../sim/tables'
 import type { CategoryId, StationId, Worker } from '../sim/types'
 import ConsumeJumpItem from './consumeJumpItem.vue'
@@ -14,6 +12,7 @@ import { formatConsumeToken } from './encounterDeal'
 import { useGameStore } from './gameStore'
 import { itemSourceFlashCategories, isItemSourceStationFlash } from './itemSource'
 import { pushFloatTip } from './floatTips'
+import { MANUAL_DUTY_REASON } from './workerDrag'
 import { stationHelpCopy } from './stationHelp'
 import StationTips from './stationTips.vue'
 import UiSelect from './uiSelect.vue'
@@ -103,29 +102,12 @@ function onPick(value: string) {
 }
 
 function onWithdraw() {
-  game.withdraw(props.stationId)
+  if (!duty.value) return
+  pushFloatTip(MANUAL_DUTY_REASON)
 }
 
 function onSwap() {
-  if (!isStationUnlocked(game.save, props.stationId)) {
-    pushFloatTip(stationLockedTip(props.stationId))
-    return
-  }
-  const current = duty.value
-  const idle = game.save.workers.find(
-    (worker) => worker.assignment == null && worker.id !== current?.id && !isWorkerInCombat(game.save, worker.id),
-  )
-  if (!idle) {
-    pushFloatTip(current ? '没有可换的休息工人' : '没有空闲工人')
-    return
-  }
-  if (!isFullWorkshopHp(idle)) {
-    pushFloatTip('满血才能上岗')
-    return
-  }
-  if (current) game.withdraw(props.stationId)
-  const result = game.assign(idle.id, props.stationId)
-  if (!result.ok) pushFloatTip(result.reason ?? '满血才能上岗')
+  pushFloatTip(MANUAL_DUTY_REASON)
 }
 
 function onWorker() {

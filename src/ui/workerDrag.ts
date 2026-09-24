@@ -72,6 +72,18 @@ export function sameDragEndpoint(source: WorkerDragSource, target: WorkerDropTar
 
 export const FUSE_DRAG_TIP = '休息区同品质可合；拖到站上同品质也可合'
 
+/** 休息拖进空槽、或把在岗拖回休息。合成两条路不走这里。 */
+export const MANUAL_DUTY_REASON = '不能手动上下岗'
+
+function manualDutyDragReason(save: Save, source: WorkerDragSource, target: WorkerDropTarget): string | null {
+  if (target.kind === 'rest' && source.kind === 'slot') return MANUAL_DUTY_REASON
+  if (target.kind === 'restWorker' && source.kind !== 'rest') return MANUAL_DUTY_REASON
+  if (source.kind === 'rest' && target.kind === 'slot' && !slotOccupantId(save, target.stationId, target.slotIndex)) {
+    return MANUAL_DUTY_REASON
+  }
+  return null
+}
+
 /** 休息区同档，或有人可拖到站上同档工人。满档与战斗中不算。 */
 export function canDragFuseAny(save: Save): boolean {
   const draggable = save.workers.filter((worker) => canDragWorker(save, worker.id))
@@ -97,8 +109,9 @@ export function canDropWorker(save: Save, source: WorkerDragSource, target: Work
   if (!worker || isWorkerInCombat(save, worker.id)) return false
   if (sameDragEndpoint(source, target)) return false
 
+  if (manualDutyDragReason(save, source, target)) return false
   if (target.kind === 'restWorker') return canFuseRestWorkers(save, source.workerId, target.workerId)
-  if (target.kind === 'rest') return source.kind === 'slot'
+  if (target.kind === 'rest') return false
 
   const occupantId = slotOccupantId(save, target.stationId, target.slotIndex)
   if (occupantId) return canFuseWorkerOntoOccupant(save, source.workerId, occupantId, target.stationId)
@@ -113,6 +126,8 @@ export function applyWorkerDrag(save: Save, source: WorkerDragSource, target: Wo
   const worker = findWorker(save, source.workerId)
   if (!worker) return { ok: false, reason: '没有这个 worker' }
   if (isWorkerInCombat(save, worker.id)) return { ok: false, reason: '正在战斗' }
+  const manual = manualDutyDragReason(save, source, target)
+  if (manual) return { ok: false, reason: manual }
   if (!canDropWorker(save, source, target)) {
     if (target.kind === 'restWorker') return fuseRestWorkers(save, source.workerId, target.workerId)
     if (target.kind === 'slot') {

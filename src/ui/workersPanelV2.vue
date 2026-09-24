@@ -72,6 +72,7 @@ import {
   dropTargetEquals,
   dropTargetFromDataset,
   FUSE_DRAG_TIP,
+  MANUAL_DUTY_REASON,
   sameDragEndpoint,
   setWorkerDragActive,
   shouldShowFuseDragTip,
@@ -289,7 +290,11 @@ function closeStationDetail() {
 function onPickStation(stationId: StationId | null) {
   const w = picking.value
   if (!w) return
-  if (stationId && !isStationUnlocked(game.save, stationId)) {
+  if (stationId == null || w.assignment == null) {
+    pushFloatTip(MANUAL_DUTY_REASON)
+    return
+  }
+  if (!isStationUnlocked(game.save, stationId)) {
     pushFloatTip(stationLockedTip(stationId))
     return
   }

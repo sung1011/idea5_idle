@@ -16,6 +16,7 @@ import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { isWorkerInCombat } from '../sim/combat'
 import { isEmptyHp, stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
 import { pushFloatTip } from './floatTips'
+import { MANUAL_DUTY_REASON } from './workerDrag'
 import { isWorkerLevelFlashing } from './workerLevelFlash'
 import { findCategory, STATION_DEF, xpToNextLevel } from '../sim/tables'
 import { itemSourceFlashCategories, isItemSourceStationFlash } from './itemSource'
@@ -244,7 +245,7 @@ onUnmounted(() => {
         type="button"
         class="act"
         :disabled="!canWithdraw"
-        @click="game.withdraw(stationId)"
+        @click="pushFloatTip(MANUAL_DUTY_REASON)"
       >撤出</button>
       <button
         type="button"

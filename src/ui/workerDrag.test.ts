@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { assignWorker } from '../sim/assign'
+import { assignRestingToFirstEmpty, assignWorker } from '../sim/assign'
 import { beginEnemyCombat } from '../sim/combat'
 import { createSave } from '../sim/createSave'
 import { spawnWorkerWith } from '../sim/recruit'
 import { unlockPlayableStations } from '../sim/stationUnlock'
 import { QUALITY_MAX, STATION_WORKER_CAP } from '../sim/tables'
 import type { EnemyEncounter } from '../sim/types'
+import detailSheetSource from './stationDetailSheet.vue?raw'
+import panelSource from './workersPanelV2.vue?raw'
 import {
   applyWorkerDrag,
   canDragFuseAny,
@@ -13,6 +15,7 @@ import {
   canDropWorker,
   dropTargetFromDataset,
   FUSE_DRAG_TIP,
+  MANUAL_DUTY_REASON,
   isWorkerDragThreshold,
   shouldShowFuseDragTip,
   shouldStartWorkerDrag,
@@ -43,12 +46,13 @@ describe('worker drag assign', () => {
     expect(assignWorker(save, b.id, 'mining').ok).toBe(false)
 
     const restToEmpty = { kind: 'rest' as const, workerId: idle.id }
-    expect(canDropWorker(save, restToEmpty, { kind: 'slot', stationId: 'inscription', slotIndex: 0 })).toBe(true)
+    expect(canDropWorker(save, restToEmpty, { kind: 'slot', stationId: 'inscription', slotIndex: 0 })).toBe(false)
     expect(canDropWorker(save, restToEmpty, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toBe(false)
     expect(applyWorkerDrag(save, restToEmpty, { kind: 'slot', stationId: 'inscription', slotIndex: 0 })).toEqual({
-      ok: true,
+      ok: false,
+      reason: MANUAL_DUTY_REASON,
     })
-    expect(idle.assignment).toBe('inscription')
+    expect(idle.assignment).toBeNull()
 
     const extra = spawnWorkerWith(save, 1, 'wanderer')
     expect(applyWorkerDrag(save, { kind: 'rest', workerId: extra.id }, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toEqual({
@@ -64,9 +68,9 @@ describe('worker drag assign', () => {
     const busy = spawnWorkerWith(save, 1, 'laborer')
     assignWorker(save, busy.id, 'cooking')
     const source = { kind: 'slot' as const, workerId: busy.id, stationId: 'cooking' as const, slotIndex: 0 }
-    expect(canDropWorker(save, source, { kind: 'rest' })).toBe(true)
-    expect(applyWorkerDrag(save, source, { kind: 'rest' })).toEqual({ ok: true })
-    expect(busy.assignment).toBeNull()
+    expect(canDropWorker(save, source, { kind: 'rest' })).toBe(false)
+    expect(applyWorkerDrag(save, source, { kind: 'rest' })).toEqual({ ok: false, reason: MANUAL_DUTY_REASON })
+    expect(busy.assignment).toBe('cooking')
   })
 
   it('moves onto an empty slot of another station when that station has room', () => {
@@ -129,13 +133,13 @@ describe('worker drag assign', () => {
     const resting = spawnWorkerWith(save, 3, 'artisan')
     assignWorker(save, duty.id, 'mining')
     const fromDuty = { kind: 'slot' as const, workerId: duty.id, stationId: 'mining' as const, slotIndex: 0 }
-    expect(canDropWorker(save, fromDuty, { kind: 'restWorker', workerId: resting.id })).toBe(true)
-    const intoRest = applyWorkerDrag(save, fromDuty, { kind: 'restWorker', workerId: resting.id })
-    expect(intoRest.ok).toBe(true)
-    const fresh = save.workers.find((worker) => worker.qualityTier === 4)
-    expect(fresh?.assignment).toBeNull()
-    expect(save.workers.find((worker) => worker.id === duty.id)).toBeUndefined()
-    expect(save.workers.find((worker) => worker.id === resting.id)).toBeUndefined()
+    expect(canDropWorker(save, fromDuty, { kind: 'restWorker', workerId: resting.id })).toBe(false)
+    expect(applyWorkerDrag(save, fromDuty, { kind: 'restWorker', workerId: resting.id })).toEqual({
+      ok: false,
+      reason: MANUAL_DUTY_REASON,
+    })
+    expect(duty.assignment).toBe('mining')
+    expect(resting.assignment).toBeNull()
   })
 
   it('refuses a different tier on a rest worker or an occupied slot', () => {
@@ -206,9 +210,12 @@ describe('worker drag assign', () => {
 
     if (enc.combat) enc.combat.outcome = 'win'
     expect(canDragWorker(save, fighter.id)).toBe(true)
-    expect(canDropWorker(save, fromRest, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toBe(true)
-    expect(applyWorkerDrag(save, fromRest, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toEqual({ ok: true })
-    expect(fighter.assignment).toBe('mining')
+    expect(canDropWorker(save, fromRest, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toBe(false)
+    expect(applyWorkerDrag(save, fromRest, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toEqual({
+      ok: false,
+      reason: MANUAL_DUTY_REASON,
+    })
+    expect(fighter.assignment).toBeNull()
   })
 
   it('rejects dropping onto a locked empty station', () => {
@@ -219,7 +226,7 @@ describe('worker drag assign', () => {
     )
     expect(applyWorkerDrag(save, { kind: 'rest', workerId: idle.id }, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toEqual({
       ok: false,
-      reason: '骑士 9 级开放采矿',
+      reason: MANUAL_DUTY_REASON,
     })
     expect(assignWorker(save, idle.id, 'herbalism').ok).toBe(true)
   })
@@ -251,6 +258,33 @@ describe('fuse drag tip', () => {
     expect(canDragFuseAny(mixed)).toBe(true)
     expect(shouldShowFuseDragTip(mixed)).toBe(false)
     expect(again.qualityTier).toBe(2)
+  })
+
+  it('still auto-fills the rest head and keeps both fuse drags', () => {
+    const save = unlockPlayableStations(createSave())
+    const head = spawnWorkerWith(save, 1, 'laborer')
+    const mate = spawnWorkerWith(save, 1, 'artisan')
+    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: true })
+    expect(head.assignment).toBe('herbalism')
+    expect(canDropWorker(save, { kind: 'slot', workerId: head.id, stationId: 'herbalism', slotIndex: 0 }, { kind: 'rest' })).toBe(
+      false,
+    )
+
+    const fused = applyWorkerDrag(save, { kind: 'rest', workerId: mate.id }, { kind: 'slot', stationId: 'herbalism', slotIndex: 0 })
+    expect(fused.ok).toBe(true)
+    expect(save.workers).toHaveLength(1)
+    expect(save.workers[0].assignment).toBe('herbalism')
+    expect(save.workers[0].qualityTier).toBe(2)
+
+    const left = spawnWorkerWith(save, 2, 'cook')
+    const right = spawnWorkerWith(save, 2, 'miner')
+    const restFuse = applyWorkerDrag(save, { kind: 'rest', workerId: left.id }, { kind: 'restWorker', workerId: right.id })
+    expect(restFuse.ok).toBe(true)
+    expect(save.workers.find((worker) => worker.qualityTier === 3)?.assignment).toBeNull()
+    expect(detailSheetSource).toContain('MANUAL_DUTY_REASON')
+    expect(detailSheetSource).not.toContain('game.withdraw')
+    expect(panelSource).toContain('MANUAL_DUTY_REASON')
+    expect(panelSource).toContain('game.assignIdle(stationId)')
   })
 
   it('does not treat max-tier or in-combat workers as a drag-fuse pair', () => {
