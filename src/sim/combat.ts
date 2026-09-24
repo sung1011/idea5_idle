@@ -52,7 +52,7 @@ import {
   runeTakenMul,
 } from './runes'
 import { roll01 } from './rng'
-import { applyDownedRecovery, HP_WOUNDED_RATIO, isWoundedHp, restHealAmount, workerFatigueDebt, workerWearHp } from './workshopHp'
+import { applyDownedRecovery, HP_WOUNDED_RATIO, isWoundedHp, releaseDeadWorker, restHealAmount, workerFatigueDebt, workerWearHp } from './workshopHp'
 import { chapterCombatMul } from './mainChapter'
 import {
   addWorkerXp,
@@ -1047,7 +1047,7 @@ function strike(
   if (target.hp <= 0) retireFallenFighters(save, enc, combat, at, onLog)
 }
 
-/** 工坊在岗：扣同一 hp，锁 1；进入/处于残血（≤30%）则自动吃 1。 */
+/** 工坊在岗：扣同一 hp，可到 0。到 0 与力竭一样立刻回休息，不行军。残血留在岗，不吃伙食。 */
 function strikeWorkshop(
   save: Save,
   enc: EnemyEncounter,
@@ -1064,7 +1064,7 @@ function strikeWorkshop(
   const rage = affixRage * dungeonBossWorkshopMul(enc)
   const woundedMul = isWoundedHp(worker) ? woundedTakenMul(save) : 1
   const hit = Math.max(1, Math.round((attacker.atk + dungeonJaggedBonus(save, enc)) * rage * woundedMul))
-  worker.hp = Math.max(1, worker.hp - hit)
+  worker.hp = Math.max(0, worker.hp - hit)
   emitLog(
     enc,
     combat,
@@ -1073,6 +1073,8 @@ function strikeWorkshop(
     'err',
     onLog,
   )
+  const stationId = target.stationId ?? worker.assignment
+  if (worker.hp <= 0 && stationId) releaseDeadWorker(save, stationId, worker, at)
 }
 
 function resolveEnemyStrikeTargets(

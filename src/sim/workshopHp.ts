@@ -200,8 +200,8 @@ function addDebt(worker: Worker, amount: number): void {
   worker.fatigueDebt -= drop
 }
 
-/** HP 到 0：立刻回休息，清空岗进度，再绷带 + 自动吃饭。 */
-function releaseDeadWorker(save: Save, stationId: StationId, worker: Worker, now: number): void {
+/** HP 到 0：立刻回休息，清空岗进度，再绷带 + 自动吃饭。不行军。 */
+export function releaseDeadWorker(save: Save, stationId: StationId, worker: Worker, now: number): void {
   if (worker.hp > 0 || worker.assignment !== stationId) return
   worker.assignment = null
   if (assignedOf(save, stationId).length <= 0) {

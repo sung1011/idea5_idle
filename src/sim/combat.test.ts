@@ -47,6 +47,7 @@ import { claimLoot, reinforceCombat, reinforceLostCombat, startCombat } from './
 import { hydrateWorker, spawnWorker, spawnWorkerWith } from './recruit'
 import { settleOffline } from './offline'
 import { assignWorker, withdrawWorker } from './assign'
+import { campBandageHealAmount } from './tech'
 import { tick, ticks } from './tick'
 import type { CombatAttrId, EnemyCombat, EnemyEncounter, Save } from './types'
 
@@ -685,7 +686,7 @@ describe('rest heal', () => {
 })
 
 describe('enemy hits workshop crew', () => {
-  it('damages stationed workers, skips rest, and locks workshop hp at 1', () => {
+  it('damages stationed workers, skips rest, and leaves residual hp on duty', () => {
     const save = createSave()
     const front = spawnWorkerWith(save, 1, 'laborer')
     const shop = spawnWorkerWith(save, 1, 'miner')
@@ -712,11 +713,43 @@ describe('enemy hits workshop crew', () => {
     expect(enc.combat?.logs.some((row) => row.text.includes('工坊'))).toBe(true)
 
     shop.hp = 2
+    combat.enemy.atk = 1
     combat.enemy.nextActAt = now + 33_000
     combat.workers[0].nextActAt = now + 40_000
     stepEnemyCombat(save, enc, now + 33_000)
     expect(shop.hp).toBe(1)
     expect(shop.assignment).toBe('mining')
+  })
+
+  it('sends a workshop worker at 0 HP back to rest with bandage and food, without a march', () => {
+    const save = createSave()
+    const front = spawnWorkerWith(save, 1, 'laborer')
+    const shop = spawnWorkerWith(save, 1, 'miner')
+    assignWorker(save, shop.id, 'mining')
+    shop.hpMax = 20
+    shop.hp = 4
+    save.techLevels = { rematchSupply: 1 }
+    save.unlockedTechIds = ['rematchSupply']
+    save.bank.meal = 2
+    save.restFoodId = 'meal'
+    save.stations.mining.progress = 5
+    const t0 = 70_000
+    const enc = testEnemy({ targetRuleId: 'workshopBias' })
+    putEnemy(save, enc)
+    const combat = beginEnemyCombat(enc, [front], t0)
+    combat.workers[0].nextActAt = t0 + 9_000
+    combat.enemy.nextActAt = t0 + 1_000
+    combat.enemy.atk = 10
+    stepEnemyCombat(save, enc, t0 + 1_000)
+    expect(shop.assignment).toBeNull()
+    const bandage = campBandageHealAmount(save, shop.hpMax)
+    expect(bandage).toBeGreaterThan(0)
+    expect(shop.hp).toBeGreaterThan(bandage)
+    expect(save.bank.meal).toBe(1)
+    expect(save.stations.mining.progress).toBe(0)
+    expect(save.stations.mining.stallReason).toBeNull()
+    expect(combat.returning?.some((row) => row.id === shop.id)).toBe(false)
+    expect(enc.combat?.logs.some((row) => row.text.includes('工坊'))).toBe(true)
   })
 
   it('does not eat rest food when a workshop hit leaves residual HP', () => {
