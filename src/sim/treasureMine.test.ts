@@ -517,19 +517,24 @@ describe('treasure mines', () => {
     const raider = spawnWorker(save)
     const fighting = ensureGarrison(save.treasureMines.mines[1])
     expect(startTreasureRaid(save, fighting.id, [raider.id]).ok).toBe(true)
-    const dropped = save.treasureMines.mines.filter((mine) => mine.id !== fighting.id).map((mine) => mine.id)
+    const dropped = save.treasureMines.mines
+      .filter((mine) => mine.id !== fighting.id && mine.id !== owned.id)
+      .map((mine) => mine.id)
 
     expect(refreshTreasureMineBoard(save).ok).toBe(true)
     expect(save.diamonds).toBe(25 - TREASURE_REFRESH_COST)
     expect(save.treasureMines.vault.sandGold).toBe(4)
     expect(save.treasureMines.mines).toHaveLength(TREASURE_MINE_CAP)
     expect(save.treasureMines.mines.some((mine) => mine.id === fighting.id)).toBe(true)
+    expect(save.treasureMines.mines.some((mine) => mine.id === owned.id)).toBe(true)
     expect(save.treasureMines.mines.some((mine) => mine.id === vacant.id)).toBe(false)
     expect(save.treasureMines.mines.some((mine) => dropped.includes(mine.id))).toBe(false)
-    expect(miner.assignment).toBeNull()
-    expect(save.treasureMines.mines.some((mine) => mine.crewIds.includes(miner.id))).toBe(false)
-    expect(save.treasureMines.mines.some((mine) => miner.id in mine.digCharge)).toBe(false)
-    expect(treasureMineBlockReason(save, miner.id)).toBeNull()
+    const keptOwned = save.treasureMines.mines.find((mine) => mine.id === owned.id)
+    expect(keptOwned?.owner).toBe('player')
+    expect(keptOwned?.crewIds).toEqual([miner.id])
+    expect(keptOwned?.digCharge[miner.id]).toBe(3)
+    expect(miner.assignment).toBe('herbalism')
+    expect(treasureMineBlockReason(save, miner.id)).toBe('正在矿洞')
     expect(treasureMineBlockReason(save, raider.id)).toBe('正在夺宝')
 
     save.diamonds = TREASURE_REFRESH_COST - 1
@@ -550,6 +555,33 @@ describe('treasure mines', () => {
     expect(refreshTreasureMineBoard(locked)).toEqual({ ok: false, reason: '没有可刷新的矿洞' })
     expect(locked.diamonds).toBe(before)
     expect(locked.treasureMines.mines.map((mine) => mine.id)).toEqual(holeIds)
+
+    const busy = createSave()
+    busy.diamonds = 40
+    const beforeBusy = busy.diamonds
+    const busyIds = busy.treasureMines.mines.map((mine) => mine.id)
+    const diggers = [spawnWorker(busy), spawnWorker(busy)]
+    for (const [index, mine] of busy.treasureMines.mines.entries()) {
+      if (index < 2) {
+        ensureGarrison(mine)
+        const worker = spawnWorker(busy)
+        expect(startTreasureRaid(busy, mine.id, [worker.id]).ok).toBe(true)
+        continue
+      }
+      const digger = diggers[index - 2]
+      mine.owner = 'player'
+      mine.shadows = []
+      mine.raid = null
+      mine.crewIds = [digger.id]
+      mine.digCharge[digger.id] = 2
+    }
+    expect(refreshTreasureMineBoard(busy)).toEqual({ ok: false, reason: '没有可刷新的矿洞' })
+    expect(busy.diamonds).toBe(beforeBusy)
+    expect(busy.treasureMines.mines.map((mine) => mine.id)).toEqual(busyIds)
+    expect(busy.treasureMines.mines[2]?.crewIds).toEqual([diggers[0].id])
+    expect(busy.treasureMines.mines[3]?.crewIds).toEqual([diggers[1].id])
+    expect(diggers[0].assignment).toBeNull()
+    expect(treasureMineBlockReason(busy, diggers[0].id)).toBe('正在矿洞')
   })
 
   it('abandons a claimed hole without resetting reserve or the timer, then allows a new claim', () => {

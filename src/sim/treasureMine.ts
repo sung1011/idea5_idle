@@ -203,18 +203,24 @@ export function hydrateTreasureMines(save: Save): void {
   refreshTreasureMines(save)
 }
 
+/** 钻石刷新留下的洞：战斗中（含出征 / 交战 / 归来，即有 raid）或我方开采。 */
+function isTreasureRefreshKept(mine: TreasureMine): boolean {
+  return mine.raid != null || mine.owner === 'player'
+}
+
 /**
- * 花钻石换一批没在打的洞。战斗中的洞留下。
- * 没有可刷的洞、或钻石不够时不扣钻。
+ * 花钻石换一批没在参与的洞。保留战斗中与我方开采，保留洞不拆开采队伍。
+ * 无人矿、敌人驻守且无抢夺的照常换新。
+ * 四洞都在保留里、或钻石不够时不扣钻。
  */
 export function refreshTreasureMineBoard(save: Save): ActionResult {
   const state = ensureTreasureMines(save)
-  if (!state.mines.some((mine) => mine.raid == null)) return { ok: false, reason: '没有可刷新的矿洞' }
+  if (!state.mines.some((mine) => !isTreasureRefreshKept(mine))) return { ok: false, reason: '没有可刷新的矿洞' }
   if (save.diamonds < TREASURE_REFRESH_COST) return { ok: false, reason: '钻石不足' }
   save.diamonds -= TREASURE_REFRESH_COST
   const kept: TreasureMine[] = []
   for (const mine of state.mines) {
-    if (mine.raid) {
+    if (isTreasureRefreshKept(mine)) {
       kept.push(mine)
       continue
     }

@@ -12,6 +12,8 @@ describe('mode help', () => {
     }
     const treasure = modeHelpOf('treasure').rows.map((row) => row.text).join('')
     expect(treasure).toContain('10 钻')
+    expect(treasure).toContain('保留战斗中与我方开采')
+    expect(treasure).not.toContain('我方开采工人回休息')
     expect(treasure).toContain('开采不装符文')
     expect(treasure).toContain('抢夺可以装')
     expect(treasure).not.toContain('快照')
