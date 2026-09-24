@@ -285,6 +285,8 @@ describe('tech tab row table', () => {
       maxLevel: 3,
       effectId: 'marchCutS',
     })
+    expect(techNodeById('fastRelay').desc).toContain('行军')
+    expect(techNodeById('fastRelay').desc).not.toContain('出征')
     expect(techNodeById('toolUpkeep').desc).toMatch(/符文/)
     expect(techNodeById('rematchSupply').desc).toMatch(/10%/)
     expect(techNodeById('rematchSupply').desc).not.toMatch(/再战/)

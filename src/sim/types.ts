@@ -267,7 +267,7 @@ export type CombatLogEntry = {
 
 export type CombatOutcome = 'win' | 'lose'
 
-/** 出征 → 交战 → 凯旋 / 溃退。旧档缺字段且仍在打，视为 `fighting`。 */
+/** 行军 → 交战 → 凯旋 / 溃退。旧档缺字段且仍在打，视为 `fighting`。 */
 export type CombatPhase = 'marchOut' | 'fighting' | 'marchHomeWin' | 'marchHomeLose'
 
 /** 战中倒地，或战斗结束时尚未入场的人。到点才回休息。 */
@@ -290,11 +290,11 @@ export type CombatIncoming = {
   startedAt: number
   runeId?: RuneItemId
   reinforced: boolean
-  /** 临时助战不在花名册里，出征期间留一份快照。 */
+  /** 临时助战不在花名册里，行军期间留一份快照。 */
   guest?: Worker
 }
 
-/** 出征倒计时结束才真正开打时用的参数。 */
+/** 行军倒计时结束才真正开打时用的参数。 */
 export type CombatMarchPlan = {
   chapter: number
   runes: Partial<Record<string, RuneItemId>>

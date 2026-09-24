@@ -8,7 +8,7 @@ import type {
 } from './types'
 
 export const COMBAT_PHASE_LABEL: Record<CombatPhase, string> = {
-  marchOut: '出征中',
+  marchOut: '行军中',
   fighting: '交战中',
   marchHomeWin: '凯旋中',
   marchHomeLose: '溃退中',
@@ -73,7 +73,7 @@ export type MarchCaption = {
   progress: number
 }
 
-/** 订单卡出征 / 归来文案。交战中若有人溃退，也给一行。 */
+/** 订单卡行军 / 凯旋 / 溃退文案。交战中若有人溃退，也给一行。 */
 export function encounterMarchCaption(enc: EnemyEncounter, now = Date.now()): MarchCaption | null {
   const combat = enc.combat
   if (!combat) return null
@@ -229,7 +229,7 @@ function rowsFromRaid(mine: TreasureMine, elapsedS: number, rows: CombatZoneRow[
   }
 }
 
-/** 工坊战斗区：出征、交战、凯旋、溃退。休息区不要再列这些人。 */
+/** 工坊战斗区：行军、交战、凯旋、溃退。休息区不要再列这些人。 */
 export function combatZoneRows(save: Save, now = Date.now()): CombatZoneRow[] {
   const rows: CombatZoneRow[] = []
   const seen = new Set<string>()

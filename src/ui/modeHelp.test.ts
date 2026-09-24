@@ -12,6 +12,8 @@ describe('mode help', () => {
     }
     const treasure = modeHelpOf('treasure').rows.map((row) => row.text).join('')
     expect(treasure).toContain('10 钻')
+    expect(treasure).toContain('行军')
+    expect(treasure).not.toContain('出征')
     expect(treasure).toContain('保留战斗中与我方开采')
     expect(treasure).not.toContain('我方开采工人回休息')
     expect(treasure).toContain('开采不装符文')
@@ -34,6 +36,8 @@ describe('mode help', () => {
     expect(treasure).not.toContain('补采')
     expect(treasure).not.toContain('影矿卫')
     const battle = modeHelpOf('battlefield').rows.map((row) => row.text).join('')
+    expect(battle).toContain('行军')
+    expect(battle).not.toContain('出征')
     expect(battle).toContain('探索')
     expect(battle).toContain('增援')
     expect(battle).toContain('1～3')

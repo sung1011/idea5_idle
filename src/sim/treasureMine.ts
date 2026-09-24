@@ -203,7 +203,7 @@ export function hydrateTreasureMines(save: Save): void {
   refreshTreasureMines(save)
 }
 
-/** 钻石刷新留下的洞：战斗中（含出征 / 交战 / 归来，即有 raid）或我方开采。 */
+/** 钻石刷新留下的洞：战斗中（含行军 / 交战 / 凯旋 / 溃退，即有 raid）或我方开采。 */
 function isTreasureRefreshKept(mine: TreasureMine): boolean {
   return mine.raid != null || mine.owner === 'player'
 }

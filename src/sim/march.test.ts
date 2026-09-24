@@ -58,6 +58,13 @@ function ensureGarrison(mine: TreasureMine): TreasureMine {
 }
 
 describe('march duration', () => {
+  it('names the outbound phase 行军中 and keeps the return labels', () => {
+    expect(COMBAT_PHASE_LABEL.marchOut).toBe('行军中')
+    expect(COMBAT_PHASE_LABEL.fighting).toBe('交战中')
+    expect(COMBAT_PHASE_LABEL.marchHomeWin).toBe('凯旋中')
+    expect(COMBAT_PHASE_LABEL.marchHomeLose).toBe('溃退中')
+  })
+
   it('cuts 5s per fast-relay level and floors at 8s without touching attack interval', () => {
     const save = createSave()
     expect(marchDurationS(save)).toBe(20)

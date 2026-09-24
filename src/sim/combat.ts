@@ -655,7 +655,7 @@ function buildEnemyCombat(
   return combat
 }
 
-/** 直接开打。测试和出征到点后走这里。选人确认走 `openCombatMarch`。 */
+/** 直接开打。测试和行军到点后走这里。选人确认走 `openCombatMarch`。 */
 export function beginEnemyCombat(
   enc: EnemyEncounter,
   workers: Worker[],
@@ -713,7 +713,7 @@ export function openCombatMarch(
     },
   }
   enc.combat = combat
-  emitLog(enc, combat, now, `${workers.map((w) => w.name ?? w.id).join('、')} 出征`, 'ok', onLog)
+  emitLog(enc, combat, now, `${workers.map((w) => w.name ?? w.id).join('、')} 行军`, 'ok', onLog)
   enc.departed = true
   enc.lootClaimed = false
   return combat
@@ -752,7 +752,7 @@ export function addCombatReinforcements(
   emitLog(enc, combat, now, `${added.map((w) => w.label).join('、')} 增援`, 'ok', onLog)
 }
 
-/** 增援先出征，到点再入编。 */
+/** 增援先行军，到点再入编。 */
 export function queueCombatReinforcements(
   enc: EnemyEncounter,
   workers: Worker[],
@@ -785,7 +785,7 @@ export function queueCombatReinforcements(
     added.push(worker.name ?? worker.id)
   }
   if (!added.length) return
-  emitLog(enc, combat, now, `${added.join('、')} 出征`, 'ok', onLog)
+  emitLog(enc, combat, now, `${added.join('、')} 行军`, 'ok', onLog)
 }
 
 function livingWorkers(combat: EnemyCombat): CombatFighter[] {

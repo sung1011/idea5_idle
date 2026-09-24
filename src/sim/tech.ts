@@ -64,7 +64,7 @@ export const DIAMOND_ORDER_EFFECT = 'diamondOrder'
 export const RUNE_SCRAP_EFFECT = 'runeScrap'
 export const REINFORCE_FIRST_EFFECT = 'reinforceFirst'
 export const KNIGHT_CYCLE_EFFECT = 'knightCycle'
-/** 出征 / 凯旋 / 溃退共用，每级少这么多秒。 */
+/** 行军 / 凯旋 / 溃退共用，每级少这么多秒。 */
 export const MARCH_CUT_EFFECT = 'marchCutS'
 export const MARCH_BASE_S = 20
 export const MARCH_MIN_S = 8
@@ -436,7 +436,7 @@ const COMBAT_ROWS: readonly RowSeed[] = [
       {
         id: 'fastRelay',
         name: '快马驿路',
-        desc: '出征、凯旋、溃退各快 5 秒，最少 8 秒。',
+        desc: '行军、凯旋、溃退各快 5 秒，最少 8 秒。',
         icon: '🐎',
         ...implemented(MARCH_CUT_EFFECT, { maxLevel: 3 }),
       },
@@ -878,7 +878,7 @@ export function attackIntervalMul(save: Save): number {
   return Math.max(0.1, 1 - techEffectValue(save, ATK_INTERVAL_EFFECT))
 }
 
-/** 出征、凯旋、溃退三态共用。急行整队不进这里。 */
+/** 行军、凯旋、溃退三态共用。急行整队不进这里。 */
 export function marchDurationS(save?: Save): number {
   const cut = save ? techEffectValue(save, MARCH_CUT_EFFECT) : 0
   return Math.max(MARCH_MIN_S, MARCH_BASE_S - cut)
