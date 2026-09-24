@@ -38,21 +38,22 @@ describe('guideQuestNav', () => {
 
     expect(openGuideQuestStep(2, store)).toBe('workshop')
     expect(openGuideQuestStep(3, store)).toBe('workshop')
+    expect(openGuideQuestStep(4, store)).toBe('workshop')
 
-    expect(openGuideQuestStep(4, store)).toBe('encounters')
+    expect(openGuideQuestStep(5, store)).toBe('encounters')
     expect(mainlineTab.value).toBe('battlefield')
     expect(store.getItem(MAINLINE_TAB_KEY)).toBe('battlefield')
 
-    expect(openGuideQuestStep(5, store)).toBe('workshop')
+    expect(openGuideQuestStep(6, store)).toBe('workshop')
     expect(appTab.value).toBe('workshop')
     expect(workshopTab.value).toBe('alchemy')
     expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('alchemy')
 
-    expect(openGuideQuestStep(6, store)).toBe('workshop')
     expect(openGuideQuestStep(7, store)).toBe('workshop')
+    expect(openGuideQuestStep(8, store)).toBe('workshop')
 
     expect(pendingGuideRunePick.value).toBe(false)
-    expect(openGuideQuestStep(8, store)).toBe('encounters')
+    expect(openGuideQuestStep(9, store)).toBe('encounters')
     expect(mainlineTab.value).toBe('battlefield')
     expect(store.getItem(MAINLINE_TAB_KEY)).toBe('battlefield')
     expect(pendingGuideRunePick.value).toBe(true)

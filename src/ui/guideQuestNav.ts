@@ -15,16 +15,17 @@ export function openGuideQuestStep(step: number, storage?: Storage | null): AppT
     case 1:
     case 2:
     case 3:
-    case 6:
-    case 7:
-      return selectAppTab('workshop', storage)
     case 4:
+    case 7:
+    case 8:
+      return selectAppTab('workshop', storage)
+    case 5:
       selectMainlineTab('battlefield', storage)
       return selectAppTab('encounters', storage)
-    case 5:
+    case 6:
       openWorkshopStation('alchemy', storage)
       return 'workshop'
-    case 8:
+    case 9:
       pendingGuideRunePick.value = true
       selectMainlineTab('battlefield', storage)
       return selectAppTab('encounters', storage)

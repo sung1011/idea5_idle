@@ -5,26 +5,27 @@ import { isStationUnlocked, knightLevelOf } from './stationUnlock'
 import { POTION_ITEM_IDS } from './tables'
 import type { ActionResult, Encounter, EnemyEncounter, Save } from './types'
 
-export const GUIDE_QUEST_PHASE1_STEPS = 4
+export const GUIDE_QUEST_PHASE1_STEPS = 5
 export const GUIDE_QUEST_PHASE2_STEPS = 3
 export const GUIDE_QUEST_PHASE3_STEPS = 1
 export const GUIDE_QUEST_STEPS = GUIDE_QUEST_PHASE1_STEPS + GUIDE_QUEST_PHASE2_STEPS + GUIDE_QUEST_PHASE3_STEPS
 export const GUIDE_QUEST_GOLD = 20
-/** 八步都已领取后的步号；浮层不渲染。 */
+/** 九步都已领取后的步号；浮层不渲染。 */
 export const GUIDE_QUEST_DONE_STEP = GUIDE_QUEST_STEPS + 1
 export const GUIDE_QUEST_PHASE2_START = GUIDE_QUEST_PHASE1_STEPS + 1
 export const GUIDE_QUEST_PHASE3_START = GUIDE_QUEST_PHASE1_STEPS + GUIDE_QUEST_PHASE2_STEPS + 1
 /** 骑士 1 级即开第二阶段（炼金 / 装槽 / 点用），与炼金开站门槛一致。 */
 export const GUIDE_QUEST_PHASE2_KNIGHT = 1
 /** 第一步须抽工人 2 次。缺字段或旧档按现况重落步号。 */
-export const GUIDE_QUEST_REV = 4
+export const GUIDE_QUEST_REV = 5
 /** 第一阶段「抽工人」完成所需次数（花名册人数或已生成序号，取较大）。 */
 export const GUIDE_QUEST_RECRUIT_NEED = 2
 
 export const GUIDE_QUEST_GOALS = [
   '抽取工人 2 次',
-  '把工人派入采药',
+  '满血队首会自动上采药，不能手拖空岗',
   '合成两名同品质工人',
+  '选好休息区伙食',
   '在 PVE 弹层中点击开战',
   '在炼金站炼成药剂',
   '把药剂装进技能槽',
@@ -93,6 +94,11 @@ export function hasAssignedHerbalism(save: Save): boolean {
 
 export function hasFusedWorkers(save: Save): boolean {
   return save.workers.some((w) => w.qualityTier >= 2)
+}
+
+/** 休息区已选定一份共享伙食。未选（null）不算。 */
+export function hasSelectedRestFood(save: Pick<Save, 'restFoodId'>): boolean {
+  return save.restFoodId != null
 }
 
 /** 选人弹层点过「开战」入战即可。点订单卡「开战」只开框，不算。不要求分出胜负或领战利品。旧档已出发/已有战斗态也算。 */
@@ -199,21 +205,23 @@ export function guideQuestProgressAt(save: Save, step: number): 0 | 1 {
     case 3:
       return hasFusedWorkers(save) ? 1 : 0
     case 4:
-      return hasStartedBattlefieldCombat(save) ? 1 : 0
+      return hasSelectedRestFood(save) ? 1 : 0
     case 5:
-      return hasProducedAlchemyPotion(save) ? 1 : 0
+      return hasStartedBattlefieldCombat(save) ? 1 : 0
     case 6:
-      return hasInstalledPotion(save) ? 1 : 0
+      return hasProducedAlchemyPotion(save) ? 1 : 0
     case 7:
-      return hasUsedPotionFromSlot(save) ? 1 : 0
+      return hasInstalledPotion(save) ? 1 : 0
     case 8:
+      return hasUsedPotionFromSlot(save) ? 1 : 0
+    case 9:
       return hasOpenedRunePick(save) ? 1 : 0
     default:
       return 0
   }
 }
 
-/** 第一未完成步；八步都齐则 9。 */
+/** 第一未完成步；九步都齐则 10。 */
 export function firstIncompleteGuideQuestStep(save: Save): number {
   for (let step = 1; step <= GUIDE_QUEST_STEPS; step++) {
     if (guideQuestProgressAt(save, step) < 1) return step
@@ -231,8 +239,9 @@ export function isGuideQuestVisible(save: Save): boolean {
 
 export type GuideQuestFlashId =
   | 'recruit'
-  | 'assignHerb'
+  | 'autoHerb'
   | 'fuse'
+  | 'restFood'
   | 'combat'
   | 'alchemy'
   | 'potionInstall'
@@ -246,18 +255,20 @@ export function guideQuestFlashId(save: Save): GuideQuestFlashId | null {
     case 1:
       return 'recruit'
     case 2:
-      return 'assignHerb'
+      return 'autoHerb'
     case 3:
       return 'fuse'
     case 4:
-      return 'combat'
+      return 'restFood'
     case 5:
-      return 'alchemy'
+      return 'combat'
     case 6:
-      return 'potionInstall'
+      return 'alchemy'
     case 7:
-      return 'potionUse'
+      return 'potionInstall'
     case 8:
+      return 'potionUse'
+    case 9:
       return 'rune'
     default:
       return null
@@ -268,7 +279,7 @@ export function isGuideQuestFlash(save: Save, id: GuideQuestFlashId): boolean {
   return guideQuestFlashId(save) === id
 }
 
-/** 步骤 4 要闪的那张战场敌：未入战可点「开战」的优先，否则第一张未领。 */
+/** 步骤 5 要闪的那张战场敌：未入战可点「开战」的优先，否则第一张未领。 */
 export function guideQuestCombatFlashEncounter(save: Save): Encounter | null {
   if (!isGuideQuestFlash(save, 'combat')) return null
   const board = save.encounters.filter((enc) => enc.kind === 'enemy')
@@ -318,7 +329,7 @@ export function guideQuestView(save: Save): GuideQuestView | null {
   const denom = step === 1 ? GUIDE_QUEST_RECRUIT_NEED : 1
   const numer = step === 1 ? recruitHave : progress
   const title =
-    phase === 1 ? `PVE · ${phaseStep}/${phaseTotal}` : phase === 2 ? `进阶 · ${phaseStep}/${phaseTotal}` : `符文 · ${phaseStep}/${phaseTotal}`
+    phase === 1 ? `工坊 · ${phaseStep}/${phaseTotal}` : phase === 2 ? `进阶 · ${phaseStep}/${phaseTotal}` : `符文 · ${phaseStep}/${phaseTotal}`
   return {
     step,
     phase,

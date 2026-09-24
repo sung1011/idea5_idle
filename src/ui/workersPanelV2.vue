@@ -87,8 +87,9 @@ import {
 const game = useGameStore()
 const showFuseDragTip = computed(() => shouldShowFuseDragTip(game.save))
 const guideFlashRecruit = computed(() => isGuideQuestFlash(game.save, 'recruit'))
-const guideFlashAssignHerb = computed(() => isGuideQuestFlash(game.save, 'assignHerb'))
+const guideFlashAutoHerb = computed(() => isGuideQuestFlash(game.save, 'autoHerb'))
 const guideFlashFuse = computed(() => isGuideQuestFlash(game.save, 'fuse'))
+const guideFlashRestFood = computed(() => isGuideQuestFlash(game.save, 'restFood'))
 const guideFlashPotionInstall = computed(() => isGuideQuestFlash(game.save, 'potionInstall'))
 const guideFlashPotionUse = computed(() => isGuideQuestFlash(game.save, 'potionUse'))
 const frameNow = useFrameNow()
@@ -557,7 +558,9 @@ onUnmounted(() => {
             class="station"
             :class="{
               locked: stationLocked(board.stationId),
-              'guide-flash': isItemSourceStationFlash(board.stationId),
+              'guide-flash':
+                isItemSourceStationFlash(board.stationId) ||
+                (guideFlashAutoHerb && board.stationId === 'herbalism'),
             }"
           >
             <StationTips :station-id="board.stationId" />
@@ -599,7 +602,6 @@ onUnmounted(() => {
                       'enter-slot': !!w && isWorkerEntering(w.id),
                       'has-banter': !!w && banterLine(w.id),
                       'has-tutor': !!w && tutorLine(w.id),
-                      'guide-flash': !w && guideFlashAssignHerb && board.stationId === 'herbalism' && board.filled === 0,
                     },
                     w ? hpToneClass(w) : '',
                     slotDropClass(board.stationId, i),
@@ -751,7 +753,7 @@ onUnmounted(() => {
           <button
             type="button"
             class="rest-food"
-            :class="{ dry: restFoodDry }"
+            :class="{ dry: restFoodDry, 'guide-flash': guideFlashRestFood }"
             :aria-label="`休息区伙食 · ${restFoodLabel}`"
             @click="restFoodOpen = true"
           >
@@ -772,6 +774,7 @@ onUnmounted(() => {
                   'queue-ready': row.badge === REST_HEAD_BADGE,
                   'queue-blocked': row.badge === '堵队',
                   'queue-dim': row.dim,
+                  'guide-flash': guideFlashAutoHerb && row.order === 1,
                 },
               ]"
               data-drop="rest-worker"
@@ -881,8 +884,6 @@ onUnmounted(() => {
               :class="{
                 on: choice.current,
                 locked: choice.locked,
-                'guide-flash':
-                  guideFlashAssignHerb && choice.stationId === 'herbalism',
               }"
               :disabled="choice.disabled && !choice.locked"
               :aria-pressed="choice.current"

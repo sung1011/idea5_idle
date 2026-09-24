@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assignWorker } from './assign'
+import { assignRestingToFirstEmpty } from './assign'
 import { createSave } from './createSave'
 import { fuseRestWorkers } from './fuse'
 import {
@@ -24,6 +24,7 @@ import {
   markGuideQuestRuneOpened,
   normalizeGuideQuestStep,
 } from './guideQuest'
+import { selectRestFood } from './food'
 import { installPotionSlot } from './potionSlots'
 import { usePotionSlot } from './potions'
 import { recruitWorker, spawnWorker } from './recruit'
@@ -60,8 +61,8 @@ describe('guideQuest normalize and hydrate', () => {
       step: 1,
       phase: 1,
       phaseStep: 1,
-      phaseTotal: 4,
-      title: 'PVE · 1/4',
+      phaseTotal: 5,
+      title: '工坊 · 1/5',
       goal: '抽取工人 2 次',
       progress: 0,
       progressLabel: '进度 0/2',
@@ -71,7 +72,8 @@ describe('guideQuest normalize and hydrate', () => {
     expect(normalizeGuideQuestStep(undefined)).toBe(1)
     expect(normalizeGuideQuestStep(0)).toBe(1)
     expect(normalizeGuideQuestStep(2.8)).toBe(2)
-    expect(normalizeGuideQuestStep(9)).toBe(GUIDE_QUEST_DONE_STEP)
+    expect(normalizeGuideQuestStep(9)).toBe(9)
+    expect(normalizeGuideQuestStep(10)).toBe(GUIDE_QUEST_DONE_STEP)
   })
 
   it('shows phase 2 at knight 1 once the main steps are claimed', () => {
@@ -118,10 +120,26 @@ describe('guideQuest normalize and hydrate', () => {
     veteran.techLevels = { pathOutpost: 1 }
     const { guideQuestStep: _vs, guideQuestRev: _vr, ...vetRaw } = veteran
     hydrateGuideQuestFields(vetRaw as Save, vetRaw)
-    expect((vetRaw as Save).guideQuestStep).toBe(8)
+    expect((vetRaw as Save).guideQuestStep).toBe(4)
+    expect(guideQuestView(vetRaw as Save)?.goal).toBe('选好休息区伙食')
     expect((vetRaw as Save).guideQuestRuneOpened).toBe(false)
-    expect(isGuideQuestVisible(vetRaw as Save)).toBe(false)
-    expect(guideQuestView(vetRaw as Save)).toBeNull()
+
+    const fed = createSave()
+    spawnWorker(fed)
+    fed.workers[0].assignment = 'herbalism'
+    spawnWorker(fed)
+    fed.workers[1].qualityTier = 2
+    fed.restFoodId = 'meal'
+    markCombatStarted(fed)
+    fed.stations.alchemy.completed = 1
+    fed.potionSlots[0] = 'salve'
+    fed.guideQuestPotionUsed = true
+    fed.techLevels = { pathOutpost: 1 }
+    const { guideQuestStep: _fs, guideQuestRev: _fr, ...fedRaw } = fed
+    hydrateGuideQuestFields(fedRaw as Save, fedRaw)
+    expect((fedRaw as Save).guideQuestStep).toBe(9)
+    expect(isGuideQuestVisible(fedRaw as Save)).toBe(false)
+    expect(guideQuestView(fedRaw as Save)).toBeNull()
   })
 
   it('does not auto-complete recruit step when an old rev-2 save only recruited once', () => {
@@ -136,6 +154,33 @@ describe('guideQuest normalize and hydrate', () => {
     expect(guideQuestView(save)?.progressLabel).toBe('进度 1/2')
     expect(guideQuestView(save)?.claimable).toBe(false)
     expect(claimGuideQuest(save).ok).toBe(false)
+  })
+
+  it('replays a lower rev onto the first incomplete step of the nine-step table', () => {
+    const save = createSave()
+    spawnWorker(save)
+    spawnWorker(save)
+    save.workers[0].assignment = 'herbalism'
+    save.workers[1].qualityTier = 2
+    save.guideQuestStep = 4
+    save.guideQuestRev = 4
+    hydrateGuideQuestFields(save, save)
+    expect(save.guideQuestRev).toBe(GUIDE_QUEST_REV)
+    expect(save.guideQuestStep).toBe(4)
+    expect(guideQuestView(save)?.goal).toBe('选好休息区伙食')
+    expect(guideQuestFlashId(save)).toBe('restFood')
+
+    const ahead = createSave()
+    spawnWorker(ahead)
+    spawnWorker(ahead)
+    ahead.workers[0].assignment = 'herbalism'
+    ahead.workers[1].qualityTier = 2
+    ahead.restFoodId = 'meal'
+    ahead.guideQuestStep = 8
+    ahead.guideQuestRev = 4
+    hydrateGuideQuestFields(ahead, ahead)
+    expect(ahead.guideQuestStep).toBe(5)
+    expect(guideQuestView(ahead)?.goal).toBe('在 PVE 弹层中点击开战')
   })
 
   it('keeps a current-rev step number', () => {
@@ -172,12 +217,12 @@ describe('guideQuest normalize and hydrate', () => {
 })
 
 describe('guideQuest steps and claim', () => {
-  it('walks eight steps across three phases and pays 20 gold each claim', () => {
+  it('walks nine steps across three phases and pays 20 gold each claim', () => {
     const save = createSave()
     const gold0 = save.gold
     expect(claimGuideQuest(save).ok).toBe(false)
     expect(save.guideQuestStep).toBe(1)
-    expect(GUIDE_QUEST_STEPS).toBe(8)
+    expect(GUIDE_QUEST_STEPS).toBe(9)
 
     expect(recruitWorker(save).ok).toBe(true)
     expect(guideQuestProgressAt(save, 1)).toBe(0)
@@ -191,8 +236,9 @@ describe('guideQuest steps and claim', () => {
     expect(save.gold).toBe(gold0 + GUIDE_QUEST_GOLD)
     expect(save.diamonds).toBe(START_DIAMONDS - RECRUIT_COST * 2)
 
-    expect(guideQuestView(save)?.goal).toBe('把工人派入采药')
-    expect(assignWorker(save, save.workers[0].id, 'herbalism').ok).toBe(true)
+    expect(guideQuestView(save)?.goal).toBe('满血队首会自动上采药，不能手拖空岗')
+    expect(assignRestingToFirstEmpty(save).ok).toBe(true)
+    expect(save.workers.some((worker) => worker.assignment === 'herbalism')).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(3)
 
@@ -203,21 +249,27 @@ describe('guideQuest steps and claim', () => {
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(4)
 
+    expect(guideQuestView(save)?.goal).toBe('选好休息区伙食')
+    expect(guideQuestProgressAt(save, 4)).toBe(0)
+    expect(selectRestFood(save, 'meal').ok).toBe(true)
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(save.guideQuestStep).toBe(5)
+
     expect(guideQuestView(save)?.goal).toBe('在 PVE 弹层中点击开战')
     markCombatStarted(save)
     expect(hasStartedBattlefieldCombat(save)).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(save.guideQuestStep).toBe(5)
+    expect(save.guideQuestStep).toBe(6)
     expect(guideQuestView(save)?.title).toBe('进阶 · 1/3')
     save.stations.alchemy.completed = 1
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(save.guideQuestStep).toBe(6)
+    expect(save.guideQuestStep).toBe(7)
 
     save.bank.salve = 2
     expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
     expect(guideQuestView(save)?.goal).toBe('把药剂装进技能槽')
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(save.guideQuestStep).toBe(7)
+    expect(save.guideQuestStep).toBe(8)
 
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(save.guideQuestPotionUsed).toBe(true)
@@ -239,24 +291,55 @@ describe('guideQuest steps and claim', () => {
     expect(claimGuideQuest(save)).toEqual({ ok: false, reason: '新手任务已完成' })
   })
 
-  it('completes step 4 only after the pick-sheet 开战 click starts combat', () => {
+  it('completes step 2 when the queue head auto-fills herbalism or herbalism has produced', () => {
+    const blocked = createSave()
+    blocked.guideQuestStep = 2
+    expect(guideQuestProgressAt(blocked, 2)).toBe(0)
+    expect(recruitWorker(blocked).ok).toBe(true)
+    expect(recruitWorker(blocked).ok).toBe(true)
+    blocked.workers[0].hp = 1
+    expect(assignRestingToFirstEmpty(blocked).ok).toBe(false)
+    expect(guideQuestProgressAt(blocked, 2)).toBe(0)
+    blocked.workers[0].hp = blocked.workers[0].hpMax
+    expect(assignRestingToFirstEmpty(blocked).ok).toBe(true)
+    expect(blocked.workers[0].assignment).toBe('herbalism')
+    expect(guideQuestProgressAt(blocked, 2)).toBe(1)
+
+    const produced = createSave()
+    produced.guideQuestStep = 2
+    produced.stations.herbalism.completed = 1
+    expect(guideQuestProgressAt(produced, 2)).toBe(1)
+  })
+
+  it('completes step 4 only after a rest food is selected', () => {
     const save = createSave()
     save.guideQuestStep = 4
-    expect(guideQuestView(save)?.goal).toBe('在 PVE 弹层中点击开战')
+    expect(guideQuestView(save)?.goal).toBe('选好休息区伙食')
     expect(guideQuestProgressAt(save, 4)).toBe(0)
+    expect(selectRestFood(save, null).ok).toBe(true)
+    expect(guideQuestProgressAt(save, 4)).toBe(0)
+    expect(selectRestFood(save, 'roast').ok).toBe(true)
+    expect(guideQuestProgressAt(save, 4)).toBe(1)
+  })
+
+  it('completes step 5 only after the pick-sheet 开战 click starts combat', () => {
+    const save = createSave()
+    save.guideQuestStep = 5
+    expect(guideQuestView(save)?.goal).toBe('在 PVE 弹层中点击开战')
+    expect(guideQuestProgressAt(save, 5)).toBe(0)
     expect(hasStartedBattlefieldCombat(save)).toBe(false)
 
     const idle = save.encounters[0] as EnemyEncounter
     expect(idle.departed).toBe(false)
     expect(idle.combat).toBeNull()
-    expect(guideQuestProgressAt(save, 4)).toBe(0)
+    expect(guideQuestProgressAt(save, 5)).toBe(0)
 
     save.departCount = 1
-    expect(guideQuestProgressAt(save, 4)).toBe(1)
+    expect(guideQuestProgressAt(save, 5)).toBe(1)
     expect(hasStartedBattlefieldCombat(save)).toBe(true)
 
     const fighting = createSave()
-    fighting.guideQuestStep = 4
+    fighting.guideQuestStep = 5
     const enc = fighting.encounters[0] as EnemyEncounter
     enc.combat = {
       startedAt: 1,
@@ -267,7 +350,7 @@ describe('guideQuest steps and claim', () => {
       logs: [],
       outcome: null,
     }
-    expect(guideQuestProgressAt(fighting, 4)).toBe(1)
+    expect(guideQuestProgressAt(fighting, 5)).toBe(1)
   })
 
   it('shows the rune step only after inscription unlock and a battlefield fight button', () => {
@@ -292,22 +375,26 @@ describe('guideQuest flash target', () => {
     const save = createSave()
     expect(guideQuestFlashId(save)).toBe('recruit')
     expect(isGuideQuestFlash(save, 'recruit')).toBe(true)
-    expect(isGuideQuestFlash(save, 'assignHerb')).toBe(false)
+    expect(isGuideQuestFlash(save, 'autoHerb')).toBe(false)
 
     expect(recruitWorker(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('recruit')
     expect(recruitWorker(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBeNull()
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestFlashId(save)).toBe('assignHerb')
+    expect(guideQuestFlashId(save)).toBe('autoHerb')
 
-    assignWorker(save, save.workers[0].id, 'herbalism')
+    expect(assignRestingToFirstEmpty(save).ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('fuse')
 
     spawnWorker(save)
     spawnWorker(save)
     fuseRestWorkers(save, save.workers[1].id, save.workers[2].id)
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBe('restFood')
+    selectRestFood(save, 'meal')
+    expect(guideQuestFlashId(save)).toBeNull()
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('combat')
     expect(isGuideQuestCombatFlash(save, save.encounters[0])).toBe(true)
