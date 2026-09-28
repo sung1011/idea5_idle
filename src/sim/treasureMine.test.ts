@@ -25,6 +25,9 @@ import {
   hydrateTreasureMines,
   mineWeaknessSlots,
   TREASURE_REFRESH_COST,
+  TREASURE_REFRESH_SAND_COST,
+  TREASURE_SCOUT_COST,
+  TREASURE_STAKE_PER_GUARD,
   refreshTreasureMineBoard,
   refreshTreasureMines,
   shadowCrewCount,
@@ -35,13 +38,37 @@ import {
   rejectTreasureMineRune,
   isTreasureRaidLocked,
   reinforceTreasureRaid,
-  startTreasureRaid,
+  mineFullyRevealed,
+  raidStakeCost,
+  sandShortTip,
+  scoutTreasureMine,
+  STAKE_FORFEIT_TIP,
+  stakePaidTip,
+  stakeRefundTip,
+  startTreasureRaid as openTreasureRaid,
+  takeTreasureVaultNotices,
   stepTreasureMines,
 } from './treasureMine'
 import { treasureMineBlockReason } from './treasureMineQuery'
 import { applyTick } from './tick'
 import { marchDurationS } from './tech'
+import { settleOffline } from './offline'
 import type { Save, TreasureId, TreasureMine } from './types'
+import type { RunePickMap } from './runes'
+
+/** 旧用例不查军费。不够就补到刚好能开，扣完回到原数。 */
+function startTreasureRaid(
+  save: Save,
+  mineId: string,
+  workerIds: readonly string[],
+  runePicks?: RunePickMap,
+) {
+  const mine = save.treasureMines.mines.find((row) => row.id === mineId)
+  const need = raidStakeCost(mine?.shadows.length ?? 0)
+  const have = save.treasureMines.vault.sandGold ?? 0
+  if (have < need) save.treasureMines.vault.sandGold = have + need
+  return openTreasureRaid(save, mineId, workerIds, runePicks)
+}
 
 function vaultQty(save: Save): number {
   const vault = save.treasureMines.vault
@@ -376,7 +403,7 @@ describe('treasure mines', () => {
     lead.level = 1
     fallen.level = 1
     advance(save, 5)
-    expect(vaultQty(save)).toBe(2)
+    expect(vaultQty(save)).toBe(2 + raidStakeCost(2))
     expect(mine.reserve).toBe(38)
   })
 
@@ -966,5 +993,274 @@ describe('treasure mines', () => {
       expect(hole.revealedWeaknesses).toEqual([])
       expect(mineWeaknessSlots(hole).every((slot) => slot == null)).toBe(true)
     }
+  })
+})
+
+function setGuards(mine: TreasureMine, count: number, hp = 30, atk = 4, spd = 5): void {
+  mine.owner = count > 0 ? 'shadow' : 'empty'
+  mine.raid = null
+  mine.shadows = []
+  for (let i = 0; i < count; i += 1) {
+    mine.shadows.push({
+      id: `${mine.id}-fee-${i}`,
+      name: `守${i}`,
+      level: 1,
+      hp,
+      hpMax: hp,
+      atk,
+      spd,
+      runeId: 'runeSharp',
+    })
+  }
+}
+
+function jumpRaid(save: Save): void {
+  save.elapsedS += marchDurationS(save) + 80
+  stepTreasureMines(save)
+}
+
+describe('treasure sand fees', () => {
+  it('stakes per guard, refunds a win, forfeits a loss, and keeps the stake across reload', () => {
+    expect(raidStakeCost(0)).toBe(0)
+    expect(raidStakeCost(1)).toBe(TREASURE_STAKE_PER_GUARD)
+    expect(raidStakeCost(2)).toBe(80)
+    expect(raidStakeCost(3)).toBe(120)
+
+    const save = createSave()
+    const mine = save.treasureMines.mines[0]
+    setGuards(mine, 3)
+    const blocked = spawnWorker(save)
+    save.treasureMines.vault.sandGold = 119
+    addToBank(save, 'runeSharp', 1)
+    expect(openTreasureRaid(save, mine.id, [blocked.id], { [blocked.id]: 'runeSharp' })).toEqual({
+      ok: false,
+      reason: sandShortTip(120),
+    })
+    expect(save.treasureMines.vault.sandGold).toBe(119)
+    expect(save.bank.runeSharp).toBe(1)
+    expect(mine.raid).toBeNull()
+
+    setGuards(mine, 2)
+    const winner = spawnWorker(save)
+    save.treasureMines.vault.sandGold = 80
+    takeTreasureVaultNotices()
+    expect(openTreasureRaid(save, mine.id, [winner.id])).toEqual({ ok: true, message: stakePaidTip(80) })
+    expect(save.treasureMines.vault.sandGold).toBe(0)
+    expect(mine.raid?.stakeSand).toBe(80)
+
+    const reloaded = hydrateLoadedSave(JSON.parse(JSON.stringify(save)))
+    expect(reloaded).toBeTruthy()
+    if (!reloaded) return
+    const kept = reloaded.treasureMines.mines.find((row) => row.id === mine.id)
+    expect(kept?.raid?.stakeSand).toBe(80)
+    if (!kept?.raid) return
+    for (const shadow of kept.shadows) {
+      shadow.hp = 1
+      shadow.hpMax = 1
+      shadow.atk = 1
+      shadow.spd = 99
+    }
+    jumpRaid(reloaded)
+    expect(kept.owner).toBe('player')
+    expect(kept.raid).toBeNull()
+    expect(reloaded.treasureMines.vault.sandGold).toBe(80)
+    expect(takeTreasureVaultNotices().map((notice) => notice.text)).toEqual([stakeRefundTip(80)])
+
+    const lost = createSave()
+    const fight = lost.treasureMines.mines[1]
+    setGuards(fight, 1, 99999, 99999, 1)
+    const loser = spawnWorker(lost)
+    lost.treasureMines.vault.sandGold = 40
+    expect(openTreasureRaid(lost, fight.id, [loser.id]).ok).toBe(true)
+    expect(lost.treasureMines.vault.sandGold).toBe(0)
+    jumpRaid(lost)
+    expect(fight.owner).toBe('shadow')
+    expect(fight.raid).toBeNull()
+    expect(lost.treasureMines.vault.sandGold).toBe(0)
+    expect(takeTreasureVaultNotices().map((notice) => notice.text)).toEqual([STAKE_FORFEIT_TIP])
+  })
+
+  it('refunds when the hole vanishes before a result, and old raids without a stake stay unpaid', () => {
+    const save = createSave()
+    const mine = save.treasureMines.mines[0]
+    setGuards(mine, 1)
+    const worker = spawnWorker(save)
+    save.treasureMines.vault.sandGold = 40
+    expect(openTreasureRaid(save, mine.id, [worker.id]).ok).toBe(true)
+    const raid = mine.raid
+    expect(raid?.stakeSand).toBe(40)
+    if (!raid) return
+    save.elapsedS = (raid.phaseEndsAtS ?? 1) - 1
+    mine.expiresAtS = save.elapsedS
+    takeTreasureVaultNotices()
+    stepTreasureMines(save)
+    expect(save.treasureMines.mines.some((row) => row.id === mine.id)).toBe(false)
+    expect(save.treasureMines.vault.sandGold).toBe(40)
+    expect(takeTreasureVaultNotices().map((notice) => notice.text)).toEqual([stakeRefundTip(40)])
+
+    const legacy = createSave()
+    const old = legacy.treasureMines.mines[0]
+    setGuards(old, 1, 1, 1, 99)
+    const raider = spawnWorker(legacy)
+    legacy.treasureMines.vault.sandGold = 40
+    expect(openTreasureRaid(legacy, old.id, [raider.id]).ok).toBe(true)
+    expect(legacy.treasureMines.vault.sandGold).toBe(0)
+    delete old.raid?.stakeSand
+    const loaded = hydrateLoadedSave(JSON.parse(JSON.stringify(legacy)))
+    expect(loaded?.treasureMines.mines.find((row) => row.id === old.id)?.raid?.stakeSand).toBe(0)
+    if (!loaded) return
+    const standing = loaded.treasureMines.mines.find((row) => row.id === old.id)
+    expect(standing).toBeTruthy()
+    if (!standing) return
+    for (const shadow of standing.shadows) {
+      shadow.hp = 1
+      shadow.atk = 1
+      shadow.spd = 99
+    }
+    loaded.treasureMines.vault.sandGold = 11
+    takeTreasureVaultNotices()
+    jumpRaid(loaded)
+    expect(standing.owner).toBe('player')
+    expect(loaded.treasureMines.vault.sandGold).toBe(11)
+    expect(takeTreasureVaultNotices()).toEqual([])
+  })
+
+  it('settles a reloaded fight the same way after offline catch-up', () => {
+    const save = createSave()
+    const mine = save.treasureMines.mines[0]
+    setGuards(mine, 1, 1, 1, 99)
+    const winner = spawnWorker(save)
+    save.treasureMines.vault.sandGold = 40
+    expect(openTreasureRaid(save, mine.id, [winner.id]).ok).toBe(true)
+    const loaded = hydrateLoadedSave(JSON.parse(JSON.stringify(save)))
+    expect(loaded).toBeTruthy()
+    if (!loaded) return
+    const hole = loaded.treasureMines.mines.find((row) => row.id === mine.id)
+    expect(hole?.raid?.stakeSand).toBe(40)
+    const now = Date.now()
+    loaded.lastTick = now - 90_000
+    takeTreasureVaultNotices()
+    const settled = settleOffline(loaded, now)
+    const after = settled.save.treasureMines.mines.find((row) => row.id === mine.id)
+    expect(after?.owner).toBe('player')
+    expect(after?.raid).toBeNull()
+    expect(settled.save.treasureMines.vault.sandGold).toBeGreaterThanOrEqual(40)
+    expect(takeTreasureVaultNotices().map((notice) => notice.text)).toContain(stakeRefundTip(40))
+
+    const lost = createSave()
+    const fight = lost.treasureMines.mines[1]
+    setGuards(fight, 1, 99999, 99999, 1)
+    const loser = spawnWorker(lost)
+    lost.treasureMines.vault.sandGold = 40
+    expect(openTreasureRaid(lost, fight.id, [loser.id]).ok).toBe(true)
+    const lostNow = Date.now()
+    lost.lastTick = lostNow - 90_000
+    takeTreasureVaultNotices()
+    const lostSettle = settleOffline(lost, lostNow)
+    expect(lostSettle.save.treasureMines.vault.sandGold).toBe(0)
+    expect(lostSettle.save.treasureMines.mines.find((row) => row.id === fight.id)?.owner).toBe('shadow')
+    expect(takeTreasureVaultNotices().map((notice) => notice.text)).toContain(STAKE_FORFEIT_TIP)
+  })
+
+  it('lets an empty hole be claimed for free', () => {
+    const save = createSave()
+    const mine = save.treasureMines.mines[0]
+    setGuards(mine, 0)
+    const worker = spawnWorker(save)
+    save.treasureMines.vault.sandGold = 7
+    expect(openTreasureRaid(save, mine.id, [worker.id])).toEqual({ ok: false, reason: '洞里没有守军' })
+    expect(save.treasureMines.vault.sandGold).toBe(7)
+    expect(claimTreasureMine(save, mine.id, [worker.id]).ok).toBe(true)
+    expect(save.treasureMines.vault.sandGold).toBe(7)
+    expect(mine.owner).toBe('player')
+  })
+
+  it('charges scout once and reveals every weakness until the hole is already open', () => {
+    const save = createSave()
+    const mine = save.treasureMines.mines[0]
+    mine.weaknesses = ['fire', 'ice', 'sword']
+    mine.revealedWeaknesses = []
+    save.treasureMines.vault.sandGold = 19
+    expect(scoutTreasureMine(save, mine.id)).toEqual({ ok: false, reason: sandShortTip(TREASURE_SCOUT_COST) })
+    expect(save.treasureMines.vault.sandGold).toBe(19)
+    expect(mine.revealedWeaknesses).toEqual([])
+    expect(mineFullyRevealed(mine)).toBe(false)
+
+    save.treasureMines.vault.sandGold = 20
+    expect(scoutTreasureMine(save, mine.id)).toEqual({ ok: true, message: `砂金 −${TREASURE_SCOUT_COST}` })
+    expect(save.treasureMines.vault.sandGold).toBe(0)
+    expect(mine.weaknesses).toEqual(['fire', 'ice', 'sword'])
+    expect(mine.revealedWeaknesses).toEqual(['fire', 'ice', 'sword'])
+    expect(mineFullyRevealed(mine)).toBe(true)
+
+    save.treasureMines.vault.sandGold = 50
+    expect(scoutTreasureMine(save, mine.id)).toEqual({ ok: false, reason: '弱点已经揭开' })
+    expect(save.treasureMines.vault.sandGold).toBe(50)
+
+    const partial = save.treasureMines.mines[1]
+    partial.weaknesses = ['fire', 'ice']
+    partial.revealedWeaknesses = ['fire']
+    partial.raid = null
+    save.treasureMines.vault.sandGold = 20
+    expect(scoutTreasureMine(save, partial.id).ok).toBe(true)
+    expect(partial.revealedWeaknesses).toEqual(['fire', 'ice'])
+    expect(save.treasureMines.vault.sandGold).toBe(0)
+
+    setGuards(partial, 1)
+    const raider = spawnWorker(save)
+    save.treasureMines.vault.sandGold = 40
+    expect(openTreasureRaid(save, partial.id, [raider.id]).ok).toBe(true)
+    save.treasureMines.vault.sandGold = 20
+    expect(scoutTreasureMine(save, partial.id)).toEqual({ ok: false, reason: '这洞抢夺进行中' })
+    expect(save.treasureMines.vault.sandGold).toBe(20)
+  })
+
+  it('refreshes with sand or diamonds and keeps fights and our mining', () => {
+    const save = createSave()
+    save.diamonds = 30
+    save.treasureMines.vault.sandGold = TREASURE_REFRESH_SAND_COST
+    const owned = save.treasureMines.mines[0]
+    const miner = spawnWorker(save)
+    owned.owner = 'player'
+    owned.shadows = []
+    owned.crewIds = [miner.id]
+    const fighting = save.treasureMines.mines[1]
+    setGuards(fighting, 1)
+    const raider = spawnWorker(save)
+    save.treasureMines.vault.sandGold = TREASURE_REFRESH_SAND_COST + 40
+    expect(openTreasureRaid(save, fighting.id, [raider.id]).ok).toBe(true)
+    const sandAfterStake = save.treasureMines.vault.sandGold
+    expect(sandAfterStake).toBe(TREASURE_REFRESH_SAND_COST)
+    const dropped = save.treasureMines.mines.filter((mine) => mine.id !== owned.id && mine.id !== fighting.id).map((mine) => mine.id)
+
+    expect(refreshTreasureMineBoard(save, 'sandGold')).toEqual({
+      ok: true,
+      message: `砂金 −${TREASURE_REFRESH_SAND_COST}`,
+    })
+    expect(save.treasureMines.vault.sandGold).toBe(0)
+    expect(save.diamonds).toBe(30)
+    expect(save.treasureMines.mines.some((mine) => mine.id === owned.id)).toBe(true)
+    expect(save.treasureMines.mines.some((mine) => mine.id === fighting.id)).toBe(true)
+    expect(save.treasureMines.mines.some((mine) => dropped.includes(mine.id))).toBe(false)
+
+    save.treasureMines.vault.sandGold = 99
+    const ids = save.treasureMines.mines.map((mine) => mine.id)
+    expect(refreshTreasureMineBoard(save, 'sandGold')).toEqual({
+      ok: false,
+      reason: sandShortTip(TREASURE_REFRESH_SAND_COST),
+    })
+    expect(save.treasureMines.vault.sandGold).toBe(99)
+    expect(save.diamonds).toBe(30)
+    expect(save.treasureMines.mines.map((mine) => mine.id)).toEqual(ids)
+
+    save.diamonds = TREASURE_REFRESH_COST
+    expect(refreshTreasureMineBoard(save, 'diamonds')).toEqual({
+      ok: true,
+      message: `钻石 −${TREASURE_REFRESH_COST}`,
+    })
+    expect(save.diamonds).toBe(0)
+    expect(save.treasureMines.vault.sandGold).toBe(99)
+    expect(save.treasureMines.mines.some((mine) => mine.id === owned.id)).toBe(true)
+    expect(save.treasureMines.mines.some((mine) => mine.id === fighting.id)).toBe(true)
   })
 })

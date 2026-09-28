@@ -494,6 +494,11 @@ export type TreasureRaid = {
   returning?: TreasureRaidReturnee[]
   /** 胜方仍在归来的名单。整队归来结束才占领。 */
   victors?: string[]
+  /**
+   * 本场已押、尚未结算的砂金。打赢或洞提前消失退回，打输没收。
+   * 旧档缺字段当 0，不补押、不退。
+   */
+  stakeSand?: number
 }
 
 export type TreasureRaidReturnee = {

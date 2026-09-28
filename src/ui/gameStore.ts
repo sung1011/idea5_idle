@@ -41,7 +41,10 @@ import {
   claimTreasureMine,
   refreshTreasureMineBoard,
   reinforceTreasureRaid,
+  scoutTreasureMine,
   startTreasureRaid,
+  takeTreasureVaultNotices,
+  type TreasureRefreshPay,
 } from '../sim/treasureMine'
 import { claimGuideQuest, markGuideQuestRuneOpened } from '../sim/guideQuest'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
@@ -98,9 +101,14 @@ export const useGameStore = defineStore('game', () => {
     })
     announceWorkerLevelUps(levels, save.value.workers)
     flushRestEats(true)
+    flushVaultNotices()
     offerWorkshopBanter(save.value, produced)
     notifyWorkshopHpEfficiency(save.value)
     persist()
+  }
+
+  function flushVaultNotices() {
+    for (const notice of takeTreasureVaultNotices()) pushFloatTip(notice.text, notice.kind)
   }
 
   function assignmentSnapshot(): Map<string, StationId | null> {
@@ -152,6 +160,7 @@ export const useGameStore = defineStore('game', () => {
     save.value = result.save
     notifyWorkshopHpEfficiency(save.value)
     flushRestEats(false)
+    flushVaultNotices()
     persist()
     return result
   }
@@ -295,12 +304,14 @@ export const useGameStore = defineStore('game', () => {
     claimDungeonChest: (encounterId: string) => apply((s) => claimDungeonChest(s, encounterId)),
     startTreasureRaid: (mineId: string, workerIds: string[], runePicks?: RunePickMap) =>
       apply((s) => startTreasureRaid(s, mineId, workerIds, runePicks)),
+    scoutTreasureMine: (mineId: string) => apply((s) => scoutTreasureMine(s, mineId)),
     reinforceTreasureRaid: (mineId: string, side: 'attack' | 'defend') =>
       apply((s) => reinforceTreasureRaid(s, mineId, side)),
     claimTreasureMine: (mineId: string, workerIds: string[]) =>
       apply((s) => claimTreasureMine(s, mineId, workerIds)),
     abandonTreasureMine: (mineId: string) => apply((s) => abandonTreasureMine(s, mineId)),
-    refreshTreasureMines: () => apply((s) => refreshTreasureMineBoard(s)),
+    refreshTreasureMines: (pay: TreasureRefreshPay = 'diamonds') =>
+      apply((s) => refreshTreasureMineBoard(s, pay)),
     setPlayerProfile: (name: string, avatarId: string) => apply((s) => applyPlayerProfile(s, name, avatarId)),
     claimLoot: (index: number) => apply((s) => claimLoot(s, index)),
     barter: (index: number) => apply((s) => barterMerchant(s, index)),

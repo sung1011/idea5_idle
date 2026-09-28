@@ -8,7 +8,7 @@ import { settleOffline } from './offline'
 import { spawnWorkerWith } from './recruit'
 import { attackIntervalMul } from './tech'
 import { isWorkerInTreasureMine } from './treasureMineQuery'
-import { startTreasureRaid, stepTreasureMines } from './treasureMine'
+import { raidStakeCost, startTreasureRaid as openTreasureRaid, stepTreasureMines } from './treasureMine'
 import type { EnemyEncounter, Save, TreasureMine } from './types'
 
 function testEnemy(): EnemyEncounter {
@@ -38,6 +38,14 @@ function restingIds(save: Save): string[] {
   return save.workers
     .filter((worker) => worker.assignment === null && !isWorkerInCombat(save, worker.id) && !isWorkerInTreasureMine(save, worker.id))
     .map((worker) => worker.id)
+}
+
+function startTreasureRaid(save: Save, mineId: string, workerIds: readonly string[]) {
+  const mine = save.treasureMines.mines.find((row) => row.id === mineId)
+  const need = raidStakeCost(mine?.shadows.length ?? 0)
+  const have = save.treasureMines.vault.sandGold ?? 0
+  if (have < need) save.treasureMines.vault.sandGold = have + need
+  return openTreasureRaid(save, mineId, workerIds)
 }
 
 function ensureGarrison(mine: TreasureMine): TreasureMine {

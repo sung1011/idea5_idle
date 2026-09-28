@@ -11,12 +11,19 @@ import { isFullCombatHp, restCombatCandidates } from '../sim/combat'
 import {
   TREASURE_CREW_CAP,
   TREASURE_KIND_LABEL,
+  TREASURE_KINDS,
   TREASURE_LABEL,
   TREASURE_REFRESH_COST,
+  TREASURE_REFRESH_SAND_COST,
+  TREASURE_SCOUT_COST,
   mineDigReadout,
   mineDigSpeedLabel,
+  mineFullyRevealed,
   mineRemainS,
   mineWeaknessSlots,
+  raidStakeCost,
+  sandShortTip,
+  type TreasureRefreshPay,
 } from '../sim/treasureMine'
 import { formatRemainClock, raidMarchCaption, raidPhaseOf } from '../sim/march'
 import type { RuneItemId, TreasureMine, Worker } from '../sim/types'
@@ -52,13 +59,19 @@ const digViews = computed(() => {
   }
   return views
 })
-const vaultLine = computed(() => {
-  const vault = game.save.treasureMines.vault
-  const bits = (Object.keys(TREASURE_LABEL) as (keyof typeof TREASURE_LABEL)[]).map(
-    (id) => `${TREASURE_LABEL[id]} ${vault[id] ?? 0}`,
-  )
-  return bits.join(' · ')
-})
+const sandOnHand = computed(() => game.save.treasureMines.vault.sandGold ?? 0)
+function vaultQtyOf(id: (typeof TREASURE_KINDS)[number]): number {
+  return game.save.treasureMines.vault[id] ?? 0
+}
+function shortSand(cost: number): boolean {
+  return sandOnHand.value < cost
+}
+function stakeOf(mine: TreasureMine): number {
+  return raidStakeCost(mine.shadows.length)
+}
+function showScout(mine: TreasureMine): boolean {
+  return mine.raid == null && !mineFullyRevealed(mine)
+}
 const idle = computed(() => restCombatCandidates(game.save))
 const pickKind = ref<'mine' | 'raid' | null>(null)
 const pickMineId = ref<string | null>(null)
@@ -139,6 +152,19 @@ function onRaidSlot(mine: TreasureMine, side: 'attack' | 'defend', index: number
   slotSheet.value = press.sheet
 }
 
+function onRaid(mine: TreasureMine) {
+  const cost = stakeOf(mine)
+  if (shortSand(cost)) {
+    pushFloatTip(sandShortTip(cost))
+    return
+  }
+  openPick('raid', mine.id)
+}
+
+function onRefresh(pay: TreasureRefreshPay) {
+  game.refreshTreasureMines(pay)
+}
+
 function confirmPick() {
   const mineId = pickMineId.value
   if (!mineId) return
@@ -155,8 +181,26 @@ function confirmPick() {
 <template>
   <section class="mines" aria-label="夺宝矿洞">
     <div class="vault-row">
-      <p class="vault">宝库 {{ vaultLine }}</p>
-      <button type="button" @click="game.refreshTreasureMines()">刷新 {{ TREASURE_REFRESH_COST }} 钻</button>
+      <ul class="vault" aria-label="宝库">
+        <li v-for="id in TREASURE_KINDS" :key="id">
+          <span>{{ TREASURE_LABEL[id] }}</span>
+          <b>{{ vaultQtyOf(id) }}</b>
+        </li>
+      </ul>
+      <div class="refresh">
+        <button
+          type="button"
+          :class="{ 'is-short': shortSand(TREASURE_REFRESH_SAND_COST) }"
+          :title="shortSand(TREASURE_REFRESH_SAND_COST) ? sandShortTip(TREASURE_REFRESH_SAND_COST) : undefined"
+          @click="onRefresh('sandGold')"
+        >刷新 {{ TREASURE_REFRESH_SAND_COST }} 砂金</button>
+        <button
+          type="button"
+          :class="{ 'is-short': game.save.diamonds < TREASURE_REFRESH_COST }"
+          :title="game.save.diamonds < TREASURE_REFRESH_COST ? '钻石不足' : undefined"
+          @click="onRefresh('diamonds')"
+        >刷新 {{ TREASURE_REFRESH_COST }} 钻</button>
+      </div>
     </div>
     <div class="board">
       <article v-for="mine in mines" :key="mine.id" class="card">
@@ -248,7 +292,20 @@ function confirmPick() {
           <i class="march-bar" aria-hidden="true"><b :style="{ width: `${Math.round(raidCaption(mine)!.progress * 100)}%` }" /></i>
         </p>
         <div class="row">
-          <button v-if="mine.owner === 'shadow' && !mine.raid" type="button" @click="openPick('raid', mine.id)">抢夺</button>
+          <button
+            v-if="showScout(mine)"
+            type="button"
+            :class="{ 'is-short': shortSand(TREASURE_SCOUT_COST) }"
+            :title="shortSand(TREASURE_SCOUT_COST) ? sandShortTip(TREASURE_SCOUT_COST) : undefined"
+            @click="game.scoutTreasureMine(mine.id)"
+          >侦察 {{ TREASURE_SCOUT_COST }} 砂金</button>
+          <button
+            v-if="mine.owner === 'shadow' && !mine.raid"
+            type="button"
+            :class="{ 'is-short': shortSand(stakeOf(mine)) }"
+            :title="shortSand(stakeOf(mine)) ? sandShortTip(stakeOf(mine)) : undefined"
+            @click="onRaid(mine)"
+          >抢夺 {{ stakeOf(mine) }} 砂金</button>
           <button v-if="mine.owner === 'empty' && !mine.raid" type="button" @click="openPick('mine', mine.id)">开采</button>
           <button v-if="mine.owner === 'player' && !mine.raid" type="button" @click="game.abandonTreasureMine(mine.id)">撤出</button>
         </div>
@@ -282,23 +339,66 @@ function confirmPick() {
 }
 
 .vault {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vault li {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 0;
+  padding: 2px 8px;
+  border: 2px solid var(--gold-deep);
+  border-radius: 999px;
+  background: var(--slot);
   font-size: 12px;
   font-weight: 700;
 }
 
+.vault b {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--copper);
+}
+
 .vault-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
 
-.vault-row button {
-  flex: 0 0 auto;
+.refresh {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.refresh button,
+.row button.is-short {
   margin: 0;
+}
+
+.refresh button {
   padding: 4px 8px;
   font-size: 12px;
+}
+
+.row button.is-short,
+.refresh button.is-short {
+  cursor: default;
+  color: var(--muted);
+  background: var(--btn-on);
+  box-shadow: none;
+  opacity: 0.62;
+  filter: grayscale(0.2);
 }
 
 .board {

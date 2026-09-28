@@ -2,8 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { createSave } from '../sim/createSave'
 import { stableMineAvatarId } from '../sim/treasureMine'
 import { spawnWorker } from '../sim/recruit'
-import { startTreasureRaid, stepTreasureMines } from '../sim/treasureMine'
-import type { TreasureMine } from '../sim/types'
+import { raidStakeCost, startTreasureRaid as openTreasureRaid, stepTreasureMines } from '../sim/treasureMine'
+import type { Save, TreasureMine } from '../sim/types'
+
+function startTreasureRaid(save: Save, mineId: string, workerIds: readonly string[]) {
+  const mine = save.treasureMines.mines.find((row) => row.id === mineId)
+  const need = raidStakeCost(mine?.shadows.length ?? 0)
+  const have = save.treasureMines.vault.sandGold ?? 0
+  if (have < need) save.treasureMines.vault.sandGold = have + need
+  return openTreasureRaid(save, mineId, workerIds)
+}
 
 function ensureGarrison(mine: TreasureMine): TreasureMine {
   if (mine.shadows.length > 0) {
@@ -324,7 +332,7 @@ describe('treasure raid hud', () => {
     expect(bars).toContain('hud.attack.slots')
     expect(panel).toContain('hud.defend.slots')
     expect(panel.indexOf('raidHuds(mine)')).toBeLessThan(panel.indexOf('class="raid-slots"'))
-    expect(panel.indexOf('class="raid-slots"')).toBeLessThan(panel.indexOf("openPick('raid'"))
+    expect(panel.indexOf('class="raid-slots"')).toBeLessThan(panel.indexOf('@click="onRaid(mine)"'))
     const slot = panel.slice(panel.indexOf('.raid-slot {'), panel.indexOf('.raid-slot.filled'))
     expect(slot).toMatch(/width:\s*18px/)
     expect(slot).toMatch(/height:\s*18px/)

@@ -36,7 +36,19 @@ export const TREASURE_LIFE_S = 60 * 60
 export const TREASURE_CREW_CAP = 3
 export const TREASURE_DIG_BASE_S = 5
 export const TREASURE_RAID_CAP = 3
+/** 钻石刷新价。与砂金价二选一。 */
 export const TREASURE_REFRESH_COST = 10
+
+/**
+ * 宝物消耗起步值，集中在这里方便以后改。
+ * 珠宝军械、古玉战旗、被袭加固继续往这组加，收支仍走宝库，不另开账。
+ */
+export const TREASURE_STAKE_PER_GUARD = 40
+export const TREASURE_SCOUT_COST = 20
+export const TREASURE_REFRESH_SAND_COST = 100
+
+/** 刷新付法。钻石走账号钻石，砂金走宝库。 */
+export type TreasureRefreshPay = 'sandGold' | 'diamonds'
 
 export const TREASURE_LABEL: Record<TreasureId, string> = {
   sandGold: '砂金',
@@ -100,6 +112,72 @@ export function rollTreasureDrop(kind: TreasureKind, roll: number): TreasureId {
 /** 我方入库漂字。数量写在后面，可叠。 */
 export function treasureDropTip(item: TreasureId, qty = 1): string {
   return `获得 ${TREASURE_LABEL[item]} ×${qty}`
+}
+
+export function sandShortTip(qty: number): string {
+  return `砂金不足，需要 ${qty}`
+}
+
+export function sandSpentTip(qty: number): string {
+  return `砂金 −${qty}`
+}
+
+export function stakePaidTip(qty: number): string {
+  return `押军费 −${qty}`
+}
+
+export function stakeRefundTip(qty: number): string {
+  return `退回军费 +${qty}`
+}
+
+export const STAKE_FORFEIT_TIP = '军费没收'
+
+/** 有守军才押。无人矿 0。 */
+export function raidStakeCost(guardCount: number): number {
+  const guards = Math.max(0, Math.floor(guardCount))
+  return guards * TREASURE_STAKE_PER_GUARD
+}
+
+export type TreasureVaultNotice = {
+  mineId: string
+  text: string
+  kind: 'ok' | 'err'
+}
+
+const vaultNotices: TreasureVaultNotice[] = []
+
+function noteVault(mineId: string, text: string, kind: TreasureVaultNotice['kind']): void {
+  vaultNotices.push({ mineId, text, kind })
+}
+
+/** 战斗结算时的退款 / 没收。界面在 tick 后取走漂字。 */
+export function takeTreasureVaultNotices(): TreasureVaultNotice[] {
+  if (!vaultNotices.length) return []
+  return vaultNotices.splice(0, vaultNotices.length)
+}
+
+/** 宝库数量。缺字段、负数、非数都当 0。珠宝和古玉以后也走这里。 */
+export function vaultQty(save: Save, id: TreasureId): number {
+  const raw = ensureTreasureMines(save).vault[id]
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return 0
+  return Math.max(0, Math.floor(raw))
+}
+
+export function addVault(save: Save, id: TreasureId, qty: number): void {
+  const gain = Math.floor(qty)
+  if (gain <= 0) return
+  const state = ensureTreasureMines(save)
+  state.vault[id] = vaultQty(save, id) + gain
+}
+
+/** 不够则不动。0 及以下视为不用花。 */
+export function trySpendVault(save: Save, id: TreasureId, qty: number): boolean {
+  const cost = Math.floor(qty)
+  if (cost <= 0) return true
+  const have = vaultQty(save, id)
+  if (have < cost) return false
+  ensureTreasureMines(save).vault[id] = have - cost
+  return true
 }
 
 /** 新刷快照守军的显示名。同一局里优先没用过的，名单用尽才重复。 */
@@ -210,6 +288,7 @@ export function hydrateTreasureMines(save: Save): void {
         mine.shadows.map((shadow) => shadow.id),
       )
       ensureRaidVitals(save, mine)
+      mine.raid.stakeSand = keptStake(mine.raid.stakeSand)
     }
     if (mine.owner !== 'player' && mine.owner !== 'shadow' && mine.owner !== 'empty') {
       mine.owner = mine.shadows.length > 0 ? 'shadow' : 'empty'
@@ -229,15 +308,21 @@ function isTreasureRefreshKept(mine: TreasureMine): boolean {
 }
 
 /**
- * 花钻石换一批没在参与的洞。保留战斗中与我方开采，保留洞不拆开采队伍。
+ * 花砂金或钻石换一批没在参与的洞。保留战斗中与我方开采，保留洞不拆开采队伍。
  * 无人矿、敌人驻守且无抢夺的照常换新。
- * 四洞都在保留里、或钻石不够时不扣钻。
+ * 四洞都在保留里、或所选货币不够时不扣。
  */
-export function refreshTreasureMineBoard(save: Save): ActionResult {
+export function refreshTreasureMineBoard(save: Save, pay: TreasureRefreshPay = 'diamonds'): ActionResult {
   const state = ensureTreasureMines(save)
   if (!state.mines.some((mine) => !isTreasureRefreshKept(mine))) return { ok: false, reason: '没有可刷新的矿洞' }
-  if (save.diamonds < TREASURE_REFRESH_COST) return { ok: false, reason: '钻石不足' }
-  save.diamonds -= TREASURE_REFRESH_COST
+  if (pay === 'sandGold') {
+    if (!trySpendVault(save, 'sandGold', TREASURE_REFRESH_SAND_COST)) {
+      return { ok: false, reason: sandShortTip(TREASURE_REFRESH_SAND_COST) }
+    }
+  } else {
+    if (save.diamonds < TREASURE_REFRESH_COST) return { ok: false, reason: '钻石不足' }
+    save.diamonds -= TREASURE_REFRESH_COST
+  }
   const kept: TreasureMine[] = []
   for (const mine of state.mines) {
     if (isTreasureRefreshKept(mine)) {
@@ -250,7 +335,8 @@ export function refreshTreasureMineBoard(save: Save): ActionResult {
   while (state.mines.length < TREASURE_MINE_CAP) {
     state.mines.push(spawnMine(save, save.elapsedS))
   }
-  return { ok: true, message: '已刷新矿洞' }
+  const spent = pay === 'sandGold' ? sandSpentTip(TREASURE_REFRESH_SAND_COST) : `钻石 −${TREASURE_REFRESH_COST}`
+  return { ok: true, message: spent }
 }
 
 function releaseMineCrew(save: Save, mine: TreasureMine): void {
@@ -340,6 +426,31 @@ export function abandonTreasureMine(save: Save, mineId: string): ActionResult {
   return { ok: true, message: '已放弃矿洞' }
 }
 
+/** 弱点是否都已揭开。没有弱点表不算揭开。 */
+export function mineFullyRevealed(mine: TreasureMine): boolean {
+  const weaknesses = (mine.weaknesses ?? []).filter(isCombatAttrId)
+  if (!weaknesses.length) return false
+  const revealed = new Set(Array.isArray(mine.revealedWeaknesses) ? mine.revealedWeaknesses : [])
+  return weaknesses.every((id) => revealed.has(id))
+}
+
+/**
+ * 出兵前花砂金，揭开该洞全部弱点。
+ * 揭开后留到洞消失，和开采 / 开战记下的是同一份。已揭开不再收费。
+ */
+export function scoutTreasureMine(save: Save, mineId: string): ActionResult {
+  const mine = findMine(save, mineId)
+  if (!mine) return { ok: false, reason: '没有这个矿洞' }
+  if (mine.raid) return { ok: false, reason: '这洞抢夺进行中' }
+  mine.weaknesses = mineWeaknessesOf(mine)
+  if (mineFullyRevealed(mine)) return { ok: false, reason: '弱点已经揭开' }
+  if (!trySpendVault(save, 'sandGold', TREASURE_SCOUT_COST)) {
+    return { ok: false, reason: sandShortTip(TREASURE_SCOUT_COST) }
+  }
+  mine.revealedWeaknesses = [...mine.weaknesses]
+  return { ok: true, message: sandSpentTip(TREASURE_SCOUT_COST) }
+}
+
 /** 只锁这一洞。其它洞的抢夺和开采不看这里。 */
 export function isTreasureRaidLocked(mine: TreasureMine): boolean {
   return mine.raid != null
@@ -370,13 +481,16 @@ export function startTreasureRaid(
     if (busy) return { ok: false, reason: `${worker.name ?? worker.id} ${busy}` }
     party.push(worker)
   }
+  const stake = raidStakeCost(mine.shadows.length)
+  if (vaultQty(save, 'sandGold') < stake) return { ok: false, reason: sandShortTip(stake) }
   const runes = confirmableRunePicks(save, runePicks, workerIds)
   const spent = consumeRunePicks(save, runes)
   if (!spent.ok) return spent
+  trySpendVault(save, 'sandGold', stake)
   for (const worker of party) clearWorkerNew(save, worker.id)
-  mine.raid = openRaid(save, mine, party, runes)
+  mine.raid = openRaid(save, mine, party, runes, stake)
   for (const worker of party) revealMineWeaknesses(mine, worker.combatAttrs)
-  return { ok: true, message: '已向快照守军抢夺' }
+  return { ok: true, message: stakePaidTip(stake) }
 }
 
 /**
@@ -400,6 +514,7 @@ function openRaid(
   mine: TreasureMine,
   party: Worker[],
   runes: Partial<Record<string, RuneItemId>>,
+  stakeSand: number,
 ): TreasureRaid {
   const attackSlots = raidSlotSnapshot(party.map((worker) => worker.id))
   const defendSlots = raidSlotSnapshot(mine.shadows.map((shadow) => shadow.id))
@@ -438,6 +553,7 @@ function openRaid(
     phaseStartedAtS: save.elapsedS,
     phaseEndsAtS: save.elapsedS + marchDurationS(save),
     returning: [],
+    stakeSand,
   }
   loadAttacker(save, raid, false)
   loadDefender(mine, raid, null)
@@ -504,7 +620,10 @@ function settleRaidReturns(save: Save, raid: TreasureRaid): void {
   for (const id of arrived) offerRestFood(save, id, save.lastTick || 0)
 }
 
-function beginRaidHome(save: Save, raid: TreasureRaid, outcome: 'win' | 'lose', atS: number): void {
+function beginRaidHome(save: Save, mine: TreasureMine, outcome: 'win' | 'lose', atS: number): void {
+  const raid = mine.raid
+  if (!raid) return
+  settleRaidStake(save, mine, outcome)
   const dur = marchDurationS(save)
   raid.phase = outcome === 'win' ? 'marchHomeWin' : 'marchHomeLose'
   raid.phaseStartedAtS = atS
@@ -561,7 +680,7 @@ function stepRaid(save: Save, mine: TreasureMine): void {
         mine.shadows.shift()
         delete mine.digCharge[shadow.id]
         if (!mine.shadows.length) {
-          beginRaidHome(save, raid, 'win', atS)
+          beginRaidHome(save, mine, 'win', atS)
           finishRaidHome(save, mine, raid)
           return
         }
@@ -582,7 +701,7 @@ function stepRaid(save: Save, mine: TreasureMine): void {
           if (worker) worker.hp = 0
         }
         if (!raid.queue.length) {
-          beginRaidHome(save, raid, 'lose', atS)
+          beginRaidHome(save, mine, 'lose', atS)
           finishRaidHome(save, mine, raid)
           return
         }
@@ -592,10 +711,10 @@ function stepRaid(save: Save, mine: TreasureMine): void {
     }
   }
   if (!mine.shadows.length && mine.raid && raidPhaseOf(mine.raid) === 'fighting') {
-    beginRaidHome(save, mine.raid, 'win', save.elapsedS)
+    beginRaidHome(save, mine, 'win', save.elapsedS)
     finishRaidHome(save, mine, mine.raid)
   } else if (mine.raid && !mine.raid.queue.length && raidPhaseOf(mine.raid) === 'fighting') {
-    beginRaidHome(save, mine.raid, 'lose', save.elapsedS)
+    beginRaidHome(save, mine, 'lose', save.elapsedS)
     finishRaidHome(save, mine, mine.raid)
   }
 }
@@ -656,7 +775,7 @@ function stepDig(save: Save, mine: TreasureMine, onDrop?: TreasureDropSink): voi
     mine.reserve -= 1
     if (!toVault) continue
     const item = rollTreasureDrop(mine.kind, nextMineRoll(save.treasureMines))
-    save.treasureMines.vault[item] = (save.treasureMines.vault[item] ?? 0) + 1
+    addVault(save, item, 1)
     onDrop?.({ mineId: mine.id, item, qty: 1 })
   }
   mine.digCharge = { [TREASURE_HOLE_DIG]: charge < 1e-9 ? 0 : charge }
@@ -934,7 +1053,28 @@ function sendHome(save: Save, workerId: string, hp: number): void {
   offerRestFood(save, workerId)
 }
 
+function keptStake(raw: unknown): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return 0
+  return Math.floor(raw)
+}
+
+/** 胜退、负没收、洞没了还没分出胜负则退。只结一次。 */
+function settleRaidStake(save: Save, mine: TreasureMine, outcome: 'win' | 'lose' | 'abort'): void {
+  const raid = mine.raid
+  if (!raid) return
+  const stake = keptStake(raid.stakeSand)
+  raid.stakeSand = 0
+  if (stake <= 0) return
+  if (outcome === 'lose') {
+    noteVault(mine.id, STAKE_FORFEIT_TIP, 'err')
+    return
+  }
+  addVault(save, 'sandGold', stake)
+  noteVault(mine.id, stakeRefundTip(stake), 'ok')
+}
+
 function releaseRaid(save: Save, mine: TreasureMine): void {
+  if (mine.raid && keptStake(mine.raid.stakeSand) > 0) settleRaidStake(save, mine, 'abort')
   const raid = mine.raid
   mine.raid = null
   if (!raid) return
