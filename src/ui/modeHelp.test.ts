@@ -30,6 +30,8 @@ describe('mode help', () => {
     expect(treasure).toContain('洞种不同，掉落偏重不同')
     expect(treasure).toContain('一半没有守军')
     expect(treasure).toContain('开采快 1 秒')
+    expect(treasure).toContain('战旗栏')
+    expect(treasure).toContain('古玉')
     expect(treasure).not.toContain('三分之一')
     expect(treasure).not.toContain('补采')
     expect(treasure).not.toContain('影矿卫')

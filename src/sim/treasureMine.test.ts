@@ -40,6 +40,7 @@ import {
   assaultLootTip,
   bannerFrameOf,
   bannerLevelOf,
+  bannerUpgradeReady,
   fortifyTreasureMine,
   treasureAssaultWarning,
   bannerReserveMax,
@@ -1344,6 +1345,23 @@ describe('treasure jade banner', () => {
     expect(bannerFrameOf(3)).toBe('silver')
     expect(bannerFrameOf(4)).toBe('silver')
     expect(bannerFrameOf(5)).toBe('gold')
+  })
+
+  it('marks the banner ready only when jade covers the next level', () => {
+    const save = createSave()
+    expect(bannerUpgradeReady(save)).toBe(false)
+    save.treasureMines.vault.jade = 149
+    expect(bannerUpgradeReady(save)).toBe(false)
+    save.treasureMines.vault.jade = 150
+    expect(bannerUpgradeReady(save)).toBe(true)
+    save.treasureMines.bannerLevel = 4
+    save.treasureMines.vault.jade = 1599
+    expect(bannerUpgradeReady(save)).toBe(false)
+    save.treasureMines.vault.jade = 1600
+    expect(bannerUpgradeReady(save)).toBe(true)
+    save.treasureMines.bannerLevel = TREASURE_BANNER_MAX
+    save.treasureMines.vault.jade = 9999
+    expect(bannerUpgradeReady(save)).toBe(false)
   })
 
   it('raises only newly spawned reserve and garrison level', () => {

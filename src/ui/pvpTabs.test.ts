@@ -4,20 +4,67 @@ import panel from './pvpPanel.vue?raw'
 import mine from './treasureMinePanel.vue?raw'
 import banner from './treasureBannerPanel.vue?raw'
 import avatar from './playerAvatar.vue?raw'
+import { PVP_TAB_KEY, pvpViewOf, settlePvpTab } from './pvpTabs'
+
+function memory(): Storage {
+  const bag = new Map<string, string>()
+  return {
+    get length() {
+      return bag.size
+    },
+    clear() {
+      bag.clear()
+    },
+    getItem(key: string) {
+      return bag.has(key) ? bag.get(key)! : null
+    },
+    key(index: number) {
+      return [...bag.keys()][index] ?? null
+    },
+    removeItem(key: string) {
+      bag.delete(key)
+    },
+    setItem(key: string, value: string) {
+      bag.set(key, value)
+    },
+  }
+}
 
 describe('pvp treasure tab', () => {
-  it('shows 夺宝 and 战旗 in the PVE-style strip', () => {
-    expect(panel).toContain('aria-label="PVP分页"')
-    expect(panel).toContain('class="sub"')
-    expect(panel).toContain('夺宝')
+  it('opens 夺宝 directly, with no sub tabs', () => {
+    expect(panel).not.toContain('role="tablist"')
+    expect(panel).not.toContain('aria-label="PVP分页"')
     expect(panel).not.toContain('军械铺')
-    expect(panel).toContain('战旗')
-    expect(panel).toContain('<TreasureMinePanel')
     expect(panel).not.toContain('TreasureArmoryPanel')
-    expect(panel).toContain('<TreasureBannerPanel')
-    expect(panel).toContain("modeHelpOf('banner')")
-    expect(mine).toContain('增援 {{ TREASURE_REINFORCE_COST }} 珠宝')
-    expect(mine).not.toContain('补位')
+    expect(panel).not.toContain('<TreasureBannerPanel')
+    expect(panel).not.toContain("modeHelpOf('banner')")
+    expect(panel).toContain("modeHelpOf('treasure')")
+    expect(panel).toContain('settlePvpTab')
+    expect(panel).toContain('<TreasureMinePanel')
+    expect(pvpViewOf('banner')).toBe('treasure')
+    expect(pvpViewOf('armory')).toBe('treasure')
+    expect(pvpViewOf('treasure')).toBe('treasure')
+    expect(pvpViewOf(null)).toBe('treasure')
+    const store = memory()
+    store.setItem(PVP_TAB_KEY, 'banner')
+    expect(settlePvpTab(store)).toBe('treasure')
+    expect(store.getItem(PVP_TAB_KEY)).toBe('treasure')
+    store.setItem(PVP_TAB_KEY, 'armory')
+    expect(settlePvpTab(store)).toBe('treasure')
+    expect(store.getItem(PVP_TAB_KEY)).toBe('treasure')
+    const empty = memory()
+    expect(settlePvpTab(empty)).toBe('treasure')
+    expect(empty.getItem(PVP_TAB_KEY)).toBeNull()
+  })
+
+  it('shows banner level and jade on a bar, and upgrades in a sheet', () => {
+    expect(mine).toContain('class="banner-bar"')
+    expect(mine).toContain('aria-label="战旗"')
+    expect(mine).toContain('战旗 Lv{{ bannerLevel() }}')
+    expect(mine).toContain('古玉 <b>{{ jadeOnHand() }}</b>')
+    expect(mine).toContain('bannerUpgradeReady')
+    expect(mine).toContain('class="banner-dot"')
+    expect(mine).toContain('<TreasureBannerPanel')
     expect(mine).toContain('class="tags"')
     expect(mine).toContain('class="board"')
     expect(mine).toContain('aria-label="宝库"')
@@ -26,19 +73,28 @@ describe('pvp treasure tab', () => {
     expect(mine).toContain("onRefresh('sandGold')")
     expect(mine).toContain("onRefresh('diamonds')")
     expect(mine).toContain('侦察 {{ TREASURE_SCOUT_COST }} 砂金')
+    expect(banner).toContain('class="mask"')
+    expect(banner).toContain('@click.self="emit(\'close\')"')
+    expect(banner).toContain('关闭')
     expect(banner).toContain('aria-label="战旗"')
+    expect(banner).toContain('战旗 Lv{{ level() }}')
     expect(banner).toContain('已满')
     expect(banner).toContain('is-short')
     expect(banner).toContain('升级 {{ cost() }} 古玉')
+    expect(banner).toContain('upgradeTreasureBanner')
     expect(avatar).toContain('frame-copper')
     expect(avatar).toContain('frame-silver')
     expect(avatar).toContain('frame-gold')
+    expect(mine).toContain('增援 {{ TREASURE_REINFORCE_COST }} 珠宝')
+    expect(mine).not.toContain('补位')
     expect(mine).toContain('即将来袭')
     expect(mine).toContain('已加固')
     expect(mine).toContain('加固 {{ TREASURE_FORTIFY_COST }} 珠宝')
-    expect(panel).toContain('treasureAssaultWarning')
-    expect(panel).toContain('class="tab-dot"')
     expect(app).toContain('treasureAssaultWarning')
+    expect(app).not.toContain('bannerUpgradeReady')
+    expect(app).not.toContain('banner-dot')
+    expect(panel).not.toContain('treasureAssaultWarning')
+    expect(panel).not.toContain('banner-dot')
     expect(mine).toContain('抢夺 {{ stakeOf(mine) }} 砂金')
     expect(mine).toContain('is-short')
     const tags = mine.slice(mine.indexOf('class="tags"'), mine.indexOf('</span>', mine.indexOf('class="tags"')))

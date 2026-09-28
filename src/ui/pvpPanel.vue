@@ -1,50 +1,22 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { treasureAssaultWarning } from '../sim/treasureMine'
+import { ref } from 'vue'
 import ModeHelpSheet from './modeHelpSheet.vue'
 import { modeHelpOf } from './modeHelp'
-import TreasureBannerPanel from './treasureBannerPanel.vue'
+import { settlePvpTab } from './pvpTabs'
 import TreasureMinePanel from './treasureMinePanel.vue'
-import { useGameStore } from './gameStore'
 
-const PVP_TABS = [
-  { id: 'treasure', label: '夺宝' },
-  { id: 'banner', label: '战旗' },
-] as const
-
-type PvpTabId = (typeof PVP_TABS)[number]['id']
-
-const game = useGameStore()
-const assaultAlert = computed(() => treasureAssaultWarning(game.save))
-const tab = ref<PvpTabId>('treasure')
+settlePvpTab()
 const helpOpen = ref(false)
-const treasureHelp = modeHelpOf('treasure')
-const bannerHelp = modeHelpOf('banner')
-const help = computed(() => (tab.value === 'banner' ? bannerHelp : treasureHelp))
+const help = modeHelpOf('treasure')
 </script>
 
 <template>
   <section class="panel">
-    <h2 class="title">PVP</h2>
-    <div class="board-nav">
-      <nav class="sub" role="tablist" aria-label="PVP分页">
-        <button
-          v-for="item in PVP_TABS"
-          :key="item.id"
-          type="button"
-          role="tab"
-          :aria-selected="tab === item.id"
-          :class="{ on: tab === item.id, alert: item.id === 'treasure' && assaultAlert }"
-          @click="tab = item.id"
-        >
-          {{ item.label }}
-          <i v-if="item.id === 'treasure' && assaultAlert" class="tab-dot" />
-        </button>
-      </nav>
+    <div class="head">
+      <h2 class="title">PVP</h2>
       <button type="button" class="mode-help" aria-label="玩法说明" @click="helpOpen = true">？</button>
     </div>
-    <TreasureMinePanel v-if="tab === 'treasure'" />
-    <TreasureBannerPanel v-else />
+    <TreasureMinePanel />
     <ModeHelpSheet v-if="helpOpen" :title="help.title" :rows="help.rows" @close="helpOpen = false" />
   </section>
 </template>
@@ -57,74 +29,20 @@ const help = computed(() => (tab.value === 'banner' ? bannerHelp : treasureHelp)
   padding: 12px 12px 10px;
 }
 
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .title {
   margin: 0;
   font-size: 20px;
 }
 
-.board-nav {
-  display: flex;
-  align-items: stretch;
-  flex-wrap: nowrap;
-  gap: 8px;
-}
-
-.board-nav .sub {
-  flex: 1 1 0;
-  min-width: 0;
-}
-
-.sub {
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
-  padding: 3px;
-  border: 2px solid var(--gold);
-  border-radius: var(--radius-pill);
-  background: linear-gradient(180deg, #fffef8 0%, #fff3d4 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
-}
-
-.sub button {
-  position: relative;
-  flex: 1 1 0;
-  min-height: 32px;
-  padding: 4px 10px;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  box-shadow: none;
-  color: var(--muted);
-  font-family: var(--font-display);
-  font-size: 14px;
-  letter-spacing: 0.08em;
-  opacity: 1;
-  filter: none;
-}
-
-.sub button.on,
-.sub button.on:hover:not(:disabled) {
-  color: var(--ink);
-  background: linear-gradient(#ffe27a, #f0b83a);
-  box-shadow: 0 2px 6px rgba(212, 160, 23, 0.32);
-  opacity: 1;
-  filter: none;
-}
-
-.tab-dot {
-  position: absolute;
-  top: 4px;
-  right: 8px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--danger);
-  box-shadow: 0 0 0 2px #fff8df;
-}
-
 .mode-help {
   flex: 0 0 32px;
-  align-self: center;
   width: 32px;
   min-width: 32px;
   height: 32px;

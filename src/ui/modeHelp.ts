@@ -11,7 +11,7 @@ export type ModeHelp = {
   rows: ModeHelpRow[]
 }
 
-/** 夺宝 / 战场 / 地牢 / 商场的玩法说明。文案按现行规则写死。 */
+/** 夺宝 / 战旗 / 战场 / 地牢 / 商场的玩法说明。文案按现行规则写死。战旗从夺宝顶部栏打开。 */
 export const MODE_HELP: Record<ModeHelpId, ModeHelp> = {
   treasure: {
     id: 'treasure',
@@ -27,7 +27,7 @@ export const MODE_HELP: Record<ModeHelpId, ModeHelp> = {
       },
       {
         label: '注意',
-        text: '不能再开。侦察 20 砂金揭弱点。刷新 100 砂金或 10 钻，保留战斗中与我方开采。洞被袭可花 60 珠宝增援一次，也可花 60 珠宝加固一层。',
+        text: '不能再开。侦察 20 砂金揭弱点。刷新 100 砂金或 10 钻，保留战斗中与我方开采。洞被袭可花 60 珠宝增援一次，也可花 60 珠宝加固一层。顶部战旗栏花古玉升级，最高 5 级。',
       },
     ],
   },
@@ -37,7 +37,7 @@ export const MODE_HELP: Record<ModeHelpId, ModeHelp> = {
     rows: [
       {
         label: '怎么玩',
-        text: '花古玉升级战旗，最高 5 级。不够时按钮变灰，并提示还差多少。',
+        text: '夺宝顶部战旗栏点开。花古玉升级，最高 5 级。不够时按钮变灰，并写还差多少。',
       },
       {
         label: '规则要点',

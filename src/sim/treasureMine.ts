@@ -239,6 +239,13 @@ export function bannerNextRewards(level: number): string[] {
   return lines
 }
 
+/** 古玉够升下一级。已满或不够都不算，界面只在战旗栏上用这个亮红点。 */
+export function bannerUpgradeReady(save: Save): boolean {
+  const cost = bannerUpgradeCost(bannerLevelOf(save))
+  if (cost == null) return false
+  return vaultQty(save, 'jade') >= cost
+}
+
 /** 花古玉升 1 级。不够或已满都不扣。已有矿洞不改。 */
 export function upgradeTreasureBanner(save: Save): ActionResult {
   const state = ensureTreasureMines(save)

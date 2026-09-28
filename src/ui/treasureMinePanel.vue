@@ -26,6 +26,8 @@ import {
   mineWeaknessSlots,
   raidStakeCost,
   sandShortTip,
+  bannerLevelOf,
+  bannerUpgradeReady,
   treasureCrewCap,
   treasureRaidOpenForReinforce,
   vaultQty,
@@ -34,11 +36,26 @@ import {
 import { formatRemainClock, raidMarchCaption, raidPhaseOf } from '../sim/march'
 import type { RuneItemId, TreasureMine, Worker } from '../sim/types'
 import CombatPickSheet from './combatPickSheet.vue'
+import TreasureBannerPanel from './treasureBannerPanel.vue'
 import TreasureMineTips from './treasureMineTips.vue'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
 
 const game = useGameStore()
+const bannerOpen = ref(false)
+
+function bannerLevel(): number {
+  return bannerLevelOf(game.save)
+}
+
+function jadeOnHand(): number {
+  return vaultQty(game.save, 'jade')
+}
+
+function bannerReady(): boolean {
+  return bannerUpgradeReady(game.save)
+}
+
 function raidCaption(mine: TreasureMine) {
   return raidMarchCaption(mine, raidElapsed())
 }
@@ -277,6 +294,11 @@ function confirmPick() {
 
 <template>
   <section class="mines" aria-label="夺宝矿洞">
+    <button type="button" class="banner-bar" aria-label="战旗" @click="bannerOpen = true">
+      <span>战旗 Lv{{ bannerLevel() }}</span>
+      <span class="banner-jade">古玉 <b>{{ jadeOnHand() }}</b></span>
+      <i v-if="bannerReady()" class="banner-dot" />
+    </button>
     <div class="vault-row">
       <ul class="vault" aria-label="宝库">
         <li v-for="id in TREASURE_KINDS" :key="id">
@@ -445,6 +467,7 @@ function confirmPick() {
       @update:runes="runes = $event"
     />
     <ModeHelpSheet v-if="slotSheet" :title="slotSheet.title" :rows="slotSheet.rows" @close="slotSheet = null" />
+    <TreasureBannerPanel v-if="bannerOpen" @close="bannerOpen = false" />
   </section>
 </template>
 
@@ -453,6 +476,44 @@ function confirmPick() {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.banner-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  margin: 0;
+  padding: 4px 18px 4px 12px;
+  border: var(--border) solid var(--gold);
+  border-radius: var(--radius-card);
+  background-color: var(--plate);
+  background-image: var(--paper-grain), linear-gradient(180deg, #fffef8 0%, #fff3d8 100%);
+  background-blend-mode: multiply, normal;
+  box-shadow: 0 2px 0 var(--gold-deep);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.banner-jade b {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--copper);
+}
+
+.banner-dot {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 2px #fff8df;
 }
 
 .vault {
