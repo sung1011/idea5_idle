@@ -294,6 +294,125 @@ button.on:disabled {
   fill: currentColor;
 }
 
+button.act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 800;
+}
+
+button.act .lab {
+  line-height: 1.2;
+}
+
+button.act .cost {
+  margin-left: auto;
+  font-size: 0.82em;
+  font-weight: 800;
+}
+
+button.act.primary {
+  flex: 1 1 100%;
+  width: 100%;
+  min-height: 48px;
+  font-size: 16px;
+}
+
+button.act.primary.combat {
+  border-color: #8d241c;
+  background: linear-gradient(#e85a4c, #c43228);
+  color: #fff8f4;
+  box-shadow: 0 3px 0 #7a1c16;
+}
+
+button.act.primary.gain {
+  border-color: #246b22;
+  background: linear-gradient(#6fbe4a, #3d8a34);
+  color: #f4fff0;
+  box-shadow: 0 3px 0 #1f5c1c;
+}
+
+button.act.primary.produce {
+  min-height: 46px;
+  font-size: 15px;
+  border-color: #8a5a10;
+  background: linear-gradient(#f0b43a, #d4891a);
+  color: #3a2410;
+  box-shadow: 0 3px 0 #8a5410;
+}
+
+button.act.primary.combat:disabled,
+button.act.primary.gain:disabled,
+button.act.primary.produce:disabled,
+button.act.primary.combat.is-short,
+button.act.primary.gain.is-short,
+button.act.primary.produce.is-short {
+  color: var(--muted);
+  background: var(--btn-on);
+  border-color: #c8bba4;
+  box-shadow: none;
+  opacity: 0.62;
+  filter: grayscale(0.2);
+}
+
+button.act.minor {
+  flex: 0 0 auto;
+  width: auto;
+  min-height: 26px;
+  padding: 1px 8px;
+  gap: 4px;
+  border: 1.5px solid #9a9286;
+  border-radius: 999px;
+  background: #f6f4f0;
+  color: #6d665c;
+  box-shadow: none;
+  font-size: 11px;
+}
+
+button.act.minor .act-ico {
+  width: 14px;
+  height: 14px;
+}
+
+button.act.minor.is-short,
+button.act.minor:disabled {
+  color: #a39c92;
+  background: #f3f1ec;
+  box-shadow: none;
+  opacity: 0.62;
+}
+
+button.act.danger {
+  flex: 0 0 auto;
+  width: auto;
+  align-self: flex-end;
+  margin-left: auto;
+  min-height: 22px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #b42318;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+button.act.danger:hover:not(:disabled),
+button.act.danger:active:not(:disabled) {
+  transform: none;
+  filter: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+button.act.danger .act-ico {
+  width: 14px;
+  height: 14px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --motion: 0.01ms;

@@ -11,6 +11,9 @@ import {
 } from '../sim/runes'
 import { isRuneItemId, RUNE_DEF } from '../sim/tables'
 import type { RuneItemId, Worker } from '../sim/types'
+import ActButton from './actButton.vue'
+import ActIcon from './actIcon.vue'
+import type { ActIconId } from './actIcons'
 import CombatAttrRow from './combatAttrRow.vue'
 import { enemyPickCopy, type EnemyPickMode } from './enemyCardAction'
 import { pushFloatTip } from './floatTips'
@@ -35,6 +38,8 @@ const props = withDefaults(
     slotOffset?: number
     titleText?: string
     confirmText?: string
+    confirmIcon?: ActIconId
+    confirmTone?: 'combat' | 'gain' | 'produce'
     noteText?: string
     recommendLabel?: (worker: Worker) => string | null
     canPick?: (worker: Worker) => boolean
@@ -150,7 +155,10 @@ function closeAll() {
 <template>
   <div v-if="open" class="modal" role="dialog" :aria-label="sheetTitle" @click.self="closeAll">
     <div class="sheet">
-      <p>{{ sheetTitle }}（最多 {{ max }} 人）</p>
+      <div class="sheet-head">
+        <p>{{ sheetTitle }}（最多 {{ max }} 人）</p>
+        <ActButton v-if="showAssist" icon="invite" kind="minor" @click="emit('invite')">邀请</ActButton>
+      </div>
       <p class="hint">{{ hint }}</p>
       <p v-if="noteText" class="hint">{{ noteText }}</p>
       <ul class="pick-list">
@@ -200,14 +208,14 @@ function closeAll() {
         <span class="act-hit" @click="supplyBlocked && emit('supply-warn')">
           <button
             type="button"
-            :class="{ 'guide-flash': guideFlashConfirm }"
+            :class="[confirmTone ? ['act', 'primary', confirmTone] : '', { 'guide-flash': guideFlashConfirm }]"
             :disabled="!picked.length || supplyBlocked"
             @click.stop="emit('confirm')"
           >
-            {{ sheetConfirm }}
+            <ActIcon v-if="confirmIcon" :name="confirmIcon" />
+            <span>{{ sheetConfirm }}</span>
           </button>
         </span>
-        <button v-if="showAssist" type="button" @click="emit('invite')">邀请</button>
       </div>
     </div>
   </div>
@@ -237,7 +245,7 @@ function closeAll() {
         </li>
       </ul>
       <div class="row">
-        <button type="button" @click="closeRunePick">关闭</button>
+        <ActButton icon="close" kind="minor" @click="closeRunePick">关闭</ActButton>
       </div>
     </div>
   </div>
@@ -278,6 +286,13 @@ function closeAll() {
   font-size: 14px;
 }
 
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .row {
   display: flex;
   flex-wrap: wrap;
@@ -286,6 +301,12 @@ function closeAll() {
 
 .act-hit {
   display: inline-flex;
+}
+
+.row > .act-hit:has(.act.primary) {
+  display: flex;
+  flex: 1 1 100%;
+  width: 100%;
 }
 
 .act-hit > :disabled {

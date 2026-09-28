@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ENEMY_RANK_LABEL, enemyWeaknessView, fighterRecommendLabel } from '../sim/combatAttrs'
+import ActButton from './actButton.vue'
+import ActIcon from './actIcon.vue'
 import CombatAttrIcon from './combatAttrIcon.vue'
 import CombatPickSheet from './combatPickSheet.vue'
+import { BATTLEFIELD_ACTS, MARKET_ACTS, MARKET_DONE_ACT } from './orderAct'
 import {
   canReinforceCombat,
   combatPartyCap,
@@ -446,11 +449,25 @@ function timedLine(enc: Encounter) {
           {{ MAINLINE_DENSITY_LABELS[id] }}
         </button>
       </nav>
-      <button type="button" class="mode-help" aria-label="玩法说明" @click="helpOpen = true">？</button>
+      <ActButton
+        :icon="BATTLEFIELD_ACTS.help.icon"
+        :kind="BATTLEFIELD_ACTS.help.kind"
+        aria-label="玩法说明"
+        @click="helpOpen = true"
+      >{{ BATTLEFIELD_ACTS.help.label }}</ActButton>
     </div>
     <ModeHelpSheet v-if="helpOpen" :title="help.title" :rows="help.rows" @close="helpOpen = false" />
     <div class="chapter-head">
-      <p class="chapter">{{ chapterTitle }}</p>
+      <div class="chapter-line">
+        <p class="chapter">{{ chapterTitle }}</p>
+        <ActButton
+          v-if="!isDungeonTab"
+          :icon="BATTLEFIELD_ACTS.explore.icon"
+          :kind="BATTLEFIELD_ACTS.explore.kind"
+          :cost="`${cost} 金`"
+          @click="onExplore"
+        >{{ BATTLEFIELD_ACTS.explore.label }}</ActButton>
+      </div>
       <div
         class="loot-bar"
         :class="{ ready: lootBarReady }"
@@ -464,19 +481,8 @@ function timedLine(enc: Encounter) {
         <span>{{ lootBarLabel }}</span>
       </div>
     </div>
-    <div class="row refresh">
-      <button
-        v-if="!isDungeonTab"
-        type="button"
-        @click="onExplore"
-      >
-        探索（{{ cost }} 金）
-      </button>
-      <p
-        v-else
-        class="refresh-hint"
-        aria-live="polite"
-      >
+    <div v-if="isDungeonTab" class="row refresh">
+      <p class="refresh-hint" aria-live="polite">
         {{ dungeonRefreshLabel }}
       </p>
     </div>
@@ -518,6 +524,7 @@ function timedLine(enc: Encounter) {
                   :aria-label="`查看 ${row.label} 效果`"
                   @click="onAffixHelp($event, row.id, isDungeonEncounter(enc) ? 'dungeon' : 'battlefield')"
                 >
+                  <ActIcon :name="BATTLEFIELD_ACTS.affix.icon" />
                   {{ row.label }}
                 </button>
               </span>
@@ -574,56 +581,56 @@ function timedLine(enc: Encounter) {
             <i class="march-bar" aria-hidden="true"><b :style="{ width: `${Math.round(marchCaption(enc)!.progress * 100)}%` }" /></i>
           </p>
           <div class="row">
-            <button
+            <ActButton
               v-if="enemyCardButton(enc) === 'claimed'"
-              type="button"
+              :icon="BATTLEFIELD_ACTS.claimed.icon"
+              :kind="BATTLEFIELD_ACTS.claimed.kind"
+              :tone="BATTLEFIELD_ACTS.claimed.tone"
               disabled
-            >
-              已领
-            </button>
+            >{{ BATTLEFIELD_ACTS.claimed.label }}</ActButton>
             <template v-else-if="enemyCardButton(enc) === 'fighting'">
               <FightingMark v-if="liveFight(enc)" />
-              <button
+              <ActButton
                 v-if="canReinforceCombat(enc)"
-                type="button"
+                :icon="BATTLEFIELD_ACTS.reinforce.icon"
+                :kind="BATTLEFIELD_ACTS.reinforce.kind"
+                :tone="BATTLEFIELD_ACTS.reinforce.tone"
                 :class="{ 'guide-flash': guideFlashEnemy(enc) && !pickOpen }"
                 @click="openReinforce(i)"
-              >
-                增援
-              </button>
+              >{{ BATTLEFIELD_ACTS.reinforce.label }}</ActButton>
             </template>
-            <button
+            <ActButton
               v-else-if="enemyCardButton(enc) === 'chest'"
-              type="button"
+              :icon="BATTLEFIELD_ACTS.chest.icon"
+              :kind="BATTLEFIELD_ACTS.chest.kind"
+              :tone="BATTLEFIELD_ACTS.chest.tone"
               @click="game.claimDungeonChest(enc.id)"
-            >
-              宝箱
-            </button>
-            <button
+            >{{ BATTLEFIELD_ACTS.chest.label }}</ActButton>
+            <ActButton
               v-else-if="enemyCardButton(enc) === 'loot'"
-              type="button"
+              :icon="BATTLEFIELD_ACTS.loot.icon"
+              :kind="BATTLEFIELD_ACTS.loot.kind"
+              :tone="BATTLEFIELD_ACTS.loot.tone"
               :class="{ 'guide-flash': guideFlashEnemy(enc) && !pickOpen }"
               @click="game.claimLoot(i)"
-            >
-              战利品
-            </button>
-            <button
+            >{{ BATTLEFIELD_ACTS.loot.label }}</ActButton>
+            <ActButton
               v-else-if="enemyCardButton(enc) === 'loseReinforce'"
-              type="button"
+              :icon="BATTLEFIELD_ACTS.reinforce.icon"
+              :kind="BATTLEFIELD_ACTS.reinforce.kind"
+              :tone="BATTLEFIELD_ACTS.reinforce.tone"
               :class="{ 'guide-flash': guideFlashEnemy(enc) && !pickOpen }"
               @click="openLoseReinforce(i)"
-            >
-              增援
-            </button>
+            >{{ BATTLEFIELD_ACTS.reinforce.label }}</ActButton>
             <span v-else class="act-hit" @click="warnConsumeShort(i)">
-              <button
-                type="button"
+              <ActButton
+                :icon="BATTLEFIELD_ACTS.start.icon"
+                :kind="BATTLEFIELD_ACTS.start.kind"
+                :tone="BATTLEFIELD_ACTS.start.tone"
                 :class="{ 'guide-flash': guideFlashEnemy(enc) && !pickOpen }"
                 :disabled="consumeShort(i)"
                 @click.stop="openPick(i)"
-              >
-                开战
-              </button>
+              >{{ BATTLEFIELD_ACTS.start.label }}</ActButton>
             </span>
           </div>
         </template>
@@ -642,13 +649,14 @@ function timedLine(enc: Encounter) {
           <template v-if="enc.kind === 'blackMerchant'">
             <div class="row">
               <span class="act-hit" @click="warnConsumeShort(i)">
-                <button
-                  type="button"
+                <ActButton
+                  :icon="enc.completed ? MARKET_DONE_ACT.deal.icon : MARKET_ACTS.buy.icon"
+                  :kind="MARKET_ACTS.buy.kind"
+                  :tone="MARKET_ACTS.buy.tone"
+                  :cost="enc.completed ? undefined : `${enc.buyGold} 金`"
                   :disabled="enc.completed || consumeShort(i)"
                   @click.stop="game.buyMerchant(i)"
-                >
-                  {{ enc.completed ? '成交' : '金币购买' }}
-                </button>
+                >{{ enc.completed ? MARKET_DONE_ACT.deal.label : MARKET_ACTS.buy.label }}</ActButton>
               </span>
             </div>
           </template>
@@ -656,13 +664,13 @@ function timedLine(enc: Encounter) {
           <template v-else-if="enc.kind === 'passerby'">
             <div class="row">
               <span class="act-hit" @click="warnConsumeShort(i)">
-                <button
-                  type="button"
+                <ActButton
+                  :icon="enc.completed ? MARKET_DONE_ACT.deal.icon : MARKET_ACTS.barter.icon"
+                  :kind="MARKET_ACTS.barter.kind"
+                  :tone="MARKET_ACTS.barter.tone"
                   :disabled="enc.completed || consumeShort(i)"
                   @click.stop="game.barter(i)"
-                >
-                  {{ enc.completed ? '成交' : '以物易物' }}
-                </button>
+                >{{ enc.completed ? MARKET_DONE_ACT.deal.label : MARKET_ACTS.barter.label }}</ActButton>
               </span>
             </div>
           </template>
@@ -670,13 +678,13 @@ function timedLine(enc: Encounter) {
           <template v-else-if="enc.kind === 'pawn'">
             <div class="row">
               <span class="act-hit" @click="warnConsumeShort(i)">
-                <button
-                  type="button"
+                <ActButton
+                  :icon="enc.completed ? MARKET_DONE_ACT.deal.icon : MARKET_ACTS.pawn.icon"
+                  :kind="MARKET_ACTS.pawn.kind"
+                  :tone="MARKET_ACTS.pawn.tone"
                   :disabled="enc.completed || consumeShort(i)"
                   @click.stop="game.pawn(i)"
-                >
-                  {{ enc.completed ? '成交' : '以物换钱' }}
-                </button>
+                >{{ enc.completed ? MARKET_DONE_ACT.deal.label : MARKET_ACTS.pawn.label }}</ActButton>
               </span>
             </div>
           </template>
@@ -684,13 +692,13 @@ function timedLine(enc: Encounter) {
           <template v-else-if="enc.kind === 'artisan'">
             <div class="row">
               <span class="act-hit" @click="warnConsumeShort(i)">
-                <button
-                  type="button"
+                <ActButton
+                  :icon="enc.completed ? MARKET_DONE_ACT.artisan.icon : MARKET_ACTS.artisan.icon"
+                  :kind="MARKET_ACTS.artisan.kind"
+                  :tone="MARKET_ACTS.artisan.tone"
                   :disabled="enc.completed || consumeShort(i)"
                   @click.stop="game.submitArtisan(i)"
-                >
-                  {{ enc.completed ? '完成' : '交付成品' }}
-                </button>
+                >{{ enc.completed ? MARKET_DONE_ACT.artisan.label : MARKET_ACTS.artisan.label }}</ActButton>
               </span>
             </div>
           </template>
@@ -698,13 +706,13 @@ function timedLine(enc: Encounter) {
           <template v-else-if="enc.kind === 'bulkBuy'">
             <div class="row">
               <span class="act-hit" @click="warnConsumeShort(i)">
-                <button
-                  type="button"
+                <ActButton
+                  :icon="enc.completed ? MARKET_DONE_ACT.deal.icon : MARKET_ACTS.bulk.icon"
+                  :kind="MARKET_ACTS.bulk.kind"
+                  :tone="MARKET_ACTS.bulk.tone"
                   :disabled="enc.completed || consumeShort(i)"
                   @click.stop="game.sellBulk(i)"
-                >
-                  {{ enc.completed ? '成交' : '高价出售' }}
-                </button>
+                >{{ enc.completed ? MARKET_DONE_ACT.deal.label : MARKET_ACTS.bulk.label }}</ActButton>
               </span>
             </div>
           </template>
@@ -720,6 +728,8 @@ function timedLine(enc: Encounter) {
       :runes="pickRunes"
       :mode="pickMode"
       :supply-blocked="pickCopy.costsSupply && pickIndex != null && consumeShort(pickIndex)"
+      :confirm-icon="pickMode === 'start' ? BATTLEFIELD_ACTS.start.icon : BATTLEFIELD_ACTS.reinforce.icon"
+      :confirm-tone="BATTLEFIELD_ACTS.start.tone"
       :guide-flash-confirm="guideFlashCombat && pickMode === 'start'"
       :guide-flash-rune="guideFlashRune"
       :slot-offset="pickSlotOffset"
@@ -777,19 +787,8 @@ function timedLine(enc: Encounter) {
   flex: 0 0 auto;
 }
 
-.mode-help {
-  flex: 0 0 32px;
+.board-nav :deep(.act.minor) {
   align-self: center;
-  width: 32px;
-  min-width: 32px;
-  height: 32px;
-  min-height: 32px;
-  padding: 0;
-  border-radius: 50%;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0;
 }
 
 .sub {
@@ -863,6 +862,13 @@ function timedLine(enc: Encounter) {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.chapter-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .chapter {
@@ -946,6 +952,9 @@ function timedLine(enc: Encounter) {
 }
 
 .affix-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   min-height: 0;
   padding: 1px 6px;
   border: 1px solid var(--gold-deep);
@@ -959,6 +968,11 @@ function timedLine(enc: Encounter) {
   line-height: 1.25;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.affix-chip :deep(.act-ico) {
+  width: 12px;
+  height: 12px;
 }
 
 .affix-chip:hover:not(:disabled),
@@ -1224,8 +1238,14 @@ ul {
   gap: 8px;
 }
 
-.card .row button {
+.card .row button:not(.act) {
   font-size: 14px;
+}
+
+.card .row .act-hit {
+  display: flex;
+  flex: 1 1 100%;
+  width: 100%;
 }
 
 .refresh {

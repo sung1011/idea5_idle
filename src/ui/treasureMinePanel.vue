@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import ActButton from './actButton.vue'
 import ActChargeBar from './actChargeBar.vue'
 import CombatAttrIcon from './combatAttrIcon.vue'
 import HpBar from './hpBar.vue'
@@ -42,7 +43,6 @@ import {
 import { formatRemainClock, raidMarchCaption, raidPhaseOf } from '../sim/march'
 import type { BountyTarget, RuneItemId, TreasureMine, Worker } from '../sim/types'
 import CombatPickSheet from './combatPickSheet.vue'
-import TreasureActIcon from './treasureActIcon.vue'
 import TreasureBannerPanel from './treasureBannerPanel.vue'
 import TreasureMineTips from './treasureMineTips.vue'
 import { pushFloatTip } from './floatTips'
@@ -352,18 +352,22 @@ function confirmPick() {
         </li>
       </ul>
       <div class="refresh">
-        <button
-          type="button"
+        <ActButton
+          icon="refresh"
+          kind="minor"
+          :cost="`${TREASURE_REFRESH_SAND_COST} 砂金`"
           :class="{ 'is-short': shortSand(TREASURE_REFRESH_SAND_COST) }"
           :title="shortSand(TREASURE_REFRESH_SAND_COST) ? sandShortTip(TREASURE_REFRESH_SAND_COST) : undefined"
           @click="onRefresh('sandGold')"
-        >刷新 {{ TREASURE_REFRESH_SAND_COST }} 砂金</button>
-        <button
-          type="button"
+        >刷新</ActButton>
+        <ActButton
+          icon="refresh"
+          kind="minor"
+          :cost="`${TREASURE_REFRESH_COST} 钻`"
           :class="{ 'is-short': game.save.diamonds < TREASURE_REFRESH_COST }"
           :title="game.save.diamonds < TREASURE_REFRESH_COST ? '钻石不足' : undefined"
           @click="onRefresh('diamonds')"
-        >刷新 {{ TREASURE_REFRESH_COST }} 钻</button>
+        >刷新</ActButton>
         <button
           type="button"
           :class="{ 'is-posted': postedBounty != null }"
@@ -383,18 +387,15 @@ function confirmPick() {
               <i>{{ ownerLabel(mine) }}</i>
             </span>
           </div>
-          <button
+          <ActButton
             v-if="showScout(mine)"
-            type="button"
-            class="act scout"
+            icon="scout"
+            kind="minor"
+            :cost="`${TREASURE_SCOUT_COST} 砂金`"
             :class="{ 'is-short': shortSand(TREASURE_SCOUT_COST) }"
             :title="shortSand(TREASURE_SCOUT_COST) ? sandShortTip(TREASURE_SCOUT_COST) : undefined"
             @click="game.scoutTreasureMine(mine.id)"
-          >
-            <TreasureActIcon name="scout" />
-            <span>侦察</span>
-            <small>{{ TREASURE_SCOUT_COST }} 砂金</small>
-          </button>
+          >侦察</ActButton>
         </header>
         <p class="weak">
           弱点
@@ -480,42 +481,49 @@ function confirmPick() {
           <i class="march-bar" aria-hidden="true"><b :style="{ width: `${Math.round(raidCaption(mine)!.progress * 100)}%` }" /></i>
         </p>
         <div class="row">
-          <button
+          <ActButton
             v-if="mine.owner === 'shadow' && !mine.raid"
-            type="button"
-            class="act raid"
+            icon="raid"
+            kind="primary"
+            tone="combat"
+            :cost="`${stakeOf(mine)} 砂金`"
             :class="{ 'is-short': shortSand(stakeOf(mine)) }"
             :title="shortSand(stakeOf(mine)) ? sandShortTip(stakeOf(mine)) : undefined"
             @click="onRaid(mine)"
-          >
-            <TreasureActIcon name="raid" />
-            <span>抢夺</span>
-            <small>{{ stakeOf(mine) }} 砂金</small>
-          </button>
-          <button
+          >抢夺</ActButton>
+          <ActButton
             v-if="mine.owner === 'empty' && !mine.raid"
-            type="button"
-            class="act dig"
+            icon="dig"
+            kind="primary"
+            tone="produce"
             @click="openPick('mine', mine.id)"
-          >
-            <TreasureActIcon name="dig" />
-            <span>开采</span>
-          </button>
-          <button v-if="mine.owner === 'player' && !mine.raid" type="button" @click="game.abandonTreasureMine(mine.id)">撤出</button>
-          <button
+          >开采</ActButton>
+          <ActButton
             v-if="showFortify(mine)"
-            type="button"
+            icon="shield"
+            kind="primary"
+            tone="produce"
+            :cost="`${TREASURE_FORTIFY_COST} 珠宝`"
             :class="{ 'is-short': fortifyBlock(mine) != null }"
             :title="fortifyBlock(mine) ?? undefined"
             @click="onFortify(mine)"
-          >加固 {{ TREASURE_FORTIFY_COST }} 珠宝</button>
-          <button
+          >加固</ActButton>
+          <ActButton
             v-if="showReinforce(mine)"
-            type="button"
+            icon="reinforce"
+            kind="primary"
+            tone="combat"
+            :cost="`${TREASURE_REINFORCE_COST} 珠宝`"
             :class="{ 'is-short': reinforceBlock(mine) != null }"
             :title="reinforceBlock(mine) ?? undefined"
             @click="onReinforce(mine)"
-          >增援 {{ TREASURE_REINFORCE_COST }} 珠宝</button>
+          >增援</ActButton>
+          <ActButton
+            v-if="mine.owner === 'player' && !mine.raid"
+            icon="leave"
+            kind="danger"
+            @click="game.abandonTreasureMine(mine.id)"
+          >撤出</ActButton>
         </div>
       </article>
     </div>
@@ -529,6 +537,8 @@ function confirmPick() {
       mode="start"
       :title-text="pickTitle"
       :confirm-text="pickConfirm"
+      :confirm-icon="pickKind === 'mine' ? 'dig' : pickKind === 'reinforce' ? 'reinforce' : 'raid'"
+      :confirm-tone="pickKind === 'mine' ? 'produce' : 'combat'"
       :show-runes="pickKind === 'raid'"
       :show-assist="false"
       :slot-offset="pickSlotOffset"
@@ -791,47 +801,8 @@ function confirmPick() {
   gap: 6px 10px;
 }
 
-.act {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.act small {
-  font-size: 0.82em;
-  font-weight: 800;
-}
-
-.act :deep(.treasure-act-ico) {
-  width: 16px;
-  height: 16px;
-}
-
-.act.scout {
-  flex: 0 0 auto;
+.card header :deep(.act.minor) {
   margin-left: auto;
-  min-height: 26px;
-  padding: 1px 8px;
-  gap: 4px;
-  border: 1.5px solid #9a9286;
-  border-radius: 999px;
-  background: #f6f4f0;
-  color: #6d665c;
-  box-shadow: none;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.act.scout :deep(.treasure-act-ico) {
-  width: 14px;
-  height: 14px;
-}
-
-.act.scout.is-short {
-  color: #a39c92;
-  background: #f3f1ec;
-  opacity: 0.62;
 }
 
 .titles {
@@ -994,39 +965,8 @@ function confirmPick() {
   gap: 6px;
 }
 
-.card .row button {
+.card .row button:not(.act) {
   font-size: 14px;
-}
-
-.row .act.raid {
-  flex: 1 1 100%;
-  min-height: 48px;
-  border-color: #8d241c;
-  background: linear-gradient(#e85a4c, #c43228);
-  color: #fff8f4;
-  box-shadow: 0 3px 0 #7a1c16;
-  font-size: 16px;
-  font-weight: 800;
-}
-
-.row .act.dig {
-  flex: 1 1 100%;
-  min-height: 46px;
-  border-color: #8a5a10;
-  background: linear-gradient(#f0b43a, #d4891a);
-  color: #3a2410;
-  box-shadow: 0 3px 0 #8a5410;
-  font-size: 15px;
-  font-weight: 800;
-}
-
-.row .act.raid.is-short,
-.row .act.dig.is-short {
-  color: var(--muted);
-  background: var(--btn-on);
-  border-color: #c8bba4;
-  box-shadow: none;
-  opacity: 0.62;
 }
 
 .bars {
