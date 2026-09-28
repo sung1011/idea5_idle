@@ -8,7 +8,9 @@ import {
   HERB_PVP_COUNTER_RULE,
   HERB_PVP_PLAYER_CAP,
   HERB_PVP_PLOT_COUNT,
+  HERB_PVP_PROBE_REV,
   HERB_PVP_RANK_REWARDS,
+  HERB_PVP_START_PROBES,
   HERB_PVP_RIVAL_COUNT,
   HERB_PVP_RIVAL_ONLINE_MAX,
   HERB_PVP_STAMINA_MAX,
@@ -83,19 +85,16 @@ function holdRank(save: Save, rank: number): void {
 }
 
 describe('herb pvp rolls', () => {
-  it('splits plot kinds and probe sizes on the published cuts', () => {
+  it('splits plot kinds on the published cuts and keeps probes as one item', () => {
     expect(classifyHerbRoll(0).kind).toBe('barren')
     expect(classifyHerbRoll(0.349999).kind).toBe('barren')
-    expect(classifyHerbRoll(0.35)).toEqual({ kind: 'common', probeSize: null })
+    expect(classifyHerbRoll(0.35)).toEqual({ kind: 'common' })
     expect(classifyHerbRoll(0.749999).kind).toBe('common')
-    expect(classifyHerbRoll(0.75)).toEqual({ kind: 'precious', probeSize: null })
+    expect(classifyHerbRoll(0.75)).toEqual({ kind: 'precious' })
     expect(classifyHerbRoll(0.899999).kind).toBe('precious')
-    expect(classifyHerbRoll(0.9)).toEqual({ kind: 'probe', probeSize: 1 })
-    expect(classifyHerbRoll(0.949999)).toEqual({ kind: 'probe', probeSize: 1 })
-    expect(classifyHerbRoll(0.95)).toEqual({ kind: 'probe', probeSize: 2 })
-    expect(classifyHerbRoll(0.979999)).toEqual({ kind: 'probe', probeSize: 2 })
-    expect(classifyHerbRoll(0.98)).toEqual({ kind: 'probe', probeSize: 4 })
-    expect(classifyHerbRoll(1).probeSize).toBe(4)
+    expect(classifyHerbRoll(0.9)).toEqual({ kind: 'probe' })
+    expect(classifyHerbRoll(0.95).kind).toBe('probe')
+    expect(classifyHerbRoll(1).kind).toBe('probe')
   })
 
   it('scores precious herbs and rolls common quantity', () => {
@@ -126,14 +125,14 @@ describe('herb pvp rolls', () => {
     expect(save.rngState).toBe(rng)
   })
 
-  it('places probe footprints from the chosen cell', () => {
-    expect(herbProbeCells(0, 1)).toEqual([0])
-    expect(herbProbeCells(0, 2)).toEqual([0, 1])
-    expect(herbProbeCells(7, 2)).toEqual([7, 6])
-    expect(herbProbeCells(0, 4)).toEqual([0, 1, 8, 9])
-    expect(herbProbeCells(7, 4)).toEqual([6, 7, 14, 15])
-    expect(herbProbeCells(63, 4)).toEqual([54, 55, 62, 63])
-    expect(herbProbeCells(56, 4)).toEqual([48, 49, 56, 57])
+  it('places a 3 by 3 footprint and drops cells outside the map', () => {
+    expect(herbProbeCells(0)).toEqual([0, 1, 8, 9])
+    expect(herbProbeCells(7)).toEqual([6, 7, 14, 15])
+    expect(herbProbeCells(4)).toEqual([3, 4, 5, 11, 12, 13])
+    expect(herbProbeCells(9)).toEqual([0, 1, 2, 8, 9, 10, 16, 17, 18])
+    expect(herbProbeCells(27)).toEqual([18, 19, 20, 26, 27, 28, 34, 35, 36])
+    expect(herbProbeCells(56)).toEqual([48, 49, 56, 57])
+    expect(herbProbeCells(63)).toEqual([54, 55, 62, 63])
   })
 })
 
@@ -143,9 +142,8 @@ describe('herb pvp board', () => {
     expect(save.herbPvp.plots).toHaveLength(HERB_PVP_PLOT_COUNT)
     expect(save.herbPvp.rivals).toHaveLength(HERB_PVP_RIVAL_COUNT)
     expect(save.herbPvp.stamina).toBe(HERB_PVP_STAMINA_MAX)
-    expect(save.herbPvp.probe1).toBe(1)
-    expect(save.herbPvp.probe2).toBe(1)
-    expect(save.herbPvp.probe4).toBe(1)
+    expect(save.herbPvp.probes).toBe(HERB_PVP_START_PROBES)
+    expect(HERB_PVP_START_PROBES).toBe(3)
     const names = new Set<string>(SNAPSHOT_PLAYER_NAMES)
     const avatars = new Set<string>(PLAYER_AVATAR_IDS)
     for (const rival of save.herbPvp.rivals) {
@@ -210,12 +208,12 @@ describe('herb pvp weeding', () => {
     const ready = spawnWorker(save)
     expect(startHerbWeed(save, 4, ready.id)).toEqual({ ok: false, reason: '体力不足' })
     save.herbPvp.plots[8]!.cleared = true
-    expect(useHerbProbe(save, 8, 1)).toEqual({ ok: false, reason: '只能对未除的地使用' })
-    expect(save.herbPvp.probe1).toBe(1)
-    expect(useHerbProbe(save, 9, 2).ok).toBe(true)
+    expect(useHerbProbe(save, 8)).toEqual({ ok: false, reason: '只能对未除的地使用' })
+    expect(save.herbPvp.probes).toBe(HERB_PVP_START_PROBES)
+    expect(useHerbProbe(save, 9).ok).toBe(true)
     expect(save.herbPvp.plots[9]!.revealed).toBe(true)
     expect(save.herbPvp.plots[10]!.revealed).toBe(true)
-    expect(save.herbPvp.probe2).toBe(0)
+    expect(save.herbPvp.probes).toBe(HERB_PVP_START_PROBES - 1)
     expect(save.herbPvp.stamina).toBe(0)
   })
 
@@ -263,9 +261,9 @@ describe('herb pvp weeding', () => {
     probe.cleared = false
     probe.workerId = worker.id
     probe.progressS = HERB_PVP_WEED_S - 1
-    const before = save.herbPvp.probe4
+    const before = save.herbPvp.probes
     stepHerbPvp(save, Date.now())
-    expect(save.herbPvp.probe4).toBe(before + 1)
+    expect(save.herbPvp.probes).toBe(before + 1)
 
     save.herbPvp.plots[2]!.revealed = true
     for (const plot of save.herbPvp.plots) {
@@ -280,7 +278,7 @@ describe('herb pvp weeding', () => {
   it('keeps a reveal until the map refreshes', () => {
     const save = fresh()
     quiet(save)
-    expect(useHerbProbe(save, 0, 1).ok).toBe(true)
+    expect(useHerbProbe(save, 0).ok).toBe(true)
     expect(save.herbPvp.plots[0]!.revealed).toBe(true)
     stepHerbPvp(save, Date.now())
     expect(save.herbPvp.plots[0]!.revealed).toBe(true)
@@ -423,12 +421,12 @@ describe('herb pvp day and offline', () => {
   const midnight = Date.parse('2026-09-28T16:00:00.000Z')
 
   it('pays the five rank bands once, then clears the scores', () => {
-    expect(HERB_PVP_RANK_REWARDS.map((row) => [row.maxRank, row.sandGold, row.jewel, row.jade, row.probe1, row.probe2, row.probe4])).toEqual([
-      [1, 80, 24, 6, 2, 1, 1],
-      [3, 48, 14, 3, 1, 1, 1],
-      [10, 28, 8, 2, 1, 1, 0],
-      [25, 14, 4, 1, 1, 0, 0],
-      [50, 6, 2, 1, 1, 0, 0],
+    expect(HERB_PVP_RANK_REWARDS.map((row) => [row.maxRank, row.sandGold, row.jewel, row.jade, row.probes])).toEqual([
+      [1, 80, 24, 6, 4],
+      [3, 48, 14, 3, 3],
+      [10, 28, 8, 2, 2],
+      [25, 14, 4, 1, 1],
+      [50, 6, 2, 1, 1],
     ])
     for (const rank of [1, 2, 3, 4, 10, 11, 25, 26, 50]) {
       const save = fresh()
@@ -440,9 +438,7 @@ describe('herb pvp day and offline', () => {
       expect(vaultQty(save, 'sandGold')).toBe(reward.sandGold)
       expect(vaultQty(save, 'jewel')).toBe(reward.jewel)
       expect(vaultQty(save, 'jade')).toBe(reward.jade)
-      expect(save.herbPvp.probe1).toBe(1 + reward.probe1)
-      expect(save.herbPvp.probe2).toBe(1 + reward.probe2)
-      expect(save.herbPvp.probe4).toBe(1 + reward.probe4)
+      expect(save.herbPvp.probes).toBe(HERB_PVP_START_PROBES + reward.probes)
       expect(save.herbPvp.playerScore).toBe(0)
       expect(save.herbPvp.rivals.every((rival) => rival.score === 0)).toBe(true)
       expect(save.herbPvp.lastRewardText).toContain(`第${rank}名`)
@@ -506,14 +502,14 @@ describe('herb pvp day and offline', () => {
     const save = fresh()
     save.herbPvp.playerScore = 77
     save.herbPvp.stamina = 3
-    save.herbPvp.probe1 = 0
+    save.herbPvp.probes = 0
     const dumped = JSON.parse(JSON.stringify(save)) as Save & { herbPvp?: HerbPvpState }
     const kept = hydrateLoadedSave(dumped)
     expect(kept?.herbPvp.playerScore).toBe(77)
     expect(kept?.herbPvp.stamina).toBe(3)
     expect(kept?.herbPvp.staminaRev).toBe(HERB_PVP_STAMINA_REV)
-    expect(kept?.herbPvp.probe1).toBe(0)
-    expect(kept?.herbPvp.probe2).toBe(1)
+    expect(kept?.herbPvp.probes).toBe(0)
+    expect(kept?.herbPvp.probeRev).toBe(HERB_PVP_PROBE_REV)
 
     const scaled = JSON.parse(JSON.stringify(save)) as Save
     scaled.herbPvp.stamina = 7
@@ -542,9 +538,8 @@ describe('herb pvp day and offline', () => {
     expect(rebuilt?.herbPvp.rivals).toHaveLength(49)
     expect(rebuilt?.herbPvp.stamina).toBe(HERB_PVP_STAMINA_MAX)
     expect(rebuilt?.herbPvp.staminaRev).toBe(HERB_PVP_STAMINA_REV)
-    expect(rebuilt?.herbPvp.probe1).toBe(1)
-    expect(rebuilt?.herbPvp.probe2).toBe(1)
-    expect(rebuilt?.herbPvp.probe4).toBe(1)
+    expect(rebuilt?.herbPvp.probes).toBe(HERB_PVP_START_PROBES)
+    expect(rebuilt?.herbPvp.probeRev).toBe(HERB_PVP_PROBE_REV)
     expect(rebuilt?.herbPvp.playerScore).toBe(0)
     expect(vaultQty(rebuilt!, 'jade')).toBe(0)
 
@@ -555,6 +550,85 @@ describe('herb pvp day and offline', () => {
     expect(replaced?.herbPvp.plots).toHaveLength(64)
     expect(replaced?.herbPvp.dayKey).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(vaultQty(replaced!, 'sandGold')).toBe(0)
+  })
+})
+
+describe('herb probes', () => {
+  it('reveals the centered 3 by 3, including corners, and skips cleared cells', () => {
+    const save = fresh()
+    quiet(save)
+    save.herbPvp.plots[1]!.cleared = true
+    expect(useHerbProbe(save, 0)).toEqual({ ok: true, message: '揭开 3 块地' })
+    const opened = save.herbPvp.plots.filter((plot) => plot.revealed).map((plot) => plot.index)
+    expect(opened).toEqual([0, 8, 9])
+    expect(save.herbPvp.plots[1]!.revealed).toBe(false)
+    expect(save.herbPvp.plots[2]!.revealed).toBe(false)
+    expect(save.herbPvp.probes).toBe(HERB_PVP_START_PROBES - 1)
+
+    expect(useHerbProbe(save, 63).ok).toBe(true)
+    for (const index of [54, 55, 62, 63]) expect(save.herbPvp.plots[index]!.revealed).toBe(true)
+    expect(save.herbPvp.plots[53]!.revealed).toBe(false)
+    expect(save.herbPvp.plots[61]!.revealed).toBe(false)
+
+    expect(useHerbProbe(save, 27).ok).toBe(true)
+    for (const index of herbProbeCells(27)) expect(save.herbPvp.plots[index]!.revealed).toBe(true)
+    expect(herbProbeCells(27)).toHaveLength(9)
+    expect(save.herbPvp.probes).toBe(0)
+    expect(useHerbProbe(save, 4)).toEqual({ ok: false, reason: '没有侦测' })
+    expect(save.herbPvp.plots[4]!.revealed).toBe(false)
+  })
+
+  it('sums the three old probe counts once and keeps the save key', () => {
+    expect(SAVE_KEY).toBe('idea5Idle')
+    type Legacy = Omit<HerbPvpState, 'probes' | 'probeRev'> & {
+      probe1?: number
+      probe2?: number
+      probe4?: number
+      probes?: number
+      probeRev?: number
+    }
+
+    function strip(save: Save): Legacy {
+      const raw = save.herbPvp as Legacy
+      delete raw.probes
+      delete raw.probeRev
+      return raw
+    }
+
+    const each = fresh()
+    const eachRaw = strip(each)
+    eachRaw.probe1 = 1
+    eachRaw.probe2 = 1
+    eachRaw.probe4 = 1
+    const merged = hydrateLoadedSave(JSON.parse(JSON.stringify(each)))
+    expect(merged?.herbPvp.probes).toBe(3)
+    expect(merged?.herbPvp.probeRev).toBe(HERB_PVP_PROBE_REV)
+    expect(merged?.herbPvp).not.toHaveProperty('probe1')
+    expect(merged?.herbPvp).not.toHaveProperty('probe2')
+    expect(merged?.herbPvp).not.toHaveProperty('probe4')
+    const again = hydrateLoadedSave(JSON.parse(JSON.stringify(merged)))
+    expect(again?.herbPvp.probes).toBe(3)
+
+    const mixed = fresh()
+    const mixedRaw = strip(mixed)
+    mixedRaw.probe1 = 2
+    mixedRaw.probe2 = 0
+    mixedRaw.probe4 = 3
+    expect(hydrateLoadedSave(JSON.parse(JSON.stringify(mixed)))?.herbPvp.probes).toBe(5)
+
+    const zeros = fresh()
+    const zeroRaw = strip(zeros)
+    zeroRaw.probe1 = 0
+    zeroRaw.probe2 = 0
+    zeroRaw.probe4 = 0
+    expect(hydrateLoadedSave(JSON.parse(JSON.stringify(zeros)))?.herbPvp.probes).toBe(0)
+
+    const done = fresh()
+    done.herbPvp.probes = 5
+    ;(done.herbPvp as Legacy).probe1 = 9
+    const kept = hydrateLoadedSave(JSON.parse(JSON.stringify(done)))
+    expect(kept?.herbPvp.probes).toBe(5)
+    expect(kept?.herbPvp).not.toHaveProperty('probe1')
   })
 })
 

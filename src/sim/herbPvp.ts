@@ -64,10 +64,12 @@ const HERB_PVP_STAMINA_LEGACY_REGEN_S = 30 * 60
 export const HERB_PVP_BARREN_P = 0.35
 export const HERB_PVP_COMMON_P = 0.4
 export const HERB_PVP_PRECIOUS_P = 0.15
+/** 草地产出侦测的概率。每次 1 个，不再分格数。 */
 export const HERB_PVP_PROBE_P = 0.1
-export const HERB_PVP_PROBE_P1 = 0.05
-export const HERB_PVP_PROBE_P2 = 0.03
-export const HERB_PVP_PROBE_P4 = 0.02
+/** 开局赠送的侦测个数。 */
+export const HERB_PVP_START_PROBES = 3
+/** 1 = 旧的 1/2/4 格侦测已按个数合并。 */
+export const HERB_PVP_PROBE_REV = 1
 export const HERB_PVP_COMMON_QTY_MIN = 1
 export const HERB_PVP_COMMON_QTY_MAX = 3
 export const HERB_PVP_PRECIOUS_LOW_P = 0.6
@@ -100,9 +102,7 @@ export type HerbRankReward = {
   sandGold: number
   jewel: number
   jade: number
-  probe1: number
-  probe2: number
-  probe4: number
+  probes: number
 }
 
 /**
@@ -110,11 +110,11 @@ export type HerbRankReward = {
  * 古玉远低于战旗第一档 150，珠宝低于加固 60。名次越低越少，五档都有砂金、珠宝、古玉和至少 1 个侦测。
  */
 export const HERB_PVP_RANK_REWARDS: readonly HerbRankReward[] = [
-  { label: '第1名', maxRank: 1, sandGold: 80, jewel: 24, jade: 6, probe1: 2, probe2: 1, probe4: 1 },
-  { label: '第2–3名', maxRank: 3, sandGold: 48, jewel: 14, jade: 3, probe1: 1, probe2: 1, probe4: 1 },
-  { label: '第4–10名', maxRank: 10, sandGold: 28, jewel: 8, jade: 2, probe1: 1, probe2: 1, probe4: 0 },
-  { label: '第11–25名', maxRank: 25, sandGold: 14, jewel: 4, jade: 1, probe1: 1, probe2: 0, probe4: 0 },
-  { label: '第26–50名', maxRank: 50, sandGold: 6, jewel: 2, jade: 1, probe1: 1, probe2: 0, probe4: 0 },
+  { label: '第1名', maxRank: 1, sandGold: 80, jewel: 24, jade: 6, probes: 4 },
+  { label: '第2–3名', maxRank: 3, sandGold: 48, jewel: 14, jade: 3, probes: 3 },
+  { label: '第4–10名', maxRank: 10, sandGold: 28, jewel: 8, jade: 2, probes: 2 },
+  { label: '第11–25名', maxRank: 25, sandGold: 14, jewel: 4, jade: 1, probes: 1 },
+  { label: '第26–50名', maxRank: 50, sandGold: 6, jewel: 2, jade: 1, probes: 1 },
 ]
 
 export type HerbRankRow = {
@@ -202,21 +202,17 @@ export function formatHerbDuration(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-/** 0～1 的一掷落到地块种类。侦测再按 5% / 3% / 2% 分成 1 / 2 / 4 格。 */
-export function classifyHerbRoll(roll: number): { kind: HerbPlotKind; probeSize: 1 | 2 | 4 | null } {
+/** 0～1 的一掷落到地块种类。侦测占最后 10%，不再分格数。 */
+export function classifyHerbRoll(roll: number): { kind: HerbPlotKind } {
   const r = clamp01(roll)
   const band = Math.min(999, Math.floor(r * 1000 + 1e-9))
   const barren = Math.round(HERB_PVP_BARREN_P * 1000)
   const common = barren + Math.round(HERB_PVP_COMMON_P * 1000)
   const precious = common + Math.round(HERB_PVP_PRECIOUS_P * 1000)
-  const probe1 = precious + Math.round(HERB_PVP_PROBE_P1 * 1000)
-  const probe2 = probe1 + Math.round(HERB_PVP_PROBE_P2 * 1000)
-  if (band < barren) return { kind: 'barren', probeSize: null }
-  if (band < common) return { kind: 'common', probeSize: null }
-  if (band < precious) return { kind: 'precious', probeSize: null }
-  if (band < probe1) return { kind: 'probe', probeSize: 1 }
-  if (band < probe2) return { kind: 'probe', probeSize: 2 }
-  return { kind: 'probe', probeSize: 4 }
+  if (band < barren) return { kind: 'barren' }
+  if (band < common) return { kind: 'common' }
+  if (band < precious) return { kind: 'precious' }
+  return { kind: 'probe' }
 }
 
 export function herbPreciousOf(roll: number): { tier: 'low' | 'mid' | 'high'; score: number } {
@@ -260,30 +256,25 @@ export function herbRankReward(rank: number): HerbRankReward {
 export function herbRewardLine(rank: number): string {
   const reward = herbRankReward(rank)
   const parts = [`砂金 ${reward.sandGold}`, `珠宝 ${reward.jewel}`, `荣誉徽记 ${reward.jade}`]
-  if (reward.probe1 > 0) parts.push(`1格侦测 ×${reward.probe1}`)
-  if (reward.probe2 > 0) parts.push(`2格侦测 ×${reward.probe2}`)
-  if (reward.probe4 > 0) parts.push(`4格侦测 ×${reward.probe4}`)
+  if (reward.probes > 0) parts.push(`侦测 ×${reward.probes}`)
   return `第${rank}名：${parts.join('、')}`
 }
 
-/** 以选中格为锚。2 格尽量向右，贴边就向左。4 格是 2×2，贴边就往里收。 */
-export function herbProbeCells(anchor: number, size: 1 | 2 | 4): number[] {
+/** 以选中格为中心的 3×3。超出地图的格子丢掉。 */
+export function herbProbeCells(anchor: number): number[] {
   const index = Math.max(0, Math.min(HERB_PVP_PLOT_COUNT - 1, Math.floor(anchor)))
   const x = index % HERB_PVP_MAP_SIZE
   const y = Math.floor(index / HERB_PVP_MAP_SIZE)
-  if (size === 1) return [index]
-  if (size === 2) {
-    const x2 = x < HERB_PVP_MAP_SIZE - 1 ? x + 1 : x - 1
-    return [index, y * HERB_PVP_MAP_SIZE + x2]
+  const cells: number[] = []
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      const nx = x + dx
+      const ny = y + dy
+      if (nx < 0 || ny < 0 || nx >= HERB_PVP_MAP_SIZE || ny >= HERB_PVP_MAP_SIZE) continue
+      cells.push(ny * HERB_PVP_MAP_SIZE + nx)
+    }
   }
-  const x0 = x < HERB_PVP_MAP_SIZE - 1 ? x : x - 1
-  const y0 = y < HERB_PVP_MAP_SIZE - 1 ? y : y - 1
-  return [
-    y0 * HERB_PVP_MAP_SIZE + x0,
-    y0 * HERB_PVP_MAP_SIZE + x0 + 1,
-    (y0 + 1) * HERB_PVP_MAP_SIZE + x0,
-    (y0 + 1) * HERB_PVP_MAP_SIZE + x0 + 1,
-  ]
+  return cells
 }
 
 /** 没揭开也显示。揭开后是荒芜，或已经割完，不再显示。 */
@@ -355,7 +346,7 @@ export function herbPlotLabel(plot: HerbPlot): string {
   } else if (plot.kind === 'precious') {
     const name = plot.payload === 'high' ? '高档' : plot.payload === 'mid' ? '中档' : '低档'
     base = `${name} ${plot.qty}`
-  } else base = `${plot.payload}格侦测`
+  } else base = '侦测'
   if (!herbPlotShowsWeakness(plot)) return base
   return `${base} · 弱点${COMBAT_ATTR_LABEL[plot.weakness]}`
 }
@@ -366,7 +357,7 @@ export function herbPlotShort(plot: HerbPlot): string {
   if (plot.kind === 'barren') return '荒'
   if (plot.kind === 'common') return plot.payload === 'spice' ? `香${plot.qty}` : `草${plot.qty}`
   if (plot.kind === 'precious') return String(plot.qty)
-  return `探${plot.payload}`
+  return '探'
 }
 
 function blankPlot(index: number, kind: HerbPlotKind, payload: string, qty: number, weakness: CombatAttrId): HerbPlot {
@@ -396,7 +387,7 @@ function rollOnePlot(state: HerbPvpState, index: number, products: { itemId: Ite
     const precious = herbPreciousOf(nextHerbRoll(state))
     return blankPlot(index, 'precious', precious.tier, precious.score, weakness)
   }
-  return blankPlot(index, 'probe', String(classified.probeSize ?? 1), 1, weakness)
+  return blankPlot(index, 'probe', '', 1, weakness)
 }
 
 function ensureRivalAttrs(state: HerbPvpState, rival: HerbRival): void {
@@ -485,9 +476,8 @@ export function createHerbPvp(save: Save, now = Date.now()): HerbPvpState {
     stamina: HERB_PVP_STAMINA_MAX,
     staminaAccS: 0,
     staminaRev: HERB_PVP_STAMINA_REV,
-    probe1: 1,
-    probe2: 1,
-    probe4: 1,
+    probes: HERB_PVP_START_PROBES,
+    probeRev: HERB_PVP_PROBE_REV,
     playerScore: 0,
     onlineTarget: 0,
     targetUntilS: save.elapsedS + HERB_PVP_TARGET_REROLL_S,
@@ -518,16 +508,48 @@ function migrateHerbStamina(state: HerbPvpState): void {
   state.staminaRev = HERB_PVP_STAMINA_REV
 }
 
+type LegacyProbeState = HerbPvpState & {
+  probe1?: unknown
+  probe2?: unknown
+  probe4?: unknown
+}
+
+function legacyProbeCount(value: unknown): number {
+  return Math.max(0, finite(value, 0))
+}
+
+/** 旧的三种侦测按个数相加。已经迁过的不再加。 */
+function migrateHerbProbes(state: HerbPvpState): void {
+  const raw = state as LegacyProbeState
+  if (finite(raw.probeRev, 0) >= HERB_PVP_PROBE_REV) {
+    state.probes = clampCount(raw.probes, 0)
+    state.probeRev = HERB_PVP_PROBE_REV
+    delete raw.probe1
+    delete raw.probe2
+    delete raw.probe4
+    return
+  }
+  const hasLegacy = raw.probe1 != null || raw.probe2 != null || raw.probe4 != null
+  const hasNew = typeof raw.probes === 'number' && Number.isFinite(raw.probes)
+  state.probes = hasLegacy
+    ? legacyProbeCount(raw.probe1) + legacyProbeCount(raw.probe2) + legacyProbeCount(raw.probe4)
+    : hasNew
+      ? legacyProbeCount(raw.probes)
+      : HERB_PVP_START_PROBES
+  state.probeRev = HERB_PVP_PROBE_REV
+  delete raw.probe1
+  delete raw.probe2
+  delete raw.probe4
+}
+
 function tidyState(save: Save, state: HerbPvpState, now: number): void {
   state.roll = finite(state.roll, 1) || 1
   if (typeof state.dayKey !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(state.dayKey)) state.dayKey = beijingDayKey(now)
   state.staminaRev = HERB_PVP_STAMINA_REV
+  migrateHerbProbes(state)
   state.stamina = Math.min(HERB_PVP_STAMINA_MAX, clampCount(state.stamina, HERB_PVP_STAMINA_MAX))
   state.staminaAccS = Math.min(HERB_PVP_STAMINA_REGEN_S, clampCount(state.staminaAccS, 0))
   if (state.stamina >= HERB_PVP_STAMINA_MAX) state.staminaAccS = 0
-  state.probe1 = clampCount(state.probe1, 1)
-  state.probe2 = clampCount(state.probe2, 1)
-  state.probe4 = clampCount(state.probe4, 1)
   state.playerScore = clampCount(state.playerScore, 0)
   state.onlineTarget = Math.min(HERB_PVP_RIVAL_ONLINE_MAX, clampCount(state.onlineTarget, 0))
   state.targetUntilS = Math.max(0, finite(state.targetUntilS, save.elapsedS))
@@ -655,9 +677,7 @@ export function herbHud(save: Save, now = Date.now()) {
     rank: herbPlayerRank(save),
     score: state.playerScore,
     dayRemainS: beijingDayRemainS(now),
-    probe1: state.probe1,
-    probe2: state.probe2,
-    probe4: state.probe4,
+    probes: state.probes,
     lastRewardText: state.lastRewardText,
     playerPlots: state.plots.filter((plot) => plot.workerId).length,
   }
@@ -685,18 +705,9 @@ function grantPlayerLoot(save: Save, plot: HerbPlot, offline: boolean): void {
     return
   }
   if (plot.kind === 'probe') {
-    const size = plot.payload
-    if (size === '4') {
-      state.probe4 += 1
-      if (offline && state.offline) state.offline.probe4 += 1
-    } else if (size === '2') {
-      state.probe2 += 1
-      if (offline && state.offline) state.offline.probe2 += 1
-    } else {
-      state.probe1 += 1
-      if (offline && state.offline) state.offline.probe1 += 1
-    }
-    note(`获得 ${size || '1'} 格侦测`, 'ok', offline)
+    state.probes += 1
+    if (offline && state.offline) state.offline.probes += 1
+    note('获得侦测 ×1', 'ok', offline)
     return
   }
   note('这块地下是荒芜', 'ok', offline)
@@ -939,9 +950,7 @@ function rollDay(save: Save, now: number, offline: boolean): void {
   addVault(save, 'sandGold', reward.sandGold)
   addVault(save, 'jewel', reward.jewel)
   addVault(save, 'jade', reward.jade)
-  state.probe1 += reward.probe1
-  state.probe2 += reward.probe2
-  state.probe4 += reward.probe4
+  state.probes += reward.probes
   state.playerScore = 0
   for (const rival of state.rivals) rival.score = 0
   state.lastRewardText = text
@@ -1002,15 +1011,14 @@ export function startHerbWeed(save: Save, plotIndex: number, workerId: string): 
   return { ok: true, message: `${name} 开始除草，花 ${cost} 体力` }
 }
 
-export function useHerbProbe(save: Save, plotIndex: number, size: 1 | 2 | 4): ActionResult {
+export function useHerbProbe(save: Save, plotIndex: number): ActionResult {
   const state = ensureHerbPvp(save)
   const anchor = state.plots[plotIndex]
   if (!anchor || anchor.cleared) return { ok: false, reason: '只能对未除的地使用' }
-  const key = size === 4 ? 'probe4' : size === 2 ? 'probe2' : 'probe1'
-  if (state[key] < 1) return { ok: false, reason: '没有这种侦测' }
-  state[key] -= 1
+  if (state.probes < 1) return { ok: false, reason: '没有侦测' }
+  state.probes -= 1
   let opened = 0
-  for (const index of herbProbeCells(plotIndex, size)) {
+  for (const index of herbProbeCells(plotIndex)) {
     const plot = state.plots[index]
     if (!plot || plot.cleared) continue
     plot.revealed = true
@@ -1025,9 +1033,7 @@ export function beginHerbOfflineReport(save: Save): void {
     rankAtStart: herbPlayerRank(save),
     harvest: {},
     score: 0,
-    probe1: 0,
-    probe2: 0,
-    probe4: 0,
+    probes: 0,
     bumps: 0,
     plotsLost: 0,
     rewards: [],
@@ -1043,11 +1049,7 @@ function harvestParts(noteBag: HerbOfflineNote): string[] {
     parts.push(`${label} ×${qty}`)
   }
   if (noteBag.score > 0) parts.push(`排行分 +${noteBag.score}`)
-  const probes: string[] = []
-  if (noteBag.probe1 > 0) probes.push(`1格 ×${noteBag.probe1}`)
-  if (noteBag.probe2 > 0) probes.push(`2格 ×${noteBag.probe2}`)
-  if (noteBag.probe4 > 0) probes.push(`4格 ×${noteBag.probe4}`)
-  if (probes.length) parts.push(`侦测 ${probes.join('、')}`)
+  if (noteBag.probes > 0) parts.push(`侦测 ×${noteBag.probes}`)
   return parts
 }
 

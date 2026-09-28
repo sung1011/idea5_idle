@@ -15,6 +15,7 @@ import {
   herbLeaderboard,
   herbPlotLabel,
   herbPlotShort,
+  herbProbeCells,
   orderHerbPick,
 } from '../sim/herbPvp'
 import type { HerbPlot, Worker } from '../sim/types'
@@ -26,7 +27,8 @@ import PlayerAvatar from './playerAvatar.vue'
 import { useGameStore } from './gameStore'
 
 const game = useGameStore()
-const probe = ref<1 | 2 | 4 | null>(null)
+const aiming = ref(false)
+const aimIndex = ref<number | null>(null)
 const pickIndex = ref<number | null>(null)
 const picked = ref<string[]>([])
 const hud = computed(() => herbHud(game.save, Date.now()))
@@ -34,16 +36,35 @@ const board = computed(() => herbLeaderboard(game.save))
 const plots = computed(() => game.save.herbPvp.plots)
 const pickPlot = computed(() => (pickIndex.value == null ? null : plots.value[pickIndex.value] ?? null))
 const candidates = computed(() => orderHerbPick(restCombatCandidates(game.save), pickPlot.value?.weakness))
+const aimSet = computed(() =>
+  aiming.value && aimIndex.value != null ? new Set(herbProbeCells(aimIndex.value)) : new Set<number>(),
+)
 
-function toggleProbe(size: 1 | 2 | 4) {
-  probe.value = probe.value === size ? null : size
+function stopAim() {
+  aiming.value = false
+  aimIndex.value = null
+}
+
+function toggleAim() {
+  if (hud.value.probes < 1) {
+    stopAim()
+    return
+  }
+  aiming.value = !aiming.value
+  if (!aiming.value) aimIndex.value = null
+}
+
+function previewAim(index: number) {
+  if (!aiming.value) return
+  aimIndex.value = index
 }
 
 function onPlot(index: number) {
   const plot = plots.value[index]
   if (!plot) return
-  if (probe.value) {
-    game.useHerbProbe(index, probe.value)
+  if (aiming.value) {
+    game.useHerbProbe(index)
+    if (hud.value.probes < 1) stopAim()
     return
   }
   if (plot.cleared) {
@@ -131,27 +152,26 @@ function rowKey(row: { id: string; rank: number }): string {
     <p class="meta">第 {{ hud.rank }} 名 · {{ hud.score }} 分 · 日结 {{ formatHerbDuration(hud.dayRemainS) }}</p>
     <p v-if="hud.lastRewardText" class="reward">上次日结 {{ hud.lastRewardText }}</p>
     <div class="probes">
-      <button type="button" :class="{ on: probe === 1 }" :disabled="hud.probe1 < 1" @click="toggleProbe(1)">
-        1格 {{ hud.probe1 }}
-      </button>
-      <button type="button" :class="{ on: probe === 2 }" :disabled="hud.probe2 < 1" @click="toggleProbe(2)">
-        2格 {{ hud.probe2 }}
-      </button>
-      <button type="button" :class="{ on: probe === 4 }" :disabled="hud.probe4 < 1" @click="toggleProbe(4)">
-        4格 {{ hud.probe4 }}
+      <button type="button" :class="{ on: aiming }" :disabled="hud.probes < 1" @click="toggleAim">
+        侦测 {{ hud.probes }}
       </button>
     </div>
     <p class="hint">
-      {{ probe ? '点一块未除的地使用侦测' : `点杂草，派满血苦工。${HERB_PVP_COUNTER_RULE}。撞上人只有打死才扣体力` }}
+      {{
+        aiming
+          ? '点一块未除的地，揭开以它为中心的 3×3'
+          : `点杂草，派满血苦工。${HERB_PVP_COUNTER_RULE}。撞上人只有打死才扣体力`
+      }}
     </p>
-    <div class="grid" role="grid" aria-label="割草地图">
+    <div class="grid" role="grid" aria-label="割草地图" @pointerleave="aimIndex = null">
       <button
         v-for="plot in plots"
         :key="plot.index"
         type="button"
         class="cell"
-        :class="{ revealed: plot.revealed, cleared: plot.cleared, mine: !!plot.workerId }"
+        :class="{ revealed: plot.revealed, cleared: plot.cleared, mine: !!plot.workerId, aim: aimSet.has(plot.index) }"
         :aria-label="herbPlotLabel(plot)"
+        @pointerenter="previewAim(plot.index)"
         @click="onPlot(plot.index)"
       >
         <span class="label">{{ herbPlotShort(plot) }}</span>
@@ -252,6 +272,11 @@ function rowKey(row: { id: string; rank: number }): string {
 
 .cell.mine {
   border-color: var(--moss-deep);
+}
+
+.cell.aim {
+  background: #fff1b8;
+  box-shadow: inset 0 0 0 2px #c9842a;
 }
 
 .cell .label {

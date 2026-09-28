@@ -613,7 +613,7 @@ export type HerbPlotKind = 'barren' | 'common' | 'precious' | 'probe'
 export type HerbPlot = {
   index: number
   kind: HerbPlotKind
-  /** common 是物品 id；precious 是 low/mid/high；probe 是 1/2/4；荒芜为空。 */
+  /** common 是物品 id；precious 是 low/mid/high；侦测地为空；荒芜为空。 */
   payload: string
   qty: number
   revealed: boolean
@@ -660,9 +660,8 @@ export type HerbOfflineNote = {
   rankAtStart: number
   harvest: Partial<Record<string, number>>
   score: number
-  probe1: number
-  probe2: number
-  probe4: number
+  /** 离线期间获得的侦测个数。 */
+  probes: number
   bumps: number
   plotsLost: number
   rewards: string[]
@@ -683,9 +682,13 @@ export type HerbPvpState = {
    * 已有棋盘缺字段或更小时，读档把体力 ×10，并把旧 30 分钟计时折进新的 3 分钟一格。
    */
   staminaRev: number
-  probe1: number
-  probe2: number
-  probe4: number
+  /** 侦测个数。点一块地揭开以它为中心的 3×3。 */
+  probes: number
+  /**
+   * 侦测合并刻度。1 = 已把旧的 1 格 / 2 格 / 4 格按个数相加成 `probes`。
+   * 缺或更小的棋盘只迁一次。
+   */
+  probeRev: number
   playerScore: number
   /** 这一段希望同时在线的假玩家，0～5。 */
   onlineTarget: number
@@ -816,8 +819,9 @@ export type Save = {
   treasureMines: TreasureMineState
   /**
    * 割草。玩家与 49 个假玩家一组，8×8 除草。工坊采药站不走这里。
-   * 旧档缺整段 hydrate 出满体力（100）、侦测各 1、空分数的新局。
+   * 旧档缺整段 hydrate 出满体力（100）、侦测 3 个、空分数的新局。
    * 已有棋盘按 `staminaRev` 迁一次体力，不重开地图。
+   * 旧的三种侦测按个数相加成一种，记在 `probeRev`，只迁一次。
    */
   herbPvp: HerbPvpState
 }

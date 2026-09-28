@@ -325,7 +325,7 @@ export const useGameStore = defineStore('game', () => {
       apply((s) => refreshTreasureMineBoard(s, pay)),
     postTreasureBounty: (target: BountyTarget) => apply((s) => postTreasureBounty(s, target)),
     startHerbWeed: (plotIndex: number, workerId: string) => apply((s) => startHerbWeed(s, plotIndex, workerId)),
-    useHerbProbe: (plotIndex: number, size: 1 | 2 | 4) => apply((s) => useHerbProbe(s, plotIndex, size)),
+    useHerbProbe: (plotIndex: number) => apply((s) => useHerbProbe(s, plotIndex)),
     setPlayerProfile: (name: string, avatarId: string) => apply((s) => applyPlayerProfile(s, name, avatarId)),
     claimLoot: (index: number) => apply((s) => claimLoot(s, index)),
     barter: (index: number) => apply((s) => barterMerchant(s, index)),

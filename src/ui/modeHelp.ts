@@ -43,7 +43,7 @@ export const MODE_HELP: Record<ModeHelpId, ModeHelp> = {
       },
       {
         label: '规则要点',
-        text: `地下是荒芜、草药、珍贵草药或侦测。${HERB_PVP_COUNTER_RULE}。珍贵草药立刻记分。北京时间 0 点按名次发砂金、珠宝、荣誉徽记和侦测。开局三种侦测各 1 个。`,
+        text: `地下是荒芜、草药、珍贵草药或侦测。${HERB_PVP_COUNTER_RULE}。珍贵草药立刻记分。北京时间 0 点按名次发砂金、珠宝、荣誉徽记和侦测。侦测揭开以选中地为中心的 3×3，开局 3 个。`,
       },
       {
         label: '注意',
