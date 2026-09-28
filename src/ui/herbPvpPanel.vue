@@ -122,7 +122,9 @@ function rowKey(row: { id: string; rank: number }): string {
         4格 {{ hud.probe4 }}
       </button>
     </div>
-    <p class="hint">{{ probe ? '点一块未除的地使用侦测' : '点杂草，派满血苦工除草' }}</p>
+    <p class="hint">
+      {{ probe ? '点一块未除的地使用侦测' : `点杂草，派满血苦工。撞上人只有打死才花 ${HERB_PVP_WEED_COST} 体力` }}
+    </p>
     <div class="grid" role="grid" aria-label="割草地图">
       <button
         v-for="plot in plots"

@@ -276,7 +276,7 @@ describe('herb pvp weeding', () => {
 })
 
 describe('herb pvp clashes', () => {
-  it('inherits progress after a killing first blow and does not refund a failed clash', () => {
+  it('spends stamina only when a clash takes the plot', () => {
     const save = fresh()
     quiet(save)
     const worker = spawnWorker(save)
@@ -289,7 +289,9 @@ describe('herb pvp clashes', () => {
     other.progressS = 20
     rival.hp = 1
     rival.atk = 1
-    expect(startHerbWeed(save, 0, worker.id).ok).toBe(true)
+    const taken = startHerbWeed(save, 0, worker.id)
+    expect(taken.ok).toBe(true)
+    if (taken.ok) expect(taken.message).toContain(`花 ${HERB_PVP_WEED_COST} 体力`)
     expect(plot.workerId).toBe(worker.id)
     expect(plot.weeder).toBeNull()
     expect(plot.progressS).toBe(50)
@@ -307,12 +309,24 @@ describe('herb pvp clashes', () => {
     const before = save.herbPvp.stamina
     const result = startHerbWeed(save, 2, home.id)
     expect(result.ok).toBe(true)
+    if (result.ok) expect(result.message).toContain('体力未扣')
     expect(blocked.weeder).toBe(survivor.id)
     expect(blocked.workerId).toBeNull()
     expect(blocked.progressS).toBe(12)
-    expect(save.herbPvp.stamina).toBe(before - HERB_PVP_WEED_COST)
+    expect(save.herbPvp.stamina).toBe(before)
     expect(home.hp).toBe(home.hpMax - 1)
     expect(restingWorkers(save).some((row) => row.id === home.id)).toBe(true)
+
+    const poor = spawnWorker(save)
+    const gated = save.herbPvp.plots[3]!
+    const gateRival = save.herbPvp.rivals[2]!
+    gated.weeder = gateRival.id
+    gateRival.hp = 1
+    save.herbPvp.stamina = HERB_PVP_WEED_COST - 1
+    expect(startHerbWeed(save, 3, poor.id)).toEqual({ ok: false, reason: '体力不足' })
+    expect(poor.hp).toBe(poor.hpMax)
+    expect(gateRival.hp).toBe(1)
+    expect(gated.weeder).toBe(gateRival.id)
   })
 
   it('sends a counter-killed worker home without a march', () => {
@@ -327,12 +341,15 @@ describe('herb pvp clashes', () => {
     rival.atk = 9999
     const knocked = startHerbWeed(save, 3, worker.id)
     expect(knocked.ok).toBe(true)
-    if (knocked.ok) expect(knocked.message).toContain('打倒')
+    if (knocked.ok) {
+      expect(knocked.message).toContain('打倒')
+      expect(knocked.message).toContain('体力未扣')
+    }
     expect(plot.weeder).toBe(rival.id)
     expect(plot.workerId).toBeNull()
     expect(worker.assignment).toBeNull()
     expect(worker.hp).toBe(0)
-    expect(save.herbPvp.stamina).toBe(HERB_PVP_STAMINA_MAX - HERB_PVP_WEED_COST)
+    expect(save.herbPvp.stamina).toBe(HERB_PVP_STAMINA_MAX)
   })
 
   it('gives the plot to a rival who knocks the player out, and keeps it when the counter lands', () => {
@@ -346,12 +363,14 @@ describe('herb pvp clashes', () => {
     rival.hp = 500
     rival.atk = 9999
     rival.onlineUntilS = null
+    const stamina = save.herbPvp.stamina
     expect(applyHerbRivalBump(save, 4, rival.id).ok).toBe(true)
     expect(plot.workerId).toBeNull()
     expect(plot.weeder).toBe(rival.id)
     expect(plot.progressS).toBe(40)
     expect(rival.onlineUntilS).not.toBeNull()
     expect(worker.hp).toBe(0)
+    expect(save.herbPvp.stamina).toBe(stamina)
 
     const holder = spawnWorker(save)
     const weak = save.herbPvp.rivals[3]!

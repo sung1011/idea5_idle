@@ -339,7 +339,7 @@ type ProductionBuff = {
 | 站工具 | 已撤；旧 `selectedToolId` hydrate 清空 |
 | 派驻上限 | `STATION_WORKER_CAP = 1` |
 | 夺宝战旗 | `treasureMines.bannerLevel` 0～5，旧档缺为 0。升级费 `TREASURE_BANNER_COSTS` 150/300/600/1000/1600 荣誉徽记。新刷洞储量每级 +10%（`bannerReserveMax`），守军等级在酋长等级上 +1/级；2 级和 4 级开采上限各 +1（3→4→5，`treasureCrewCap`），出战仍 `TREASURE_RAID_CAP` 3。头像框 1 铜、3 银、5 金。界面不单独占页签，挂在夺宝顶部栏和弹框上。来袭计时、预警和加固记在各个矿洞上，不记在这一级 |
-| 割草 | `herbPvp`：64 块地、49 名假玩家、体力、三种侦测、当日分、北京时间 `dayKey`。界面叫割草，和工坊采药站分开。体力上限 100，除一块花 10（`HERB_PVP_WEED_COST`），每 3 分钟回 1（`HERB_PVP_STAMINA_REGEN_S`），离线也回。派人用开战选人面板，只可选休息区满血苦工，一次 1 人，不带符文。旧档缺整段或地块/对手结构不对，按新开局补（体力 100、三种侦测各 1、分数 0），不补昨日奖。已有棋盘 `staminaRev` 缺或小于 2 时体力 ×10，恢复秒按新间隔折算，只迁一次。概率、时长、日结数额见 `HERB_PVP_*` 与 `HERB_PVP_RANK_REWARDS`。玩法切换记在 `idea5IdlePvpTab`，不进存档 |
+| 割草 | `herbPvp`：64 块地、49 名假玩家、体力、三种侦测、当日分、北京时间 `dayKey`。界面叫割草，和工坊采药站分开。体力上限 100，空地除一块花 10（`HERB_PVP_WEED_COST`），每 3 分钟回 1（`HERB_PVP_STAMINA_REGEN_S`），离线也回。撞上假玩家只有打死并抢到地才扣这 10 点，没打死不扣；派出前仍要至少 10 点。假玩家来撞不改体力。派人用开战选人面板，只可选休息区满血苦工，一次 1 人，不带符文。旧档缺整段或地块/对手结构不对，按新开局补（体力 100、三种侦测各 1、分数 0），不补昨日奖。已有棋盘 `staminaRev` 缺或小于 2 时体力 ×10，恢复秒按新间隔折算，只迁一次。概率、时长、日结数额见 `HERB_PVP_*` 与 `HERB_PVP_RANK_REWARDS`。玩法切换记在 `idea5IdlePvpTab`，不进存档 |
 | 苦工品质 | `qualityTier` 1～10；表 `WORKER_QUALITY_TABLE`（白绿蓝青紫橙粉红金彩）；`workerQualityRev` |
 | 苦工合成 | 同档两人 → 高一档 1 人；满档不可；职业按新档池随机；战斗 XP 相加后按曲线连升 |
 | 工具匹配 | 已废；旧 `matchStationId` 只 hydrate |

@@ -31,7 +31,7 @@ export const HERB_PVP_WEED_S = 3 * 60
 /** 玩家同时最多占 3 块，每块 1 人。 */
 export const HERB_PVP_PLAYER_CAP = 3
 export const HERB_PVP_STAMINA_MAX = 100
-/** 开始除一块花的体力。 */
+/** 开始除一块花的体力。空地直接扣；撞上人只有打死并抢到地才扣。 */
 export const HERB_PVP_WEED_COST = 10
 /** 每 3 分钟回 1 点体力，离线也走。 */
 export const HERB_PVP_STAMINA_REGEN_S = 3 * 60
@@ -666,14 +666,15 @@ function playerHitsRival(save: Save, plot: HerbPlot, worker: Worker, rival: Herb
   worker.hp = blow.attackerHp
   rival.hp = blow.defenderHp
   if (blow.took) {
+    save.herbPvp.stamina -= HERB_PVP_WEED_COST
     plot.weeder = null
     plot.workerId = worker.id
     knockOutRival(save.herbPvp, rival, save.elapsedS)
-    return { ok: true, message: `撞上${rival.name}，对方退走，接着除` }
+    return { ok: true, message: `撞上${rival.name}，对方退走，接着除，花 ${HERB_PVP_WEED_COST} 体力` }
   }
   sendHerbWorkerHome(save, worker)
-  if (worker.hp <= 0) return { ok: true, message: `被${rival.name}打倒，回休息区` }
-  return { ok: true, message: `没打退${rival.name}，苦工回来了` }
+  if (worker.hp <= 0) return { ok: true, message: `被${rival.name}打倒，回休息区，体力未扣` }
+  return { ok: true, message: `没打退${rival.name}，苦工回来了，体力未扣` }
 }
 
 function rivalHitsPlayer(save: Save, plot: HerbPlot, rival: HerbRival, offline: boolean): void {
@@ -872,14 +873,14 @@ export function startHerbWeed(save: Save, plotIndex: number, workerId: string): 
   if (mineBusy) return { ok: false, reason: mineBusy }
   if (!isFullWorkshopHp(worker)) return { ok: false, reason: '满血才能上岗' }
   if (state.stamina < HERB_PVP_WEED_COST) return { ok: false, reason: '体力不足' }
-  state.stamina -= HERB_PVP_WEED_COST
   const rival = plot.weeder ? state.rivals.find((row) => row.id === plot.weeder) : undefined
   if (rival) return playerHitsRival(save, plot, worker, rival)
+  state.stamina -= HERB_PVP_WEED_COST
   plot.workerId = worker.id
   plot.weeder = null
   plot.progressS = 0
   const name = worker.name ?? '苦工'
-  return { ok: true, message: `${name} 开始除草` }
+  return { ok: true, message: `${name} 开始除草，花 ${HERB_PVP_WEED_COST} 体力` }
 }
 
 export function useHerbProbe(save: Save, plotIndex: number, size: 1 | 2 | 4): ActionResult {
