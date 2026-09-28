@@ -46,6 +46,7 @@ import {
   scoutTreasureMine,
   startTreasureRaid,
   takeTreasureVaultNotices,
+  upgradeTreasureBanner,
   type TreasureRefreshPay,
 } from '../sim/treasureMine'
 import { claimGuideQuest, markGuideQuestRuneOpened } from '../sim/guideQuest'
@@ -311,6 +312,7 @@ export const useGameStore = defineStore('game', () => {
       apply((s) => reinforceTreasureRaid(s, mineId, workerId)),
     addTreasureMiner: (mineId: string, workerId: string) => apply((s) => addTreasureMiner(s, mineId, workerId)),
     buyTreasureRune: (runeId: RuneItemId) => apply((s) => buyTreasureRune(s, runeId)),
+    upgradeTreasureBanner: () => apply((s) => upgradeTreasureBanner(s)),
     claimTreasureMine: (mineId: string, workerIds: string[]) =>
       apply((s) => claimTreasureMine(s, mineId, workerIds)),
     abandonTreasureMine: (mineId: string) => apply((s) => abandonTreasureMine(s, mineId)),

@@ -1,4 +1,4 @@
-export type ModeHelpId = 'treasure' | 'armory' | 'battlefield' | 'dungeon' | 'market'
+export type ModeHelpId = 'treasure' | 'armory' | 'banner' | 'battlefield' | 'dungeon' | 'market'
 
 export type ModeHelpRow = {
   label: string
@@ -45,7 +45,25 @@ export const MODE_HELP: Record<ModeHelpId, ModeHelp> = {
       },
       {
         label: '注意',
-        text: '战斗中 60 珠宝可增援 1 名满血工人，每仗 1 次。开采未满员可花 80 珠宝再补 1 人，最多 3 人。',
+        text: '战斗中 60 珠宝可增援 1 名满血工人，每仗 1 次。开采未满员可花 80 珠宝再补 1 人。人数上限看战旗。',
+      },
+    ],
+  },
+  banner: {
+    id: 'banner',
+    title: '战旗',
+    rows: [
+      {
+        label: '怎么玩',
+        text: '花古玉升级战旗，最高 5 级。不够时按钮变灰，并提示还差多少。',
+      },
+      {
+        label: '规则要点',
+        text: '每级让之后新刷的洞储量 +10%，守军等级 +1。已经在的洞不变。',
+      },
+      {
+        label: '注意',
+        text: '2 级和 4 级各让开采上限 +1，最多 5 人。抢夺出战仍是 3 人。1 级铜框、3 级银框、5 级金框。',
       },
     ],
   },

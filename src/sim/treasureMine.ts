@@ -34,6 +34,7 @@ import type {
 export const TREASURE_MINE_CAP = 4
 export const TREASURE_RESERVE_MAX = 1000
 export const TREASURE_LIFE_S = 60 * 60
+/** 战旗 0 级时的开采人数。2 级、4 级各 +1。出战不看这个。 */
 export const TREASURE_CREW_CAP = 3
 export const TREASURE_DIG_BASE_S = 5
 export const TREASURE_RAID_CAP = 3
@@ -42,7 +43,7 @@ export const TREASURE_REFRESH_COST = 10
 
 /**
  * 宝物消耗起步值，集中在这里方便以后改。
- * 古玉战旗、被袭加固继续往这组加，收支仍走宝库。
+ * 我方洞被袭、加固的费用以后加在这组，收支仍走宝库。这一步不做被袭。
  */
 export const TREASURE_STAKE_PER_GUARD = 40
 export const TREASURE_SCOUT_COST = 20
@@ -53,6 +54,14 @@ export const TREASURE_RUNE_COST = 40
 export const TREASURE_REINFORCE_COST = 60
 /** 我方开采未满员时补一名工人。 */
 export const TREASURE_FILL_COST = 80
+/** 战旗最高级。 */
+export const TREASURE_BANNER_MAX = 5
+/** 升到下一级的古玉价。下标是当前等级，0→1 起。 */
+export const TREASURE_BANNER_COSTS = [150, 300, 600, 1000, 1600] as const
+/** 每级让新刷洞储量增加的比例。已有洞不改。 */
+export const TREASURE_BANNER_RESERVE_PER_LEVEL = 0.1
+/** 达到这些等级时，开采人数上限各 +1。 */
+export const TREASURE_BANNER_CREW_LEVELS = [2, 4] as const
 
 /** 军械铺出售的符文，换进普通符文背包。 */
 export const TREASURE_ARMORY_RUNES = ['runeSharp', 'runeArmor', 'runeSwift'] as const
@@ -140,6 +149,106 @@ export function jewelShortTip(need: number, have: number): string {
 
 export function jewelSpentTip(qty: number): string {
   return `珠宝 −${qty}`
+}
+
+export function jadeGap(need: number, have: number): number {
+  return Math.max(0, Math.floor(need) - Math.max(0, Math.floor(have)))
+}
+
+export function jadeShortTip(need: number, have: number): string {
+  return `古玉还差 ${jadeGap(need, have)}`
+}
+
+export function jadeSpentTip(qty: number): string {
+  return `古玉 −${qty}`
+}
+
+export type BannerFrame = 'none' | 'copper' | 'silver' | 'gold'
+
+export const BANNER_FRAME_LABEL: Record<BannerFrame, string> = {
+  none: '无框',
+  copper: '铜色',
+  silver: '银色',
+  gold: '金色',
+}
+
+function keptBannerLevel(raw: unknown): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return 0
+  return Math.min(TREASURE_BANNER_MAX, Math.max(0, Math.floor(raw)))
+}
+
+/** 战旗等级。缺字段、负数、非数都当 0，高于 5 级夹到 5。 */
+export function bannerLevelOf(save: Save): number {
+  return keptBannerLevel(save.treasureMines?.bannerLevel)
+}
+
+/** 升到下一级要的古玉。已满则没有。 */
+export function bannerUpgradeCost(level: number): number | null {
+  const current = keptBannerLevel(level)
+  if (current >= TREASURE_BANNER_MAX) return null
+  return TREASURE_BANNER_COSTS[current] ?? null
+}
+
+/** 这一级新刷洞的储量上限。0 级就是基础 1000。 */
+export function bannerReserveMax(level: number): number {
+  const steps = keptBannerLevel(level)
+  return Math.round(TREASURE_RESERVE_MAX * (1 + TREASURE_BANNER_RESERVE_PER_LEVEL * steps))
+}
+
+/** 开采人数上限。0～1 级 3 人，2～3 级 4 人，4～5 级 5 人。 */
+export function treasureCrewCap(save: Save): number {
+  return crewCapAt(bannerLevelOf(save))
+}
+
+function crewCapAt(level: number): number {
+  const current = keptBannerLevel(level)
+  let cap = TREASURE_CREW_CAP
+  for (const mark of TREASURE_BANNER_CREW_LEVELS) {
+    if (current >= mark) cap += 1
+  }
+  return cap
+}
+
+/** 顶栏头像框。0 级无框，2 级沿用铜，4 级沿用银。 */
+export function bannerFrameOf(level: number): BannerFrame {
+  const current = keptBannerLevel(level)
+  if (current >= 5) return 'gold'
+  if (current >= 3) return 'silver'
+  if (current >= 1) return 'copper'
+  return 'none'
+}
+
+/** 升到下一级时页面上列出的奖励。已满为空。 */
+export function bannerNextRewards(level: number): string[] {
+  const current = keptBannerLevel(level)
+  if (current >= TREASURE_BANNER_MAX) return []
+  const next = current + 1
+  const lines = [
+    `新刷洞储量 +10%（${bannerReserveMax(next)}）`,
+    '新刷洞守军等级 +1',
+  ]
+  const capNow = crewCapAt(current)
+  const capNext = crewCapAt(next)
+  if (capNext > capNow) lines.push(`开采人数上限 ${capNext}`)
+  const frameNow = bannerFrameOf(current)
+  const frameNext = bannerFrameOf(next)
+  if (frameNext !== frameNow) lines.push(`头像框${BANNER_FRAME_LABEL[frameNext]}`)
+  return lines
+}
+
+/** 花古玉升 1 级。不够或已满都不扣。已有矿洞不改。 */
+export function upgradeTreasureBanner(save: Save): ActionResult {
+  const state = ensureTreasureMines(save)
+  const level = bannerLevelOf(save)
+  if (level >= TREASURE_BANNER_MAX) return { ok: false, reason: '战旗已满' }
+  const cost = TREASURE_BANNER_COSTS[level]
+  if (cost == null) return { ok: false, reason: '战旗已满' }
+  if (vaultQty(save, 'jade') < cost) {
+    return { ok: false, reason: jadeShortTip(cost, vaultQty(save, 'jade')) }
+  }
+  trySpendVault(save, 'jade', cost)
+  state.bannerLevel = level + 1
+  return { ok: true, message: jadeSpentTip(cost) }
 }
 
 export function isArmoryRune(value: unknown): value is TreasureArmoryRune {
@@ -266,7 +375,7 @@ function namesOnBoard(save: Save): Set<string> {
 }
 
 export function blankTreasureMines(): TreasureMineState {
-  return { nextId: 1, roll: 1, vault: {}, mines: [] }
+  return { nextId: 1, roll: 1, vault: {}, mines: [], bannerLevel: 0 }
 }
 
 /** 等级微调：1～5 级 5 秒，之后每 5 级快 1 秒，最快 3 秒。命中矿弱点再快 1 秒。 */
@@ -299,6 +408,7 @@ export function ensureTreasureMines(save: Save): TreasureMineState {
   if (typeof save.treasureMines.roll !== 'number' || !Number.isFinite(save.treasureMines.roll)) {
     save.treasureMines.roll = 1
   }
+  save.treasureMines.bannerLevel = keptBannerLevel(save.treasureMines.bannerLevel)
   return save.treasureMines
 }
 
@@ -326,7 +436,13 @@ export function hydrateTreasureMines(save: Save): void {
     mine.ownerAvatarId = normalizeMineAvatarId(mine.ownerAvatarId, mine.id)
     mine.weaknesses = mineWeaknessesOf(mine)
     mine.revealedWeaknesses = keptRevealedWeaknesses(mine)
-    mine.reserve = clampInt(mine.reserve, 0, TREASURE_RESERVE_MAX)
+    const ceiling = bannerReserveMax(TREASURE_BANNER_MAX)
+    const storedMax =
+      typeof mine.reserveMax === 'number' && Number.isFinite(mine.reserveMax) && mine.reserveMax > 0
+        ? Math.floor(mine.reserveMax)
+        : TREASURE_RESERVE_MAX
+    mine.reserveMax = Math.min(ceiling, Math.max(TREASURE_RESERVE_MAX, storedMax))
+    mine.reserve = clampInt(mine.reserve, 0, mine.reserveMax)
   }
   refreshTreasureMines(save)
 }
@@ -403,14 +519,14 @@ export function rejectTreasureMineRune(): ActionResult {
 
 /**
  * 我方开采未满员时，花珠宝从休息区补一名满血工人。
- * 上限仍是 3。满员、未满血、珠宝不够都不加人、不扣费。
+ * 人数上限看战旗。满员、未满血、珠宝不够都不加人、不扣费。
  */
 export function addTreasureMiner(save: Save, mineId: string, workerId: string): ActionResult {
   const mine = findMine(save, mineId)
   if (!mine) return { ok: false, reason: '没有这个矿洞' }
   if (mine.owner !== 'player') return { ok: false, reason: '这洞还不是你的' }
   if (mine.raid) return { ok: false, reason: '抢夺进行中不能补位' }
-  if (mine.crewIds.length >= TREASURE_CREW_CAP) return { ok: false, reason: '这洞已满员' }
+  if (mine.crewIds.length >= treasureCrewCap(save)) return { ok: false, reason: '这洞已满员' }
   const worker = save.workers.find((row) => row.id === workerId)
   if (!worker) return { ok: false, reason: '没有这个工人' }
   if (mine.crewIds.includes(worker.id)) return { ok: false, reason: '正在矿洞' }
@@ -439,14 +555,15 @@ export function buyTreasureRune(save: Save, runeId: RuneItemId): ActionResult {
   return { ok: true, message: jewelSpentTip(TREASURE_RUNE_COST) }
 }
 
-/** 无人矿一次选 1～3 人占领。不改储量、倒计时和弱点。 */
+/** 无人矿按当前开采上限一次选人占领。不改储量、倒计时和弱点。 */
 export function claimTreasureMine(save: Save, mineId: string, workerIds: readonly string[]): ActionResult {
   const mine = findMine(save, mineId)
   if (!mine) return { ok: false, reason: '没有这个矿洞' }
   if (mine.owner === 'player') return { ok: false, reason: '这洞不能补采' }
   if (mine.owner !== 'empty') return { ok: false, reason: '这洞现在不能开采' }
   if (!workerIds.length) return { ok: false, reason: '请选择开采工人' }
-  if (workerIds.length > TREASURE_CREW_CAP) return { ok: false, reason: '这洞最多 3 人' }
+  const cap = treasureCrewCap(save)
+  if (workerIds.length > cap) return { ok: false, reason: `这洞最多 ${cap} 人` }
   const seen = new Set<string>()
   const party: Worker[] = []
   for (const id of workerIds) {
@@ -935,11 +1052,12 @@ function spawnMine(save: Save, elapsed: number): TreasureMine {
     taken.add(shadow.name)
     shadows.push(shadow)
   }
+  const reserveMax = bannerReserveMax(bannerLevelOf(save))
   return {
     id,
     kind,
-    reserve: TREASURE_RESERVE_MAX,
-    reserveMax: TREASURE_RESERVE_MAX,
+    reserve: reserveMax,
+    reserveMax,
     bornAtS: elapsed,
     expiresAtS: elapsed + TREASURE_LIFE_S,
     owner: count > 0 ? 'shadow' : 'empty',
@@ -999,7 +1117,7 @@ function makeShadow(save: Save, mineId: string, index: number, taken: ReadonlySe
     foodSlot: null,
     hp: 1,
     hpMax: 1,
-    level: Math.max(1, save.knightLevel),
+    level: Math.max(1, save.knightLevel) + bannerLevelOf(save),
     xp: 0,
     combatAttrs: [],
     fatigueDebt: 0,

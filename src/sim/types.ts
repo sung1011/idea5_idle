@@ -542,6 +542,12 @@ export type TreasureMineState = {
   roll: number
   vault: Partial<Record<TreasureId, number>>
   mines: TreasureMine[]
+  /**
+   * 古玉战旗等级，0～5。旧档缺字段当 0。
+   * 只改之后新刷洞的储量和守军等级，以及开采人数上限、顶栏头像框。
+   * 我方洞被袭和加固以后另记，不放在这一级上。
+   */
+  bannerLevel: number
 }
 
 export type Save = {

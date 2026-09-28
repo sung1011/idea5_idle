@@ -1,10 +1,15 @@
 import { workerLiveStats } from '../sim/combat'
 import { playerDisplayName } from '../sim/createSave'
 import { playerAvatarId } from '../sim/playerAvatarIds'
-import { normalizeMineAvatarId } from '../sim/treasureMine'
+import {
+  TREASURE_CREW_CAP,
+  TREASURE_RAID_CAP,
+  normalizeMineAvatarId,
+  raidSlotSnapshot,
+  treasureCrewCap,
+} from '../sim/treasureMine'
 import { runeSpdMul } from '../sim/runes'
 import { CLASS_LABEL, RUNE_DEF, workerQualityDef } from '../sim/tables'
-import { TREASURE_RAID_CAP, raidSlotSnapshot } from '../sim/treasureMine'
 import type { RuneItemId, Save, TreasureMine, Worker } from '../sim/types'
 import { actChargeFill } from './actCharge'
 import { hpBarFill } from './hpBar'
@@ -31,7 +36,8 @@ export function squadBarHp(
 ): { hp: number; hpMax: number } {
   let hp = 0
   let hpMax = 0
-  for (let i = 0; i < TREASURE_RAID_CAP; i += 1) {
+  const count = Math.max(TREASURE_RAID_CAP, slots?.length ?? 0)
+  for (let i = 0; i < count; i += 1) {
     const id = slots?.[i]
     if (typeof id !== 'string' || !id) continue
     const max = openMax?.[i]
@@ -51,7 +57,8 @@ export function slotStates(
   const living = new Set(livingIds)
   const raw = Array.isArray(snapshot) ? snapshot : []
   const marks: RaidSlotMark[] = []
-  for (let i = 0; i < TREASURE_RAID_CAP; i += 1) {
+  const count = Math.max(TREASURE_RAID_CAP, raw.length)
+  for (let i = 0; i < count; i += 1) {
     const id = raw[i]
     if (typeof id !== 'string' || !id) marks.push('empty')
     else marks.push(living.has(id) ? 'filled' : 'dead')
@@ -137,10 +144,11 @@ function playerMineHud(
   workers: readonly Worker[],
   playerName: unknown,
   playerAvatar: unknown,
+  crewCap: number,
 ): TreasureRaidHud | null {
   if (mine.owner !== 'player' || mine.raid) return null
   const crew = mine.crewIds.filter((id) => typeof id === 'string' && id)
-  const slots = raidSlotSnapshot(crew)
+  const slots = mineCrewSlotSnapshot(crew, crewCap)
   const living = crew.filter((id) => workers.some((worker) => worker.id === id))
   const openMax = slots.map((id) => {
     const worker = id ? workers.find((row) => row.id === id) : undefined
@@ -192,8 +200,9 @@ export function treasureRaidHud(
   elapsedS: number,
   playerName?: unknown,
   playerAvatar?: unknown,
+  crewCap = TREASURE_CREW_CAP,
 ): TreasureRaidHud | null {
-  const owned = playerMineHud(mine, workers, playerName, playerAvatar)
+  const owned = playerMineHud(mine, workers, playerName, playerAvatar, crewCap)
   if (owned) return owned
   const raid = mine.raid
   const shadow = mine.shadows[0]
@@ -252,7 +261,23 @@ export type SlotSheet = {
 
 export type SlotPress = { kind: 'tip'; text: '空槽' | '已阵亡' } | { kind: 'sheet'; sheet: SlotSheet }
 
-function slotIds(mine: TreasureMine, side: 'attack' | 'defend'): { ids: (string | null)[]; living: string[] } {
+/** 开采槽按人数上限补空。抢夺槽仍是 3。 */
+export function mineCrewSlotSnapshot(ids: readonly string[], cap: number): (string | null)[] {
+  const limit = Math.max(1, Math.floor(cap))
+  const slots: (string | null)[] = []
+  for (const id of ids) {
+    if (slots.length >= limit) break
+    if (typeof id === 'string' && id) slots.push(id)
+  }
+  while (slots.length < limit) slots.push(null)
+  return slots
+}
+
+function slotIds(
+  mine: TreasureMine,
+  side: 'attack' | 'defend',
+  crewCap: number,
+): { ids: (string | null)[]; living: string[] } {
   if (side === 'attack') {
     const raid = mine.raid
     if (!raid) return { ids: raidSlotSnapshot([]), living: [] }
@@ -266,7 +291,7 @@ function slotIds(mine: TreasureMine, side: 'attack' | 'defend'): { ids: (string 
   }
   if (mine.owner === 'player') {
     const living = mine.crewIds.filter((id) => typeof id === 'string' && id)
-    return { ids: raidSlotSnapshot(living), living }
+    return { ids: mineCrewSlotSnapshot(living, crewCap), living }
   }
   const living = mine.owner === 'shadow' ? mine.shadows.map((row) => row.id) : []
   return { ids: raidSlotSnapshot(living), living }
@@ -362,7 +387,8 @@ export function raidSlotPress(
   index: number,
   save?: Save,
 ): SlotPress {
-  const snap = slotIds(mine, side)
+  const cap = save ? treasureCrewCap(save) : TREASURE_CREW_CAP
+  const snap = slotIds(mine, side, cap)
   const mark = slotStates(snap.ids, snap.living)[index]
   const id = snap.ids[index]
   if (mark !== 'filled' || !id) {

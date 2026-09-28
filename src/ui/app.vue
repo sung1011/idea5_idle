@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { playerDisplayName, type PlayerAvatarId } from '../sim/createSave'
+import { bannerFrameOf, bannerLevelOf } from '../sim/treasureMine'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
 import { dockStationHp } from './dockStationHp'
 import { useGameStore } from './gameStore'
@@ -31,6 +32,7 @@ const settingsOpen = ref(false)
 const resourceOpen = ref<HudChipId | null>(null)
 const profileOpen = ref(false)
 const playerName = computed(() => playerDisplayName(game.save.playerName))
+const bannerFrame = computed(() => bannerFrameOf(bannerLevelOf(game.save)))
 const chips = computed(() => listHudChips(game.save))
 const stationHp = computed(() => dockStationHp(game.save))
 const resourceDetail = computed(() => (resourceOpen.value ? hudChipDetail(game.save, resourceOpen.value) : null))
@@ -53,7 +55,7 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
   <div class="shell">
     <header class="hud" aria-label="资源">
       <button type="button" class="player" aria-label="玩家" @click="profileOpen = true">
-        <PlayerAvatar :id="game.save.playerAvatarId" />
+        <PlayerAvatar :id="game.save.playerAvatarId" :frame="bannerFrame" />
         <span class="player-name">{{ playerName }}</span>
       </button>
       <div class="resources">

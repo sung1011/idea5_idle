@@ -288,6 +288,7 @@ describe('treasure raid hud', () => {
     expect(panel).toContain('hud.defend.avatarId')
     expect(panel).toContain('hud.attack.avatarId')
     expect(panel).toContain('敌人驻守')
+    expect(panel).toContain('我方开采 ${mine.crewIds.length}/${crewCap.value}')
     expect(panel).not.toContain('快照驻守')
     expect(panel).toContain('无人矿')
     expect(panel).toContain('claimTreasureMine')
@@ -406,6 +407,9 @@ describe('treasure raid hud', () => {
     expect(hud?.defend.hpMax).toBe(30)
     expect(hud?.defend.fill).toBe(0)
     expect(hud?.defend.slots).toEqual(['filled', 'filled', 'empty'])
+    save.treasureMines.bannerLevel = 4
+    const wider = treasureRaidHud(mine, save.workers, save.elapsedS, save.playerName, save.playerAvatarId, 5)
+    expect(wider?.defend.slots).toEqual(['filled', 'filled', 'empty', 'empty', 'empty'])
     const press = raidSlotPress(mine, save.workers, 'defend', 0, save)
     expect(press.kind).toBe('sheet')
     if (press.kind === 'sheet') {

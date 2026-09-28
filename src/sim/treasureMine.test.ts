@@ -30,8 +30,16 @@ import {
   TREASURE_FILL_COST,
   TREASURE_REINFORCE_COST,
   TREASURE_RUNE_COST,
+  TREASURE_BANNER_COSTS,
+  TREASURE_BANNER_MAX,
   TREASURE_STAKE_PER_GUARD,
+  bannerFrameOf,
+  bannerLevelOf,
+  bannerReserveMax,
   buyTreasureRune,
+  jadeShortTip,
+  treasureCrewCap,
+  upgradeTreasureBanner,
   jewelShortTip,
   refreshTreasureMineBoard,
   refreshTreasureMines,
@@ -1403,5 +1411,143 @@ describe('treasure jewel armory', () => {
     const kept = loaded?.treasureMines.mines.find((row) => row.id === mine.id)
     expect(kept?.crewIds).toEqual([lead.id, mate.id, third.id])
     expect(loaded?.treasureMines.vault.jewel).toBe(TREASURE_FILL_COST)
+  })
+})
+
+describe('treasure jade banner', () => {
+  it('spends jade to upgrade, blocks a short pile, and blocks a full banner', () => {
+    expect([...TREASURE_BANNER_COSTS]).toEqual([150, 300, 600, 1000, 1600])
+    const save = createSave()
+    expect(bannerLevelOf(save)).toBe(0)
+    for (let level = 0; level < TREASURE_BANNER_MAX; level += 1) {
+      const cost = TREASURE_BANNER_COSTS[level]
+      save.treasureMines.vault.jade = cost - 1
+      expect(upgradeTreasureBanner(save)).toEqual({ ok: false, reason: jadeShortTip(cost, cost - 1) })
+      expect(bannerLevelOf(save)).toBe(level)
+      expect(save.treasureMines.vault.jade).toBe(cost - 1)
+      save.treasureMines.vault.jade = cost
+      expect(upgradeTreasureBanner(save)).toEqual({ ok: true, message: `古玉 −${cost}` })
+      expect(bannerLevelOf(save)).toBe(level + 1)
+      expect(save.treasureMines.vault.jade).toBe(0)
+    }
+    save.treasureMines.vault.jade = 1600
+    expect(upgradeTreasureBanner(save)).toEqual({ ok: false, reason: '战旗已满' })
+    expect(bannerLevelOf(save)).toBe(TREASURE_BANNER_MAX)
+    expect(save.treasureMines.vault.jade).toBe(1600)
+    expect(bannerFrameOf(0)).toBe('none')
+    expect(bannerFrameOf(1)).toBe('copper')
+    expect(bannerFrameOf(2)).toBe('copper')
+    expect(bannerFrameOf(3)).toBe('silver')
+    expect(bannerFrameOf(4)).toBe('silver')
+    expect(bannerFrameOf(5)).toBe('gold')
+  })
+
+  it('raises only newly spawned reserve and garrison level', () => {
+    expect(bannerReserveMax(0)).toBe(TREASURE_RESERVE_MAX)
+    expect(bannerReserveMax(1)).toBe(1100)
+    expect(bannerReserveMax(5)).toBe(1500)
+    const save = createSave()
+    const standing = ensureGarrison(save.treasureMines.mines[0])
+    const oldReserve = standing.reserve
+    const oldMax = standing.reserveMax
+    const oldLevels = standing.shadows.map((shadow) => shadow.level)
+    save.knightLevel = 4
+    save.treasureMines.bannerLevel = 3
+    let sawGuard = false
+    for (let i = 0; i < 40 && !sawGuard; i += 1) {
+      for (const mine of save.treasureMines.mines) {
+        if (mine.id !== standing.id) mine.reserve = 0
+      }
+      refreshTreasureMines(save)
+      const kept = save.treasureMines.mines.find((mine) => mine.id === standing.id)
+      expect(kept?.reserve).toBe(oldReserve)
+      expect(kept?.reserveMax).toBe(oldMax)
+      expect(kept?.shadows.map((shadow) => shadow.level)).toEqual(oldLevels)
+      for (const mine of save.treasureMines.mines) {
+        if (mine.id === standing.id) continue
+        expect(mine.reserve).toBe(bannerReserveMax(3))
+        expect(mine.reserveMax).toBe(1300)
+        if (mine.shadows.length > 0) {
+          sawGuard = true
+          expect(mine.shadows.every((shadow) => shadow.level === 4 + 3)).toBe(true)
+        }
+      }
+    }
+    expect(sawGuard).toBe(true)
+  })
+
+  it('opens mining slots to 3, 4, then 5 and lets fill follow, while raids stay at 3', () => {
+    const save = createSave()
+    expect(treasureCrewCap(save)).toBe(3)
+    save.treasureMines.bannerLevel = 1
+    expect(treasureCrewCap(save)).toBe(3)
+    const mine = save.treasureMines.mines[0]
+    setGuards(mine, 0)
+    const miners = Array.from({ length: 6 }, () => spawnWorker(save))
+    expect(claimTreasureMine(save, mine.id, miners.slice(0, 4).map((worker) => worker.id))).toEqual({
+      ok: false,
+      reason: '这洞最多 3 人',
+    })
+    expect(claimTreasureMine(save, mine.id, miners.slice(0, 3).map((worker) => worker.id)).ok).toBe(true)
+    save.treasureMines.vault.jewel = TREASURE_FILL_COST
+    expect(addTreasureMiner(save, mine.id, miners[3].id)).toEqual({ ok: false, reason: '这洞已满员' })
+
+    save.treasureMines.bannerLevel = 2
+    expect(treasureCrewCap(save)).toBe(4)
+    expect(addTreasureMiner(save, mine.id, miners[3].id)).toEqual({
+      ok: true,
+      message: `珠宝 −${TREASURE_FILL_COST}`,
+    })
+    expect(mine.crewIds).toHaveLength(4)
+    save.treasureMines.bannerLevel = 3
+    expect(treasureCrewCap(save)).toBe(4)
+    save.treasureMines.vault.jewel = TREASURE_FILL_COST
+    expect(addTreasureMiner(save, mine.id, miners[4].id)).toEqual({ ok: false, reason: '这洞已满员' })
+
+    save.treasureMines.bannerLevel = 4
+    expect(treasureCrewCap(save)).toBe(5)
+    expect(addTreasureMiner(save, mine.id, miners[4].id).ok).toBe(true)
+    expect(mine.crewIds).toHaveLength(5)
+    save.treasureMines.bannerLevel = 5
+    expect(treasureCrewCap(save)).toBe(5)
+    save.treasureMines.vault.jewel = TREASURE_FILL_COST
+    expect(addTreasureMiner(save, mine.id, miners[5].id)).toEqual({ ok: false, reason: '这洞已满员' })
+    expect(save.treasureMines.vault.jewel).toBe(TREASURE_FILL_COST)
+
+    const raidHole = ensureGarrison(save.treasureMines.mines[1])
+    const raiders = Array.from({ length: 4 }, () => spawnWorker(save))
+    save.treasureMines.vault.sandGold = 400
+    expect(openTreasureRaid(save, raidHole.id, raiders.map((worker) => worker.id))).toEqual({
+      ok: false,
+      reason: '抢夺最多 3 人',
+    })
+    expect(raidHole.raid).toBeNull()
+  })
+
+  it('keeps a missing banner at 0 and round-trips level with the richer holes', () => {
+    const blank = createSave()
+    delete (blank.treasureMines as { bannerLevel?: number }).bannerLevel
+    const legacy = hydrateLoadedSave(JSON.parse(JSON.stringify(blank)))
+    expect(legacy?.treasureMines.bannerLevel).toBe(0)
+    expect(legacy ? treasureCrewCap(legacy) : -1).toBe(3)
+    expect(legacy?.treasureMines.mines.every((mine) => mine.reserveMax === TREASURE_RESERVE_MAX)).toBe(true)
+
+    const save = createSave()
+    const standing = save.treasureMines.mines[0]
+    const standingMax = standing.reserveMax
+    save.treasureMines.bannerLevel = 2
+    save.treasureMines.vault.jade = 40
+    for (const mine of save.treasureMines.mines) {
+      if (mine.id !== standing.id) mine.reserve = 0
+    }
+    refreshTreasureMines(save)
+    const born = save.treasureMines.mines.find((mine) => mine.id !== standing.id)
+    expect(born?.reserveMax).toBe(1200)
+    const loaded = hydrateLoadedSave(JSON.parse(JSON.stringify(save)))
+    expect(loaded?.treasureMines.bannerLevel).toBe(2)
+    expect(loaded?.treasureMines.vault.jade).toBe(40)
+    expect(loaded?.treasureMines.mines.find((mine) => mine.id === standing.id)?.reserveMax).toBe(standingMax)
+    expect(loaded?.treasureMines.mines.find((mine) => mine.id === born?.id)?.reserveMax).toBe(1200)
+    expect(loaded?.treasureMines.mines.find((mine) => mine.id === born?.id)?.reserve).toBe(1200)
   })
 })

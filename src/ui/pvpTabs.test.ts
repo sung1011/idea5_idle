@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import panel from './pvpPanel.vue?raw'
 import mine from './treasureMinePanel.vue?raw'
+import banner from './treasureBannerPanel.vue?raw'
+import avatar from './playerAvatar.vue?raw'
 
 describe('pvp treasure tab', () => {
   it('shows 夺宝 and 军械铺 in the PVE-style strip', () => {
@@ -8,8 +10,11 @@ describe('pvp treasure tab', () => {
     expect(panel).toContain('class="sub"')
     expect(panel).toContain('夺宝')
     expect(panel).toContain('军械铺')
+    expect(panel).toContain('战旗')
     expect(panel).toContain('<TreasureMinePanel')
     expect(panel).toContain('<TreasureArmoryPanel')
+    expect(panel).toContain('<TreasureBannerPanel')
+    expect(panel).toContain("modeHelpOf('banner')")
     expect(mine).toContain('增援 {{ TREASURE_REINFORCE_COST }} 珠宝')
     expect(mine).toContain('补位 {{ TREASURE_FILL_COST }} 珠宝')
     expect(mine).toContain('class="tags"')
@@ -20,6 +25,13 @@ describe('pvp treasure tab', () => {
     expect(mine).toContain("onRefresh('sandGold')")
     expect(mine).toContain("onRefresh('diamonds')")
     expect(mine).toContain('侦察 {{ TREASURE_SCOUT_COST }} 砂金')
+    expect(banner).toContain('aria-label="战旗"')
+    expect(banner).toContain('已满')
+    expect(banner).toContain('is-short')
+    expect(banner).toContain('升级 {{ cost() }} 古玉')
+    expect(avatar).toContain('frame-copper')
+    expect(avatar).toContain('frame-silver')
+    expect(avatar).toContain('frame-gold')
     expect(mine).toContain('抢夺 {{ stakeOf(mine) }} 砂金')
     expect(mine).toContain('is-short')
     const tags = mine.slice(mine.indexOf('class="tags"'), mine.indexOf('</span>', mine.indexOf('class="tags"')))

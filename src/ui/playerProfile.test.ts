@@ -15,6 +15,7 @@ describe('player profile hud', () => {
     expect(app).toContain('<PlayerProfileSheet')
     expect(app).toContain('game.setPlayerProfile')
     expect(app).toContain('game.save.playerAvatarId')
+    expect(app).toContain(':frame="bannerFrame"')
   })
 
   it('edits name and avatar in a small sheet, not a full page', () => {

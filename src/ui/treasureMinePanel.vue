@@ -9,7 +9,6 @@ import { raidSlotLabel, raidSlotPress, treasureRaidHud, type SlotSheet } from '.
 import { useFrameNow, visualStationProgress } from './visualProgress'
 import { isFullCombatHp, restCombatCandidates } from '../sim/combat'
 import {
-  TREASURE_CREW_CAP,
   TREASURE_FILL_COST,
   TREASURE_KIND_LABEL,
   TREASURE_KINDS,
@@ -27,6 +26,7 @@ import {
   mineWeaknessSlots,
   raidStakeCost,
   sandShortTip,
+  treasureCrewCap,
   treasureRaidOpenForReinforce,
   vaultQty,
   type TreasureRefreshPay,
@@ -90,11 +90,12 @@ const picked = ref<string[]>([])
 const runes = ref<Partial<Record<string, RuneItemId>>>({})
 const pickOpen = computed(() => pickMineId.value != null)
 const activeMine = computed(() => mines.value.find((row) => row.id === pickMineId.value) ?? null)
+const crewCap = computed(() => treasureCrewCap(game.save))
 const pickMax = computed(() => {
   if (pickKind.value === 'reinforce' || pickKind.value === 'fill') return 1
-  if (pickKind.value === 'raid') return TREASURE_CREW_CAP
-  if (!activeMine.value) return TREASURE_CREW_CAP
-  return Math.max(0, TREASURE_CREW_CAP - activeMine.value.crewIds.length)
+  if (pickKind.value === 'raid') return TREASURE_RAID_CAP
+  if (!activeMine.value) return crewCap.value
+  return Math.max(0, crewCap.value - activeMine.value.crewIds.length)
 })
 const pickSlotOffset = computed(() => {
   if (pickKind.value === 'fill') return activeMine.value?.crewIds.length ?? 0
@@ -142,7 +143,7 @@ function showReinforce(mine: TreasureMine): boolean {
 }
 
 function showFill(mine: TreasureMine): boolean {
-  return mine.owner === 'player' && mine.raid == null && mine.crewIds.length < TREASURE_CREW_CAP
+  return mine.owner === 'player' && mine.raid == null && mine.crewIds.length < crewCap.value
 }
 
 function reinforceBlock(mine: TreasureMine): string | null {
@@ -198,8 +199,21 @@ function raidElapsed(): number {
 }
 
 function raidHuds(mine: TreasureMine) {
-  const hud = treasureRaidHud(mine, game.save.workers, raidElapsed(), game.save.playerName, game.save.playerAvatarId)
+  const hud = treasureRaidHud(
+    mine,
+    game.save.workers,
+    raidElapsed(),
+    game.save.playerName,
+    game.save.playerAvatarId,
+    crewCap.value,
+  )
   return hud ? [hud] : []
+}
+
+function ownerLabel(mine: TreasureMine): string {
+  if (mine.owner === 'player') return `我方开采 ${mine.crewIds.length}/${crewCap.value}`
+  if (mine.owner === 'empty') return '无人矿'
+  return '敌人驻守'
 }
 
 function onRaidSlot(mine: TreasureMine, side: 'attack' | 'defend', index: number) {
@@ -300,7 +314,7 @@ function confirmPick() {
           <div class="titles">
             <span class="kind">{{ TREASURE_KIND_LABEL[mine.kind] }}</span>
             <span class="tags">
-              <i>{{ mine.owner === 'player' ? '我方开采' : mine.owner === 'empty' ? '无人矿' : '敌人驻守' }}</i>
+              <i>{{ ownerLabel(mine) }}</i>
             </span>
           </div>
         </header>
