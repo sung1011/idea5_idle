@@ -8,7 +8,7 @@
 
 工坊六站各最多 1 人，满血队首自动上岗。同品质可合成。药剂在炼金站按站等级解锁，装进 4 个槽后点用。集市做交易，地精奸商买货，地精当铺典当。夺宝挖矿洞，割草和 49 名假玩家比当日除草分数，北京时间 0 点按名次发砂金、珠宝、荣誉徽记和侦测。灵感只跟升级：新档 20 点，酋长等级每升 1 级 +1。离线收益写入消息箱。
 
-玩法与字段见 [doc/main.md](doc/main.md)，生产定稿见 [doc/production.md](doc/production.md)，分阶段见 [doc/todo.md](doc/todo.md)。切图在 `src/assets/icons/`。品牌图标在 `public/favicon*.png` / `public/favicon*.webp`。安装图标在 `public/pwa-192.png`、`public/pwa-512.png`。订单人物图、应用图标、网页小图标和顶栏苦工芯片图仍是旧图，另行更换。
+玩法与字段见 [doc/main.md](doc/main.md)，生产定稿见 [doc/production.md](doc/production.md)，分阶段见 [doc/todo.md](doc/todo.md)。切图在 `src/assets/icons/`。品牌图标在 `public/favicon*.png` / `public/favicon*.webp`。安装图标在 `public/pwa-192.png`、`public/pwa-512.png`，maskable 版在 `public/pwa-maskable-192.png`、`public/pwa-maskable-512.png`（徽记缩在安全区内）。订单人物里地精奸商、路人（工匠委托同一格）和地精当铺（收购同一格）是部落风切图；战斗敌人仍是原来的人类骑士。顶栏苦工芯片是兽人苦工头像。
 
 ## 在线预览（GitHub Pages）
 
