@@ -33,7 +33,7 @@ export const MODE_HELP: Record<ModeHelpId, ModeHelp> = {
   },
   herb: {
     id: 'herb',
-    title: '采药',
+    title: '割草',
     rows: [
       {
         label: '怎么玩',

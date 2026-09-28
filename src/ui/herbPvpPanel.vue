@@ -94,7 +94,7 @@ function rowKey(row: { id: string; rank: number }): string {
       </button>
     </div>
     <p class="hint">{{ probe ? '点一块未除的地使用侦测' : '点杂草，派满血工人除草' }}</p>
-    <div class="grid" role="grid" aria-label="采药地图">
+    <div class="grid" role="grid" aria-label="割草地图">
       <button
         v-for="plot in plots"
         :key="plot.index"
@@ -109,7 +109,8 @@ function rowKey(row: { id: string; rank: number }): string {
         <small v-if="plot.workerId">{{ workerName(plot.workerId) }}</small>
       </button>
     </div>
-    <ol class="ranks">
+    <h3 class="board-title">割草排行</h3>
+    <ol class="ranks" aria-label="割草排行榜">
       <li v-for="row in board" :key="rowKey(row)" :class="{ self: row.self }">
         <PlayerAvatar :id="row.avatarId" />
         <span class="who">{{ row.rank }}. {{ row.name }}</span>
@@ -209,6 +210,11 @@ function rowKey(row: { id: string; rank: number }): string {
   left: 0;
   height: 4px;
   background: var(--moss);
+}
+
+.board-title {
+  margin: 4px 0 0;
+  font-size: 15px;
 }
 
 .ranks {

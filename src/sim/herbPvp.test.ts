@@ -181,8 +181,8 @@ describe('herb pvp weeding', () => {
     expect(save.herbPvp.stamina).toBe(HERB_PVP_STAMINA_MAX - HERB_PVP_PLAYER_CAP)
     expect(startHerbWeed(save, 3, workers[3]!.id)).toEqual({ ok: false, reason: '最多同时除 3 块' })
     expect(restingWorkers(save).map((worker) => worker.id)).not.toContain(workers[0]!.id)
-    expect(assignWorker(save, workers[0]!.id, 'herbalism')).toEqual({ ok: false, reason: '正在采药' })
-    expect(combatPartyBlockReason(save, [workers[0]!.id])).toContain('正在采药')
+    expect(assignWorker(save, workers[0]!.id, 'herbalism')).toEqual({ ok: false, reason: '正在割草' })
+    expect(combatPartyBlockReason(save, [workers[0]!.id])).toContain('正在割草')
 
     const tired = spawnWorker(save)
     tired.hp = tired.hpMax - 1
@@ -407,7 +407,7 @@ describe('herb pvp day and offline', () => {
       expect(save.herbPvp.playerScore).toBe(0)
       expect(save.herbPvp.rivals.every((rival) => rival.score === 0)).toBe(true)
       expect(save.herbPvp.lastRewardText).toContain(`第${rank}名`)
-      expect(save.messages.some((message) => message.title === '采药结算')).toBe(true)
+      expect(save.messages.some((message) => message.title === '割草结算')).toBe(true)
       const sand = vaultQty(save, 'sandGold')
       stepHerbPvp(save, midnight + 1000)
       expect(vaultQty(save, 'sandGold')).toBe(sand)
@@ -422,7 +422,7 @@ describe('herb pvp day and offline', () => {
     stepHerbPvp(save, Date.parse('2026-09-28T00:00:00.000Z'))
     expect(vaultQty(save, 'sandGold')).toBe(0)
     expect(save.herbPvp.playerScore).toBe(80)
-    expect(save.messages.some((message) => message.title === '采药结算')).toBe(false)
+    expect(save.messages.some((message) => message.title === '割草结算')).toBe(false)
   })
 
   it('reports harvest, bumps, rank and yesterday in one offline note', () => {
@@ -459,7 +459,7 @@ describe('herb pvp day and offline', () => {
     expect(body).toContain('被撞：')
     expect(body).toContain('名次：')
     expect(body).toContain('昨日奖励：')
-    expect(save.messages.some((message) => message.title === '采药结算')).toBe(false)
+    expect(save.messages.some((message) => message.title === '割草结算')).toBe(false)
     expect(vaultQty(save, 'sandGold')).toBe(80)
   })
 

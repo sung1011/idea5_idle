@@ -8,7 +8,7 @@ export type PvpView = (typeof PVP_VIEWS)[number]
 
 export const PVP_VIEW_LABELS: Record<PvpView, string> = {
   treasure: '夺宝',
-  herb: '采药',
+  herb: '割草',
 }
 
 function storageOf(storage?: Storage | null): Storage | null {
@@ -17,7 +17,7 @@ function storageOf(storage?: Storage | null): Storage | null {
   return localStorage
 }
 
-/** 采药留下，其它旧子页都回到夺宝。 */
+/** 割草留下，其它旧子页都回到夺宝。 */
 export function pvpViewOf(id: unknown): PvpView {
   return id === 'herb' ? 'herb' : 'treasure'
 }

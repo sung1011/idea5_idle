@@ -438,7 +438,7 @@ export function combatPartyBlockReason(
     if (worker.assignment !== null) return `${worker.name ?? worker.id} 不在休息`
     const mineBusy = treasureMineBlockReason(save, id)
     if (mineBusy) return `${worker.name ?? worker.id} ${mineBusy}`
-    if (isWorkerInHerbPvp(save, id)) return `${worker.name ?? worker.id} 正在采药`
+    if (isWorkerInHerbPvp(save, id)) return `${worker.name ?? worker.id} 正在割草`
     if (busy.has(id)) return `${worker.name ?? worker.id} 正在战斗`
     if (!isFullCombatHp(worker)) return `${worker.name ?? worker.id} 未满血`
   }

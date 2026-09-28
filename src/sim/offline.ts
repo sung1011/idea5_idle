@@ -222,7 +222,7 @@ export function settleOffline(save: Save, now = Date.now()): OfflineResult {
   pushOfflineMessage(next, summary, now)
   const herbBody = finishHerbOfflineReport(next)
   if (herbBody) {
-    pushMessage(next, { title: '采药', body: herbBody, createdAt: now })
+    pushMessage(next, { title: '割草', body: herbBody, createdAt: now })
   }
   return { save: next, summary }
 }

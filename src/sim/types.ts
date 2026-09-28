@@ -632,7 +632,7 @@ export type HerbRival = {
   plotCap: number
 }
 
-/** 离线追赶期间攒的采药汇报。在线不写，读档清掉。 */
+/** 离线追赶期间攒的割草汇报。在线不写，读档清掉。 */
 export type HerbOfflineNote = {
   rankAtStart: number
   harvest: Partial<Record<string, number>>
@@ -646,7 +646,7 @@ export type HerbOfflineNote = {
 }
 
 export type HerbPvpState = {
-  /** 采药自己的掷骰，不推进工坊 `rngState`。 */
+  /** 割草自己的掷骰，不推进工坊 `rngState`。 */
   roll: number
   /** 北京时间日期 YYYY-MM-DD。跨过 0 点结算。 */
   dayKey: string
@@ -787,7 +787,7 @@ export type Save = {
    */
   treasureMines: TreasureMineState
   /**
-   * 采药 PVP。玩家与 49 个假玩家一组，8×8 除草。
+   * 割草。玩家与 49 个假玩家一组，8×8 除草。工坊采药站不走这里。
    * 旧档缺字段 hydrate 出满体力、侦测各 1、空分数的新局。
    */
   herbPvp: HerbPvpState

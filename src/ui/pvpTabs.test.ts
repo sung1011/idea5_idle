@@ -32,12 +32,12 @@ function memory(): Storage {
 }
 
 describe('pvp treasure tab', () => {
-  it('switches 夺宝 and 采药, and keeps the old pages on 夺宝', () => {
+  it('switches 夺宝 and 割草, and keeps the old pages on 夺宝', () => {
     expect(panel).toContain('role="tablist"')
     expect(panel).toContain('aria-label="PVP玩法"')
     expect(panel).toContain('PVP_VIEW_LABELS[id]')
     expect(tabs).toContain("treasure: '夺宝'")
-    expect(tabs).toContain("herb: '采药'")
+    expect(tabs).toContain("herb: '割草'")
     expect(panel).toContain('<HerbPvpPanel')
     expect(panel).not.toContain('aria-label="PVP分页"')
     expect(panel).not.toContain('军械铺')

@@ -437,7 +437,7 @@ function tidyState(save: Save, state: HerbPvpState, now: number): void {
   }
   for (const rival of state.rivals) {
     if (typeof rival.avatarId !== 'string' || !rival.avatarId) rival.avatarId = 'helm'
-    if (typeof rival.name !== 'string' || !rival.name) rival.name = '采药人'
+    if (typeof rival.name !== 'string' || !rival.name) rival.name = '割草人'
     rival.score = clampCount(rival.score, 0)
     rival.qualityTier = Math.min(10, Math.max(1, finite(rival.qualityTier, 1)))
     rival.hpMax = Math.max(1, finite(rival.hpMax, 1))
@@ -604,7 +604,7 @@ function maybeRefreshMap(save: Save): void {
   state.plots = rollPlots(save, state)
 }
 
-/** 一击伤害。采药不带符文、不打弱点，用战斗里同一套基础伤害。 */
+/** 一击伤害。割草不带符文、不打弱点，用战斗里同一套基础伤害。 */
 export function herbStrikeDamage(atk: number): number {
   return scaledAttackDamage(atk, 1)
 }
@@ -804,8 +804,8 @@ function rollDay(save: Save, now: number, offline: boolean): void {
   state.dayKey = key
   if (offline && state.offline) state.offline.rewards.push(text)
   else {
-    pushMessage(save, { title: '采药结算', body: text, createdAt: now })
-    note('采药日结，奖励已入账', 'ok', false)
+    pushMessage(save, { title: '割草结算', body: text, createdAt: now })
+    note('割草日结，奖励已入账', 'ok', false)
   }
 }
 
@@ -838,7 +838,7 @@ export function startHerbWeed(save: Save, plotIndex: number, workerId: string): 
   if (state.plots.filter((row) => row.workerId).length >= HERB_PVP_PLAYER_CAP) return { ok: false, reason: '最多同时除 3 块' }
   const worker = save.workers.find((row) => row.id === workerId)
   if (!worker) return { ok: false, reason: '没有这个工人' }
-  if (isWorkerInHerbPvp(save, workerId)) return { ok: false, reason: '正在采药' }
+  if (isWorkerInHerbPvp(save, workerId)) return { ok: false, reason: '正在割草' }
   if (worker.assignment) return { ok: false, reason: '不在休息区' }
   if (isWorkerInCombat(save, workerId)) return { ok: false, reason: '正在战斗' }
   const mineBusy = treasureMineBlockReason(save, workerId)
