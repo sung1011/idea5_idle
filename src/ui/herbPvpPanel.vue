@@ -22,13 +22,27 @@ import {
   herbPlotSpot,
   herbProbeCells,
   discardHerbClearEvents,
+  discardHerbClashEvents,
+  herbClashResultText,
   orderHerbPick,
   takeHerbClearEvents,
+  takeHerbClashEvents,
 } from '../sim/herbPvp'
-import type { HerbPlot, Worker } from '../sim/types'
+import type { ClassId, HerbPlot, Worker } from '../sim/types'
 import { isFullWorkshopHp } from '../sim/workshopHp'
+import ClassIcon from './classIcon.vue'
 import CombatAttrIcon from './combatAttrIcon.vue'
 import CombatPickSheet from './combatPickSheet.vue'
+import {
+  createHerbClashBoard,
+  herbClashBars,
+  herbClashFloat,
+  herbClashMotion,
+  offerHerbClashes,
+  pumpHerbClash,
+  skipHerbClash,
+  type HerbClashPlaying,
+} from './herbClashFx'
 import { createHerbClearBoard, offerHerbClearFx, pumpHerbClearFx, type HerbClearFx } from './herbClearFx'
 import { herbProbeAimAfterPlot, herbProbeAimOnOutside, nextHerbProbeAim } from './herbProbeAim'
 import { pushFloatTip } from './floatTips'
@@ -75,6 +89,9 @@ const aimSet = computed(() =>
 const clearBoard = createHerbClearBoard()
 const playingFx = ref<HerbClearFx[]>([])
 let fxTimer = 0
+const clashBoard = createHerbClashBoard()
+const clashPlaying = ref<HerbClashPlaying | null>(null)
+let clashTimer = 0
 const fxByIndex = computed(() => {
   const map = new Map<number, HerbClearFx>()
   for (const fx of playingFx.value) map.set(fx.plotIndex, fx)
@@ -101,6 +118,26 @@ function syncClearFx() {
   fxTimer = window.setTimeout(syncClearFx, Math.max(16, next - now))
 }
 
+function syncClash() {
+  const now = Date.now()
+  pumpHerbClash(clashBoard, now)
+  const incoming = takeHerbClashEvents()
+  if (incoming.length) offerHerbClashes(clashBoard, incoming, now)
+  clashPlaying.value = clashBoard.playing
+  if (clashTimer) window.clearTimeout(clashTimer)
+  const until = clashBoard.playing?.until ?? 0
+  if (until <= now) {
+    clashTimer = 0
+    return
+  }
+  clashTimer = window.setTimeout(syncClash, Math.max(16, until - now))
+}
+
+function skipClash() {
+  skipHerbClash(clashBoard, Date.now())
+  syncClash()
+}
+
 function toggleAim() {
   aiming.value = nextHerbProbeAim(aiming.value, hud.value.probes)
   if (!aiming.value) aimIndex.value = null
@@ -121,15 +158,44 @@ function toggleStaminaBubble() {
   staminaOpen.value = !staminaOpen.value
 }
 
+const clashView = computed(() => {
+  const playing = clashPlaying.value
+  if (!playing) return null
+  const event = playing.event
+  const motion = herbClashMotion(event, playing.phase)
+  const bars = herbClashBars(event, playing.phase)
+  const float = herbClashFloat(event, playing.phase)
+  return {
+    col: (event.plotIndex % 8) + 1,
+    row: Math.floor(event.plotIndex / 8) + 1,
+    phase: playing.phase,
+    result: playing.phase === 'result' ? herbClashResultText(event.result) : '',
+    player: event.player,
+    rival: event.rival,
+    motion,
+    bars,
+    float,
+  }
+})
+
+function workerClass(id: string): ClassId {
+  return (id || 'laborer') as ClassId
+}
+
 onMounted(() => {
   discardHerbClearEvents()
+  discardHerbClashEvents()
   window.addEventListener('pointerdown', onWindowPointerDown, true)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('pointerdown', onWindowPointerDown, true)
   if (fxTimer) window.clearTimeout(fxTimer)
+  if (clashTimer) window.clearTimeout(clashTimer)
 })
-watch(() => game.save.elapsedS, () => syncClearFx())
+watch(() => game.save, () => {
+  syncClearFx()
+  syncClash()
+})
 
 function previewAim(index: number) {
   if (!aiming.value) return
@@ -253,6 +319,7 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
           : `点杂草，派满血苦工。${HERB_PVP_COUNTER_RULE}。撞上人只有打死才扣体力`
       }}
     </p>
+    <div class="map">
     <div ref="gridEl" class="grid" role="grid" aria-label="割草地图" @pointerleave="aimIndex = null">
       <button
         v-for="cell in cells"
@@ -290,6 +357,45 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
           <b class="fx-text">{{ fxOf(cell.plot.index)!.text }}</b>
         </span>
       </button>
+    </div>
+      <div v-if="clashView" class="clash-layer">
+      <div
+        class="clash"
+        :style="{ gridColumn: String(clashView.col), gridRow: String(clashView.row) }"
+      >
+        <button type="button" class="clash-card" aria-label="撞车对战，点击跳过" @click="skipClash">
+          <span class="side">
+            <span class="mug" :class="{ lunge: clashView.motion.lunge === 'player', hurt: clashView.motion.hurt === 'player' }">
+              <ClassIcon :name="workerClass(clashView.player.classId)" />
+            </span>
+            <i
+              class="hp"
+              :key="`p-${clashView.phase}`"
+              :style="{
+                '--from': `${(clashView.bars.player.from * 100).toFixed(2)}%`,
+                '--to': `${(clashView.bars.player.to * 100).toFixed(2)}%`,
+              }"
+            />
+            <b v-if="clashView.float?.side === 'player'" class="dmg">-{{ clashView.float.amount }}</b>
+          </span>
+          <span class="side foe-side">
+            <span class="mug" :class="{ lunge: clashView.motion.lunge === 'rival', hurt: clashView.motion.hurt === 'rival' }">
+              <PlayerAvatar :id="clashView.rival.avatarId" />
+            </span>
+            <i
+              class="hp foe-hp"
+              :key="`r-${clashView.phase}`"
+              :style="{
+                '--from': `${(clashView.bars.rival.from * 100).toFixed(2)}%`,
+                '--to': `${(clashView.bars.rival.to * 100).toFixed(2)}%`,
+              }"
+            />
+            <b v-if="clashView.float?.side === 'rival'" class="dmg">-{{ clashView.float.amount }}</b>
+          </span>
+          <em v-if="clashView.result" class="result">{{ clashView.result }}</em>
+        </button>
+      </div>
+      </div>
     </div>
     <h3 class="board-title">割草排行</h3>
     <p class="day-remain">距日结 {{ dayRemainText }}</p>
@@ -407,10 +513,177 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
   background: linear-gradient(#ffe27a, #f0b83a);
 }
 
+.map {
+  position: relative;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 3px;
+}
+
+.clash-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 3px;
+  pointer-events: none;
+}
+
+.clash {
+  position: relative;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.clash-card {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  z-index: 7;
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 4px 10px;
+  width: max-content;
+  padding: 6px 8px;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  border-width: 2px;
+  border-radius: 10px;
+  background: #fff8ee;
+}
+
+.side {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.mug {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 2px solid #c9842a;
+  border-radius: 50%;
+  background: #ffe7c2;
+}
+
+.mug :deep(.face) {
+  width: 28px;
+  height: 28px;
+  border-width: 1px;
+}
+
+.mug :deep(.class-ico) {
+  width: 20px;
+  height: 20px;
+}
+
+.hp {
+  position: relative;
+  display: block;
+  width: 46px;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #e7d3b4;
+}
+
+.hp::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--to);
+  background: #7ad64e;
+  content: '';
+  animation: herb-hp 0.45s linear;
+}
+
+.foe-hp::before {
+  background: #e23b3b;
+}
+
+.dmg {
+  position: absolute;
+  top: -4px;
+  color: #e23b3b;
+  font-size: 12px;
+  animation: herb-dmg 0.7s ease-out forwards;
+}
+
+.result {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.lunge {
+  animation: herb-lunge-right 0.7s ease-in-out;
+}
+
+.foe-side .lunge {
+  animation-name: herb-lunge-left;
+}
+
+.hurt {
+  animation: herb-hurt 0.7s linear;
+}
+
+@keyframes herb-hp {
+  from {
+    width: var(--from);
+  }
+
+  to {
+    width: var(--to);
+  }
+}
+
+@keyframes herb-dmg {
+  to {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes herb-lunge-right {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  40% {
+    transform: translateX(16px);
+  }
+}
+
+@keyframes herb-lunge-left {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  40% {
+    transform: translateX(-16px);
+  }
+}
+
+@keyframes herb-hurt {
+  35%,
+  55% {
+    background: #ffd0c8;
+    box-shadow: 0 0 0 3px #e23b3b;
+  }
 }
 
 .cell {
@@ -636,6 +909,22 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
   .cell.fx .fx-text {
     animation: none;
     opacity: 1;
+  }
+
+  .lunge,
+  .foe-side .lunge,
+  .hurt {
+    animation: herb-hurt 0.45s linear;
+    transform: none;
+  }
+
+  .hp::before,
+  .dmg {
+    animation: none;
+  }
+
+  .hp::before {
+    width: var(--to);
   }
 }
 

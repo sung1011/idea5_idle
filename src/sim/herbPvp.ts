@@ -137,6 +137,34 @@ export type HerbClearEvent = {
   alert: boolean
 }
 
+/** 一场撞车的表现。血量和伤害是这一下结算后的结果，不另算。离线补算不产生。 */
+export type HerbClashFighter = {
+  name: string
+  avatarId: string
+  classId: string
+  hpMax: number
+  hpStart: number
+  hpEnd: number
+}
+
+export type HerbClashResult = 'took' | 'lost' | 'held'
+
+export type HerbClashEvent = {
+  plotIndex: number
+  attacker: 'player' | 'rival'
+  player: HerbClashFighter
+  rival: HerbClashFighter
+  playerDamage: number
+  rivalDamage: number
+  result: HerbClashResult
+}
+
+export function herbClashResultText(result: HerbClashResult): string {
+  if (result === 'took') return '抢下这块地'
+  if (result === 'lost') return '没打过'
+  return '还在除'
+}
+
 /** 地块上常驻的对手。血量读对手当前值，不另存一份。 */
 export type HerbPlotSpot = {
   rivalId: string
@@ -148,6 +176,7 @@ export type HerbPlotSpot = {
 
 const notices: HerbPvpNotice[] = []
 const clearEvents: HerbClearEvent[] = []
+const clashEvents: HerbClashEvent[] = []
 let herbRollOverride: (() => number) | null = null
 
 /** 测试用。测完必须传 null。 */
@@ -168,6 +197,16 @@ export function takeHerbClearEvents(): HerbClearEvent[] {
 /** 切回割草页时丢掉离开期间攒下的动画，避免连播。 */
 export function discardHerbClearEvents(): void {
   clearEvents.length = 0
+}
+
+export function takeHerbClashEvents(): HerbClashEvent[] {
+  if (!clashEvents.length) return []
+  return clashEvents.splice(0, clashEvents.length)
+}
+
+/** 切回割草页时丢掉离开期间的撞车，不回放。 */
+export function discardHerbClashEvents(): void {
+  clashEvents.length = 0
 }
 
 export function herbClearText(plot: Pick<HerbPlot, 'kind' | 'payload' | 'qty'>): string {
@@ -908,11 +947,50 @@ function knockOutRival(state: HerbPvpState, rival: HerbRival, elapsed: number): 
   rival.nextOnlineAtS = elapsed + HERB_PVP_RIVAL_REST_MIN_S
 }
 
+function clashFighter(
+  name: string,
+  avatarId: string,
+  classId: string,
+  hpMax: number,
+  hpStart: number,
+  hpEnd: number,
+): HerbClashFighter {
+  return {
+    name,
+    avatarId,
+    classId,
+    hpMax: Math.max(1, hpMax),
+    hpStart: Math.max(0, hpStart),
+    hpEnd: Math.max(0, hpEnd),
+  }
+}
+
+function pushClash(event: HerbClashEvent, offline: boolean): void {
+  if (offline) return
+  clashEvents.push(event)
+}
+
 function playerHitsRival(save: Save, plot: HerbPlot, worker: Worker, rival: HerbRival): ActionResult {
   const stats = workerLiveStats(worker, save)
-  const blow = exchangeBlow(worker.hp, Math.max(1, stats.atk), Math.max(0, rival.hp), Math.max(1, rival.atk))
+  const playerHpStart = Math.max(0, worker.hp)
+  const rivalHpStart = Math.max(0, rival.hp)
+  const playerAtk = Math.max(1, stats.atk)
+  const rivalAtk = Math.max(1, rival.atk)
+  const blow = exchangeBlow(playerHpStart, playerAtk, rivalHpStart, rivalAtk)
   worker.hp = blow.attackerHp
   rival.hp = blow.defenderHp
+  pushClash(
+    {
+      plotIndex: plot.index,
+      attacker: 'player',
+      player: clashFighter(worker.name ?? '苦工', '', worker.classId || 'laborer', worker.hpMax, playerHpStart, blow.attackerHp),
+      rival: clashFighter(rival.name, rival.avatarId, '', rival.hpMax, rivalHpStart, blow.defenderHp),
+      playerDamage: Math.min(herbStrikeDamage(playerAtk), rivalHpStart),
+      rivalDamage: blow.took ? 0 : Math.min(herbStrikeDamage(rivalAtk), playerHpStart),
+      result: blow.took ? 'took' : 'lost',
+    },
+    false,
+  )
   plot.markedRivalId = rival.id
   if (blow.took) {
     const matches = herbWorkerCounters(worker.combatAttrs, plot.weakness)
@@ -939,9 +1017,25 @@ function rivalHitsPlayer(save: Save, plot: HerbPlot, rival: HerbRival, offline: 
     return
   }
   const stats = workerLiveStats(worker, save)
-  const blow = exchangeBlow(Math.max(0, rival.hp), Math.max(1, rival.atk), worker.hp, Math.max(1, stats.atk))
+  const playerHpStart = Math.max(0, worker.hp)
+  const rivalHpStart = Math.max(0, rival.hp)
+  const playerAtk = Math.max(1, stats.atk)
+  const rivalAtk = Math.max(1, rival.atk)
+  const blow = exchangeBlow(rivalHpStart, rivalAtk, playerHpStart, playerAtk)
   rival.hp = blow.attackerHp
   worker.hp = blow.defenderHp
+  pushClash(
+    {
+      plotIndex: plot.index,
+      attacker: 'rival',
+      player: clashFighter(worker.name ?? '苦工', '', worker.classId || 'laborer', worker.hpMax, playerHpStart, blow.defenderHp),
+      rival: clashFighter(rival.name, rival.avatarId, '', rival.hpMax, rivalHpStart, blow.attackerHp),
+      playerDamage: blow.took ? 0 : Math.min(herbStrikeDamage(playerAtk), rivalHpStart),
+      rivalDamage: Math.min(herbStrikeDamage(rivalAtk), playerHpStart),
+      result: blow.took ? 'lost' : blow.attackerHp <= 0 ? 'took' : 'held',
+    },
+    offline,
+  )
   const bag = offline ? save.herbPvp.offline : null
   if (bag) bag.bumps += 1
   if (blow.took) {

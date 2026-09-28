@@ -46,9 +46,12 @@ import {
   orderHerbPick,
   setHerbRollOverride,
   discardHerbClearEvents,
+  discardHerbClashEvents,
+  herbClashResultText,
   startHerbWeed,
   stepHerbPvp,
   takeHerbClearEvents,
+  takeHerbClashEvents,
   unlockedHerbalismProducts,
   useHerbProbe,
 } from './herbPvp'
@@ -61,6 +64,7 @@ import { SAVE_KEY, hydrateLoadedSave, loadSave, persistSave } from '../ui/saveGa
 afterEach(() => {
   setHerbRollOverride(null)
   discardHerbClearEvents()
+  discardHerbClashEvents()
 })
 
 function fresh(): Save {
@@ -818,6 +822,105 @@ describe('herb clear events', () => {
     const events = takeHerbClearEvents()
     expect(events).toHaveLength(4)
     expect(events.every((event) => event.tone === 'rival' && event.text.endsWith('割走了'))).toBe(true)
+  })
+})
+
+describe('herb clash events', () => {
+  it('records the settled blow when the player strikes first', () => {
+    const save = fresh()
+    quiet(save)
+    const worker = spawnWorkerWith(save, 5, 'herbalist', ['fire'])
+    worker.name = '割草甲'
+    const rival = save.herbPvp.rivals[2]!
+    const plot = save.herbPvp.plots[6]!
+    plot.weakness = 'sword'
+    plot.weeder = rival.id
+    plot.durationS = HERB_PVP_WEED_S
+    rival.hp = 1
+    rival.hpMax = 80
+    rival.atk = 40
+    const playerHp = worker.hp
+    expect(startHerbWeed(save, 6, worker.id).ok).toBe(true)
+    const [event] = takeHerbClashEvents()
+    expect(event?.plotIndex).toBe(6)
+    expect(event?.attacker).toBe('player')
+    expect(event?.result).toBe('took')
+    expect(herbClashResultText(event!.result)).toBe('抢下这块地')
+    expect(event?.player.name).toBe('割草甲')
+    expect(event?.player.classId).toBe('herbalist')
+    expect(event?.player.hpStart).toBe(playerHp)
+    expect(event?.player.hpEnd).toBe(playerHp)
+    expect(event?.rival.name).toBe(rival.name)
+    expect(event?.rival.avatarId).toBe(rival.avatarId)
+    expect(event?.rival.hpStart).toBe(1)
+    expect(event?.rival.hpEnd).toBe(0)
+    expect(event?.playerDamage).toBe(1)
+    expect(event?.rivalDamage).toBe(0)
+    expect(takeHerbClashEvents()).toEqual([])
+  })
+
+  it('records a trade when neither side dies on the first hit', () => {
+    const save = fresh()
+    quiet(save)
+    const worker = spawnWorker(save)
+    const rival = save.herbPvp.rivals[0]!
+    const plot = save.herbPvp.plots[1]!
+    plot.weeder = rival.id
+    plot.durationS = HERB_PVP_WEED_S
+    rival.hp = 500
+    rival.hpMax = 500
+    rival.atk = 3
+    const playerHp = worker.hp
+    expect(startHerbWeed(save, 1, worker.id).ok).toBe(true)
+    const [event] = takeHerbClashEvents()
+    expect(event?.attacker).toBe('player')
+    expect(event?.result).toBe('lost')
+    expect(herbClashResultText('lost')).toBe('没打过')
+    expect(event?.playerDamage).toBe(event!.rival.hpStart - event!.rival.hpEnd)
+    expect(event?.rivalDamage).toBe(playerHp - event!.player.hpEnd)
+    expect(event?.playerDamage).toBeGreaterThan(0)
+    expect(event?.rivalDamage).toBeGreaterThan(0)
+    expect(event?.player.hpEnd).toBeLessThan(playerHp)
+    expect(plot.workerId).toBeNull()
+  })
+
+  it('records an incoming bump with the player defending, and skips offline replay', () => {
+    const save = fresh()
+    quiet(save)
+    const worker = spawnWorkerWith(save, 5, 'herbalist', ['sword'])
+    const plot = save.herbPvp.plots[4]!
+    plot.workerId = worker.id
+    plot.progressS = 8
+    plot.durationS = HERB_PVP_WEED_S
+    const rival = save.herbPvp.rivals[3]!
+    rival.hp = 1
+    rival.hpMax = 40
+    rival.atk = 1
+    expect(applyHerbRivalBump(save, 4, rival.id, true).ok).toBe(true)
+    expect(takeHerbClashEvents()).toEqual([])
+
+    const live = fresh()
+    quiet(live)
+    const mower = spawnWorker(live)
+    const mine = live.herbPvp.plots[5]!
+    mine.workerId = mower.id
+    mine.progressS = 4
+    mine.durationS = HERB_PVP_WEED_S
+    const foe = live.herbPvp.rivals[4]!
+    foe.hp = 400
+    foe.hpMax = 400
+    foe.atk = 1
+    expect(applyHerbRivalBump(live, 5, foe.id).ok).toBe(true)
+    const [event] = takeHerbClashEvents()
+    expect(event?.attacker).toBe('rival')
+    expect(event?.plotIndex).toBe(5)
+    expect(event?.result).toBe('held')
+    expect(herbClashResultText('held')).toBe('还在除')
+    expect(event?.rivalDamage).toBeGreaterThan(0)
+    expect(event?.playerDamage).toBeGreaterThan(0)
+    expect(event?.player.hpEnd).toBe(mower.hp)
+    expect(event?.rival.hpEnd).toBe(foe.hp)
+    expect(mine.workerId).toBe(mower.id)
   })
 })
 
