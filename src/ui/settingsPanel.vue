@@ -139,6 +139,7 @@ onUnmounted(() => {
           <button type="button" @click="game.gmFillBankBasics()">加基础物资</button>
           <button type="button" @click="game.gmAddTechPoints()">加灵感 1万</button>
           <button type="button" @click="game.gmResetTech()">重置科技</button>
+          <button type="button" @click="game.gmFillHerbStamina()">割草满体力</button>
         </div>
       </div>
     </section>

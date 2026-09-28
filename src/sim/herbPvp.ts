@@ -249,6 +249,40 @@ export function formatHerbDuration(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
+function nonNegSeconds(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 0
+  return value
+}
+
+function ceilCount(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 0
+  return Math.ceil(value - 1e-9)
+}
+
+/** 进度条填充。整数点之间用已累计秒和墙钟插值，满体力为 1。 */
+export function herbStaminaFill(stamina: number, accS: number, extraS = 0): number {
+  const points = Math.min(HERB_PVP_STAMINA_MAX, Math.max(0, Math.floor(Number.isFinite(stamina) ? stamina : 0)))
+  if (points >= HERB_PVP_STAMINA_MAX) return 1
+  const into = nonNegSeconds(accS) + nonNegSeconds(extraS)
+  const frac = Math.min(1, into / HERB_PVP_STAMINA_REGEN_S)
+  return (points + frac) / HERB_PVP_STAMINA_MAX
+}
+
+/** 点开体力条时的一句。满了写「已满」；否则是距下一点的分秒，以及距回满的小时和分。 */
+export function herbStaminaBubbleText(stamina: number, accS: number, extraS = 0): string {
+  const points = Math.min(HERB_PVP_STAMINA_MAX, Math.max(0, Math.floor(Number.isFinite(stamina) ? stamina : 0)))
+  if (points >= HERB_PVP_STAMINA_MAX) return '已满'
+  const into = nonNegSeconds(accS) + nonNegSeconds(extraS)
+  const nextS = ceilCount(HERB_PVP_STAMINA_REGEN_S - into)
+  const fullS = Math.max(0, (HERB_PVP_STAMINA_MAX - points) * HERB_PVP_STAMINA_REGEN_S - into)
+  const fullMin = ceilCount(fullS / 60)
+  const nextM = Math.floor(nextS / 60)
+  const nextRem = nextS % 60
+  const fullH = Math.floor(fullMin / 60)
+  const fullRem = fullMin % 60
+  return `${nextM} 分 ${nextRem} 秒后 +1、${fullH} 小时 ${fullRem} 分后回满`
+}
+
 /** 0～1 的一掷落到地块种类。侦测占最后 10%，不再分格数。 */
 export function classifyHerbRoll(roll: number): { kind: HerbPlotKind } {
   const r = clamp01(roll)

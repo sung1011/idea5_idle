@@ -14,10 +14,12 @@ import {
   gmAddTechPoints,
   gmAddWorkers,
   gmFillBankBasics,
+  gmFillHerbStamina,
   gmMaxStations,
   gmResetSave,
   gmSkipGuide,
 } from './gm'
+import { HERB_PVP_STAMINA_MAX } from './herbPvp'
 import {
   GUIDE_QUEST_DONE_STEP,
   GUIDE_QUEST_PHASE2_START,
@@ -121,6 +123,28 @@ describe('gm debug grants', () => {
     expect(gmAddTechPoints(save)).toEqual({ ok: true, message: '灵感 +10000' })
     expect(save.techPoints).toBe(before + GM_TECH_POINTS_GRANT)
     expect(save.techPoints).toBe(before + 10000)
+  })
+
+  it('fills herb stamina to the cap and clears the regen timer', () => {
+    const save = createSave()
+    save.herbPvp.stamina = 37
+    save.herbPvp.staminaAccS = 90
+    const score = save.herbPvp.playerScore
+    const probes = save.herbPvp.probes
+    const plot = save.herbPvp.plots[0]?.progressS
+    expect(gmFillHerbStamina(save)).toEqual({ ok: true, message: '割草体力已满' })
+    expect(save.herbPvp.stamina).toBe(HERB_PVP_STAMINA_MAX)
+    expect(save.herbPvp.stamina).toBe(100)
+    expect(save.herbPvp.staminaAccS).toBe(0)
+    expect(save.herbPvp.playerScore).toBe(score)
+    expect(save.herbPvp.probes).toBe(probes)
+    expect(save.herbPvp.plots[0]?.progressS).toBe(plot)
+
+    save.herbPvp.stamina = HERB_PVP_STAMINA_MAX
+    save.herbPvp.staminaAccS = 40
+    expect(gmFillHerbStamina(save).ok).toBe(true)
+    expect(save.herbPvp.stamina).toBe(100)
+    expect(save.herbPvp.staminaAccS).toBe(0)
   })
 
   it('skips all guide phases without paying unclaimed step gold', () => {

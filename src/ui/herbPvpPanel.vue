@@ -10,8 +10,12 @@ import {
   herbPlotShowsWeakness,
   herbWeedCost,
   herbWorkerCounters,
+  beijingDayRemainS,
   formatHerbDuration,
   herbHud,
+  herbStaminaBubbleText,
+  herbStaminaFill,
+  HERB_PVP_STAMINA_MAX,
   herbLeaderboard,
   herbPlotLabel,
   herbPlotShort,
@@ -30,6 +34,7 @@ import { herbProbeAimAfterPlot, herbProbeAimOnOutside, nextHerbProbeAim } from '
 import { pushFloatTip } from './floatTips'
 import PlayerAvatar from './playerAvatar.vue'
 import { useGameStore } from './gameStore'
+import { useFrameNow } from './visualProgress'
 
 const game = useGameStore()
 const aiming = ref(false)
@@ -38,7 +43,22 @@ const gridEl = ref<HTMLElement | null>(null)
 const probeEl = ref<HTMLElement | null>(null)
 const pickIndex = ref<number | null>(null)
 const picked = ref<string[]>([])
+const staminaEl = ref<HTMLElement | null>(null)
+const staminaOpen = ref(false)
+const frameNow = useFrameNow()
 const hud = computed(() => herbHud(game.save, Date.now()))
+const dayRemainText = computed(() => formatHerbDuration(beijingDayRemainS(frameNow.value)))
+const staminaView = computed(() => {
+  const state = game.save.herbPvp
+  const extra = Math.min(1.05, Math.max(0, (frameNow.value - game.save.lastTick) / 1000))
+  const stamina = state?.stamina ?? 0
+  const points = Math.min(HERB_PVP_STAMINA_MAX, Math.max(0, Math.floor(stamina)))
+  return {
+    text: `${points}/${HERB_PVP_STAMINA_MAX}`,
+    fill: herbStaminaFill(stamina, state?.staminaAccS ?? 0, extra),
+    bubble: herbStaminaBubbleText(stamina, state?.staminaAccS ?? 0, extra),
+  }
+})
 const board = computed(() => herbLeaderboard(game.save))
 const plots = computed(() => game.save.herbPvp.plots)
 const cells = computed(() =>
@@ -87,13 +107,18 @@ function toggleAim() {
 }
 
 function onWindowPointerDown(ev: PointerEvent) {
-  if (!aiming.value) return
   const target = ev.target
   if (!(target instanceof Node)) return
+  if (staminaOpen.value && !staminaEl.value?.contains(target)) staminaOpen.value = false
+  if (!aiming.value) return
   if (gridEl.value?.contains(target)) return
   if (probeEl.value?.contains(target)) return
   aiming.value = herbProbeAimOnOutside(aiming.value)
   aimIndex.value = null
+}
+
+function toggleStaminaBubble() {
+  staminaOpen.value = !staminaOpen.value
 }
 
 onMounted(() => {
@@ -202,12 +227,19 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
 
 <template>
   <div class="herb">
-    <p class="meta">
-      体力 {{ hud.stamina }}/{{ hud.staminaMax }}
-      <span v-if="hud.staminaNextS > 0"> · {{ formatHerbDuration(hud.staminaNextS) }} 后 +1</span>
-      <span v-else> · 已满</span>
-    </p>
-    <p class="meta">第 {{ hud.rank }} 名 · {{ hud.score }} 分 · 日结 {{ formatHerbDuration(hud.dayRemainS) }}</p>
+    <div ref="staminaEl" class="stamina" :class="{ open: staminaOpen }">
+      <button
+        type="button"
+        class="meter"
+        :aria-expanded="staminaOpen"
+        :aria-label="`割草体力 ${staminaView.text}`"
+        @click="toggleStaminaBubble"
+      >
+        <i class="fill" :style="{ width: `${(staminaView.fill * 100).toFixed(2)}%` }" />
+        <span>{{ staminaView.text }}</span>
+      </button>
+      <p v-if="staminaOpen" class="bubble">{{ staminaView.bubble }}</p>
+    </div>
     <p v-if="hud.lastRewardText" class="reward">上次日结 {{ hud.lastRewardText }}</p>
     <div ref="probeEl" class="probes">
       <button type="button" :class="{ on: aiming }" :disabled="hud.probes < 1" @click="toggleAim">
@@ -260,6 +292,7 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
       </button>
     </div>
     <h3 class="board-title">割草排行</h3>
+    <p class="day-remain">距日结 {{ dayRemainText }}</p>
     <ol class="ranks" aria-label="割草排行榜">
       <li v-for="row in board" :key="rowKey(row)" :class="{ self: row.self }">
         <PlayerAvatar :id="row.avatarId" />
@@ -295,9 +328,62 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
   gap: 8px;
 }
 
+.stamina {
+  position: relative;
+}
+
+.stamina.open {
+  z-index: 4;
+}
+
+.meter {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 28px;
+  overflow: hidden;
+  padding: 0;
+}
+
+.meter .fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--moss);
+  pointer-events: none;
+}
+
+.meter span {
+  position: relative;
+  z-index: 1;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.bubble {
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  margin: 0;
+  padding: 6px 8px;
+  border: 2px solid #c9842a;
+  border-radius: 8px;
+  background: #fff8ee;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+}
+
 .meta,
 .hint,
-.reward {
+.reward,
+.day-remain {
   margin: 0;
   color: var(--muted);
   font-size: 13px;
@@ -600,6 +686,11 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
 .board-title {
   margin: 4px 0 0;
   font-size: 15px;
+}
+
+.day-remain {
+  color: var(--ink);
+  font-weight: 700;
 }
 
 .ranks {

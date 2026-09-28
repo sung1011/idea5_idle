@@ -1,4 +1,5 @@
 import { createSave } from './createSave'
+import { HERB_PVP_STAMINA_MAX } from './herbPvp'
 import { GUIDE_QUEST_DONE_STEP, GUIDE_QUEST_REV } from './guideQuest'
 import { syncKnightLevel } from './knightLevel'
 import { spawnWorker, spawnWorkerWith } from './recruit'
@@ -110,6 +111,15 @@ export function gmAddTechPoints(save: Save, amount = GM_TECH_POINTS_GRANT): Acti
   const qty = Math.max(0, Math.floor(amount))
   save.techPoints = normalizeTechPoints(save.techPoints) + qty
   return { ok: true, message: `灵感 +${qty}` }
+}
+
+/** 割草体力补到上限，并清掉已经走过的恢复秒。不改分数、侦测和地图。 */
+export function gmFillHerbStamina(save: Save): ActionResult {
+  const state = save.herbPvp
+  if (!state) return { ok: false, reason: '没有割草' }
+  state.stamina = HERB_PVP_STAMINA_MAX
+  state.staminaAccS = 0
+  return { ok: true, message: '割草体力已满' }
 }
 
 /** 三阶段引导全部标完成，浮层/聚光灯消失。不发未领的 20 金，不动骑士等级与其它资源。 */

@@ -32,6 +32,8 @@ import {
   herbPlotSpot,
   herbPreciousOf,
   herbProbeCells,
+  herbStaminaBubbleText,
+  herbStaminaFill,
   herbRankReward,
   herbStrikeDamage,
   herbWeedCost,
@@ -1255,5 +1257,24 @@ describe('herb pvp rival marks', () => {
     const cleaned = hydrateLoadedSave(junk)
     expect(cleaned?.herbPvp.plots[0]!.markedRivalId).toBeNull()
     expect(cleaned?.herbPvp.plots[5]!.markedRivalId).toBe(rival.id)
+  })
+})
+
+describe('herb stamina bubble', () => {
+  it('says the bar is full', () => {
+    expect(herbStaminaBubbleText(100, 0, 0)).toBe('已满')
+    expect(herbStaminaBubbleText(HERB_PVP_STAMINA_MAX, 40, 0.8)).toBe('已满')
+    expect(herbStaminaFill(100, 0, 0.4)).toBe(1)
+  })
+
+  it('counts minutes and seconds to the next point, and hours to full', () => {
+    expect(herbStaminaBubbleText(63, 0, 0)).toBe('3 分 0 秒后 +1、1 小时 51 分后回满')
+    expect(herbStaminaBubbleText(63, 90, 0)).toBe('1 分 30 秒后 +1、1 小时 50 分后回满')
+    expect(herbStaminaBubbleText(99, 135, 0)).toBe('0 分 45 秒后 +1、0 小时 1 分后回满')
+    expect(herbStaminaBubbleText(0, 0, 0)).toBe('3 分 0 秒后 +1、5 小时 0 分后回满')
+    expect(herbStaminaBubbleText(63, 0, 0.4)).toBe('3 分 0 秒后 +1、1 小时 51 分后回满')
+    expect(herbStaminaBubbleText(63, 1, 0)).toBe('2 分 59 秒后 +1、1 小时 51 分后回满')
+    expect(herbStaminaFill(63, 0, 0)).toBeCloseTo(63 / 100)
+    expect(herbStaminaFill(63, 90, 0)).toBeCloseTo(63.5 / 100)
   })
 })
