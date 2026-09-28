@@ -4,6 +4,7 @@ import { playerDisplayName, type PlayerAvatarId } from '../sim/createSave'
 import { bannerFrameOf, bannerLevelOf, treasureAssaultWarning } from '../sim/treasureMine'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
 import { dockStationHp } from './dockStationHp'
+import { startAppUpdateSchedule, updateReady } from './appUpdateState'
 import { useGameStore } from './gameStore'
 import EncounterPanel from './encounterPanel.vue'
 import PvpPanel from './pvpPanel.vue'
@@ -26,6 +27,7 @@ import PlayerProfileSheet from './playerProfileSheet.vue'
 import UiIcon from './uiIcon.vue'
 
 const game = useGameStore()
+let stopAppUpdate: (() => void) | null = null
 const tab = appTab
 const mailOpen = ref(false)
 const settingsOpen = ref(false)
@@ -40,10 +42,13 @@ const resourceDetail = computed(() => (resourceOpen.value ? hudChipDetail(game.s
 
 onMounted(() => {
   game.startClock()
+  stopAppUpdate = startAppUpdateSchedule()
 })
 
 onUnmounted(() => {
   game.stopClock()
+  stopAppUpdate?.()
+  stopAppUpdate = null
 })
 
 function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
@@ -97,13 +102,20 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
           </svg>
           <i v-if="game.unread" class="dot" />
         </button>
-        <button type="button" class="icon-btn" aria-label="设置" @click="settingsOpen = true">
+        <button
+          type="button"
+          class="icon-btn"
+          :class="{ unread: updateReady }"
+          :aria-label="updateReady ? '设置，有新版本' : '设置'"
+          @click="settingsOpen = true"
+        >
           <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">
             <path
               fill="currentColor"
               d="M19.1 12.7a7.4 7.4 0 0 0 .1-1.4 7.4 7.4 0 0 0-.1-1.4l2-1.6a.5.5 0 0 0 .1-.6l-1.9-3.3a.5.5 0 0 0-.6-.2l-2.4 1a7 7 0 0 0-2.4-1.4l-.4-2.5a.5.5 0 0 0-.5-.4h-3.8a.5.5 0 0 0-.5.4l-.4 2.5a7 7 0 0 0-2.4 1.4l-2.4-1a.5.5 0 0 0-.6.2L2.7 7.7a.5.5 0 0 0 .1.6l2 1.6a7.4 7.4 0 0 0-.1 1.4 7.4 7.4 0 0 0 .1 1.4l-2 1.6a.5.5 0 0 0-.1.6l1.9 3.3a.5.5 0 0 0 .6.2l2.4-1a7 7 0 0 0 2.4 1.4l.4 2.5a.5.5 0 0 0 .5.4h3.8a.5.5 0 0 0 .5-.4l.4-2.5a7 7 0 0 0 2.4-1.4l2.4 1a.5.5 0 0 0 .6-.2l1.9-3.3a.5.5 0 0 0-.1-.6Zm-7.1 2.1A2.8 2.8 0 1 1 14.8 12 2.8 2.8 0 0 1 12 14.8Z"
             />
           </svg>
+          <i v-if="updateReady" class="dot" />
         </button>
       </div>
     </header>

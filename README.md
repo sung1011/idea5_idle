@@ -16,7 +16,7 @@
 
 推到 `main` 后，GitHub Actions 会自动构建并发布。
 
-这个地址是 HTTPS。Chrome / Edge 在地址栏或菜单里会出现「安装部落工坊」/「安装应用」。生产构建会注册 Service Worker；`npm run dev` 不注册，避免干扰热更新。新版本发布后，已打开的页面会在存档写入后自动刷新。
+这个地址是 HTTPS。Chrome / Edge 在地址栏或菜单里会出现「安装部落工坊」/「安装应用」。生产构建会注册 Service Worker；`npm run dev` 不注册，避免干扰热更新。新版本不会自动刷新。打开游戏、每 30 分钟、回到前台时会对照 `version.json`，有新版本时设置按钮和版本页签出红点，点「有新版本，点击刷新」才重新载入。存档仍在本地。
 
 iPhone / iPad 的 Safari 一般没有安装横幅，用分享菜单「添加到主屏幕」。没有 HTTPS 的页面不能安装。
 
@@ -34,7 +34,7 @@ npm run build
 npm test
 ```
 
-开发页默认 http://localhost:5173/idea5_idle/ 。存档写在 `localStorage`，键名 **`idea5Idle`**。设置里的 **GM** 仅调试用。音乐/音效开关记在 **`idea5IdleSettings`**。工坊当前站签记在 **`idea5IdleWorkshopStation`**，不进存档。PVE 页签记在 **`idea5IdleMainlineTab`**，PVP 玩法记在 **`idea5IdlePvpTab`**。
+开发页默认 http://localhost:5173/idea5_idle/ 。存档写在 `localStorage`，键名 **`idea5Idle`**。设置里的 **版本** 页签显示当前短哈希和最近提交说明。**GM** 仅调试用。音乐/音效开关记在 **`idea5IdleSettings`**。工坊当前站签记在 **`idea5IdleWorkshopStation`**，不进存档。PVE 页签记在 **`idea5IdleMainlineTab`**，PVP 玩法记在 **`idea5IdlePvpTab`**。
 
 测试也可以直接：
 

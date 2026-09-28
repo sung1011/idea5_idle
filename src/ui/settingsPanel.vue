@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { APP_VERSION } from '../generated/appVersion'
 import { formatClock, gameDay, timeOfDayS } from '../sim/tables'
+import { checkForAppUpdate, refreshToNewVersion, updateChecking, updateReady } from './appUpdateState'
+import { formatBeijingDateTime } from './appVersion'
 import { useGameStore } from './gameStore'
 import { loadPrefs, savePrefs, type Prefs } from './prefs'
 import { loadWorkshopBanter, saveWorkshopBanter } from './workshopBanter'
@@ -8,6 +11,7 @@ import { loadWorkshopBanter, saveWorkshopBanter } from './workshopBanter'
 const PAGES = [
   { id: 'stats', label: '统计' },
   { id: 'general', label: '常规' },
+  { id: 'version', label: '版本' },
   { id: 'gm', label: 'GM' },
 ] as const
 
@@ -23,6 +27,13 @@ const day = computed(() => gameDay(game.save.elapsedS))
 const clock = computed(() => formatClock(game.save.elapsedS))
 const today = computed(() => formatClock(timeOfDayS(game.save.elapsedS)))
 const recruited = computed(() => Math.max(0, Math.floor(game.save.nextWorkerId) - 1))
+const releasedAt = computed(() => formatBeijingDateTime(APP_VERSION.releasedAt) || '—')
+const notes = computed(() =>
+  APP_VERSION.notes.map((note) => ({
+    at: formatBeijingDateTime(note.at) || '—',
+    title: note.title,
+  })),
+)
 
 function setPref<K extends keyof Prefs>(key: K, value: Prefs[K]) {
   prefs.value = savePrefs({ ...prefs.value, [key]: value })
@@ -64,6 +75,7 @@ onUnmounted(() => {
           @click="page = p.id"
         >
           {{ p.label }}
+          <i v-if="p.id === 'version' && updateReady" class="dot" />
         </button>
       </nav>
 
@@ -97,7 +109,24 @@ onUnmounted(() => {
         <p class="hint">开关先记在本地，音频资源占位。工坊闲话默认开，关掉后在岗不再冒短句。</p>
       </div>
 
-      <div v-else class="body">
+      <div v-else-if="page === 'version'" class="body">
+        <p class="ver">当前版本 {{ APP_VERSION.version }}</p>
+        <p class="hint">发布时间 {{ releasedAt }}（北京时间）</p>
+        <button v-if="updateReady" type="button" class="refresh" @click="refreshToNewVersion()">有新版本，点击刷新</button>
+        <button type="button" :disabled="updateChecking" @click="checkForAppUpdate(true)">
+          {{ updateChecking ? '检查中' : '检查更新' }}
+        </button>
+        <p class="hint">打开游戏、每 30 分钟、回到前台时会自动检查。不会自动刷新，存档不受影响。</p>
+        <ol v-if="notes.length" class="notes">
+          <li v-for="note in notes" :key="`${note.at}-${note.title}`">
+            <time>{{ note.at }}</time>
+            <span>{{ note.title }}</span>
+          </li>
+        </ol>
+        <p v-else class="hint">暂时没有更新记录。</p>
+      </div>
+
+      <div v-else-if="page === 'gm'" class="body">
         <p class="hint">仅调试用。初始化会重开存档。跳过引导不发未领金币。</p>
         <div class="row">
           <button type="button" @click="game.gmReset()">初始化</button>
@@ -173,8 +202,20 @@ header .title,
 }
 
 .sub button {
+  position: relative;
   flex: 1 1 72px;
   min-height: 40px;
+}
+
+.dot {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 2px var(--plate);
 }
 
 .sub button.on {
@@ -211,5 +252,35 @@ header .title,
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.ver {
+  margin: 0;
+  font-family: var(--font-mono);
+  color: var(--copper);
+}
+
+.refresh {
+  background: linear-gradient(#ffe27a, #f0b83a);
+}
+
+.notes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notes li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.notes time {
+  color: var(--muted);
+  font-size: 12px;
 }
 </style>
