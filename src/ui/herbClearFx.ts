@@ -1,5 +1,6 @@
-/** 割完一块地的短动画。同时最多 3 个，多的短延迟排队，排满就丢掉。 */
-export const HERB_CLEAR_FX_MS = 600
+/** 割完一块地的动画。地块闪光约 1.5 秒，文字停到 HERB_CLEAR_FX_MS 再淡出。同时最多 3 个，多的短延迟排队，排满就丢掉。 */
+export const HERB_CLEAR_FLASH_MS = 1500
+export const HERB_CLEAR_FX_MS = 2500
 export const HERB_CLEAR_FX_CAP = 3
 export const HERB_CLEAR_FX_GAP_MS = 200
 export const HERB_CLEAR_FX_QUEUE_MAX = 3
@@ -25,6 +26,12 @@ export type HerbClearBoard = {
   playing: HerbClearFx[]
   queued: HerbClearQueued[]
   nextId: number
+}
+
+/** 我方收获前面加「+」。荒芜和对手的「割走了」保持原文。 */
+export function herbClearCaption(event: Pick<HerbClearOffer, 'tone' | 'text'>): string {
+  if (event.tone === 'rival' || event.text === '荒芜' || event.text.startsWith('+')) return event.text
+  return `+${event.text}`
 }
 
 export function createHerbClearBoard(): HerbClearBoard {

@@ -43,7 +43,8 @@ import {
   skipHerbClash,
   type HerbClashPlaying,
 } from './herbClashFx'
-import { createHerbClearBoard, offerHerbClearFx, pumpHerbClearFx, type HerbClearFx } from './herbClearFx'
+import { createHerbClearBoard, herbClearCaption, offerHerbClearFx, pumpHerbClearFx, type HerbClearFx } from './herbClearFx'
+import { herbClashFeedText, pushHerbFeed, type HerbFeedLine } from './herbFeed'
 import { herbProbeAimAfterPlot, herbProbeAimOnOutside, nextHerbProbeAim } from './herbProbeAim'
 import { pushFloatTip } from './floatTips'
 import PlayerAvatar from './playerAvatar.vue'
@@ -92,6 +93,8 @@ let fxTimer = 0
 const clashBoard = createHerbClashBoard()
 const clashPlaying = ref<HerbClashPlaying | null>(null)
 let clashTimer = 0
+const feed = ref<HerbFeedLine[]>([])
+let feedSeq = 1
 const fxByIndex = computed(() => {
   const map = new Map<number, HerbClearFx>()
   for (const fx of playingFx.value) map.set(fx.plotIndex, fx)
@@ -102,11 +105,25 @@ function fxOf(index: number): HerbClearFx | null {
   return fxByIndex.value.get(index) ?? null
 }
 
+function rememberFeed(lines: HerbFeedLine[]) {
+  if (!lines.length) return
+  feed.value = pushHerbFeed(feed.value, lines)
+}
+
 function syncClearFx() {
   const now = Date.now()
   pumpHerbClearFx(clearBoard, now)
   const incoming = takeHerbClearEvents()
-  if (incoming.length) offerHerbClearFx(clearBoard, incoming, now)
+  if (incoming.length) {
+    offerHerbClearFx(clearBoard, incoming, now)
+    rememberFeed(
+      incoming.map((event) => ({
+        id: feedSeq++,
+        kind: event.tone,
+        text: herbClearCaption(event),
+      })),
+    )
+  }
   playingFx.value = clearBoard.playing.slice()
   if (fxTimer) window.clearTimeout(fxTimer)
   const times = [...clearBoard.playing.map((fx) => fx.until), ...clearBoard.queued.map((fx) => fx.readyAt)]
@@ -122,7 +139,16 @@ function syncClash() {
   const now = Date.now()
   pumpHerbClash(clashBoard, now)
   const incoming = takeHerbClashEvents()
-  if (incoming.length) offerHerbClashes(clashBoard, incoming, now)
+  if (incoming.length) {
+    offerHerbClashes(clashBoard, incoming, now)
+    rememberFeed(
+      incoming.map((event) => ({
+        id: feedSeq++,
+        kind: 'clash',
+        text: herbClashFeedText(event),
+      })),
+    )
+  }
   clashPlaying.value = clashBoard.playing
   if (clashTimer) window.clearTimeout(clashTimer)
   const until = clashBoard.playing?.until ?? 0
@@ -354,7 +380,7 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
           <i class="leaf" />
           <i class="leaf" />
           <i class="leaf" />
-          <b class="fx-text">{{ fxOf(cell.plot.index)!.text }}</b>
+          <b class="fx-text">{{ herbClearCaption(fxOf(cell.plot.index)!) }}</b>
         </span>
       </button>
     </div>
@@ -397,6 +423,12 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
       </div>
       </div>
     </div>
+    <section v-if="feed.length" class="herb-feed" aria-label="割草记录">
+      <h3>最近</h3>
+      <ul>
+        <li v-for="line in feed" :key="line.id" :class="line.kind">{{ line.text }}</li>
+      </ul>
+    </section>
     <h3 class="board-title">割草排行</h3>
     <p class="day-remain">距日结 {{ dayRemainText }}</p>
     <ol class="ranks" aria-label="割草排行榜">
@@ -766,7 +798,7 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
 .cell.fx {
   z-index: 2;
   overflow: visible;
-  animation: herb-flash 0.6s linear;
+  animation: herb-flash 1.5s ease-out forwards;
 }
 
 .cell.fx.rival {
@@ -775,7 +807,7 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
 
 .cell.fx.alert,
 .cell.fx.rival.alert {
-  animation: herb-flash 0.6s linear, herb-alert 0.6s linear;
+  animation: herb-flash 1.5s ease-out forwards, herb-alert 1.5s linear;
 }
 
 .cell.fx.rival.alert {
@@ -798,7 +830,7 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
   margin: -4px 0 0 -3px;
   background: #6a9a3a;
   border-radius: 0 70% 0 70%;
-  animation: herb-leaf 0.6s ease-out forwards;
+  animation: herb-leaf 1.5s ease-out forwards;
 }
 
 .cell.rival .leaf {
@@ -831,13 +863,24 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
 
 .fx-text {
   position: absolute;
-  top: 36%;
+  top: 50%;
   left: 50%;
+  z-index: 3;
   color: #3d6b22;
-  font-size: 10px;
-  font-weight: 700;
+  transform: translate(-50%, -50%);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.1;
   white-space: nowrap;
-  animation: herb-float 0.6s ease-out forwards;
+  paint-order: stroke fill;
+  -webkit-text-stroke: 3px #fff8e8;
+  text-shadow:
+    0 0 1px #fff8e8,
+    1px 0 0 #fff8e8,
+    -1px 0 0 #fff8e8,
+    0 1px 0 #fff8e8,
+    0 -1px 0 #fff8e8;
+  animation: herb-float 2.5s ease-out forwards;
 }
 
 .cell.rival .fx-text {
@@ -852,14 +895,61 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
 }
 
 @keyframes herb-float {
-  to {
+  0%,
+  82% {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+
+  100% {
     opacity: 0;
-    transform: translate(-50%, -16px);
+    transform: translate(-50%, -62%);
   }
 }
 
 @keyframes herb-flash {
   0% {
+    background: #fff7c2;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 196, 40, 0.9);
+  }
+
+  28% {
+    background: #ffe56a;
+    transform: scale(1.22);
+    box-shadow: 0 0 0 4px rgba(255, 186, 32, 0.9);
+  }
+
+  100% {
+    background: #f3ffe8;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 196, 40, 0);
+  }
+}
+
+@keyframes herb-flash-rival {
+  0% {
+    background: #ffd0c4;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(226, 59, 59, 0.85);
+  }
+
+  28% {
+    background: #ff8d78;
+    transform: scale(1.22);
+    box-shadow: 0 0 0 4px rgba(226, 59, 59, 0.8);
+  }
+
+  100% {
+    background: #fff1ee;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(226, 59, 59, 0);
+  }
+}
+
+@keyframes herb-flash-still {
+  0%,
+  45% {
     background: #fff7c2;
   }
 
@@ -868,13 +958,25 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
   }
 }
 
-@keyframes herb-flash-rival {
-  0% {
+@keyframes herb-flash-still-rival {
+  0%,
+  45% {
     background: #ffd0c4;
   }
 
   100% {
     background: #fff1ee;
+  }
+}
+
+@keyframes herb-fade {
+  0%,
+  82% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
   }
 }
 
@@ -891,15 +993,15 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
 
 @media (prefers-reduced-motion: reduce) {
   .cell.fx,
-  .cell.fx.rival,
-  .cell.fx.alert,
-  .cell.fx.rival.alert {
-    animation: herb-flash 0.6s linear;
+  .cell.fx.alert {
+    animation: herb-flash-still 1.5s linear;
+    transform: none;
   }
 
   .cell.fx.rival,
   .cell.fx.rival.alert {
-    animation-name: herb-flash-rival;
+    animation: herb-flash-still-rival 1.5s linear;
+    transform: none;
   }
 
   .cell.fx .leaf {
@@ -907,8 +1009,8 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
   }
 
   .cell.fx .fx-text {
-    animation: none;
-    opacity: 1;
+    animation: herb-fade 2.5s linear forwards;
+    transform: translate(-50%, -50%);
   }
 
   .lunge,
@@ -970,6 +1072,48 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
   z-index: 2;
   height: 4px;
   background: var(--moss);
+}
+
+.herb-feed {
+  max-height: 118px;
+  margin: 8px 0 0;
+  padding: 4px 8px 6px;
+  overflow: auto;
+  border-radius: 8px;
+  background: rgba(255, 248, 230, 0.9);
+}
+
+.herb-feed h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.herb-feed ul {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.herb-feed li {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.herb-feed .self {
+  color: #3d6b22;
+}
+
+.herb-feed .rival,
+.herb-feed .clash {
+  color: #9d2c2c;
 }
 
 .board-title {
