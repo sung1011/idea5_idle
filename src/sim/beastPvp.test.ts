@@ -1,12 +1,21 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { itemQty } from './bank'
 import {
+  BEAST_COWER_DEALT_MUL,
+  BEAST_COWER_MS,
+  BEAST_COWER_TAKEN_MUL,
   BEAST_INTERRUPT_MUL,
   beastAttackPower,
+  beastAutoFightDamage,
   beastBoundaryHp,
+  beastCower,
   beastDodge,
   beastHpMax,
+  beastHud,
   beastInterrupt,
+  beastRivalReactChoice,
+  beastRivalReactMul,
+  beastSkilledFightDamage,
   hydrateBeastPvp,
   beastRankReward,
   finishBeastFightAuto,
@@ -18,7 +27,7 @@ import {
 } from './beastPvp'
 import { craftBeastFeast, craftBeastOil, craftBoneSoup, craftHunterSkewer, breakthroughStation } from './beastCraft'
 import { fillWorkerHp } from './combat'
-import { scaledAttackDamage } from './combatAttrs'
+import { COMBAT_ATTR_IDS, scaledAttackDamage } from './combatAttrs'
 import { createSave } from './createSave'
 import { settleOffline } from './offline'
 import { spawnWorkerWith } from './recruit'
@@ -38,6 +47,11 @@ function quietRivals(save: Save) {
     rival.nextFightAtS = 1e12
     rival.damage = 0
   }
+}
+
+function missWeakness(save: Save) {
+  const attrs = new Set(save.beastPvp.fight?.workers[0]?.attrs ?? [])
+  save.beastPvp.weakness = COMBAT_ATTR_IDS.find((id) => !attrs.has(id)) ?? 'sword'
 }
 
 function party(n = 3) {
@@ -147,29 +161,119 @@ describe('困兽', () => {
     expect(save.beastPvp.recent.some((row) => /打断|狂怒/.test(row.text))).toBe(false)
   })
 
-  it('假玩家打断不写最近，也不留给下一场', () => {
-    setBeastRollOverride(() => 0.1)
+  it('畏缩和打断、闪避每阶段三选一，十秒内减伤仍能跨线', () => {
+    const { save, ids } = party(1)
+    save.beastPvp.kind = 'boar'
+    expect(startBeastFight(save, ids).ok).toBe(true)
+    const fight = save.beastPvp.fight!
+    missWeakness(save)
+    expect(beastHud(save).canCower).toBe(true)
+    expect(beastCower(save).ok).toBe(true)
+    expect(beastDodge(save).ok).toBe(false)
+    expect(beastInterrupt(save).ok).toBe(false)
+    expect(beastCower(save).ok).toBe(false)
+    expect(save.beastPvp.reacts[0]).toBe('cower')
+    expect(fight.cowerMs).toBe(BEAST_COWER_MS)
+    expect(beastHud(save).cowerMs).toBe(BEAST_COWER_MS)
+    expect(beastHud(save).canDodge).toBe(false)
+    expect(beastHud(save).canInterrupt).toBe(false)
+    expect(beastHud(save).canCower).toBe(false)
+
+    const row = fight.workers[0]!
+    const line = beastBoundaryHp(save.beastPvp, 0)
+    save.beastPvp.hp = line + 1
+    row.accMs = Math.round(row.spd * 1000)
+    const dealtBefore = save.beastPvp.playerDamage
+    const now = Date.parse('2026-09-28T04:00:00.000Z')
+    save.elapsedS += 1
+    stepBeastPvp(save, now)
+    expect(save.beastPvp.playerDamage - dealtBefore).toBe(scaledAttackDamage(row.atk, BEAST_COWER_DEALT_MUL))
+    expect(save.beastPvp.phase).toBe(1)
+    expect(itemQty(save, 'beastBone')).toBe(3)
+    expect(fight.cowerMs).toBe(BEAST_COWER_MS - 1000)
+
+    fight.telegraph = {
+      remainMs: 40,
+      totalMs: 1500,
+      spec: { kind: 'heavy', aoe: true, mul: 4, telegraphMs: 1500, gapAfterMs: 3200, hpFrac: 0 },
+    }
+    const hpBefore = row.hp
+    save.elapsedS += 1
+    stepBeastPvp(save, now)
+    expect(hpBefore - row.hp).toBe(scaledAttackDamage(beastAttackPower(save.knightLevel), 4 * BEAST_COWER_TAKEN_MUL))
+
+    fight.telegraph = null
+    fight.gapMs = 1e9
+    fight.cowerMs = 1000
+    save.elapsedS += 1
+    stepBeastPvp(save, now)
+    expect(fight.cowerMs).toBe(0)
+    fight.telegraph = {
+      remainMs: 40,
+      totalMs: 1500,
+      spec: { kind: 'heavy', aoe: true, mul: 4, telegraphMs: 1500, gapAfterMs: 3200, hpFrac: 0 },
+    }
+    const after = row.hp
+    save.elapsedS += 1
+    stepBeastPvp(save, now)
+    expect(after - row.hp).toBe(scaledAttackDamage(beastAttackPower(save.knightLevel), 4))
+  })
+
+  it('自动只闪避，不畏缩', () => {
+    const { save, ids } = party(1)
+    save.beastPvp.auto = true
+    expect(startBeastFight(save, ids).ok).toBe(true)
+    const fight = save.beastPvp.fight!
+    fight.workers[0]!.hp = 1
+    fight.gapMs = 1e9
+    save.elapsedS += 1
+    stepBeastPvp(save, Date.parse('2026-09-28T04:00:00.000Z'))
+    expect(save.beastPvp.reacts[0]).toBe('dodge')
+    expect(fight.dodgeNext).toBe(true)
+    expect(fight.cowerMs).toBe(0)
+  })
+
+  it('假玩家每阶段三选一，狼更常畏缩，不写最近', () => {
+    const now = Date.parse('2026-09-28T04:00:00.000Z')
+    setBeastRollOverride(() => 0.9)
     const save = createSave()
     quietRivals(save)
     const state = save.beastPvp
+    state.kind = 'boar'
     const rival = state.rivals[0]!
     rival.onlineUntilS = save.elapsedS + 1000
     rival.nextFightAtS = save.elapsedS
     const recent = state.recent.length
     save.elapsedS += 1
-    stepBeastPvp(save, Date.parse('2026-09-28T04:00:00.000Z'))
+    stepBeastPvp(save, now)
     expect(rival.reacts[0]).toBe('interrupt')
+    expect(beastRivalReactChoice('boar', 0.9)).toBe('interrupt')
+    expect(beastRivalReactChoice('boar', 0.4)).toBe('dodge')
+    expect(beastRivalReactChoice('wolf', 0.4)).toBe('cower')
     expect(state.recent.length).toBe(recent)
-    expect(state.recent.some((row) => /打断|狂怒/.test(row.text))).toBe(false)
+    expect(state.recent.some((row) => /打断|畏缩|狂怒/.test(row.text))).toBe(false)
     expect('enrage' in state).toBe(false)
 
     setBeastRollOverride(() => 0.4)
-    const other = state.rivals[1]!
-    other.onlineUntilS = save.elapsedS + 1000
-    other.nextFightAtS = save.elapsedS
+    const dodgeRival = state.rivals[1]!
+    dodgeRival.onlineUntilS = save.elapsedS + 1000
+    dodgeRival.nextFightAtS = save.elapsedS
     save.elapsedS += 1
-    stepBeastPvp(save, Date.parse('2026-09-28T04:00:00.000Z'))
-    expect(other.reacts[0]).toBeNull()
+    stepBeastPvp(save, now)
+    expect(dodgeRival.reacts[0]).toBe('dodge')
+
+    state.kind = 'wolf'
+    const wolfRival = state.rivals[2]!
+    wolfRival.onlineUntilS = save.elapsedS + 1000
+    wolfRival.nextFightAtS = save.elapsedS
+    const wolfBefore = wolfRival.damage
+    save.elapsedS += 1
+    stepBeastPvp(save, now)
+    expect(wolfRival.reacts[0]).toBe('cower')
+    const auto = beastAutoFightDamage(save.knightLevel)
+    const skilled = beastSkilledFightDamage(save.knightLevel)
+    const base = Math.round(auto + (skilled - auto) * 0.4)
+    expect(wolfRival.damage - wolfBefore).toBe(Math.round(base * beastRivalReactMul('cower')))
   })
 
   it('旧档上的狂怒读档后丢掉', () => {
@@ -182,6 +286,14 @@ describe('困兽', () => {
     hydrateBeastPvp(save)
     expect('enrage' in save.beastPvp).toBe(false)
     expect(save.beastPvp.fight).toBeNull()
+    save.beastPvp.reacts[2] = 'cower'
+    const worker = spawnWorkerWith(save, 1, 'laborer')
+    fillWorkerHp(worker)
+    expect(startBeastFight(save, [worker.id]).ok).toBe(true)
+    save.beastPvp.fight!.cowerMs = 4000
+    hydrateBeastPvp(save)
+    expect(save.beastPvp.reacts[2]).toBe('cower')
+    expect(save.beastPvp.fight?.cowerMs).toBe(4000)
   })
 
   it('日结按名次发兽材，时钟回拨不发', () => {

@@ -23,6 +23,7 @@ const hud = computed(() => {
   void game.save.elapsedS
   void game.save.beastPvp?.hp
   void game.save.beastPvp?.fight?.elapsedMs
+  void game.save.beastPvp?.fight?.cowerMs
   return beastHud(game.save, Date.now())
 })
 
@@ -41,6 +42,10 @@ const hpPct = computed(() => {
 })
 
 const staminaPct = computed(() => Math.round((hud.value.stamina / hud.value.staminaMax) * 100))
+const cowerSec = computed(() => Math.ceil(hud.value.cowerMs / 1000))
+const cowerPct = computed(() =>
+  hud.value.cowerTotalMs > 0 ? Math.max(0, Math.min(100, (hud.value.cowerMs / hud.value.cowerTotalMs) * 100)) : 0,
+)
 const staminaBubble = computed(() => {
   if (hud.value.stamina >= hud.value.staminaMax) return '已满'
   return `${formatBeastDuration(hud.value.staminaNextS)} 后 +1、${formatBeastDuration(hud.value.staminaFullS)} 后回满`
@@ -91,6 +96,11 @@ function onDodge() {
 function onInterrupt() {
   const result = game.beastInterrupt()
   if (result.ok) pulse('break')
+}
+
+function onCower() {
+  const result = game.beastCower()
+  if (result.ok) pulse('cower-flash')
 }
 
 function pumpFx() {
@@ -153,9 +163,17 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <p v-if="hud.fighting && hud.cowerMs > 0" class="cower" role="status">
+      <b>畏缩中</b>
+      <span>受到的伤害 -50% · 打出的伤害 -30%</span>
+      <strong>{{ cowerSec }} 秒</strong>
+      <i class="cower-bar"><em :style="{ width: `${cowerPct}%` }" /></i>
+    </p>
+
     <div v-if="hud.fighting" class="reacts">
       <ActButton icon="raid" kind="primary" tone="combat" :disabled="!hud.canInterrupt" @click="onInterrupt">打断</ActButton>
       <ActButton icon="shield" kind="primary" tone="combat" :disabled="!hud.canDodge" @click="onDodge">闪避</ActButton>
+      <ActButton icon="cower" kind="primary" tone="combat" :disabled="!hud.canCower" @click="onCower">畏缩</ActButton>
     </div>
     <div v-if="!hud.fighting" class="stamina" :class="{ open: staminaOpen }">
       <button type="button" class="meter" :aria-expanded="staminaOpen" :aria-label="`困兽体力 ${hud.stamina}/${hud.staminaMax}`" @click="staminaOpen = !staminaOpen">
@@ -222,7 +240,8 @@ onUnmounted(() => {
 .beast-head.hit,
 .beast-head.hurt,
 .beast-head.break,
-.beast-head.dodge {
+.beast-head.dodge,
+.beast-head.cower-flash {
   animation: flash 280ms ease;
 }
 .mark {
@@ -294,9 +313,40 @@ onUnmounted(() => {
   height: 10px;
   border-radius: 999px;
 }
+.cower {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 4px 8px;
+  align-items: center;
+  margin: 0;
+  padding: 8px 10px 10px;
+  border: 2px solid #8a5a12;
+  border-radius: 10px;
+  background: linear-gradient(#fff6c8, #f0c14a);
+  color: #4a2c08;
+  font-size: 13px;
+  font-weight: 800;
+}
+.cower strong {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.cower-bar {
+  grid-column: 1 / -1;
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(74, 44, 8, 0.18);
+}
+.cower-bar em {
+  display: block;
+  height: 100%;
+  background: #8a3b12;
+}
 .reacts {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 8px;
 }
 .reacts :deep(button.act) {

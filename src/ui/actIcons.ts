@@ -14,6 +14,7 @@ export const ACT_ICON_IDS = [
   'check',
   'leave',
   'shield',
+  'cower',
   'invite',
   'close',
 ] as const
@@ -84,6 +85,12 @@ export const ACT_ICON_PATHS: Record<ActIconId, readonly string[]> = {
   shield: [
     'M8 1.2L13.6 3.2V8.2C13.6 11.4 11.2 13.6 8 14.8C4.8 13.6 2.4 11.4 2.4 8.2V3.2Z'
       + 'M8 3.4L11.4 4.6V8C11.4 10.2 9.8 11.8 8 12.6C6.2 11.8 4.6 10.2 4.6 8V4.6Z',
+  ],
+  cower: [
+    'M6.3 1.5A1.55 1.55 0 1 0 6.31 1.5Z',
+    'M2.1 6.1H9.8L7.6 9.6H3.4Z',
+    'M3.1 9.6H11.4V11.5H3.1Z',
+    'M4.1 11.5H10.2V14.2H4.1Z',
   ],
   invite: [
     'M4.6 1.6A1.7 1.7 0 1 0 4.61 1.6Z',

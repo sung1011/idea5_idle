@@ -17,6 +17,7 @@ import {
 } from '../sim/gm'
 import { hasUnread, listedMessages, markAllRead } from '../sim/messages'
 import {
+  beastCower,
   beastDodge,
   beastInterrupt,
   discardBeastFx,
@@ -358,6 +359,7 @@ export const useGameStore = defineStore('game', () => {
     startBeastFight: (workerIds: string[]) => apply((s) => startBeastFight(s, workerIds)),
     beastDodge: () => apply(beastDodge),
     beastInterrupt: () => apply(beastInterrupt),
+    beastCower: () => apply(beastCower),
     setBeastAuto: (on: boolean) => apply((s) => setBeastAuto(s, on)),
     settleBeastLeave: () => {
       if (!save.value.beastPvp?.fight) return

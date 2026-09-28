@@ -858,7 +858,7 @@ export type Save = {
 
 export type BeastKind = 'boar' | 'wolf' | 'stag'
 
-export type BeastReact = 'dodge' | 'interrupt'
+export type BeastReact = 'dodge' | 'interrupt' | 'cower'
 
 export type BeastAttackSpec = {
   kind: 'normal' | 'heavy'
@@ -899,6 +899,8 @@ export type BeastFight = {
   dodgeNext: boolean
   /** 打断后，本场下一次攻击伤害 ×0.7。结算后清掉，不带到下一场。 */
   weakenNext: boolean
+  /** 畏缩剩余毫秒。期间受到的伤害 ×0.5，打出的伤害 ×0.7。 */
+  cowerMs: number
   openingMs: number
   auto: boolean
 }
@@ -911,7 +913,7 @@ export type BeastRival = {
   nextFightAtS: number
   onlineUntilS: number | null
   nextOnlineAtS: number
-  /** 下标是阶段。这一阶段已经用过打断或闪避。 */
+  /** 下标是阶段。这一阶段已经用过打断、闪避或畏缩。 */
   reacts: Array<BeastReact | null>
 }
 
@@ -944,14 +946,14 @@ export type BeastPvpState = {
   stamina: number
   staminaAccS: number
   playerDamage: number
-  /** 玩家每个阶段的打断 / 闪避。跨场次保留，换阶段才空。 */
+  /** 玩家每个阶段的打断 / 闪避 / 畏缩。跨场次保留，换阶段才空。 */
   reacts: Array<BeastReact | null>
   rivals: BeastRival[]
   onlineTarget: number
   targetUntilS: number
   recent: BeastRecent[]
   fight: BeastFight | null
-  /** 右上角自动。自动只闪避，不打断。 */
+  /** 右上角自动。自动只闪避，不打断、不畏缩。 */
   auto: boolean
   lastRewardText: string
   offline: BeastOfflineNote | null

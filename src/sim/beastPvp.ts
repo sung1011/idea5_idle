@@ -51,6 +51,12 @@ export const BEAST_AUTO_HP = 0.3
 export const BEAST_COUNTER_MUL = 2
 /** 打断后，本场下一次攻击的伤害系数。 */
 export const BEAST_INTERRUPT_MUL = 0.7
+/** 畏缩持续毫秒。 */
+export const BEAST_COWER_MS = 10_000
+/** 畏缩期间受到的伤害系数。 */
+export const BEAST_COWER_TAKEN_MUL = 0.5
+/** 畏缩期间打出的伤害系数。 */
+export const BEAST_COWER_DEALT_MUL = 0.7
 export const BEAST_RECENT_CAP = 12
 export const BEAST_STEP_MS = 100
 
@@ -173,6 +179,10 @@ function intBetween(state: BeastPvpState, min: number, max: number): number {
 
 function blankReacts(): Array<BeastReact | null> {
   return [null, null, null, null, null]
+}
+
+function normalizeReact(row: unknown): BeastReact | null {
+  return row === 'dodge' || row === 'interrupt' || row === 'cower' ? row : null
 }
 
 export function beastAttackPower(knightLevel: number): number {
@@ -452,7 +462,8 @@ function resolveBeastAttack(save: Save, spec: BeastAttackSpec, quiet: boolean): 
   const dodged = fight.dodgeNext
   const weaken = fight.weakenNext
   fight.weakenNext = false
-  const factor = weaken ? BEAST_INTERRUPT_MUL : 1
+  let factor = weaken ? BEAST_INTERRUPT_MUL : 1
+  if (fight.cowerMs > 0) factor *= BEAST_COWER_TAKEN_MUL
   if (dodged) {
     fight.dodgeNext = false
     if (spec.kind === 'heavy') {
@@ -502,6 +513,7 @@ function workerStrike(save: Save, row: BeastFightWorker, quiet: boolean): void {
   let mul = 1
   if (fight.openingMs > 0) mul *= 2
   if (workerMatchesWeakness(row.attrs, [state.weakness])) mul *= BEAST_COUNTER_MUL
+  if (fight.cowerMs > 0) mul *= BEAST_COWER_DEALT_MUL
   const damage = scaledAttackDamage(row.atk, mul)
   strikeBeast(save, damage, { id: row.id, name: row.name, player: true }, quiet)
   pushFx(`${row.name} 出手`, 'hit', quiet)
@@ -522,7 +534,10 @@ function tickFight(save: Save, ms: number, quiet: boolean): void {
       workerStrike(save, row, quiet)
     }
   }
-  if (!state.fight || state.killed) return
+  if (!state.fight || state.killed) {
+    tickCower(fight, ms)
+    return
+  }
   if (fight.telegraph) {
     fight.telegraph.remainMs -= ms
     if (fight.telegraph.remainMs <= 0) {
@@ -554,6 +569,11 @@ function tickFight(save: Save, ms: number, quiet: boolean): void {
     }
   }
   if (state.fight) mirrorHp(save, state.fight)
+  tickCower(fight, ms)
+}
+
+function tickCower(fight: BeastFight, ms: number): void {
+  if (fight.cowerMs > 0) fight.cowerMs = Math.max(0, fight.cowerMs - ms)
 }
 
 function advanceFight(save: Save, ms: number, quiet: boolean, forceAuto: boolean): void {
@@ -634,8 +654,28 @@ function seatOnline(save: Save, state: BeastPvpState): void {
   }
 }
 
-/** 假玩家打断只加在自己这场的抽象伤害上，不写最近，不影响别人。 */
+/** 假玩家一场大约按这个秒数折算畏缩。和自动伤害公式里的 38 秒对齐。 */
+const RIVAL_FIGHT_S = 38
+/** 打断取消一招，这场大约多打一点。只加在假玩家自己的抽象伤害上。 */
 const RIVAL_INTERRUPT_DAMAGE_MUL = 1.08
+/** 闪掉一次攻击，这场大约多打一点。 */
+const RIVAL_DODGE_DAMAGE_MUL = 1.06
+
+export function beastRivalReactChoice(kind: BeastKind, roll: number): BeastReact {
+  const cowerCut = kind === 'wolf' ? 0.55 : 0.35
+  const dodgeCut = kind === 'wolf' ? 0.8 : 0.7
+  if (roll < cowerCut) return 'cower'
+  if (roll < dodgeCut) return 'dodge'
+  return 'interrupt'
+}
+
+export function beastRivalReactMul(react: BeastReact): number {
+  if (react === 'interrupt') return RIVAL_INTERRUPT_DAMAGE_MUL
+  if (react === 'dodge') return RIVAL_DODGE_DAMAGE_MUL
+  const cowerS = BEAST_COWER_MS / 1000
+  const savedS = cowerS * (1 - BEAST_COWER_TAKEN_MUL)
+  return (cowerS * BEAST_COWER_DEALT_MUL + (RIVAL_FIGHT_S - cowerS + savedS)) / RIVAL_FIGHT_S
+}
 
 function runRivalFight(save: Save, rival: BeastRival, quiet: boolean): void {
   const state = save.beastPvp
@@ -644,9 +684,10 @@ function runRivalFight(save: Save, rival: BeastRival, quiet: boolean): void {
   let damage = beastAutoFightDamage(save.knightLevel)
   const skilled = beastSkilledFightDamage(save.knightLevel)
   damage = Math.round(damage + (skilled - damage) * nextRoll(state))
-  if (rival.reacts[phase] == null && nextRoll(state) < 0.3) {
-    rival.reacts[phase] = 'interrupt'
-    damage = Math.round(damage * RIVAL_INTERRUPT_DAMAGE_MUL)
+  if (rival.reacts[phase] == null) {
+    const react = beastRivalReactChoice(state.kind, nextRoll(state))
+    rival.reacts[phase] = react
+    damage = Math.round(damage * beastRivalReactMul(react))
   }
   strikeBeast(save, damage, { id: rival.id, name: rival.name, player: false }, quiet)
 }
@@ -794,7 +835,7 @@ export function hydrateBeastPvp(save: Save, now = save.lastTick || Date.now()): 
   state.staminaAccS = Math.min(BEAST_STAMINA_REGEN_S, Math.max(0, Math.floor(finite(state.staminaAccS, 0))))
   state.playerDamage = Math.max(0, finite(state.playerDamage, 0))
   if (!Array.isArray(state.reacts) || state.reacts.length !== 5) state.reacts = blankReacts()
-  state.reacts = state.reacts.map((row) => (row === 'dodge' || row === 'interrupt' ? row : null))
+  state.reacts = state.reacts.map((row) => normalizeReact(row))
   if (!Array.isArray(state.recent)) state.recent = []
   state.auto = state.auto === true
   if (typeof state.dayKey !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(state.dayKey)) state.dayKey = beijingDayKey(now)
@@ -804,7 +845,7 @@ export function hydrateBeastPvp(save: Save, now = save.lastTick || Date.now()): 
   for (const rival of state.rivals) {
     rival.damage = Math.max(0, finite(rival.damage, 0))
     if (!Array.isArray(rival.reacts) || rival.reacts.length !== 5) rival.reacts = blankReacts()
-    rival.reacts = rival.reacts.map((row) => (row === 'dodge' || row === 'interrupt' ? row : null))
+    rival.reacts = rival.reacts.map((row) => normalizeReact(row))
     if (typeof rival.name !== 'string' || !rival.name) rival.name = '对手'
     if (typeof rival.avatarId !== 'string') rival.avatarId = 'helm'
   }
@@ -816,6 +857,7 @@ function normalizeFight(raw: BeastFight | null | undefined): BeastFight | null {
   if (!raw.workers.length) return null
   raw.dodgeNext = raw.dodgeNext === true
   raw.weakenNext = raw.weakenNext === true
+  raw.cowerMs = Math.min(BEAST_COWER_MS, Math.max(0, finite(raw.cowerMs, 0)))
   raw.auto = raw.auto === true
   raw.gapMs = finite(raw.gapMs, BOAR_GAP_MS)
   raw.goreMs = finite(raw.goreMs, STAG_GORE_MS)
@@ -920,6 +962,9 @@ export function beastHud(save: Save, now = Date.now()) {
     reactUsed: used != null,
     canDodge: !!state.fight && used == null && !state.fight.dodgeNext,
     canInterrupt: !!state.fight && used == null && !!state.fight.telegraph,
+    canCower: !!state.fight && used == null,
+    cowerMs: state.fight?.cowerMs ?? 0,
+    cowerTotalMs: BEAST_COWER_MS,
     recent: state.recent.slice().reverse(),
     board: beastLeaderboard(save),
   }
@@ -953,6 +998,7 @@ function makeFight(save: Save, workers: Worker[], auto: boolean): BeastFight {
     telegraph: null,
     dodgeNext: false,
     weakenNext: false,
+    cowerMs: 0,
     openingMs: 0,
     auto,
   }
@@ -1010,6 +1056,17 @@ export function beastInterrupt(save: Save): ActionResult {
   state.reacts[phase] = 'interrupt'
   fight.gapMs = initialGap(state)
   return { ok: true, message: '这一下取消了，下一击伤害减少' }
+}
+
+export function beastCower(save: Save): ActionResult {
+  const state = ensureBeastPvp(save)
+  const fight = state.fight
+  if (!fight) return { ok: false, reason: '还没开始挑战' }
+  const phase = Math.min(4, state.phase)
+  if (state.reacts[phase]) return { ok: false, reason: '这一阶段已经用过' }
+  state.reacts[phase] = 'cower'
+  fight.cowerMs = BEAST_COWER_MS
+  return { ok: true, message: '畏缩 10 秒，受到的伤害减半，打出的伤害减少' }
 }
 
 export function setBeastAuto(save: Save, on: boolean): ActionResult {
