@@ -128,7 +128,16 @@ export type HerbRankRow = {
 
 export type HerbPvpNotice = { text: string; kind: 'ok' | 'err' }
 
+/** 割完一块地的表现事件。离线补算不产生。 */
+export type HerbClearEvent = {
+  plotIndex: number
+  tone: 'self' | 'rival'
+  text: string
+  alert: boolean
+}
+
 const notices: HerbPvpNotice[] = []
+const clearEvents: HerbClearEvent[] = []
 let herbRollOverride: (() => number) | null = null
 
 /** 测试用。测完必须传 null。 */
@@ -139,6 +148,35 @@ export function setHerbRollOverride(fn: (() => number) | null): void {
 export function takeHerbPvpNotices(): HerbPvpNotice[] {
   if (!notices.length) return []
   return notices.splice(0, notices.length)
+}
+
+export function takeHerbClearEvents(): HerbClearEvent[] {
+  if (!clearEvents.length) return []
+  return clearEvents.splice(0, clearEvents.length)
+}
+
+/** 切回割草页时丢掉离开期间攒下的动画，避免连播。 */
+export function discardHerbClearEvents(): void {
+  clearEvents.length = 0
+}
+
+export function herbClearText(plot: Pick<HerbPlot, 'kind' | 'payload' | 'qty'>): string {
+  if (plot.kind === 'common' && plot.payload in ITEM_DEF && plot.qty > 0) {
+    return `${ITEM_DEF[plot.payload as ItemId].label} ×${plot.qty}`
+  }
+  if (plot.kind === 'precious' && plot.qty > 0) return `珍贵 +${plot.qty}`
+  if (plot.kind === 'probe') return '侦测 ×1'
+  return '荒芜'
+}
+
+export function herbRivalClearText(name: string): string {
+  const who = name.trim() || '对手'
+  return `${who} 割走了`
+}
+
+/** 周围 8 格里有没有玩家正在割的地。 */
+export function herbClearShouldAlert(plots: readonly HerbPlot[], plotIndex: number): boolean {
+  return herbProbeCells(plotIndex).some((index) => index !== plotIndex && !!plots[index]?.workerId)
 }
 
 function note(text: string, kind: HerbPvpNotice['kind'], offline: boolean): void {
@@ -710,6 +748,26 @@ function sendHerbWorkerHome(save: Save, worker: Worker): void {
   offerRestFood(save, worker.id, now)
 }
 
+function pushClearEvent(save: Save, plot: HerbPlot, snapshot: Pick<HerbPlot, 'kind' | 'payload' | 'qty'>, rivalId: string | null, offline: boolean): void {
+  if (offline) return
+  if (rivalId) {
+    const rival = save.herbPvp.rivals.find((row) => row.id === rivalId)
+    clearEvents.push({
+      plotIndex: plot.index,
+      tone: 'rival',
+      text: herbRivalClearText(rival?.name ?? ''),
+      alert: herbClearShouldAlert(save.herbPvp.plots, plot.index),
+    })
+    return
+  }
+  clearEvents.push({
+    plotIndex: plot.index,
+    tone: 'self',
+    text: herbClearText(snapshot),
+    alert: false,
+  })
+}
+
 function finishPlot(save: Save, plot: HerbPlot, offline: boolean): void {
   const workerId = plot.workerId
   const rivalId = plot.weeder
@@ -723,12 +781,14 @@ function finishPlot(save: Save, plot: HerbPlot, offline: boolean): void {
     grantPlayerLoot(save, { ...plot, ...snapshot }, offline)
     const worker = save.workers.find((row) => row.id === workerId)
     if (worker) sendHerbWorkerHome(save, worker)
+    pushClearEvent(save, plot, snapshot, null, offline)
     return
   }
   if (rivalId && snapshot.kind === 'precious' && snapshot.qty > 0) {
     const rival = save.herbPvp.rivals.find((row) => row.id === rivalId)
     if (rival) rival.score += snapshot.qty
   }
+  if (rivalId) pushClearEvent(save, plot, snapshot, rivalId, offline)
 }
 
 function maybeRefreshMap(save: Save): void {

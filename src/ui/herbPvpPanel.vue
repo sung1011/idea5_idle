@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { restCombatCandidates } from '../sim/combat'
 import {
   HERB_PVP_COUNTER_RULE,
@@ -16,12 +16,15 @@ import {
   herbPlotLabel,
   herbPlotShort,
   herbProbeCells,
+  discardHerbClearEvents,
   orderHerbPick,
+  takeHerbClearEvents,
 } from '../sim/herbPvp'
 import type { HerbPlot, Worker } from '../sim/types'
 import { isFullWorkshopHp } from '../sim/workshopHp'
 import CombatAttrIcon from './combatAttrIcon.vue'
 import CombatPickSheet from './combatPickSheet.vue'
+import { createHerbClearBoard, offerHerbClearFx, pumpHerbClearFx, type HerbClearFx } from './herbClearFx'
 import { herbProbeAimAfterPlot, herbProbeAimOnOutside, nextHerbProbeAim } from './herbProbeAim'
 import { pushFloatTip } from './floatTips'
 import PlayerAvatar from './playerAvatar.vue'
@@ -42,6 +45,34 @@ const candidates = computed(() => orderHerbPick(restCombatCandidates(game.save),
 const aimSet = computed(() =>
   aiming.value && aimIndex.value != null ? new Set(herbProbeCells(aimIndex.value)) : new Set<number>(),
 )
+const clearBoard = createHerbClearBoard()
+const playingFx = ref<HerbClearFx[]>([])
+let fxTimer = 0
+const fxByIndex = computed(() => {
+  const map = new Map<number, HerbClearFx>()
+  for (const fx of playingFx.value) map.set(fx.plotIndex, fx)
+  return map
+})
+
+function fxOf(index: number): HerbClearFx | null {
+  return fxByIndex.value.get(index) ?? null
+}
+
+function syncClearFx() {
+  const now = Date.now()
+  pumpHerbClearFx(clearBoard, now)
+  const incoming = takeHerbClearEvents()
+  if (incoming.length) offerHerbClearFx(clearBoard, incoming, now)
+  playingFx.value = clearBoard.playing.slice()
+  if (fxTimer) window.clearTimeout(fxTimer)
+  const times = [...clearBoard.playing.map((fx) => fx.until), ...clearBoard.queued.map((fx) => fx.readyAt)]
+  const next = times.filter((time) => time > now).sort((a, b) => a - b)[0]
+  if (next == null) {
+    fxTimer = 0
+    return
+  }
+  fxTimer = window.setTimeout(syncClearFx, Math.max(16, next - now))
+}
 
 function toggleAim() {
   aiming.value = nextHerbProbeAim(aiming.value, hud.value.probes)
@@ -58,8 +89,15 @@ function onWindowPointerDown(ev: PointerEvent) {
   aimIndex.value = null
 }
 
-onMounted(() => window.addEventListener('pointerdown', onWindowPointerDown, true))
-onBeforeUnmount(() => window.removeEventListener('pointerdown', onWindowPointerDown, true))
+onMounted(() => {
+  discardHerbClearEvents()
+  window.addEventListener('pointerdown', onWindowPointerDown, true)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('pointerdown', onWindowPointerDown, true)
+  if (fxTimer) window.clearTimeout(fxTimer)
+})
+watch(() => game.save.elapsedS, () => syncClearFx())
 
 function previewAim(index: number) {
   if (!aiming.value) return
@@ -177,7 +215,15 @@ function rowKey(row: { id: string; rank: number }): string {
         :key="plot.index"
         type="button"
         class="cell"
-        :class="{ revealed: plot.revealed, cleared: plot.cleared, mine: !!plot.workerId, aim: aimSet.has(plot.index) }"
+        :class="{
+          revealed: plot.revealed,
+          cleared: plot.cleared,
+          mine: !!plot.workerId,
+          aim: aimSet.has(plot.index),
+          fx: !!fxOf(plot.index),
+          rival: fxOf(plot.index)?.tone === 'rival',
+          alert: !!fxOf(plot.index)?.alert,
+        }"
         :aria-label="herbPlotLabel(plot)"
         @pointerenter="previewAim(plot.index)"
         @click="onPlot(plot.index)"
@@ -186,6 +232,13 @@ function rowKey(row: { id: string; rank: number }): string {
         <CombatAttrIcon v-if="herbPlotShowsWeakness(plot)" class="weak-mark" :attr="plot.weakness" />
         <i v-if="plot.workerId" class="bar" :style="{ width: `${(progressOf(plot) * 100).toFixed(2)}%` }" />
         <small v-if="plot.workerId">{{ workerName(plot.workerId) }}</small>
+        <span v-if="fxOf(plot.index)" class="fx-layer" aria-hidden="true">
+          <i class="leaf" />
+          <i class="leaf" />
+          <i class="leaf" />
+          <i class="leaf" />
+          <b class="fx-text">{{ fxOf(plot.index)!.text }}</b>
+        </span>
       </button>
     </div>
     <h3 class="board-title">割草排行</h3>
@@ -285,6 +338,155 @@ function rowKey(row: { id: string; rank: number }): string {
 .cell.aim {
   background: #fff1b8;
   box-shadow: inset 0 0 0 2px #c9842a;
+}
+
+.cell.fx {
+  z-index: 2;
+  overflow: visible;
+  animation: herb-flash 0.6s linear;
+}
+
+.cell.fx.rival {
+  animation-name: herb-flash-rival;
+}
+
+.cell.fx.alert,
+.cell.fx.rival.alert {
+  animation: herb-flash 0.6s linear, herb-alert 0.6s linear;
+}
+
+.cell.fx.rival.alert {
+  animation-name: herb-flash-rival, herb-alert;
+}
+
+.fx-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.leaf {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 8px;
+  margin: -4px 0 0 -3px;
+  background: #6a9a3a;
+  border-radius: 0 70% 0 70%;
+  animation: herb-leaf 0.6s ease-out forwards;
+}
+
+.cell.rival .leaf {
+  background: #d15a4a;
+}
+
+.leaf:nth-child(1) {
+  --dx: -14px;
+  --dy: -16px;
+  --rot: -40deg;
+}
+
+.leaf:nth-child(2) {
+  --dx: 14px;
+  --dy: -12px;
+  --rot: 30deg;
+}
+
+.leaf:nth-child(3) {
+  --dx: -10px;
+  --dy: 8px;
+  --rot: -20deg;
+}
+
+.leaf:nth-child(4) {
+  --dx: 12px;
+  --dy: 10px;
+  --rot: 50deg;
+}
+
+.fx-text {
+  position: absolute;
+  top: 36%;
+  left: 50%;
+  color: #3d6b22;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  animation: herb-float 0.6s ease-out forwards;
+}
+
+.cell.rival .fx-text {
+  color: #9d2c2c;
+}
+
+@keyframes herb-leaf {
+  to {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) rotate(var(--rot));
+  }
+}
+
+@keyframes herb-float {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -16px);
+  }
+}
+
+@keyframes herb-flash {
+  0% {
+    background: #fff7c2;
+  }
+
+  100% {
+    background: #f3ffe8;
+  }
+}
+
+@keyframes herb-flash-rival {
+  0% {
+    background: #ffd0c4;
+  }
+
+  100% {
+    background: #fff1ee;
+  }
+}
+
+@keyframes herb-alert {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 2px transparent;
+  }
+
+  40% {
+    box-shadow: inset 0 0 0 2px #e23b3b;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cell.fx,
+  .cell.fx.rival,
+  .cell.fx.alert,
+  .cell.fx.rival.alert {
+    animation: herb-flash 0.6s linear;
+  }
+
+  .cell.fx.rival,
+  .cell.fx.rival.alert {
+    animation-name: herb-flash-rival;
+  }
+
+  .cell.fx .leaf {
+    display: none;
+  }
+
+  .cell.fx .fx-text {
+    animation: none;
+    opacity: 1;
+  }
 }
 
 .cell .label {

@@ -40,8 +40,10 @@ import {
   inheritHerbProgress,
   orderHerbPick,
   setHerbRollOverride,
+  discardHerbClearEvents,
   startHerbWeed,
   stepHerbPvp,
+  takeHerbClearEvents,
   unlockedHerbalismProducts,
   useHerbProbe,
 } from './herbPvp'
@@ -53,6 +55,7 @@ import { SAVE_KEY, hydrateLoadedSave } from '../ui/saveGame'
 
 afterEach(() => {
   setHerbRollOverride(null)
+  discardHerbClearEvents()
 })
 
 function fresh(): Save {
@@ -635,6 +638,89 @@ describe('herb probes', () => {
     expect(kept?.herbPvp.probes).toBe(5)
     expect(kept?.herbPvp.probeRev).toBe(HERB_PVP_PROBE_REV)
     expect(kept?.herbPvp).not.toHaveProperty('probe1')
+  })
+})
+
+describe('herb clear events', () => {
+  it('emits a live harvest and skips an offline finish', () => {
+    const save = fresh()
+    quiet(save)
+    const worker = spawnWorker(save)
+    const plot = save.herbPvp.plots[0]!
+    plot.kind = 'common'
+    plot.payload = 'herb'
+    plot.qty = 2
+    plot.workerId = worker.id
+    plot.progressS = HERB_PVP_WEED_S - 1
+    plot.durationS = HERB_PVP_WEED_S
+    stepHerbPvp(save, Date.now(), { offline: true })
+    expect(plot.cleared).toBe(true)
+    expect(takeHerbClearEvents()).toEqual([])
+
+    const live = fresh()
+    quiet(live)
+    const mower = spawnWorker(live)
+    const herb = live.herbPvp.plots[4]!
+    herb.kind = 'common'
+    herb.payload = 'herb'
+    herb.qty = 2
+    herb.workerId = mower.id
+    herb.progressS = HERB_PVP_WEED_S - 1
+    herb.durationS = HERB_PVP_WEED_S
+    stepHerbPvp(live, Date.now())
+    expect(takeHerbClearEvents()).toEqual([{ plotIndex: 4, tone: 'self', text: '草 ×2', alert: false }])
+  })
+
+  it('names the rival and alerts only when the clear touches a player plot', () => {
+    const save = fresh()
+    quiet(save)
+    const rival = save.herbPvp.rivals[0]!
+    const stolen = save.herbPvp.plots[0]!
+    stolen.kind = 'barren'
+    stolen.weeder = rival.id
+    stolen.progressS = HERB_PVP_WEED_S - 1
+    stolen.durationS = HERB_PVP_WEED_S
+    const mine = save.herbPvp.plots[1]!
+    const worker = spawnWorker(save)
+    mine.workerId = worker.id
+    mine.progressS = 10
+    mine.durationS = HERB_PVP_WEED_S
+    stepHerbPvp(save, Date.now())
+    expect(takeHerbClearEvents()).toEqual([
+      { plotIndex: 0, tone: 'rival', text: `${rival.name} 割走了`, alert: true },
+    ])
+
+    const far = fresh()
+    quiet(far)
+    const other = far.herbPvp.rivals[1]!
+    const edge = far.herbPvp.plots[0]!
+    edge.weeder = other.id
+    edge.progressS = HERB_PVP_WEED_S - 1
+    edge.durationS = HERB_PVP_WEED_S
+    const away = far.herbPvp.plots[3]!
+    const person = spawnWorker(far)
+    away.workerId = person.id
+    away.progressS = 1
+    away.durationS = HERB_PVP_WEED_S
+    stepHerbPvp(far, Date.now())
+    expect(takeHerbClearEvents()).toEqual([
+      { plotIndex: 0, tone: 'rival', text: `${other.name} 割走了`, alert: false },
+    ])
+  })
+
+  it('emits every live finish from one step so the view can cap playback', () => {
+    const save = fresh()
+    quiet(save)
+    for (let index = 0; index < 4; index += 1) {
+      const plot = save.herbPvp.plots[index]!
+      plot.weeder = save.herbPvp.rivals[index]!.id
+      plot.progressS = HERB_PVP_WEED_S - 1
+      plot.durationS = HERB_PVP_WEED_S
+    }
+    stepHerbPvp(save, Date.now())
+    const events = takeHerbClearEvents()
+    expect(events).toHaveLength(4)
+    expect(events.every((event) => event.tone === 'rival' && event.text.endsWith('割走了'))).toBe(true)
   })
 })
 
