@@ -40,6 +40,7 @@ import {
   abandonTreasureMine,
   claimTreasureMine,
   fortifyTreasureMine,
+  postTreasureBounty,
   refreshTreasureMineBoard,
   reinforceTreasureRaid,
   scoutTreasureMine,
@@ -53,7 +54,7 @@ import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
 import { PLAYABLE_STATION_IDS, type FoodItemId } from '../sim/tables'
 import { tick } from '../sim/tick'
 import { takeWorkshopHpEfficiencyTip } from '../sim/workshopHp'
-import type { ActionResult, CategoryId, ItemId, PotionItemId, Save, StationId, Worker } from '../sim/types'
+import type { ActionResult, BountyTarget, CategoryId, ItemId, PotionItemId, Save, StationId, Worker } from '../sim/types'
 import { pushCombatLogTip } from './encounterTips'
 import { pushFloatTip } from './floatTips'
 import { announceWorkerEats } from './workerEatFlash'
@@ -316,6 +317,7 @@ export const useGameStore = defineStore('game', () => {
     fortifyTreasureMine: (mineId: string) => apply((s) => fortifyTreasureMine(s, mineId)),
     refreshTreasureMines: (pay: TreasureRefreshPay = 'diamonds') =>
       apply((s) => refreshTreasureMineBoard(s, pay)),
+    postTreasureBounty: (target: BountyTarget) => apply((s) => postTreasureBounty(s, target)),
     setPlayerProfile: (name: string, avatarId: string) => apply((s) => applyPlayerProfile(s, name, avatarId)),
     claimLoot: (index: number) => apply((s) => claimLoot(s, index)),
     barter: (index: number) => apply((s) => barterMerchant(s, index)),

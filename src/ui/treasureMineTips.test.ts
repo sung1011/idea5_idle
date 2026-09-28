@@ -33,7 +33,13 @@ describe('treasure mine tips', () => {
 
     appTab.value = 'pvp'
     noteTreasureDrop({ mineId: 'mine-1', item: 'jewel', qty: 1 })
-    expect(treasureMineTipList('mine-1').map((tip) => tip.text)).toEqual(['获得 珠宝 ×1'])
+    noteTreasureDrop({ mineId: 'mine-1', item: 'ore', qty: 2 })
+    noteTreasureDrop({ mineId: 'mine-1', item: 'wildCrystal', qty: 1 })
+    expect(treasureMineTipList('mine-1').map((tip) => tip.text)).toEqual([
+      '获得 珠宝 ×1',
+      '获得 铜矿 ×2',
+      '获得 荒晶 ×1',
+    ])
     pushFloatTip('不应被夺宝占用', 'err')
     expect(useFloatTips().tips.value.map((tip) => tip.text)).toEqual(['不应被夺宝占用'])
   })

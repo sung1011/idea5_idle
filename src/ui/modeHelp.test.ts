@@ -27,7 +27,7 @@ describe('mode help', () => {
     expect(treasure).toContain('不能再开')
     expect(treasure).toContain('无人矿')
     expect(treasure).toContain('放弃')
-    expect(treasure).toContain('洞种不同，掉落偏重不同')
+    expect(treasure).toContain('挖出矿石，悬赏可双倍')
     expect(treasure).toContain('一半没有守军')
     expect(treasure).toContain('开采快 1 秒')
     expect(treasure).toContain('战旗栏')

@@ -9,8 +9,9 @@ import { raidSlotLabel, raidSlotPress, treasureRaidHud, type SlotSheet } from '.
 import { useFrameNow, visualStationProgress } from './visualProgress'
 import { isFullCombatHp, restCombatCandidates } from '../sim/combat'
 import {
+  BOUNTY_TARGETS,
+  TREASURE_BOUNTY_COST,
   TREASURE_FORTIFY_COST,
-  TREASURE_KIND_LABEL,
   TREASURE_KINDS,
   TREASURE_LABEL,
   TREASURE_RAID_CAP,
@@ -18,10 +19,14 @@ import {
   TREASURE_REFRESH_SAND_COST,
   TREASURE_REINFORCE_COST,
   TREASURE_SCOUT_COST,
+  bountyButtonLabel,
+  bountyTargetLabel,
+  isLegacyTreasureMine,
   jewelShortTip,
   mineDigReadout,
   mineDigSpeedLabel,
   mineFullyRevealed,
+  mineKindLabel,
   mineRemainS,
   mineWeaknessSlots,
   raidStakeCost,
@@ -29,12 +34,13 @@ import {
   bannerLevelOf,
   bannerUpgradeReady,
   treasureCrewCap,
+  treasureHaulRows,
   treasureRaidOpenForReinforce,
   vaultQty,
   type TreasureRefreshPay,
 } from '../sim/treasureMine'
 import { formatRemainClock, raidMarchCaption, raidPhaseOf } from '../sim/march'
-import type { RuneItemId, TreasureMine, Worker } from '../sim/types'
+import type { BountyTarget, RuneItemId, TreasureMine, Worker } from '../sim/types'
 import CombatPickSheet from './combatPickSheet.vue'
 import TreasureBannerPanel from './treasureBannerPanel.vue'
 import TreasureMineTips from './treasureMineTips.vue'
@@ -43,6 +49,7 @@ import { useGameStore } from './gameStore'
 
 const game = useGameStore()
 const bannerOpen = ref(false)
+const bountyOpen = ref(false)
 
 function bannerLevel(): number {
   return bannerLevelOf(game.save)
@@ -82,6 +89,8 @@ const digViews = computed(() => {
   }
   return views
 })
+const haulRows = computed(() => treasureHaulRows(game.save))
+const postedBounty = computed(() => game.save.treasureMines.bounty)
 const sandOnHand = computed(() => game.save.treasureMines.vault.sandGold ?? 0)
 function vaultQtyOf(id: (typeof TREASURE_KINDS)[number]): number {
   return game.save.treasureMines.vault[id] ?? 0
@@ -254,6 +263,35 @@ function onRefresh(pay: TreasureRefreshPay) {
   game.refreshTreasureMines(pay)
 }
 
+function onBounty() {
+  if (postedBounty.value) {
+    pushFloatTip('已有悬赏')
+    return
+  }
+  bountyOpen.value = true
+}
+
+function bountyShort(target: BountyTarget): boolean {
+  return jewelsOnHand.value < TREASURE_BOUNTY_COST[target]
+}
+
+function postBounty(target: BountyTarget) {
+  if (bountyShort(target)) {
+    pushFloatTip(jewelShortTip(TREASURE_BOUNTY_COST[target], jewelsOnHand.value))
+    return
+  }
+  const result = game.postTreasureBounty(target)
+  if (result.ok) bountyOpen.value = false
+}
+
+function showDug(mine: TreasureMine): boolean {
+  return mine.owner === 'player' && !isLegacyTreasureMine(mine)
+}
+
+function bountyMark(mine: TreasureMine): string {
+  return mine.bounty ? `目标 ${bountyTargetLabel(mine.bounty)}` : ''
+}
+
 function onReinforce(mine: TreasureMine) {
   const blocked = reinforceBlock(mine)
   if (blocked) {
@@ -306,6 +344,12 @@ function confirmPick() {
           <b>{{ vaultQtyOf(id) }}</b>
         </li>
       </ul>
+      <ul class="haul" aria-label="夺宝收获">
+        <li v-for="row in haulRows" :key="row.id">
+          <span>{{ row.label }}</span>
+          <b>{{ row.qty }}</b>
+        </li>
+      </ul>
       <div class="refresh">
         <button
           type="button"
@@ -319,15 +363,22 @@ function confirmPick() {
           :title="game.save.diamonds < TREASURE_REFRESH_COST ? '钻石不足' : undefined"
           @click="onRefresh('diamonds')"
         >刷新 {{ TREASURE_REFRESH_COST }} 钻</button>
+        <button
+          type="button"
+          :class="{ 'is-posted': postedBounty != null }"
+          @click="onBounty"
+        >{{ bountyButtonLabel(postedBounty) }}</button>
       </div>
     </div>
     <div class="board">
-      <article v-for="mine in mines" :key="mine.id" class="card">
+      <article v-for="mine in mines" :key="mine.id" class="card" :class="{ bounty: mine.bounty != null }">
         <TreasureMineTips :mine-id="mine.id" />
         <header>
           <div class="titles">
-            <span class="kind">{{ TREASURE_KIND_LABEL[mine.kind] }}</span>
+            <span class="kind">{{ mineKindLabel(mine) }}</span>
             <span class="tags">
+              <i v-if="mine.bounty" class="bounty-mark">悬赏</i>
+              <i v-if="mine.bounty">{{ bountyMark(mine) }}</i>
               <i>{{ ownerLabel(mine) }}</i>
             </span>
           </div>
@@ -365,6 +416,7 @@ function confirmPick() {
             <span>{{ digViews.get(mine.id)!.label }}</span>
           </p>
         </div>
+        <p v-if="showDug(mine)" class="dug">本洞矿石 {{ mine.dugOre }} · 荒晶 {{ mine.dugCrystal }}</p>
         <p class="label">消失倒计时 {{ clock(mine) }}</p>
         <p v-if="assaultRemain(mine) > 0" class="assault-warn">
           即将来袭 {{ assaultWho(mine) }} {{ formatRemainClock(assaultRemain(mine)) }}
@@ -468,6 +520,27 @@ function confirmPick() {
     />
     <ModeHelpSheet v-if="slotSheet" :title="slotSheet.title" :rows="slotSheet.rows" @close="slotSheet = null" />
     <TreasureBannerPanel v-if="bannerOpen" @close="bannerOpen = false" />
+    <div v-if="bountyOpen" class="mask" @click.self="bountyOpen = false">
+      <section class="bounty-sheet" role="dialog" aria-modal="true" aria-label="珠宝悬赏">
+        <header>
+          <h2>悬赏</h2>
+          <button type="button" @click="bountyOpen = false">关闭</button>
+        </header>
+        <p class="bounty-have">珠宝 <b>{{ jewelsOnHand }}</b></p>
+        <p class="bounty-note">下一座新洞必定是宝藏洞，每份出 2 个目标。</p>
+        <ul>
+          <li v-for="target in BOUNTY_TARGETS" :key="target">
+            <button
+              type="button"
+              :disabled="bountyShort(target)"
+              :class="{ 'is-short': bountyShort(target) }"
+              :title="bountyShort(target) ? jewelShortTip(TREASURE_BOUNTY_COST[target], jewelsOnHand) : undefined"
+              @click="postBounty(target)"
+            >{{ bountyTargetLabel(target) }} {{ TREASURE_BOUNTY_COST[target] }} 珠宝</button>
+          </li>
+        </ul>
+      </section>
+    </div>
   </section>
 </template>
 
@@ -585,6 +658,35 @@ function confirmPick() {
   gap: 10px;
 }
 
+.haul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.haul li {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 0;
+  padding: 2px 8px;
+  border: 2px solid var(--line, #c8b48a);
+  border-radius: 999px;
+  background: var(--paper, #fffaf0);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.haul b {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
 .card {
   position: relative;
   display: flex;
@@ -592,6 +694,74 @@ function confirmPick() {
   gap: 8px;
   padding: 12px;
   overflow: visible;
+}
+
+.card.bounty {
+  border: 2px solid #c8962e;
+  box-shadow: inset 0 0 0 1px #f6e2a2, 0 2px 0 #8a6420;
+}
+
+.bounty-mark {
+  border-color: #c8962e !important;
+  background: #f6e2a2 !important;
+}
+
+.dug {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink-soft, #6b4e2e);
+}
+
+.mask {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(36, 24, 12, 0.35);
+}
+
+.bounty-sheet {
+  width: min(360px, 100%);
+  padding: 14px;
+  border: 2px solid var(--gold-deep);
+  border-radius: var(--radius-card);
+  background: var(--paper, #fffaf0);
+}
+
+.bounty-sheet header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bounty-sheet h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.bounty-have,
+.bounty-note {
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.bounty-sheet ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bounty-sheet button.is-short:disabled {
+  cursor: default;
+  color: var(--muted);
+  opacity: 0.62;
 }
 
 .card header {

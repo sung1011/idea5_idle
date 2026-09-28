@@ -1,5 +1,7 @@
+import { addToBank } from './bank'
 import { hashString, isCombatAttrId, matchingWeaknesses, pickEnemyWeaknesses } from './combatAttrs'
 import { PLAYER_AVATAR_DEFAULT, PLAYER_AVATAR_IDS, type PlayerAvatarId } from './playerAvatarIds'
+import { ITEM_DEF } from './tables'
 import { applyDownedReturn, isFullCombatHp, workerLiveStats } from './combat'
 import { offerRestFood, sendWorkerToRestTail } from './food'
 import { raidPhaseOf } from './march'
@@ -20,6 +22,9 @@ import type {
   QualityTier,
   RuneItemId,
   Save,
+  BountyTarget,
+  MineVein,
+  TreasureHaulId,
   TreasureId,
   TreasureKind,
   TreasureMine,
@@ -89,8 +94,8 @@ export const TREASURE_KIND_LABEL: Record<TreasureKind, string> = {
 }
 
 /**
- * 每种洞的掉落权重，顺序砂金、珠宝、古玉，和为 100。
- * 砂金洞 70/25/5，珠宝洞 20/70/10，古玉洞 15/25/60。
+ * 旧洞的掉落权重，顺序砂金、珠宝、古玉，和为 100。
+ * 砂金洞 70/25/5，珠宝洞 20/70/10，古玉洞 15/25/60。新洞不走这张表。
  */
 export const TREASURE_DROP_WEIGHTS: Record<TreasureKind, Record<TreasureId, number>> = {
   sandGold: { sandGold: 70, jewel: 25, jade: 5 },
@@ -98,9 +103,55 @@ export const TREASURE_DROP_WEIGHTS: Record<TreasureKind, Record<TreasureId, numb
   jade: { sandGold: 15, jewel: 25, jade: 60 },
 }
 
+export const MINE_VEINS = ['copper', 'iron', 'mithril'] as const satisfies readonly MineVein[]
+
+export const MINE_VEIN_LABEL: Record<MineVein, string> = {
+  copper: '铜矿洞',
+  iron: '铁矿洞',
+  mithril: '秘银洞',
+}
+
+export const MINE_VEIN_ORE: Record<MineVein, TreasureHaulId> = {
+  copper: 'ore',
+  iron: 'ironOre',
+  mithril: 'mithrilOre',
+}
+
+/** 新洞宝物权重：砂金 40、珠宝 35、古玉 25。先过 40% 才掷这一下。 */
+export const TREASURE_ORE_VAULT_CHANCE = 0.4
+export const TREASURE_ORE_CRYSTAL_CHANCE = 0.5
+
+export const TREASURE_HAUL_IDS = ['ore', 'ironOre', 'mithrilOre', 'wildCrystal'] as const satisfies readonly TreasureHaulId[]
+
+export const BOUNTY_TARGETS = ['copper', 'iron', 'mithril', 'wildCrystal'] as const satisfies readonly BountyTarget[]
+
+export const BOUNTY_TARGET_LABEL: Record<BountyTarget, string> = {
+  copper: '铜矿',
+  iron: '铁矿',
+  mithril: '秘银',
+  wildCrystal: '荒晶',
+}
+
+/** 悬赏价，单位珠宝。 */
+export const TREASURE_BOUNTY_COST: Record<BountyTarget, number> = {
+  copper: 60,
+  iron: 100,
+  mithril: 150,
+  wildCrystal: 150,
+}
+
+/** 宝藏洞储量相对普通洞。战旗加成先算进普通储量，再乘这个数。 */
+export const TREASURE_BOUNTY_RESERVE_MUL = 1.5
+/** 宝藏洞每份目标资源的个数。 */
+export const TREASURE_BOUNTY_YIELD = 2
+/** 宝藏洞守军等级在普通规则上再加的级数。 */
+export const TREASURE_BOUNTY_LEVEL_BONUS = 2
+
+export type TreasureYieldId = TreasureId | TreasureHaulId
+
 export type TreasureDrop = {
   mineId: string
-  item: TreasureId
+  item: TreasureYieldId
   qty: number
 }
 
@@ -123,7 +174,7 @@ export function isTreasureKind(value: unknown): value is TreasureKind {
   return value === 'sandGold' || value === 'jewel' || value === 'jade'
 }
 
-/** 按洞种权重掷 1 件。`roll` 为 0～1。 */
+/** 按洞种权重掷 1 件。`roll` 为 0～1。只给旧洞用。 */
 export function rollTreasureDrop(kind: TreasureKind, roll: number): TreasureId {
   const weights = TREASURE_DROP_WEIGHTS[isTreasureKind(kind) ? kind : 'sandGold']
   const total = weights.sandGold + weights.jewel + weights.jade
@@ -133,9 +184,73 @@ export function rollTreasureDrop(kind: TreasureKind, roll: number): TreasureId {
   return 'jade'
 }
 
-/** 我方入库漂字。数量写在后面，可叠。 */
-export function treasureDropTip(item: TreasureId, qty = 1): string {
-  return `获得 ${TREASURE_LABEL[item]} ×${qty}`
+export function isMineVein(value: unknown): value is MineVein {
+  return value === 'copper' || value === 'iron' || value === 'mithril'
+}
+
+export function isBountyTarget(value: unknown): value is BountyTarget {
+  return value === 'copper' || value === 'iron' || value === 'mithril' || value === 'wildCrystal'
+}
+
+export function isTreasureHaulId(value: unknown): value is TreasureHaulId {
+  return value === 'ore' || value === 'ironOre' || value === 'mithrilOre' || value === 'wildCrystal'
+}
+
+/** 新洞矿种。0.5 铜、0.85 前铁、其余秘银。 */
+export function mineVeinOfRoll(roll: number): MineVein {
+  if (roll < 0.5) return 'copper'
+  if (roll < 0.85) return 'iron'
+  return 'mithril'
+}
+
+/** 新洞宝物。砂金 40%、珠宝 35%、古玉 25%。`roll` 为 0～1。 */
+export function rollOreVaultTreasure(roll: number): TreasureId {
+  if (roll < 0.4) return 'sandGold'
+  if (roll < 0.75) return 'jewel'
+  return 'jade'
+}
+
+/** 宝藏洞守军人数。一半 2 人，一半 3 人。不会是 0。 */
+export function bountyCrewCount(roll: number): number {
+  return roll < 0.5 ? 2 : 3
+}
+
+/** 旧洞：没有矿种、也不是宝藏洞，洞种仍是砂金 / 珠宝 / 古玉。 */
+export function isLegacyTreasureMine(mine: Pick<TreasureMine, 'kind' | 'vein' | 'bounty'>): boolean {
+  return mine.bounty == null && mine.vein == null && isTreasureKind(mine.kind)
+}
+
+export function mineKindLabel(mine: Pick<TreasureMine, 'kind' | 'vein' | 'bounty'>): string {
+  if (mine.bounty === 'wildCrystal') return '荒晶洞'
+  if (isMineVein(mine.vein)) return MINE_VEIN_LABEL[mine.vein]
+  if (isTreasureKind(mine.kind)) return TREASURE_KIND_LABEL[mine.kind]
+  return '矿洞'
+}
+
+export function bountyTargetLabel(target: BountyTarget): string {
+  return BOUNTY_TARGET_LABEL[target]
+}
+
+export function bountyButtonLabel(target: BountyTarget | null): string {
+  if (!target) return '悬赏'
+  return `悬赏·${BOUNTY_TARGET_LABEL[target]}`
+}
+
+export function treasureHaulQty(save: Save, id: TreasureHaulId): number {
+  const raw = save.treasureMines?.haul?.[id]
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return 0
+  return Math.floor(raw)
+}
+
+export function treasureHaulRows(save: Save): { id: TreasureHaulId; label: string; qty: number }[] {
+  return TREASURE_HAUL_IDS.map((id) => ({ id, label: ITEM_DEF[id].label, qty: treasureHaulQty(save, id) }))
+}
+
+/** 我方入库漂字。宝物、矿石、荒晶都走这一句。数量写在后面，可叠。 */
+export function treasureDropTip(item: TreasureYieldId, qty = 1): string {
+  const label =
+    item === 'sandGold' || item === 'jewel' || item === 'jade' ? TREASURE_LABEL[item] : ITEM_DEF[item].label
+  return `获得 ${label} ×${qty}`
 }
 
 export function sandShortTip(qty: number): string {
@@ -381,7 +496,7 @@ function namesOnBoard(save: Save): Set<string> {
 }
 
 export function blankTreasureMines(): TreasureMineState {
-  return { nextId: 1, roll: 1, vault: {}, mines: [], bannerLevel: 0 }
+  return { nextId: 1, roll: 1, vault: {}, mines: [], bannerLevel: 0, bounty: null, haul: {} }
 }
 
 /** 等级微调：1～5 级 5 秒，之后每 5 级快 1 秒，最快 3 秒。命中矿弱点再快 1 秒。 */
@@ -415,7 +530,42 @@ export function ensureTreasureMines(save: Save): TreasureMineState {
     save.treasureMines.roll = 1
   }
   save.treasureMines.bannerLevel = keptBannerLevel(save.treasureMines.bannerLevel)
+  save.treasureMines.bounty = isBountyTarget(save.treasureMines.bounty) ? save.treasureMines.bounty : null
+  save.treasureMines.haul = keptHaul(save.treasureMines.haul)
   return save.treasureMines
+}
+
+function keptCount(raw: unknown): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return 0
+  return Math.floor(raw)
+}
+
+function keptHaul(raw: unknown): Partial<Record<TreasureHaulId, number>> {
+  const out: Partial<Record<TreasureHaulId, number>> = {}
+  if (!raw || typeof raw !== 'object') return out
+  const src = raw as Partial<Record<string, unknown>>
+  for (const id of TREASURE_HAUL_IDS) {
+    const qty = keptCount(src[id])
+    if (qty > 0) out[id] = qty
+  }
+  return out
+}
+
+function normalizeMineRule(mine: TreasureMine): void {
+  mine.dugOre = keptCount(mine.dugOre)
+  mine.dugCrystal = keptCount(mine.dugCrystal)
+  if (isBountyTarget(mine.bounty)) {
+    mine.vein = mine.bounty === 'wildCrystal' ? null : mine.bounty
+    mine.kind = null
+    return
+  }
+  mine.bounty = null
+  if (isMineVein(mine.vein)) {
+    mine.kind = null
+    return
+  }
+  mine.vein = null
+  if (!isTreasureKind(mine.kind)) mine.kind = treasureKindFromId(mine.id)
 }
 
 export function hydrateTreasureMines(save: Save): void {
@@ -460,11 +610,11 @@ export function hydrateTreasureMines(save: Save): void {
     if (mine.owner !== 'player' && mine.owner !== 'shadow' && mine.owner !== 'empty') {
       mine.owner = mine.shadows.length > 0 ? 'shadow' : 'empty'
     }
-    if (!isTreasureKind(mine.kind)) mine.kind = treasureKindFromId(mine.id)
+    normalizeMineRule(mine)
     mine.ownerAvatarId = normalizeMineAvatarId(mine.ownerAvatarId, mine.id)
     mine.weaknesses = mineWeaknessesOf(mine)
     mine.revealedWeaknesses = keptRevealedWeaknesses(mine)
-    const ceiling = bannerReserveMax(TREASURE_BANNER_MAX)
+    const ceiling = Math.round(bannerReserveMax(TREASURE_BANNER_MAX) * TREASURE_BOUNTY_RESERVE_MUL)
     const storedMax =
       typeof mine.reserveMax === 'number' && Number.isFinite(mine.reserveMax) && mine.reserveMax > 0
         ? Math.floor(mine.reserveMax)
@@ -485,7 +635,11 @@ function isTreasureRefreshKept(mine: TreasureMine): boolean {
  * 无人矿、敌人驻守且无抢夺的照常换新。
  * 四洞都在保留里、或所选货币不够时不扣。
  */
-export function refreshTreasureMineBoard(save: Save, pay: TreasureRefreshPay = 'diamonds'): ActionResult {
+export function refreshTreasureMineBoard(
+  save: Save,
+  pay: TreasureRefreshPay = 'diamonds',
+  rolls?: number[],
+): ActionResult {
   const state = ensureTreasureMines(save)
   if (!state.mines.some((mine) => !isTreasureRefreshKept(mine))) return { ok: false, reason: '没有可刷新的矿洞' }
   if (pay === 'sandGold') {
@@ -506,7 +660,7 @@ export function refreshTreasureMineBoard(save: Save, pay: TreasureRefreshPay = '
   }
   state.mines = kept
   while (state.mines.length < TREASURE_MINE_CAP) {
-    state.mines.push(spawnMine(save, save.elapsedS))
+    state.mines.push(spawnMine(save, save.elapsedS, rolls))
   }
   const spent = pay === 'sandGold' ? sandSpentTip(TREASURE_REFRESH_SAND_COST) : `钻石 −${TREASURE_REFRESH_COST}`
   return { ok: true, message: spent }
@@ -523,7 +677,7 @@ function releaseMineCrew(save: Save, mine: TreasureMine): void {
   for (const id of ids) offerRestFood(save, id)
 }
 
-export function refreshTreasureMines(save: Save): void {
+export function refreshTreasureMines(save: Save, rolls?: number[]): void {
   const state = ensureTreasureMines(save)
   const elapsed = save.elapsedS
   const kept: TreasureMine[] = []
@@ -536,8 +690,21 @@ export function refreshTreasureMines(save: Save): void {
   }
   state.mines = kept
   while (state.mines.length < TREASURE_MINE_CAP) {
-    state.mines.push(spawnMine(save, elapsed))
+    state.mines.push(spawnMine(save, elapsed, rolls))
   }
+}
+
+/** 花珠宝挂一张悬赏。已有悬赏或珠宝不够都不扣。下一座新洞刷出后才清空。 */
+export function postTreasureBounty(save: Save, target: BountyTarget): ActionResult {
+  const state = ensureTreasureMines(save)
+  if (state.bounty) return { ok: false, reason: '已有悬赏' }
+  if (!isBountyTarget(target)) return { ok: false, reason: '没有这个悬赏' }
+  const cost = TREASURE_BOUNTY_COST[target]
+  if (!trySpendVault(save, 'jewel', cost)) {
+    return { ok: false, reason: jewelShortTip(cost, vaultQty(save, 'jewel')) }
+  }
+  state.bounty = target
+  return { ok: true, message: jewelSpentTip(cost) }
 }
 
 /** 开采态明确拒绝符文。抢夺走 startTreasureRaid。 */
@@ -801,7 +968,7 @@ export function stepTreasureMines(save: Save, onDrop?: TreasureDropSink, opts?: 
   for (const mine of state.mines) {
     if (!opts?.offline) stepAssault(save, mine, opts?.rolls)
     if (mine.raid) stepRaid(save, mine)
-    if (mine.reserve > 0 && save.elapsedS < mine.expiresAtS) stepDig(save, mine, onDrop)
+    if (mine.reserve > 0 && save.elapsedS < mine.expiresAtS) stepDig(save, mine, onDrop, opts?.rolls)
   }
   refreshTreasureMines(save)
 }
@@ -1160,23 +1327,67 @@ function diggingIntervals(save: Save, mine: TreasureMine): number[] | null {
   return mining.map((shadow) => mineDigIntervalS(shadow.level))
 }
 
-function stepDig(save: Save, mine: TreasureMine, onDrop?: TreasureDropSink): void {
+function stepDig(save: Save, mine: TreasureMine, onDrop?: TreasureDropSink, rolls?: number[]): void {
   const intervals = diggingIntervals(save, mine)
   if (!intervals || mine.reserve <= 0) return
   const rate = digRate(intervals)
   if (rate <= 0) return
   let charge = holeCharge(mine) + rate
-  const toVault = mine.owner === 'player'
+  const paying = mine.owner === 'player'
   let guard = 0
   while (charge + 1e-9 >= 1 && mine.reserve > 0 && guard++ < 16) {
     charge -= 1
     mine.reserve -= 1
-    if (!toVault) continue
-    const item = rollTreasureDrop(mine.kind, nextMineRoll(save.treasureMines))
-    addVault(save, item, 1)
-    onDrop?.({ mineId: mine.id, item, qty: 1 })
+    if (!paying) continue
+    grantPlayerDig(save, mine, onDrop, rolls)
   }
   mine.digCharge = { [TREASURE_HOLE_DIG]: charge < 1e-9 ? 0 : charge }
+}
+
+function giveHaul(
+  save: Save,
+  mine: TreasureMine,
+  item: TreasureHaulId,
+  qty: number,
+  onDrop?: TreasureDropSink,
+): void {
+  addToBank(save, item, qty)
+  const haul = save.treasureMines.haul
+  haul[item] = (haul[item] ?? 0) + qty
+  if (item === 'wildCrystal') mine.dugCrystal += qty
+  else mine.dugOre += qty
+  onDrop?.({ mineId: mine.id, item, qty })
+}
+
+function giveVault(save: Save, mine: TreasureMine, item: TreasureId, qty: number, onDrop?: TreasureDropSink): void {
+  addVault(save, item, qty)
+  onDrop?.({ mineId: mine.id, item, qty })
+}
+
+/** 我方挖满 1 份。旧洞只掉 1 件宝物；新洞必出矿石，再掷荒晶和宝物。 */
+function grantPlayerDig(save: Save, mine: TreasureMine, onDrop: TreasureDropSink | undefined, rolls?: number[]): void {
+  const state = save.treasureMines
+  if (typeof mine.dugOre !== 'number') mine.dugOre = 0
+  if (typeof mine.dugCrystal !== 'number') mine.dugCrystal = 0
+  if (isLegacyTreasureMine(mine)) {
+    const item = rollTreasureDrop(mine.kind ?? 'sandGold', pullRoll(state, rolls))
+    giveVault(save, mine, item, 1, onDrop)
+    return
+  }
+  if (mine.bounty === 'wildCrystal') {
+    giveHaul(save, mine, 'wildCrystal', TREASURE_BOUNTY_YIELD, onDrop)
+    giveHaul(save, mine, 'ore', 1, onDrop)
+  } else {
+    const vein = isMineVein(mine.vein) ? mine.vein : 'copper'
+    const qty = mine.bounty ? TREASURE_BOUNTY_YIELD : 1
+    giveHaul(save, mine, MINE_VEIN_ORE[vein], qty, onDrop)
+    if (pullRoll(state, rolls) < TREASURE_ORE_CRYSTAL_CHANCE) {
+      giveHaul(save, mine, 'wildCrystal', 1, onDrop)
+    }
+  }
+  if (pullRoll(state, rolls) < TREASURE_ORE_VAULT_CHANCE) {
+    giveVault(save, mine, rollOreVaultTreasure(pullRoll(state, rolls)), 1, onDrop)
+  }
 }
 
 export type MineDigReadout = {
@@ -1215,7 +1426,7 @@ export function mineDigSpeedLabel(fastestS: number): string {
   return `最快约 ${shown}s/次`
 }
 
-function nextMineRoll(state: TreasureMineState): number {
+export function nextMineRoll(state: { roll: number }): number {
   let seed = state.roll >>> 0
   if (seed === 0) seed = 1
   seed = (Math.imul(seed ^ (seed >>> 15), seed | 1) ^ (seed + Math.imul(seed ^ (seed >>> 7), seed | 61))) >>> 0
@@ -1318,29 +1529,38 @@ function fortifyVitals(vitals: { hp: number; hpMax: number }, fortified: boolean
   return { hp: Math.min(hpMax, Math.max(1, Math.round(vitals.hp * TREASURE_FORTIFY_HP_MUL))), hpMax }
 }
 
-function spawnMine(save: Save, elapsed: number): TreasureMine {
+function spawnMine(save: Save, elapsed: number, rolls?: number[]): TreasureMine {
   const state = save.treasureMines
   const id = `mine-${state.nextId}`
   state.nextId += 1
-  const kind = treasureKindOfRoll(nextMineRoll(state))
-  const count = shadowCrewCount(nextMineRoll(state))
+  const bounty = state.bounty
+  if (bounty) state.bounty = null
+  const vein = bounty == null ? mineVeinOfRoll(pullRoll(state, rolls)) : bounty === 'wildCrystal' ? null : bounty
+  const count = bounty ? bountyCrewCount(pullRoll(state, rolls)) : shadowCrewCount(pullRoll(state, rolls))
+  const levelBonus = bounty ? TREASURE_BOUNTY_LEVEL_BONUS : 0
   const taken = namesOnBoard(save)
   const shadows: TreasureShadow[] = []
   for (let i = 0; i < count; i += 1) {
-    const shadow = makeShadow(save, id, i, taken)
+    const shadow = makeShadow(save, id, i, taken, () => pullRoll(state, rolls), levelBonus)
     taken.add(shadow.name)
     shadows.push(shadow)
   }
-  const reserveMax = bannerReserveMax(bannerLevelOf(save))
+  const reserveMax = bounty
+    ? Math.round(bannerReserveMax(bannerLevelOf(save)) * TREASURE_BOUNTY_RESERVE_MUL)
+    : bannerReserveMax(bannerLevelOf(save))
   return {
     id,
-    kind,
+    kind: null,
+    vein,
+    bounty,
+    dugOre: 0,
+    dugCrystal: 0,
     reserve: reserveMax,
     reserveMax,
     bornAtS: elapsed,
     expiresAtS: elapsed + TREASURE_LIFE_S,
     owner: count > 0 ? 'shadow' : 'empty',
-    ownerAvatarId: count > 0 ? pickMineAvatarId(nextMineRoll(state)) : stableMineAvatarId(id),
+    ownerAvatarId: count > 0 ? pickMineAvatarId(pullRoll(state, rolls)) : stableMineAvatarId(id),
     crewIds: [],
     shadows,
     weaknesses: pickEnemyWeaknesses(hashString(id), 0, 'minion'),
@@ -1396,6 +1616,7 @@ function makeShadow(
   index: number,
   taken: ReadonlySet<string>,
   pull: () => number = () => nextMineRoll(save.treasureMines),
+  levelBonus = 0,
 ): TreasureShadow {
   const tier = (3 + ((save.treasureMines.nextId + index) % 3)) as QualityTier
   const runeId = SHADOW_RUNES[(save.knightLevel + index) % SHADOW_RUNES.length]
@@ -1407,7 +1628,7 @@ function makeShadow(
     foodSlot: null,
     hp: 1,
     hpMax: 1,
-    level: Math.max(1, save.knightLevel) + bannerLevelOf(save),
+    level: Math.max(1, save.knightLevel) + bannerLevelOf(save) + Math.max(0, levelBonus),
     xp: 0,
     combatAttrs: [],
     fatigueDebt: 0,

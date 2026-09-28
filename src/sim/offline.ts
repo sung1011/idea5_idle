@@ -1,11 +1,11 @@
 import { bankQty } from './bank'
 import { cloneSave } from './clone'
-import { resetTreasureAssaultAfterOffline } from './treasureMine'
+import { resetTreasureAssaultAfterOffline, TREASURE_KINDS, TREASURE_LABEL } from './treasureMine'
 import { pushMessage } from './messages'
 import { ITEM_DEF, ITEM_IDS, OFFLINE_CAP_S, STATION_DEF, STATION_IDS } from './tables'
 import { offlineCapHours, offlineCapS } from './tech'
 import { applyTick } from './tick'
-import type { ItemId, Save, StallReason, StationId } from './types'
+import type { ItemId, Save, StallReason, StationId, TreasureId } from './types'
 
 export type OfflineBankDelta = {
   itemId: ItemId
@@ -22,6 +22,12 @@ export type OfflineStationLine = {
   stallReason: StallReason | null
 }
 
+export type OfflineVaultDelta = {
+  id: TreasureId
+  label: string
+  delta: number
+}
+
 export type OfflineSummary = {
   seconds: number
   capped: boolean
@@ -29,6 +35,7 @@ export type OfflineSummary = {
   goldAfter: number
   goldDelta: number
   bank: OfflineBankDelta[]
+  vault: OfflineVaultDelta[]
   stations: OfflineStationLine[]
   lines: string[]
 }
@@ -67,6 +74,7 @@ function emptySummary(gold: number, seconds = 0, capped = false): OfflineSummary
     goldAfter: gold,
     goldDelta: 0,
     bank: [],
+    vault: [],
     stations: [],
     lines: [],
   }
@@ -86,6 +94,18 @@ function bankDeltas(before: Save, after: Save): OfflineBankDelta[] {
       after: next,
       delta,
     })
+  }
+  return deltas
+}
+
+function vaultDeltas(before: Save, after: Save): OfflineVaultDelta[] {
+  const prev = before.treasureMines?.vault ?? {}
+  const next = after.treasureMines?.vault ?? {}
+  const deltas: OfflineVaultDelta[] = []
+  for (const id of TREASURE_KINDS) {
+    const delta = Math.floor(next[id] ?? 0) - Math.floor(prev[id] ?? 0)
+    if (delta === 0) continue
+    deltas.push({ id, label: TREASURE_LABEL[id], delta })
   }
   return deltas
 }
@@ -127,6 +147,14 @@ function buildLines(summary: Omit<OfflineSummary, 'lines'>, capHours = 8): strin
     lines.push(`物资 ${parts.join(' · ')}`)
   }
 
+  if (summary.vault.length) {
+    const parts = summary.vault.map((row) => {
+      const sign = row.delta > 0 ? '+' : ''
+      return `${row.label} ${sign}${row.delta}`
+    })
+    lines.push(`宝库 ${parts.join(' · ')}`)
+  }
+
   if (summary.goldDelta !== 0) {
     const sign = summary.goldDelta > 0 ? '+' : ''
     lines.push(`金币 ${sign}${summary.goldDelta}`)
@@ -149,6 +177,7 @@ export function buildOfflineSummary(
     goldAfter: after.gold,
     goldDelta: after.gold - before.gold,
     bank: bankDeltas(before, after),
+    vault: vaultDeltas(before, after),
     stations: stationLines(before, after),
   }
   return { ...draft, lines: buildLines(draft, capHours) }
@@ -158,6 +187,7 @@ export function offlineSummaryHasChange(summary: OfflineSummary): boolean {
   return (
     summary.goldDelta !== 0 ||
     summary.bank.length > 0 ||
+    summary.vault.length > 0 ||
     summary.stations.some((st) => st.completed > 0)
   )
 }

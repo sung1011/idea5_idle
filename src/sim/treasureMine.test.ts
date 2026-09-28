@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createSave } from './createSave'
 import { PLAYER_AVATAR_IDS } from './playerAvatarIds'
 import { spawnWorker } from './recruit'
-import { addToBank } from './bank'
+import { addToBank, bankQty } from './bank'
 import { hydrateLoadedSave } from '../ui/saveGame'
 import {
   TREASURE_CREW_CAP,
@@ -68,6 +68,18 @@ import {
   startTreasureRaid as openTreasureRaid,
   takeTreasureVaultNotices,
   stepTreasureMines,
+  bountyButtonLabel,
+  bountyCrewCount,
+  isLegacyTreasureMine,
+  mineKindLabel,
+  mineVeinOfRoll,
+  nextMineRoll,
+  postTreasureBounty,
+  rollOreVaultTreasure,
+  treasureHaulQty,
+  TREASURE_BOUNTY_COST,
+  TREASURE_BOUNTY_RESERVE_MUL,
+  TREASURE_BOUNTY_LEVEL_BONUS,
 } from './treasureMine'
 import { treasureMineBlockReason } from './treasureMineQuery'
 import { raidSlotPress, treasureRaidHud } from '../ui/treasureRaidHud'
@@ -94,6 +106,17 @@ function startTreasureRaid(
 function vaultQty(save: Save): number {
   const vault = save.treasureMines.vault
   return (vault.sandGold ?? 0) + (vault.jewel ?? 0) + (vault.jade ?? 0)
+}
+
+function oreBank(save: Save, mine: TreasureMine): number {
+  const id = mine.vein === 'iron' ? 'ironOre' : mine.vein === 'mithril' ? 'mithrilOre' : 'ore'
+  return bankQty(save, id)
+}
+
+function markLegacy(mine: TreasureMine, kind: TreasureId): void {
+  mine.kind = kind
+  mine.vein = null
+  mine.bounty = null
 }
 
 function advance(save: Save, seconds: number): void {
@@ -285,7 +308,7 @@ describe('treasure mines', () => {
     expect(loaded?.treasureMines.vault).toEqual({})
   })
 
-  it('digs on a level-scaled beat into the vault, not the workshop bank', () => {
+  it('digs on a level-scaled beat into workshop ore', () => {
     expect(mineDigIntervalS(1)).toBe(5)
     expect(mineDigIntervalS(6)).toBe(4)
     expect(mineDigIntervalS(11)).toBe(3)
@@ -301,16 +324,16 @@ describe('treasure mines', () => {
     expect(claimTreasureMine(save, mine.id, [worker.id]).ok).toBe(true)
     expect(rejectTreasureMineRune()).toEqual({ ok: false, reason: '开采不能装符文' })
     advance(save, 4)
-    expect(vaultQty(save)).toBe(0)
+    expect(oreBank(save, mine)).toBe(0)
     advance(save, 1)
-    expect(vaultQty(save)).toBe(1)
+    expect(oreBank(save, mine)).toBe(1)
     expect(mine.reserve).toBe(9)
-    expect(save.bank).toEqual({})
+    expect(save.knightLevel).toBeLessThan(9)
 
     worker.level = 6
     mine.digCharge = {}
     advance(save, 4)
-    expect(vaultQty(save)).toBe(2)
+    expect(oreBank(save, mine)).toBe(2)
     expect(abandonTreasureMine(save, mine.id).ok).toBe(true)
     expect(mine.owner).toBe('empty')
     expect(mine.crewIds).toEqual([])
@@ -422,7 +445,8 @@ describe('treasure mines', () => {
     lead.level = 1
     fallen.level = 1
     advance(save, 5)
-    expect(vaultQty(save)).toBe(2 + raidStakeCost(2))
+    expect(oreBank(save, mine)).toBe(2)
+    expect(save.treasureMines.vault.sandGold ?? 0).toBeGreaterThanOrEqual(raidStakeCost(2))
     expect(mine.reserve).toBe(38)
   })
 
@@ -449,10 +473,10 @@ describe('treasure mines', () => {
     expect(mine.revealedWeaknesses).toEqual(['fire'])
     mine.revealedWeaknesses = []
     advance(save, 4)
-    expect(vaultQty(save)).toBe(1)
+    expect(oreBank(save, mine)).toBe(1)
     expect(mine.reserve).toBe(19)
     advance(save, 1)
-    expect(vaultQty(save)).toBe(2)
+    expect(oreBank(save, mine)).toBe(2)
     expect(mine.reserve).toBe(18)
     expect(mine.revealedWeaknesses).toEqual([])
   })
@@ -726,7 +750,7 @@ describe('treasure mines', () => {
     expect(save.treasureMines.mines.find((mine) => mine.id === bare.id)?.owner).toBe('empty')
   })
 
-  it('rolls hole kinds in thirds and keeps a missing kind stable', () => {
+  it('keeps a missing legacy kind stable', () => {
     expect(treasureKindOfRoll(0)).toBe('sandGold')
     expect(treasureKindOfRoll(1 / 3 - 1e-12)).toBe('sandGold')
     expect(treasureKindOfRoll(1 / 3)).toBe('jewel')
@@ -735,22 +759,15 @@ describe('treasure mines', () => {
     expect(treasureKindOfRoll(0.999)).toBe('jade')
 
     const save = createSave()
-    const seen = new Set<string>()
-    for (let i = 0; i < 80 && seen.size < 3; i += 1) {
-      const victim = save.treasureMines.mines[0]
-      if (!victim) break
-      victim.reserve = 0
-      refreshTreasureMines(save)
-      for (const mine of save.treasureMines.mines) seen.add(mine.kind)
-    }
-    expect([...seen].sort()).toEqual(['jade', 'jewel', 'sandGold'])
-
     const standing = save.treasureMines.mines[0]
     const expected = treasureKindFromId(standing.id)
+    markLegacy(standing, 'sandGold')
     delete (standing as { kind?: string }).kind
+    delete (standing as { vein?: string }).vein
     hydrateTreasureMines(save)
     const once = save.treasureMines.mines.find((mine) => mine.id === standing.id)
     expect(once?.kind).toBe(expected)
+    expect(once?.vein).toBeNull()
     hydrateTreasureMines(save)
     expect(save.treasureMines.mines.find((mine) => mine.id === standing.id)?.kind).toBe(expected)
   })
@@ -779,13 +796,15 @@ describe('treasure mines', () => {
     mine.owner = 'empty'
     mine.shadows = []
     mine.raid = null
-    mine.kind = 'jade'
+    markLegacy(mine, 'jade')
     mine.reserve = 80
     expect(claimTreasureMine(save, mine.id, [worker.id]).ok).toBe(true)
     const drops: TreasureId[] = []
     for (let i = 0; i < 80 * 5; i += 1) {
       save.elapsedS += 1
-      stepTreasureMines(save, (drop) => drops.push(drop.item))
+      stepTreasureMines(save, (drop) => {
+        if (drop.item === 'sandGold' || drop.item === 'jewel' || drop.item === 'jade') drops.push(drop.item)
+      })
     }
     const tally = { sandGold: 0, jewel: 0, jade: 0 }
     for (const item of drops) tally[item] += 1
@@ -871,10 +890,9 @@ describe('treasure mines', () => {
     applyTick(save, {
       onTreasureDrop: (drop) => tipped.push(treasureDropTip(drop.item, drop.qty)),
     })
-    expect(vaultQty(save)).toBe(1)
+    expect(oreBank(save, mine)).toBe(1)
     expect(mine.reserve).toBe(29)
-    expect(tipped).toHaveLength(1)
-    expect(tipped[0].startsWith('获得 ') && tipped[0].includes('×1')).toBe(true)
+    expect(tipped[0]).toBe(treasureDropTip(mine.vein === 'iron' ? 'ironOre' : mine.vein === 'mithril' ? 'mithrilOre' : 'ore', 1))
   })
 
   it('ships one item per cycle, so three miners finish sooner than one', () => {
@@ -898,21 +916,21 @@ describe('treasure mines', () => {
 
     const solo = claim(1)
     advance(solo.save, 4)
-    expect(vaultQty(solo.save)).toBe(0)
+    expect(oreBank(solo.save, solo.mine)).toBe(0)
     advance(solo.save, 1)
-    expect(vaultQty(solo.save)).toBe(1)
+    expect(oreBank(solo.save, solo.mine)).toBe(1)
     expect(solo.mine.reserve).toBe(9)
 
     const crew = claim(3)
     const perTick: number[] = []
     for (let i = 0; i < 5; i += 1) {
-      const before = vaultQty(crew.save)
+      const before = oreBank(crew.save, crew.mine)
       crew.save.elapsedS += 1
       stepTreasureMines(crew.save)
-      perTick.push(vaultQty(crew.save) - before)
+      perTick.push(oreBank(crew.save, crew.mine) - before)
     }
     expect(perTick).toEqual([0, 1, 0, 1, 1])
-    expect(vaultQty(crew.save)).toBe(3)
+    expect(oreBank(crew.save, crew.mine)).toBe(3)
     expect(crew.mine.reserve).toBe(7)
     expect(mineDigReadout(crew.save, crew.mine)?.fastestS).toBeCloseTo(5 / 3)
     expect(mineDigSpeedLabel(5 / 3)).toBe('最快约 1.7s/次')
@@ -1824,5 +1842,332 @@ describe('treasure assault', () => {
     if (!old) return
     stepOnline(old)
     expect(old.treasureMines.mines.find((row) => row.id === mine.id)?.raid).toBeNull()
+  })
+})
+
+function rollsFrom(seed: number, count: number): number[] {
+  const state = { roll: seed }
+  const out: number[] = []
+  for (let i = 0; i < count; i += 1) out.push(nextMineRoll(state))
+  return out
+}
+
+function seedForCrystalSand(): number {
+  for (let seed = 1; seed < 200000; seed += 1) {
+    const [crystal, chance, kind] = rollsFrom(seed, 3)
+    if (crystal < 0.5 && chance < 0.4 && kind < 0.4) return seed
+  }
+  throw new Error('没有合适的矿洞骰')
+}
+
+function prepareDigger(save = createSave()) {
+  const worker = spawnWorker(save)
+  worker.level = 1
+  worker.combatAttrs = []
+  const mine = save.treasureMines.mines[0]
+  mine.owner = 'empty'
+  mine.shadows = []
+  mine.raid = null
+  mine.crewIds = []
+  mine.weaknesses = ['fire']
+  mine.reserve = 40
+  expect(claimTreasureMine(save, mine.id, [worker.id]).ok).toBe(true)
+  return { save, mine, worker }
+}
+
+function yieldOnce(save: Save, mine: TreasureMine, rolls: number[]) {
+  mine.digCharge = { [TREASURE_HOLE_DIG]: 0.99 }
+  const drops: { item: string; qty: number }[] = []
+  save.elapsedS += 1
+  stepTreasureMines(save, (drop) => drops.push({ item: drop.item, qty: drop.qty }), {
+    offline: true,
+    rolls: [...rolls],
+  })
+  return drops
+}
+
+describe('treasure ore veins and bounty', () => {
+  it('splits new holes into copper, iron and mithril', () => {
+    expect(mineVeinOfRoll(0)).toBe('copper')
+    expect(mineVeinOfRoll(0.5 - 1e-12)).toBe('copper')
+    expect(mineVeinOfRoll(0.5)).toBe('iron')
+    expect(mineVeinOfRoll(0.85 - 1e-12)).toBe('iron')
+    expect(mineVeinOfRoll(0.85)).toBe('mithril')
+    expect(mineVeinOfRoll(0.999)).toBe('mithril')
+    expect(rollOreVaultTreasure(0)).toBe('sandGold')
+    expect(rollOreVaultTreasure(0.4 - 1e-12)).toBe('sandGold')
+    expect(rollOreVaultTreasure(0.4)).toBe('jewel')
+    expect(rollOreVaultTreasure(0.75 - 1e-12)).toBe('jewel')
+    expect(rollOreVaultTreasure(0.75)).toBe('jade')
+    expect(bountyCrewCount(0)).toBe(2)
+    expect(bountyCrewCount(0.5 - 1e-12)).toBe(2)
+    expect(bountyCrewCount(0.5)).toBe(3)
+    expect(bountyButtonLabel(null)).toBe('悬赏')
+    expect(bountyButtonLabel('iron')).toBe('悬赏·铁矿')
+
+    const save = createSave()
+    save.treasureMines.mines = []
+    refreshTreasureMines(save, [0, 0, 0.5, 0, 0.85, 0, 0.1, 0])
+    expect(save.treasureMines.mines.map((mine) => mine.vein)).toEqual(['copper', 'iron', 'mithril', 'copper'])
+    expect(save.treasureMines.mines.every((mine) => mine.kind == null && mine.bounty == null && mine.owner === 'empty')).toBe(
+      true,
+    )
+    expect(save.treasureMines.mines.map((mine) => mineKindLabel(mine))).toEqual(['铜矿洞', '铁矿洞', '秘银洞', '铜矿洞'])
+  })
+
+  it('pays ore every share, then crystal and vault treasure on the injected rolls', () => {
+    const { save, mine } = prepareDigger()
+    mine.vein = 'copper'
+    mine.kind = null
+    mine.bounty = null
+    expect(save.knightLevel).toBeLessThan(9)
+    const dry = yieldOnce(save, mine, [0.5, 0.4])
+    expect(dry).toEqual([{ item: 'ore', qty: 1 }])
+    expect(bankQty(save, 'ore')).toBe(1)
+    expect(bankQty(save, 'wildCrystal')).toBe(0)
+    expect(vaultQty(save)).toBe(0)
+    expect(mine.dugOre).toBe(1)
+    expect(mine.dugCrystal).toBe(0)
+    expect(treasureHaulQty(save, 'ore')).toBe(1)
+
+    const rich = yieldOnce(save, mine, [0, 0.39, 0.74])
+    expect(rich).toEqual([
+      { item: 'ore', qty: 1 },
+      { item: 'wildCrystal', qty: 1 },
+      { item: 'jewel', qty: 1 },
+    ])
+    expect(bankQty(save, 'ore')).toBe(2)
+    expect(bankQty(save, 'wildCrystal')).toBe(1)
+    expect(save.treasureMines.vault.jewel).toBe(1)
+    expect(mine.dugOre).toBe(2)
+    expect(mine.dugCrystal).toBe(1)
+    expect(treasureDropTip('ironOre', 2)).toBe('获得 铁矿 ×2')
+    expect(treasureDropTip('wildCrystal', 1)).toBe('获得 荒晶 ×1')
+  })
+
+  it('lets shadows burn reserve without paying anyone', () => {
+    const save = createSave()
+    const mine = ensureGarrison(save.treasureMines.mines[0])
+    mine.vein = 'iron'
+    mine.kind = null
+    mine.bounty = null
+    mine.reserve = 8
+    mine.digCharge = { [TREASURE_HOLE_DIG]: 0.99 }
+    mine.shadows.forEach((shadow) => {
+      shadow.level = 1
+    })
+    const beforeBank = { ...save.bank }
+    const beforeVault = vaultQty(save)
+    save.elapsedS += 1
+    stepTreasureMines(save, undefined, { offline: true, rolls: [0, 0, 0] })
+    expect(mine.reserve).toBe(7)
+    expect(save.bank).toEqual(beforeBank)
+    expect(vaultQty(save)).toBe(beforeVault)
+    expect(mine.dugOre).toBe(0)
+    expect(treasureHaulQty(save, 'ironOre')).toBe(0)
+  })
+
+  it('spends jewels for one bounty, keeps it through a reload, and refuses a second', () => {
+    const save = createSave()
+    save.treasureMines.vault.jewel = TREASURE_BOUNTY_COST.copper - 1
+    expect(postTreasureBounty(save, 'copper')).toEqual({
+      ok: false,
+      reason: jewelShortTip(TREASURE_BOUNTY_COST.copper, TREASURE_BOUNTY_COST.copper - 1),
+    })
+    expect(save.treasureMines.bounty).toBeNull()
+    expect(save.treasureMines.vault.jewel).toBe(TREASURE_BOUNTY_COST.copper - 1)
+
+    save.treasureMines.vault.jewel = 200
+    expect(postTreasureBounty(save, 'mithril')).toEqual({
+      ok: true,
+      message: `珠宝 −${TREASURE_BOUNTY_COST.mithril}`,
+    })
+    expect(save.treasureMines.bounty).toBe('mithril')
+    expect(save.treasureMines.vault.jewel).toBe(200 - TREASURE_BOUNTY_COST.mithril)
+    expect(postTreasureBounty(save, 'iron')).toEqual({ ok: false, reason: '已有悬赏' })
+    expect(save.treasureMines.vault.jewel).toBe(200 - TREASURE_BOUNTY_COST.mithril)
+
+    const loaded = hydrateLoadedSave(JSON.parse(JSON.stringify(save)))
+    expect(loaded?.treasureMines.bounty).toBe('mithril')
+    expect(loaded?.treasureMines.vault.jewel).toBe(200 - TREASURE_BOUNTY_COST.mithril)
+
+    const broken = JSON.parse(JSON.stringify(save)) as Save
+    ;(broken.treasureMines as { bounty: string }).bounty = 'gold'
+    const cleared = hydrateLoadedSave(broken)
+    expect(cleared?.treasureMines.bounty).toBeNull()
+  })
+
+  it('makes the next spawned hole a bounty hole, including a paid refresh', () => {
+    const save = createSave()
+    save.knightLevel = 4
+    save.treasureMines.bannerLevel = 2
+    save.treasureMines.bounty = 'mithril'
+    const standing = save.treasureMines.mines.map((mine) => mine.id)
+    save.treasureMines.mines[0].reserve = 0
+    refreshTreasureMines(save, [0, 0.15, 0.25, 0.35])
+    const born = save.treasureMines.mines.find((mine) => !standing.includes(mine.id))
+    expect(born).toBeTruthy()
+    if (!born) return
+    expect(save.treasureMines.bounty).toBeNull()
+    expect(born.bounty).toBe('mithril')
+    expect(born.vein).toBe('mithril')
+    expect(born.kind).toBeNull()
+    expect(born.shadows).toHaveLength(2)
+    expect(born.shadows.every((shadow) => shadow.level === 4 + 2 + TREASURE_BOUNTY_LEVEL_BONUS)).toBe(true)
+    expect(born.reserveMax).toBe(Math.round(bannerReserveMax(2) * TREASURE_BOUNTY_RESERVE_MUL))
+    expect(born.reserve).toBe(born.reserveMax)
+    expect(born.expiresAtS - born.bornAtS).toBe(TREASURE_LIFE_S)
+    expect(save.treasureMines.mines.filter((mine) => mine.bounty != null)).toHaveLength(1)
+    expect(mineKindLabel(born)).toBe('秘银洞')
+
+    born.owner = 'empty'
+    born.shadows = []
+    born.raid = null
+    const miner = spawnWorker(save)
+    miner.level = 1
+    miner.combatAttrs = []
+    born.weaknesses = ['fire']
+    expect(claimTreasureMine(save, born.id, [miner.id]).ok).toBe(true)
+    const paid = yieldOnce(save, born, [0.49, 0.39, 0])
+    expect(paid).toEqual([
+      { item: 'mithrilOre', qty: 2 },
+      { item: 'wildCrystal', qty: 1 },
+      { item: 'sandGold', qty: 1 },
+    ])
+    expect(bankQty(save, 'mithrilOre')).toBe(2)
+    expect(born.dugOre).toBe(2)
+    expect(born.dugCrystal).toBe(1)
+
+    const crystal = createSave()
+    crystal.treasureMines.mines = []
+    crystal.treasureMines.bounty = 'wildCrystal'
+    refreshTreasureMines(crystal, [0.5, 0.1, 0.2, 0.3, 0.4])
+    const hole = crystal.treasureMines.mines[0]
+    expect(hole.bounty).toBe('wildCrystal')
+    expect(hole.vein).toBeNull()
+    expect(hole.shadows).toHaveLength(3)
+    expect(hole.owner).toBe('shadow')
+    expect(mineKindLabel(hole)).toBe('荒晶洞')
+    expect(crystal.treasureMines.bounty).toBeNull()
+    expect(crystal.treasureMines.mines[1].bounty).toBeNull()
+    hole.owner = 'empty'
+    hole.shadows = []
+    const digger = spawnWorker(crystal)
+    digger.level = 1
+    digger.combatAttrs = []
+    hole.weaknesses = ['fire']
+    expect(claimTreasureMine(crystal, hole.id, [digger.id]).ok).toBe(true)
+    const extra = yieldOnce(crystal, hole, [0.39, 0.75])
+    expect(extra).toEqual([
+      { item: 'wildCrystal', qty: 2 },
+      { item: 'ore', qty: 1 },
+      { item: 'jade', qty: 1 },
+    ])
+    expect(bankQty(crystal, 'wildCrystal')).toBe(2)
+    expect(bankQty(crystal, 'ore')).toBe(1)
+
+    const board = createSave()
+    board.diamonds = 30
+    board.treasureMines.vault.jewel = TREASURE_BOUNTY_COST.copper
+    expect(postTreasureBounty(board, 'copper').ok).toBe(true)
+    const owned = board.treasureMines.mines[0]
+    const keeper = spawnWorker(board)
+    owned.owner = 'player'
+    owned.shadows = []
+    owned.crewIds = [keeper.id]
+    const fighting = board.treasureMines.mines[1]
+    setGuards(fighting, 1)
+    const raider = spawnWorker(board)
+    board.treasureMines.vault.sandGold = 40
+    expect(openTreasureRaid(board, fighting.id, [raider.id]).ok).toBe(true)
+    const kept = new Set([owned.id, fighting.id])
+    expect(refreshTreasureMineBoard(board, 'diamonds', [0, 0.2, 0.3, 0.4]).ok).toBe(true)
+    const spawned = board.treasureMines.mines.filter((mine) => !kept.has(mine.id))
+    expect(spawned.length).toBeGreaterThan(0)
+    expect(spawned[0].bounty).toBe('copper')
+    expect(spawned[0].vein).toBe('copper')
+    expect(spawned[0].shadows.length).toBeGreaterThanOrEqual(2)
+    expect(spawned[0].shadows.length).toBeLessThanOrEqual(3)
+    expect(spawned.slice(1).every((mine) => mine.bounty == null)).toBe(true)
+    expect(board.treasureMines.bounty).toBeNull()
+    expect(board.diamonds).toBe(20)
+  })
+
+  it('reads an old hole kind and finishes it on the old drop table', () => {
+    const raw = JSON.parse(JSON.stringify(createSave())) as Save
+    const hole = raw.treasureMines.mines[0]
+    hole.kind = 'jewel'
+    delete (hole as { vein?: unknown }).vein
+    delete (hole as { bounty?: unknown }).bounty
+    delete (hole as { dugOre?: unknown }).dugOre
+    delete (hole as { dugCrystal?: unknown }).dugCrystal
+    delete (raw.treasureMines as { bounty?: unknown }).bounty
+    delete (raw.treasureMines as { haul?: unknown }).haul
+    const loaded = hydrateLoadedSave(JSON.parse(JSON.stringify(raw)))
+    expect(loaded).toBeTruthy()
+    if (!loaded) return
+    const mine = loaded.treasureMines.mines.find((row) => row.id === hole.id)
+    expect(mine).toBeTruthy()
+    if (!mine) return
+    expect(mine.kind).toBe('jewel')
+    expect(mine.vein).toBeNull()
+    expect(mine.bounty).toBeNull()
+    expect(isLegacyTreasureMine(mine)).toBe(true)
+    expect(mineKindLabel(mine)).toBe('珠宝洞')
+    expect(loaded.treasureMines.bounty).toBeNull()
+    expect(loaded.treasureMines.haul).toEqual({})
+    expect(mine.dugOre).toBe(0)
+
+    const worker = spawnWorker(loaded)
+    worker.level = 1
+    worker.combatAttrs = []
+    mine.owner = 'empty'
+    mine.shadows = []
+    mine.raid = null
+    mine.weaknesses = ['fire']
+    mine.reserve = 3
+    expect(claimTreasureMine(loaded, mine.id, [worker.id]).ok).toBe(true)
+    const drops = yieldOnce(loaded, mine, [0])
+    expect(drops).toEqual([{ item: 'sandGold', qty: 1 }])
+    expect(loaded.treasureMines.vault.sandGold).toBe(1)
+    expect(bankQty(loaded, 'ore')).toBe(0)
+    expect(bankQty(loaded, 'ironOre')).toBe(0)
+    expect(bankQty(loaded, 'mithrilOre')).toBe(0)
+    expect(bankQty(loaded, 'wildCrystal')).toBe(0)
+    expect(mine.reserve).toBe(2)
+
+    mine.reserve = 0
+    const before = new Set(loaded.treasureMines.mines.map((row) => row.id))
+    refreshTreasureMines(loaded)
+    const next = loaded.treasureMines.mines.find((row) => !before.has(row.id))
+    expect(next?.kind).toBeNull()
+    expect(next?.vein === 'copper' || next?.vein === 'iron' || next?.vein === 'mithril').toBe(true)
+    expect(isLegacyTreasureMine(next!)).toBe(false)
+  })
+
+  it('writes ore, crystal and vault growth into the offline report', () => {
+    const { save, mine } = prepareDigger()
+    mine.vein = 'copper'
+    mine.kind = null
+    mine.bounty = null
+    mine.digCharge = {}
+    save.treasureMines.roll = seedForCrystalSand()
+    const now = Date.now()
+    save.lastTick = now - 5_000
+    const result = settleOffline(save, now)
+    const hole = result.save.treasureMines.mines.find((row) => row.id === mine.id)
+    expect(bankQty(result.save, 'ore')).toBe(1)
+    expect(bankQty(result.save, 'wildCrystal')).toBe(1)
+    expect(result.save.treasureMines.vault.sandGold).toBe(1)
+    expect(hole?.dugOre).toBe(1)
+    expect(hole?.dugCrystal).toBe(1)
+    expect(result.save.knightLevel).toBeLessThan(9)
+    const body = result.save.messages.find((message) => message.title === '离线收益')?.body ?? ''
+    expect(body).toContain('铜矿 +1')
+    expect(body).toContain('荒晶 +1')
+    expect(body).toContain('宝库 砂金 +1')
+    expect(result.summary.vault).toEqual([{ id: 'sandGold', label: '砂金', delta: 1 }])
+    expect(result.summary.bank.some((row) => row.itemId === 'ore' && row.delta === 1)).toBe(true)
+    expect(result.summary.bank.some((row) => row.itemId === 'wildCrystal' && row.delta === 1)).toBe(true)
   })
 })

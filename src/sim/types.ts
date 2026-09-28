@@ -447,8 +447,17 @@ export type GameMessage = {
 
 export type TreasureId = 'sandGold' | 'jewel' | 'jade'
 
-/** 矿洞种类。新刷约各 1/3；旧档缺字段按矿洞 id 稳定补上。 */
+/** 旧洞种类。只在还没换成矿种的洞上有效，掉落仍按这种偏斜。 */
 export type TreasureKind = TreasureId
+
+/** 新洞矿种。铜矿 50%、铁矿 35%、秘银 15%。 */
+export type MineVein = 'copper' | 'iron' | 'mithril'
+
+/** 珠宝悬赏目标。矿石三种，或荒晶。 */
+export type BountyTarget = MineVein | 'wildCrystal'
+
+/** 夺宝带进工坊物资的东西。和采矿站是同一批库存。 */
+export type TreasureHaulId = 'ore' | 'ironOre' | 'mithrilOre' | 'wildCrystal'
 
 /** 其他玩家的快照守军。不是 NPC，也不读实时联机。 */
 export type TreasureShadow = {
@@ -520,8 +529,19 @@ export type TreasureRaidReturnee = {
 
 export type TreasureMine = {
   id: string
-  /** 砂金洞 / 珠宝洞 / 古玉洞。掉落按这种偏斜。 */
-  kind: TreasureKind
+  /**
+   * 旧洞：砂金 / 珠宝 / 古玉，按旧权重只掉宝物。
+   * 新洞是 null，矿种看 `vein`。
+   */
+  kind: TreasureKind | null
+  /** 新洞矿种。旧洞和荒晶宝藏洞是 null。 */
+  vein: MineVein | null
+  /** 宝藏洞的悬赏目标。普通洞和旧洞是 null。 */
+  bounty: BountyTarget | null
+  /** 我方在这洞挖出的矿石个数。守军挖不加。 */
+  dugOre: number
+  /** 我方在这洞挖出的荒晶个数。 */
+  dugCrystal: number
   reserve: number
   reserveMax: number
   bornAtS: number
@@ -568,6 +588,16 @@ export type TreasureMineState = {
    * 来袭计时、预警和加固记在各个矿洞上，不放在这一级。
    */
   bannerLevel: number
+  /**
+   * 已挂的珠宝悬赏。没有是 null。
+   * 下一座新刷的洞变成宝藏洞后清空。旧档缺字段当没有。
+   */
+  bounty: BountyTarget | null
+  /**
+   * 夺宝累计带出的矿石和荒晶。只统计我方开采，不含采矿站。
+   * 旧档缺字段当空。
+   */
+  haul: Partial<Record<TreasureHaulId, number>>
 }
 
 export type Save = {
