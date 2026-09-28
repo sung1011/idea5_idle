@@ -1,4 +1,4 @@
-export type ModeHelpId = 'treasure' | 'battlefield' | 'dungeon' | 'market'
+export type ModeHelpId = 'treasure' | 'armory' | 'battlefield' | 'dungeon' | 'market'
 
 export type ModeHelpRow = {
   label: string
@@ -27,7 +27,25 @@ export const MODE_HELP: Record<ModeHelpId, ModeHelp> = {
       },
       {
         label: '注意',
-        text: '不能再开。侦察 20 砂金揭弱点。刷新 100 砂金或 10 钻，保留战斗中与我方开采。',
+        text: '不能再开。60 珠宝增援一次。未满员 80 珠宝补 1 人。侦察 20 砂金揭弱点。刷新 100 砂金或 10 钻，保留战斗中与我方开采。',
+      },
+    ],
+  },
+  armory: {
+    id: 'armory',
+    title: '军械铺',
+    rows: [
+      {
+        label: '怎么玩',
+        text: '花珠宝换锋锐、厚甲、迅击，进符文背包。夺宝抢夺可以装上。',
+      },
+      {
+        label: '规则要点',
+        text: '每种 40 珠宝一枚。珠宝不够时按钮变灰，并提示还差多少。',
+      },
+      {
+        label: '注意',
+        text: '战斗中 60 珠宝可增援 1 名满血工人，每仗 1 次。开采未满员可花 80 珠宝再补 1 人，最多 3 人。',
       },
     ],
   },

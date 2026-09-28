@@ -499,6 +499,8 @@ export type TreasureRaid = {
    * 旧档缺字段当 0，不补押、不退。
    */
   stakeSand?: number
+  /** 本场是否已花珠宝增援。旧档缺字段当没有，读档后仍可补一次。 */
+  reinforced?: boolean
 }
 
 export type TreasureRaidReturnee = {

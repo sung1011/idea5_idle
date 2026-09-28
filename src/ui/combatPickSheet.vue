@@ -33,6 +33,8 @@ const props = withDefaults(
     guideFlashConfirm?: boolean
     guideFlashRune?: boolean
     slotOffset?: number
+    titleText?: string
+    confirmText?: string
     recommendLabel?: (worker: Worker) => string | null
   }>(),
   {
@@ -43,6 +45,8 @@ const props = withDefaults(
     guideFlashConfirm: false,
     guideFlashRune: false,
     slotOffset: 0,
+    titleText: '',
+    confirmText: '',
   },
 )
 
@@ -58,6 +62,8 @@ const emit = defineEmits<{
 const game = useGameStore()
 const runePickWorkerId = ref<string | null>(null)
 const copy = computed(() => enemyPickCopy(props.mode, props.max))
+const sheetTitle = computed(() => props.titleText || copy.value.title)
+const sheetConfirm = computed(() => props.confirmText || copy.value.confirm)
 const runeSlotUnlocked = computed(() => isRuneSlotUnlocked(game.save))
 const runeOptions = computed(() => listRunePickOptions(game.save))
 const hint = computed(() => {
@@ -135,9 +141,9 @@ function closeAll() {
 </script>
 
 <template>
-  <div v-if="open" class="modal" role="dialog" :aria-label="copy.title" @click.self="closeAll">
+  <div v-if="open" class="modal" role="dialog" :aria-label="sheetTitle" @click.self="closeAll">
     <div class="sheet">
-      <p>{{ copy.title }}（最多 {{ max }} 人）</p>
+      <p>{{ sheetTitle }}（最多 {{ max }} 人）</p>
       <p class="hint">{{ hint }}</p>
       <ul class="pick-list">
         <li v-for="w in candidates" :key="w.id" class="pick-row">
@@ -188,7 +194,7 @@ function closeAll() {
             :disabled="!picked.length || supplyBlocked"
             @click.stop="emit('confirm')"
           >
-            {{ copy.confirm }}
+            {{ sheetConfirm }}
           </button>
         </span>
         <button v-if="showAssist" type="button" @click="emit('invite')">邀请</button>

@@ -1,12 +1,22 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import ModeHelpSheet from './modeHelpSheet.vue'
 import { modeHelpOf } from './modeHelp'
+import TreasureArmoryPanel from './treasureArmoryPanel.vue'
 import TreasureMinePanel from './treasureMinePanel.vue'
 
-const PVP_TABS = ['夺宝'] as const
+const PVP_TABS = [
+  { id: 'treasure', label: '夺宝' },
+  { id: 'armory', label: '军械铺' },
+] as const
+
+type PvpTabId = (typeof PVP_TABS)[number]['id']
+
+const tab = ref<PvpTabId>('treasure')
 const helpOpen = ref(false)
-const help = modeHelpOf('treasure')
+const treasureHelp = modeHelpOf('treasure')
+const armoryHelp = modeHelpOf('armory')
+const help = computed(() => (tab.value === 'armory' ? armoryHelp : treasureHelp))
 </script>
 
 <template>
@@ -15,19 +25,21 @@ const help = modeHelpOf('treasure')
     <div class="board-nav">
       <nav class="sub" role="tablist" aria-label="PVP分页">
         <button
-          v-for="label in PVP_TABS"
-          :key="label"
+          v-for="item in PVP_TABS"
+          :key="item.id"
           type="button"
           role="tab"
-          aria-selected="true"
-          class="on"
+          :aria-selected="tab === item.id"
+          :class="{ on: tab === item.id }"
+          @click="tab = item.id"
         >
-          {{ label }}
+          {{ item.label }}
         </button>
       </nav>
       <button type="button" class="mode-help" aria-label="玩法说明" @click="helpOpen = true">？</button>
     </div>
-    <TreasureMinePanel />
+    <TreasureMinePanel v-if="tab === 'treasure'" />
+    <TreasureArmoryPanel v-else />
     <ModeHelpSheet v-if="helpOpen" :title="help.title" :rows="help.rows" @close="helpOpen = false" />
   </section>
 </template>

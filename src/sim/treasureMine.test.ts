@@ -27,7 +27,12 @@ import {
   TREASURE_REFRESH_COST,
   TREASURE_REFRESH_SAND_COST,
   TREASURE_SCOUT_COST,
+  TREASURE_FILL_COST,
+  TREASURE_REINFORCE_COST,
+  TREASURE_RUNE_COST,
   TREASURE_STAKE_PER_GUARD,
+  buyTreasureRune,
+  jewelShortTip,
   refreshTreasureMineBoard,
   refreshTreasureMines,
   shadowCrewCount,
@@ -397,7 +402,10 @@ describe('treasure mines', () => {
     expect(mine.crewIds).toHaveLength(2)
     expect(TREASURE_CREW_CAP).toBe(3)
     const third = spawnWorker(save)
-    expect(addTreasureMiner(save, mine.id, third.id)).toEqual({ ok: false, reason: '这洞不能补采' })
+    expect(addTreasureMiner(save, mine.id, third.id)).toEqual({
+      ok: false,
+      reason: jewelShortTip(TREASURE_FILL_COST, 0),
+    })
     expect(mine.crewIds).toEqual([lead.id, fallen.id])
     mine.digCharge = {}
     lead.level = 1
@@ -467,7 +475,7 @@ describe('treasure mines', () => {
     expect(claimTreasureMine(save, kept.id, [digger.id, extra.id]).ok).toBe(true)
     expect(kept.revealedWeaknesses).toEqual(['ice', 'fire'])
     expect(mineWeaknessSlots(kept)).toEqual(['fire', 'ice', null])
-    expect(addTreasureMiner(save, kept.id, extra.id)).toEqual({ ok: false, reason: '这洞不能补采' })
+    expect(addTreasureMiner(save, kept.id, extra.id)).toEqual({ ok: false, reason: '正在矿洞' })
     expect(kept.crewIds).toEqual([digger.id, extra.id])
 
     const raidHole = save.treasureMines.mines.find((hole) => hole.id !== kept.id)
@@ -505,8 +513,10 @@ describe('treasure mines', () => {
     const shadowCount = locked.shadows.length
 
     expect(startTreasureRaid(save, locked.id, [extra.id])).toEqual({ ok: false, reason: '这洞抢夺进行中' })
-    expect(reinforceTreasureRaid(save, locked.id, 'attack')).toEqual({ ok: false, reason: '抢夺进行中不能增援' })
-    expect(reinforceTreasureRaid(save, locked.id, 'defend')).toEqual({ ok: false, reason: '抢夺进行中不能增援' })
+    expect(reinforceTreasureRaid(save, locked.id, extra.id)).toEqual({
+      ok: false,
+      reason: jewelShortTip(TREASURE_REINFORCE_COST, 0),
+    })
     expect(locked.raid?.queue).toEqual(queue)
     expect(locked.shadows).toHaveLength(shadowCount)
     expect(extra.assignment).toBeNull()
@@ -541,7 +551,7 @@ describe('treasure mines', () => {
     expect(locked.raid).toBeNull()
     expect(locked.owner).toBe('shadow')
     expect(isTreasureRaidLocked(locked)).toBe(false)
-    expect(reinforceTreasureRaid(save, locked.id, 'attack')).toEqual({
+    expect(reinforceTreasureRaid(save, locked.id, extra.id)).toEqual({
       ok: false,
       reason: '这洞没有进行中的抢夺',
     })
@@ -668,7 +678,10 @@ describe('treasure mines', () => {
     mine.revealedWeaknesses = ['fire']
     expect(claimTreasureMine(save, mine.id, [worker.id]).ok).toBe(true)
     expect(mine.owner).toBe('player')
-    expect(addTreasureMiner(save, mine.id, extra.id)).toEqual({ ok: false, reason: '这洞不能补采' })
+    expect(addTreasureMiner(save, mine.id, extra.id)).toEqual({
+      ok: false,
+      reason: jewelShortTip(TREASURE_FILL_COST, 0),
+    })
     expect(mine.crewIds).toEqual([worker.id])
     const revealed = [...mine.revealedWeaknesses]
 
@@ -693,7 +706,7 @@ describe('treasure mines', () => {
     expect(mine.crewIds).toEqual([worker.id, extra.id])
     expect(mine.reserve).toBe(40)
     expect(mine.expiresAtS).toBe(save.elapsedS + TREASURE_LIFE_S)
-    expect(addTreasureMiner(save, mine.id, worker.id)).toEqual({ ok: false, reason: '这洞不能补采' })
+    expect(addTreasureMiner(save, mine.id, worker.id)).toEqual({ ok: false, reason: '正在矿洞' })
   })
 
   it('maps an illegal owner to shadow when a garrison remains, otherwise to empty', () => {
@@ -1262,5 +1275,133 @@ describe('treasure sand fees', () => {
     expect(save.treasureMines.vault.sandGold).toBe(99)
     expect(save.treasureMines.mines.some((mine) => mine.id === owned.id)).toBe(true)
     expect(save.treasureMines.mines.some((mine) => mine.id === fighting.id)).toBe(true)
+  })
+})
+
+describe('treasure jewel armory', () => {
+  it('sells sharp, armor, and swift runes into the backpack and blocks a short jewel pile', () => {
+    const save = createSave()
+    save.treasureMines.vault.jewel = 39
+    expect(buyTreasureRune(save, 'runeSharp')).toEqual({
+      ok: false,
+      reason: jewelShortTip(TREASURE_RUNE_COST, 39),
+    })
+    expect(save.bank.runeSharp ?? 0).toBe(0)
+    expect(save.treasureMines.vault.jewel).toBe(39)
+    expect(buyTreasureRune(save, 'runeBlood')).toEqual({ ok: false, reason: '军械铺没有这种符文' })
+
+    save.treasureMines.vault.jewel = TREASURE_RUNE_COST * 3
+    expect(buyTreasureRune(save, 'runeSharp')).toEqual({ ok: true, message: `珠宝 −${TREASURE_RUNE_COST}` })
+    expect(buyTreasureRune(save, 'runeArmor').ok).toBe(true)
+    expect(buyTreasureRune(save, 'runeSwift').ok).toBe(true)
+    expect(save.treasureMines.vault.jewel).toBe(0)
+    expect(save.bank.runeSharp).toBe(1)
+    expect(save.bank.runeArmor).toBe(1)
+    expect(save.bank.runeSwift).toBe(1)
+
+    const loaded = hydrateLoadedSave(JSON.parse(JSON.stringify(save)))
+    expect(loaded?.treasureMines.vault.jewel).toBe(0)
+    expect(loaded?.bank.runeSharp).toBe(1)
+    expect(loaded?.bank.runeArmor).toBe(1)
+    expect(loaded?.bank.runeSwift).toBe(1)
+  })
+
+  it('reinforces one full-hp worker into the queue, once per fight, and keeps that on the save', () => {
+    const save = createSave()
+    const mine = save.treasureMines.mines[0]
+    setGuards(mine, 1, 80, 1, 30)
+    const lead = spawnWorker(save)
+    const extra = spawnWorker(save)
+    const hurt = spawnWorker(save)
+    hurt.hp = 1
+    save.treasureMines.vault.sandGold = 40
+    save.treasureMines.vault.jewel = TREASURE_REINFORCE_COST
+    expect(openTreasureRaid(save, mine.id, [lead.id]).ok).toBe(true)
+    const beforeHp = mine.raid?.atkHp
+    expect(reinforceTreasureRaid(save, mine.id, hurt.id)).toEqual({ ok: false, reason: '没有满血工人' })
+    expect(save.treasureMines.vault.jewel).toBe(TREASURE_REINFORCE_COST)
+    expect(mine.raid?.queue).toEqual([lead.id])
+
+    save.treasureMines.vault.jewel = TREASURE_REINFORCE_COST - 1
+    expect(reinforceTreasureRaid(save, mine.id, extra.id)).toEqual({
+      ok: false,
+      reason: jewelShortTip(TREASURE_REINFORCE_COST, TREASURE_REINFORCE_COST - 1),
+    })
+    expect(mine.raid?.queue).toEqual([lead.id])
+    expect(mine.raid?.reinforced).toBe(false)
+
+    save.treasureMines.vault.jewel = TREASURE_REINFORCE_COST
+    expect(reinforceTreasureRaid(save, mine.id, extra.id)).toEqual({
+      ok: true,
+      message: `珠宝 −${TREASURE_REINFORCE_COST}`,
+    })
+    expect(save.treasureMines.vault.jewel).toBe(0)
+    expect(mine.raid?.queue).toEqual([lead.id, extra.id])
+    expect(mine.raid?.attackSlots?.[1]).toBe(extra.id)
+    expect(mine.raid?.atkHp).toBe(beforeHp)
+    expect(mine.raid?.reinforced).toBe(true)
+    expect(treasureMineBlockReason(save, extra.id)).toBe('正在夺宝')
+
+    save.treasureMines.vault.jewel = TREASURE_REINFORCE_COST
+    expect(reinforceTreasureRaid(save, mine.id, hurt.id)).toEqual({ ok: false, reason: '本场已经增援' })
+    expect(save.treasureMines.vault.jewel).toBe(TREASURE_REINFORCE_COST)
+    expect(mine.raid?.queue).toEqual([lead.id, extra.id])
+
+    const loaded = hydrateLoadedSave(JSON.parse(JSON.stringify(save)))
+    const kept = loaded?.treasureMines.mines.find((row) => row.id === mine.id)
+    expect(kept?.raid?.reinforced).toBe(true)
+    expect(kept?.raid?.queue).toEqual([lead.id, extra.id])
+    if (!loaded) return
+    const again = spawnWorker(loaded)
+    expect(reinforceTreasureRaid(loaded, mine.id, again.id)).toEqual({ ok: false, reason: '本场已经增援' })
+    expect(loaded.treasureMines.vault.jewel).toBe(TREASURE_REINFORCE_COST)
+  })
+
+  it('fills an open mining slot with one full-hp worker and refuses a full, hurt, or unpaid join', () => {
+    const save = createSave()
+    const mine = save.treasureMines.mines[0]
+    setGuards(mine, 0)
+    const lead = spawnWorker(save)
+    const mate = spawnWorker(save)
+    const third = spawnWorker(save)
+    const fourth = spawnWorker(save)
+    const hurt = spawnWorker(save)
+    hurt.hp = 1
+    expect(claimTreasureMine(save, mine.id, [lead.id]).ok).toBe(true)
+    mine.weaknesses = ['fire', 'ice']
+    mine.revealedWeaknesses = []
+    mate.combatAttrs = ['fire']
+
+    save.treasureMines.vault.jewel = TREASURE_FILL_COST - 1
+    expect(addTreasureMiner(save, mine.id, mate.id)).toEqual({
+      ok: false,
+      reason: jewelShortTip(TREASURE_FILL_COST, TREASURE_FILL_COST - 1),
+    })
+    expect(mine.crewIds).toEqual([lead.id])
+
+    save.treasureMines.vault.jewel = TREASURE_FILL_COST
+    expect(addTreasureMiner(save, mine.id, hurt.id)).toEqual({ ok: false, reason: '没有满血工人' })
+    expect(save.treasureMines.vault.jewel).toBe(TREASURE_FILL_COST)
+    expect(mine.crewIds).toEqual([lead.id])
+
+    expect(addTreasureMiner(save, mine.id, mate.id)).toEqual({
+      ok: true,
+      message: `珠宝 −${TREASURE_FILL_COST}`,
+    })
+    expect(save.treasureMines.vault.jewel).toBe(0)
+    expect(mine.crewIds).toEqual([lead.id, mate.id])
+    expect(mine.revealedWeaknesses).toEqual(['fire'])
+
+    save.treasureMines.vault.jewel = TREASURE_FILL_COST * 2
+    expect(addTreasureMiner(save, mine.id, third.id).ok).toBe(true)
+    expect(mine.crewIds).toEqual([lead.id, mate.id, third.id])
+    expect(addTreasureMiner(save, mine.id, fourth.id)).toEqual({ ok: false, reason: '这洞已满员' })
+    expect(mine.crewIds).toHaveLength(TREASURE_CREW_CAP)
+    expect(save.treasureMines.vault.jewel).toBe(TREASURE_FILL_COST)
+
+    const loaded = hydrateLoadedSave(JSON.parse(JSON.stringify(save)))
+    const kept = loaded?.treasureMines.mines.find((row) => row.id === mine.id)
+    expect(kept?.crewIds).toEqual([lead.id, mate.id, third.id])
+    expect(loaded?.treasureMines.vault.jewel).toBe(TREASURE_FILL_COST)
   })
 })

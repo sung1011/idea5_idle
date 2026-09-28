@@ -1,6 +1,7 @@
 import { hashString, isCombatAttrId, matchingWeaknesses, pickEnemyWeaknesses } from './combatAttrs'
 import { PLAYER_AVATAR_DEFAULT, PLAYER_AVATAR_IDS, type PlayerAvatarId } from './playerAvatarIds'
-import { applyDownedReturn, workerLiveStats } from './combat'
+import { addToBank } from './bank'
+import { applyDownedReturn, isFullCombatHp, workerLiveStats } from './combat'
 import { offerRestFood } from './food'
 import { raidPhaseOf } from './march'
 import { marchDurationS } from './tech'
@@ -41,11 +42,22 @@ export const TREASURE_REFRESH_COST = 10
 
 /**
  * 宝物消耗起步值，集中在这里方便以后改。
- * 珠宝军械、古玉战旗、被袭加固继续往这组加，收支仍走宝库，不另开账。
+ * 古玉战旗、被袭加固继续往这组加，收支仍走宝库。
  */
 export const TREASURE_STAKE_PER_GUARD = 40
 export const TREASURE_SCOUT_COST = 20
 export const TREASURE_REFRESH_SAND_COST = 100
+/** 军械铺一枚符文的珠宝价。锋锐、厚甲、迅击同价。 */
+export const TREASURE_RUNE_COST = 40
+/** 夺宝一场抢夺增援一名工人。 */
+export const TREASURE_REINFORCE_COST = 60
+/** 我方开采未满员时补一名工人。 */
+export const TREASURE_FILL_COST = 80
+
+/** 军械铺出售的符文，换进普通符文背包。 */
+export const TREASURE_ARMORY_RUNES = ['runeSharp', 'runeArmor', 'runeSwift'] as const
+
+export type TreasureArmoryRune = (typeof TREASURE_ARMORY_RUNES)[number]
 
 /** 刷新付法。钻石走账号钻石，砂金走宝库。 */
 export type TreasureRefreshPay = 'sandGold' | 'diamonds'
@@ -116,6 +128,22 @@ export function treasureDropTip(item: TreasureId, qty = 1): string {
 
 export function sandShortTip(qty: number): string {
   return `砂金不足，需要 ${qty}`
+}
+
+export function jewelGap(need: number, have: number): number {
+  return Math.max(0, Math.floor(need) - Math.max(0, Math.floor(have)))
+}
+
+export function jewelShortTip(need: number, have: number): string {
+  return `珠宝还差 ${jewelGap(need, have)}`
+}
+
+export function jewelSpentTip(qty: number): string {
+  return `珠宝 −${qty}`
+}
+
+export function isArmoryRune(value: unknown): value is TreasureArmoryRune {
+  return value === 'runeSharp' || value === 'runeArmor' || value === 'runeSwift'
 }
 
 export function sandSpentTip(qty: number): string {
@@ -289,6 +317,7 @@ export function hydrateTreasureMines(save: Save): void {
       )
       ensureRaidVitals(save, mine)
       mine.raid.stakeSand = keptStake(mine.raid.stakeSand)
+      mine.raid.reinforced = mine.raid.reinforced === true
     }
     if (mine.owner !== 'player' && mine.owner !== 'shadow' && mine.owner !== 'empty') {
       mine.owner = mine.shadows.length > 0 ? 'shadow' : 'empty'
@@ -372,12 +401,42 @@ export function rejectTreasureMineRune(): ActionResult {
   return { ok: false, reason: '开采不能装符文' }
 }
 
-/** 已占领的洞不能再加人。无人矿用 `claimTreasureMine`。 */
-export function addTreasureMiner(save: Save, mineId: string, _workerId: string): ActionResult {
+/**
+ * 我方开采未满员时，花珠宝从休息区补一名满血工人。
+ * 上限仍是 3。满员、未满血、珠宝不够都不加人、不扣费。
+ */
+export function addTreasureMiner(save: Save, mineId: string, workerId: string): ActionResult {
   const mine = findMine(save, mineId)
   if (!mine) return { ok: false, reason: '没有这个矿洞' }
-  if (mine.owner === 'player') return { ok: false, reason: '这洞不能补采' }
-  return { ok: false, reason: '这洞还不是你的' }
+  if (mine.owner !== 'player') return { ok: false, reason: '这洞还不是你的' }
+  if (mine.raid) return { ok: false, reason: '抢夺进行中不能补位' }
+  if (mine.crewIds.length >= TREASURE_CREW_CAP) return { ok: false, reason: '这洞已满员' }
+  const worker = save.workers.find((row) => row.id === workerId)
+  if (!worker) return { ok: false, reason: '没有这个工人' }
+  if (mine.crewIds.includes(worker.id)) return { ok: false, reason: '正在矿洞' }
+  if (worker.assignment != null) return { ok: false, reason: '工人不在休息区' }
+  const busy = treasureMineBlockReason(save, worker.id)
+  if (busy) return { ok: false, reason: busy }
+  if (!isFullCombatHp(worker)) return { ok: false, reason: '没有满血工人' }
+  if (vaultQty(save, 'jewel') < TREASURE_FILL_COST) {
+    return { ok: false, reason: jewelShortTip(TREASURE_FILL_COST, vaultQty(save, 'jewel')) }
+  }
+  trySpendVault(save, 'jewel', TREASURE_FILL_COST)
+  clearWorkerNew(save, worker.id)
+  mine.crewIds = [...mine.crewIds, worker.id]
+  revealMineWeaknesses(mine, worker.combatAttrs)
+  return { ok: true, message: jewelSpentTip(TREASURE_FILL_COST) }
+}
+
+/** 军械铺：花珠宝换一枚锋锐、厚甲或迅击，进普通符文背包。 */
+export function buyTreasureRune(save: Save, runeId: RuneItemId): ActionResult {
+  if (!isArmoryRune(runeId)) return { ok: false, reason: '军械铺没有这种符文' }
+  if (vaultQty(save, 'jewel') < TREASURE_RUNE_COST) {
+    return { ok: false, reason: jewelShortTip(TREASURE_RUNE_COST, vaultQty(save, 'jewel')) }
+  }
+  trySpendVault(save, 'jewel', TREASURE_RUNE_COST)
+  addToBank(save, runeId, 1)
+  return { ok: true, message: jewelSpentTip(TREASURE_RUNE_COST) }
 }
 
 /** 无人矿一次选 1～3 人占领。不改储量、倒计时和弱点。 */
@@ -493,20 +552,49 @@ export function startTreasureRaid(
   return { ok: true, message: stakePaidTip(stake) }
 }
 
+/** 行军或交战中还能把人补进队列。胜负已分、或这场已经增援过，就不行。 */
+export function treasureRaidOpenForReinforce(mine: TreasureMine): boolean {
+  const raid = mine.raid
+  if (!raid || raid.reinforced === true) return false
+  const phase = raidPhaseOf(raid)
+  return phase === 'fighting' || phase === 'marchOut'
+}
+
 /**
- * 夺宝没有增援。进行中的这一洞，攻方加人和守方加人都不进队列。
- * 与订单「开过打后续可增援」分开。战斗结束（raid 清空）后洞锁解开，但增援仍然不存在。
+ * 花珠宝从休息区派一名满血工人进入我方队列，走连环 1v1，排在当前出战者后面。
+ * 每一仗只能一次。人未进场、珠宝未动，除非全部条件都过。
  */
-export function reinforceTreasureRaid(
-  save: Save,
-  mineId: string,
-  side: 'attack' | 'defend',
-): ActionResult {
+export function reinforceTreasureRaid(save: Save, mineId: string, workerId: string): ActionResult {
   const mine = findMine(save, mineId)
   if (!mine) return { ok: false, reason: '没有这个矿洞' }
-  if (side !== 'attack' && side !== 'defend') return { ok: false, reason: '抢夺进行中不能增援' }
-  if (isTreasureRaidLocked(mine)) return { ok: false, reason: '抢夺进行中不能增援' }
-  return { ok: false, reason: '这洞没有进行中的抢夺' }
+  const raid = mine.raid
+  if (!raid) return { ok: false, reason: '这洞没有进行中的抢夺' }
+  if (raid.reinforced === true) return { ok: false, reason: '本场已经增援' }
+  if (!treasureRaidOpenForReinforce(mine)) return { ok: false, reason: '这洞没有进行中的抢夺' }
+  const slots = raid.attackSlots ?? []
+  const slot = slots.findIndex((id) => id == null)
+  if (raid.queue.length >= TREASURE_RAID_CAP || slot < 0 || !raid.attackSlots) {
+    return { ok: false, reason: '抢夺最多 3 人' }
+  }
+  const worker = save.workers.find((row) => row.id === workerId)
+  if (!worker) return { ok: false, reason: '没有这个工人' }
+  if (worker.assignment != null) return { ok: false, reason: '工人不在休息区' }
+  const busy = treasureMineBlockReason(save, worker.id)
+  if (busy) return { ok: false, reason: busy }
+  if (!isFullCombatHp(worker)) return { ok: false, reason: '没有满血工人' }
+  if (vaultQty(save, 'jewel') < TREASURE_REINFORCE_COST) {
+    return { ok: false, reason: jewelShortTip(TREASURE_REINFORCE_COST, vaultQty(save, 'jewel')) }
+  }
+  trySpendVault(save, 'jewel', TREASURE_REINFORCE_COST)
+  clearWorkerNew(save, worker.id)
+  raid.queue = [...raid.queue, worker.id]
+  raid.attackSlots[slot] = worker.id
+  const vitals = attackerCombatVitals(save, worker, undefined)
+  raid.attackSlotHp[slot] = Math.max(1, vitals.hp)
+  raid.attackSlotMax[slot] = vitals.hpMax
+  raid.reinforced = true
+  revealMineWeaknesses(mine, worker.combatAttrs)
+  return { ok: true, message: jewelSpentTip(TREASURE_REINFORCE_COST) }
 }
 
 function openRaid(
@@ -554,6 +642,7 @@ function openRaid(
     phaseEndsAtS: save.elapsedS + marchDurationS(save),
     returning: [],
     stakeSand,
+    reinforced: false,
   }
   loadAttacker(save, raid, false)
   loadDefender(mine, raid, null)
