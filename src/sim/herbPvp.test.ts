@@ -13,6 +13,8 @@ import {
   HERB_PVP_START_PROBES,
   HERB_PVP_RIVAL_COUNT,
   HERB_PVP_RIVAL_ONLINE_MAX,
+  HERB_PVP_RIVAL_ONLINE_MIN,
+  herbOnlineTargetOf,
   HERB_PVP_STAMINA_MAX,
   HERB_PVP_STAMINA_REGEN_S,
   HERB_PVP_STAMINA_REV,
@@ -215,6 +217,67 @@ describe('herb pvp board', () => {
       expect(held.length).toBeGreaterThanOrEqual(1)
       expect(held.length).toBeLessThanOrEqual(3)
     }
+  })
+
+  it('rolls only three to five rivals and keeps at least three weeding', () => {
+    expect(HERB_PVP_RIVAL_ONLINE_MIN).toBe(3)
+    expect(HERB_PVP_RIVAL_ONLINE_MAX).toBe(5)
+    expect(herbOnlineTargetOf(0)).toBe(3)
+    expect(herbOnlineTargetOf(0.2)).toBe(3)
+    expect(herbOnlineTargetOf(0.34)).toBe(4)
+    expect(herbOnlineTargetOf(0.7)).toBe(5)
+    expect(herbOnlineTargetOf(0.999999)).toBe(5)
+
+    const save = fresh()
+    expect(save.herbPvp.onlineTarget).toBeGreaterThanOrEqual(3)
+    expect(save.herbPvp.onlineTarget).toBeLessThanOrEqual(5)
+
+    function park(target: number): Save {
+      const next = fresh()
+      next.herbPvp.onlineTarget = target
+      next.herbPvp.targetUntilS = Number.MAX_SAFE_INTEGER
+      for (const rival of next.herbPvp.rivals) {
+        rival.onlineUntilS = null
+        rival.nextOnlineAtS = next.elapsedS + 50_000
+        rival.plotCap = 0
+      }
+      for (const plot of next.herbPvp.plots) {
+        plot.weeder = null
+        plot.workerId = null
+        plot.cleared = false
+        plot.markedRivalId = null
+      }
+      return next
+    }
+
+    const resting = park(5)
+    stepHerbPvp(resting, Date.now())
+    const recalled = resting.herbPvp.rivals.filter((rival) => rival.onlineUntilS != null)
+    expect(recalled).toHaveLength(HERB_PVP_RIVAL_ONLINE_MIN)
+    for (const rival of recalled) {
+      expect(resting.herbPvp.plots.some((plot) => plot.weeder === rival.id)).toBe(true)
+    }
+
+    const capped = park(3)
+    for (const rival of capped.herbPvp.rivals) rival.nextOnlineAtS = 0
+    stepHerbPvp(capped, Date.now())
+    expect(capped.herbPvp.rivals.filter((rival) => rival.onlineUntilS != null)).toHaveLength(3)
+
+    const full = park(5)
+    for (const rival of full.herbPvp.rivals) rival.nextOnlineAtS = 0
+    stepHerbPvp(full, Date.now())
+    stepHerbPvp(full, Date.now())
+    expect(full.herbPvp.rivals.filter((rival) => rival.onlineUntilS != null)).toHaveLength(5)
+
+    const legacy = fresh()
+    legacy.herbPvp.onlineTarget = 0
+    expect(hydrateLoadedSave(JSON.parse(JSON.stringify(legacy)))?.herbPvp.onlineTarget).toBe(3)
+    legacy.herbPvp.onlineTarget = 1
+    expect(hydrateLoadedSave(JSON.parse(JSON.stringify(legacy)))?.herbPvp.onlineTarget).toBe(3)
+    legacy.herbPvp.onlineTarget = 4
+    expect(hydrateLoadedSave(JSON.parse(JSON.stringify(legacy)))?.herbPvp.onlineTarget).toBe(4)
+    legacy.herbPvp.onlineTarget = 9
+    expect(hydrateLoadedSave(JSON.parse(JSON.stringify(legacy)))?.herbPvp.onlineTarget).toBe(5)
   })
 })
 

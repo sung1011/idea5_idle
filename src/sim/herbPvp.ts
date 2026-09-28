@@ -78,7 +78,8 @@ export const HERB_PVP_PRECIOUS_LOW_SCORE = 20
 export const HERB_PVP_PRECIOUS_MID_SCORE = 40
 export const HERB_PVP_PRECIOUS_HIGH_SCORE = 80
 
-/** 同时在线 0～5。每人一次在线 10～30 分钟，占 1～3 块。 */
+/** 同时在线 3～5。少过 3 人就提前把还在休息的人拉上来。每人一次在线 10～30 分钟，占 1～3 块。 */
+export const HERB_PVP_RIVAL_ONLINE_MIN = 3
 export const HERB_PVP_RIVAL_ONLINE_MAX = 5
 export const HERB_PVP_SESSION_MIN_S = 10 * 60
 export const HERB_PVP_SESSION_MAX_S = 30 * 60
@@ -90,7 +91,7 @@ export const HERB_PVP_RIVAL_REST_MIN_S = 2 * 3600
 export const HERB_PVP_RIVAL_REST_MAX_S = 8 * 3600
 /**
  * 玩家正在除草、且有假玩家在线时，平均约 90 分钟才判定一次撞车。
- * 假玩家不是一直在线，落到玩家身上大约是几小时一两次。
+ * 在线人数保持在 3～5，所以玩家在除的时候大致按这个间隔碰到一次。
  */
 export const HERB_PVP_BUMP_MEAN_S = 90 * 60
 
@@ -220,6 +221,13 @@ function nextHerbRoll(state: HerbPvpState): number {
 function intBetween(state: HerbPvpState, min: number, max: number): number {
   const span = Math.max(1, max - min + 1)
   return min + Math.min(span - 1, Math.floor(nextHerbRoll(state) * span))
+}
+
+/** 这一段想同时在线的人数，只在 3、4、5 里。 */
+export function herbOnlineTargetOf(roll: number): number {
+  const span = HERB_PVP_RIVAL_ONLINE_MAX - HERB_PVP_RIVAL_ONLINE_MIN + 1
+  const r = !Number.isFinite(roll) || roll <= 0 ? 0 : roll >= 1 ? 0.999999 : roll
+  return HERB_PVP_RIVAL_ONLINE_MIN + Math.min(span - 1, Math.floor(r * span))
 }
 
 /** 北京时间日期。没有夏令时，固定东八区。 */
@@ -561,14 +569,15 @@ export function createHerbPvp(save: Save, now = Date.now()): HerbPvpState {
     probes: HERB_PVP_START_PROBES,
     probeRev: HERB_PVP_PROBE_REV,
     playerScore: 0,
-    onlineTarget: 0,
+    onlineTarget: HERB_PVP_RIVAL_ONLINE_MIN,
     targetUntilS: save.elapsedS + HERB_PVP_TARGET_REROLL_S,
     lastRewardText: '',
     offline: null,
   }
-  state.onlineTarget = Math.min(HERB_PVP_RIVAL_ONLINE_MAX, Math.floor(nextHerbRoll(state) * (HERB_PVP_RIVAL_ONLINE_MAX + 1)))
+  state.onlineTarget = herbOnlineTargetOf(nextHerbRoll(state))
   state.rivals = createRivals(save, state)
   state.plots = rollPlots(save, state)
+  fillHerbRivalOnline(save, state)
   return state
 }
 
@@ -620,7 +629,7 @@ function tidyState(save: Save, state: HerbPvpState, now: number): void {
   state.staminaAccS = Math.min(HERB_PVP_STAMINA_REGEN_S, clampCount(state.staminaAccS, 0))
   if (state.stamina >= HERB_PVP_STAMINA_MAX) state.staminaAccS = 0
   state.playerScore = clampCount(state.playerScore, 0)
-  state.onlineTarget = Math.min(HERB_PVP_RIVAL_ONLINE_MAX, clampCount(state.onlineTarget, 0))
+  state.onlineTarget = clampOnlineTarget(state.onlineTarget)
   state.targetUntilS = Math.max(0, finite(state.targetUntilS, save.elapsedS))
   state.lastRewardText = typeof state.lastRewardText === 'string' ? state.lastRewardText : ''
   state.offline = null
@@ -1009,10 +1018,38 @@ function startRivalSession(save: Save, state: HerbPvpState, rival: HerbRival): v
   claimPlots(state, rival, rival.plotCap)
 }
 
+function clampOnlineTarget(value: unknown): number {
+  const n = Math.floor(finite(value, HERB_PVP_RIVAL_ONLINE_MIN))
+  if (n < HERB_PVP_RIVAL_ONLINE_MIN) return HERB_PVP_RIVAL_ONLINE_MIN
+  return Math.min(HERB_PVP_RIVAL_ONLINE_MAX, n)
+}
+
+/** 补到目标人数，但不超过 5。目标在 3～5 且还不满 3 人时，休息没结束也拉上来。 */
+function fillHerbRivalOnline(save: Save, state: HerbPvpState): void {
+  const stored = Math.max(0, Math.floor(finite(state.onlineTarget, 0)))
+  const target = Math.min(HERB_PVP_RIVAL_ONLINE_MAX, stored)
+  const enforceFloor = stored >= HERB_PVP_RIVAL_ONLINE_MIN
+  const elapsed = save.elapsedS
+  for (let n = 0; n < state.rivals.length; n += 1) {
+    const online = state.rivals.filter((rival) => rival.onlineUntilS != null).length
+    if (online >= target) return
+    const offline = state.rivals.filter((rival) => rival.onlineUntilS == null)
+    const ready = offline.filter((rival) => rival.nextOnlineAtS <= elapsed)
+    let pool = ready
+    if (!pool.length && enforceFloor && online < HERB_PVP_RIVAL_ONLINE_MIN) {
+      pool = offline.slice().sort((a, b) => a.nextOnlineAtS - b.nextOnlineAtS).slice(0, 1)
+    }
+    if (!pool.length) return
+    const rival = pool[Math.min(pool.length - 1, Math.floor(nextHerbRoll(state) * pool.length))]
+    if (!rival) return
+    startRivalSession(save, state, rival)
+  }
+}
+
 function stepRivals(save: Save, state: HerbPvpState): void {
   const elapsed = save.elapsedS
   if (elapsed >= state.targetUntilS) {
-    state.onlineTarget = Math.floor(nextHerbRoll(state) * (HERB_PVP_RIVAL_ONLINE_MAX + 1))
+    state.onlineTarget = herbOnlineTargetOf(nextHerbRoll(state))
     state.targetUntilS = elapsed + HERB_PVP_TARGET_REROLL_S
   }
   for (const rival of state.rivals) {
@@ -1024,12 +1061,7 @@ function stepRivals(save: Save, state: HerbPvpState): void {
     }
     if (elapsed < rival.onlineUntilS && held.length < rival.plotCap) claimPlots(state, rival, rival.plotCap - held.length)
   }
-  const online = state.rivals.filter((rival) => rival.onlineUntilS != null).length
-  if (online >= Math.min(HERB_PVP_RIVAL_ONLINE_MAX, state.onlineTarget)) return
-  const ready = state.rivals.filter((rival) => rival.onlineUntilS == null && rival.nextOnlineAtS <= elapsed)
-  if (!ready.length) return
-  const rival = ready[Math.min(ready.length - 1, Math.floor(nextHerbRoll(state) * ready.length))]
-  if (rival) startRivalSession(save, state, rival)
+  fillHerbRivalOnline(save, state)
 }
 
 function maybeBump(save: Save, state: HerbPvpState, offline: boolean): void {

@@ -696,7 +696,7 @@ export type HerbPvpState = {
    */
   probeRev: number
   playerScore: number
-  /** 这一段希望同时在线的假玩家，0～5。 */
+  /** 这一段希望同时在线的假玩家，3～5。 */
   onlineTarget: number
   targetUntilS: number
   /** 最近一次日结发给玩家的奖励文案。没有是空串。 */
