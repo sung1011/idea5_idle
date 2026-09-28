@@ -578,8 +578,9 @@ describe('herb probes', () => {
     expect(save.herbPvp.plots[4]!.revealed).toBe(false)
   })
 
-  it('sums the three old probe counts once and keeps the save key', () => {
+  it('drops the three old probe stacks and sets the new one to 3 once', () => {
     expect(SAVE_KEY).toBe('idea5Idle')
+    expect(HERB_PVP_PROBE_REV).toBe(2)
     type Legacy = Omit<HerbPvpState, 'probes' | 'probeRev'> & {
       probe1?: number
       probe2?: number
@@ -600,34 +601,39 @@ describe('herb probes', () => {
     eachRaw.probe1 = 1
     eachRaw.probe2 = 1
     eachRaw.probe4 = 1
-    const merged = hydrateLoadedSave(JSON.parse(JSON.stringify(each)))
-    expect(merged?.herbPvp.probes).toBe(3)
-    expect(merged?.herbPvp.probeRev).toBe(HERB_PVP_PROBE_REV)
-    expect(merged?.herbPvp).not.toHaveProperty('probe1')
-    expect(merged?.herbPvp).not.toHaveProperty('probe2')
-    expect(merged?.herbPvp).not.toHaveProperty('probe4')
-    const again = hydrateLoadedSave(JSON.parse(JSON.stringify(merged)))
+    const reset = hydrateLoadedSave(JSON.parse(JSON.stringify(each)))
+    expect(reset?.herbPvp.probes).toBe(3)
+    expect(reset?.herbPvp.probeRev).toBe(HERB_PVP_PROBE_REV)
+    expect(reset?.herbPvp).not.toHaveProperty('probe1')
+    expect(reset?.herbPvp).not.toHaveProperty('probe2')
+    expect(reset?.herbPvp).not.toHaveProperty('probe4')
+    const again = hydrateLoadedSave(JSON.parse(JSON.stringify(reset)))
     expect(again?.herbPvp.probes).toBe(3)
 
     const mixed = fresh()
     const mixedRaw = strip(mixed)
+    mixedRaw.probes = 9
     mixedRaw.probe1 = 2
     mixedRaw.probe2 = 0
     mixedRaw.probe4 = 3
-    expect(hydrateLoadedSave(JSON.parse(JSON.stringify(mixed)))?.herbPvp.probes).toBe(5)
+    expect(hydrateLoadedSave(JSON.parse(JSON.stringify(mixed)))?.herbPvp.probes).toBe(3)
 
-    const zeros = fresh()
-    const zeroRaw = strip(zeros)
-    zeroRaw.probe1 = 0
-    zeroRaw.probe2 = 0
-    zeroRaw.probe4 = 0
-    expect(hydrateLoadedSave(JSON.parse(JSON.stringify(zeros)))?.herbPvp.probes).toBe(0)
+    const summed = fresh()
+    summed.herbPvp.probes = 8
+    summed.herbPvp.probeRev = 1
+    ;(summed.herbPvp as Legacy).probe1 = 4
+    const corrected = hydrateLoadedSave(JSON.parse(JSON.stringify(summed)))
+    expect(corrected?.herbPvp.probes).toBe(3)
+    expect(corrected?.herbPvp).not.toHaveProperty('probe1')
+    const stayed = hydrateLoadedSave(JSON.parse(JSON.stringify(corrected)))
+    expect(stayed?.herbPvp.probes).toBe(3)
 
     const done = fresh()
     done.herbPvp.probes = 5
     ;(done.herbPvp as Legacy).probe1 = 9
     const kept = hydrateLoadedSave(JSON.parse(JSON.stringify(done)))
     expect(kept?.herbPvp.probes).toBe(5)
+    expect(kept?.herbPvp.probeRev).toBe(HERB_PVP_PROBE_REV)
     expect(kept?.herbPvp).not.toHaveProperty('probe1')
   })
 })

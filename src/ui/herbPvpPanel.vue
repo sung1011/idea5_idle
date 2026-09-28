@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { restCombatCandidates } from '../sim/combat'
 import {
   HERB_PVP_COUNTER_RULE,
@@ -22,6 +22,7 @@ import type { HerbPlot, Worker } from '../sim/types'
 import { isFullWorkshopHp } from '../sim/workshopHp'
 import CombatAttrIcon from './combatAttrIcon.vue'
 import CombatPickSheet from './combatPickSheet.vue'
+import { herbProbeAimAfterPlot, herbProbeAimOnOutside, nextHerbProbeAim } from './herbProbeAim'
 import { pushFloatTip } from './floatTips'
 import PlayerAvatar from './playerAvatar.vue'
 import { useGameStore } from './gameStore'
@@ -29,6 +30,8 @@ import { useGameStore } from './gameStore'
 const game = useGameStore()
 const aiming = ref(false)
 const aimIndex = ref<number | null>(null)
+const gridEl = ref<HTMLElement | null>(null)
+const probeEl = ref<HTMLElement | null>(null)
 const pickIndex = ref<number | null>(null)
 const picked = ref<string[]>([])
 const hud = computed(() => herbHud(game.save, Date.now()))
@@ -40,19 +43,23 @@ const aimSet = computed(() =>
   aiming.value && aimIndex.value != null ? new Set(herbProbeCells(aimIndex.value)) : new Set<number>(),
 )
 
-function stopAim() {
-  aiming.value = false
+function toggleAim() {
+  aiming.value = nextHerbProbeAim(aiming.value, hud.value.probes)
+  if (!aiming.value) aimIndex.value = null
+}
+
+function onWindowPointerDown(ev: PointerEvent) {
+  if (!aiming.value) return
+  const target = ev.target
+  if (!(target instanceof Node)) return
+  if (gridEl.value?.contains(target)) return
+  if (probeEl.value?.contains(target)) return
+  aiming.value = herbProbeAimOnOutside(aiming.value)
   aimIndex.value = null
 }
 
-function toggleAim() {
-  if (hud.value.probes < 1) {
-    stopAim()
-    return
-  }
-  aiming.value = !aiming.value
-  if (!aiming.value) aimIndex.value = null
-}
+onMounted(() => window.addEventListener('pointerdown', onWindowPointerDown, true))
+onBeforeUnmount(() => window.removeEventListener('pointerdown', onWindowPointerDown, true))
 
 function previewAim(index: number) {
   if (!aiming.value) return
@@ -63,8 +70,9 @@ function onPlot(index: number) {
   const plot = plots.value[index]
   if (!plot) return
   if (aiming.value) {
-    game.useHerbProbe(index)
-    if (hud.value.probes < 1) stopAim()
+    const result = game.useHerbProbe(index)
+    aiming.value = herbProbeAimAfterPlot(aiming.value, result.ok)
+    if (!aiming.value) aimIndex.value = null
     return
   }
   if (plot.cleared) {
@@ -151,7 +159,7 @@ function rowKey(row: { id: string; rank: number }): string {
     </p>
     <p class="meta">第 {{ hud.rank }} 名 · {{ hud.score }} 分 · 日结 {{ formatHerbDuration(hud.dayRemainS) }}</p>
     <p v-if="hud.lastRewardText" class="reward">上次日结 {{ hud.lastRewardText }}</p>
-    <div class="probes">
+    <div ref="probeEl" class="probes">
       <button type="button" :class="{ on: aiming }" :disabled="hud.probes < 1" @click="toggleAim">
         侦测 {{ hud.probes }}
       </button>
@@ -159,11 +167,11 @@ function rowKey(row: { id: string; rank: number }): string {
     <p class="hint">
       {{
         aiming
-          ? '点一块未除的地，揭开以它为中心的 3×3'
+          ? '点一块地，揭开以它为中心的 3×3。再点侦测或点地图外可取消'
           : `点杂草，派满血苦工。${HERB_PVP_COUNTER_RULE}。撞上人只有打死才扣体力`
       }}
     </p>
-    <div class="grid" role="grid" aria-label="割草地图" @pointerleave="aimIndex = null">
+    <div ref="gridEl" class="grid" role="grid" aria-label="割草地图" @pointerleave="aimIndex = null">
       <button
         v-for="plot in plots"
         :key="plot.index"

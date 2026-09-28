@@ -685,8 +685,8 @@ export type HerbPvpState = {
   /** 侦测个数。点一块地揭开以它为中心的 3×3。 */
   probes: number
   /**
-   * 侦测合并刻度。1 = 已把旧的 1 格 / 2 格 / 4 格按个数相加成 `probes`。
-   * 缺或更小的棋盘只迁一次。
+   * 侦测刻度。2 = 旧的 1 格 / 2 格 / 4 格已清掉，个数定为开局的 3 个。
+   * 缺或更小的棋盘只迁一次，不按旧个数相加。
    */
   probeRev: number
   playerScore: number
@@ -821,7 +821,7 @@ export type Save = {
    * 割草。玩家与 49 个假玩家一组，8×8 除草。工坊采药站不走这里。
    * 旧档缺整段 hydrate 出满体力（100）、侦测 3 个、空分数的新局。
    * 已有棋盘按 `staminaRev` 迁一次体力，不重开地图。
-   * 旧的三种侦测按个数相加成一种，记在 `probeRev`，只迁一次。
+   * 旧的三种侦测直接清掉，新侦测定为 3 个，记在 `probeRev`，只迁一次。
    */
   herbPvp: HerbPvpState
 }

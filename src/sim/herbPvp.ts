@@ -68,8 +68,8 @@ export const HERB_PVP_PRECIOUS_P = 0.15
 export const HERB_PVP_PROBE_P = 0.1
 /** 开局赠送的侦测个数。 */
 export const HERB_PVP_START_PROBES = 3
-/** 1 = 旧的 1/2/4 格侦测已按个数合并。 */
-export const HERB_PVP_PROBE_REV = 1
+/** 2 = 旧的 1/2/4 格已清掉，侦测个数定为开局的 3 个。只迁一次，不按旧个数相加。 */
+export const HERB_PVP_PROBE_REV = 2
 export const HERB_PVP_COMMON_QTY_MIN = 1
 export const HERB_PVP_COMMON_QTY_MAX = 3
 export const HERB_PVP_PRECIOUS_LOW_P = 0.6
@@ -514,32 +514,19 @@ type LegacyProbeState = HerbPvpState & {
   probe4?: unknown
 }
 
-function legacyProbeCount(value: unknown): number {
-  return Math.max(0, finite(value, 0))
-}
-
-/** 旧的三种侦测按个数相加。已经迁过的不再加。 */
+/** 旧的三种侦测直接丢掉，个数定为开局的 3 个。已经迁过的不再改。 */
 function migrateHerbProbes(state: HerbPvpState): void {
   const raw = state as LegacyProbeState
-  if (finite(raw.probeRev, 0) >= HERB_PVP_PROBE_REV) {
-    state.probes = clampCount(raw.probes, 0)
-    state.probeRev = HERB_PVP_PROBE_REV
-    delete raw.probe1
-    delete raw.probe2
-    delete raw.probe4
-    return
-  }
-  const hasLegacy = raw.probe1 != null || raw.probe2 != null || raw.probe4 != null
-  const hasNew = typeof raw.probes === 'number' && Number.isFinite(raw.probes)
-  state.probes = hasLegacy
-    ? legacyProbeCount(raw.probe1) + legacyProbeCount(raw.probe2) + legacyProbeCount(raw.probe4)
-    : hasNew
-      ? legacyProbeCount(raw.probes)
-      : HERB_PVP_START_PROBES
-  state.probeRev = HERB_PVP_PROBE_REV
   delete raw.probe1
   delete raw.probe2
   delete raw.probe4
+  if (finite(raw.probeRev, 0) >= HERB_PVP_PROBE_REV) {
+    state.probes = clampCount(raw.probes, 0)
+    state.probeRev = HERB_PVP_PROBE_REV
+    return
+  }
+  state.probes = HERB_PVP_START_PROBES
+  state.probeRev = HERB_PVP_PROBE_REV
 }
 
 function tidyState(save: Save, state: HerbPvpState, now: number): void {
