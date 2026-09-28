@@ -35,6 +35,7 @@ const props = withDefaults(
     slotOffset?: number
     titleText?: string
     confirmText?: string
+    noteText?: string
     recommendLabel?: (worker: Worker) => string | null
     canPick?: (worker: Worker) => boolean
   }>(),
@@ -48,6 +49,7 @@ const props = withDefaults(
     slotOffset: 0,
     titleText: '',
     confirmText: '',
+    noteText: '',
   },
 )
 
@@ -150,6 +152,7 @@ function closeAll() {
     <div class="sheet">
       <p>{{ sheetTitle }}（最多 {{ max }} 人）</p>
       <p class="hint">{{ hint }}</p>
+      <p v-if="noteText" class="hint">{{ noteText }}</p>
       <ul class="pick-list">
         <li v-for="w in candidates" :key="w.id" class="pick-row">
           <button
@@ -167,9 +170,11 @@ function closeAll() {
               <CombatAttrRow class="pick-attrs" :attrs="w.combatAttrs" />
               <b class="pick-worker-name" :style="workerQualityNameStyle(w)">{{ pickWorkerName(w) }}</b>
               <span class="pick-meta">· Lv{{ w.level }}</span>
-              <i v-if="recommend(w) && canPickWorker(w)" class="pick-rec" :class="{ hot: recommend(w) === '强烈推荐' }">{{
-                recommend(w)
-              }}</i>
+              <i
+                v-if="recommend(w) && (canPickWorker(w) || recommend(w) === '克制')"
+                class="pick-rec"
+                :class="{ hot: recommend(w) === '强烈推荐' }"
+              >{{ recommend(w) }}</i>
             </span>
           </button>
           <span v-if="showRunes" class="act-hit rune-slot-hit" @click="onRuneSlotTap(w, $event)">

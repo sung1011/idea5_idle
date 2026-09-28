@@ -1,3 +1,5 @@
+import { HERB_PVP_COUNTER_RULE } from '../sim/herbPvp'
+
 export type ModeHelpId = 'treasure' | 'herb' | 'banner' | 'battlefield' | 'dungeon' | 'market'
 
 export type ModeHelpRow = {
@@ -37,15 +39,15 @@ export const MODE_HELP: Record<ModeHelpId, ModeHelp> = {
     rows: [
       {
         label: '怎么玩',
-        text: '8×8 全是杂草。从休息区派满血苦工，一块 3 分钟，同时最多 3 块。体力 100，除草花 10，3 分钟回 1。',
+        text: '8×8 全是杂草，每块有一个弱点。从休息区派满血苦工，不克制 3 分钟、花 10 体力，同时最多 3 块。体力 100，3 分钟回 1。',
       },
       {
         label: '规则要点',
-        text: '地下是荒芜、草药、珍贵草药或侦测。珍贵草药立刻记分。北京时间 0 点按名次发砂金、珠宝、荣誉徽记和侦测。开局三种侦测各 1 个。',
+        text: `地下是荒芜、草药、珍贵草药或侦测。${HERB_PVP_COUNTER_RULE}。珍贵草药立刻记分。北京时间 0 点按名次发砂金、珠宝、荣誉徽记和侦测。开局三种侦测各 1 个。`,
       },
       {
         label: '注意',
-        text: '撞上正在除的人，双方各打一下。打死才接着除并花 10 体力，没打死回休息且不扣。对方来撞不改体力。体力不够 10 仍可用侦测。',
+        text: '撞上正在除的人，双方各打一下，不吃弱点。打死才接着除，按接手苦工扣 7 或 10 体力；已割比例留下，剩余按新人时长重算。没打死回休息且不扣。对方来撞不改体力。体力不够这次要扣的仍可用侦测。',
       },
     ],
   },

@@ -1,5 +1,5 @@
 import { addToBank } from './bank'
-import { hashString, isCombatAttrId, matchingWeaknesses, pickEnemyWeaknesses } from './combatAttrs'
+import { hashString, isCombatAttrId, matchingWeaknesses, pickEnemyWeaknesses, workerMatchesWeakness } from './combatAttrs'
 import { PLAYER_AVATAR_DEFAULT, PLAYER_AVATAR_IDS, type PlayerAvatarId } from './playerAvatarIds'
 import { ITEM_DEF } from './tables'
 import { applyDownedReturn, isFullCombatHp, workerLiveStats } from './combat'
@@ -540,12 +540,12 @@ export function mineDigIntervalS(level: number, matchesWeakness = false): number
   return Math.max(1, TREASURE_DIG_BASE_S - bonus - weak)
 }
 
-/** 与战场相同：工人属性命中矿洞弱点表才算吃到。多条命中也只快 1 秒。 */
+/** 与战场相同：工人属性命中矿洞弱点表才算吃到。多条命中也只快 1 秒。判定走共用的 workerMatchesWeakness。 */
 export function workerMatchesMineWeakness(
   attrs: readonly CombatAttrId[] | undefined,
   weaknesses: readonly CombatAttrId[] | undefined,
 ): boolean {
-  return matchingWeaknesses(attrs ?? [], weaknesses ?? []).length > 0
+  return workerMatchesWeakness(attrs, weaknesses)
 }
 
 export function mineRemainS(mine: TreasureMine, elapsedS: number): number {

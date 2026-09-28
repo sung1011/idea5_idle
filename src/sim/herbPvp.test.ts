@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { assignWorker, restingWorkers } from './assign'
 import { itemQty } from './bank'
 import { combatPartyBlockReason } from './combat'
+import { COMBAT_ATTR_IDS, rollCombatWeakness, scaledAttackDamage, workerMatchesWeakness } from './combatAttrs'
 import { createSave } from './createSave'
 import {
+  HERB_PVP_COUNTER_RULE,
   HERB_PVP_PLAYER_CAP,
   HERB_PVP_PLOT_COUNT,
   HERB_PVP_RANK_REWARDS,
@@ -13,6 +15,8 @@ import {
   HERB_PVP_STAMINA_REGEN_S,
   HERB_PVP_STAMINA_REV,
   HERB_PVP_WEED_COST,
+  HERB_PVP_WEED_FAST_COST,
+  HERB_PVP_WEED_FAST_S,
   HERB_PVP_WEED_S,
   applyHerbRivalBump,
   beginHerbOfflineReport,
@@ -20,11 +24,19 @@ import {
   classifyHerbRoll,
   finishHerbOfflineReport,
   herbCommonQty,
+  herbCounterMark,
   herbPlayerRank,
+  herbPlotShowsWeakness,
   herbPreciousOf,
   herbProbeCells,
   herbRankReward,
+  herbStrikeDamage,
+  herbWeedCost,
+  herbWeedSeconds,
+  herbWorkerCounters,
   hydrateHerbPvp,
+  inheritHerbProgress,
+  orderHerbPick,
   setHerbRollOverride,
   startHerbWeed,
   stepHerbPvp,
@@ -32,10 +44,10 @@ import {
   useHerbProbe,
 } from './herbPvp'
 import { PLAYER_AVATAR_IDS } from './playerAvatarIds'
-import { spawnWorker } from './recruit'
-import { SNAPSHOT_PLAYER_NAMES, vaultQty } from './treasureMine'
-import type { HerbPvpState, Save } from './types'
-import { hydrateLoadedSave } from '../ui/saveGame'
+import { spawnWorker, spawnWorkerWith } from './recruit'
+import { SNAPSHOT_PLAYER_NAMES, vaultQty, workerMatchesMineWeakness } from './treasureMine'
+import type { CombatAttrId, HerbPlot, HerbPvpState, Save } from './types'
+import { SAVE_KEY, hydrateLoadedSave } from '../ui/saveGame'
 
 afterEach(() => {
   setHerbRollOverride(null)
@@ -360,6 +372,9 @@ describe('herb pvp clashes', () => {
     const plot = save.herbPvp.plots[4]!
     plot.workerId = worker.id
     plot.progressS = 40
+    plot.weakness = 'dark'
+    plot.durationS = HERB_PVP_WEED_S
+    rival.combatAttrs = ['sword']
     rival.hp = 500
     rival.atk = 9999
     rival.onlineUntilS = null
@@ -540,5 +555,305 @@ describe('herb pvp day and offline', () => {
     expect(replaced?.herbPvp.plots).toHaveLength(64)
     expect(replaced?.herbPvp.dayKey).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(vaultQty(replaced!, 'sandGold')).toBe(0)
+  })
+})
+
+describe('herb plot weakness', () => {
+  it('rolls one shared weakness per plot and rerolls the whole map', () => {
+    const save = fresh()
+    quiet(save)
+    expect(HERB_PVP_COUNTER_RULE).toBe('苦工克制这块地的弱点：割草 2 分钟、只扣 7 点体力')
+    expect(save.herbPvp.plots).toHaveLength(64)
+    const seen = new Set(save.herbPvp.plots.map((plot) => plot.weakness))
+    expect(seen.size).toBeGreaterThan(1)
+    for (const plot of save.herbPvp.plots) {
+      expect(COMBAT_ATTR_IDS).toContain(plot.weakness)
+      expect(herbPlotShowsWeakness(plot)).toBe(true)
+    }
+    expect(rollCombatWeakness(0)).toBe(COMBAT_ATTR_IDS[0])
+    expect(rollCombatWeakness(0.999)).toBe(COMBAT_ATTR_IDS[COMBAT_ATTR_IDS.length - 1])
+
+    for (const plot of save.herbPvp.plots) {
+      plot.cleared = true
+      plot.workerId = null
+      plot.weeder = null
+    }
+    setHerbRollOverride(() => 0)
+    stepHerbPvp(save, Date.now())
+    expect(save.herbPvp.plots.every((plot) => plot.weakness === 'sword' && plot.kind === 'barren' && !plot.cleared)).toBe(true)
+    const hidden = save.herbPvp.plots[0]!
+    expect(herbPlotShowsWeakness(hidden)).toBe(true)
+    hidden.revealed = true
+    expect(herbPlotShowsWeakness(hidden)).toBe(false)
+    hidden.revealed = false
+    hidden.cleared = true
+    expect(herbPlotShowsWeakness(hidden)).toBe(false)
+
+    for (const plot of save.herbPvp.plots) {
+      plot.cleared = true
+      plot.revealed = false
+      plot.workerId = null
+      plot.weeder = null
+    }
+    setHerbRollOverride(() => 0.999)
+    stepHerbPvp(save, Date.now())
+    expect(save.herbPvp.plots.every((plot) => plot.weakness === 'dark' && !plot.cleared)).toBe(true)
+    const open = save.herbPvp.plots[1]!
+    open.kind = 'common'
+    open.revealed = true
+    expect(herbPlotShowsWeakness(open)).toBe(true)
+  })
+
+  it('uses the same counter check as a mine weakness', () => {
+    const samples: Array<[CombatAttrId[] | undefined, CombatAttrId[] | undefined]> = [
+      [undefined, undefined],
+      [[], []],
+      [['fire'], ['fire']],
+      [['fire', 'fire'], ['fire']],
+      [['sword', 'fire'], ['ice', 'fire']],
+      [['sword'], ['fire', 'ice']],
+      [undefined, ['fire']],
+    ]
+    for (const [attrs, weak] of samples) {
+      expect(workerMatchesMineWeakness(attrs, weak)).toBe(workerMatchesWeakness(attrs, weak))
+      expect(herbWorkerCounters(attrs, weak?.[0])).toBe(workerMatchesWeakness(attrs, weak?.[0] ? [weak[0]] : []))
+    }
+    expect(herbWeedSeconds(true)).toBe(HERB_PVP_WEED_FAST_S)
+    expect(herbWeedSeconds(false)).toBe(HERB_PVP_WEED_S)
+    expect(herbWeedCost(true)).toBe(HERB_PVP_WEED_FAST_COST)
+    expect(herbWeedCost(false)).toBe(HERB_PVP_WEED_COST)
+    expect(herbStrikeDamage(12)).toBe(scaledAttackDamage(12, 1))
+  })
+
+  it('keeps finished ratio and rescales the remainder onto the new duration', () => {
+    expect(inheritHerbProgress(90, HERB_PVP_WEED_S, HERB_PVP_WEED_FAST_S)).toBe(60)
+    expect(HERB_PVP_WEED_FAST_S - inheritHerbProgress(90, HERB_PVP_WEED_S, HERB_PVP_WEED_FAST_S)).toBe(60)
+    expect(inheritHerbProgress(60, HERB_PVP_WEED_FAST_S, HERB_PVP_WEED_S)).toBe(90)
+    expect(HERB_PVP_WEED_S - inheritHerbProgress(60, HERB_PVP_WEED_FAST_S, HERB_PVP_WEED_S)).toBe(90)
+    expect(inheritHerbProgress(50, HERB_PVP_WEED_S, HERB_PVP_WEED_S)).toBe(50)
+  })
+
+  it('weeds in two minutes for 7 stamina when the worker counters, else three minutes for 10', () => {
+    const save = fresh()
+    quiet(save)
+    const fast = spawnWorkerWith(save, 2, 'herbalist', ['fire'])
+    const plot = save.herbPvp.plots[0]!
+    plot.kind = 'common'
+    plot.payload = 'herb'
+    plot.qty = 2
+    plot.weakness = 'fire'
+    const started = startHerbWeed(save, 0, fast.id)
+    expect(started.ok).toBe(true)
+    if (started.ok) expect(started.message).toContain('花 7 体力')
+    expect(save.herbPvp.stamina).toBe(HERB_PVP_STAMINA_MAX - HERB_PVP_WEED_FAST_COST)
+    expect(plot.durationS).toBe(HERB_PVP_WEED_FAST_S)
+    plot.progressS = HERB_PVP_WEED_FAST_S - 1
+    stepHerbPvp(save, Date.now())
+    expect(plot.cleared).toBe(true)
+    expect(itemQty(save, 'herb')).toBe(2)
+
+    const slow = spawnWorkerWith(save, 2, 'herbalist', ['sword'])
+    const other = save.herbPvp.plots[1]!
+    other.kind = 'common'
+    other.payload = 'herb'
+    other.qty = 2
+    other.weakness = 'fire'
+    save.herbPvp.stamina = HERB_PVP_WEED_FAST_COST
+    expect(startHerbWeed(save, 1, slow.id)).toEqual({ ok: false, reason: '体力不足' })
+    save.herbPvp.stamina = HERB_PVP_WEED_COST
+    const slowStart = startHerbWeed(save, 1, slow.id)
+    expect(slowStart.ok).toBe(true)
+    if (slowStart.ok) expect(slowStart.message).toContain('花 10 体力')
+    expect(other.durationS).toBe(HERB_PVP_WEED_S)
+    expect(save.herbPvp.stamina).toBe(0)
+    other.progressS = HERB_PVP_WEED_FAST_S
+    stepHerbPvp(save, Date.now())
+    expect(other.cleared).toBe(false)
+    expect(other.progressS).toBe(HERB_PVP_WEED_FAST_S + 1)
+    other.progressS = HERB_PVP_WEED_S - 1
+    stepHerbPvp(save, Date.now())
+    expect(other.cleared).toBe(true)
+    expect(itemQty(save, 'herb')).toBe(4)
+
+    const again = spawnWorkerWith(save, 2, 'herbalist', ['fire'])
+    const gated = save.herbPvp.plots[2]!
+    gated.weakness = 'fire'
+    save.herbPvp.stamina = HERB_PVP_WEED_FAST_COST - 1
+    expect(startHerbWeed(save, 2, again.id)).toEqual({ ok: false, reason: '体力不足' })
+    save.herbPvp.stamina = HERB_PVP_WEED_FAST_COST
+    expect(startHerbWeed(save, 2, again.id).ok).toBe(true)
+    expect(save.herbPvp.stamina).toBe(0)
+  })
+
+  it('charges 7 or 10 on a successful steal and rescales inherited progress', () => {
+    const save = fresh()
+    quiet(save)
+    const fast = spawnWorkerWith(save, 2, 'herbalist', ['fire'])
+    const rival = save.herbPvp.rivals[0]!
+    rival.hp = 1
+    rival.atk = 1
+    rival.combatAttrs = ['sword']
+    const plot = save.herbPvp.plots[0]!
+    plot.weakness = 'fire'
+    plot.weeder = rival.id
+    plot.durationS = HERB_PVP_WEED_S
+    plot.progressS = 90
+    const taken = startHerbWeed(save, 0, fast.id)
+    expect(taken.ok).toBe(true)
+    if (taken.ok) expect(taken.message).toContain('花 7 体力')
+    expect(save.herbPvp.stamina).toBe(HERB_PVP_STAMINA_MAX - 7)
+    expect(plot.workerId).toBe(fast.id)
+    expect(plot.durationS).toBe(HERB_PVP_WEED_FAST_S)
+    expect(plot.progressS).toBe(60)
+
+    const slow = spawnWorkerWith(save, 2, 'herbalist', ['sword'])
+    const rival2 = save.herbPvp.rivals[1]!
+    rival2.hp = 1
+    rival2.atk = 1
+    const kept = save.herbPvp.plots[1]!
+    kept.weakness = 'fire'
+    kept.weeder = rival2.id
+    kept.durationS = HERB_PVP_WEED_FAST_S
+    kept.progressS = 60
+    const before = save.herbPvp.stamina
+    const plain = startHerbWeed(save, 1, slow.id)
+    expect(plain.ok).toBe(true)
+    if (plain.ok) expect(plain.message).toContain('花 10 体力')
+    expect(save.herbPvp.stamina).toBe(before - 10)
+    expect(kept.durationS).toBe(HERB_PVP_WEED_S)
+    expect(kept.progressS).toBe(90)
+
+    const holder = spawnWorkerWith(save, 2, 'herbalist', ['ice'])
+    const thief = save.herbPvp.rivals[2]!
+    const lost = save.herbPvp.plots[2]!
+    lost.workerId = holder.id
+    lost.weakness = 'fire'
+    lost.durationS = HERB_PVP_WEED_S
+    lost.progressS = 90
+    thief.combatAttrs = ['fire']
+    thief.hp = 500
+    thief.atk = 9999
+    thief.onlineUntilS = null
+    const stamina = save.herbPvp.stamina
+    expect(applyHerbRivalBump(save, 2, thief.id).ok).toBe(true)
+    expect(lost.workerId).toBeNull()
+    expect(lost.weeder).toBe(thief.id)
+    expect(lost.durationS).toBe(HERB_PVP_WEED_FAST_S)
+    expect(lost.progressS).toBe(60)
+    expect(save.herbPvp.stamina).toBe(stamina)
+  })
+
+  it('does not change clash damage when the worker counters the plot', () => {
+    function wound(attrs: CombatAttrId[]): number {
+      const save = fresh()
+      quiet(save)
+      const worker = spawnWorkerWith(save, 5, 'herbalist', attrs)
+      const rival = save.herbPvp.rivals[0]!
+      const plot = save.herbPvp.plots[0]!
+      plot.weakness = 'fire'
+      plot.weeder = rival.id
+      plot.durationS = HERB_PVP_WEED_S
+      rival.hp = 500
+      rival.atk = 1
+      rival.combatAttrs = ['ice']
+      startHerbWeed(save, 0, worker.id)
+      return 500 - rival.hp
+    }
+    expect(wound(['fire', 'sword'])).toBe(wound(['ice', 'bow']))
+    expect(wound(['fire', 'sword'])).toBeGreaterThan(0)
+  })
+
+  it('lets a countering rival finish in two minutes', () => {
+    const save = fresh()
+    quiet(save)
+    save.elapsedS = 5_000
+    save.herbPvp.onlineTarget = 1
+    save.herbPvp.targetUntilS = Number.MAX_SAFE_INTEGER
+    const rival = save.herbPvp.rivals[0]!
+    for (const row of save.herbPvp.rivals) {
+      row.onlineUntilS = null
+      row.nextOnlineAtS = Number.MAX_SAFE_INTEGER
+      row.combatAttrs = ['sword']
+    }
+    rival.nextOnlineAtS = 0
+    rival.combatAttrs = ['fire']
+    for (const plot of save.herbPvp.plots) {
+      plot.cleared = false
+      plot.weeder = null
+      plot.workerId = null
+      plot.weakness = 'fire'
+      plot.progressS = 0
+      plot.durationS = 0
+      plot.kind = 'barren'
+    }
+    const stamina = save.herbPvp.stamina
+    stepHerbPvp(save, Date.now())
+    const held = save.herbPvp.plots.filter((plot) => plot.weeder === rival.id)
+    expect(held.length).toBeGreaterThanOrEqual(1)
+    expect(held.every((plot) => plot.durationS === HERB_PVP_WEED_FAST_S && plot.progressS === 0)).toBe(true)
+    expect(save.herbPvp.stamina).toBe(stamina)
+    const plot = held[0]!
+    plot.progressS = HERB_PVP_WEED_FAST_S - 1
+    stepHerbPvp(save, Date.now())
+    expect(plot.cleared).toBe(true)
+
+    const slow = save.herbPvp.rivals[1]!
+    slow.nextOnlineAtS = 0
+    slow.combatAttrs = ['sword']
+    slow.onlineUntilS = null
+    save.herbPvp.onlineTarget = 2
+    for (const row of save.herbPvp.plots) {
+      if (row.weeder || row.workerId) continue
+      row.weakness = 'fire'
+      row.cleared = false
+    }
+    stepHerbPvp(save, Date.now())
+    const slowHeld = save.herbPvp.plots.filter((plot) => plot.weeder === slow.id)
+    expect(slowHeld.length).toBeGreaterThanOrEqual(1)
+    expect(slowHeld.every((plot) => plot.durationS === HERB_PVP_WEED_S)).toBe(true)
+  })
+
+  it('fills old plots with a weakness without moving an in-progress end', () => {
+    expect(SAVE_KEY).toBe('idea5Idle')
+    const save = fresh()
+    quiet(save)
+    const worker = spawnWorkerWith(save, 5, 'herbalist', ['fire'])
+    const plot = save.herbPvp.plots[3]!
+    plot.workerId = worker.id
+    plot.progressS = 40
+    plot.weakness = undefined as unknown as HerbPlot['weakness']
+    plot.durationS = undefined as unknown as number
+    const rival = save.herbPvp.rivals[4]!
+    rival.combatAttrs = undefined as unknown as CombatAttrId[]
+    const dumped = JSON.parse(JSON.stringify(save)) as Save
+    const kept = hydrateLoadedSave(dumped)
+    const again = kept?.herbPvp.plots[3]
+    expect(again?.workerId).toBe(worker.id)
+    expect(again?.progressS).toBe(40)
+    expect(again?.durationS).toBe(HERB_PVP_WEED_S)
+    expect(HERB_PVP_WEED_S - (again?.progressS ?? 0)).toBe(HERB_PVP_WEED_S - 40)
+    expect(COMBAT_ATTR_IDS).toContain(again?.weakness)
+    expect(kept?.herbPvp.plots.every((row) => COMBAT_ATTR_IDS.includes(row.weakness))).toBe(true)
+    expect(kept?.herbPvp.rivals[4]?.combatAttrs.length).toBe(2)
+    const weak = again?.weakness
+    const twice = hydrateLoadedSave(JSON.parse(JSON.stringify(kept)))
+    expect(twice?.herbPvp.plots[3]?.weakness).toBe(weak)
+    expect(twice?.herbPvp.plots[3]?.progressS).toBe(40)
+    expect(twice?.herbPvp.plots[3]?.durationS).toBe(HERB_PVP_WEED_S)
+  })
+
+  it('sorts countering workers first and marks them', () => {
+    const workers = [
+      { id: 'a', combatAttrs: ['sword'] as CombatAttrId[] },
+      { id: 'b', combatAttrs: ['fire'] as CombatAttrId[] },
+      { id: 'c', combatAttrs: ['ice'] as CombatAttrId[] },
+      { id: 'd', combatAttrs: ['fire', 'bow'] as CombatAttrId[] },
+    ]
+    expect(orderHerbPick(workers, 'fire').map((worker) => worker.id)).toEqual(['b', 'd', 'a', 'c'])
+    expect(workers.map((worker) => worker.id)).toEqual(['a', 'b', 'c', 'd'])
+    expect(herbCounterMark(workers[1]?.combatAttrs, 'fire')).toBe('克制')
+    expect(herbCounterMark(workers[3]?.combatAttrs, 'fire')).toBe('克制')
+    expect(herbCounterMark(workers[0]?.combatAttrs, 'fire')).toBeNull()
+    expect(herbCounterMark(['sword'], undefined)).toBeNull()
   })
 })

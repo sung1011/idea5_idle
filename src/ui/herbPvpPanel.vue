@@ -2,17 +2,24 @@
 import { computed, ref } from 'vue'
 import { restCombatCandidates } from '../sim/combat'
 import {
+  HERB_PVP_COUNTER_RULE,
   HERB_PVP_PLAYER_CAP,
-  HERB_PVP_WEED_COST,
-  HERB_PVP_WEED_S,
+  HERB_PVP_WEED_FAST_COST,
+  herbCounterMark,
+  herbPlotPace,
+  herbPlotShowsWeakness,
+  herbWeedCost,
+  herbWorkerCounters,
   formatHerbDuration,
   herbHud,
   herbLeaderboard,
   herbPlotLabel,
   herbPlotShort,
+  orderHerbPick,
 } from '../sim/herbPvp'
 import type { HerbPlot, Worker } from '../sim/types'
 import { isFullWorkshopHp } from '../sim/workshopHp'
+import CombatAttrIcon from './combatAttrIcon.vue'
 import CombatPickSheet from './combatPickSheet.vue'
 import { pushFloatTip } from './floatTips'
 import PlayerAvatar from './playerAvatar.vue'
@@ -25,7 +32,8 @@ const picked = ref<string[]>([])
 const hud = computed(() => herbHud(game.save, Date.now()))
 const board = computed(() => herbLeaderboard(game.save))
 const plots = computed(() => game.save.herbPvp.plots)
-const candidates = computed(() => restCombatCandidates(game.save))
+const pickPlot = computed(() => (pickIndex.value == null ? null : plots.value[pickIndex.value] ?? null))
+const candidates = computed(() => orderHerbPick(restCombatCandidates(game.save), pickPlot.value?.weakness))
 
 function toggleProbe(size: 1 | 2 | 4) {
   probe.value = probe.value === size ? null : size
@@ -43,7 +51,7 @@ function onPlot(index: number) {
     return
   }
   if (plot.workerId) return
-  if (hud.value.stamina < HERB_PVP_WEED_COST) {
+  if (hud.value.stamina < HERB_PVP_WEED_FAST_COST) {
     pushFloatTip('体力不足', 'err')
     return
   }
@@ -89,7 +97,18 @@ function dispatch(workerId: string) {
 
 function progressOf(plot: HerbPlot): number {
   if (!plot.workerId || plot.cleared) return 0
-  return Math.min(1, plot.progressS / HERB_PVP_WEED_S)
+  return Math.min(1, plot.progressS / herbPlotPace(plot))
+}
+
+function canSend(worker: Worker): boolean {
+  if (!isFullWorkshopHp(worker)) return false
+  const plot = pickPlot.value
+  if (!plot) return false
+  return hud.value.stamina >= herbWeedCost(herbWorkerCounters(worker.combatAttrs, plot.weakness))
+}
+
+function markCounter(worker: Worker): string | null {
+  return herbCounterMark(worker.combatAttrs, pickPlot.value?.weakness)
 }
 
 function workerName(id: string | null): string {
@@ -123,7 +142,7 @@ function rowKey(row: { id: string; rank: number }): string {
       </button>
     </div>
     <p class="hint">
-      {{ probe ? '点一块未除的地使用侦测' : `点杂草，派满血苦工。撞上人只有打死才花 ${HERB_PVP_WEED_COST} 体力` }}
+      {{ probe ? '点一块未除的地使用侦测' : `点杂草，派满血苦工。${HERB_PVP_COUNTER_RULE}。撞上人只有打死才扣体力` }}
     </p>
     <div class="grid" role="grid" aria-label="割草地图">
       <button
@@ -135,7 +154,8 @@ function rowKey(row: { id: string; rank: number }): string {
         :aria-label="herbPlotLabel(plot)"
         @click="onPlot(plot.index)"
       >
-        <span>{{ herbPlotShort(plot) }}</span>
+        <span class="label">{{ herbPlotShort(plot) }}</span>
+        <CombatAttrIcon v-if="herbPlotShowsWeakness(plot)" class="weak-mark" :attr="plot.weakness" />
         <i v-if="plot.workerId" class="bar" :style="{ width: `${(progressOf(plot) * 100).toFixed(2)}%` }" />
         <small v-if="plot.workerId">{{ workerName(plot.workerId) }}</small>
       </button>
@@ -157,9 +177,11 @@ function rowKey(row: { id: string; rank: number }): string {
       mode="start"
       title-text="派去这块地"
       confirm-text="除草"
+      :note-text="HERB_PVP_COUNTER_RULE"
       :show-runes="false"
       :show-assist="false"
-      :can-pick="isFullWorkshopHp"
+      :can-pick="canSend"
+      :recommend-label="markCounter"
       @close="closePick"
       @confirm="confirmPick"
       @toggle="togglePick"
@@ -230,6 +252,32 @@ function rowKey(row: { id: string; rank: number }): string {
 
 .cell.mine {
   border-color: var(--moss-deep);
+}
+
+.cell .label {
+  max-width: 100%;
+  padding-right: 8px;
+}
+
+.cell :deep(.weak-mark) {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  z-index: 1;
+  width: 12px;
+  height: 12px;
+  min-width: 12px;
+  min-height: 12px;
+  max-width: 12px;
+  max-height: 12px;
+  border-width: 1px;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.cell :deep(.weak-mark svg) {
+  width: 8px;
+  height: 8px;
 }
 
 .cell small {

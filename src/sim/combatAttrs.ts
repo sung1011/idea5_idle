@@ -208,6 +208,21 @@ export function matchingWeaknesses(
   return out
 }
 
+/** 属性命中弱点表里任意一条即算克制。矿洞开采和割草耗时共用这一条，不要各写一份。 */
+export function workerMatchesWeakness(
+  attrs: readonly CombatAttrId[] | undefined,
+  weaknesses: readonly CombatAttrId[] | undefined,
+): boolean {
+  return matchingWeaknesses(attrs ?? [], weaknesses ?? []).length > 0
+}
+
+/** 从和矿洞相同的属性表里抽一条。roll 为 0～1。 */
+export function rollCombatWeakness(roll: number): CombatAttrId {
+  const n = COMBAT_ATTR_IDS.length
+  const index = Math.min(n - 1, Math.max(0, Math.floor(Math.max(0, roll) * n)))
+  return COMBAT_ATTR_IDS[index] ?? 'sword'
+}
+
 /** 只按「这一个」工人命中数：0 → ×1，1 → ×1.2，2 → ×1.5。札记再 +10%。 */
 export function weaknessDamageMul(hitCount: number, save?: Save): number {
   let mul = 1

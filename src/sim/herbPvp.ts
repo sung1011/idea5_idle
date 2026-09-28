@@ -1,7 +1,16 @@
 import { addToBank } from './bank'
 import { playerDisplayName } from './playerName'
 import { applyDownedReturn, isWorkerInCombat, workerLiveStats } from './combat'
-import { scaledAttackDamage } from './combatAttrs'
+import {
+  COMBAT_ATTR_LABEL,
+  combatAttrSlotCount,
+  isCombatAttrId,
+  pickDistinctAttrs,
+  rollCombatWeakness,
+  scaledAttackDamage,
+  uniqueCombatAttrs,
+  workerMatchesWeakness,
+} from './combatAttrs'
 import { offerRestFood } from './food'
 import { isWorkerInHerbPvp } from './herbPvpQuery'
 import { pushMessage } from './messages'
@@ -10,6 +19,7 @@ import { treasureMineBlockReason } from './treasureMineQuery'
 import { HERBALISM_DROP_TABLE, ITEM_DEF } from './tables'
 import type {
   ActionResult,
+  CombatAttrId,
   HerbOfflineNote,
   HerbPlot,
   HerbPlotKind,
@@ -26,13 +36,19 @@ import { isFullWorkshopHp } from './workshopHp'
 export const HERB_PVP_RIVAL_COUNT = 49
 export const HERB_PVP_MAP_SIZE = 8
 export const HERB_PVP_PLOT_COUNT = HERB_PVP_MAP_SIZE * HERB_PVP_MAP_SIZE
-/** 一块地 3 分钟。 */
+/** 不克制时一块地 3 分钟。 */
 export const HERB_PVP_WEED_S = 3 * 60
+/** 苦工克制这块地的弱点时，2 分钟割完。 */
+export const HERB_PVP_WEED_FAST_S = 2 * 60
 /** 玩家同时最多占 3 块，每块 1 人。 */
 export const HERB_PVP_PLAYER_CAP = 3
 export const HERB_PVP_STAMINA_MAX = 100
-/** 开始除一块花的体力。空地直接扣；撞上人只有打死并抢到地才扣。 */
+/** 不克制时开始除一块花的体力。空地直接扣；撞上人只有打死并抢到地才扣。 */
 export const HERB_PVP_WEED_COST = 10
+/** 克制这块地的弱点时只扣 7 点。产出不变。 */
+export const HERB_PVP_WEED_FAST_COST = 7
+/** 玩法说明和派去这块地时都用这一句。 */
+export const HERB_PVP_COUNTER_RULE = '苦工克制这块地的弱点：割草 2 分钟、只扣 7 点体力'
 /** 每 3 分钟回 1 点体力，离线也走。 */
 export const HERB_PVP_STAMINA_REGEN_S = 3 * 60
 /**
@@ -270,19 +286,78 @@ export function herbProbeCells(anchor: number, size: 1 | 2 | 4): number[] {
   ]
 }
 
+/** 没揭开也显示。揭开后是荒芜，或已经割完，不再显示。 */
+export function herbPlotShowsWeakness(plot: HerbPlot): boolean {
+  if (plot.cleared) return false
+  if (plot.revealed && plot.kind === 'barren') return false
+  return isCombatAttrId(plot.weakness)
+}
+
+export function herbWeedSeconds(matches: boolean): number {
+  return matches ? HERB_PVP_WEED_FAST_S : HERB_PVP_WEED_S
+}
+
+export function herbWeedCost(matches: boolean): number {
+  return matches ? HERB_PVP_WEED_FAST_COST : HERB_PVP_WEED_COST
+}
+
+/** 和矿洞同一条判定：属性命中这块地的弱点即克制。多条也只算克制，不再加快。 */
+export function herbWorkerCounters(
+  attrs: readonly CombatAttrId[] | undefined,
+  weakness: CombatAttrId | undefined,
+): boolean {
+  if (!isCombatAttrId(weakness)) return false
+  return workerMatchesWeakness(attrs, [weakness])
+}
+
+/**
+ * 继承进度：已完成比例留下，再用接手者的总时长算剩余。
+ * 例如 3 分钟已割 90 秒（一半），接手的人克制、总时长 2 分钟，进度变成 60 秒，还剩 60 秒。
+ */
+export function inheritHerbProgress(progressS: number, fromS: number, toS: number): number {
+  const from = fromS > 0 ? fromS : HERB_PVP_WEED_S
+  const to = toS > 0 ? toS : HERB_PVP_WEED_S
+  const done = Math.min(from, Math.max(0, progressS))
+  return (done / from) * to
+}
+
+/** 这一轮的总秒数。还没派人、或旧数据缺字段时，按不克制的 3 分钟。 */
+export function herbPlotPace(plot: HerbPlot): number {
+  return plot.durationS > 0 ? plot.durationS : HERB_PVP_WEED_S
+}
+
+export function herbCounterMark(
+  attrs: readonly CombatAttrId[] | undefined,
+  weakness: CombatAttrId | undefined,
+): '克制' | null {
+  return herbWorkerCounters(attrs, weakness) ? '克制' : null
+}
+
+/** 克制的排前面，其余保持原顺序。 */
+export function orderHerbPick<T extends { combatAttrs?: readonly CombatAttrId[] }>(
+  workers: readonly T[],
+  weakness: CombatAttrId | undefined,
+): T[] {
+  return workers
+    .map((worker, index) => ({ worker, index, hit: herbWorkerCounters(worker.combatAttrs, weakness) ? 0 : 1 }))
+    .sort((a, b) => a.hit - b.hit || a.index - b.index)
+    .map((row) => row.worker)
+}
+
 export function herbPlotLabel(plot: HerbPlot): string {
-  if (plot.cleared) return '已除'
-  if (!plot.revealed) return '杂草'
-  if (plot.kind === 'barren') return '荒芜'
-  if (plot.kind === 'common') {
+  let base = '杂草'
+  if (plot.cleared) base = '已除'
+  else if (!plot.revealed) base = '杂草'
+  else if (plot.kind === 'barren') base = '荒芜'
+  else if (plot.kind === 'common') {
     const label = plot.payload in ITEM_DEF ? ITEM_DEF[plot.payload as ItemId].label : '草药'
-    return `${label} ×${plot.qty}`
-  }
-  if (plot.kind === 'precious') {
+    base = `${label} ×${plot.qty}`
+  } else if (plot.kind === 'precious') {
     const name = plot.payload === 'high' ? '高档' : plot.payload === 'mid' ? '中档' : '低档'
-    return `${name} ${plot.qty}`
-  }
-  return `${plot.payload}格侦测`
+    base = `${name} ${plot.qty}`
+  } else base = `${plot.payload}格侦测`
+  if (!herbPlotShowsWeakness(plot)) return base
+  return `${base} · 弱点${COMBAT_ATTR_LABEL[plot.weakness]}`
 }
 
 export function herbPlotShort(plot: HerbPlot): string {
@@ -294,7 +369,7 @@ export function herbPlotShort(plot: HerbPlot): string {
   return `探${plot.payload}`
 }
 
-function blankPlot(index: number, kind: HerbPlotKind, payload: string, qty: number): HerbPlot {
+function blankPlot(index: number, kind: HerbPlotKind, payload: string, qty: number, weakness: CombatAttrId): HerbPlot {
   return {
     index,
     kind,
@@ -305,20 +380,41 @@ function blankPlot(index: number, kind: HerbPlotKind, payload: string, qty: numb
     weeder: null,
     workerId: null,
     progressS: 0,
+    weakness,
+    durationS: 0,
   }
 }
 
 function rollOnePlot(state: HerbPvpState, index: number, products: { itemId: ItemId; weight: number }[]): HerbPlot {
+  const weakness = rollCombatWeakness(nextHerbRoll(state))
   const classified = classifyHerbRoll(nextHerbRoll(state))
-  if (classified.kind === 'barren') return blankPlot(index, 'barren', '', 0)
+  if (classified.kind === 'barren') return blankPlot(index, 'barren', '', 0, weakness)
   if (classified.kind === 'common') {
-    return blankPlot(index, 'common', pickProduct(products, nextHerbRoll(state)), herbCommonQty(nextHerbRoll(state)))
+    return blankPlot(index, 'common', pickProduct(products, nextHerbRoll(state)), herbCommonQty(nextHerbRoll(state)), weakness)
   }
   if (classified.kind === 'precious') {
     const precious = herbPreciousOf(nextHerbRoll(state))
-    return blankPlot(index, 'precious', precious.tier, precious.score)
+    return blankPlot(index, 'precious', precious.tier, precious.score, weakness)
   }
-  return blankPlot(index, 'probe', String(classified.probeSize ?? 1), 1)
+  return blankPlot(index, 'probe', String(classified.probeSize ?? 1), 1, weakness)
+}
+
+function ensureRivalAttrs(state: HerbPvpState, rival: HerbRival): void {
+  const tier = Math.min(10, Math.max(1, Math.floor(finite(rival.qualityTier, 1)))) as QualityTier
+  const slots = combatAttrSlotCount(tier)
+  const have = uniqueCombatAttrs(rival.combatAttrs)
+  if (have.length >= slots) {
+    rival.combatAttrs = have.slice(0, slots)
+    return
+  }
+  rival.combatAttrs = [...have, ...pickDistinctAttrs(slots - have.length, () => nextHerbRoll(state), have)]
+}
+
+function releasePlot(plot: HerbPlot): void {
+  plot.weeder = null
+  plot.workerId = null
+  plot.progressS = 0
+  plot.durationS = 0
 }
 
 function rollPlots(save: Save, state: HerbPvpState): HerbPlot[] {
@@ -371,7 +467,9 @@ function createRivals(save: Save, state: HerbPvpState): HerbRival[] {
       nextOnlineAtS: save.elapsedS + Math.floor(nextHerbRoll(state) * (HERB_PVP_RIVAL_REST_MAX_S + 1)),
       onlineUntilS: null,
       plotCap: 0,
+      combatAttrs: [],
     }
+    ensureRivalAttrs(state, rival)
     refreshRivalCombat(save, rival)
     rivals.push(rival)
   }
@@ -445,10 +543,12 @@ function tidyState(save: Save, state: HerbPvpState, now: number): void {
     plot.qty = clampCount(plot.qty, 0)
     plot.payload = typeof plot.payload === 'string' ? plot.payload : ''
     plot.progressS = Math.max(0, finite(plot.progressS, 0))
+    if (!isCombatAttrId(plot.weakness)) plot.weakness = rollCombatWeakness(nextHerbRoll(state))
     if (plot.cleared) {
       plot.weeder = null
       plot.workerId = null
       plot.progressS = 0
+      plot.durationS = 0
       continue
     }
     plot.weeder = typeof plot.weeder === 'string' && rivalIds.has(plot.weeder) ? plot.weeder : null
@@ -461,7 +561,13 @@ function tidyState(save: Save, state: HerbPvpState, now: number): void {
       seenWorkers.add(workerId)
       playerPlots += 1
     }
-    if (!plot.workerId && !plot.weeder) plot.progressS = 0
+    if (!plot.workerId && !plot.weeder) {
+      plot.progressS = 0
+      plot.durationS = 0
+    } else if (!(typeof plot.durationS === 'number' && Number.isFinite(plot.durationS) && plot.durationS > 0)) {
+      plot.durationS = HERB_PVP_WEED_S
+      plot.progressS = Math.min(plot.progressS, HERB_PVP_WEED_S)
+    }
   }
   for (const rival of state.rivals) {
     if (typeof rival.avatarId !== 'string' || !rival.avatarId) rival.avatarId = 'helm'
@@ -475,6 +581,7 @@ function tidyState(save: Save, state: HerbPvpState, now: number): void {
     rival.onlineUntilS =
       typeof rival.onlineUntilS === 'number' && Number.isFinite(rival.onlineUntilS) ? rival.onlineUntilS : null
     rival.plotCap = Math.min(HERB_PVP_RIVAL_PLOTS_MAX + 1, clampCount(rival.plotCap, 0))
+    ensureRivalAttrs(state, rival)
   }
 }
 
@@ -613,6 +720,7 @@ function finishPlot(save: Save, plot: HerbPlot, offline: boolean): void {
   plot.weeder = null
   plot.workerId = null
   plot.progressS = 0
+  plot.durationS = 0
   if (workerId) {
     grantPlayerLoot(save, { ...plot, ...snapshot }, offline)
     const worker = save.workers.find((row) => row.id === workerId)
@@ -651,8 +759,7 @@ function exchangeBlow(
 function knockOutRival(state: HerbPvpState, rival: HerbRival, elapsed: number): void {
   for (const plot of state.plots) {
     if (plot.weeder !== rival.id) continue
-    plot.weeder = null
-    plot.progressS = 0
+    releasePlot(plot)
   }
   rival.hp = 0
   rival.onlineUntilS = null
@@ -666,11 +773,17 @@ function playerHitsRival(save: Save, plot: HerbPlot, worker: Worker, rival: Herb
   worker.hp = blow.attackerHp
   rival.hp = blow.defenderHp
   if (blow.took) {
-    save.herbPvp.stamina -= HERB_PVP_WEED_COST
+    const matches = herbWorkerCounters(worker.combatAttrs, plot.weakness)
+    const cost = herbWeedCost(matches)
+    const toS = herbWeedSeconds(matches)
+    const progress = inheritHerbProgress(plot.progressS, herbPlotPace(plot), toS)
+    save.herbPvp.stamina -= cost
     plot.weeder = null
     plot.workerId = worker.id
+    plot.durationS = toS
+    plot.progressS = progress
     knockOutRival(save.herbPvp, rival, save.elapsedS)
-    return { ok: true, message: `撞上${rival.name}，对方退走，接着除，花 ${HERB_PVP_WEED_COST} 体力` }
+    return { ok: true, message: `撞上${rival.name}，对方退走，接着除，花 ${cost} 体力` }
   }
   sendHerbWorkerHome(save, worker)
   if (worker.hp <= 0) return { ok: true, message: `被${rival.name}打倒，回休息区，体力未扣` }
@@ -691,10 +804,15 @@ function rivalHitsPlayer(save: Save, plot: HerbPlot, rival: HerbRival, offline: 
   if (bag) bag.bumps += 1
   if (blow.took) {
     if (bag) bag.plotsLost += 1
+    const matches = herbWorkerCounters(rival.combatAttrs, plot.weakness)
+    const toS = herbWeedSeconds(matches)
+    const progress = inheritHerbProgress(plot.progressS, herbPlotPace(plot), toS)
     plot.workerId = null
     plot.weeder = rival.id
+    plot.durationS = toS
+    plot.progressS = progress
     if (rival.onlineUntilS == null || save.elapsedS >= rival.onlineUntilS) {
-      const remain = Math.max(1, HERB_PVP_WEED_S - plot.progressS)
+      const remain = Math.max(1, Math.ceil(toS - progress))
       rival.onlineUntilS = save.elapsedS + remain
       rival.plotCap = Math.max(rival.plotCap, heldPlots(save.herbPvp, rival.id).length)
     }
@@ -734,6 +852,7 @@ function claimPlots(state: HerbPvpState, rival: HerbRival, count: number): void 
     plot.weeder = rival.id
     plot.workerId = null
     plot.progressS = 0
+    plot.durationS = herbWeedSeconds(herbWorkerCounters(rival.combatAttrs, plot.weakness))
     left -= 1
   }
 }
@@ -743,10 +862,7 @@ function heldPlots(state: HerbPvpState, rivalId: string): HerbPlot[] {
 }
 
 function endRivalSession(state: HerbPvpState, rival: HerbRival, elapsed: number): void {
-  for (const plot of heldPlots(state, rival.id)) {
-    plot.weeder = null
-    plot.progressS = 0
-  }
+  for (const plot of heldPlots(state, rival.id)) releasePlot(plot)
   rival.onlineUntilS = null
   rival.plotCap = 0
   rival.nextOnlineAtS = elapsed + intBetween(state, HERB_PVP_RIVAL_REST_MIN_S, HERB_PVP_RIVAL_REST_MAX_S)
@@ -841,7 +957,7 @@ function stepPlots(save: Save, offline: boolean): void {
   const due = save.herbPvp.plots.filter((plot) => !plot.cleared && (!!plot.workerId || !!plot.weeder))
   for (const plot of due) plot.progressS += 1
   for (const plot of due) {
-    if (plot.progressS >= HERB_PVP_WEED_S) finishPlot(save, plot, offline)
+    if (plot.progressS >= herbPlotPace(plot)) finishPlot(save, plot, offline)
   }
   maybeRefreshMap(save)
 }
@@ -872,15 +988,18 @@ export function startHerbWeed(save: Save, plotIndex: number, workerId: string): 
   const mineBusy = treasureMineBlockReason(save, workerId)
   if (mineBusy) return { ok: false, reason: mineBusy }
   if (!isFullWorkshopHp(worker)) return { ok: false, reason: '满血才能上岗' }
-  if (state.stamina < HERB_PVP_WEED_COST) return { ok: false, reason: '体力不足' }
+  const matches = herbWorkerCounters(worker.combatAttrs, plot.weakness)
+  const cost = herbWeedCost(matches)
+  if (state.stamina < cost) return { ok: false, reason: '体力不足' }
   const rival = plot.weeder ? state.rivals.find((row) => row.id === plot.weeder) : undefined
   if (rival) return playerHitsRival(save, plot, worker, rival)
-  state.stamina -= HERB_PVP_WEED_COST
+  state.stamina -= cost
   plot.workerId = worker.id
   plot.weeder = null
   plot.progressS = 0
+  plot.durationS = herbWeedSeconds(matches)
   const name = worker.name ?? '苦工'
-  return { ok: true, message: `${name} 开始除草，花 ${HERB_PVP_WEED_COST} 体力` }
+  return { ok: true, message: `${name} 开始除草，花 ${cost} 体力` }
 }
 
 export function useHerbProbe(save: Save, plotIndex: number, size: 1 | 2 | 4): ActionResult {

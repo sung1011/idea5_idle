@@ -622,6 +622,17 @@ export type HerbPlot = {
   weeder: string | null
   workerId: string | null
   progressS: number
+  /**
+   * 这块地的弱点，和矿洞同一套属性里的一条。
+   * 没揭开也显示；揭开后是荒芜，或已经割完，不再显示。
+   * 旧档缺字段时读档补一条，不重开地图。
+   */
+  weakness: CombatAttrId
+  /**
+   * 当前这一轮割草的总秒数。没人在割是 0。
+   * 克制 120，不克制 180。旧档正在割的缺字段按 180 封住结束时间，不改已走进度。
+   */
+  durationS: number
 }
 
 export type HerbRival = {
@@ -637,6 +648,11 @@ export type HerbRival = {
   /** 在线结束的游戏秒。离线是 null。到点后把手上的地除完再下线。 */
   onlineUntilS: number | null
   plotCap: number
+  /**
+   * 和苦工同一套战斗属性。命中草地弱点则这块按 2 分钟割。
+   * 旧档缺字段按品质补，不改正在割的那块的结束时间。
+   */
+  combatAttrs: CombatAttrId[]
 }
 
 /** 离线追赶期间攒的割草汇报。在线不写，读档清掉。 */
