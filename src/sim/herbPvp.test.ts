@@ -29,6 +29,7 @@ import {
   herbCounterMark,
   herbPlayerRank,
   herbPlotShowsWeakness,
+  herbPlotSpot,
   herbPreciousOf,
   herbProbeCells,
   herbRankReward,
@@ -51,7 +52,7 @@ import { PLAYER_AVATAR_IDS } from './playerAvatarIds'
 import { spawnWorker, spawnWorkerWith } from './recruit'
 import { SNAPSHOT_PLAYER_NAMES, vaultQty, workerMatchesMineWeakness } from './treasureMine'
 import type { CombatAttrId, HerbPlot, HerbPvpState, Save } from './types'
-import { SAVE_KEY, hydrateLoadedSave } from '../ui/saveGame'
+import { SAVE_KEY, hydrateLoadedSave, loadSave, persistSave } from '../ui/saveGame'
 
 afterEach(() => {
   setHerbRollOverride(null)
@@ -75,9 +76,39 @@ function quiet(save: Save): void {
   }
   for (const plot of state.plots) {
     plot.weeder = null
+    plot.markedRivalId = null
     plot.workerId = null
     plot.progressS = 0
   }
+}
+
+function memory(): Storage {
+  const bag = new Map<string, string>()
+  return {
+    get length() {
+      return bag.size
+    },
+    clear() {
+      bag.clear()
+    },
+    getItem(key: string) {
+      return bag.has(key) ? bag.get(key)! : null
+    },
+    key(index: number) {
+      return [...bag.keys()][index] ?? null
+    },
+    removeItem(key: string) {
+      bag.delete(key)
+    },
+    setItem(key: string, value: string) {
+      bag.set(key, value)
+    },
+  }
+}
+
+function plainWeakness(attrs: readonly CombatAttrId[] | undefined): CombatAttrId {
+  const have = new Set(attrs ?? [])
+  return COMBAT_ATTR_IDS.find((id) => !have.has(id)) ?? COMBAT_ATTR_IDS[0]!
 }
 
 function holdRank(save: Save, rank: number): void {
@@ -1021,5 +1052,208 @@ describe('herb plot weakness', () => {
     expect(herbCounterMark(workers[3]?.combatAttrs, 'fire')).toBe('克制')
     expect(herbCounterMark(workers[0]?.combatAttrs, 'fire')).toBeNull()
     expect(herbCounterMark(['sword'], undefined)).toBeNull()
+  })
+})
+
+describe('herb pvp rival marks', () => {
+  it('marks the rival after a clash, including when the worker is sent home', () => {
+    const save = fresh()
+    quiet(save)
+    const worker = spawnWorker(save)
+    const rival = save.herbPvp.rivals[0]!
+    const plot = save.herbPvp.plots[2]!
+    plot.weeder = rival.id
+    plot.progressS = 12
+    plot.durationS = HERB_PVP_WEED_S
+    rival.hp = 500
+    rival.hpMax = 500
+    rival.atk = 1
+    const stamina = save.herbPvp.stamina
+    const result = startHerbWeed(save, 2, worker.id)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.message).toContain('体力未扣')
+    expect(plot.weeder).toBe(rival.id)
+    expect(plot.workerId).toBeNull()
+    expect(plot.progressS).toBe(12)
+    expect(plot.markedRivalId).toBe(rival.id)
+    expect(save.herbPvp.stamina).toBe(stamina)
+    expect(restingWorkers(save).some((row) => row.id === worker.id)).toBe(true)
+    expect(worker.hp).toBeLessThan(worker.hpMax)
+    const spot = herbPlotSpot(save, plot)
+    expect(spot?.name).toBe(rival.name)
+    expect(spot?.avatarId).toBe(rival.avatarId)
+    expect(spot?.hp).toBe(rival.hp)
+    expect(spot?.hp).toBeLessThan(spot?.hpMax ?? 0)
+    rival.hp -= 3
+    rival.name = '改过的名字'
+    rival.avatarId = 'lion'
+    expect(herbPlotSpot(save, plot)).toMatchObject({ name: '改过的名字', avatarId: 'lion', hp: rival.hp })
+    stepHerbPvp(save, Date.now())
+    expect(plot.markedRivalId).toBe(rival.id)
+    expect(plot.progressS).toBe(13)
+    expect(herbPlotSpot(save, plot)?.hp).toBe(rival.hp)
+
+    const downed = spawnWorker(save)
+    const hard = save.herbPvp.rivals[4]!
+    const blocked = save.herbPvp.plots[6]!
+    blocked.weeder = hard.id
+    blocked.progressS = 8
+    blocked.durationS = HERB_PVP_WEED_S
+    hard.hp = 500
+    hard.hpMax = 500
+    hard.atk = 9999
+    const knocked = startHerbWeed(save, 6, downed.id)
+    expect(knocked.ok).toBe(true)
+    expect(downed.hp).toBe(0)
+    expect(downed.assignment).toBeNull()
+    expect(blocked.markedRivalId).toBe(hard.id)
+    expect(blocked.weeder).toBe(hard.id)
+    expect(blocked.progressS).toBe(8)
+    expect(hard.hp).toBeGreaterThan(0)
+    expect(hard.hp).toBeLessThan(500)
+    expect(herbPlotSpot(save, blocked)?.hp).toBe(hard.hp)
+    expect(save.herbPvp.stamina).toBe(stamina)
+  })
+
+  it('clears the mark when the rival finishes the plot, dies, or leaves', () => {
+    const save = fresh()
+    quiet(save)
+    const rival = save.herbPvp.rivals[0]!
+    const done = save.herbPvp.plots[0]!
+    const kept = save.herbPvp.plots[1]!
+    done.kind = 'barren'
+    done.weeder = rival.id
+    done.markedRivalId = rival.id
+    done.durationS = HERB_PVP_WEED_S
+    done.progressS = HERB_PVP_WEED_S - 1
+    kept.kind = 'barren'
+    kept.weeder = rival.id
+    kept.markedRivalId = rival.id
+    kept.durationS = HERB_PVP_WEED_S
+    kept.progressS = 4
+    stepHerbPvp(save, Date.now())
+    expect(done.cleared).toBe(true)
+    expect(done.markedRivalId).toBeNull()
+    expect(herbPlotSpot(save, done)).toBeNull()
+    expect(kept.markedRivalId).toBe(rival.id)
+    expect(kept.weeder).toBe(rival.id)
+    expect(herbPlotSpot(save, kept)?.rivalId).toBe(rival.id)
+
+    rival.hp = 1
+    rival.atk = 1
+    const worker = spawnWorker(save)
+    kept.weakness = plainWeakness(worker.combatAttrs)
+    const progress = kept.progressS
+    const taken = startHerbWeed(save, 1, worker.id)
+    expect(taken.ok).toBe(true)
+    expect(kept.markedRivalId).toBeNull()
+    expect(herbPlotSpot(save, kept)).toBeNull()
+    expect(kept.workerId).toBe(worker.id)
+    expect(kept.weeder).toBeNull()
+    expect(kept.progressS).toBe(progress)
+    expect(save.herbPvp.stamina).toBe(HERB_PVP_STAMINA_MAX - HERB_PVP_WEED_COST)
+
+    const other = save.herbPvp.rivals[1]!
+    const stale = save.herbPvp.plots[3]!
+    stale.markedRivalId = other.id
+    stale.weeder = null
+    stale.cleared = false
+    other.hp = 20
+    other.onlineUntilS = save.elapsedS
+    stepHerbPvp(save, Date.now())
+    expect(stale.markedRivalId).toBeNull()
+    expect(other.onlineUntilS).toBeNull()
+  })
+
+  it('marks a rival who is weeding when a probe opens the cell', () => {
+    const save = fresh()
+    quiet(save)
+    const worker = spawnWorker(save)
+    const rival = save.herbPvp.rivals[2]!
+    const occupied = save.herbPvp.plots[0]!
+    const empty = save.herbPvp.plots[1]!
+    const outside = save.herbPvp.plots[2]!
+    const own = save.herbPvp.plots[16]!
+    occupied.weeder = rival.id
+    occupied.revealed = true
+    occupied.progressS = 7
+    occupied.durationS = HERB_PVP_WEED_S
+    empty.weeder = null
+    own.workerId = worker.id
+    own.progressS = 3
+    own.durationS = HERB_PVP_WEED_S
+    expect(useHerbProbe(save, 0).ok).toBe(true)
+    expect(occupied.markedRivalId).toBe(rival.id)
+    expect(occupied.revealed).toBe(true)
+    expect(occupied.progressS).toBe(7)
+    expect(herbPlotSpot(save, occupied)?.name).toBe(rival.name)
+    expect(herbPlotSpot(save, occupied)?.hp).toBe(rival.hp)
+    expect(empty.revealed).toBe(true)
+    expect(empty.markedRivalId).toBeNull()
+    expect(herbPlotSpot(save, empty)).toBeNull()
+    expect(outside.revealed).toBe(false)
+    expect(outside.markedRivalId).toBeNull()
+    expect(save.herbPvp.probes).toBe(HERB_PVP_START_PROBES - 1)
+    expect(save.herbPvp.stamina).toBe(HERB_PVP_STAMINA_MAX)
+    expect(useHerbProbe(save, 16).ok).toBe(true)
+    expect(own.revealed).toBe(true)
+    expect(own.markedRivalId).toBeNull()
+    expect(own.workerId).toBe(worker.id)
+    expect(save.herbPvp.probes).toBe(HERB_PVP_START_PROBES - 2)
+  })
+
+  it('clears every mark when the map refreshes', () => {
+    const save = fresh()
+    quiet(save)
+    const first = save.herbPvp.rivals[0]!
+    const second = save.herbPvp.rivals[1]!
+    save.herbPvp.plots[0]!.markedRivalId = first.id
+    save.herbPvp.plots[0]!.weeder = first.id
+    save.herbPvp.plots[4]!.markedRivalId = second.id
+    for (const plot of save.herbPvp.plots) {
+      plot.cleared = true
+      plot.workerId = null
+      plot.weeder = null
+    }
+    stepHerbPvp(save, Date.now())
+    expect(save.herbPvp.plots).toHaveLength(HERB_PVP_PLOT_COUNT)
+    expect(save.herbPvp.plots.every((plot) => plot.markedRivalId == null && plot.revealed === false && plot.cleared === false)).toBe(
+      true,
+    )
+  })
+
+  it('keeps marks in the save and leaves old boards unmarked', () => {
+    const save = fresh()
+    quiet(save)
+    const rival = save.herbPvp.rivals[3]!
+    const plot = save.herbPvp.plots[5]!
+    plot.weeder = rival.id
+    plot.markedRivalId = rival.id
+    plot.progressS = 9
+    plot.durationS = HERB_PVP_WEED_S
+    expect(SAVE_KEY).toBe('idea5Idle')
+    const store = memory()
+    persistSave(save, store)
+    const raw = store.getItem(SAVE_KEY) ?? ''
+    expect(raw).toContain(rival.id)
+    const loaded = loadSave(store)
+    const kept = loaded?.herbPvp.plots[5]
+    expect(kept?.markedRivalId).toBe(rival.id)
+    expect(kept?.progressS).toBe(9)
+    expect(herbPlotSpot(loaded!, kept!)?.name).toBe(rival.name)
+    expect(herbPlotSpot(loaded!, kept!)?.hp).toBe(rival.hp)
+
+    const legacy = JSON.parse(JSON.stringify(save)) as Save
+    for (const row of legacy.herbPvp.plots) delete (row as { markedRivalId?: string }).markedRivalId
+    const old = hydrateLoadedSave(legacy)
+    expect(old?.herbPvp.plots.every((row) => row.markedRivalId == null)).toBe(true)
+    expect(old?.herbPvp.plots[5]!.weeder).toBe(rival.id)
+
+    const junk = JSON.parse(JSON.stringify(save)) as Save
+    junk.herbPvp.plots[0]!.markedRivalId = 'no-such'
+    junk.herbPvp.plots[0]!.weeder = rival.id
+    const cleaned = hydrateLoadedSave(junk)
+    expect(cleaned?.herbPvp.plots[0]!.markedRivalId).toBeNull()
+    expect(cleaned?.herbPvp.plots[5]!.markedRivalId).toBe(rival.id)
   })
 })

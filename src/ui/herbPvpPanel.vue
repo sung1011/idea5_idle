@@ -15,6 +15,7 @@ import {
   herbLeaderboard,
   herbPlotLabel,
   herbPlotShort,
+  herbPlotSpot,
   herbProbeCells,
   discardHerbClearEvents,
   orderHerbPick,
@@ -40,6 +41,12 @@ const picked = ref<string[]>([])
 const hud = computed(() => herbHud(game.save, Date.now()))
 const board = computed(() => herbLeaderboard(game.save))
 const plots = computed(() => game.save.herbPvp.plots)
+const cells = computed(() =>
+  plots.value.map((plot) => ({
+    plot,
+    spot: herbPlotSpot(game.save, plot),
+  })),
+)
 const pickPlot = computed(() => (pickIndex.value == null ? null : plots.value[pickIndex.value] ?? null))
 const candidates = computed(() => orderHerbPick(restCombatCandidates(game.save), pickPlot.value?.weakness))
 const aimSet = computed(() =>
@@ -186,6 +193,11 @@ function workerName(id: string | null): string {
 function rowKey(row: { id: string; rank: number }): string {
   return `${row.rank}-${row.id}`
 }
+
+function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string {
+  if (!spot) return herbPlotLabel(plot)
+  return `${herbPlotLabel(plot)}，${spot.name}，剩余血量 ${spot.hp}`
+}
 </script>
 
 <template>
@@ -211,33 +223,39 @@ function rowKey(row: { id: string; rank: number }): string {
     </p>
     <div ref="gridEl" class="grid" role="grid" aria-label="割草地图" @pointerleave="aimIndex = null">
       <button
-        v-for="plot in plots"
-        :key="plot.index"
+        v-for="cell in cells"
+        :key="cell.plot.index"
         type="button"
         class="cell"
         :class="{
-          revealed: plot.revealed,
-          cleared: plot.cleared,
-          mine: !!plot.workerId,
-          aim: aimSet.has(plot.index),
-          fx: !!fxOf(plot.index),
-          rival: fxOf(plot.index)?.tone === 'rival',
-          alert: !!fxOf(plot.index)?.alert,
+          revealed: cell.plot.revealed,
+          cleared: cell.plot.cleared,
+          mine: !!cell.plot.workerId,
+          aim: aimSet.has(cell.plot.index),
+          fx: !!fxOf(cell.plot.index),
+          rival: fxOf(cell.plot.index)?.tone === 'rival',
+          alert: !!fxOf(cell.plot.index)?.alert,
+          spot: !!cell.spot,
         }"
-        :aria-label="herbPlotLabel(plot)"
-        @pointerenter="previewAim(plot.index)"
-        @click="onPlot(plot.index)"
+        :aria-label="plotAria(cell.plot, cell.spot)"
+        @pointerenter="previewAim(cell.plot.index)"
+        @click="onPlot(cell.plot.index)"
       >
-        <span class="label">{{ herbPlotShort(plot) }}</span>
-        <CombatAttrIcon v-if="herbPlotShowsWeakness(plot)" class="weak-mark" :attr="plot.weakness" />
-        <i v-if="plot.workerId" class="bar" :style="{ width: `${(progressOf(plot) * 100).toFixed(2)}%` }" />
-        <small v-if="plot.workerId">{{ workerName(plot.workerId) }}</small>
-        <span v-if="fxOf(plot.index)" class="fx-layer" aria-hidden="true">
+        <span class="label">{{ herbPlotShort(cell.plot) }}</span>
+        <CombatAttrIcon v-if="herbPlotShowsWeakness(cell.plot) && !cell.spot" class="weak-mark" :attr="cell.plot.weakness" />
+        <span v-if="cell.spot" class="foe">
+          <PlayerAvatar :id="cell.spot.avatarId" />
+          <em>{{ cell.spot.name }}</em>
+          <b>{{ cell.spot.hp }}/{{ cell.spot.hpMax }}</b>
+        </span>
+        <i v-if="cell.plot.workerId" class="bar" :style="{ width: `${(progressOf(cell.plot) * 100).toFixed(2)}%` }" />
+        <small v-if="cell.plot.workerId && !cell.spot">{{ workerName(cell.plot.workerId) }}</small>
+        <span v-if="fxOf(cell.plot.index)" class="fx-layer" aria-hidden="true">
           <i class="leaf" />
           <i class="leaf" />
           <i class="leaf" />
           <i class="leaf" />
-          <b class="fx-text">{{ fxOf(plot.index)!.text }}</b>
+          <b class="fx-text">{{ fxOf(cell.plot.index)!.text }}</b>
         </span>
       </button>
     </div>
@@ -315,7 +333,7 @@ function rowKey(row: { id: string; rank: number }): string {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
+  min-height: 52px;
   padding: 2px;
   overflow: hidden;
   border-width: 2px;
@@ -333,6 +351,52 @@ function rowKey(row: { id: string; rank: number }): string {
 
 .cell.mine {
   border-color: var(--moss-deep);
+}
+
+.cell.spot {
+  border-color: #a33b32;
+}
+
+.foe {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 1px 1px 3px;
+  background: rgba(255, 236, 214, 0.94);
+  pointer-events: none;
+}
+
+.foe :deep(.face) {
+  width: 14px;
+  height: 14px;
+  border-width: 1px;
+}
+
+.foe :deep(svg) {
+  width: 10px;
+  height: 10px;
+}
+
+.foe em,
+.foe b {
+  max-width: 100%;
+  overflow: hidden;
+  font-style: normal;
+  font-size: 8px;
+  font-weight: 600;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.foe b {
+  color: #8d2a2a;
+  font-weight: 700;
 }
 
 .cell.aim {
@@ -528,6 +592,7 @@ function rowKey(row: { id: string; rank: number }): string {
   right: 0;
   bottom: 0;
   left: 0;
+  z-index: 2;
   height: 4px;
   background: var(--moss);
 }

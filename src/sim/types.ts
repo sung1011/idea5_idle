@@ -620,6 +620,12 @@ export type HerbPlot = {
   cleared: boolean
   /** 假玩家 id。玩家在除时为空，工人看 `workerId`。 */
   weeder: string | null
+  /**
+   * 撞车或侦测见过、且仍在这块地上的对手。
+   * 界面据此显示头像、名字和剩余血量。割完、被打死或离开后清空。
+   * 旧档缺字段当没有。不改撞车和产出。
+   */
+  markedRivalId: string | null
   workerId: string | null
   progressS: number
   /**

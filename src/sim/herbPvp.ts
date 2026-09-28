@@ -136,6 +136,15 @@ export type HerbClearEvent = {
   alert: boolean
 }
 
+/** 地块上常驻的对手。血量读对手当前值，不另存一份。 */
+export type HerbPlotSpot = {
+  rivalId: string
+  name: string
+  avatarId: string
+  hp: number
+  hpMax: number
+}
+
 const notices: HerbPvpNotice[] = []
 const clearEvents: HerbClearEvent[] = []
 let herbRollOverride: (() => number) | null = null
@@ -407,6 +416,7 @@ function blankPlot(index: number, kind: HerbPlotKind, payload: string, qty: numb
     revealed: false,
     cleared: false,
     weeder: null,
+    markedRivalId: null,
     workerId: null,
     progressS: 0,
     weakness,
@@ -591,9 +601,11 @@ function tidyState(save: Save, state: HerbPvpState, now: number): void {
     plot.payload = typeof plot.payload === 'string' ? plot.payload : ''
     plot.progressS = Math.max(0, finite(plot.progressS, 0))
     if (!isCombatAttrId(plot.weakness)) plot.weakness = rollCombatWeakness(nextHerbRoll(state))
+    plot.markedRivalId = typeof plot.markedRivalId === 'string' ? plot.markedRivalId : null
     if (plot.cleared) {
       plot.weeder = null
       plot.workerId = null
+      plot.markedRivalId = null
       plot.progressS = 0
       plot.durationS = 0
       continue
@@ -629,6 +641,32 @@ function tidyState(save: Save, state: HerbPvpState, now: number): void {
       typeof rival.onlineUntilS === 'number' && Number.isFinite(rival.onlineUntilS) ? rival.onlineUntilS : null
     rival.plotCap = Math.min(HERB_PVP_RIVAL_PLOTS_MAX + 1, clampCount(rival.plotCap, 0))
     ensureRivalAttrs(state, rival)
+  }
+  for (const plot of state.plots) {
+    if (!plot.markedRivalId) continue
+    const rival = state.rivals.find((row) => row.id === plot.markedRivalId)
+    if (!rival || rival.hp <= 0 || plot.weeder !== rival.id) plot.markedRivalId = null
+  }
+}
+
+/** 这块地上还在除草的已标记对手。人不在、已死或地已除则没有。 */
+export function herbPlotSpot(save: Save, plot: HerbPlot): HerbPlotSpot | null {
+  const id = plot.markedRivalId
+  if (!id || plot.cleared || plot.weeder !== id) return null
+  const rival = save.herbPvp?.rivals?.find((row) => row.id === id)
+  if (!rival || rival.hp <= 0) return null
+  return {
+    rivalId: rival.id,
+    name: rival.name,
+    avatarId: rival.avatarId,
+    hp: rival.hp,
+    hpMax: rival.hpMax,
+  }
+}
+
+function clearRivalMarks(state: HerbPvpState, rivalId: string): void {
+  for (const plot of state.plots) {
+    if (plot.markedRivalId === rivalId) plot.markedRivalId = null
   }
 }
 
@@ -774,6 +812,7 @@ function finishPlot(save: Save, plot: HerbPlot, offline: boolean): void {
   const snapshot = { kind: plot.kind, payload: plot.payload, qty: plot.qty }
   plot.cleared = true
   plot.weeder = null
+  plot.markedRivalId = null
   plot.workerId = null
   plot.progressS = 0
   plot.durationS = 0
@@ -819,6 +858,7 @@ function knockOutRival(state: HerbPvpState, rival: HerbRival, elapsed: number): 
     if (plot.weeder !== rival.id) continue
     releasePlot(plot)
   }
+  clearRivalMarks(state, rival.id)
   rival.hp = 0
   rival.onlineUntilS = null
   rival.plotCap = 0
@@ -830,6 +870,7 @@ function playerHitsRival(save: Save, plot: HerbPlot, worker: Worker, rival: Herb
   const blow = exchangeBlow(worker.hp, Math.max(1, stats.atk), Math.max(0, rival.hp), Math.max(1, rival.atk))
   worker.hp = blow.attackerHp
   rival.hp = blow.defenderHp
+  plot.markedRivalId = rival.id
   if (blow.took) {
     const matches = herbWorkerCounters(worker.combatAttrs, plot.weakness)
     const cost = herbWeedCost(matches)
@@ -921,6 +962,7 @@ function heldPlots(state: HerbPvpState, rivalId: string): HerbPlot[] {
 
 function endRivalSession(state: HerbPvpState, rival: HerbRival, elapsed: number): void {
   for (const plot of heldPlots(state, rival.id)) releasePlot(plot)
+  clearRivalMarks(state, rival.id)
   rival.onlineUntilS = null
   rival.plotCap = 0
   rival.nextOnlineAtS = elapsed + intBetween(state, HERB_PVP_RIVAL_REST_MIN_S, HERB_PVP_RIVAL_REST_MAX_S)
@@ -1069,6 +1111,7 @@ export function useHerbProbe(save: Save, plotIndex: number): ActionResult {
     const plot = state.plots[index]
     if (!plot || plot.cleared) continue
     plot.revealed = true
+    if (plot.weeder) plot.markedRivalId = plot.weeder
     opened += 1
   }
   return { ok: true, message: opened > 1 ? `揭开 ${opened} 块地` : '揭开了这块地' }
