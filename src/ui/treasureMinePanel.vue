@@ -42,6 +42,7 @@ import {
 import { formatRemainClock, raidMarchCaption, raidPhaseOf } from '../sim/march'
 import type { BountyTarget, RuneItemId, TreasureMine, Worker } from '../sim/types'
 import CombatPickSheet from './combatPickSheet.vue'
+import TreasureActIcon from './treasureActIcon.vue'
 import TreasureBannerPanel from './treasureBannerPanel.vue'
 import TreasureMineTips from './treasureMineTips.vue'
 import { pushFloatTip } from './floatTips'
@@ -382,6 +383,18 @@ function confirmPick() {
               <i>{{ ownerLabel(mine) }}</i>
             </span>
           </div>
+          <button
+            v-if="showScout(mine)"
+            type="button"
+            class="act scout"
+            :class="{ 'is-short': shortSand(TREASURE_SCOUT_COST) }"
+            :title="shortSand(TREASURE_SCOUT_COST) ? sandShortTip(TREASURE_SCOUT_COST) : undefined"
+            @click="game.scoutTreasureMine(mine.id)"
+          >
+            <TreasureActIcon name="scout" />
+            <span>侦察</span>
+            <small>{{ TREASURE_SCOUT_COST }} 砂金</small>
+          </button>
         </header>
         <p class="weak">
           弱点
@@ -468,20 +481,26 @@ function confirmPick() {
         </p>
         <div class="row">
           <button
-            v-if="showScout(mine)"
-            type="button"
-            :class="{ 'is-short': shortSand(TREASURE_SCOUT_COST) }"
-            :title="shortSand(TREASURE_SCOUT_COST) ? sandShortTip(TREASURE_SCOUT_COST) : undefined"
-            @click="game.scoutTreasureMine(mine.id)"
-          >侦察 {{ TREASURE_SCOUT_COST }} 砂金</button>
-          <button
             v-if="mine.owner === 'shadow' && !mine.raid"
             type="button"
+            class="act raid"
             :class="{ 'is-short': shortSand(stakeOf(mine)) }"
             :title="shortSand(stakeOf(mine)) ? sandShortTip(stakeOf(mine)) : undefined"
             @click="onRaid(mine)"
-          >抢夺 {{ stakeOf(mine) }} 砂金</button>
-          <button v-if="mine.owner === 'empty' && !mine.raid" type="button" @click="openPick('mine', mine.id)">开采</button>
+          >
+            <TreasureActIcon name="raid" />
+            <span>抢夺</span>
+            <small>{{ stakeOf(mine) }} 砂金</small>
+          </button>
+          <button
+            v-if="mine.owner === 'empty' && !mine.raid"
+            type="button"
+            class="act dig"
+            @click="openPick('mine', mine.id)"
+          >
+            <TreasureActIcon name="dig" />
+            <span>开采</span>
+          </button>
           <button v-if="mine.owner === 'player' && !mine.raid" type="button" @click="game.abandonTreasureMine(mine.id)">撤出</button>
           <button
             v-if="showFortify(mine)"
@@ -766,8 +785,53 @@ function confirmPick() {
 
 .card header {
   display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+
+.act {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  gap: 6px;
+}
+
+.act small {
+  font-size: 0.82em;
+  font-weight: 800;
+}
+
+.act :deep(.treasure-act-ico) {
+  width: 16px;
+  height: 16px;
+}
+
+.act.scout {
+  flex: 0 0 auto;
+  margin-left: auto;
+  min-height: 26px;
+  padding: 1px 8px;
+  gap: 4px;
+  border: 1.5px solid #9a9286;
+  border-radius: 999px;
+  background: #f6f4f0;
+  color: #6d665c;
+  box-shadow: none;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.act.scout :deep(.treasure-act-ico) {
+  width: 14px;
+  height: 14px;
+}
+
+.act.scout.is-short {
+  color: #a39c92;
+  background: #f3f1ec;
+  opacity: 0.62;
 }
 
 .titles {
@@ -932,6 +996,37 @@ function confirmPick() {
 
 .card .row button {
   font-size: 14px;
+}
+
+.row .act.raid {
+  flex: 1 1 100%;
+  min-height: 48px;
+  border-color: #8d241c;
+  background: linear-gradient(#e85a4c, #c43228);
+  color: #fff8f4;
+  box-shadow: 0 3px 0 #7a1c16;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.row .act.dig {
+  flex: 1 1 100%;
+  min-height: 46px;
+  border-color: #8a5a10;
+  background: linear-gradient(#f0b43a, #d4891a);
+  color: #3a2410;
+  box-shadow: 0 3px 0 #8a5410;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.row .act.raid.is-short,
+.row .act.dig.is-short {
+  color: var(--muted);
+  background: var(--btn-on);
+  border-color: #c8bba4;
+  box-shadow: none;
+  opacity: 0.62;
 }
 
 .bars {
