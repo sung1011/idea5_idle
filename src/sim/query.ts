@@ -15,7 +15,8 @@ import {
   stationSpeed,
   type IoRule,
 } from './tables'
-import { rushSpeedMul, stimSpeedMul } from './potions'
+import { beastOilSpeedMul, rushSpeedMul, stimSpeedMul } from './potions'
+import { isWorkerInBeastPvp } from './beastPvpQuery'
 import {
   forgeCycleMul,
   groupStaffSpeedMul,
@@ -37,7 +38,9 @@ export function assignedCount(save: Save, stationId: StationId): number {
 }
 
 export function idleCount(save: Save): number {
-  return save.workers.filter((w) => w.assignment === null && !isWorkerInCombat(save, w.id)).length
+  return save.workers.filter(
+    (w) => w.assignment === null && !isWorkerInCombat(save, w.id) && !isWorkerInBeastPvp(save, w.id),
+  ).length
 }
 
 export function stationCycleS(save: Save, stationId: StationId): number {
@@ -57,6 +60,7 @@ export function currentSpeed(save: Save, stationId: StationId, now = Date.now())
     stationTechSpeedMul(save, stationId) *
     stationConflictMul(save, stationId) *
     stimSpeedMul(save) *
+    beastOilSpeedMul(save) *
     rushSpeedMul(save, stationId) *
     soloStaffMul(save, stationId) *
     groupStaffSpeedMul(save, stationId)

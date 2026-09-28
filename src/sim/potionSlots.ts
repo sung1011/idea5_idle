@@ -1,5 +1,5 @@
 import { bankQty } from './bank'
-import { ITEM_DEF, isPotionItemId, POTION_INSTALL_GROUPS, POTION_ITEM_IDS } from './tables'
+import { ITEM_DEF, isPotionItemId, POTION_INSTALL_GROUPS, SLOT_POTION_IDS } from './tables'
 import { POTION_SLOT_COUNT, type ActionResult, type ItemId, type PotionItemId, type PotionSlotId, type PotionSlots, type Save } from './types'
 
 export function blankPotionSlots(): PotionSlots {
@@ -43,7 +43,7 @@ export function potionSlotItem(save: Save, index: number): PotionSlotId {
 /** 库存里还没装进槽的药剂种类。不扣数量。 */
 export function availablePotionInstallIds(save: Save): PotionItemId[] {
   const taken = new Set(save.potionSlots.filter((id): id is PotionItemId => id != null))
-  return POTION_ITEM_IDS.filter((id) => bankQty(save, id) > 0 && !taken.has(id))
+  return SLOT_POTION_IDS.filter((id) => bankQty(save, id) > 0 && !taken.has(id))
 }
 
 /** 装配弹层分组。只保留可装种类；空组整组去掉。 */

@@ -61,6 +61,7 @@ export type ItemId =
   | 'rushPowder'
   | 'doubleMist'
   | 'clearMind'
+  | 'beastOil'
   | 'anyPotion'
   | 'anyRune'
   | 'weapon'
@@ -73,6 +74,13 @@ export type ItemId =
   | 'eye'
   | 'herb'
   | 'spice'
+  | 'beastBone'
+  | 'beastSinew'
+  | 'beastFat'
+  | 'beastHeart'
+  | 'beastCore'
+  | 'boneSoup'
+  | 'hunterSkewer'
   | 'wildCrystal'
   | 'runeSharp'
   | 'runeArmor'
@@ -85,7 +93,7 @@ export type ItemId =
   | 'mithrilTool'
   | StationToolId
 
-/** 7 种可用药剂。旧档通用 `potion` / `warDrum` 不算在内；`focusDraft` / `wardElixir` 读档迁走。 */
+/** 炼金随机池 7 种，另加手动做的狂兽油。旧档通用 `potion` / `warDrum` 不算在内；`focusDraft` / `wardElixir` 读档迁走。 */
 export type PotionItemId =
   | 'stim'
   | 'salve'
@@ -94,6 +102,7 @@ export type PotionItemId =
   | 'rushPowder'
   | 'doubleMist'
   | 'clearMind'
+  | 'beastOil'
 
 /** 开战一人一槽的一次性符文。铭刻产出，进物资堆叠。 */
 export type RuneItemId =
@@ -113,6 +122,8 @@ export type PotionBuffs = {
   doubleMist: { stationId: StationId; mul: 2 | 3 } | null
   /** 赶工粉：该站下一次产出周期缩短 40%。 */
   rushStation: StationId | null
+  /** 狂兽油：六站在岗速度 ×2 的结束秒。旧档缺字段为 null。 */
+  beastOilUntil: number | null
 }
 
 export type ClassId =
@@ -133,6 +144,9 @@ export type ClassId =
 export type TechId = string
 
 /** 工人品质档。1 最低（抽人默认），10 最高（不能再合成）。 */
+/** 休息区伙食。骨汤 / 猎人肉串是困兽兽材手动做的，不进烹饪站自动循环。 */
+export type RestFoodId = 'meal' | 'roast' | 'stew' | 'boneSoup' | 'hunterSkewer'
+
 export type QualityTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10
 
 export type WorkerQualityId =
@@ -353,7 +367,12 @@ export type Worker = {
    * 入休息吃到的短时生产效果，不占食物槽。
    * 旧档缺字段视为没有。
    */
-  foodBuff?: { itemId: 'meal' | 'roast' | 'stew'; expiresAt: number } | null
+  foodBuff?: { itemId: RestFoodId; expiresAt: number } | null
+  /**
+   * 猎人肉串：此 sim 秒之前，在岗不掉血、不记劳损。
+   * 旧档缺字段视为没有。
+   */
+  dutyGuardUntil?: number | null
   /** 当前生命。hydrate 缺字段则按表满血。 */
   hp: number
   hpMax: number
@@ -719,7 +738,7 @@ export type Save = {
    * 休息区当前伙食。残血工人进入休息时从物资扣 1 份。
    * 缺省 null 表示未选。
    */
-  restFoodId: 'meal' | 'roast' | 'stew' | null
+  restFoodId: RestFoodId | null
   workers: Worker[]
   stations: Record<StationId, StationState>
   lastTick: number
@@ -830,14 +849,127 @@ export type Save = {
    * 旧的三种侦测直接清掉，新侦测定为 3 个，记在 `probeRev`，只迁一次。
    */
   herbPvp: HerbPvpState
+  /**
+   * 困兽。玩家与 19 名假玩家一组，每天北京时间 0 点重分组，共打一头。
+   * 旧档缺整段 hydrate 出当天满血困兽、满体力、空伤害，不补昨日奖。
+   */
+  beastPvp: BeastPvpState
+}
+
+export type BeastKind = 'boar' | 'wolf' | 'stag'
+
+export type BeastReact = 'dodge' | 'interrupt'
+
+export type BeastAttackSpec = {
+  kind: 'normal' | 'heavy'
+  aoe: boolean
+  mul: number
+  telegraphMs: number
+  gapAfterMs: number
+  /** 大于 0 时按目标 hpMax 的比例结算，不再乘攻击力。雷击用。 */
+  hpFrac: number
+  enrage?: boolean
+}
+
+export type BeastFightWorker = {
+  id: string
+  name: string
+  hp: number
+  hpMax: number
+  atk: number
+  spd: number
+  accMs: number
+  attrs: CombatAttrId[]
+}
+
+export type BeastTelegraph = {
+  remainMs: number
+  totalMs: number
+  spec: BeastAttackSpec
+}
+
+export type BeastFight = {
+  workers: BeastFightWorker[]
+  /** 本场已经打了多久。 */
+  elapsedMs: number
+  normals: number
+  gapMs: number
+  goreMs: number
+  lightningMs: number
+  telegraph: BeastTelegraph | null
+  dodgeNext: boolean
+  openingMs: number
+  auto: boolean
+}
+
+export type BeastEnrage = {
+  byId: string
+  byName: string
+  pending: BeastAttackSpec
+}
+
+export type BeastRival = {
+  id: string
+  name: string
+  avatarId: string
+  damage: number
+  nextFightAtS: number
+  onlineUntilS: number | null
+  nextOnlineAtS: number
+  /** 下标是阶段。这一阶段已经用过打断或闪避。 */
+  reacts: Array<BeastReact | null>
+}
+
+export type BeastRecent = {
+  atS: number
+  text: string
+}
+
+export type BeastOfflineNote = {
+  rankAtStart: number
+  damage: number
+  rewards: string[]
+  lines: string[]
+}
+
+export type BeastPvpState = {
+  /** 困兽自己的掷骰，不推进工坊 `rngState`。 */
+  roll: number
+  /** 北京时间日期 YYYY-MM-DD。跨过 0 点结算。时钟回拨不发奖。 */
+  dayKey: string
+  kind: BeastKind
+  hp: number
+  hpMax: number
+  /** 五段长度，每段约 0.18–0.22，合计 1。 */
+  segments: number[]
+  /** 已经跨过的阶段线数，0–4。 */
+  phase: number
+  weakness: CombatAttrId
+  killed: boolean
+  enrage: BeastEnrage | null
+  stamina: number
+  staminaAccS: number
+  playerDamage: number
+  /** 玩家每个阶段的打断 / 闪避。跨场次保留，换阶段才空。 */
+  reacts: Array<BeastReact | null>
+  rivals: BeastRival[]
+  onlineTarget: number
+  targetUntilS: number
+  recent: BeastRecent[]
+  fight: BeastFight | null
+  /** 右上角自动。自动只闪避，不打断。 */
+  auto: boolean
+  lastRewardText: string
+  offline: BeastOfflineNote | null
 }
 
 export type EncounterQuality = 'gray' | 'green' | 'blue' | 'purple' | 'orange'
 
-/** 工匠委托给整座工坊的临时产量加成。 */
+/** 工匠委托或酋长宴给整座工坊的临时产量加成。旧档缺 kind 当工匠加持。 */
 export type WorkshopBuff = {
   mul: number
   endsAt: number
+  kind?: 'artisan' | 'feast'
 }
 
 export type EncounterKind = 'enemy' | 'blackMerchant' | 'passerby' | 'pawn' | 'artisan' | 'bulkBuy'

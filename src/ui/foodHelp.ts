@@ -35,6 +35,7 @@ export function foodHelpEffect(id: FoodItemId): string {
   const percent = Math.round(FOOD_HEAL_RATIO[id] * 100)
   const heal = `回复 ${percent}% 最大生命`
   const buff = FOOD_BUFF_DEF[id]
+  if (id === 'hunterSkewer') return `${heal}。之后 30 分钟在岗不掉血、不记劳损`
   if (!(buff.mul > 0)) return `${heal}。不再额外产出`
   const duration = durationText(buff.durationS)
   if (buff.effectId === EFFECT_ID.prodSpeed) return `${heal}。生产速度 ×${buff.mul}，持续 ${duration}`

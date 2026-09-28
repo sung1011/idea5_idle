@@ -1,5 +1,6 @@
 import { blankDungeonState } from './dungeon'
 import { PLAYER_AVATAR_DEFAULT, playerAvatarId } from './playerAvatarIds'
+import { hydrateBeastPvp } from './beastPvp'
 import { hydrateHerbPvp } from './herbPvp'
 import { hydrateTreasureMines } from './treasureMine'
 import { generateEncounterBoard } from './encounters'
@@ -10,7 +11,7 @@ import { blankPotionBuffs } from './potions'
 import { hydrateStations } from './stationProgress'
 import { blankPotionSlots } from './potionSlots'
 import { START_DIAMONDS, START_GOLD, START_TECH_POINTS, WORKER_QUALITY_REV } from './tables'
-import type { ActionResult, HerbPvpState, Save } from './types'
+import type { ActionResult, BeastPvpState, HerbPvpState, Save } from './types'
 import { PLAYER_NAME_DEFAULT, playerDisplayName } from './playerName'
 
 export { blankStation } from './stationProgress'
@@ -76,6 +77,7 @@ export function createSave(): Save {
     dungeon: blankDungeonState(undefined, 1),
     treasureMines: { nextId: 1, roll: 1, vault: {}, mines: [], bannerLevel: 0, bounty: null, haul: {} },
     herbPvp: undefined as unknown as HerbPvpState,
+    beastPvp: undefined as unknown as BeastPvpState,
   }
   save.dungeon = blankDungeonState(save, 1)
   save.knightLevel = computeKnightLevel(save)
@@ -94,5 +96,6 @@ export function createSave(): Save {
   })
   hydrateTreasureMines(save)
   hydrateHerbPvp(save)
+  hydrateBeastPvp(save)
   return save
 }

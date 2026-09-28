@@ -1,6 +1,6 @@
 import { HERB_PVP_COUNTER_RULE } from '../sim/herbPvp'
 
-export type ModeHelpId = 'treasure' | 'herb' | 'banner' | 'battlefield' | 'dungeon' | 'market'
+export type ModeHelpId = 'treasure' | 'herb' | 'beast' | 'banner' | 'battlefield' | 'dungeon' | 'market'
 
 export type ModeHelpRow = {
   label: string
@@ -48,6 +48,24 @@ export const MODE_HELP: Record<ModeHelpId, ModeHelp> = {
       {
         label: '注意',
         text: '撞上正在除的人，双方各打一下，不吃弱点。打死才接着除，按接手苦工扣 7 或 10 体力；已割比例留下，剩余按新人时长重算。没打死回休息且不扣。对方来撞不改体力。体力不够这次要扣的仍可用侦测。',
+      },
+    ],
+  },
+  beast: {
+    id: 'beast',
+    title: '困兽',
+    rows: [
+      {
+        label: '怎么玩',
+        text: '每天北京时间 0 点，本组 20 人打同一头困兽。派 1～3 名满血苦工，花 20 体力。体力 100，每 3 分钟回 1，和割草分开。',
+      },
+      {
+        label: '规则要点',
+        text: '血条分 5 段。自然掉血停在阶段线上，必须有人打过去。克制当前弱点伤害翻倍。每段只能打断或闪避一次。闪避躲开下一次；躲开大招有破绽。打断取消读条，下一击翻倍并落到下一场。',
+      },
+      {
+        label: '注意',
+        text: '0 点按当天伤害发兽材。跨过阶段线立刻发奖。被猎杀后当天不再刷新。离开页面或切后台，这一场按自动闪避打完。',
       },
     ],
   },

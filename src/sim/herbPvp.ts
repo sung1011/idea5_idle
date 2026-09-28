@@ -12,6 +12,7 @@ import {
   workerMatchesWeakness,
 } from './combatAttrs'
 import { offerRestFood } from './food'
+import { beastPvpBlockReason } from './beastPvpQuery'
 import { isWorkerInHerbPvp } from './herbPvpQuery'
 import { pushMessage } from './messages'
 import { pickMineAvatarId, pickSnapshotPlayerName, addVault } from './treasureMine'
@@ -1241,6 +1242,8 @@ export function startHerbWeed(save: Save, plotIndex: number, workerId: string): 
   const worker = save.workers.find((row) => row.id === workerId)
   if (!worker) return { ok: false, reason: '没有这个苦工' }
   if (isWorkerInHerbPvp(save, workerId)) return { ok: false, reason: '正在割草' }
+  const beastBusy = beastPvpBlockReason(save, workerId)
+  if (beastBusy) return { ok: false, reason: beastBusy }
   if (worker.assignment) return { ok: false, reason: '不在休息区' }
   if (isWorkerInCombat(save, workerId)) return { ok: false, reason: '正在战斗' }
   const mineBusy = treasureMineBlockReason(save, workerId)

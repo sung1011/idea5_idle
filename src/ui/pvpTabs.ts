@@ -3,12 +3,13 @@ import { ref } from 'vue'
 /** PVP 玩法切换。不进存档。战旗、军械铺等旧值打开时归位到夺宝。 */
 export const PVP_TAB_KEY = 'idea5IdlePvpTab'
 
-export const PVP_VIEWS = ['treasure', 'herb'] as const
+export const PVP_VIEWS = ['treasure', 'herb', 'beast'] as const
 export type PvpView = (typeof PVP_VIEWS)[number]
 
 export const PVP_VIEW_LABELS: Record<PvpView, string> = {
   treasure: '夺宝',
   herb: '割草',
+  beast: '困兽',
 }
 
 function storageOf(storage?: Storage | null): Storage | null {
@@ -19,7 +20,8 @@ function storageOf(storage?: Storage | null): Storage | null {
 
 /** 割草留下，其它旧子页都回到夺宝。 */
 export function pvpViewOf(id: unknown): PvpView {
-  return id === 'herb' ? 'herb' : 'treasure'
+  if (id === 'herb' || id === 'beast') return id
+  return 'treasure'
 }
 
 /** 读旧子页签。没有记录时不新建键。战旗和军械铺写回夺宝。 */

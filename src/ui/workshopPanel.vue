@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import {
   formatMarchClock,
   isWorkshopBuffActive,
@@ -7,10 +7,15 @@ import {
   workshopBuffRemainS,
 } from '../sim/encounters'
 import { leftoverStockRows } from '../sim/query'
+import { itemQty } from '../sim/bank'
+import { breakthroughChoices } from '../sim/beastCraft'
+import { STATION_DEF } from '../sim/tables'
+import type { StationId } from '../sim/types'
 import { isGuideQuestFlash } from '../sim/guideQuest'
 import { isStationUnlocked, workshopGroupLockedTip } from '../sim/stationUnlock'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
+import ActButton from './actButton.vue'
 import StationCard from './stationCard.vue'
 import UiIcon from './uiIcon.vue'
 import { railGroupSlotDots } from './workshopRail'
@@ -24,6 +29,9 @@ import {
 
 const game = useGameStore()
 const guideFlashAlchemy = computed(() => isGuideQuestFlash(game.save, 'alchemy'))
+const coreOpen = ref(false)
+const coreStations = computed(() => breakthroughChoices(game.save))
+const coreQty = computed(() => itemQty(game.save, 'beastCore'))
 const now = computed(() => {
   void game.save.elapsedS
   return Date.now()
@@ -32,7 +40,8 @@ const buffOn = computed(() => isWorkshopBuffActive(game.save, now.value))
 const buffLabel = computed(() => {
   if (!buffOn.value) return ''
   const pct = Math.round((workshopBuffMul(game.save, now.value) - 1) * 100)
-  return `工匠加持：产量 +${pct}% · 剩余 ${formatMarchClock(workshopBuffRemainS(game.save, now.value))}`
+  const title = game.save.workshopBuff?.kind === 'feast' ? '酋长宴' : '工匠加持'
+  return `${title}：产量 +${pct}% · 剩余 ${formatMarchClock(workshopBuffRemainS(game.save, now.value))}`
 })
 
 const activeStation = workshopTab
@@ -74,6 +83,24 @@ watch(activeStation, async () => {
 <template>
   <div class="wrap">
     <p v-if="buffOn" class="buff">{{ buffLabel }}</p>
+    <ActButton v-if="coreQty > 0" icon="crate" kind="primary" tone="produce" cost="困兽之核 ×1" @click="coreOpen = true">
+      困兽之核突破
+    </ActButton>
+    <div v-if="coreOpen" class="core-mask" @click.self="coreOpen = false">
+      <section class="core-sheet" role="dialog" aria-label="选择突破站点">
+        <h3>选一座已开放的站点</h3>
+        <button
+          v-for="id in coreStations"
+          :key="id"
+          type="button"
+          class="core"
+          @click="coreOpen = false; game.breakthroughStation(id as StationId)"
+        >
+          {{ STATION_DEF[id].label }}
+        </button>
+        <button type="button" class="ghost" @click="coreOpen = false">取消</button>
+      </section>
+    </div>
     <div class="board">
       <nav class="rail" role="tablist" aria-label="工坊分组">
         <button
@@ -301,6 +328,49 @@ watch(activeStation, async () => {
   color: var(--moss-deep);
   font-size: 12px;
   font-weight: 700;
+}
+
+.core {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 12px;
+  background: var(--copper);
+  color: #fff;
+  font-weight: 700;
+}
+
+.core-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(40, 24, 8, 0.45);
+}
+
+.core-sheet {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--paper);
+}
+
+.ghost {
+  min-height: 36px;
+  border: 2px solid var(--muted);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
 }
 
 .leftover,

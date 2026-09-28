@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createSave } from './createSave'
 import { hydrateLoadedSave } from '../ui/saveGame'
-import { POTION_INSTALL_GROUPS, POTION_ITEM_IDS } from './tables'
+import { POTION_INSTALL_GROUPS, POTION_ITEM_IDS, SLOT_POTION_IDS } from './tables'
 import {
   availablePotionInstallIds,
   blankPotionSlots,
@@ -49,11 +49,12 @@ describe('potion skill slots', () => {
 
   it('lists installable potions under 提效 then 加血 and drops empty groups', () => {
     expect(POTION_INSTALL_GROUPS.map((group) => group.label)).toEqual(['提效', '加血'])
-    expect(POTION_INSTALL_GROUPS[0].ids).toEqual(['stim', 'rushPowder', 'doubleMist'])
+    expect(POTION_INSTALL_GROUPS[0].ids).toEqual(['stim', 'rushPowder', 'doubleMist', 'beastOil'])
     expect(POTION_INSTALL_GROUPS[1].ids).toEqual(['salve', 'renewSoup', 'brinkSalve', 'clearMind'])
     const members = POTION_INSTALL_GROUPS.flatMap((group) => group.ids)
-    expect(members).toHaveLength(POTION_ITEM_IDS.length)
-    expect(new Set(members)).toEqual(new Set(POTION_ITEM_IDS))
+    expect(members).toHaveLength(SLOT_POTION_IDS.length)
+    expect(new Set(members)).toEqual(new Set(SLOT_POTION_IDS))
+    expect(POTION_ITEM_IDS).not.toContain('beastOil')
 
     const save = createSave()
     expect(potionInstallGroups(save)).toEqual([])

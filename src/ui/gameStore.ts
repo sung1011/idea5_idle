@@ -16,6 +16,25 @@ import {
   gmSkipGuide,
 } from '../sim/gm'
 import { hasUnread, listedMessages, markAllRead } from '../sim/messages'
+import {
+  beastDodge,
+  beastInterrupt,
+  discardBeastFx,
+  finishBeastFightAuto,
+  gmBeastCycleKind,
+  gmBeastFillStamina,
+  gmBeastJumpToLine,
+  setBeastAuto,
+  startBeastFight,
+  takeBeastNotices,
+} from '../sim/beastPvp'
+import {
+  breakthroughStation,
+  craftBeastFeast,
+  craftBeastOil,
+  craftBoneSoup,
+  craftHunterSkewer,
+} from '../sim/beastCraft'
 import { startHerbWeed, takeHerbPvpNotices, useHerbProbe } from '../sim/herbPvp'
 import { settleOffline } from '../sim/offline'
 import { clearPotionSlot, installPotionSlot } from '../sim/potionSlots'
@@ -108,6 +127,7 @@ export const useGameStore = defineStore('game', () => {
     flushRestEats(true)
     flushVaultNotices()
     flushHerbNotices()
+    flushBeastNotices()
     offerWorkshopBanter(save.value, produced)
     notifyWorkshopHpEfficiency(save.value)
     persist()
@@ -115,6 +135,10 @@ export const useGameStore = defineStore('game', () => {
 
   function flushVaultNotices() {
     for (const notice of takeTreasureVaultNotices()) pushFloatTip(notice.text, notice.kind)
+  }
+
+  function flushBeastNotices() {
+    for (const notice of takeBeastNotices()) pushFloatTip(notice.text, notice.kind)
   }
 
   function flushHerbNotices() {
@@ -184,6 +208,11 @@ export const useGameStore = defineStore('game', () => {
       if (timer) {
         window.clearInterval(timer)
         timer = 0
+      }
+      if (save.value.beastPvp?.fight) {
+        finishBeastFightAuto(save.value, true)
+        discardBeastFx()
+        save.value = cloneSave(save.value)
       }
       persist()
       return
@@ -326,6 +355,26 @@ export const useGameStore = defineStore('game', () => {
       apply((s) => refreshTreasureMineBoard(s, pay)),
     postTreasureBounty: (target: BountyTarget) => apply((s) => postTreasureBounty(s, target)),
     startHerbWeed: (plotIndex: number, workerId: string) => apply((s) => startHerbWeed(s, plotIndex, workerId)),
+    startBeastFight: (workerIds: string[]) => apply((s) => startBeastFight(s, workerIds)),
+    beastDodge: () => apply(beastDodge),
+    beastInterrupt: () => apply(beastInterrupt),
+    setBeastAuto: (on: boolean) => apply((s) => setBeastAuto(s, on)),
+    settleBeastLeave: () => {
+      if (!save.value.beastPvp?.fight) return
+      finishBeastFightAuto(save.value, true)
+      discardBeastFx()
+      takeBeastNotices()
+      save.value = cloneSave(save.value)
+      persist()
+    },
+    craftBoneSoup: () => apply(craftBoneSoup),
+    craftHunterSkewer: () => apply(craftHunterSkewer),
+    craftBeastOil: () => apply(craftBeastOil),
+    craftBeastFeast: () => apply((s) => craftBeastFeast(s)),
+    breakthroughStation: (stationId: StationId) => apply((s) => breakthroughStation(s, stationId)),
+    gmBeastFillStamina: () => apply(gmBeastFillStamina),
+    gmBeastJumpToLine: () => apply(gmBeastJumpToLine),
+    gmBeastCycleKind: () => apply(gmBeastCycleKind),
     useHerbProbe: (plotIndex: number) => apply((s) => useHerbProbe(s, plotIndex)),
     setPlayerProfile: (name: string, avatarId: string) => apply((s) => applyPlayerProfile(s, name, avatarId)),
     claimLoot: (index: number) => apply((s) => claimLoot(s, index)),

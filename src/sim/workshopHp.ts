@@ -265,6 +265,7 @@ export function applyWorkshopFatigue(save: Save, stationId: StationId, now: numb
   if (kind === 'emptyRod') return markWeak(crew)
   let weak = markWeak(crew)
   for (const worker of crew) {
+    if (typeof worker.dutyGuardUntil === 'number' && save.elapsedS < worker.dutyGuardUntil) continue
     addDebt(worker, debtAmount(save, worker, stationId, kind, now))
     releaseDeadWorker(save, stationId, worker, now)
     if (worker.assignment === stationId && workshopHpWorkMul(worker) < 1) weak = true
@@ -272,6 +273,7 @@ export function applyWorkshopFatigue(save: Save, stationId: StationId, now: numb
   if (stationId === 'mining' && kind === 'success' && miningJustEmptied(save)) {
     for (const worker of crew) {
       if (worker.assignment !== stationId || worker.hp <= 0) continue
+      if (typeof worker.dutyGuardUntil === 'number' && save.elapsedS < worker.dutyGuardUntil) continue
       addDebt(worker, debtAmount(save, worker, stationId, kind, now, 1))
       releaseDeadWorker(save, stationId, worker, now)
       if (worker.assignment === stationId && workshopHpWorkMul(worker) < 1) weak = true

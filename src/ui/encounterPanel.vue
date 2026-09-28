@@ -184,7 +184,8 @@ const buffOn = computed(() => isWorkshopBuffActive(game.save, now.value))
 const buffLabel = computed(() => {
   if (!buffOn.value) return ''
   const pct = Math.round((workshopBuffMul(game.save, now.value) - 1) * 100)
-  return `工匠加持：工坊产量 +${pct}% · 剩余 ${formatMarchClock(workshopBuffRemainS(game.save, now.value))}`
+  const title = game.save.workshopBuff?.kind === 'feast' ? '酋长宴' : '工匠加持'
+  return `${title}：工坊产量 +${pct}% · 剩余 ${formatMarchClock(workshopBuffRemainS(game.save, now.value))}`
 })
 const pickIndex = ref<number | null>(null)
 const pickMode = ref<EnemyPickMode>('start')

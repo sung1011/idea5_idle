@@ -131,6 +131,9 @@ onUnmounted(() => {
         <div class="row">
           <button type="button" @click="game.gmReset()">初始化</button>
           <button type="button" @click="game.gmSkipGuide()">跳过引导</button>
+          <button type="button" @click="game.gmBeastFillStamina()">困兽满体力</button>
+          <button type="button" @click="game.gmBeastJumpToLine()">困兽跳到阶段线</button>
+          <button type="button" @click="game.gmBeastCycleKind()">切换今日困兽</button>
           <button type="button" @click="game.gmAddGold()">加金币 1w</button>
           <button type="button" @click="game.gmAddDiamonds()">加钻石 1w</button>
           <button type="button" @click="game.gmAddWorkers()">加苦工×5</button>

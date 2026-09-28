@@ -243,5 +243,9 @@ export function combatZoneRows(save: Save, now = Date.now()): CombatZoneRow[] {
   for (const mine of save.treasureMines?.mines ?? []) {
     rowsFromRaid(mine, raidNow, rows, seen)
   }
+  for (const fighter of save.beastPvp?.fight?.workers ?? []) {
+    if (fighter.hp <= 0) continue
+    pushRow(rows, seen, { workerId: fighter.id, tone: 'fight', label: '困兽', remainS: 0, progress: 0 })
+  }
   return rows.filter((row) => save.workers.some((worker) => worker.id === row.workerId))
 }

@@ -124,6 +124,19 @@ function hydrateFoodSlot(rawSlot: unknown, rawWorker: Record<string, unknown>): 
   return null
 }
 
+function hydrateRestFoodBuff(raw: unknown): Worker['foodBuff'] {
+  if (!raw || typeof raw !== 'object') return null
+  const src = raw as { itemId?: unknown; expiresAt?: unknown }
+  if (!isFoodItemId(src.itemId)) return null
+  const expiresAt = typeof src.expiresAt === 'number' && Number.isFinite(src.expiresAt) ? src.expiresAt : 0
+  return { itemId: src.itemId, expiresAt }
+}
+
+function hydrateDutyGuard(raw: unknown): number | null {
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return null
+  return Math.floor(raw)
+}
+
 export function hydrateWorker(raw: unknown, index = 0): Worker {
   const src = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
   const id = typeof src.id === 'string' && src.id ? src.id : `w-${index + 1}`
@@ -144,6 +157,8 @@ export function hydrateWorker(raw: unknown, index = 0): Worker {
       level: progress.level,
       xp: progress.xp,
       combatAttrs: uniqueCombatAttrs(src.combatAttrs),
+      foodBuff: hydrateRestFoodBuff(src.foodBuff),
+      dutyGuardUntil: hydrateDutyGuard(src.dutyGuardUntil),
     }, src.hp),
     src.combatAttrs,
   )

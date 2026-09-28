@@ -1,5 +1,6 @@
 import { assignRestingToFirstEmpty } from './assign'
 import { applyRestHeal, stepCombats, type CombatLogSink } from './combat'
+import { stepBeastPvp } from './beastPvp'
 import { stepHerbPvp } from './herbPvp'
 import { stepTreasureMines, type TreasureDropSink } from './treasureMine'
 import { expireTimedMarketOrders } from './marketTimed'
@@ -38,6 +39,7 @@ export function applyTick(save: Save, opts: TickOpts = {}): void {
   stepCombats(save, now, opts.onCombatLog)
   stepTreasureMines(save, opts.onTreasureDrop, { offline: opts.offline === true })
   stepHerbPvp(save, now, { offline: opts.offline === true })
+  stepBeastPvp(save, now, { offline: opts.offline === true })
   applyRestHeal(save)
 }
 

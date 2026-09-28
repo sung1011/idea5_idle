@@ -2183,9 +2183,15 @@ export function pawnMerchant(save: Save, index: number, now = Date.now()): Actio
   return { ok: true, message: gain ? `以物换钱成交。${gain}` : '以物换钱成交' }
 }
 
-export function applyWorkshopBuff(save: Save, mul: number, durationS: number, now = Date.now()): WorkshopBuff {
+export function applyWorkshopBuff(
+  save: Save,
+  mul: number,
+  durationS: number,
+  now = Date.now(),
+  kind: 'artisan' | 'feast' = 'artisan',
+): WorkshopBuff {
   const endsAt = now + Math.max(1, durationS) * 1000
-  const next: WorkshopBuff = { mul, endsAt }
+  const next: WorkshopBuff = { mul, endsAt, kind }
   save.workshopBuff = next
   return next
 }
@@ -2534,9 +2540,13 @@ function hydrateWorkshopBuff(save: Save): void {
     raw.workshopBuff = null
     return
   }
-  const rec = buff as { mul?: unknown; endsAt?: unknown }
+  const rec = buff as { mul?: unknown; endsAt?: unknown; kind?: unknown }
   if (typeof rec.mul === 'number' && rec.mul > 0 && typeof rec.endsAt === 'number' && Number.isFinite(rec.endsAt)) {
-    raw.workshopBuff = { mul: rec.mul, endsAt: rec.endsAt }
+    raw.workshopBuff = {
+      mul: rec.mul,
+      endsAt: rec.endsAt,
+      kind: rec.kind === 'feast' ? 'feast' : 'artisan',
+    }
     return
   }
   raw.workshopBuff = null

@@ -222,6 +222,43 @@ export function hydrateStations(raw?: Partial<Record<string, Partial<StationStat
   return next
 }
 
+/**
+ * 困兽之核：把当前级经验补满，正好升 1 级。不乘站点经验倍率，避免一次跳两级。
+ * 返回升完后的等级。
+ */
+export function grantStationLevel(save: Save, stationId: StationId): number {
+  const station = save.stations[stationId]
+  const need = Math.max(0, xpToNextLevel(station.stationLevel) - station.stationXp)
+  station.stationXp += need
+  const unlockedNow: CategoryId[] = []
+  let leveled = false
+  if (station.stationXp >= xpToNextLevel(station.stationLevel)) {
+    station.stationXp -= xpToNextLevel(station.stationLevel)
+    station.stationLevel += 1
+    leveled = true
+    unlockedNow.push(...syncUnlockedCategories(station, stationId))
+  }
+  if (leveled) {
+    const knight = syncKnightLevel(save)
+    const label = STATION_DEF[stationId].label
+    const bits = [`${label}升到 Lv${station.stationLevel}`]
+    if (unlockedNow.length) {
+      const names = unlockedNow.map((id) => findCategory(stationId, id)?.label ?? id)
+      bits.push(`解锁${names.join('、')}`)
+    }
+    if (knight.gained > 0) {
+      bits.push(`酋长升到 Lv${knight.to}`)
+      bits.push(`灵感 +${knight.gained}`)
+      pushMessage(save, {
+        title: '酋长升级',
+        body: `酋长等级升到 ${knight.to}，灵感 +${knight.gained}`,
+      })
+    }
+    station.progressNotice = bits.join('，')
+  }
+  return station.stationLevel
+}
+
 export function grantStationXp(save: Save, stationId: StationId, xp: number): void {
   if (xp <= 0) return
   const granted = xp * stationXpMul(save)

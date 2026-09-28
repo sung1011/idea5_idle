@@ -9,6 +9,7 @@ import type {
   ItemId,
   ProductionBuff,
   PotionItemId,
+  RestFoodId,
   RuneItemId,
   StationId,
   StationKind,
@@ -62,6 +63,7 @@ const BASE_ITEM_DEF: Record<Exclude<ItemId, StationToolId>, ItemDef> = {
   rushPowder: { id: 'rushPowder', label: '赶工粉', sellGold: 16, craftGold: 3 },
   doubleMist: { id: 'doubleMist', label: '双份雾', sellGold: 12, craftGold: 2 },
   clearMind: { id: 'clearMind', label: '清醒图腾水', sellGold: 10, craftGold: 2 },
+  beastOil: { id: 'beastOil', label: '狂兽油', sellGold: 16, craftGold: 2 },
   anyPotion: { id: 'anyPotion', label: '任意药剂', sellGold: 8, craftGold: 0 },
   anyRune: { id: 'anyRune', label: '任意符文', sellGold: 8, craftGold: 0 },
   weapon: { id: 'weapon', label: '铜器', sellGold: 12, craftGold: 0 },
@@ -74,6 +76,13 @@ const BASE_ITEM_DEF: Record<Exclude<ItemId, StationToolId>, ItemDef> = {
   eye: { id: 'eye', label: '眼', sellGold: 4, craftGold: 1 },
   herb: { id: 'herb', label: '草', sellGold: 2, craftGold: 0 },
   spice: { id: 'spice', label: '香料', sellGold: 3, craftGold: 1 },
+  beastBone: { id: 'beastBone', label: '兽骨', sellGold: 4, craftGold: 0 },
+  beastSinew: { id: 'beastSinew', label: '兽筋', sellGold: 5, craftGold: 0 },
+  beastFat: { id: 'beastFat', label: '困兽油脂', sellGold: 6, craftGold: 0 },
+  beastHeart: { id: 'beastHeart', label: '野兽心脏', sellGold: 12, craftGold: 0 },
+  beastCore: { id: 'beastCore', label: '困兽之核', sellGold: 20, craftGold: 0 },
+  boneSoup: { id: 'boneSoup', label: '骨汤', sellGold: 8, craftGold: 1 },
+  hunterSkewer: { id: 'hunterSkewer', label: '猎人肉串', sellGold: 12, craftGold: 2 },
   wildCrystal: { id: 'wildCrystal', label: '荒晶', sellGold: 4, craftGold: 0 },
   runeSharp: { id: 'runeSharp', label: '锋锐', sellGold: 8, craftGold: 2 },
   runeArmor: { id: 'runeArmor', label: '厚甲', sellGold: 8, craftGold: 2 },
@@ -496,9 +505,12 @@ export function nextAlchemyPotionUnlock(
 
 /** 装配列表分组。顺序固定；过滤后某组为空则整组不画。 */
 export const POTION_INSTALL_GROUPS: readonly { label: string; ids: readonly PotionItemId[] }[] = [
-  { label: '提效', ids: ['stim', 'rushPowder', 'doubleMist'] },
+  { label: '提效', ids: ['stim', 'rushPowder', 'doubleMist', 'beastOil'] },
   { label: '加血', ids: ['salve', 'renewSoup', 'brinkSalve', 'clearMind'] },
 ]
+
+/** 能装进药剂槽的种类。狂兽油不进炼金随机池，所以不在 `POTION_ITEM_IDS` 里。 */
+export const SLOT_POTION_IDS: readonly PotionItemId[] = [...POTION_ITEM_IDS, 'beastOil']
 
 export type PotionBatchRange = { min: number; max: number }
 
@@ -511,6 +523,8 @@ export const POTION_BATCH_RANGE: Readonly<Record<PotionItemId, PotionBatchRange>
   rushPowder: { min: 2, max: 5 },
   doubleMist: { min: 3, max: 6 },
   clearMind: { min: 3, max: 6 },
+  /** 不进随机池。手动制作固定 3 瓶，这里只为补全类型。 */
+  beastOil: { min: 3, max: 3 },
 }
 
 export const POTION_EFFECT_TEXT: Readonly<Record<PotionItemId, string>> = {
@@ -521,6 +535,7 @@ export const POTION_EFFECT_TEXT: Readonly<Record<PotionItemId, string>> = {
   rushPowder: '随机一个有在岗苦工的工位，下一次产出周期缩短 40%',
   doubleMist: '随机一个有在岗苦工的工位，下一批成功产出 80% 为 ×2、20% 为 ×3',
   clearMind: '只治疗在岗里受伤最重的 1～2 人：第 1 人回复 30% 最大生命，第 2 人回复 20% 最大生命',
+  beastOil: '六站在岗速度 ×2，持续 3 分钟',
 }
 
 export function isPotionItemId(id: unknown): id is PotionItemId {
@@ -531,7 +546,8 @@ export function isPotionItemId(id: unknown): id is PotionItemId {
     id === 'brinkSalve' ||
     id === 'rushPowder' ||
     id === 'doubleMist' ||
-    id === 'clearMind'
+    id === 'clearMind' ||
+    id === 'beastOil'
   )
 }
 
@@ -956,21 +972,28 @@ export function isToolItemId(id: unknown): id is ToolItemId {
   return id === 'tool' || id === 'ironTool' || id === 'mithrilTool'
 }
 
-export type FoodItemId = 'meal' | 'roast' | 'stew'
+export type FoodItemId = RestFoodId
 
-/** 入休息吃到的短时弱生产效果。主职是回血，加速压得很低。 */
+/** 入休息吃到的短时效果。骨汤加速 600 秒；猎人肉串的护岗另记在苦工身上。 */
 export const FOOD_BUFF_DEF: Record<FoodItemId, ProductionBuff> = {
   meal: { effectId: EFFECT_ID.prodSpeed, mul: 1.02, durationS: 180 },
   roast: { effectId: EFFECT_ID.extraOutput, mul: 0, durationS: 180 },
   stew: { effectId: EFFECT_ID.prodSpeed, mul: 1.03, durationS: 240 },
+  boneSoup: { effectId: EFFECT_ID.prodSpeed, mul: 1.05, durationS: 600 },
+  hunterSkewer: { effectId: EFFECT_ID.prodSpeed, mul: 0, durationS: 1800 },
 }
 
-/** 残血自动吃 1：按 hpMax 向上取整回血。 */
+/** 残血自动吃 1：按 hpMax 向上取整回血。猎人肉串是回满。 */
 export const FOOD_HEAL_RATIO: Record<FoodItemId, number> = {
   meal: 0.25,
   roast: 0.4,
   stew: 0.55,
+  boneSoup: 0.7,
+  hunterSkewer: 1,
 }
+
+/** 猎人肉串：吃完后这么多 sim 秒内在岗不掉血、不记劳损。 */
+export const HUNTER_SKEWER_GUARD_S = 1800
 
 /** 旧通用药剂用药比例；现已不用。回春散为 10%。 */
 export const POTION_HEAL_RATIO = 0.2
@@ -989,13 +1012,16 @@ export const DOUBLE_MIST_DOUBLE_RATE = 0.8
 export const RUSH_CYCLE_CUT = 0.4
 export const STIM_SPEED_MUL = 1.5
 export const STIM_DURATION_S = 180
+/** 狂兽油：六站在岗速度。不进炼金随机池。 */
+export const BEAST_OIL_SPEED_MUL = 2
+export const BEAST_OIL_DURATION_S = 180
 export const RENEW_DURATION_S = 120
 export const RENEW_TICK_S = 10
 
 export const FOOD_ITEM_IDS = Object.keys(FOOD_BUFF_DEF) as FoodItemId[]
 
 export function isFoodItemId(id: unknown): id is FoodItemId {
-  return id === 'meal' || id === 'roast' || id === 'stew'
+  return id === 'meal' || id === 'roast' || id === 'stew' || id === 'boneSoup' || id === 'hunterSkewer'
 }
 
 export function foodBuffDef(itemId: ItemId): ProductionBuff | undefined {
@@ -1116,6 +1142,22 @@ export function itemProducerStation(itemId: ItemId): StationId | null {
   return null
 }
 
+const BEAST_MANUAL_ITEMS = new Set<ItemId>([
+  'beastBone',
+  'beastSinew',
+  'beastFat',
+  'beastHeart',
+  'beastCore',
+  'boneSoup',
+  'hunterSkewer',
+  'beastOil',
+])
+
+/** 困兽兽材和手动料理。不进站点循环，也不算旧档遗留。 */
+export function isBeastManualItem(id: unknown): id is ItemId {
+  return typeof id === 'string' && BEAST_MANUAL_ITEMS.has(id as ItemId)
+}
+
 /** 不挂在任一可玩站上的旧物（木头 / 搁置武器等）。有货时工坊页脚展示。 */
 export function leftoverStockItems(): ItemId[] {
   const used = new Set<ItemId>()
@@ -1124,7 +1166,9 @@ export function leftoverStockItems(): ItemId[] {
     for (const itemId of related.costs) used.add(itemId)
     for (const itemId of related.outputs) used.add(itemId)
   }
-  return ITEM_IDS.filter((id) => !used.has(id) && !isStationToolId(id) && !isWildcardNeedId(id))
+  return ITEM_IDS.filter(
+    (id) => !used.has(id) && !isStationToolId(id) && !isWildcardNeedId(id) && !isBeastManualItem(id),
+  )
 }
 
 /** 整批换金（sim / 调试）。主界面已撤卖货；去武器，只收符文 / 烹饪食物。 */

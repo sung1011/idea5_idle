@@ -19,6 +19,8 @@ import {
   RUSH_CYCLE_CUT,
   SALVE_HEAL_RATIO,
   STATION_DEF,
+  BEAST_OIL_DURATION_S,
+  BEAST_OIL_SPEED_MUL,
   STIM_DURATION_S,
   STIM_SPEED_MUL,
 } from './tables'
@@ -63,6 +65,7 @@ export function blankPotionBuffs(): PotionBuffs {
     renewNextAt: null,
     doubleMist: null,
     rushStation: null,
+    beastOilUntil: null,
   }
 }
 
@@ -103,6 +106,11 @@ export function isStimActive(save: Save): boolean {
 
 export function stimSpeedMul(save: Save): number {
   return isStimActive(save) ? STIM_SPEED_MUL : 1
+}
+
+/** 狂兽油：六站在岗速度 ×2。和嗜血药剂叠乘。 */
+export function beastOilSpeedMul(save: Save): number {
+  return isActiveUntil(buffsOf(save).beastOilUntil, save.elapsedS) ? BEAST_OIL_SPEED_MUL : 1
 }
 
 /** 双份雾倍率。没有标记或不是这一站则为 1，不消耗。 */
@@ -268,6 +276,10 @@ function applyPotionEffect(save: Save, itemId: PotionItemId): string {
     }
     return targets.length > 0 ? `图腾：最残 ${targets.length} 人回血` : POTION_FULL_HP_TIP
   }
+  if (itemId === 'beastOil') {
+    buffs.beastOilUntil = t + BEAST_OIL_DURATION_S
+    return '六站在岗速度 ×2，持续 3 分钟'
+  }
   const _unreachable: never = itemId
   return _unreachable
 }
@@ -314,6 +326,7 @@ export function applyPotionTicks(save: Save): void {
     }
   }
   if (buffs.stimUntil != null && t >= buffs.stimUntil) buffs.stimUntil = null
+  if (buffs.beastOilUntil != null && t >= buffs.beastOilUntil) buffs.beastOilUntil = null
 }
 
 function hydrateBuffs(raw: unknown, elapsedS: number): PotionBuffs {
@@ -337,6 +350,7 @@ function hydrateBuffs(raw: unknown, elapsedS: number): PotionBuffs {
     renewNextAt: clampElapsed(src.renewNextAt),
     doubleMist,
     rushStation: stationOf(src.rushStation),
+    beastOilUntil: until(src.beastOilUntil),
   }
 }
 

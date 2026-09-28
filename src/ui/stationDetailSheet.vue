@@ -10,6 +10,8 @@ import ActButton from './actButton.vue'
 import ConsumeJumpItem from './consumeJumpItem.vue'
 import StationMiniBar from './stationMiniBar.vue'
 import { formatConsumeToken } from './encounterDeal'
+import { breakthroughChoices } from '../sim/beastCraft'
+import { itemQty } from '../sim/bank'
 import { useGameStore } from './gameStore'
 import { itemSourceFlashCategories, isItemSourceStationFlash } from './itemSource'
 import { pushFloatTip } from './floatTips'
@@ -33,6 +35,10 @@ const emit = defineEmits<{
 const game = useGameStore()
 const helpOpen = ref(false)
 const sealAsk = ref(false)
+const coreOpen = ref(false)
+const beastCook = computed(() => props.stationId === 'cooking')
+const beastAlchemy = computed(() => props.stationId === 'alchemy')
+const coreStations = computed(() => breakthroughChoices(game.save))
 const def = computed(() => STATION_DEF[props.stationId])
 const station = computed(() => game.save.stations[props.stationId])
 const cat = computed(() => selectedCategoryDef(game.save, props.stationId))
@@ -230,6 +236,16 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
         <p v-if="gatherLine || frozen" class="note">{{ gatherLine || '采集暂停' }}</p>
         <p v-if="station.craftNotice" class="note">{{ station.craftNotice }}</p>
         <p v-if="stallLine" class="note jam">{{ stallLine }}</p>
+        <section v-if="beastCook || beastAlchemy" class="beast-craft" aria-label="兽材料理">
+          <h3>兽材料理</h3>
+          <template v-if="beastCook">
+            <ActButton icon="crate" kind="primary" tone="produce" cost="兽骨 1 · 肉 10" @click="game.craftBoneSoup()">骨汤</ActButton>
+            <ActButton icon="crate" kind="primary" tone="produce" cost="兽筋 1 · 香料 10" @click="game.craftHunterSkewer()">猎人肉串</ActButton>
+            <ActButton icon="crate" kind="primary" tone="produce" cost="心脏 1 · 肉 20 · 香料 10" @click="game.craftBeastFeast()">酋长宴</ActButton>
+          </template>
+          <ActButton v-if="beastAlchemy" icon="crate" kind="primary" tone="produce" cost="困兽油脂 1 · 草 10" @click="game.craftBeastOil()">狂兽油</ActButton>
+          <ActButton icon="crate" kind="primary" tone="produce" cost="困兽之核 ×1" :disabled="itemQty(game.save, 'beastCore') < 1" @click="coreOpen = true">困兽之核突破</ActButton>
+        </section>
         <div class="actions">
           <button type="button" :disabled="!duty" @click="onWithdraw">撤出</button>
           <button type="button" @click="onSwap">换人</button>
@@ -255,6 +271,24 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
             <ActButton v-else icon="close" kind="danger" @click="onAskSeal">封闭</ActButton>
           </template>
         </div>
+      </section>
+    </div>
+    <div v-if="coreOpen" class="modal core" role="presentation" @click.self="coreOpen = false">
+      <section class="sheet" role="dialog" aria-label="选择突破站点">
+        <header>
+          <h2 class="title">困兽之核</h2>
+          <button type="button" class="close" aria-label="关闭" @click="coreOpen = false">×</button>
+        </header>
+        <p class="note">选一座已经开放的站点，直接升 1 级。</p>
+        <button
+          v-for="id in coreStations"
+          :key="id"
+          type="button"
+          class="craft"
+          @click="coreOpen = false; game.breakthroughStation(id)"
+        >
+          {{ STATION_DEF[id].label }}
+        </button>
       </section>
     </div>
   </Teleport>
@@ -306,6 +340,35 @@ header {
   background: #efe2c4;
   font-size: 11px;
   font-weight: 800;
+}
+
+.beast-craft {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.beast-craft h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.craft {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 12px;
+  background: var(--copper);
+  color: #fff;
+  font-weight: 700;
+}
+
+.craft:disabled {
+  opacity: 0.45;
 }
 
 .help,

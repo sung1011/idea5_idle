@@ -1,8 +1,8 @@
 import { POTION_ITEM_IDS } from '../sim/tables'
 import type { PotionItemId } from '../sim/types'
 
-/** 七种药剂：16×16 单色 path，与工坊六站、底栏同一套填色语言。孔洞用 evenodd。 */
-export const POTION_ICON_PATHS: Record<PotionItemId, readonly string[]> = {
+/** 炼金随机池里的七种。狂兽油另画，不进这张表，避免和「正好七种」的检查搅在一起。 */
+export const POTION_ICON_PATHS: Record<Exclude<PotionItemId, 'beastOil'>, readonly string[]> = {
   salve: [
     'M6.15 0.7H9.85V2.05H6.15Z',
     'M6.8 1.9H9.2V3.65H6.8Z',
@@ -51,14 +51,22 @@ export const POTION_ICON_PATHS: Record<PotionItemId, readonly string[]> = {
   ],
 }
 
+const BEAST_OIL_PATHS = [
+  'M6.15 0.7H9.85V2.05H6.15Z',
+  'M5.2 2.7H10.8L12.1 4.6V11.2C12.1 13.3 10.3 14.9 8 14.9C5.7 14.9 3.9 13.3 3.9 11.2V4.6Z',
+  'M4.7 6.4H11.3V7.5H4.7Z',
+  'M7.15 8.2H8.85V12.4H7.15Z',
+]
+
 export function potionIconPaths(id: PotionItemId): readonly string[] {
+  if (id === 'beastOil') return BEAST_OIL_PATHS
   return POTION_ICON_PATHS[id]
 }
 
 export function allPotionIconsReady(): boolean {
   const seen = new Set<string>()
   for (const id of POTION_ITEM_IDS) {
-    const paths = POTION_ICON_PATHS[id]
+    const paths = potionIconPaths(id)
     if (!paths?.some((d) => d.length > 0)) return false
     const sig = paths.join('\n')
     if (seen.has(sig)) return false

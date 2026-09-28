@@ -1,4 +1,5 @@
 import { assignedWorkers, assignWorker } from './assign'
+import { isWorkerInBeastPvp } from './beastPvpQuery'
 import { isWorkerInHerbPvp } from './herbPvpQuery'
 import { fillWorkerHp } from './combat'
 import { unloadFood } from './food'
@@ -94,6 +95,7 @@ export function canFuseRestWorkers(save: Save, workerIdA: string, workerIdB: str
   const b = findWorker(save, workerIdB)
   if (!a || !b) return false
   if (isWorkerInHerbPvp(save, a.id) || isWorkerInHerbPvp(save, b.id)) return false
+  if (isWorkerInBeastPvp(save, a.id) || isWorkerInBeastPvp(save, b.id)) return false
   if (a.assignment != null && b.assignment != null) return false
   return fusePairReady(a, b) == null
 }
@@ -106,6 +108,7 @@ export function fuseRestWorkers(save: Save, workerIdA: string, workerIdB: string
   const ready = fusePairReady(a, b)
   if (ready || !a || !b) return ready ?? { ok: false, reason: '没有这个苦工' }
   if (isWorkerInHerbPvp(save, a.id) || isWorkerInHerbPvp(save, b.id)) return { ok: false, reason: '正在割草' }
+  if (isWorkerInBeastPvp(save, a.id) || isWorkerInBeastPvp(save, b.id)) return { ok: false, reason: '正在困兽' }
   if (a.assignment != null && b.assignment != null) return { ok: false, reason: '只能在休息区合成' }
   return fusePairAt(save, a, b, null)
 }

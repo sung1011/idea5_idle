@@ -1,7 +1,8 @@
 import { addToBank, bankQty, takeFromBank } from './bank'
 import { isWorkerInCombat } from './combat'
 import { clearWorkerNew, findWorker } from './recruit'
-import { FOOD_HEAL_RATIO, foodBuffDef, isFoodItemId, ITEM_DEF, type FoodItemId } from './tables'
+import { FOOD_HEAL_RATIO, foodBuffDef, HUNTER_SKEWER_GUARD_S, isFoodItemId, ITEM_DEF, type FoodItemId } from './tables'
+import { isWorkerInBeastPvp } from './beastPvpQuery'
 import { isWorkerInHerbPvp } from './herbPvpQuery'
 import { isWorkerInTreasureMine } from './treasureMineQuery'
 import { isWoundedHp } from './workshopHp'
@@ -90,13 +91,14 @@ export function selectRestFood(save: Save, itemId: FoodItemId | null): ActionRes
   return { ok: true }
 }
 
-function applyRestFoodBuff(worker: Worker, itemId: FoodItemId, now: number): void {
+function applyRestFoodBuff(worker: Worker, itemId: FoodItemId, now: number, elapsedS = 0): void {
   const def = foodBuffDef(itemId)
   if (!def) {
     worker.foodBuff = null
     return
   }
   worker.foodBuff = { itemId, expiresAt: now + def.durationS * 1000 }
+  if (itemId === 'hunterSkewer') worker.dutyGuardUntil = elapsedS + HUNTER_SKEWER_GUARD_S
 }
 
 /** 进食挂上的短时效果。过期视为没有。 */
@@ -117,7 +119,12 @@ export function sendWorkerToRestTail(save: Save, workerId: string): boolean {
   if (index < 0) return false
   const worker = save.workers[index]
   if (!worker || worker.assignment !== null) return false
-  if (isWorkerInCombat(save, workerId) || isWorkerInTreasureMine(save, workerId) || isWorkerInHerbPvp(save, workerId)) {
+  if (
+    isWorkerInCombat(save, workerId) ||
+    isWorkerInTreasureMine(save, workerId) ||
+    isWorkerInHerbPvp(save, workerId) ||
+    isWorkerInBeastPvp(save, workerId)
+  ) {
     return false
   }
   if (index === save.workers.length - 1) return true
@@ -154,7 +161,7 @@ export function offerRestFood(save: Save, workerId: string, now = save.lastTick 
   const took = takeFromBank(save, itemId, 1)
   if (!took.ok) return null
   const healed = applyFoodHeal(worker, itemId)
-  applyRestFoodBuff(worker, itemId, now)
+  applyRestFoodBuff(worker, itemId, now, save.elapsedS)
   const message = restEatMessage(ITEM_DEF[itemId].label, healed)
   restEatNotices.push({ workerId, message })
   return { ok: true, message }

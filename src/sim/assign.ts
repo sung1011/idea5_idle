@@ -1,4 +1,5 @@
 import { isWorkerInCombat } from './combat'
+import { beastPvpBlockReason, isWorkerInBeastPvp } from './beastPvpQuery'
 import { herbPvpBlockReason, isWorkerInHerbPvp } from './herbPvpQuery'
 import { isWorkerInTreasureMine, treasureMineBlockReason } from './treasureMineQuery'
 import { findWorker } from './recruit'
@@ -46,6 +47,8 @@ export function assignWorker(save: Save, workerId: string, stationId: StationId 
   if (mineBusy) return { ok: false, reason: mineBusy }
   const herbBusy = herbPvpBlockReason(save, workerId)
   if (herbBusy) return { ok: false, reason: herbBusy }
+  const beastBusy = beastPvpBlockReason(save, workerId)
+  if (beastBusy) return { ok: false, reason: beastBusy }
   if (stationId !== null && (isDeprecatedStationId(stationId) || !isStationId(stationId))) {
     return { ok: false, reason: '没有这个站点' }
   }
@@ -71,7 +74,8 @@ export function restingWorkers(save: Save): Worker[] {
       worker.assignment === null &&
       !isWorkerInCombat(save, worker.id) &&
       !isWorkerInTreasureMine(save, worker.id) &&
-      !isWorkerInHerbPvp(save, worker.id),
+      !isWorkerInHerbPvp(save, worker.id) &&
+      !isWorkerInBeastPvp(save, worker.id),
   )
 }
 

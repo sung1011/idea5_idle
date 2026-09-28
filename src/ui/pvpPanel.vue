@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import ModeHelpSheet from './modeHelpSheet.vue'
 import { modeHelpOf, type ModeHelpId } from './modeHelp'
 import { bootPvpView, PVP_VIEW_LABELS, PVP_VIEWS, pvpView, selectPvpView } from './pvpTabs'
+import BeastPvpPanel from './beastPvpPanel.vue'
 import HerbPvpPanel from './herbPvpPanel.vue'
 import TreasureMinePanel from './treasureMinePanel.vue'
 
@@ -10,7 +11,8 @@ bootPvpView()
 const helpOpen = ref(false)
 
 function helpId(): ModeHelpId {
-  return pvpView.value === 'herb' ? 'herb' : 'treasure'
+  if (pvpView.value === 'herb' || pvpView.value === 'beast') return pvpView.value
+  return 'treasure'
 }
 
 const help = computed(() => modeHelpOf(helpId()))
@@ -36,7 +38,8 @@ const help = computed(() => modeHelpOf(helpId()))
       <button type="button" class="mode-help" aria-label="玩法说明" @click="helpOpen = true">？</button>
     </div>
     <TreasureMinePanel v-if="pvpView === 'treasure'" />
-    <HerbPvpPanel v-else />
+    <HerbPvpPanel v-else-if="pvpView === 'herb'" />
+    <BeastPvpPanel v-else />
     <ModeHelpSheet v-if="helpOpen" :title="help.title" :rows="help.rows" @close="helpOpen = false" />
   </section>
 </template>
