@@ -67,6 +67,7 @@ import {
 } from './workerGroups'
 import { REST_HEAD_BADGE, restQueueRows, restZoneTitle } from './restQueue'
 import { formatAtkSpeed } from './formatAtkSpeed'
+import PotionIcon from './potionIcon.vue'
 import UiIcon from './uiIcon.vue'
 import UiSelect from './uiSelect.vue'
 import { qualityOf, workerQualityDotStyle, workerQualityNameStyle, workerQualityTileStyle } from './workerQuality'
@@ -681,8 +682,9 @@ onUnmounted(() => {
               @click="onPotionSlot(i)"
             >
               <template v-if="itemId">
-                <UiIcon name="alchemy" />
-                <span class="potion-lab">{{ potionSlotLabel(itemId) }}</span>
+                <PotionIcon :name="itemId" />
+                <span class="potion-name">{{ ITEM_DEF[itemId].label }}</span>
+                <span class="potion-qty">×{{ potionSlotQty(itemId) }}</span>
                 <span
                   class="potion-help"
                   data-potion-help
@@ -693,8 +695,7 @@ onUnmounted(() => {
                 >i</span>
               </template>
               <template v-else>
-                <span class="empty-mark" aria-hidden="true">＋</span>
-                <span class="empty-lab">药剂</span>
+                <span class="potion-vacant" aria-hidden="true"></span>
               </template>
             </button>
           </div>
@@ -1007,6 +1008,7 @@ onUnmounted(() => {
               <div v-for="id in group.ids" :key="id" class="pick-cell">
                 <div class="potion-pick-row">
                   <button type="button" class="potion-pick-main" @click="onInstallPotion(id)">
+                    <PotionIcon :name="id" />
                     <span>{{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}</span>
                   </button>
                   <button
@@ -1469,12 +1471,26 @@ onUnmounted(() => {
   box-shadow: 0 2px 0 var(--gold-deep);
 }
 
-.potion-slot.empty,
+.potion-slot.empty {
+  border-style: dashed;
+  border-color: #ddd8d0;
+  background: #f6f4f0;
+  box-shadow: none;
+}
+
 .potion-slot.dry {
   border-style: dashed;
   background: rgba(255, 241, 190, 0.35);
   color: #a77840;
   box-shadow: none;
+}
+
+.potion-vacant {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: #e4e0d8;
+  box-shadow: inset 0 0 0 1.5px #d0cbc3;
 }
 
 .potion-slot .potion-help {
@@ -1527,6 +1543,28 @@ onUnmounted(() => {
   width: 100%;
   min-width: 0;
   padding-right: 40px;
+}
+
+.potion-groups .potion-pick-main {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding-left: 8px;
+}
+
+.potion-groups .potion-pick-main :deep(.potion-ico) {
+  width: 16px;
+  height: 16px;
+  color: #6a3218;
+}
+
+.potion-groups .potion-pick-main span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
 }
 
 .potion-help.pick {
@@ -1592,17 +1630,26 @@ onUnmounted(() => {
   font-weight: 800;
 }
 
-.potion-slot :deep(.ui-ico) {
-  width: 14px;
-  height: 14px;
+.potion-slot :deep(.potion-ico) {
+  width: 16px;
+  height: 16px;
   color: #6a3218;
 }
 
-.potion-lab {
+.potion-name,
+.potion-qty {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 9px;
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1.05;
   letter-spacing: 0.02em;
+}
+
+.potion-qty {
+  color: #8a5a28;
 }
 
 .slots {
@@ -1654,12 +1701,6 @@ onUnmounted(() => {
 .rest.drop-no,
 .rest-row.drop-no {
   box-shadow: 0 0 0 2px var(--danger);
-}
-
-.empty-mark {
-  font-size: 13px;
-  font-weight: 900;
-  line-height: 1;
 }
 
 .empty-lab {
