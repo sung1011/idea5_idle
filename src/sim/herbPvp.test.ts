@@ -192,7 +192,7 @@ describe('herb pvp board', () => {
     expect(herbPlayerRank(save)).toBe(1)
   })
 
-  it('never puts more than five rivals online at once', () => {
+  it('never puts more than eight rivals online at once', () => {
     const save = fresh()
     const state = save.herbPvp
     state.onlineTarget = HERB_PVP_RIVAL_ONLINE_MAX
@@ -219,18 +219,19 @@ describe('herb pvp board', () => {
     }
   })
 
-  it('rolls only three to five rivals and keeps at least three weeding', () => {
-    expect(HERB_PVP_RIVAL_ONLINE_MIN).toBe(3)
-    expect(HERB_PVP_RIVAL_ONLINE_MAX).toBe(5)
-    expect(herbOnlineTargetOf(0)).toBe(3)
-    expect(herbOnlineTargetOf(0.2)).toBe(3)
-    expect(herbOnlineTargetOf(0.34)).toBe(4)
-    expect(herbOnlineTargetOf(0.7)).toBe(5)
-    expect(herbOnlineTargetOf(0.999999)).toBe(5)
+  it('rolls only five to eight rivals and keeps at least five weeding', () => {
+    expect(HERB_PVP_RIVAL_ONLINE_MIN).toBe(5)
+    expect(HERB_PVP_RIVAL_ONLINE_MAX).toBe(8)
+    expect(herbOnlineTargetOf(0)).toBe(5)
+    expect(herbOnlineTargetOf(0.2)).toBe(5)
+    expect(herbOnlineTargetOf(0.26)).toBe(6)
+    expect(herbOnlineTargetOf(0.5)).toBe(7)
+    expect(herbOnlineTargetOf(0.75)).toBe(8)
+    expect(herbOnlineTargetOf(0.999999)).toBe(8)
 
     const save = fresh()
-    expect(save.herbPvp.onlineTarget).toBeGreaterThanOrEqual(3)
-    expect(save.herbPvp.onlineTarget).toBeLessThanOrEqual(5)
+    expect(save.herbPvp.onlineTarget).toBeGreaterThanOrEqual(5)
+    expect(save.herbPvp.onlineTarget).toBeLessThanOrEqual(8)
 
     function park(target: number): Save {
       const next = fresh()
@@ -250,7 +251,7 @@ describe('herb pvp board', () => {
       return next
     }
 
-    const resting = park(5)
+    const resting = park(8)
     stepHerbPvp(resting, Date.now())
     const recalled = resting.herbPvp.rivals.filter((rival) => rival.onlineUntilS != null)
     expect(recalled).toHaveLength(HERB_PVP_RIVAL_ONLINE_MIN)
@@ -258,26 +259,26 @@ describe('herb pvp board', () => {
       expect(resting.herbPvp.plots.some((plot) => plot.weeder === rival.id)).toBe(true)
     }
 
-    const capped = park(3)
+    const capped = park(5)
     for (const rival of capped.herbPvp.rivals) rival.nextOnlineAtS = 0
     stepHerbPvp(capped, Date.now())
-    expect(capped.herbPvp.rivals.filter((rival) => rival.onlineUntilS != null)).toHaveLength(3)
+    expect(capped.herbPvp.rivals.filter((rival) => rival.onlineUntilS != null)).toHaveLength(5)
 
-    const full = park(5)
+    const full = park(8)
     for (const rival of full.herbPvp.rivals) rival.nextOnlineAtS = 0
     stepHerbPvp(full, Date.now())
     stepHerbPvp(full, Date.now())
-    expect(full.herbPvp.rivals.filter((rival) => rival.onlineUntilS != null)).toHaveLength(5)
+    expect(full.herbPvp.rivals.filter((rival) => rival.onlineUntilS != null)).toHaveLength(8)
 
     const legacy = fresh()
     legacy.herbPvp.onlineTarget = 0
-    expect(hydrateLoadedSave(JSON.parse(JSON.stringify(legacy)))?.herbPvp.onlineTarget).toBe(3)
-    legacy.herbPvp.onlineTarget = 1
-    expect(hydrateLoadedSave(JSON.parse(JSON.stringify(legacy)))?.herbPvp.onlineTarget).toBe(3)
-    legacy.herbPvp.onlineTarget = 4
-    expect(hydrateLoadedSave(JSON.parse(JSON.stringify(legacy)))?.herbPvp.onlineTarget).toBe(4)
-    legacy.herbPvp.onlineTarget = 9
     expect(hydrateLoadedSave(JSON.parse(JSON.stringify(legacy)))?.herbPvp.onlineTarget).toBe(5)
+    legacy.herbPvp.onlineTarget = 4
+    expect(hydrateLoadedSave(JSON.parse(JSON.stringify(legacy)))?.herbPvp.onlineTarget).toBe(5)
+    legacy.herbPvp.onlineTarget = 6
+    expect(hydrateLoadedSave(JSON.parse(JSON.stringify(legacy)))?.herbPvp.onlineTarget).toBe(6)
+    legacy.herbPvp.onlineTarget = 9
+    expect(hydrateLoadedSave(JSON.parse(JSON.stringify(legacy)))?.herbPvp.onlineTarget).toBe(8)
   })
 })
 

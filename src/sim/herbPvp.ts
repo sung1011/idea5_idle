@@ -78,9 +78,9 @@ export const HERB_PVP_PRECIOUS_LOW_SCORE = 20
 export const HERB_PVP_PRECIOUS_MID_SCORE = 40
 export const HERB_PVP_PRECIOUS_HIGH_SCORE = 80
 
-/** 同时在线 3～5。少过 3 人就提前把还在休息的人拉上来。每人一次在线 10～30 分钟，占 1～3 块。 */
-export const HERB_PVP_RIVAL_ONLINE_MIN = 3
-export const HERB_PVP_RIVAL_ONLINE_MAX = 5
+/** 同时在线 5～8。少过 5 人就提前把还在休息的人拉上来。每人一次在线 10～30 分钟，占 1～3 块。 */
+export const HERB_PVP_RIVAL_ONLINE_MIN = 5
+export const HERB_PVP_RIVAL_ONLINE_MAX = 8
 export const HERB_PVP_SESSION_MIN_S = 10 * 60
 export const HERB_PVP_SESSION_MAX_S = 30 * 60
 export const HERB_PVP_RIVAL_PLOTS_MIN = 1
@@ -91,7 +91,7 @@ export const HERB_PVP_RIVAL_REST_MIN_S = 2 * 3600
 export const HERB_PVP_RIVAL_REST_MAX_S = 8 * 3600
 /**
  * 玩家正在除草、且有假玩家在线时，平均约 90 分钟才判定一次撞车。
- * 在线人数保持在 3～5，所以玩家在除的时候大致按这个间隔碰到一次。
+ * 在线人数保持在 5～8，所以玩家在除的时候大致按这个间隔碰到一次。
  */
 export const HERB_PVP_BUMP_MEAN_S = 90 * 60
 
@@ -223,7 +223,7 @@ function intBetween(state: HerbPvpState, min: number, max: number): number {
   return min + Math.min(span - 1, Math.floor(nextHerbRoll(state) * span))
 }
 
-/** 这一段想同时在线的人数，只在 3、4、5 里。 */
+/** 这一段想同时在线的人数，只在 5、6、7、8 里。 */
 export function herbOnlineTargetOf(roll: number): number {
   const span = HERB_PVP_RIVAL_ONLINE_MAX - HERB_PVP_RIVAL_ONLINE_MIN + 1
   const r = !Number.isFinite(roll) || roll <= 0 ? 0 : roll >= 1 ? 0.999999 : roll
@@ -1024,7 +1024,7 @@ function clampOnlineTarget(value: unknown): number {
   return Math.min(HERB_PVP_RIVAL_ONLINE_MAX, n)
 }
 
-/** 补到目标人数，但不超过 5。目标在 3～5 且还不满 3 人时，休息没结束也拉上来。 */
+/** 补到目标人数，但不超过 8。目标在 5～8 且还不满 5 人时，休息没结束也拉上来。 */
 function fillHerbRivalOnline(save: Save, state: HerbPvpState): void {
   const stored = Math.max(0, Math.floor(finite(state.onlineTarget, 0)))
   const target = Math.min(HERB_PVP_RIVAL_ONLINE_MAX, stored)
