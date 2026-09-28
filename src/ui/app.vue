@@ -23,6 +23,8 @@ import HudResourceSheet from './hudResourceSheet.vue'
 import PlayerAvatar from './playerAvatar.vue'
 import PlayerProfileSheet from './playerProfileSheet.vue'
 import UiIcon from './uiIcon.vue'
+import WorkshopLayoutSwitch from './workshopLayoutSwitch.vue'
+import { workshopLayoutDemo, workshopLayoutSwitcherOn } from './workshopLayoutDemo'
 
 const game = useGameStore()
 const tab = appTab
@@ -33,6 +35,13 @@ const profileOpen = ref(false)
 const playerName = computed(() => playerDisplayName(game.save.playerName))
 const chips = computed(() => listHudChips(game.save))
 const stationHp = computed(() => dockStationHp(game.save))
+const demoShellClass = computed(() => {
+  if (tab.value !== 'workshop') return undefined
+  if (workshopLayoutDemo.value === 'a') return 'demo-a'
+  if (workshopLayoutDemo.value === 'b') return 'demo-b'
+  if (workshopLayoutDemo.value === 'c') return 'demo-c'
+  return undefined
+})
 const resourceDetail = computed(() => (resourceOpen.value ? hudChipDetail(game.save, resourceOpen.value) : null))
 
 onMounted(() => {
@@ -50,7 +59,8 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
 </script>
 
 <template>
-  <div class="shell">
+  <div class="shell" :class="demoShellClass">
+    <WorkshopLayoutSwitch v-if="workshopLayoutSwitcherOn" />
     <header class="hud" aria-label="资源">
       <button type="button" class="player" aria-label="玩家" @click="profileOpen = true">
         <PlayerAvatar :id="game.save.playerAvatarId" />
@@ -341,6 +351,20 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
 
 .dock-hp .fill.low {
   background: linear-gradient(90deg, #d04a38, #a02820);
+}
+
+.shell.demo-a .dock-hp,
+.shell.demo-a .dock-hp .cell {
+  height: 3px;
+}
+
+.shell.demo-a .dock-hp {
+  opacity: 0.35;
+}
+
+.shell.demo-b .dock-hp,
+.shell.demo-c .dock-hp {
+  display: none;
 }
 
 .dock-tabs {

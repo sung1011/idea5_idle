@@ -44,7 +44,7 @@ import { recruitCost } from '../sim/tech'
 import type { CategoryId, ClassId, PotionItemId, StationId, Worker } from '../sim/types'
 import ClassIcon from './classIcon.vue'
 import { openWorkshopStation } from './appNav'
-import { stationCraftPickOptions, stationCraftPickReadonly } from './stationCraftLabel'
+import { stationCraftLabel, stationCraftPickOptions, stationCraftPickReadonly } from './stationCraftLabel'
 import StationDetailSheet from './stationDetailSheet.vue'
 import StationMiniBar from './stationMiniBar.vue'
 import { showStationDetail, openStationDetailId } from './stationDetailNav'
@@ -59,12 +59,14 @@ import { hpBarFill, hpBarTone } from './hpBar'
 import { workerWearHp } from '../sim/workshopHp'
 import {
   canGoToAssignedWorkshop,
+  rosterSlotCounts,
   workerAssignChoices,
   workerDutyLabel,
   workerShortName,
   workshopStationBoards,
 } from './workerGroups'
-import { REST_HEAD_BADGE, restQueueRows, restZoneTitle } from './restQueue'
+import { REST_BLOCK_BADGE, REST_HEAD_BADGE, restQueueRows, restZoneTitle } from './restQueue'
+import { workshopLayoutDemo, type WorkshopLayoutDemo } from './workshopLayoutDemo'
 import { formatAtkSpeed } from './formatAtkSpeed'
 import UiIcon from './uiIcon.vue'
 import UiSelect from './uiSelect.vue'
@@ -85,6 +87,10 @@ import {
 } from './workerDrag'
 
 const game = useGameStore()
+const layout = workshopLayoutDemo
+const potionFoldOpen = ref(false)
+const opsStation = ref<StationId | null>(null)
+const demoSheet = ref<null | 'rest' | 'potion' | 'ops' | 'combat'>(null)
 const showFuseDragTip = computed(() => shouldShowFuseDragTip(game.save))
 const guideFlashRecruit = computed(() => isGuideQuestFlash(game.save, 'recruit'))
 const guideFlashAutoHerb = computed(() => isGuideQuestFlash(game.save, 'autoHerb'))
@@ -145,6 +151,36 @@ const pickId = ref<string | null>(null)
 const pickPotionIndex = ref<number | null>(null)
 
 const boards = computed(() => workshopStationBoards(game.save))
+const rosterCounts = computed(() => rosterSlotCounts(game.save))
+const potionFilled = computed(() => game.save.potionSlots.filter((id) => !!id).length)
+const potionFolded = computed(
+  () =>
+    layout.value === 'a' &&
+    !potionFoldOpen.value &&
+    !guideFlashPotionInstall.value &&
+    !guideFlashPotionUse.value,
+)
+const layoutClass = computed(() => {
+  const id: WorkshopLayoutDemo = layout.value
+  if (id === 'a') return 'layout-a'
+  if (id === 'b') return 'layout-b'
+  if (id === 'c') return 'layout-c'
+  return undefined
+})
+
+function toggleOpsStation(stationId: StationId) {
+  opsStation.value = opsStation.value === stationId ? null : stationId
+}
+
+function toggleDemoSheet(id: 'rest' | 'potion' | 'ops' | 'combat') {
+  demoSheet.value = demoSheet.value === id ? null : id
+}
+
+watch(layout, () => {
+  potionFoldOpen.value = false
+  opsStation.value = null
+  demoSheet.value = null
+})
 const fightingRoster = computed(() =>
   combatZoneRows(game.save, frameNow.value)
     .map((row) => {
@@ -154,6 +190,17 @@ const fightingRoster = computed(() =>
     .filter((item): item is { worker: Worker; row: CombatZoneRow } => !!item),
 )
 const restRows = computed(() => restQueueRows(game.save))
+const showCombatZone = computed(() => layout.value !== 'a' || fightingRoster.value.length > 0)
+const restHeadTitle = computed(() =>
+  layout.value === 'a' ? `休息 ${restRows.value.length}` : restZoneTitle(restRows.value.length),
+)
+const restHeadLine = computed(() => {
+  const head = restRows.value[0]
+  if (!head) return '休息无人'
+  const name = workerShortName(head.worker)
+  if (head.badge === REST_BLOCK_BADGE) return `堵队 · ${name}`
+  return `队首 · ${name}`
+})
 const recruitPrice = computed(() => recruitCost(game.save))
 const canRecruit = computed(() => game.save.diamonds >= recruitPrice.value)
 const selected = computed(() => {
@@ -547,7 +594,37 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="panel roster-v2" :class="{ dragging: drag?.active }">
+  <section
+    class="panel roster-v2"
+    :class="[
+      layoutClass,
+      {
+        dragging: drag?.active,
+        'potion-open': potionFoldOpen,
+        'sheet-rest': demoSheet === 'rest',
+        'sheet-potion': demoSheet === 'potion',
+        'sheet-ops': demoSheet === 'ops',
+        'sheet-combat': demoSheet === 'combat',
+      },
+    ]"
+  >
+    <header v-if="layout === 'b'" class="focus-hero">
+      <p class="focus-kicker">在岗</p>
+      <p class="focus-num">
+        <b>{{ rosterCounts.filled }}</b>
+        <small>/ {{ rosterCounts.stations }}</small>
+      </p>
+      <p class="focus-sub">休息 {{ restRows.length }} · 战斗 {{ fightingRoster.length }} · 药剂 {{ potionFilled }}/4</p>
+      <button
+        type="button"
+        class="focus-recruit"
+        :class="{ off: !canRecruit, 'guide-flash': guideFlashRecruit }"
+        :disabled="!canRecruit"
+        @click="game.recruit()"
+      >
+        抽工人 · {{ recruitPrice }} 钻
+      </button>
+    </header>
     <div class="board">
       <section class="col workshop" aria-label="在工坊">
         <p v-if="showFuseDragTip" class="fuse-drag-tip" role="status">{{ FUSE_DRAG_TIP }}</p>
@@ -558,6 +635,8 @@ onUnmounted(() => {
             class="station"
             :class="{
               locked: stationLocked(board.stationId),
+              closed: game.save.stations[board.stationId].closed,
+              ops: layout === 'a' && opsStation === board.stationId,
               'guide-flash':
                 isItemSourceStationFlash(board.stationId) ||
                 (guideFlashAutoHerb && board.stationId === 'herbalism'),
@@ -586,6 +665,16 @@ onUnmounted(() => {
                 @click.stop="openStationDetail(board.stationId)"
               >
                 详情
+              </button>
+              <button
+                v-if="layout === 'a'"
+                type="button"
+                class="station-more"
+                :aria-expanded="opsStation === board.stationId"
+                :aria-label="`${board.label}站务`"
+                @click.stop="toggleOpsStation(board.stationId)"
+              >
+                {{ game.save.stations[board.stationId].closed ? '已封' : '更多' }}
               </button>
             </div>
             <div class="station-work">
@@ -648,7 +737,12 @@ onUnmounted(() => {
                 </button>
               </div>
               <div class="station-craft-row">
+                <span
+                  v-if="layout === 'a' && stationCraftPickReadonly(game.save, board.stationId)"
+                  class="craft-quiet"
+                >{{ stationCraftLabel(game.save, board.stationId) }}</span>
                 <UiSelect
+                  v-else
                   class="station-craft-pick"
                   :model-value="game.save.stations[board.stationId].selectedCategory"
                   :options="stationCraftPickOptions(game.save, board.stationId)"
@@ -661,6 +755,15 @@ onUnmounted(() => {
             </div>
           </article>
           <div class="potion-row" aria-label="药剂技能槽">
+            <button
+              v-if="potionFolded"
+              type="button"
+              class="potion-fold"
+              @click="potionFoldOpen = true"
+            >
+              药剂 {{ potionFilled }}/4<template v-if="potionBuffLine"> · {{ potionBuffLine }}</template>
+            </button>
+            <template v-else>
             <button
               v-for="(itemId, i) in potionSlots"
               :key="`potion-${i}`"
@@ -691,13 +794,28 @@ onUnmounted(() => {
                 <span class="empty-lab">药剂</span>
               </template>
             </button>
+            <button
+              v-if="layout === 'a'"
+              type="button"
+              class="potion-fold"
+              @click="potionFoldOpen = false"
+            >
+              收起
+            </button>
+            </template>
           </div>
           <p v-if="potionBuffLine" class="potion-buffs">{{ potionBuffLine }}</p>
         </div>
       </section>
       <div class="col side">
-        <section class="zone combat" :class="{ empty: !fightingRoster.length }" aria-label="战斗区">
+        <section
+          v-show="showCombatZone"
+          class="zone combat"
+          :class="{ empty: !fightingRoster.length }"
+          aria-label="战斗区"
+        >
           <header class="zone-head">战斗区 · {{ fightingRoster.length }}</header>
+          <p v-if="layout !== 'current' && !fightingRoster.length" class="empty-combat">无人出战</p>
           <div v-if="fightingRoster.length" class="zone-list">
             <div
               v-for="item in fightingRoster"
@@ -738,7 +856,7 @@ onUnmounted(() => {
           aria-label="休息区"
           data-drop="rest"
         >
-          <header class="zone-head">{{ restZoneTitle(restRows.length) }}</header>
+          <header class="zone-head">{{ restHeadTitle }}</header>
           <button
             type="button"
             class="recruit-bar"
@@ -823,6 +941,39 @@ onUnmounted(() => {
         </section>
       </div>
     </div>
+    <section v-if="layout === 'c'" class="status-band" aria-label="工坊状态">
+      <b>在岗 {{ rosterCounts.filled }}/{{ rosterCounts.stations }}</b>
+      <span>{{ restHeadLine }}</span>
+      <button
+        type="button"
+        class="band-food"
+        :class="{ dry: restFoodDry, 'guide-flash': guideFlashRestFood }"
+        @click="restFoodOpen = true"
+      >
+        {{ restFoodLabel }}
+      </button>
+      <button
+        type="button"
+        class="band-recruit"
+        :class="{ 'guide-flash': guideFlashRecruit }"
+        :disabled="!canRecruit"
+        @click="game.recruit()"
+      >
+        抽 {{ recruitPrice }}钻
+      </button>
+    </section>
+    <nav v-if="layout === 'b' || layout === 'c'" class="deep-bar" aria-label="次级入口">
+      <button type="button" :class="{ on: demoSheet === 'rest' }" @click="toggleDemoSheet('rest')">
+        休息 {{ restRows.length }}
+      </button>
+      <button type="button" :class="{ on: demoSheet === 'potion' }" @click="toggleDemoSheet('potion')">
+        药剂 {{ potionFilled }}/4
+      </button>
+      <button type="button" :class="{ on: demoSheet === 'ops' }" @click="toggleDemoSheet('ops')">站务</button>
+      <button type="button" :class="{ on: demoSheet === 'combat' }" @click="toggleDemoSheet('combat')">
+        战斗 {{ fightingRoster.length }}
+      </button>
+    </nav>
     <Teleport to="body">
       <div v-if="drag?.active" class="drag-ghost" :style="{ left: `${drag.x}px`, top: `${drag.y}px` }">
         {{ drag.name }}
@@ -2076,7 +2227,8 @@ onUnmounted(() => {
   font-weight: 900;
 }
 
-.empty-rest {
+.empty-rest,
+.empty-combat {
   margin: 6px 3px;
   color: var(--muted);
   font-size: 10px;
@@ -2304,5 +2456,437 @@ onUnmounted(() => {
   .banter {
     animation: none;
   }
+}
+
+.station-more,
+.potion-fold,
+.craft-quiet {
+  font-weight: 800;
+}
+
+.layout-a {
+  --roster-side-width: 84px;
+}
+
+.layout-a .station-list {
+  grid-template-rows: repeat(6, minmax(var(--workshop-rail-row-min), 1fr)) auto;
+}
+
+.layout-a .station-closed,
+.layout-a .station-detail {
+  display: none;
+}
+
+.layout-a .station.ops .station-closed,
+.layout-a .station.ops .station-detail {
+  display: flex;
+}
+
+.layout-a .station.ops .station-more {
+  display: none;
+}
+
+.layout-a .station-more {
+  flex: 1 1 0;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 2px 0;
+  border: 1px solid var(--gold-deep);
+  border-radius: 4px;
+  background: #fff9de;
+  color: var(--ink);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  line-height: 1.05;
+  writing-mode: vertical-rl;
+}
+
+.layout-a .station.closed .station-more {
+  background: linear-gradient(180deg, #8a3a2a, #5c2418);
+  color: #fff4d8;
+  border-color: #3d140e;
+}
+
+.layout-a .slot.empty .empty-lab {
+  opacity: 0.28;
+}
+
+.layout-a .craft-quiet {
+  flex: 1 1 46%;
+  min-width: 0;
+  max-width: 62%;
+  overflow: hidden;
+  color: var(--copper);
+  font-size: 12px;
+  line-height: 26px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layout-a .potion-fold {
+  flex: 1 1 auto;
+  min-height: 28px;
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  background: #fff9de;
+  color: #6a3218;
+  font-size: 13px;
+}
+
+.layout-a.potion-open .potion-row {
+  flex-wrap: wrap;
+}
+
+.layout-a.potion-open .potion-fold {
+  flex: 1 0 100%;
+  min-height: 22px;
+  border-style: dashed;
+  font-size: 11px;
+}
+
+.layout-a:not(.potion-open) .potion-buffs {
+  display: none;
+}
+
+.layout-a .rest > .zone-head {
+  font-size: 12px;
+}
+
+.focus-hero {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 6px;
+  padding: 6px 10px 8px;
+  border: 2px solid var(--gold);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fffef8, #fff1cc);
+  box-shadow: 0 2px 0 var(--gold-deep);
+}
+
+.focus-kicker,
+.focus-num,
+.focus-sub {
+  margin: 0;
+}
+
+.focus-kicker {
+  color: #8a6410;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.focus-num {
+  color: #6a3218;
+  line-height: 0.86;
+}
+
+.focus-num b {
+  font-family: var(--font-display);
+  font-size: 56px;
+  font-weight: 400;
+}
+
+.focus-num small {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.focus-sub {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.focus-recruit {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 6px;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(#ffe27a, #e2a31a);
+  color: #5a3010;
+  box-shadow: 0 3px 0 var(--gold-deep);
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.focus-recruit.off,
+.focus-recruit:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+}
+
+.status-band {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px;
+  border: 2px solid var(--gold);
+  border-radius: 10px;
+  background: #fff9de;
+}
+
+.status-band b {
+  flex: 0 0 auto;
+  font-size: 13px;
+}
+
+.status-band > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: #7a4a22;
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.band-food,
+.band-recruit {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.band-food {
+  max-width: 6.5em;
+  overflow: hidden;
+  border: 1px solid var(--gold-deep);
+  background: #fffef8;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.band-food.dry,
+.band-recruit:disabled {
+  opacity: 0.45;
+}
+
+.band-recruit {
+  border: 0;
+  background: linear-gradient(#ffe27a, #e2a31a);
+  color: #5a3010;
+}
+
+.deep-bar {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.deep-bar button {
+  min-height: 34px;
+  padding: 2px;
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  background: #fff9de;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.deep-bar button.on {
+  border-color: var(--gold-deep);
+  background: linear-gradient(#ffe27a, #f0b83a);
+}
+
+.layout-b .workshop,
+.layout-c .workshop {
+  border-right: 0;
+}
+
+.layout-b .board,
+.layout-c .board {
+  position: relative;
+}
+
+.layout-b .fuse-drag-tip,
+.layout-c .fuse-drag-tip,
+.layout-b .recruit-bar,
+.layout-c .recruit-bar,
+.layout-c .rest-food,
+.layout-b .potion-row,
+.layout-c .potion-row,
+.layout-b .potion-buffs,
+.layout-c .potion-buffs,
+.layout-b .col.side,
+.layout-c .col.side,
+.layout-b .station-closed,
+.layout-b .station-detail,
+.layout-c .station-closed,
+.layout-c .station-detail {
+  display: none;
+}
+
+.layout-b .station-craft-row :deep(.station-craft-pick),
+.layout-c .station-craft-row :deep(.station-craft-pick) {
+  display: none;
+}
+
+.layout-b.sheet-ops .station-closed,
+.layout-b.sheet-ops .station-detail,
+.layout-c.sheet-ops .station-closed,
+.layout-c.sheet-ops .station-detail {
+  display: flex;
+}
+
+.layout-b.sheet-ops .station-craft-row :deep(.station-craft-pick),
+.layout-c.sheet-ops .station-craft-row :deep(.station-craft-pick) {
+  display: block;
+}
+
+.layout-b.sheet-potion .potion-row,
+.layout-c.sheet-potion .potion-row,
+.layout-b.sheet-potion .potion-buffs,
+.layout-c.sheet-potion .potion-buffs {
+  display: flex;
+}
+
+.layout-b.sheet-potion .station-list,
+.layout-c.sheet-potion .station-list {
+  grid-template-rows: repeat(6, minmax(28px, 1fr)) auto;
+}
+
+.layout-b.sheet-potion .potion-row,
+.layout-c.sheet-potion .potion-row {
+  min-height: 64px;
+}
+
+.layout-b.sheet-rest .col.side,
+.layout-b.sheet-combat .col.side,
+.layout-c.sheet-rest .col.side,
+.layout-c.sheet-combat .col.side {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: 58%;
+  z-index: 6;
+  overflow: auto;
+  background: #fff8ee;
+  border-top: 3px solid var(--gold-deep);
+  box-shadow: 0 -6px 0 rgba(90, 48, 16, 0.12);
+}
+
+.layout-b.sheet-combat .zone.rest,
+.layout-c.sheet-combat .zone.rest,
+.layout-b.sheet-rest .zone.combat,
+.layout-c.sheet-rest .zone.combat {
+  display: none;
+}
+
+.layout-b .col.side .zone-head,
+.layout-c .col.side .zone-head {
+  padding: 8px 10px 4px;
+  font-size: 13px;
+  text-align: left;
+}
+
+.layout-b .rest-name,
+.layout-c .rest-name {
+  font-size: 14px;
+  line-height: 18px;
+}
+
+.layout-b .station-list,
+.layout-c .station-list {
+  grid-template-rows: repeat(6, minmax(36px, 1fr));
+}
+
+.layout-b .station-rail,
+.layout-c .station-rail {
+  flex: 0 0 auto;
+  flex-direction: row;
+  width: auto;
+  align-items: center;
+}
+
+.layout-b .station-name,
+.layout-c .station-name {
+  flex-direction: row;
+  gap: 2px;
+  padding: 4px 6px;
+}
+
+.layout-b .station-name b,
+.layout-c .station-name b {
+  letter-spacing: 0;
+  writing-mode: horizontal-tb;
+}
+
+.layout-b.sheet-ops .station-rail,
+.layout-c.sheet-ops .station-rail {
+  flex: 0 0 32px;
+  flex-direction: column;
+  width: 32px;
+}
+
+.layout-b.sheet-ops .station-name,
+.layout-c.sheet-ops .station-name {
+  flex-direction: column;
+}
+
+.layout-b.sheet-ops .station-name b,
+.layout-c.sheet-ops .station-name b {
+  writing-mode: vertical-rl;
+}
+
+.layout-b .station.closed .station-name b::after,
+.layout-c .station.closed .station-name b::after {
+  content: '封';
+  margin-left: 4px;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: #8a3a2a;
+  color: #fff4d8;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.layout-b .station .slot .avatar {
+  width: 32px;
+  height: 32px;
+  border-width: 2px;
+  border-radius: 8px;
+}
+
+.layout-b .station .slot .avatar :deep(.class-ico) {
+  width: 18px;
+  height: 18px;
+}
+
+.layout-b .station .slot .slot-main b {
+  font-size: 14px;
+  line-height: 16px;
+}
+
+.layout-b .station .slot .slot-main small {
+  font-size: 12px;
+}
+
+.layout-b .slot.empty,
+.layout-c .slot.empty {
+  opacity: 0.4;
+}
+
+.layout-c .station-craft-row :deep(.bar) {
+  height: 10px;
 }
 </style>
