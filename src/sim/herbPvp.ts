@@ -30,9 +30,20 @@ export const HERB_PVP_PLOT_COUNT = HERB_PVP_MAP_SIZE * HERB_PVP_MAP_SIZE
 export const HERB_PVP_WEED_S = 3 * 60
 /** 玩家同时最多占 3 块，每块 1 人。 */
 export const HERB_PVP_PLAYER_CAP = 3
-export const HERB_PVP_STAMINA_MAX = 10
-/** 每 30 分钟回 1 点体力，离线也走。 */
-export const HERB_PVP_STAMINA_REGEN_S = 30 * 60
+export const HERB_PVP_STAMINA_MAX = 100
+/** 开始除一块花的体力。 */
+export const HERB_PVP_WEED_COST = 10
+/** 每 3 分钟回 1 点体力，离线也走。 */
+export const HERB_PVP_STAMINA_REGEN_S = 3 * 60
+/**
+ * 体力刻度。2 = 上限 100、除草 10、每 3 分钟回 1。
+ * 缺或更小的已有棋盘按旧刻度迁一次。
+ */
+export const HERB_PVP_STAMINA_REV = 2
+/** 旧刻度：上限 10，每 30 分钟回 1。一点旧体力等于 10 点新体力。 */
+const HERB_PVP_STAMINA_LEGACY_MAX = 10
+const HERB_PVP_STAMINA_LEGACY_SCALE = 10
+const HERB_PVP_STAMINA_LEGACY_REGEN_S = 30 * 60
 
 export const HERB_PVP_BARREN_P = 0.35
 export const HERB_PVP_COMMON_P = 0.4
@@ -375,6 +386,7 @@ export function createHerbPvp(save: Save, now = Date.now()): HerbPvpState {
     rivals: [],
     stamina: HERB_PVP_STAMINA_MAX,
     staminaAccS: 0,
+    staminaRev: HERB_PVP_STAMINA_REV,
     probe1: 1,
     probe2: 1,
     probe4: 1,
@@ -394,9 +406,24 @@ function isPlotKind(value: unknown): value is HerbPlotKind {
   return value === 'barren' || value === 'common' || value === 'precious' || value === 'probe'
 }
 
+/**
+ * 旧档体力 ×10。已走过的秒按新间隔折成整点，余数接着计。
+ * 旧 30 分钟回 1 点，新 3 分钟回 1 点，一点旧体力又等于 10 点新体力，所以墙钟进度不丢。
+ */
+function migrateHerbStamina(state: HerbPvpState): void {
+  if (finite(state.staminaRev, 0) >= HERB_PVP_STAMINA_REV) return
+  const legacy = Math.min(HERB_PVP_STAMINA_LEGACY_MAX, clampCount(state.stamina, HERB_PVP_STAMINA_LEGACY_MAX))
+  const acc = Math.min(HERB_PVP_STAMINA_LEGACY_REGEN_S, clampCount(state.staminaAccS, 0))
+  const scaled = legacy * HERB_PVP_STAMINA_LEGACY_SCALE + Math.floor(acc / HERB_PVP_STAMINA_REGEN_S)
+  state.stamina = Math.min(HERB_PVP_STAMINA_MAX, scaled)
+  state.staminaAccS = state.stamina >= HERB_PVP_STAMINA_MAX ? 0 : acc % HERB_PVP_STAMINA_REGEN_S
+  state.staminaRev = HERB_PVP_STAMINA_REV
+}
+
 function tidyState(save: Save, state: HerbPvpState, now: number): void {
   state.roll = finite(state.roll, 1) || 1
   if (typeof state.dayKey !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(state.dayKey)) state.dayKey = beijingDayKey(now)
+  state.staminaRev = HERB_PVP_STAMINA_REV
   state.stamina = Math.min(HERB_PVP_STAMINA_MAX, clampCount(state.stamina, HERB_PVP_STAMINA_MAX))
   state.staminaAccS = Math.min(HERB_PVP_STAMINA_REGEN_S, clampCount(state.staminaAccS, 0))
   if (state.stamina >= HERB_PVP_STAMINA_MAX) state.staminaAccS = 0
@@ -463,6 +490,7 @@ export function hydrateHerbPvp(save: Save, now = save.lastTick || Date.now()): v
     save.herbPvp = createHerbPvp(save, Date.now())
     return
   }
+  migrateHerbStamina(raw)
   tidyState(save, raw, now)
   save.herbPvp = raw
 }
@@ -843,8 +871,8 @@ export function startHerbWeed(save: Save, plotIndex: number, workerId: string): 
   const mineBusy = treasureMineBlockReason(save, workerId)
   if (mineBusy) return { ok: false, reason: mineBusy }
   if (!isFullWorkshopHp(worker)) return { ok: false, reason: '满血才能上岗' }
-  if (state.stamina < 1) return { ok: false, reason: '体力不足' }
-  state.stamina -= 1
+  if (state.stamina < HERB_PVP_WEED_COST) return { ok: false, reason: '体力不足' }
+  state.stamina -= HERB_PVP_WEED_COST
   const rival = plot.weeder ? state.rivals.find((row) => row.id === plot.weeder) : undefined
   if (rival) return playerHitsRival(save, plot, worker, rival)
   plot.workerId = worker.id

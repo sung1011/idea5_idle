@@ -662,6 +662,11 @@ export type HerbPvpState = {
   stamina: number
   /** 距下一点体力已经走过的秒。满体力时是 0。 */
   staminaAccS: number
+  /**
+   * 体力刻度。2 = 上限 100、除草花 10、每 3 分钟回 1。
+   * 已有棋盘缺字段或更小时，读档把体力 ×10，并把旧 30 分钟计时折进新的 3 分钟一格。
+   */
+  staminaRev: number
   probe1: number
   probe2: number
   probe4: number
@@ -795,7 +800,8 @@ export type Save = {
   treasureMines: TreasureMineState
   /**
    * 割草。玩家与 49 个假玩家一组，8×8 除草。工坊采药站不走这里。
-   * 旧档缺字段 hydrate 出满体力、侦测各 1、空分数的新局。
+   * 旧档缺整段 hydrate 出满体力（100）、侦测各 1、空分数的新局。
+   * 已有棋盘按 `staminaRev` 迁一次体力，不重开地图。
    */
   herbPvp: HerbPvpState
 }

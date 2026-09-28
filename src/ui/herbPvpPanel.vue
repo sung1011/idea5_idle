@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { restingWorkers } from '../sim/assign'
+import { restCombatCandidates } from '../sim/combat'
 import {
   HERB_PVP_PLAYER_CAP,
+  HERB_PVP_WEED_COST,
   HERB_PVP_WEED_S,
   formatHerbDuration,
   herbHud,
@@ -10,8 +11,9 @@ import {
   herbPlotLabel,
   herbPlotShort,
 } from '../sim/herbPvp'
-import type { HerbPlot } from '../sim/types'
+import type { HerbPlot, Worker } from '../sim/types'
 import { isFullWorkshopHp } from '../sim/workshopHp'
+import CombatPickSheet from './combatPickSheet.vue'
 import { pushFloatTip } from './floatTips'
 import PlayerAvatar from './playerAvatar.vue'
 import { useGameStore } from './gameStore'
@@ -19,10 +21,11 @@ import { useGameStore } from './gameStore'
 const game = useGameStore()
 const probe = ref<1 | 2 | 4 | null>(null)
 const pickIndex = ref<number | null>(null)
+const picked = ref<string[]>([])
 const hud = computed(() => herbHud(game.save, Date.now()))
 const board = computed(() => herbLeaderboard(game.save))
 const plots = computed(() => game.save.herbPvp.plots)
-const candidates = computed(() => restingWorkers(game.save).filter((worker) => isFullWorkshopHp(worker)))
+const candidates = computed(() => restCombatCandidates(game.save))
 
 function toggleProbe(size: 1 | 2 | 4) {
   probe.value = probe.value === size ? null : size
@@ -40,7 +43,7 @@ function onPlot(index: number) {
     return
   }
   if (plot.workerId) return
-  if (hud.value.stamina < 1) {
+  if (hud.value.stamina < HERB_PVP_WEED_COST) {
     pushFloatTip('体力不足', 'err')
     return
   }
@@ -49,13 +52,39 @@ function onPlot(index: number) {
     return
   }
   pickIndex.value = index
+  picked.value = []
+}
+
+function closePick() {
+  pickIndex.value = null
+  picked.value = []
+}
+
+function togglePick(worker: Worker) {
+  if (!isFullWorkshopHp(worker)) return
+  game.clearWorkerNew(worker.id)
+  if (picked.value.includes(worker.id)) {
+    picked.value = []
+    return
+  }
+  if (picked.value.length >= 1) {
+    pushFloatTip('最多选 1 人', 'err')
+    return
+  }
+  picked.value = [worker.id]
+}
+
+function confirmPick() {
+  const workerId = picked.value[0]
+  if (!workerId) return
+  dispatch(workerId)
 }
 
 function dispatch(workerId: string) {
   const index = pickIndex.value
   if (index == null) return
   const result = game.startHerbWeed(index, workerId)
-  if (result.ok) pickIndex.value = null
+  if (result.ok) closePick()
 }
 
 function progressOf(plot: HerbPlot): number {
@@ -117,16 +146,22 @@ function rowKey(row: { id: string; rank: number }): string {
         <b>{{ row.score }}</b>
       </li>
     </ol>
-    <div v-if="pickIndex != null" class="mask" @click.self="pickIndex = null">
-      <div class="sheet" role="dialog" aria-label="派苦工除草">
-        <h3>派去这块地</h3>
-        <button v-for="worker in candidates" :key="worker.id" type="button" @click="dispatch(worker.id)">
-          {{ worker.name ?? worker.id }}
-        </button>
-        <p v-if="!candidates.length">休息区没有满血苦工</p>
-        <button type="button" class="ghost" @click="pickIndex = null">关闭</button>
-      </div>
-    </div>
+    <CombatPickSheet
+      :open="pickIndex != null"
+      :max="1"
+      :candidates="candidates"
+      :picked="picked"
+      :runes="{}"
+      mode="start"
+      title-text="派去这块地"
+      confirm-text="除草"
+      :show-runes="false"
+      :show-assist="false"
+      :can-pick="isFullWorkshopHp"
+      @close="closePick"
+      @confirm="confirmPick"
+      @toggle="togglePick"
+    />
   </div>
 </template>
 
@@ -248,40 +283,5 @@ function rowKey(row: { id: string; rank: number }): string {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.mask {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  background: rgba(70, 42, 12, 0.28);
-}
-
-.sheet {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: min(420px, 100%);
-  max-height: 70vh;
-  margin: 0 auto;
-  padding: 14px 14px calc(16px + env(safe-area-inset-bottom));
-  overflow: auto;
-  border-radius: 16px 16px 0 0;
-  background: var(--paper);
-}
-
-.sheet h3 {
-  margin: 0;
-}
-
-.sheet button {
-  min-height: 40px;
-}
-
-.ghost {
-  background: transparent;
 }
 </style>

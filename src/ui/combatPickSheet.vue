@@ -36,6 +36,7 @@ const props = withDefaults(
     titleText?: string
     confirmText?: string
     recommendLabel?: (worker: Worker) => string | null
+    canPick?: (worker: Worker) => boolean
   }>(),
   {
     mode: 'start',
@@ -73,6 +74,10 @@ const hint = computed(() => {
 
 function recommend(worker: Worker): string | null {
   return props.recommendLabel?.(worker) ?? null
+}
+
+function canPickWorker(worker: Worker): boolean {
+  return props.canPick ? props.canPick(worker) : isFullCombatHp(worker)
 }
 
 function slotNumber(workerId: string): number | null {
@@ -150,8 +155,8 @@ function closeAll() {
           <button
             type="button"
             class="pick-worker"
-            :class="{ on: picked.includes(w.id), assist: isAssistWorker(w), dim: !isFullCombatHp(w) }"
-            :disabled="!isFullCombatHp(w)"
+            :class="{ on: picked.includes(w.id), assist: isAssistWorker(w), dim: !canPickWorker(w) }"
+            :disabled="!canPickWorker(w)"
             @click="emit('toggle', w)"
           >
             <span class="pick-name">
@@ -162,7 +167,7 @@ function closeAll() {
               <CombatAttrRow class="pick-attrs" :attrs="w.combatAttrs" />
               <b class="pick-worker-name" :style="workerQualityNameStyle(w)">{{ pickWorkerName(w) }}</b>
               <span class="pick-meta">· Lv{{ w.level }}</span>
-              <i v-if="recommend(w) && isFullCombatHp(w)" class="pick-rec" :class="{ hot: recommend(w) === '强烈推荐' }">{{
+              <i v-if="recommend(w) && canPickWorker(w)" class="pick-rec" :class="{ hot: recommend(w) === '强烈推荐' }">{{
                 recommend(w)
               }}</i>
             </span>
@@ -176,7 +181,7 @@ function closeAll() {
                 locked: !runeSlotUnlocked,
                 'guide-flash': guideFlashRune && runeSlotUnlocked,
               }"
-              :disabled="!runeSlotUnlocked || !isFullCombatHp(w)"
+              :disabled="!runeSlotUnlocked || !canPickWorker(w)"
               :aria-label="`${pickWorkerName(w)} 符文槽`"
               @click.stop="onRuneSlotTap(w, $event)"
             >

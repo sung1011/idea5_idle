@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import sheet from './combatPickSheet.vue?raw'
 import encounter from './encounterPanel.vue?raw'
+import herb from './herbPvpPanel.vue?raw'
 import mine from './treasureMinePanel.vue?raw'
 
 describe('combat pick sheet', () => {
-  it('is the only worker pick list, shared by PVE orders and treasure mines', () => {
+  it('is the only worker pick list, shared by PVE orders, treasure mines, and herb mowing', () => {
     expect(sheet).toContain('class="pick-slot"')
     expect(sheet).toContain('pickSlotNumber')
     expect(encounter).toContain(':slot-offset="pickSlotOffset"')
@@ -20,5 +21,13 @@ describe('combat pick sheet', () => {
     expect(mine).toContain('mode="start"')
     expect(mine).not.toContain('抢夺编队')
     expect(mine).not.toContain('class="pick-list"')
+    expect(herb).toContain('<CombatPickSheet')
+    expect(herb).toContain('title-text="派去这块地"')
+    expect(herb).toContain('confirm-text="除草"')
+    expect(herb).toContain(':show-runes="false"')
+    expect(herb).toContain(':show-assist="false"')
+    expect(herb).toContain(':can-pick="isFullWorkshopHp"')
+    expect(herb).not.toContain('class="pick-list"')
+    expect(herb).not.toContain('休息区没有满血苦工')
   })
 })

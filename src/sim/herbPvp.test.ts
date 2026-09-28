@@ -11,6 +11,8 @@ import {
   HERB_PVP_RIVAL_ONLINE_MAX,
   HERB_PVP_STAMINA_MAX,
   HERB_PVP_STAMINA_REGEN_S,
+  HERB_PVP_STAMINA_REV,
+  HERB_PVP_WEED_COST,
   HERB_PVP_WEED_S,
   applyHerbRivalBump,
   beginHerbOfflineReport,
@@ -178,7 +180,7 @@ describe('herb pvp weeding', () => {
     expect(startHerbWeed(save, 0, workers[0]!.id).ok).toBe(true)
     expect(startHerbWeed(save, 1, workers[1]!.id).ok).toBe(true)
     expect(startHerbWeed(save, 2, workers[2]!.id).ok).toBe(true)
-    expect(save.herbPvp.stamina).toBe(HERB_PVP_STAMINA_MAX - HERB_PVP_PLAYER_CAP)
+    expect(save.herbPvp.stamina).toBe(HERB_PVP_STAMINA_MAX - HERB_PVP_PLAYER_CAP * HERB_PVP_WEED_COST)
     expect(startHerbWeed(save, 3, workers[3]!.id)).toEqual({ ok: false, reason: '最多同时除 3 块' })
     expect(restingWorkers(save).map((worker) => worker.id)).not.toContain(workers[0]!.id)
     expect(assignWorker(save, workers[0]!.id, 'herbalism')).toEqual({ ok: false, reason: '正在割草' })
@@ -189,6 +191,9 @@ describe('herb pvp weeding', () => {
     save.herbPvp.plots[0]!.workerId = null
     expect(startHerbWeed(save, 4, tired.id)).toEqual({ ok: false, reason: '满血才能上岗' })
 
+    save.herbPvp.stamina = HERB_PVP_WEED_COST - 1
+    const short = spawnWorker(save)
+    expect(startHerbWeed(save, 4, short.id)).toEqual({ ok: false, reason: '体力不足' })
     save.herbPvp.stamina = 0
     const ready = spawnWorker(save)
     expect(startHerbWeed(save, 4, ready.id)).toEqual({ ok: false, reason: '体力不足' })
@@ -290,7 +295,7 @@ describe('herb pvp clashes', () => {
     expect(plot.progressS).toBe(50)
     expect(other.weeder).toBeNull()
     expect(other.progressS).toBe(0)
-    expect(save.herbPvp.stamina).toBe(HERB_PVP_STAMINA_MAX - 1)
+    expect(save.herbPvp.stamina).toBe(HERB_PVP_STAMINA_MAX - HERB_PVP_WEED_COST)
 
     const home = spawnWorker(save)
     const survivor = save.herbPvp.rivals[1]!
@@ -305,7 +310,7 @@ describe('herb pvp clashes', () => {
     expect(blocked.weeder).toBe(survivor.id)
     expect(blocked.workerId).toBeNull()
     expect(blocked.progressS).toBe(12)
-    expect(save.herbPvp.stamina).toBe(before - 1)
+    expect(save.herbPvp.stamina).toBe(before - HERB_PVP_WEED_COST)
     expect(home.hp).toBe(home.hpMax - 1)
     expect(restingWorkers(save).some((row) => row.id === home.id)).toBe(true)
   })
@@ -327,7 +332,7 @@ describe('herb pvp clashes', () => {
     expect(plot.workerId).toBeNull()
     expect(worker.assignment).toBeNull()
     expect(worker.hp).toBe(0)
-    expect(save.herbPvp.stamina).toBe(HERB_PVP_STAMINA_MAX - 1)
+    expect(save.herbPvp.stamina).toBe(HERB_PVP_STAMINA_MAX - HERB_PVP_WEED_COST)
   })
 
   it('gives the plot to a rival who knocks the player out, and keeps it when the counter lands', () => {
@@ -472,15 +477,37 @@ describe('herb pvp day and offline', () => {
     const kept = hydrateLoadedSave(dumped)
     expect(kept?.herbPvp.playerScore).toBe(77)
     expect(kept?.herbPvp.stamina).toBe(3)
+    expect(kept?.herbPvp.staminaRev).toBe(HERB_PVP_STAMINA_REV)
     expect(kept?.herbPvp.probe1).toBe(0)
     expect(kept?.herbPvp.probe2).toBe(1)
+
+    const scaled = JSON.parse(JSON.stringify(save)) as Save
+    scaled.herbPvp.stamina = 7
+    scaled.herbPvp.staminaAccS = 900
+    delete (scaled.herbPvp as { staminaRev?: number }).staminaRev
+    const migrated = hydrateLoadedSave(scaled)
+    expect(migrated?.herbPvp.playerScore).toBe(77)
+    expect(migrated?.herbPvp.stamina).toBe(75)
+    expect(migrated?.herbPvp.staminaAccS).toBe(0)
+    expect(migrated?.herbPvp.staminaRev).toBe(HERB_PVP_STAMINA_REV)
+    const again = hydrateLoadedSave(JSON.parse(JSON.stringify(migrated)))
+    expect(again?.herbPvp.stamina).toBe(75)
+
+    const partial = JSON.parse(JSON.stringify(save)) as Save
+    partial.herbPvp.stamina = 7
+    partial.herbPvp.staminaAccS = 100
+    delete (partial.herbPvp as { staminaRev?: number }).staminaRev
+    const partialKept = hydrateLoadedSave(partial)
+    expect(partialKept?.herbPvp.stamina).toBe(70)
+    expect(partialKept?.herbPvp.staminaAccS).toBe(100)
 
     const legacy = dumped as Omit<Save, 'herbPvp'> & { herbPvp?: HerbPvpState }
     delete legacy.herbPvp
     const rebuilt = hydrateLoadedSave(legacy)
     expect(rebuilt?.herbPvp.plots).toHaveLength(64)
     expect(rebuilt?.herbPvp.rivals).toHaveLength(49)
-    expect(rebuilt?.herbPvp.stamina).toBe(10)
+    expect(rebuilt?.herbPvp.stamina).toBe(HERB_PVP_STAMINA_MAX)
+    expect(rebuilt?.herbPvp.staminaRev).toBe(HERB_PVP_STAMINA_REV)
     expect(rebuilt?.herbPvp.probe1).toBe(1)
     expect(rebuilt?.herbPvp.probe2).toBe(1)
     expect(rebuilt?.herbPvp.probe4).toBe(1)
