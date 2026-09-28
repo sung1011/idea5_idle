@@ -15,6 +15,7 @@ import {
   gmSkipGuide,
 } from '../sim/gm'
 import { hasUnread, listedMessages, markAllRead } from '../sim/messages'
+import { startHerbWeed, takeHerbPvpNotices, useHerbProbe } from '../sim/herbPvp'
 import { settleOffline } from '../sim/offline'
 import { clearPotionSlot, installPotionSlot } from '../sim/potionSlots'
 import { potionSlotItem, usePotionSlot } from '../sim/potions'
@@ -105,6 +106,7 @@ export const useGameStore = defineStore('game', () => {
     announceWorkerLevelUps(levels, save.value.workers)
     flushRestEats(true)
     flushVaultNotices()
+    flushHerbNotices()
     offerWorkshopBanter(save.value, produced)
     notifyWorkshopHpEfficiency(save.value)
     persist()
@@ -112,6 +114,10 @@ export const useGameStore = defineStore('game', () => {
 
   function flushVaultNotices() {
     for (const notice of takeTreasureVaultNotices()) pushFloatTip(notice.text, notice.kind)
+  }
+
+  function flushHerbNotices() {
+    for (const notice of takeHerbPvpNotices()) pushFloatTip(notice.text, notice.kind)
   }
 
   function assignmentSnapshot(): Map<string, StationId | null> {
@@ -318,6 +324,8 @@ export const useGameStore = defineStore('game', () => {
     refreshTreasureMines: (pay: TreasureRefreshPay = 'diamonds') =>
       apply((s) => refreshTreasureMineBoard(s, pay)),
     postTreasureBounty: (target: BountyTarget) => apply((s) => postTreasureBounty(s, target)),
+    startHerbWeed: (plotIndex: number, workerId: string) => apply((s) => startHerbWeed(s, plotIndex, workerId)),
+    useHerbProbe: (plotIndex: number, size: 1 | 2 | 4) => apply((s) => useHerbProbe(s, plotIndex, size)),
     setPlayerProfile: (name: string, avatarId: string) => apply((s) => applyPlayerProfile(s, name, avatarId)),
     claimLoot: (index: number) => apply((s) => claimLoot(s, index)),
     barter: (index: number) => apply((s) => barterMerchant(s, index)),

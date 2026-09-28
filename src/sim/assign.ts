@@ -1,4 +1,5 @@
 import { isWorkerInCombat } from './combat'
+import { herbPvpBlockReason, isWorkerInHerbPvp } from './herbPvpQuery'
 import { isWorkerInTreasureMine, treasureMineBlockReason } from './treasureMineQuery'
 import { findWorker } from './recruit'
 import { isStationUnlocked, stationLockedTip } from './stationUnlock'
@@ -43,6 +44,8 @@ export function assignWorker(save: Save, workerId: string, stationId: StationId 
   if (isWorkerInCombat(save, workerId)) return { ok: false, reason: '正在战斗' }
   const mineBusy = treasureMineBlockReason(save, workerId)
   if (mineBusy) return { ok: false, reason: mineBusy }
+  const herbBusy = herbPvpBlockReason(save, workerId)
+  if (herbBusy) return { ok: false, reason: herbBusy }
   if (stationId !== null && (isDeprecatedStationId(stationId) || !isStationId(stationId))) {
     return { ok: false, reason: '没有这个站点' }
   }
@@ -64,7 +67,11 @@ export function assignWorker(save: Save, workerId: string, stationId: StationId 
 /** 未派驻且未在战斗 / 夺宝。名册顺序，回休息的人在队尾；队首挡住后面的人。 */
 export function restingWorkers(save: Save): Worker[] {
   return save.workers.filter(
-    (worker) => worker.assignment === null && !isWorkerInCombat(save, worker.id) && !isWorkerInTreasureMine(save, worker.id),
+    (worker) =>
+      worker.assignment === null &&
+      !isWorkerInCombat(save, worker.id) &&
+      !isWorkerInTreasureMine(save, worker.id) &&
+      !isWorkerInHerbPvp(save, worker.id),
   )
 }
 

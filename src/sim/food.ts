@@ -2,6 +2,7 @@ import { addToBank, bankQty, takeFromBank } from './bank'
 import { isWorkerInCombat } from './combat'
 import { clearWorkerNew, findWorker } from './recruit'
 import { FOOD_HEAL_RATIO, foodBuffDef, isFoodItemId, ITEM_DEF, type FoodItemId } from './tables'
+import { isWorkerInHerbPvp } from './herbPvpQuery'
 import { isWorkerInTreasureMine } from './treasureMineQuery'
 import { isWoundedHp } from './workshopHp'
 import type {
@@ -116,7 +117,9 @@ export function sendWorkerToRestTail(save: Save, workerId: string): boolean {
   if (index < 0) return false
   const worker = save.workers[index]
   if (!worker || worker.assignment !== null) return false
-  if (isWorkerInCombat(save, workerId) || isWorkerInTreasureMine(save, workerId)) return false
+  if (isWorkerInCombat(save, workerId) || isWorkerInTreasureMine(save, workerId) || isWorkerInHerbPvp(save, workerId)) {
+    return false
+  }
   if (index === save.workers.length - 1) return true
   const [moved] = save.workers.splice(index, 1)
   if (moved) save.workers.push(moved)

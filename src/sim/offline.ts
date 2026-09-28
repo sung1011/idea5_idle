@@ -1,5 +1,6 @@
 import { bankQty } from './bank'
 import { cloneSave } from './clone'
+import { beginHerbOfflineReport, finishHerbOfflineReport } from './herbPvp'
 import { resetTreasureAssaultAfterOffline, TREASURE_KINDS, TREASURE_LABEL } from './treasureMine'
 import { pushMessage } from './messages'
 import { ITEM_DEF, ITEM_IDS, OFFLINE_CAP_S, STATION_DEF, STATION_IDS } from './tables'
@@ -211,6 +212,7 @@ export function settleOffline(save: Save, now = Date.now()): OfflineResult {
 
   const before = cloneSave(save)
   const next = cloneSave(save)
+  beginHerbOfflineReport(next)
   const start = now - seconds * 1000
   for (let i = 0; i < seconds; i++) applyTick(next, { now: start + (i + 1) * 1000, offline: true })
   resetTreasureAssaultAfterOffline(next)
@@ -218,5 +220,9 @@ export function settleOffline(save: Save, now = Date.now()): OfflineResult {
   next.offlineCount = (Number.isFinite(next.offlineCount) ? Math.max(0, Math.floor(next.offlineCount)) : 0) + 1
   const summary = buildOfflineSummary(before, next, seconds, capped)
   pushOfflineMessage(next, summary, now)
+  const herbBody = finishHerbOfflineReport(next)
+  if (herbBody) {
+    pushMessage(next, { title: '采药', body: herbBody, createdAt: now })
+  }
   return { save: next, summary }
 }

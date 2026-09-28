@@ -1,5 +1,15 @@
-/** 旧 PVP 子页签。不进存档。本地若还记着战旗或军械铺，打开时归位到夺宝。 */
+import { ref } from 'vue'
+
+/** PVP 玩法切换。不进存档。战旗、军械铺等旧值打开时归位到夺宝。 */
 export const PVP_TAB_KEY = 'idea5IdlePvpTab'
+
+export const PVP_VIEWS = ['treasure', 'herb'] as const
+export type PvpView = (typeof PVP_VIEWS)[number]
+
+export const PVP_VIEW_LABELS: Record<PvpView, string> = {
+  treasure: '夺宝',
+  herb: '采药',
+}
 
 function storageOf(storage?: Storage | null): Storage | null {
   if (storage) return storage
@@ -7,14 +17,13 @@ function storageOf(storage?: Storage | null): Storage | null {
   return localStorage
 }
 
-/** 任何旧子页都是夺宝。战旗、军械铺和未知值都不抛错。 */
-export function pvpViewOf(id: unknown): 'treasure' {
-  void id
-  return 'treasure'
+/** 采药留下，其它旧子页都回到夺宝。 */
+export function pvpViewOf(id: unknown): PvpView {
+  return id === 'herb' ? 'herb' : 'treasure'
 }
 
-/** 读旧子页签并写回夺宝。没有记录时不新建键。 */
-export function settlePvpTab(storage?: Storage | null): 'treasure' {
+/** 读旧子页签。没有记录时不新建键。战旗和军械铺写回夺宝。 */
+export function settlePvpTab(storage?: Storage | null): PvpView {
   const store = storageOf(storage)
   if (!store) return 'treasure'
   try {
@@ -26,4 +35,26 @@ export function settlePvpTab(storage?: Storage | null): 'treasure' {
   } catch {
     return 'treasure'
   }
+}
+
+export const pvpView = ref<PvpView>('treasure')
+
+export function bootPvpView(storage?: Storage | null): PvpView {
+  const next = settlePvpTab(storage)
+  pvpView.value = next
+  return next
+}
+
+export function selectPvpView(id: unknown, storage?: Storage | null): PvpView {
+  const next = pvpViewOf(id)
+  const store = storageOf(storage)
+  if (store) {
+    try {
+      store.setItem(PVP_TAB_KEY, next)
+    } catch {
+      // quota / private mode
+    }
+  }
+  pvpView.value = next
+  return next
 }

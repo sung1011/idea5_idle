@@ -4,7 +4,8 @@ import panel from './pvpPanel.vue?raw'
 import mine from './treasureMinePanel.vue?raw'
 import banner from './treasureBannerPanel.vue?raw'
 import avatar from './playerAvatar.vue?raw'
-import { PVP_TAB_KEY, pvpViewOf, settlePvpTab } from './pvpTabs'
+import tabs from './pvpTabs.ts?raw'
+import { PVP_TAB_KEY, pvpViewOf, selectPvpView, settlePvpTab } from './pvpTabs'
 
 function memory(): Storage {
   const bag = new Map<string, string>()
@@ -31,19 +32,25 @@ function memory(): Storage {
 }
 
 describe('pvp treasure tab', () => {
-  it('opens 夺宝 directly, with no sub tabs', () => {
-    expect(panel).not.toContain('role="tablist"')
+  it('switches 夺宝 and 采药, and keeps the old pages on 夺宝', () => {
+    expect(panel).toContain('role="tablist"')
+    expect(panel).toContain('aria-label="PVP玩法"')
+    expect(panel).toContain('PVP_VIEW_LABELS[id]')
+    expect(tabs).toContain("treasure: '夺宝'")
+    expect(tabs).toContain("herb: '采药'")
+    expect(panel).toContain('<HerbPvpPanel')
     expect(panel).not.toContain('aria-label="PVP分页"')
     expect(panel).not.toContain('军械铺')
     expect(panel).not.toContain('TreasureArmoryPanel')
     expect(panel).not.toContain('<TreasureBannerPanel')
     expect(panel).not.toContain("modeHelpOf('banner')")
-    expect(panel).toContain("modeHelpOf('treasure')")
-    expect(panel).toContain('settlePvpTab')
+    expect(panel).toContain('modeHelpOf(helpId())')
+    expect(panel).toContain('bootPvpView')
     expect(panel).toContain('<TreasureMinePanel')
     expect(pvpViewOf('banner')).toBe('treasure')
     expect(pvpViewOf('armory')).toBe('treasure')
     expect(pvpViewOf('treasure')).toBe('treasure')
+    expect(pvpViewOf('herb')).toBe('herb')
     expect(pvpViewOf(null)).toBe('treasure')
     const store = memory()
     store.setItem(PVP_TAB_KEY, 'banner')
@@ -55,6 +62,10 @@ describe('pvp treasure tab', () => {
     const empty = memory()
     expect(settlePvpTab(empty)).toBe('treasure')
     expect(empty.getItem(PVP_TAB_KEY)).toBeNull()
+    expect(selectPvpView('herb', store)).toBe('herb')
+    expect(store.getItem(PVP_TAB_KEY)).toBe('herb')
+    expect(selectPvpView('banner', store)).toBe('treasure')
+    expect(store.getItem(PVP_TAB_KEY)).toBe('treasure')
   })
 
   it('shows banner level and jade on a bar, and upgrades in a sheet', () => {

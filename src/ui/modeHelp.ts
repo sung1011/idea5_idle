@@ -1,4 +1,4 @@
-export type ModeHelpId = 'treasure' | 'banner' | 'battlefield' | 'dungeon' | 'market'
+export type ModeHelpId = 'treasure' | 'herb' | 'banner' | 'battlefield' | 'dungeon' | 'market'
 
 export type ModeHelpRow = {
   label: string
@@ -28,6 +28,24 @@ export const MODE_HELP: Record<ModeHelpId, ModeHelp> = {
       {
         label: '注意',
         text: '不能再开。侦察 20 砂金揭弱点。刷新 100 砂金或 10 钻，保留战斗中与我方开采。洞被袭可花 60 珠宝增援一次，也可花 60 珠宝加固一层。顶部战旗栏花古玉升级，最高 5 级。',
+      },
+    ],
+  },
+  herb: {
+    id: 'herb',
+    title: '采药',
+    rows: [
+      {
+        label: '怎么玩',
+        text: '8×8 全是杂草。从休息区派满血工人，一块 3 分钟，同时最多 3 块。体力 10，除草花 1，30 分钟回 1。',
+      },
+      {
+        label: '规则要点',
+        text: '地下是荒芜、草药、珍贵草药或侦测。珍贵草药立刻记分。北京时间 0 点按名次发砂金、珠宝、古玉和侦测。开局三种侦测各 1 个。',
+      },
+      {
+        label: '注意',
+        text: '撞上正在除的人，双方各打一下。一击打倒就接着除，没打倒就回休息，体力不退。体力为 0 仍可用侦测。',
       },
     ],
   },

@@ -71,7 +71,9 @@ describe('mode help', () => {
       expect(source).toContain('<ModeHelpSheet')
       expect(source).toContain('helpOpen')
     }
-    expect(pvp).toContain("modeHelpOf('treasure')")
+    expect(pvp).toContain('modeHelpOf(helpId())')
+    expect(pvp).toContain("'herb'")
+    expect(pvp).toContain("'treasure'")
     expect(encounter).toContain('modeHelpIdForMainline(currentTab.value)')
   })
 })

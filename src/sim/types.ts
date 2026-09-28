@@ -600,6 +600,73 @@ export type TreasureMineState = {
   haul: Partial<Record<TreasureHaulId, number>>
 }
 
+export type HerbPlotKind = 'barren' | 'common' | 'precious' | 'probe'
+
+/** 8×8 的一块地。地下内容刷地时定死，除完才结算。 */
+export type HerbPlot = {
+  index: number
+  kind: HerbPlotKind
+  /** common 是物品 id；precious 是 low/mid/high；probe 是 1/2/4；荒芜为空。 */
+  payload: string
+  qty: number
+  revealed: boolean
+  cleared: boolean
+  /** 假玩家 id。玩家在除时为空，工人看 `workerId`。 */
+  weeder: string | null
+  workerId: string | null
+  progressS: number
+}
+
+export type HerbRival = {
+  id: string
+  name: string
+  avatarId: string
+  qualityTier: number
+  score: number
+  hp: number
+  hpMax: number
+  atk: number
+  nextOnlineAtS: number
+  /** 在线结束的游戏秒。离线是 null。到点后把手上的地除完再下线。 */
+  onlineUntilS: number | null
+  plotCap: number
+}
+
+/** 离线追赶期间攒的采药汇报。在线不写，读档清掉。 */
+export type HerbOfflineNote = {
+  rankAtStart: number
+  harvest: Partial<Record<string, number>>
+  score: number
+  probe1: number
+  probe2: number
+  probe4: number
+  bumps: number
+  plotsLost: number
+  rewards: string[]
+}
+
+export type HerbPvpState = {
+  /** 采药自己的掷骰，不推进工坊 `rngState`。 */
+  roll: number
+  /** 北京时间日期 YYYY-MM-DD。跨过 0 点结算。 */
+  dayKey: string
+  plots: HerbPlot[]
+  rivals: HerbRival[]
+  stamina: number
+  /** 距下一点体力已经走过的秒。满体力时是 0。 */
+  staminaAccS: number
+  probe1: number
+  probe2: number
+  probe4: number
+  playerScore: number
+  /** 这一段希望同时在线的假玩家，0～5。 */
+  onlineTarget: number
+  targetUntilS: number
+  /** 最近一次日结发给玩家的奖励文案。没有是空串。 */
+  lastRewardText: string
+  offline: HerbOfflineNote | null
+}
+
 export type Save = {
   /** 探索 / 黑心商人购买扣金；当铺典当 / 收购 / 部分敌人与商场订单加金。 */
   gold: number
@@ -719,6 +786,11 @@ export type Save = {
    * 旧档缺字段 hydrate 出空池再补满。
    */
   treasureMines: TreasureMineState
+  /**
+   * 采药 PVP。玩家与 49 个假玩家一组，8×8 除草。
+   * 旧档缺字段 hydrate 出满体力、侦测各 1、空分数的新局。
+   */
+  herbPvp: HerbPvpState
 }
 
 export type EncounterQuality = 'gray' | 'green' | 'blue' | 'purple' | 'orange'

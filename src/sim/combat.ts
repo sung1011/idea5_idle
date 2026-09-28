@@ -1,3 +1,4 @@
+import { isWorkerInHerbPvp } from './herbPvpQuery'
 import { isWorkerInTreasureMine, treasureMineBlockReason } from './treasureMineQuery'
 import {
   enemyRankFor,
@@ -406,7 +407,8 @@ export function restCombatCandidates(save: Save): Worker[] {
       !w.id.startsWith('assist-') &&
       w.assignment === null &&
       !busy.has(w.id) &&
-      !isWorkerInTreasureMine(save, w.id),
+      !isWorkerInTreasureMine(save, w.id) &&
+      !isWorkerInHerbPvp(save, w.id),
   )
 }
 
@@ -436,6 +438,7 @@ export function combatPartyBlockReason(
     if (worker.assignment !== null) return `${worker.name ?? worker.id} 不在休息`
     const mineBusy = treasureMineBlockReason(save, id)
     if (mineBusy) return `${worker.name ?? worker.id} ${mineBusy}`
+    if (isWorkerInHerbPvp(save, id)) return `${worker.name ?? worker.id} 正在采药`
     if (busy.has(id)) return `${worker.name ?? worker.id} 正在战斗`
     if (!isFullCombatHp(worker)) return `${worker.name ?? worker.id} 未满血`
   }
@@ -1324,6 +1327,7 @@ export function applyRestHeal(save: Save): void {
   for (const worker of save.workers) {
     if (worker.assignment !== null) continue
     if (busy.has(worker.id)) continue
+    if (isWorkerInHerbPvp(save, worker.id)) continue
     const max = workerLiveStats(worker, save).hp
     const heal = restHealAmount(worker.hpMax)
     const debt = workerFatigueDebt(worker)

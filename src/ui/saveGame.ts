@@ -20,6 +20,7 @@ import { hydratePotionState } from '../sim/potions'
 import { hydrateTechFields } from '../sim/tech'
 import { hydrateFuseDragTip } from '../sim/fuse'
 import { hydrateWorkshopHpFields } from '../sim/workshopHp'
+import { hydrateHerbPvp } from '../sim/herbPvp'
 import { hydrateTreasureMines } from '../sim/treasureMine'
 import { WORKER_QUALITY_REV } from '../sim/tables'
 import type { Save } from '../sim/types'
@@ -112,6 +113,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
   hydrateWorkshopHpFields(withGuide)
   hydrateFuseDragTip(withGuide)
   hydrateTreasureMines(withGuide)
+  hydrateHerbPvp(withGuide, withGuide.lastTick || Date.now())
   return withGuide
 }
 
