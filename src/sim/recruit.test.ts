@@ -6,6 +6,7 @@ import { loadFood } from './food'
 import { fuseWorkers } from './fuse'
 import { hydrateWorker, hydrateWorkers, recruitWorker, spawnWorker, clearWorkerNew } from './recruit'
 import { setRollOverride } from './rng'
+import { WORKER_RACE_NAMES, identityFromWorkerId, isWorkerRaceId, raceFromWorkerId } from './workerRace'
 import {
   CLASS_MIN_QUALITY,
   CLASS_PLACEHOLDERS,
@@ -17,7 +18,6 @@ import {
   START_DIAMONDS,
   START_GOLD,
   QUALITY_TIERS,
-  WORKER_NAME_POOL,
   WORKER_QUALITY_REV,
   WORKER_QUALITY_TABLE,
 } from './tables'
@@ -103,7 +103,8 @@ describe('spawn / hydrate quality', () => {
     const worker = spawnWorker(save)
     expect(worker.qualityTier).toBe(QUALITY_MIN)
     expect(worker.classId).toBe('laborer')
-    expect(worker.name).toBe(WORKER_NAME_POOL[0])
+    expect(worker.race).toBe(identityFromWorkerId('w-1').race)
+    expect(worker.name).toBe(identityFromWorkerId('w-1').name)
     expect(worker.combatAttrs).toEqual([])
     expect(worker.level).toBe(1)
     expect(worker.xp).toBe(0)
@@ -120,6 +121,10 @@ describe('spawn / hydrate quality', () => {
     expect(full.hp).toBe(full.hpMax)
     expect(full.hp).toBeGreaterThan(0)
     expect(hydrateWorker({ id: 'w-hurt', classId: 'laborer', hp: 6 }).hp).toBe(6)
+    const keptName = hydrateWorker({ id: 'w-old', assignment: null, name: '阿木' })
+    expect(keptName.name).toBe('阿木')
+    expect(keptName.race).toBe(raceFromWorkerId('w-old'))
+    expect(hydrateWorker({ id: 'w-race', assignment: null, name: '格鲁克', race: 'orc' }).race).toBe('orc')
     expect(hydrateWorker({ id: 'w-old', assignment: null }).level).toBe(1)
     expect(hydrateWorker({ id: 'w-old', assignment: null }).xp).toBe(0)
   })
@@ -168,7 +173,8 @@ describe('fuseWorkers', () => {
     expect(save.workers[0].assignment).toBeNull()
     expect(save.workers[0].foodSlot).toBeNull()
     expect(save.workers[0].id).toBe('w-3')
-    expect(save.workers[0].name).toBe(WORKER_NAME_POOL[2])
+    expect(isWorkerRaceId(save.workers[0].race)).toBe(true)
+    expect(WORKER_RACE_NAMES[save.workers[0].race!]).toContain(save.workers[0].name)
     expect(classPoolForQuality(2)).toContain(save.workers[0].classId)
   })
 

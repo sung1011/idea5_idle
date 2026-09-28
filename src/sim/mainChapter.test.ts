@@ -190,14 +190,14 @@ describe('loot claim counter and chapter boss spawn', () => {
       expect(recycled.id).not.toBe('tenth-minion')
       expect(recycled.chapterBoss).toBe(true)
       expect(recycled.enemyRank).toBe('boss')
-      expect(recycled.label).toContain('首领')
+      expect(recycled.label).toBe('联盟指挥官')
       expect(recycled.lootClaimed).toBe(false)
     }
 
     const next = firstEnemyOnBoard(save.mainLootClaims)
     expect(next.chapterBoss).toBe(true)
     expect(next.enemyRank).toBe('boss')
-    expect(next.label).toContain('首领')
+    expect(next.label).toBe('联盟指挥官')
 
     const before = firstEnemyOnBoard(9)
     expect(before.chapterBoss).not.toBe(true)

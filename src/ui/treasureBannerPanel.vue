@@ -69,7 +69,7 @@ function upgrade() {
         <button type="button" class="close" @click="emit('close')">关闭</button>
       </header>
       <p class="jade">
-        古玉
+        荣誉徽记
         <b>{{ jade() }}</b>
       </p>
       <article>
@@ -80,13 +80,13 @@ function upgrade() {
           <ul>
             <li v-for="line in rewards()" :key="line">{{ line }}</li>
           </ul>
-          <p class="fee">费用 {{ cost() }} 古玉</p>
+          <p class="fee">费用 {{ cost() }} 荣誉徽记</p>
           <button
             type="button"
             :class="{ 'is-short': short() }"
             :title="short() ? gap() : undefined"
             @click="upgrade"
-          >升级 {{ cost() }} 古玉</button>
+          >升级 {{ cost() }} 荣誉徽记</button>
           <p v-if="short()" class="gap">{{ gap() }}</p>
         </template>
       </article>

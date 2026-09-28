@@ -60,7 +60,7 @@ describe('rune slot unlock', () => {
     const save = createSave()
     expect(save.knightLevel).toBe(1)
     expect(isRuneSlotUnlocked(save)).toBe(false)
-    expect(runeSlotLockedTip()).toBe(`铭刻需骑士等级 ${STATION_UNLOCK_KNIGHT.inscription} 解锁`)
+    expect(runeSlotLockedTip()).toBe(`铭刻需酋长等级 ${STATION_UNLOCK_KNIGHT.inscription} 解锁`)
     expect(runeSlotTapKind(save, true)).toBe('locked')
     expect(runeSlotTapKind(save, false)).toBe('locked')
     expect(confirmableRunePicks(save, { a: 'runeSharp' }, ['a'])).toEqual({})

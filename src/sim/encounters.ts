@@ -142,9 +142,9 @@ export const EXPLORE_COST_TABLE: readonly number[] = [8, 10, 12, 14, 16]
 
 export const ENCOUNTER_KIND_LABEL: Record<EncounterKind, string> = {
   enemy: '敌人',
-  blackMerchant: '黑心商人',
+  blackMerchant: '地精奸商',
   passerby: '路人',
-  pawn: '当铺',
+  pawn: '地精当铺',
   artisan: '工匠委托',
   bulkBuy: '收购',
 }
@@ -267,13 +267,54 @@ export type EncounterLine = {
 
 export type EnemyNameDef = { id: string; label: string }
 
+export const CHAPTER_BOSS_LABEL = '联盟指挥官'
+
 export const ENEMY_NAME_DEFS: readonly EnemyNameDef[] = [
-  { id: 'wolfScout', label: '狼群斥候' },
-  { id: 'banditCamp', label: '匪帮营地' },
-  { id: 'wildBoar', label: '山猪' },
-  { id: 'riverRaider', label: '河盗' },
-  { id: 'hillBrigand', label: '山贼' },
+  { id: 'wolfScout', label: '联盟斥候' },
+  { id: 'banditCamp', label: '人类步兵' },
+  { id: 'wildBoar', label: '矮人火枪手' },
+  { id: 'riverRaider', label: '精灵哨兵' },
+  { id: 'hillBrigand', label: '圣光牧师' },
 ]
+
+const ENEMY_LABEL_MIGRATION: Record<string, string> = {
+  狼群斥候: '联盟斥候',
+  匪帮营地: '人类步兵',
+  山猪: '矮人火枪手',
+  河盗: '精灵哨兵',
+  山贼: '圣光牧师',
+}
+
+/** 旧档敌人显示名换成联盟。首领一律叫联盟指挥官。id 不动。 */
+export function migrateDisplayedEnemyLabel(label: unknown, chapterBoss: boolean): string {
+  const text = typeof label === 'string' ? label : ''
+  if (chapterBoss || text.endsWith('·首领')) return CHAPTER_BOSS_LABEL
+  return ENEMY_LABEL_MIGRATION[text] ?? text
+}
+
+const GUEST_LABEL_MIGRATION: Record<string, string> = {
+  干粮贩: '地精干粮贩',
+  矿石掮客: '地精矿石掮客',
+  工具贩: '地精工具贩',
+  行脚厨子: '巨魔行脚厨子',
+  烤肉贩: '巨魔烤肉贩',
+  换货路人: '牛头人换货商',
+  矿换路人: '牛头人矿换商',
+  工具路人: '血精灵工具商',
+  干粮路人: '兽人干粮商',
+  香料炖路人: '巨魔香料商',
+  工具当: '地精工具当',
+  干粮当: '地精干粮当',
+  烤肉当: '地精烤肉当',
+  矿料当: '地精矿料当',
+  矿石当: '地精矿石当',
+  铜矿当: '地精铜矿当',
+}
+
+export function migrateDisplayedGuestLabel(label: unknown): string {
+  const text = typeof label === 'string' ? label : ''
+  return GUEST_LABEL_MIGRATION[text] ?? text
+}
 
 export type BlackMerchantDef = {
   id: string
@@ -312,29 +353,29 @@ export type BulkBuyDef = {
 }
 
 export const BLACK_MERCHANT_DEFS: readonly BlackMerchantDef[] = [
-  { id: 'merchantBuy', label: '干粮贩', buyGold: 8, buyOffers: { meal: 1 } },
-  { id: 'merchantBuyOre', label: '矿石掮客', buyGold: 6, buyOffers: { ore: 2 } },
-  { id: 'merchantBuyBlade', label: '工具贩', buyGold: 12, buyOffers: { miningTool01: 1 } },
-  { id: 'merchantBuyCook', label: '行脚厨子', buyGold: 14, buyOffers: { meal: 2 } },
-  { id: 'merchantBuyRoast', label: '烤肉贩', buyGold: 16, buyOffers: { roast: 1 } },
+  { id: 'merchantBuy', label: '地精干粮贩', buyGold: 8, buyOffers: { meal: 1 } },
+  { id: 'merchantBuyOre', label: '地精矿石掮客', buyGold: 6, buyOffers: { ore: 2 } },
+  { id: 'merchantBuyBlade', label: '地精工具贩', buyGold: 12, buyOffers: { miningTool01: 1 } },
+  { id: 'merchantBuyCook', label: '巨魔行脚厨子', buyGold: 14, buyOffers: { meal: 2 } },
+  { id: 'merchantBuyRoast', label: '巨魔烤肉贩', buyGold: 16, buyOffers: { roast: 1 } },
 ]
 
 export const SHADY_DEFS = BLACK_MERCHANT_DEFS
 
 export const PASSERBY_DEFS: readonly PasserbyDef[] = [
-  { id: 'merchantBarter', label: '换货路人', wants: { ore: 3 }, offers: { meal: 1 } },
-  { id: 'merchantBarterOre', label: '矿换路人', wants: { fish: 3 }, offers: { ore: 2 } },
-  { id: 'merchantBarterBlade', label: '工具路人', wants: { ore: 3 }, offers: { miningTool01: 1 } },
-  { id: 'merchantBarterCook', label: '干粮路人', wants: { meal: 1 }, offers: { ore: 2 } },
-  { id: 'merchantBarterStew', label: '香料炖路人', wants: { stew: 1 }, offers: { spice: 2 } },
+  { id: 'merchantBarter', label: '牛头人换货商', wants: { ore: 3 }, offers: { meal: 1 } },
+  { id: 'merchantBarterOre', label: '牛头人矿换商', wants: { fish: 3 }, offers: { ore: 2 } },
+  { id: 'merchantBarterBlade', label: '血精灵工具商', wants: { ore: 3 }, offers: { miningTool01: 1 } },
+  { id: 'merchantBarterCook', label: '兽人干粮商', wants: { meal: 1 }, offers: { ore: 2 } },
+  { id: 'merchantBarterStew', label: '巨魔香料商', wants: { stew: 1 }, offers: { spice: 2 } },
 ]
 
 export const PAWN_DEFS: readonly PawnDef[] = [
-  { id: 'merchantPawn', label: '工具当', pawnWants: { tool: 1 } },
-  { id: 'merchantPawnMeal', label: '干粮当', pawnWants: { meal: 1 } },
-  { id: 'merchantPawnRoast', label: '烤肉当', pawnWants: { roast: 1 } },
-  { id: 'merchantPawnWood', label: '矿料当', pawnWants: { ore: 3 } },
-  { id: 'merchantPawnOre', label: '矿石当', pawnWants: { ore: 2 } },
+  { id: 'merchantPawn', label: '地精工具当', pawnWants: { tool: 1 } },
+  { id: 'merchantPawnMeal', label: '地精干粮当', pawnWants: { meal: 1 } },
+  { id: 'merchantPawnRoast', label: '地精烤肉当', pawnWants: { roast: 1 } },
+  { id: 'merchantPawnWood', label: '地精矿料当', pawnWants: { ore: 3 } },
+  { id: 'merchantPawnOre', label: '地精矿石当', pawnWants: { ore: 2 } },
 ]
 
 export const PAWNSHOP_DEFS = PAWN_DEFS
@@ -1146,7 +1187,7 @@ function makeEnemy(
   return seedInitialRevealedWeaknesses({
     kind: 'enemy',
     id,
-    label: forceChapterBoss ? `${name.label}·首领` : name.label,
+    label: forceChapterBoss ? CHAPTER_BOSS_LABEL : name.label,
     quality: resolvedQuality,
     needs: scaledMainNeed(itemId, resolvedQuality, chapter, forceChapterBoss),
     lootGold: loot.gold,
@@ -1251,7 +1292,7 @@ function makePawn(
 /** 铜矿在 ITEM_DEF 的 id。新档当铺消耗用这个。 */
 export const STARTER_PAWN_ITEM_ID: ItemId = 'ore'
 export const STARTER_PAWN_QTY = 2
-export const STARTER_PAWN_LABEL = '铜矿当'
+export const STARTER_PAWN_LABEL = '地精铜矿当'
 export const STARTER_PAWN_QUALITY: EncounterQuality = 'green'
 
 export function isStarterCopperPawn(enc: Encounter): enc is PawnEncounter {
@@ -2005,8 +2046,8 @@ export function claimLoot(save: Save, index: number, now = Date.now()): ActionRe
 export function barterBlockReason(save: Save, index: number): string | null {
   const enc = slotAt(save, index, 'market')
   if (!enc) return '不是路人偶遇'
-  if (enc.kind === 'blackMerchant') return '黑心商人不能以物易物'
-  if (enc.kind === 'pawn') return '当铺不能以物易物'
+  if (enc.kind === 'blackMerchant') return '地精奸商不能以物易物'
+  if (enc.kind === 'pawn') return '地精当铺不能以物易物'
   if (enc.kind === 'artisan') return '工匠委托不能以物易物'
   if (enc.kind === 'bulkBuy') return '收购不能以物易物'
   if (enc.kind !== 'passerby') return '不是路人偶遇'
@@ -2019,12 +2060,12 @@ export function barterBlockReason(save: Save, index: number): string | null {
 
 export function buyMerchantBlockReason(save: Save, index: number): string | null {
   const enc = slotAt(save, index, 'market')
-  if (!enc) return '不是黑心商人偶遇'
+  if (!enc) return '不是地精奸商偶遇'
   if (enc.kind === 'passerby') return '路人不能购买'
-  if (enc.kind === 'pawn') return '当铺不能购买'
+  if (enc.kind === 'pawn') return '地精当铺不能购买'
   if (enc.kind === 'artisan') return '工匠委托不能购买'
   if (enc.kind === 'bulkBuy') return '收购不能购买'
-  if (enc.kind !== 'blackMerchant') return '不是黑心商人偶遇'
+  if (enc.kind !== 'blackMerchant') return '不是地精奸商偶遇'
   if (enc.completed) return '这笔买卖已完成'
   if (save.gold < enc.buyGold) return `金币不够：购买要 ${enc.buyGold}`
   return null
@@ -2032,12 +2073,12 @@ export function buyMerchantBlockReason(save: Save, index: number): string | null
 
 export function pawnBlockReason(save: Save, index: number): string | null {
   const enc = slotAt(save, index, 'market')
-  if (!enc) return '不是当铺偶遇'
-  if (enc.kind === 'blackMerchant') return '黑心商人不能典当'
+  if (!enc) return '不是地精当铺偶遇'
+  if (enc.kind === 'blackMerchant') return '地精奸商不能典当'
   if (enc.kind === 'passerby') return '路人不能典当'
   if (enc.kind === 'artisan') return '工匠委托不能典当'
   if (enc.kind === 'bulkBuy') return '收购不能典当'
-  if (enc.kind !== 'pawn') return '不是当铺偶遇'
+  if (enc.kind !== 'pawn') return '不是地精当铺偶遇'
   if (enc.completed) return '这笔买卖已完成'
   if (!needEntries(enc.pawnWants).length) return '没有可典当物品'
   if (!canAffordCosts(save, needMapToRules(enc.pawnWants))) {
@@ -2116,7 +2157,7 @@ export function buyMerchant(save: Save, index: number, now = Date.now()): Action
   const blocked = buyMerchantBlockReason(save, index)
   if (blocked) return { ok: false, reason: blocked }
   const enc = blackMerchantAt(save, index)
-  if (!enc) return { ok: false, reason: '不是黑心商人偶遇' }
+  if (!enc) return { ok: false, reason: '不是地精奸商偶遇' }
   save.gold -= enc.buyGold
   const added = addNeedMap(save, scaleTimedNeedMap(enc.buyOffers, timedRewardMul(enc, now)))
   if (!added.ok) return added
@@ -2131,7 +2172,7 @@ export function pawnMerchant(save: Save, index: number, now = Date.now()): Actio
   const blocked = pawnBlockReason(save, index)
   if (blocked) return { ok: false, reason: blocked }
   const enc = pawnAt(save, index)
-  if (!enc) return { ok: false, reason: '不是当铺偶遇' }
+  if (!enc) return { ok: false, reason: '不是地精当铺偶遇' }
   const payout = pawnReward(enc, save, now)
   const took = takeCosts(save, needMapToRules(enc.pawnWants))
   if (!took.ok) return took
@@ -2274,7 +2315,7 @@ function inferMerchantKind(raw: LegacyMerchant): MerchantKind {
 function migrateLegacyMerchant(raw: LegacyMerchant): MerchantEncounter {
   const kind = inferMerchantKind(raw)
   const completed = raw.completed === true
-  const label = typeof raw.label === 'string' ? raw.label : MERCHANT_KIND_LABEL[kind]
+  const label = migrateDisplayedGuestLabel(typeof raw.label === 'string' ? raw.label : MERCHANT_KIND_LABEL[kind])
   const quality = readQuality((raw as { quality?: unknown }).quality)
   if (kind === 'blackMerchant') {
     return {
@@ -2340,7 +2381,7 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
       {
         kind: 'enemy',
         id: raw.id,
-        label: raw.label,
+        label: migrateDisplayedEnemyLabel(raw.label, chapterBoss),
         quality,
         needs,
         lootGold,
@@ -2358,7 +2399,7 @@ function migrateEnemy(raw: LegacyEnemy): EnemyEncounter {
   return ensureEnemyIntel({
     kind: 'enemy',
     id: raw.id,
-    label: raw.label,
+    label: migrateDisplayedEnemyLabel(raw.label, chapterBoss),
     quality,
     needs,
     lootGold,
@@ -2390,7 +2431,7 @@ function readTimedUntil(raw: { timedUntil?: unknown }): { timedUntil?: number } 
 function migrateTrade(raw: LegacyTrade): Encounter | unknown {
   const quality = readQuality(raw.quality)
   const completed = raw.completed === true
-  const label = typeof raw.label === 'string' ? raw.label : ENCOUNTER_KIND_LABEL.passerby
+  const label = migrateDisplayedGuestLabel(typeof raw.label === 'string' ? raw.label : ENCOUNTER_KIND_LABEL.passerby)
   const kind = raw.kind === 'shady' ? 'blackMerchant' : raw.kind === 'pawnshop' ? 'pawn' : raw.kind
   const timed = readTimedUntil(raw)
   if (kind === 'blackMerchant') {

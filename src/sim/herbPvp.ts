@@ -1,4 +1,5 @@
 import { addToBank } from './bank'
+import { playerDisplayName } from './playerName'
 import { applyDownedReturn, isWorkerInCombat, workerLiveStats } from './combat'
 import { scaledAttackDamage } from './combatAttrs'
 import { offerRestFood } from './food'
@@ -231,7 +232,7 @@ export function herbRankReward(rank: number): HerbRankReward {
 
 export function herbRewardLine(rank: number): string {
   const reward = herbRankReward(rank)
-  const parts = [`砂金 ${reward.sandGold}`, `珠宝 ${reward.jewel}`, `古玉 ${reward.jade}`]
+  const parts = [`砂金 ${reward.sandGold}`, `珠宝 ${reward.jewel}`, `荣誉徽记 ${reward.jade}`]
   if (reward.probe1 > 0) parts.push(`1格侦测 ×${reward.probe1}`)
   if (reward.probe2 > 0) parts.push(`2格侦测 ×${reward.probe2}`)
   if (reward.probe4 > 0) parts.push(`4格侦测 ×${reward.probe4}`)
@@ -474,9 +475,7 @@ function ensureHerbPvp(save: Save, now = Date.now()): HerbPvpState {
 }
 
 function playerNameOf(save: Save): string {
-  if (typeof save.playerName !== 'string') return '见习勇者'
-  const trimmed = save.playerName.trim()
-  return trimmed || '见习勇者'
+  return playerDisplayName(save.playerName)
 }
 
 export function herbLeaderboard(save: Save): HerbRankRow[] {

@@ -75,7 +75,7 @@ onUnmounted(() => {
           <li>探索 {{ game.save.exploreCount }} 次</li>
           <li>出发 {{ game.save.departCount }} 次</li>
           <li>抽苦工 {{ recruited }}</li>
-          <li>骑士等级 {{ game.save.knightLevel }}</li>
+          <li>酋长等级 {{ game.save.knightLevel }}</li>
           <li>当前苦工 {{ game.save.workers.length }}</li>
           <li>离线 {{ game.save.offlineCount }} 次</li>
         </ul>

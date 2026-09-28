@@ -403,7 +403,7 @@ describe('dungeon mvp', () => {
     addToBank(save, 'meal', 4)
     const a = fullWorker(save, '甲')
     expect(startDungeonCombat(save, DUNGEON_JAILER_ID, [a.id], 13_000).ok).toBe(false)
-    expect(dungeonSupplyBlockReason(save)).toMatch(/回春散/)
+    expect(dungeonSupplyBlockReason(save)).toMatch(/巫毒回春剂/)
     addToBank(save, 'salve', 3)
     expect(startDungeonCombat(save, DUNGEON_JAILER_ID, [a.id], 13_000).ok).toBe(true)
   })

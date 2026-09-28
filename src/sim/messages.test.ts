@@ -16,7 +16,7 @@ describe('messages', () => {
     expect(hasUnread(result.save)).toBe(true)
     expect(unreadCount(result.save)).toBe(2)
     const offline = listedMessages(result.save).find((m) => m.title === '离线收益')
-    const knight = listedMessages(result.save).find((m) => m.title === '骑士升级')
+    const knight = listedMessages(result.save).find((m) => m.title === '酋长升级')
     expect(offline?.read).toBe(false)
     expect(knight?.read).toBe(false)
     const first = offline!

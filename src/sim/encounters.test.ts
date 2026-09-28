@@ -1177,7 +1177,7 @@ describe('merchant kinds', () => {
     const gold = save.gold
     const result = barterMerchant(save, 0)
     expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.reason).toContain('黑心商人不能以物易物')
+    if (!result.ok) expect(result.reason).toContain('地精奸商不能以物易物')
     expect(save.gold).toBe(gold)
     expect(bankQty(save, 'wood')).toBe(8)
   })
@@ -1198,7 +1198,7 @@ describe('merchant kinds', () => {
     save.gold = 40
     const result = buyMerchant(save, 0)
     expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.reason).toContain('当铺不能购买')
+    if (!result.ok) expect(result.reason).toContain('地精当铺不能购买')
     expect(save.gold).toBe(40)
     expect(bankQty(save, 'weapon')).toBe(0)
   })
@@ -1228,7 +1228,7 @@ describe('hydrateEncounterFields', () => {
     expect(save.marketEncounters[0].kind).toBe('pawn')
     if (save.marketEncounters[0].kind !== 'pawn') return
     expect(save.marketEncounters[0].pawnWants).toEqual({ ore: 2 })
-    expect(save.marketEncounters[0].label).toBe('铜矿当')
+    expect(save.marketEncounters[0].label).toBe('地精铜矿当')
   })
 
   it('does not force a starter copper pawn onto an existing old board', () => {
@@ -1241,7 +1241,7 @@ describe('hydrateEncounterFields', () => {
     expect(save.encounters.every((enc) => enc.kind === 'enemy')).toBe(true)
     expect(save.marketEncounters.every((enc) => enc.kind !== 'enemy')).toBe(true)
     expect(
-      [...save.encounters, ...save.marketEncounters].some((enc) => enc.kind === 'pawn' && enc.label === '铜矿当'),
+      [...save.encounters, ...save.marketEncounters].some((enc) => enc.kind === 'pawn' && enc.label === '地精铜矿当'),
     ).toBe(false)
   })
 

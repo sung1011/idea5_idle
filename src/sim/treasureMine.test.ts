@@ -1349,7 +1349,7 @@ describe('treasure jade banner', () => {
       expect(bannerLevelOf(save)).toBe(level)
       expect(save.treasureMines.vault.jade).toBe(cost - 1)
       save.treasureMines.vault.jade = cost
-      expect(upgradeTreasureBanner(save)).toEqual({ ok: true, message: `古玉 −${cost}` })
+      expect(upgradeTreasureBanner(save)).toEqual({ ok: true, message: `荣誉徽记 −${cost}` })
       expect(bannerLevelOf(save)).toBe(level + 1)
       expect(save.treasureMines.vault.jade).toBe(0)
     }

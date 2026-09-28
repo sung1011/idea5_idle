@@ -271,8 +271,8 @@ const PRODUCTION_ROWS: readonly RowSeed[] = [
       },
       {
         id: 'knightCrest',
-        name: '匠师印章',
-        desc: '骑士每满 5 级，全站制作周期 −1%，最多 −8%。',
+        name: '酋长印记',
+        desc: '酋长每满 5 级，全站制作周期 −1%，最多 −8%。',
         icon: '🏅',
         ...implemented(KNIGHT_CYCLE_EFFECT),
       },
@@ -402,7 +402,7 @@ const COMBAT_ROWS: readonly RowSeed[] = [
       },
       {
         id: 'combatEdge',
-        name: '符刃开光',
+        name: '符刃淬血',
         desc: '本场已装备符文的苦工 ATK +15%；无符文不加。',
         icon: '🗡️',
         ...implemented(RUNE_ATK_EFFECT),
@@ -435,7 +435,7 @@ const COMBAT_ROWS: readonly RowSeed[] = [
       },
       {
         id: 'fastRelay',
-        name: '快马驿路',
+        name: '座狼驿道',
         desc: '行军、凯旋、溃退各快 5 秒，最少 8 秒。',
         icon: '🐎',
         ...implemented(MARCH_CUT_EFFECT, { maxLevel: 3 }),
@@ -459,7 +459,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'bargainBell',
         name: '议价铜铃',
-        desc: '当铺 / 收购换金 +15%。',
+        desc: '地精当铺 / 收购换金 +15%。',
         icon: '🔔',
         ...implemented(TRADE_GOLD_EFFECT),
       },
@@ -471,7 +471,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'marketLicense',
         name: '市集摊位',
-        desc: '多摆一个摊位，商场订单格 +1（2→3）。',
+        desc: '多摆一个摊位，集市订单格 +1（2→3）。',
         icon: '🪪',
         effectId: MARKET_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
@@ -511,7 +511,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'farWatch',
         name: '货栈扩容',
-        desc: '货栈多开一间，商场订单格 +1（3→4）。',
+        desc: '货栈多开一间，集市订单格 +1（3→4）。',
         icon: '🗼',
         effectId: MARKET_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
@@ -519,7 +519,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 's04DraftC',
         name: '双轨急单',
-        desc: '商场刷出限时单概率 +15%。',
+        desc: '集市刷出限时单概率 +15%。',
         icon: '🌙',
         ...implemented(TIMED_ORDER_CHANCE_EFFECT),
       },
@@ -531,7 +531,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'caravanPermit',
         name: '限时加急章',
-        desc: '限时商场订单时限 +50%，不再加商场格。',
+        desc: '限时集市订单时限 +50%，不再加集市格。',
         icon: '🐫',
         ...implemented(TIMED_ORDER_DURATION_EFFECT),
       },
@@ -550,7 +550,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'affairsRoadbook',
         name: '回扣账本',
-        desc: '当铺 / 收购金币再 ×1.15，与议价铜铃叠乘。',
+        desc: '地精当铺 / 收购金币再 ×1.15，与议价铜铃叠乘。',
         icon: '🗺️',
         ...implemented(TRADE_GOLD_EFFECT),
       },
@@ -564,7 +564,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'affairsSeal',
         name: '钻标订单',
-        desc: '商场钻石奖励类订单出现率 +10%。',
+        desc: '集市钻石奖励类订单出现率 +10%。',
         icon: '🔏',
         ...implemented(DIAMOND_ORDER_EFFECT),
       },

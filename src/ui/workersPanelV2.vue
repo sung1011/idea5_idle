@@ -41,6 +41,7 @@ import {
   workerEnterDelayMs,
 } from './workerEnterFlash'
 import { recruitCost } from '../sim/tech'
+import { workerRaceLabel } from '../sim/workerRace'
 import type { CategoryId, ClassId, PotionItemId, StationId, Worker } from '../sim/types'
 import ClassIcon from './classIcon.vue'
 import { openWorkshopStation } from './appNav'
@@ -183,9 +184,9 @@ const potionBuffLine = computed(() => {
   const save = game.save
   const t = save.elapsedS
   const parts: string[] = []
-  if (isStimActive(save)) parts.push(`兴奋 ${formatMarchClock(potionRemainS(save.potionBuffs.stimUntil, t))}`)
+  if (isStimActive(save)) parts.push(`嗜血 ${formatMarchClock(potionRemainS(save.potionBuffs.stimUntil, t))}`)
   if (save.potionBuffs.renewUntil != null && t < save.potionBuffs.renewUntil) {
-    parts.push(`续命 ${formatMarchClock(potionRemainS(save.potionBuffs.renewUntil, t))}`)
+    parts.push(`先祖 ${formatMarchClock(potionRemainS(save.potionBuffs.renewUntil, t))}`)
   }
   const mist = save.potionBuffs.doubleMist
   if (mist) parts.push(`双份雾 ${STATION_DEF[mist.stationId].label} ×${mist.mul}`)
@@ -270,6 +271,10 @@ function closePotionPick() {
 
 function jobLabel(w: Worker) {
   return w.classId ? CLASS_LABEL[w.classId] : '未标'
+}
+
+function raceLabel(w: Worker) {
+  return workerRaceLabel(w.race)
 }
 
 function classIconOf(w: Worker): ClassId {
@@ -638,6 +643,7 @@ onUnmounted(() => {
                       <b>
                         <i class="qdot" :style="workerQualityDotStyle(w.qualityTier)" />
                         <em :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</em>
+                        <i v-if="raceLabel(w)" class="race-tag">{{ raceLabel(w) }}</i>
                       </b>
                       <small>Lv{{ w.level }}</small>
                     </span>
@@ -717,6 +723,7 @@ onUnmounted(() => {
                   <i v-if="item.worker.isNew" class="worker-new" aria-label="新苦工">NEW</i>
                 </span>
                 <b class="rest-name" :style="workerQualityNameStyle(item.worker)">{{ workerShortName(item.worker) }}</b>
+                <i v-if="raceLabel(item.worker)" class="race-tag">{{ raceLabel(item.worker) }}</i>
                 <i class="march-tag">{{ item.row.label }}<template v-if="item.row.tone !== 'fight'"> {{ formatRemainClock(item.row.remainS) }}</template></i>
                 <i v-if="item.row.tone !== 'fight'" class="march-bar" aria-hidden="true"><b :style="{ width: `${Math.round(item.row.progress * 100)}%` }" /></i>
               </button>
@@ -797,6 +804,7 @@ onUnmounted(() => {
                 </span>
                 <em v-if="workerEatFlashText(row.id)" class="eat-float">{{ workerEatFlashText(row.id) }}</em>
                 <b class="rest-name" :style="workerQualityNameStyle(row.worker)">{{ workerShortName(row.worker) }}</b>
+                <i v-if="raceLabel(row.worker)" class="race-tag">{{ raceLabel(row.worker) }}</i>
               </button>
               <button
                 v-if="tutorLine(row.id)"
@@ -841,7 +849,10 @@ onUnmounted(() => {
     >
       <div class="sheet">
         <header>
-          <h2 class="title">{{ workerShortName(selected) }}</h2>
+          <h2 class="title">
+            {{ workerShortName(selected) }}
+            <i v-if="raceLabel(selected)" class="race-tag">{{ raceLabel(selected) }}</i>
+          </h2>
           <button type="button" class="close" @click="closeSheet">关闭</button>
         </header>
         <p class="meta">{{ sheetMeta(selected) }}</p>
@@ -1865,6 +1876,20 @@ onUnmounted(() => {
   font-style: normal;
 }
 
+.race-tag {
+  flex: 0 0 auto;
+  margin-left: 3px;
+  padding: 0 3px;
+  border: 1px solid var(--gold-deep, #8a6a32);
+  border-radius: 3px;
+  color: var(--ink, #3a2a16);
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+
 .slot-main small {
   color: var(--muted);
   font-size: 9px;
@@ -2177,6 +2202,9 @@ onUnmounted(() => {
 }
 
 .sheet .title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 18px;
 }
 

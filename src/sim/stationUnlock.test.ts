@@ -26,7 +26,7 @@ describe('stationUnlock by knight level', () => {
     expect(isStationUnlocked(save, 'alchemy')).toBe(true)
     expect(isStationUnlocked(save, 'hunting')).toBe(false)
     expect(isStationUnlocked(save, 'inscription')).toBe(false)
-    expect(stationLockedTip('hunting')).toBe('骑士 5 级开放狩猎')
+    expect(stationLockedTip('hunting')).toBe('酋长 5 级开放狩猎')
     expect(stationUnlockKnightLevel('alchemy')).toBe(1)
     expect(stationUnlockKnightLevel('inscription')).toBe(10)
     expect(STATION_UNLOCK_KNIGHT).toEqual({
@@ -62,12 +62,12 @@ describe('stationUnlock by knight level', () => {
   it('tips the next locked station in a workshop group', () => {
     const save = createSave()
     expect(nextLockedStation(save, ['hunting', 'cooking'])).toBe('hunting')
-    expect(workshopGroupLockedTip(save, ['hunting', 'cooking'])).toBe('骑士 5 级开放狩猎')
-    expect(workshopGroupLockedTip(save, ['mining', 'inscription'])).toBe('骑士 9 级开放采矿')
+    expect(workshopGroupLockedTip(save, ['hunting', 'cooking'])).toBe('酋长 5 级开放狩猎')
+    expect(workshopGroupLockedTip(save, ['mining', 'inscription'])).toBe('酋长 9 级开放采矿')
     save.knightLevel = 9
-    expect(workshopGroupLockedTip(save, ['mining', 'inscription'])).toBe('骑士 10 级开放铭刻')
+    expect(workshopGroupLockedTip(save, ['mining', 'inscription'])).toBe('酋长 10 级开放铭刻')
     save.knightLevel = 5
-    expect(workshopGroupLockedTip(save, ['hunting', 'cooking'])).toBe('骑士 6 级开放烹饪')
+    expect(workshopGroupLockedTip(save, ['hunting', 'cooking'])).toBe('酋长 6 级开放烹饪')
     expect(workshopGroupLockedTip(save, ['herbalism', 'alchemy'])).toBeNull()
   })
 
@@ -77,10 +77,10 @@ describe('stationUnlock by knight level', () => {
     spawnWorker(save)
     expect(assignIdleWorker(save, 'mining')).toEqual({
       ok: false,
-      reason: '骑士 9 级开放采矿',
+      reason: '酋长 9 级开放采矿',
     })
     expect(save.workers[0].assignment).toBeNull()
-    expect(assignIdleWorker(save, 'hunting')).toEqual({ ok: false, reason: '骑士 5 级开放狩猎' })
+    expect(assignIdleWorker(save, 'hunting')).toEqual({ ok: false, reason: '酋长 5 级开放狩猎' })
     expect(assignIdleWorker(save, 'alchemy').ok).toBe(true)
     expect(save.workers[0].assignment).toBe('alchemy')
 

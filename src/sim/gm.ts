@@ -95,7 +95,7 @@ export function gmMaxStations(save: Save, level = GM_MAX_STATION_LEVEL): ActionR
   }
   const knight = syncKnightLevel(save)
   if (knight.gained > 0) {
-    return { ok: true, message: `站点全满级 Lv${target}，骑士 Lv${knight.to}，灵感 +${knight.gained}` }
+    return { ok: true, message: `站点全满级 Lv${target}，酋长 Lv${knight.to}，灵感 +${knight.gained}` }
   }
   return { ok: true, message: `站点全满级 Lv${target}` }
 }

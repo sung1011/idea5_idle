@@ -173,7 +173,7 @@ describe('potion slots', () => {
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(bankQty(save, 'salve')).toBe(0)
     expect(save.potionSlots[0]).toBe('salve')
-    expect(usePotionSlot(save, 0)).toEqual({ ok: false, reason: '回春散见底' })
+    expect(usePotionSlot(save, 0)).toEqual({ ok: false, reason: '巫毒回春剂见底' })
     expect(unequipPotionSlot(save, 0).ok).toBe(true)
     expect(save.potionSlots[0]).toBeNull()
   })

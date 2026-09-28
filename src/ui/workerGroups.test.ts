@@ -338,7 +338,7 @@ describe('assign resting to first empty slot', () => {
 
     const next = spawnWorkerWith(save, 3, 'hunter')
     expect(firstEmptyDispatchStation(save)).toBeNull()
-    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '骑士 5 级开放狩猎' })
+    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '酋长 5 级开放狩猎' })
     expect(next.assignment).toBeNull()
 
     unlockPlayableStations(save)

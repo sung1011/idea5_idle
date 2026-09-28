@@ -82,7 +82,7 @@ export type TreasureRefreshPay = 'sandGold' | 'diamonds'
 export const TREASURE_LABEL: Record<TreasureId, string> = {
   sandGold: '砂金',
   jewel: '珠宝',
-  jade: '古玉',
+  jade: '荣誉徽记',
 }
 
 export const TREASURE_KINDS = ['sandGold', 'jewel', 'jade'] as const satisfies readonly TreasureKind[]
@@ -90,7 +90,7 @@ export const TREASURE_KINDS = ['sandGold', 'jewel', 'jade'] as const satisfies r
 export const TREASURE_KIND_LABEL: Record<TreasureKind, string> = {
   sandGold: '砂金洞',
   jewel: '珠宝洞',
-  jade: '古玉洞',
+  jade: '荣誉徽记洞',
 }
 
 /**
@@ -274,11 +274,11 @@ export function jadeGap(need: number, have: number): number {
 }
 
 export function jadeShortTip(need: number, have: number): string {
-  return `古玉还差 ${jadeGap(need, have)}`
+  return `荣誉徽记还差 ${jadeGap(need, have)}`
 }
 
 export function jadeSpentTip(qty: number): string {
-  return `古玉 −${qty}`
+  return `荣誉徽记 −${qty}`
 }
 
 export type BannerFrame = 'none' | 'copper' | 'silver' | 'gold'
@@ -439,23 +439,57 @@ export function trySpendVault(save: Save, id: TreasureId, qty: number): boolean 
 }
 
 /** 新刷快照守军的显示名。同一局里优先没用过的，名单用尽才重复。 */
+/** 夺宝守军和割草对手。49 个不重复，够一场割草各用一次。 */
 export const SNAPSHOT_PLAYER_NAMES = [
-  '青石',
-  '晚风',
-  '小满',
-  '阿栗',
-  '北巷',
-  '白露',
-  '南枝',
-  '木舟',
-  '灯火',
-  '远山',
-  '清禾',
-  '旧桥',
-  '星河',
-  '落叶',
-  '暖阳',
-  '微澜',
+  '裂齿',
+  '血喉',
+  '黑石斧',
+  '战嚎',
+  '骨矛',
+  '灰烬爪',
+  '铁颚',
+  '红牙',
+  '碎颅',
+  '怒嚎',
+  '焦土',
+  '战鼓手',
+  '血咒',
+  '毒牙',
+  '赞达骨',
+  '金索巫',
+  '祖巴矛',
+  '影林',
+  '藤巫',
+  '金牙',
+  '沼泽眼',
+  '骨铃',
+  '夜牙',
+  '血咒使',
+  '血蹄酒长',
+  '石角长',
+  '大地蹄',
+  '雷蹄',
+  '草原鼓',
+  '灰鬃长',
+  '岩角',
+  '风鬃',
+  '图腾角',
+  '雷角',
+  '泥蹄',
+  '星蹄',
+  '赤日',
+  '血刃',
+  '焰冠',
+  '红绸',
+  '日怒',
+  '绯羽',
+  '烬冠',
+  '银羽',
+  '赤羽',
+  '烬刃',
+  '血绸',
+  '裂斧',
+  '蛮鼓',
 ] as const
 
 const SHADOW_RUNES: RuneItemId[] = ['runeSharp', 'runeArmor', 'runeSwift']

@@ -357,6 +357,7 @@ function repairDungeonShape(save: Save): void {
     ) as EnemyEncounter[]
     const encounters = ordered.map((enc) => {
       enc.dungeon = true
+      if (isDungeonBossId(enc.id)) enc.label = dungeonBossProfile(enc.id).label
       enc.needs = { ...DUNGEON_NEEDS }
       enc.affixIds = fillAffixIds(readAffixIds(enc.affixIds, DUNGEON_AFFIX_COUNT), () =>
         rollOrderAffixes(day, enc.id as DungeonBossId, salt),

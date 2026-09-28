@@ -115,7 +115,7 @@ describe('hunting / herbalism / alchemy', () => {
     expect(bankQty(next, 'potion')).toBe(0)
     expect(next.stations.alchemy.completed).toBe(1)
     expect(next.stations.alchemy.craftNotice).toContain('草')
-    expect(next.stations.alchemy.craftNotice).toContain('回春散')
+    expect(next.stations.alchemy.craftNotice).toContain('巫毒回春剂')
   })
 })
 

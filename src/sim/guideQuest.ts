@@ -351,7 +351,7 @@ export function claimGuideQuest(save: Save): ActionResult {
     return { ok: false, reason: '铭刻未解锁' }
   }
   if (step >= GUIDE_QUEST_PHASE2_START && step < GUIDE_QUEST_PHASE3_START && !isGuideQuestPhase2Open(save)) {
-    return { ok: false, reason: `骑士 ${GUIDE_QUEST_PHASE2_KNIGHT} 级开放进阶` }
+    return { ok: false, reason: `酋长 ${GUIDE_QUEST_PHASE2_KNIGHT} 级开放进阶` }
   }
   if (guideQuestProgressAt(save, step) < 1) return { ok: false, reason: '尚未完成' }
   save.gold += GUIDE_QUEST_GOLD

@@ -18,9 +18,9 @@ export default defineConfig({
         enabled: false,
       },
       manifest: {
-        name: '骑士工坊',
-        short_name: '工坊',
-        description: '抽苦工、排流水线的生活挂机',
+        name: '部落工坊',
+        short_name: '部落工坊',
+        description: '部落酋长带着苦工排流水线，对抗联盟的生活挂机',
         lang: 'zh-CN',
         dir: 'ltr',
         display: 'standalone',

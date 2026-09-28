@@ -14,9 +14,9 @@ import {
   needsGrayQualityMigration,
   QUALITY_MIN,
   resolveStationId,
-  WORKER_NAME_POOL,
 } from './tables'
 import { recruitCost } from './tech'
+import { identityFromWorkerId, isWorkerRaceId, raceFromWorkerId, rollWorkerName, rollWorkerRace } from './workerRace'
 import type {
   ActionResult,
   EffectInstance,
@@ -132,6 +132,7 @@ export function hydrateWorker(raw: unknown, index = 0): Worker {
     fillWorkerHp({
       id,
       name: typeof src.name === 'string' ? src.name : undefined,
+      race: isWorkerRaceId(src.race) ? src.race : raceFromWorkerId(id),
       classId: isClassId(src.classId) ? src.classId : undefined,
       qualityTier: hydrateQualityTier(src.qualityTier),
       assignment: resolveStationId(src.assignment),
@@ -171,19 +172,20 @@ export function spawnWorker(save: Save): Worker {
   return spawnWorkerWith(save, QUALITY_MIN, CLASS_PLACEHOLDERS[idx % CLASS_PLACEHOLDERS.length])
 }
 
-/** 指定品质与职业写入花名册。名字仍按 nextWorkerId 轮转。可带入已有战斗属性，只补新解锁空槽。 */
+/** 指定品质与职业写入花名册。名字按 id 落到种族名字池。可带入已有战斗属性，只补新解锁空槽。 */
 export function spawnWorkerWith(
   save: Save,
   qualityTier: QualityTier,
   classId: ClassId,
   combatAttrs: readonly CombatAttrId[] = [],
 ): Worker {
-  const idx = save.nextWorkerId - 1
+  const ident = identityFromWorkerId(`w-${save.nextWorkerId}`)
   const worker: Worker = spawnFillCombatAttrs(
     save,
     fillWorkerHp({
       id: `w-${save.nextWorkerId}`,
-      name: WORKER_NAME_POOL[idx % WORKER_NAME_POOL.length],
+      name: ident.name,
+      race: ident.race,
       classId,
       qualityTier,
       assignment: null,
@@ -208,6 +210,9 @@ export function recruitWorker(save: Save): ActionResult {
   if (save.diamonds < cost) return { ok: false, reason: '钻石不足' }
   save.diamonds -= cost
   const worker = spawnWorker(save)
+  const race = rollWorkerRace(save)
+  worker.race = race
+  worker.name = rollWorkerName(save, race)
   worker.isNew = true
   return { ok: true }
 }

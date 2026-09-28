@@ -4,7 +4,7 @@ import { CLASS_LABEL } from '../sim/tables'
 const CLASS_SUFFIXES = [...new Set(Object.values(CLASS_LABEL))].sort((a, b) => b.length - a.length)
 
 /**
- * 选人弹层显示名：只留本名（如「铁钉」），剥掉职业后缀（游民 / 骑士等）。
+ * 选人弹层显示名：只留本名（如「铁钉」），剥掉职业后缀（流浪者 / 督军等）。
  * 名字本身就是职业名时原样留下。
  */
 export function pickWorkerName(worker: { id: string; name?: string }): string {

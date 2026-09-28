@@ -245,11 +245,11 @@ export function grantStationXp(save: Save, stationId: StationId, xp: number): vo
     bits.push(`解锁${names.join('、')}`)
   }
   if (knight.gained > 0) {
-    bits.push(`骑士升到 Lv${knight.to}`)
+    bits.push(`酋长升到 Lv${knight.to}`)
     bits.push(`灵感 +${knight.gained}`)
     pushMessage(save, {
-      title: '骑士升级',
-      body: `骑士等级升到 ${knight.to}，灵感 +${knight.gained}`,
+      title: '酋长升级',
+      body: `酋长等级升到 ${knight.to}，灵感 +${knight.gained}`,
     })
   }
   station.progressNotice = bits.join('，')

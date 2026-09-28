@@ -334,7 +334,7 @@ function confirmPick() {
   <section class="mines" aria-label="夺宝矿洞">
     <button type="button" class="banner-bar" aria-label="战旗" @click="bannerOpen = true">
       <span>战旗 Lv{{ bannerLevel() }}</span>
-      <span class="banner-jade">古玉 <b>{{ jadeOnHand() }}</b></span>
+      <span class="banner-jade">荣誉徽记 <b>{{ jadeOnHand() }}</b></span>
       <i v-if="bannerReady()" class="banner-dot" />
     </button>
     <div class="vault-row">

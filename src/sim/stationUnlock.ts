@@ -29,7 +29,7 @@ export function isStationUnlocked(save: Pick<Save, 'knightLevel'>, stationId: St
 }
 
 export function stationLockedTip(stationId: StationId): string {
-  return `骑士 ${stationUnlockKnightLevel(stationId)} 级开放${STATION_DEF[stationId].label}`
+  return `酋长 ${stationUnlockKnightLevel(stationId)} 级开放${STATION_DEF[stationId].label}`
 }
 
 /** 一组里尚未开放、门槛最低的下一站。 */

@@ -15,6 +15,7 @@ import {
   workerQualityDef,
 } from './tables'
 import { fuseStayAssigned } from './tech'
+import { rollWorkerName, rollWorkerRace } from './workerRace'
 import type { ActionResult, QualityTier, Save, StationId, Worker } from './types'
 
 function stripSlots(save: Save, worker: Worker): void {
@@ -38,11 +39,15 @@ function fusePairAt(save: Save, a: Worker, b: Worker, stayAt: StationId | null):
   const nextTier = (a.qualityTier + 1) as QualityTier
   const pool = classPoolForQuality(nextTier)
   const classId = pickClassFromPool(pool, roll01(save))
+  const race = rollWorkerRace(save)
+  const givenName = rollWorkerName(save, race)
   const keptAttrs = a.combatAttrs
   const sumTotal = workerTotalXp(a.level, a.xp) + workerTotalXp(b.level, b.xp)
   const progress = workerFromTotalXp(sumTotal)
   save.workers = save.workers.filter((w) => w.id !== a.id && w.id !== b.id)
   const worker = spawnWorkerWith(save, nextTier, classId, keptAttrs)
+  worker.race = race
+  worker.name = givenName
   worker.level = progress.level
   worker.xp = progress.xp
   fillWorkerHp(worker)

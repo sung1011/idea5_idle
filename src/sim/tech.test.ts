@@ -259,7 +259,7 @@ describe('tech tab row table', () => {
       maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
     })
     expect(techNodeById('knightCrest')).toMatchObject({
-      name: '匠师印章',
+      name: '酋长印记',
       implemented: true,
       maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
     })
@@ -280,7 +280,7 @@ describe('tech tab row table', () => {
     })
     expect(TECH_TREE.filter((node) => node.id !== 'fastRelay').every((node) => node.implemented && node.maxLevel === IMPLEMENTED_TECH_MAX_LEVEL)).toBe(true)
     expect(techNodeById('fastRelay')).toMatchObject({
-      name: '快马驿路',
+      name: '座狼驿道',
       implemented: true,
       maxLevel: 3,
       effectId: 'marchCutS',
@@ -489,7 +489,7 @@ describe('tech multi-level', () => {
     save.techPoints = 20
     expect(techProgressText(save, 'knightCrest')).toBe('0/1')
     expect(techActivateLabel(save, 'knightCrest')).toBe('激活 · 8 灵感')
-    expect(researchTech(save, 'knightCrest')).toEqual({ ok: true, message: '已点亮「匠师印章」' })
+    expect(researchTech(save, 'knightCrest')).toEqual({ ok: true, message: '已点亮「酋长印记」' })
     expect(techLevel(save, 'knightCrest')).toBe(1)
     expect(techProgressText(save, 'knightCrest')).toBe('1/1')
     expect(techActivateLabel(save, 'knightCrest')).toBe('已激活')
@@ -1070,7 +1070,7 @@ describe('wired placeholder techs', () => {
     expect(marketSlotCount(save)).toBe(MARKET_SLOT_MIN)
     expect(techEffectValue(save, TIMED_ORDER_DURATION_EFFECT)).toBe(0.5)
     expect(timedOrderDurationMul(save)).toBeCloseTo(1.5)
-    expect(techNodeById('caravanPermit').desc).toMatch(/不再加商场格/)
+    expect(techNodeById('caravanPermit').desc).toMatch(/不再加集市格/)
   })
 
   it('raises timed-order chance, stacks explore cut, trade gold, recruit cost and diamond orders', () => {

@@ -419,12 +419,13 @@ describe('save migration', () => {
     expect(kept?.diamonds).toBe(17)
   })
 
-  it('falls back to 见习勇者 and keeps a custom player name', () => {
+  it('falls back to 见习酋长 and keeps a custom player name', () => {
     const missing = { ...createSave() }
     delete (missing as { playerName?: string }).playerName
-    expect(hydrateLoadedSave(missing)?.playerName).toBe('见习勇者')
-    expect(hydrateLoadedSave({ ...createSave(), playerName: '' })?.playerName).toBe('见习勇者')
-    expect(hydrateLoadedSave({ ...createSave(), playerName: '  ' })?.playerName).toBe('见习勇者')
+    expect(hydrateLoadedSave(missing)?.playerName).toBe('见习酋长')
+    expect(hydrateLoadedSave({ ...createSave(), playerName: '' })?.playerName).toBe('见习酋长')
+    expect(hydrateLoadedSave({ ...createSave(), playerName: '  ' })?.playerName).toBe('见习酋长')
+    expect(hydrateLoadedSave({ ...createSave(), playerName: '见习勇者' })?.playerName).toBe('见习酋长')
     expect(hydrateLoadedSave({ ...createSave(), playerName: '旅人甲' })?.playerName).toBe('旅人甲')
   })
 

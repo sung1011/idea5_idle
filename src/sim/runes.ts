@@ -73,7 +73,7 @@ export function isRuneSlotUnlocked(save: Pick<Save, 'knightLevel'>): boolean {
 }
 
 export function runeSlotLockedTip(): string {
-  return `铭刻需骑士等级 ${stationUnlockKnightLevel('inscription')} 解锁`
+  return `铭刻需酋长等级 ${stationUnlockKnightLevel('inscription')} 解锁`
 }
 
 export type RuneSlotTapKind = 'open' | 'locked' | 'ignore'

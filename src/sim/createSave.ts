@@ -11,21 +11,14 @@ import { hydrateStations } from './stationProgress'
 import { blankPotionSlots } from './potionSlots'
 import { START_DIAMONDS, START_GOLD, START_TECH_POINTS, WORKER_QUALITY_REV } from './tables'
 import type { ActionResult, HerbPvpState, Save } from './types'
+import { PLAYER_NAME_DEFAULT, playerDisplayName } from './playerName'
 
 export { blankStation } from './stationProgress'
-
-/** 我方玩家显示名。存档缺字段、空串或非字符串时用这个，不覆盖已有自定义名。 */
-export const PLAYER_NAME_DEFAULT = '见习勇者'
-
-export function playerDisplayName(value: unknown): string {
-  if (typeof value !== 'string') return PLAYER_NAME_DEFAULT
-  const trimmed = value.trim()
-  return trimmed || PLAYER_NAME_DEFAULT
-}
+export { PLAYER_NAME_DEFAULT, PLAYER_NAME_LEGACY_DEFAULT, playerDisplayName } from './playerName'
 
 export { PLAYER_AVATAR_DEFAULT, PLAYER_AVATAR_IDS, playerAvatarId, type PlayerAvatarId } from './playerAvatarIds'
 
-/** 确认改名改头像。空名字兜底见习勇者，未知头像兜底盔。 */
+/** 确认改名改头像。空名字兜底见习酋长，未知头像兜底獠牙。 */
 export function applyPlayerProfile(save: Save, name: unknown, avatar: unknown): ActionResult {
   save.playerName = playerDisplayName(name)
   save.playerAvatarId = playerAvatarId(avatar)

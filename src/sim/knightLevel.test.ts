@@ -42,8 +42,8 @@ describe('knight level grants inspiration', () => {
     expect(save.stations.mining.stationLevel).toBe(2)
     expect(save.knightLevel).toBe(2)
     expect(save.techPoints).toBe(START_TECH_POINTS + 1)
-    expect(save.messages[0]?.title).toBe('骑士升级')
-    expect(save.stations.mining.progressNotice).toContain('骑士升到 Lv2')
+    expect(save.messages[0]?.title).toBe('酋长升级')
+    expect(save.stations.mining.progressNotice).toContain('酋长升到 Lv2')
   })
 
   it('does not grant again when the snapshot already matches', () => {

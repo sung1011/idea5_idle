@@ -51,7 +51,7 @@ describe('alchemy random potion batches', () => {
       expect(bankQty(next, 'stim')).toBe(0)
       expect(next.stations.alchemy.completed).toBe(1)
       expect(next.stations.alchemy.craftNotice).toBe(
-        `炼成回春散×${POTION_BATCH_RANGE.salve.min}（耗${row.label}）`,
+        `炼成巫毒回春剂×${POTION_BATCH_RANGE.salve.min}（耗${row.label}）`,
       )
     }
   })

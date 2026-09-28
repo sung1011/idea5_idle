@@ -39,18 +39,18 @@ export type HudChipDetail = {
 
 const CORE_COPY: Record<HudResourceId, { name: string; source: string; usage: string }> = {
   knight: {
-    name: '骑士等级',
-    source: '各可玩工坊站等级汇总：每站升 1 级，骑士等级 +1。',
+    name: '酋长等级',
+    source: '各可玩工坊站等级汇总：每站升 1 级，酋长等级 +1。',
     usage: '升级时发放 1 点灵感，用来点科技。',
   },
   gold: {
     name: '金币',
-    source: '工坊吞吐按产出 craftGold 给少量金币；主线战胜领战利品；当铺典当与收购换金。',
-    usage: '探索、黑心商人购买及商场订单等生活开销。',
+    source: '工坊吞吐按产出 craftGold 给少量金币；主线战胜领战利品；地精当铺典当与收购换金。',
+    usage: '探索、地精奸商购买及集市订单等生活开销。',
   },
   diamonds: {
     name: '钻石',
-    source: '新档自带 150；主线战场与商场部分订单掉落。',
+    source: '新档自带 150；主线战场与集市部分订单掉落。',
     usage: '抽苦工。',
   },
   workers: {
@@ -60,7 +60,7 @@ const CORE_COPY: Record<HudResourceId, { name: string; source: string; usage: st
   },
   inspiration: {
     name: '灵感',
-    source: '新档自带 20 点；骑士等级每升 1 级再给 1 点。',
+    source: '新档自带 20 点；酋长等级每升 1 级再给 1 点。',
     usage: '点亮科技树节点。',
   },
 }
@@ -141,7 +141,7 @@ export function itemHudUsage(itemId: ItemId): string {
   if (consume.length) bits.push(`${consume.join('、')}消耗`)
   bits.push(...extras)
   if (SELLABLE_GOODS.includes(itemId) || leftoverStockItems().includes(itemId)) {
-    bits.push(bits.length ? '也可当铺典当 / 收购换金' : '库存暂无常规消耗，可当铺典当 / 收购换金')
+    bits.push(bits.length ? '也可地精当铺典当 / 收购换金' : '库存暂无常规消耗，可地精当铺典当 / 收购换金')
   } else if (!bits.length) {
     bits.push('库存暂无常规消耗')
   }

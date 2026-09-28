@@ -25,11 +25,11 @@ describe('potion help bubble', () => {
 
   it('shows name and effect, and stock only for installed slots', () => {
     expect(potionHelpCopy('stim')).toEqual({
-      title: '兴奋剂',
+      title: '嗜血药剂',
       effect: POTION_EFFECT_TEXT.stim,
     })
     expect(potionHelpCopy('salve', 4)).toEqual({
-      title: '回春散',
+      title: '巫毒回春剂',
       effect: POTION_EFFECT_TEXT.salve,
       stock: 4,
     })

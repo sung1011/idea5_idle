@@ -48,7 +48,7 @@ describe('hud resource chips', () => {
     const inspiration = hudChipDetail(save, 'inspiration')
     expect(inspiration.name).toBe('灵感')
     expect(inspiration.source).toMatch(/20/)
-    expect(inspiration.source).toMatch(/骑士/)
+    expect(inspiration.source).toMatch(/酋长/)
     expect(inspiration.usage).toMatch(/科技/)
 
     const diamonds = hudChipDetail(save, 'diamonds')
@@ -63,7 +63,7 @@ describe('hud resource chips', () => {
     expect(workers.usage).toMatch(/出战|战斗/)
 
     const knight = hudChipDetail(save, 'knight')
-    expect(knight.name).toBe('骑士等级')
+    expect(knight.name).toBe('酋长等级')
     expect(knight.amount).toBe('Lv1')
     expect(knight.source).toMatch(/站等级/)
     expect(knight.usage).toMatch(/灵感/)

@@ -1,6 +1,8 @@
 import { fillWorkerHp } from './combat'
 import { fillWorkerCombatAttrs } from './combatAttrs'
-import { classPoolForQuality, isQualityTier, pickClassFromPool, QUALITY_MIN, WORKER_NAME_POOL } from './tables'
+import { classPoolForQuality, isQualityTier, pickClassFromPool, QUALITY_MIN } from './tables'
+import { WORKER_RACE_IDS, type WorkerRaceId } from './types'
+import { WORKER_RACE_NAMES } from './workerRace'
 import { assistQualityFloor } from './tech'
 import type { QualityTier, Save, Worker } from './types'
 import { WORKER_LEVEL_MIN } from './workerLevel'
@@ -41,9 +43,11 @@ export function playerAssistCaps(save: Save): { maxQuality: QualityTier; maxLeve
   return { maxQuality, maxLevel }
 }
 
-function pickAssistName(roll: AssistRoll): string {
-  const name = WORKER_NAME_POOL[rollInclusive(0, WORKER_NAME_POOL.length - 1, roll)] ?? WORKER_NAME_POOL[0]
-  return `助战·${name}`
+function pickAssistIdentity(roll: AssistRoll): { race: WorkerRaceId; name: string } {
+  const race = WORKER_RACE_IDS[rollInclusive(0, WORKER_RACE_IDS.length - 1, roll)] ?? 'orc'
+  const pool = WORKER_RACE_NAMES[race]
+  const base = pool[rollInclusive(0, pool.length - 1, roll)] ?? pool[0]
+  return { race, name: `助战·${base}` }
 }
 
 /** 点「邀请」才生成。不写入 save.workers，不推进 nextWorkerId。 */
@@ -54,10 +58,12 @@ export function createAssistWorker(save: Save, roll: AssistRoll = Math.random): 
   const qualityTier: QualityTier = isQualityTier(qualityRaw) ? qualityRaw : QUALITY_MIN
   const level = rollInclusive(WORKER_LEVEL_MIN, maxLevel, roll)
   const classId = pickClassFromPool(classPoolForQuality(qualityTier), roll())
+  const ident = pickAssistIdentity(roll)
   return fillWorkerCombatAttrs(
     fillWorkerHp({
       id: ASSIST_WORKER_ID,
-      name: pickAssistName(roll),
+      name: ident.name,
+      race: ident.race,
       classId,
       qualityTier,
       assignment: null,

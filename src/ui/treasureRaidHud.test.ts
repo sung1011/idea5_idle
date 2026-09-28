@@ -85,7 +85,7 @@ describe('treasure raid hud', () => {
     expect(hud?.defend.hpMax).toBe(defMax)
     expect(hud?.defend.barFill).toBe(hpBarFill(defHp, defMax))
     expect(hud?.defend.fill).toBe(raidActChargeFill(4, elapsed + 4, elapsed))
-    expect(hud?.attack?.name).toBe('见习勇者 · 甲攻')
+    expect(hud?.attack?.name).toBe('见习酋长 · 甲攻')
     expect(hud?.waitingAttack).toEqual(['乙等'])
     expect(hud?.waitingDefend).toEqual(['晚风'])
     expect(hud?.attack?.slots).toEqual(['filled', 'filled', 'empty'])
@@ -184,9 +184,9 @@ describe('treasure raid hud', () => {
     expect(full?.attack?.hpMax).toBe(60)
     expect(full?.defend.hp).toBe(6 + 20 + 30)
     expect(full?.defend.hpMax).toBe(60)
-    expect(full?.attack?.name).toBe(`见习勇者 · ${first.name}`)
+    expect(full?.attack?.name).toBe(`见习酋长 · ${first.name}`)
     expect(treasureRaidHud(mine, save.workers, save.elapsedS, '旅人甲')?.attack?.name).toBe(`旅人甲 · ${first.name}`)
-    expect(treasureRaidHud(mine, save.workers, save.elapsedS, '  ')?.attack?.name).toBe(`见习勇者 · ${first.name}`)
+    expect(treasureRaidHud(mine, save.workers, save.elapsedS, '  ')?.attack?.name).toBe(`见习酋长 · ${first.name}`)
     expect(full?.attack?.fill).toBe(raidActChargeFill(raid.atkSpd, raid.atkNext, save.elapsedS))
 
     raid.queue = [second.id, third.id]
@@ -264,7 +264,7 @@ describe('treasure raid hud', () => {
     const ownedEmpty = treasureRaidHud(mine, save.workers, save.elapsedS, '   ')
     expect(ownedEmpty?.attack).toBeNull()
     expect(ownedEmpty?.fighting).toBe(false)
-    expect(ownedEmpty?.defend.name).toBe('见习勇者')
+    expect(ownedEmpty?.defend.name).toBe('见习酋长')
     expect(ownedEmpty?.defend.slots).toEqual(['empty', 'empty', 'empty'])
     mine.owner = 'empty'
     expect(treasureRaidHud(mine, save.workers, save.elapsedS)).toBeNull()

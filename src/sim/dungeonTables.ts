@@ -11,8 +11,8 @@ import type {
 export const DUNGEON_LEGACY_BOSS_ID = 'dungeonWarden'
 export const DUNGEON_JAILER_ID = 'dungeonJailer'
 export const DUNGEON_BROKER_ID = 'dungeonBroker'
-export const DUNGEON_JAILER_LABEL = '深渊狱卒'
-export const DUNGEON_BROKER_LABEL = '黑市掮客'
+export const DUNGEON_JAILER_LABEL = '联盟典狱官'
+export const DUNGEON_BROKER_LABEL = '联盟军需官'
 /** 钻单。旧档「地牢看守」迁到这一张。 */
 export const DUNGEON_BOSS_ID = DUNGEON_JAILER_ID
 export const DUNGEON_BOSS_LABEL = DUNGEON_JAILER_LABEL

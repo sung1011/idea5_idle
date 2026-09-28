@@ -240,12 +240,12 @@ function applyPotionEffect(save: Save, itemId: PotionItemId): string {
   if (itemId === 'renewSoup') {
     buffs.renewUntil = t + RENEW_DURATION_S
     buffs.renewNextAt = t + RENEW_TICK_S
-    return '续命：每 10 秒回 5% 生命，持续 2 分钟'
+    return '先祖：每 10 秒回 5% 生命，持续 2 分钟'
   }
   if (itemId === 'brinkSalve') {
     let healed = 0
     for (const worker of potionDutyWorkers(save)) healed += applyBrink(save, worker)
-    return healed > 0 ? `在岗绝境回血，合计 HP+${healed}` : '在岗已满血'
+    return healed > 0 ? `在岗背水回血，合计 HP+${healed}` : '在岗已满血'
   }
   if (itemId === 'rushPowder') {
     const stationId = pickDutyStation(save)
@@ -266,7 +266,7 @@ function applyPotionEffect(save: Save, itemId: PotionItemId): string {
     for (let i = 0; i < targets.length; i++) {
       applyHeal(save, targets[i], healAmount(targets[i].hpMax, ratios[i]))
     }
-    return targets.length > 0 ? `醒神：最残 ${targets.length} 人回血` : POTION_FULL_HP_TIP
+    return targets.length > 0 ? `图腾：最残 ${targets.length} 人回血` : POTION_FULL_HP_TIP
   }
   const _unreachable: never = itemId
   return _unreachable
