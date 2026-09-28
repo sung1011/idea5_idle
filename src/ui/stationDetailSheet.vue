@@ -6,6 +6,7 @@ import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress
 import { isEmptyHp, isWoundedHp, stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
 import { findCategory, ITEM_DEF, STATION_DEF, xpToNextLevel } from '../sim/tables'
 import type { CategoryId, StationId, Worker } from '../sim/types'
+import ActButton from './actButton.vue'
 import ConsumeJumpItem from './consumeJumpItem.vue'
 import StationMiniBar from './stationMiniBar.vue'
 import { formatConsumeToken } from './encounterDeal'
@@ -31,6 +32,7 @@ const emit = defineEmits<{
 
 const game = useGameStore()
 const helpOpen = ref(false)
+const sealAsk = ref(false)
 const def = computed(() => STATION_DEF[props.stationId])
 const station = computed(() => game.save.stations[props.stationId])
 const cat = computed(() => selectedCategoryDef(game.save, props.stationId))
@@ -119,9 +121,29 @@ function onWorker() {
   emit('openWorker', worker)
 }
 
+function onAskSeal() {
+  sealAsk.value = true
+}
+
+function onCancelSeal() {
+  sealAsk.value = false
+}
+
+function onConfirmSeal() {
+  const result = game.toggleStationClosed(props.stationId)
+  sealAsk.value = false
+  if (!result.ok && result.reason) pushFloatTip(result.reason)
+}
+
+function onOpenStation() {
+  const result = game.toggleStationClosed(props.stationId)
+  if (!result.ok && result.reason) pushFloatTip(result.reason)
+}
+
 function onHelpKey(ev: KeyboardEvent) {
   if (ev.key === 'Escape') {
-    if (helpOpen.value) helpOpen.value = false
+    if (sealAsk.value) sealAsk.value = false
+    else if (helpOpen.value) helpOpen.value = false
     else emit('close')
   }
 }
@@ -222,6 +244,17 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
             </div>
           </dl>
         </section>
+        <div class="seal">
+          <ActButton v-if="station.closed" icon="check" kind="minor" @click="onOpenStation">开启</ActButton>
+          <template v-else>
+            <p v-if="sealAsk" class="seal-ask" role="alertdialog" :aria-label="`确认封闭${def.label}`">
+              封闭后休息区不再自动派到这一站，已在岗的人继续干。
+              <button type="button" @click="onCancelSeal">取消</button>
+              <button type="button" @click="onConfirmSeal">确定封闭</button>
+            </p>
+            <ActButton v-else icon="close" kind="danger" @click="onAskSeal">封闭</ActButton>
+          </template>
+        </div>
       </section>
     </div>
   </Teleport>
@@ -366,5 +399,28 @@ dd {
 
 .help-box dt {
   margin-top: 6px;
+}
+
+.seal {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+}
+
+.seal-ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.seal-ask button {
+  min-height: 28px;
 }
 </style>

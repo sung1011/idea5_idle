@@ -346,11 +346,6 @@ function onPickStation(stationId: StationId | null) {
   else if (result.reason) pushFloatTip(result.reason)
 }
 
-function onToggleClosed(stationId: StationId) {
-  if (drag.value?.active) return
-  game.toggleStationClosed(stationId)
-}
-
 function stationLocked(stationId: StationId) {
   return !isStationUnlocked(game.save, stationId)
 }
@@ -575,16 +570,6 @@ onUnmounted(() => {
                 <UiIcon :name="board.stationId" />
                 <b>{{ board.label }}</b>
               </div>
-              <button
-                type="button"
-                class="station-closed"
-                :class="{ on: game.save.stations[board.stationId].closed }"
-                :aria-pressed="!!game.save.stations[board.stationId].closed"
-                :aria-label="game.save.stations[board.stationId].closed ? `开放${board.label}` : `封闭${board.label}`"
-                @click.stop="onToggleClosed(board.stationId)"
-              >
-                封闭
-              </button>
               <button
                 type="button"
                 class="station-detail"
@@ -1365,7 +1350,6 @@ onUnmounted(() => {
   writing-mode: vertical-rl;
 }
 
-.station-closed,
 .station-detail {
   flex: 1 1 0;
   width: 100%;
@@ -1386,12 +1370,6 @@ onUnmounted(() => {
   line-height: 1.05;
   writing-mode: vertical-rl;
   white-space: nowrap;
-}
-
-.station-closed.on {
-  background: linear-gradient(180deg, #8a3a2a, #5c2418);
-  color: #fff4d8;
-  border-color: #3d140e;
 }
 
 .station-work {
