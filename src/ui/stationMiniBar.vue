@@ -48,7 +48,7 @@ const halted = computed(() => stalled.value || assigned.value <= 0)
       aria-valuemax="100"
     ><b :style="{ width: pct.toFixed(2) + '%' }" /></i>
     <em v-if="layout === 'sheet'">{{ Math.round(pct) }}%</em>
-    <em v-if="assigned > 0">{{ eff }}</em>
+    <em v-if="assigned > 0" class="eff">{{ eff }}</em>
     <em v-else-if="layout === 'sheet'">空岗</em>
   </span>
 </template>
@@ -59,6 +59,10 @@ const halted = computed(() => stalled.value || assigned.value <= 0)
   align-items: center;
   gap: 4px;
   min-width: 0;
+}
+
+.mini.rail {
+  display: contents;
 }
 
 .bar {

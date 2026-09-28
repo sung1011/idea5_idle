@@ -1356,7 +1356,7 @@ onUnmounted(() => {
 .station-detail {
   flex: 1 1 0;
   width: 100%;
-  min-height: 0;
+  min-height: 32px;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -1372,6 +1372,7 @@ onUnmounted(() => {
   letter-spacing: 0.06em;
   line-height: 1.05;
   writing-mode: vertical-rl;
+  white-space: nowrap;
 }
 
 .station-closed.on {
@@ -1390,18 +1391,20 @@ onUnmounted(() => {
 
 .station-craft-row {
   flex: 0 0 auto;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 6px;
+  column-gap: 6px;
+  row-gap: 3px;
   min-width: 0;
   padding: 0 4px 3px;
 }
 
 .station-craft-row :deep(.ui-select.station-craft-pick) {
-  flex: 1 1 46%;
-  width: auto;
+  grid-column: 1;
+  grid-row: 1;
+  width: 100%;
   min-width: 0;
-  max-width: 62%;
 }
 
 .station-craft-row :deep(.station-craft-pick .face) {
@@ -1416,10 +1419,17 @@ onUnmounted(() => {
   color: var(--copper);
 }
 
-.station-craft-row :deep(.station-progress) {
-  flex: 1 1 0;
-  min-width: 5em;
-  padding: 0;
+.station-craft-row :deep(.station-progress .eff) {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.station-craft-row :deep(.station-progress .bar) {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  width: 100%;
+  height: 12px;
+  border-width: 1px;
 }
 
 .potion-row {

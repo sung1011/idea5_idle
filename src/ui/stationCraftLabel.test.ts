@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createSave } from '../sim/createSave'
 import detailSource from './stationDetailSheet.vue?raw'
+import miniSource from './stationMiniBar.vue?raw'
 import {
   stationCraftLabel,
   stationCraftPickOptions,
@@ -51,7 +52,7 @@ describe('station craft label', () => {
     expect(stationCraftPickReadonly(save, 'cooking')).toBe(false)
   })
 
-  it('puts the output dropdown on the left of the progress bar', () => {
+  it('keeps the output dropdown above a full-width progress bar', () => {
     const work = workersPanelSource.slice(
       workersPanelSource.indexOf('<div class="station-work">'),
       workersPanelSource.indexOf('</article>'),
@@ -71,6 +72,23 @@ describe('station craft label', () => {
     )
     expect(craft).toContain('station-craft-pick')
     expect(craft).toContain('station-progress')
+    expect(craft).toContain('display: grid')
+    const pickRule = craft.match(/\.ui-select\.station-craft-pick\)\s*\{[^}]*\}/)
+    const effRule = craft.match(/\.station-progress \.eff\)\s*\{[^}]*\}/)
+    const barRule = craft.match(/\.station-progress \.bar\)\s*\{[^}]*\}/)
+    expect(pickRule?.[0]).toContain('grid-row: 1')
+    expect(effRule?.[0]).toContain('grid-row: 1')
+    expect(barRule?.[0]).toContain('grid-column: 1 / -1')
+    expect(barRule?.[0]).toContain('grid-row: 2')
+    expect(barRule?.[0]).toContain('width: 100%')
+    expect(barRule?.[0]).toContain('height: 12px')
+    expect(barRule?.[0]).toContain('border-width: 1px')
+    expect(craft).not.toContain('flex: 1 1 0')
+    expect(miniSource).toMatch(/\.mini\.rail\s*\{[^}]*display:\s*contents/)
+    const sharedBar = miniSource.match(/\.bar\s*\{[^}]*\}/)
+    expect(sharedBar?.[0]).toContain('height: 7px')
+    expect(sharedBar?.[0]).not.toContain('border-width: 1px')
+    expect(miniSource).toMatch(/\.mini\.sheet \.bar\s*\{[^}]*height:\s*10px/)
     expect(detailSource).toContain("bits.join('～')")
     expect(detailSource).not.toContain('stationCraftLabel')
     expect(detailSource).not.toContain('stationCraftPickOptions')
