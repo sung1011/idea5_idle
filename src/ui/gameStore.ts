@@ -38,8 +38,6 @@ import {
 import { claimDungeonChest, reinforceDungeonCombat, startDungeonCombat } from '../sim/dungeon'
 import {
   abandonTreasureMine,
-  addTreasureMiner,
-  buyTreasureRune,
   claimTreasureMine,
   fortifyTreasureMine,
   refreshTreasureMineBoard,
@@ -55,7 +53,7 @@ import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
 import { PLAYABLE_STATION_IDS, type FoodItemId } from '../sim/tables'
 import { tick } from '../sim/tick'
 import { takeWorkshopHpEfficiencyTip } from '../sim/workshopHp'
-import type { ActionResult, CategoryId, ItemId, PotionItemId, RuneItemId, Save, StationId, Worker } from '../sim/types'
+import type { ActionResult, CategoryId, ItemId, PotionItemId, Save, StationId, Worker } from '../sim/types'
 import { pushCombatLogTip } from './encounterTips'
 import { pushFloatTip } from './floatTips'
 import { announceWorkerEats } from './workerEatFlash'
@@ -311,8 +309,6 @@ export const useGameStore = defineStore('game', () => {
     scoutTreasureMine: (mineId: string) => apply((s) => scoutTreasureMine(s, mineId)),
     reinforceTreasureRaid: (mineId: string, workerId: string) =>
       apply((s) => reinforceTreasureRaid(s, mineId, workerId)),
-    addTreasureMiner: (mineId: string, workerId: string) => apply((s) => addTreasureMiner(s, mineId, workerId)),
-    buyTreasureRune: (runeId: RuneItemId) => apply((s) => buyTreasureRune(s, runeId)),
     upgradeTreasureBanner: () => apply((s) => upgradeTreasureBanner(s)),
     claimTreasureMine: (mineId: string, workerIds: string[]) =>
       apply((s) => claimTreasureMine(s, mineId, workerIds)),

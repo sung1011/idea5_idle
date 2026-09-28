@@ -6,18 +6,18 @@ import banner from './treasureBannerPanel.vue?raw'
 import avatar from './playerAvatar.vue?raw'
 
 describe('pvp treasure tab', () => {
-  it('shows 夺宝 and 军械铺 in the PVE-style strip', () => {
+  it('shows 夺宝 and 战旗 in the PVE-style strip', () => {
     expect(panel).toContain('aria-label="PVP分页"')
     expect(panel).toContain('class="sub"')
     expect(panel).toContain('夺宝')
-    expect(panel).toContain('军械铺')
+    expect(panel).not.toContain('军械铺')
     expect(panel).toContain('战旗')
     expect(panel).toContain('<TreasureMinePanel')
-    expect(panel).toContain('<TreasureArmoryPanel')
+    expect(panel).not.toContain('TreasureArmoryPanel')
     expect(panel).toContain('<TreasureBannerPanel')
     expect(panel).toContain("modeHelpOf('banner')")
     expect(mine).toContain('增援 {{ TREASURE_REINFORCE_COST }} 珠宝')
-    expect(mine).toContain('补位 {{ TREASURE_FILL_COST }} 珠宝')
+    expect(mine).not.toContain('补位')
     expect(mine).toContain('class="tags"')
     expect(mine).toContain('class="board"')
     expect(mine).toContain('aria-label="宝库"')

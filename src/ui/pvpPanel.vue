@@ -3,14 +3,12 @@ import { computed, ref } from 'vue'
 import { treasureAssaultWarning } from '../sim/treasureMine'
 import ModeHelpSheet from './modeHelpSheet.vue'
 import { modeHelpOf } from './modeHelp'
-import TreasureArmoryPanel from './treasureArmoryPanel.vue'
 import TreasureBannerPanel from './treasureBannerPanel.vue'
 import TreasureMinePanel from './treasureMinePanel.vue'
 import { useGameStore } from './gameStore'
 
 const PVP_TABS = [
   { id: 'treasure', label: '夺宝' },
-  { id: 'armory', label: '军械铺' },
   { id: 'banner', label: '战旗' },
 ] as const
 
@@ -21,13 +19,8 @@ const assaultAlert = computed(() => treasureAssaultWarning(game.save))
 const tab = ref<PvpTabId>('treasure')
 const helpOpen = ref(false)
 const treasureHelp = modeHelpOf('treasure')
-const armoryHelp = modeHelpOf('armory')
 const bannerHelp = modeHelpOf('banner')
-const help = computed(() => {
-  if (tab.value === 'armory') return armoryHelp
-  if (tab.value === 'banner') return bannerHelp
-  return treasureHelp
-})
+const help = computed(() => (tab.value === 'banner' ? bannerHelp : treasureHelp))
 </script>
 
 <template>
@@ -51,7 +44,6 @@ const help = computed(() => {
       <button type="button" class="mode-help" aria-label="玩法说明" @click="helpOpen = true">？</button>
     </div>
     <TreasureMinePanel v-if="tab === 'treasure'" />
-    <TreasureArmoryPanel v-else-if="tab === 'armory'" />
     <TreasureBannerPanel v-else />
     <ModeHelpSheet v-if="helpOpen" :title="help.title" :rows="help.rows" @close="helpOpen = false" />
   </section>

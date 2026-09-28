@@ -9,7 +9,6 @@ import { raidSlotLabel, raidSlotPress, treasureRaidHud, type SlotSheet } from '.
 import { useFrameNow, visualStationProgress } from './visualProgress'
 import { isFullCombatHp, restCombatCandidates } from '../sim/combat'
 import {
-  TREASURE_FILL_COST,
   TREASURE_FORTIFY_COST,
   TREASURE_KIND_LABEL,
   TREASURE_KINDS,
@@ -82,10 +81,8 @@ function showScout(mine: TreasureMine): boolean {
 const jewelsOnHand = computed(() => vaultQty(game.save, 'jewel'))
 const idle = computed(() => restCombatCandidates(game.save))
 const fullIdle = computed(() => idle.value.filter((worker) => isFullCombatHp(worker)))
-const pickKind = ref<'mine' | 'raid' | 'reinforce' | 'fill' | null>(null)
-const pickCandidates = computed(() =>
-  pickKind.value === 'reinforce' || pickKind.value === 'fill' ? fullIdle.value : idle.value,
-)
+const pickKind = ref<'mine' | 'raid' | 'reinforce' | null>(null)
+const pickCandidates = computed(() => (pickKind.value === 'reinforce' ? fullIdle.value : idle.value))
 const pickMineId = ref<string | null>(null)
 const picked = ref<string[]>([])
 const runes = ref<Partial<Record<string, RuneItemId>>>({})
@@ -93,27 +90,18 @@ const pickOpen = computed(() => pickMineId.value != null)
 const activeMine = computed(() => mines.value.find((row) => row.id === pickMineId.value) ?? null)
 const crewCap = computed(() => treasureCrewCap(game.save))
 const pickMax = computed(() => {
-  if (pickKind.value === 'reinforce' || pickKind.value === 'fill') return 1
+  if (pickKind.value === 'reinforce') return 1
   if (pickKind.value === 'raid') return TREASURE_RAID_CAP
   if (!activeMine.value) return crewCap.value
   return Math.max(0, crewCap.value - activeMine.value.crewIds.length)
 })
 const pickSlotOffset = computed(() => {
-  if (pickKind.value === 'fill') return activeMine.value?.crewIds.length ?? 0
   if (pickKind.value === 'reinforce') return activeMine.value?.raid?.queue.length ?? 0
   if (pickKind.value === 'mine') return activeMine.value?.crewIds.length ?? 0
   return 0
 })
-const pickTitle = computed(() => {
-  if (pickKind.value === 'reinforce') return '选择增援工人'
-  if (pickKind.value === 'fill') return '选择补位工人'
-  return ''
-})
-const pickConfirm = computed(() => {
-  if (pickKind.value === 'reinforce') return '增援'
-  if (pickKind.value === 'fill') return '补位'
-  return ''
-})
+const pickTitle = computed(() => (pickKind.value === 'reinforce' ? '选择增援工人' : ''))
+const pickConfirm = computed(() => (pickKind.value === 'reinforce' ? '增援' : ''))
 const slotSheet = ref<SlotSheet | null>(null)
 
 function reserveWidth(mine: TreasureMine): string {
@@ -141,10 +129,6 @@ function jewelBlock(cost: number): string | null {
 
 function showReinforce(mine: TreasureMine): boolean {
   return treasureRaidOpenForReinforce(mine)
-}
-
-function showFill(mine: TreasureMine): boolean {
-  return mine.owner === 'player' && mine.raid == null && mine.crewIds.length < crewCap.value
 }
 
 function showFortify(mine: TreasureMine): boolean {
@@ -176,14 +160,7 @@ function reinforceBlock(mine: TreasureMine): string | null {
   return null
 }
 
-function fillBlock(): string | null {
-  const jewel = jewelBlock(TREASURE_FILL_COST)
-  if (jewel) return jewel
-  if (fullIdle.value.length === 0) return '没有满血工人'
-  return null
-}
-
-function openPick(kind: 'mine' | 'raid' | 'reinforce' | 'fill', mineId: string) {
+function openPick(kind: 'mine' | 'raid' | 'reinforce', mineId: string) {
   pickKind.value = kind
   pickMineId.value = mineId
   picked.value = []
@@ -269,15 +246,6 @@ function onReinforce(mine: TreasureMine) {
   openPick('reinforce', mine.id)
 }
 
-function onFill(mine: TreasureMine) {
-  const blocked = fillBlock()
-  if (blocked) {
-    pushFloatTip(blocked)
-    return
-  }
-  openPick('fill', mine.id)
-}
-
 function onFortify(mine: TreasureMine) {
   const blocked = fortifyBlock(mine)
   if (blocked) {
@@ -294,13 +262,6 @@ function confirmPick() {
     const workerId = picked.value[0]
     if (!workerId) return
     const result = game.reinforceTreasureRaid(mineId, workerId)
-    if (result.ok) closePick()
-    return
-  }
-  if (pickKind.value === 'fill') {
-    const workerId = picked.value[0]
-    if (!workerId) return
-    const result = game.addTreasureMiner(mineId, workerId)
     if (result.ok) closePick()
     return
   }
@@ -447,13 +408,6 @@ function confirmPick() {
             @click="onRaid(mine)"
           >抢夺 {{ stakeOf(mine) }} 砂金</button>
           <button v-if="mine.owner === 'empty' && !mine.raid" type="button" @click="openPick('mine', mine.id)">开采</button>
-          <button
-            v-if="showFill(mine)"
-            type="button"
-            :class="{ 'is-short': fillBlock() != null }"
-            :title="fillBlock() ?? undefined"
-            @click="onFill(mine)"
-          >补位 {{ TREASURE_FILL_COST }} 珠宝</button>
           <button v-if="mine.owner === 'player' && !mine.raid" type="button" @click="game.abandonTreasureMine(mine.id)">撤出</button>
           <button
             v-if="showFortify(mine)"
