@@ -127,7 +127,6 @@ onUnmounted(() => {
       <template v-else>
         血量 {{ hud.hpText }} · 弱点 {{ COMBAT_ATTR_LABEL[hud.weakness] }}
         <span v-if="hud.nearLine"> · 接近阶段线</span>
-        <span v-if="hud.enrageName"> · 狂怒（{{ hud.enrageName }} 打断）</span>
       </template>
     </p>
     <p v-if="hud.telegraph" class="tele">

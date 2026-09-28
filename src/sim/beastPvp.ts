@@ -14,7 +14,6 @@ import { isFullWorkshopHp, isWoundedHp } from './workshopHp'
 import type {
   ActionResult,
   BeastAttackSpec,
-  BeastEnrage,
   BeastFight,
   BeastFightWorker,
   BeastKind,
@@ -50,6 +49,8 @@ export const BEAST_OPENING_MS = 2000
 export const BEAST_STAG_OPENING_MS = 3000
 export const BEAST_AUTO_HP = 0.3
 export const BEAST_COUNTER_MUL = 2
+/** 打断后，本场下一次攻击的伤害系数。 */
+export const BEAST_INTERRUPT_MUL = 0.7
 export const BEAST_RECENT_CAP = 12
 export const BEAST_STEP_MS = 100
 
@@ -449,36 +450,27 @@ function resolveBeastAttack(save: Save, spec: BeastAttackSpec, quiet: boolean): 
   const fight = state.fight
   if (!state || !fight) return
   const dodged = fight.dodgeNext
-  const rage = spec.enrage ? 2 : 1
+  const weaken = fight.weakenNext
+  fight.weakenNext = false
+  const factor = weaken ? BEAST_INTERRUPT_MUL : 1
   if (dodged) {
     fight.dodgeNext = false
     if (spec.kind === 'heavy') {
       fight.openingMs = state.kind === 'stag' && spec.hpFrac > 0 ? BEAST_STAG_OPENING_MS : BEAST_OPENING_MS
     }
     pushFx(spec.kind === 'heavy' ? '破绽' : '闪开', 'dodge', quiet)
-    if (spec.enrage) {
-      state.enrage = null
-      pushRecent(state, `${playerDisplayName(save.playerName)} 躲开了狂怒`)
-    }
   } else {
     const power = powerOf(save)
     const strikeAmount = (row: BeastFightWorker) =>
       spec.hpFrac > 0
-        ? Math.max(1, Math.round(row.hpMax * spec.hpFrac * rage))
-        : scaledAttackDamage(power, spec.mul * rage)
+        ? Math.max(1, Math.round(row.hpMax * spec.hpFrac * factor))
+        : scaledAttackDamage(power, spec.mul * factor)
     if (spec.aoe) {
       for (const row of living(fight)) row.hp = Math.max(0, row.hp - strikeAmount(row))
     } else if (living(fight).length) {
       hitOne(fight, strikeAmount(living(fight)[0]!))
     }
     pushFx(spec.kind === 'heavy' ? '重击' : '挨打', 'hurt', quiet)
-    if (spec.enrage) {
-      const who = playerDisplayName(save.playerName)
-      const by = state.enrage?.byName ?? '有人'
-      pushRecent(state, `${who} 挨了狂怒一击`)
-      note(`${by} 留下的狂怒打中了 ${who}`, 'err', quiet)
-      state.enrage = null
-    }
   }
   for (const row of fight.workers.filter((item) => item.hp <= 0)) dropWorker(save, fight, row, quiet)
   if (!state.fight) return
@@ -486,12 +478,7 @@ function resolveBeastAttack(save: Save, spec: BeastAttackSpec, quiet: boolean): 
     endFight(save, quiet)
     return
   }
-  state.fight.gapMs = spec.enrage ? initialGap(state) : spec.gapAfterMs
-  if (spec.enrage) {
-    state.fight.normals = 0
-    state.fight.lightningMs = STAG_LIGHTNING_MS
-    state.fight.goreMs = STAG_GORE_MS
-  }
+  state.fight.gapMs = spec.gapAfterMs
 }
 
 function maybeAutoDodge(save: Save): void {
@@ -647,21 +634,8 @@ function seatOnline(save: Save, state: BeastPvpState): void {
   }
 }
 
-function deferredHeavy(state: BeastPvpState): BeastAttackSpec {
-  if (state.kind === 'stag') return { ...stagLightning(), enrage: true }
-  if (state.kind === 'wolf') {
-    return {
-      kind: 'heavy',
-      aoe: false,
-      mul: WOLF_POUNCE_MUL,
-      telegraphMs: 800,
-      gapAfterMs: wolfGap(state),
-      hpFrac: 0,
-      enrage: true,
-    }
-  }
-  return { kind: 'heavy', aoe: true, mul: 4, telegraphMs: 1500, gapAfterMs: BOAR_GAP_MS, hpFrac: 0, enrage: true }
-}
+/** 假玩家打断只加在自己这场的抽象伤害上，不写最近，不影响别人。 */
+const RIVAL_INTERRUPT_DAMAGE_MUL = 1.08
 
 function runRivalFight(save: Save, rival: BeastRival, quiet: boolean): void {
   const state = save.beastPvp
@@ -670,24 +644,9 @@ function runRivalFight(save: Save, rival: BeastRival, quiet: boolean): void {
   let damage = beastAutoFightDamage(save.knightLevel)
   const skilled = beastSkilledFightDamage(save.knightLevel)
   damage = Math.round(damage + (skilled - damage) * nextRoll(state))
-  if (state.enrage?.pending) {
-    if (rival.reacts[phase] == null && nextRoll(state) < 0.5) {
-      rival.reacts[phase] = 'dodge'
-      state.enrage = null
-    } else {
-      pushRecent(state, `${rival.name} 挨了狂怒一击`)
-      if (state.offline) state.offline.lines.push(`${rival.name} 挨了狂怒一击`)
-      state.enrage = null
-      damage = Math.round(damage * 0.82)
-    }
-  }
   if (rival.reacts[phase] == null && nextRoll(state) < 0.3) {
     rival.reacts[phase] = 'interrupt'
-    state.enrage = { byId: rival.id, byName: rival.name, pending: deferredHeavy(state) }
-    const text = `${rival.name} 打断了困兽（下一击翻倍）`
-    pushRecent(state, text)
-    if (state.offline) state.offline.lines.push(text)
-    damage = Math.round(damage * 1.08)
+    damage = Math.round(damage * RIVAL_INTERRUPT_DAMAGE_MUL)
   }
   strikeBeast(save, damage, { id: rival.id, name: rival.name, player: false }, quiet)
 }
@@ -734,7 +693,6 @@ function freshBeast(save: Save, state: BeastPvpState, now: number): void {
   state.phase = 0
   state.weakness = rollWeakness(state, null)
   state.killed = false
-  state.enrage = null
   state.reacts = blankReacts()
   state.playerDamage = 0
   state.recent = []
@@ -783,7 +741,6 @@ export function createBeastPvp(save: Save, now = Date.now()): BeastPvpState {
     phase: 0,
     weakness: 'sword',
     killed: false,
-    enrage: null,
     stamina: BEAST_STAMINA_MAX,
     staminaAccS: 0,
     playerDamage: 0,
@@ -842,7 +799,7 @@ export function hydrateBeastPvp(save: Save, now = save.lastTick || Date.now()): 
   state.auto = state.auto === true
   if (typeof state.dayKey !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(state.dayKey)) state.dayKey = beijingDayKey(now)
   if (typeof state.lastRewardText !== 'string') state.lastRewardText = ''
-  state.enrage = normalizeEnrage(state.enrage)
+  delete (state as { enrage?: unknown }).enrage
   state.fight = normalizeFight(state.fight)
   for (const rival of state.rivals) {
     rival.damage = Math.max(0, finite(rival.damage, 0))
@@ -853,17 +810,12 @@ export function hydrateBeastPvp(save: Save, now = save.lastTick || Date.now()): 
   }
 }
 
-function normalizeEnrage(raw: BeastEnrage | null | undefined): BeastEnrage | null {
-  if (!raw || typeof raw !== 'object' || !raw.pending) return null
-  if (typeof raw.byName !== 'string' || !raw.byName) return null
-  return raw
-}
-
 function normalizeFight(raw: BeastFight | null | undefined): BeastFight | null {
   if (!raw || typeof raw !== 'object' || !Array.isArray(raw.workers)) return null
   raw.workers = raw.workers.filter((row) => row && typeof row.id === 'string' && row.hp > 0)
   if (!raw.workers.length) return null
   raw.dodgeNext = raw.dodgeNext === true
+  raw.weakenNext = raw.weakenNext === true
   raw.auto = raw.auto === true
   raw.gapMs = finite(raw.gapMs, BOAR_GAP_MS)
   raw.goreMs = finite(raw.goreMs, STAG_GORE_MS)
@@ -940,7 +892,6 @@ export function beastHud(save: Save, now = Date.now()) {
     phase,
     weakness: state.weakness,
     nearLine: beastNearLine(state),
-    enrageName: state.enrage?.pending ? state.enrage.byName : '',
     killed: state.killed,
     stamina: state.stamina,
     staminaMax: BEAST_STAMINA_MAX,
@@ -1001,14 +952,9 @@ function makeFight(save: Save, workers: Worker[], auto: boolean): BeastFight {
     lightningMs: STAG_LIGHTNING_MS,
     telegraph: null,
     dodgeNext: false,
+    weakenNext: false,
     openingMs: 0,
     auto,
-  }
-  if (state.enrage?.pending) {
-    const spec: BeastAttackSpec = { ...state.enrage.pending, enrage: true }
-    const tele = Math.max(800, spec.telegraphMs)
-    fight.telegraph = { remainMs: tele, totalMs: tele, spec }
-    fight.gapMs = initialGap(state)
   }
   return fight
 }
@@ -1060,17 +1006,10 @@ export function beastInterrupt(save: Save): ActionResult {
   if (state.reacts[phase]) return { ok: false, reason: '这一阶段已经用过' }
   if (!fight.telegraph) return { ok: false, reason: '困兽没在读条' }
   fight.telegraph = null
-  const deferred = pullAttack(fight, state)
-  deferred.enrage = true
-  if (deferred.telegraphMs < 800) deferred.telegraphMs = 800
-  const who = playerDisplayName(save.playerName)
-  state.enrage = { byId: 'player', byName: who, pending: deferred }
+  fight.weakenNext = true
   state.reacts[phase] = 'interrupt'
   fight.gapMs = initialGap(state)
-  const text = `${who} 打断了困兽（下一击翻倍）`
-  pushRecent(state, text)
-  note(text, 'ok', false)
-  return { ok: true, message: '这一下取消了，下一击会加倍落到下一场' }
+  return { ok: true, message: '这一下取消了，下一击伤害减少' }
 }
 
 export function setBeastAuto(save: Save, on: boolean): ActionResult {

@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { itemQty } from './bank'
 import {
+  BEAST_INTERRUPT_MUL,
   beastAttackPower,
   beastBoundaryHp,
   beastDodge,
   beastHpMax,
   beastInterrupt,
+  hydrateBeastPvp,
   beastRankReward,
   finishBeastFightAuto,
   gmBeastJumpToLine,
@@ -16,6 +18,7 @@ import {
 } from './beastPvp'
 import { craftBeastFeast, craftBeastOil, craftBoneSoup, craftHunterSkewer, breakthroughStation } from './beastCraft'
 import { fillWorkerHp } from './combat'
+import { scaledAttackDamage } from './combatAttrs'
 import { createSave } from './createSave'
 import { settleOffline } from './offline'
 import { spawnWorkerWith } from './recruit'
@@ -99,38 +102,86 @@ describe('困兽', () => {
     expect(state.recent.some((row) => row.text.includes('假人') && row.text.includes('第 2 段线'))).toBe(true)
   })
 
-  it('打断和闪避每阶段二选一，狂怒一击落到下一场', () => {
+  it('打断取消当前读条，本场下一击伤害减少三成', () => {
     const { save, ids } = party(1)
+    save.beastPvp.kind = 'boar'
     expect(startBeastFight(save, ids).ok).toBe(true)
     const fight = save.beastPvp.fight!
+    const normals = fight.normals
     fight.telegraph = {
       remainMs: 1200,
       totalMs: 1500,
       spec: { kind: 'heavy', aoe: true, mul: 4, telegraphMs: 1500, gapAfterMs: 3200, hpFrac: 0 },
     }
+    const recent = save.beastPvp.recent.length
     expect(beastInterrupt(save).ok).toBe(true)
+    expect(beastInterrupt(save).ok).toBe(false)
     expect(beastDodge(save).ok).toBe(false)
     expect(save.beastPvp.reacts[0]).toBe('interrupt')
-    expect(save.beastPvp.recent.some((row) => row.text.includes('打断了困兽'))).toBe(true)
-    for (let i = 0; i < 8 && save.beastPvp.fight; i += 1) {
-      save.elapsedS += 1
-      stepBeastPvp(save, Date.parse('2026-09-28T04:00:00.000Z'))
-    }
-    expect(save.beastPvp.recent.some((row) => row.text.includes('挨了狂怒'))).toBe(false)
-    expect(save.beastPvp.enrage?.pending?.enrage).toBe(true)
-    if (save.beastPvp.fight) {
-      for (const row of save.beastPvp.fight.workers) row.hp = 0
-      finishBeastFightAuto(save, true)
-    }
+    expect(fight.telegraph).toBeNull()
+    expect(fight.weakenNext).toBe(true)
+    expect(fight.normals).toBe(normals)
+    expect(save.beastPvp.recent.length).toBe(recent)
+    expect(save.beastPvp.recent.some((row) => /打断|狂怒/.test(row.text))).toBe(false)
+
+    fight.normals = 3
+    fight.gapMs = 1
+    const hpBefore = fight.workers[0]!.hp
+    const now = Date.parse('2026-09-28T04:00:00.000Z')
+    save.elapsedS += 1
+    stepBeastPvp(save, now)
+    save.elapsedS += 1
+    stepBeastPvp(save, now)
+    const lost = hpBefore - fight.workers[0]!.hp
+    const full = scaledAttackDamage(beastAttackPower(save.knightLevel), 4)
+    expect(lost).toBe(scaledAttackDamage(beastAttackPower(save.knightLevel), 4 * BEAST_INTERRUPT_MUL))
+    expect(lost).toBeLessThan(full)
+    expect(fight.weakenNext).toBe(false)
+
+    for (const row of fight.workers) row.hp = 0
+    finishBeastFightAuto(save, true)
     fillWorkerHp(save.workers[0]!)
     expect(startBeastFight(save, ids).ok).toBe(true)
-    expect(save.beastPvp.fight?.telegraph?.spec.enrage).toBe(true)
-    for (let i = 0; i < 6 && save.beastPvp.enrage; i += 1) {
-      save.elapsedS += 1
-      stepBeastPvp(save, Date.parse('2026-09-28T04:00:00.000Z'))
+    expect(save.beastPvp.fight?.telegraph).toBeNull()
+    expect(save.beastPvp.fight?.weakenNext).toBe(false)
+    expect(save.beastPvp.recent.some((row) => /打断|狂怒/.test(row.text))).toBe(false)
+  })
+
+  it('假玩家打断不写最近，也不留给下一场', () => {
+    setBeastRollOverride(() => 0.1)
+    const save = createSave()
+    quietRivals(save)
+    const state = save.beastPvp
+    const rival = state.rivals[0]!
+    rival.onlineUntilS = save.elapsedS + 1000
+    rival.nextFightAtS = save.elapsedS
+    const recent = state.recent.length
+    save.elapsedS += 1
+    stepBeastPvp(save, Date.parse('2026-09-28T04:00:00.000Z'))
+    expect(rival.reacts[0]).toBe('interrupt')
+    expect(state.recent.length).toBe(recent)
+    expect(state.recent.some((row) => /打断|狂怒/.test(row.text))).toBe(false)
+    expect('enrage' in state).toBe(false)
+
+    setBeastRollOverride(() => 0.4)
+    const other = state.rivals[1]!
+    other.onlineUntilS = save.elapsedS + 1000
+    other.nextFightAtS = save.elapsedS
+    save.elapsedS += 1
+    stepBeastPvp(save, Date.parse('2026-09-28T04:00:00.000Z'))
+    expect(other.reacts[0]).toBeNull()
+  })
+
+  it('旧档上的狂怒读档后丢掉', () => {
+    const save = createSave()
+    ;(save.beastPvp as { enrage?: unknown }).enrage = {
+      byId: 'beast-rival-0',
+      byName: '甲',
+      pending: { kind: 'heavy', aoe: true, mul: 4, telegraphMs: 1500, gapAfterMs: 3200, hpFrac: 0 },
     }
-    expect(save.beastPvp.enrage).toBeNull()
-    expect(save.beastPvp.recent.some((row) => row.text.includes('挨了狂怒'))).toBe(true)
+    hydrateBeastPvp(save)
+    expect('enrage' in save.beastPvp).toBe(false)
+    expect(save.beastPvp.fight).toBeNull()
   })
 
   it('日结按名次发兽材，时钟回拨不发', () => {

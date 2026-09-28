@@ -868,7 +868,6 @@ export type BeastAttackSpec = {
   gapAfterMs: number
   /** 大于 0 时按目标 hpMax 的比例结算，不再乘攻击力。雷击用。 */
   hpFrac: number
-  enrage?: boolean
 }
 
 export type BeastFightWorker = {
@@ -898,14 +897,10 @@ export type BeastFight = {
   lightningMs: number
   telegraph: BeastTelegraph | null
   dodgeNext: boolean
+  /** 打断后，本场下一次攻击伤害 ×0.7。结算后清掉，不带到下一场。 */
+  weakenNext: boolean
   openingMs: number
   auto: boolean
-}
-
-export type BeastEnrage = {
-  byId: string
-  byName: string
-  pending: BeastAttackSpec
 }
 
 export type BeastRival = {
@@ -946,7 +941,6 @@ export type BeastPvpState = {
   phase: number
   weakness: CombatAttrId
   killed: boolean
-  enrage: BeastEnrage | null
   stamina: number
   staminaAccS: number
   playerDamage: number
