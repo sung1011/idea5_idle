@@ -52,6 +52,7 @@ import {
   ANY_RUNE_ITEM_ID,
   ITEM_DEF,
   POTION_ITEM_IDS,
+  unlockedPotionIds,
   RUNE_ITEM_IDS,
   STATION_TOOL_COUNT,
   bulkUnitGold,
@@ -66,7 +67,7 @@ import {
   stationRelatedItems,
   type IoRule,
 } from './tables'
-import { pickMainNeedPotion } from './potions'
+import { alchemyStationLevel, pickMainNeedPotion } from './potions'
 import {
   TIMED_ORDER_EXPIRED_TIP,
   attachTimedMarketOrder,
@@ -368,12 +369,18 @@ const LEGACY_ORDER_DEFS: ReadonlyArray<{
   { id: 'timberPost', label: '矿营补给', needs: { ore: 3, meal: 1 }, lootGold: 7 },
 ]
 
+/** 主线需求池可读的存档切片。炼金等级缺字段时按 1。 */
+export type MainNeedPoolSave = {
+  knightLevel?: number
+  stations?: { alchemy?: { stationLevel?: unknown } }
+}
+
 /**
  * 某站贡献给主线需求池的产物。
- * 炼金用 7 种药剂 id + 通配 anyPotion（不要裸 `potion`）；铭刻出 6 种符文 + 通配 anyRune。
+ * 炼金只用当前已解锁药剂 + 通配 anyPotion（不要裸 `potion`）；铭刻出 6 种符文 + 通配 anyRune。
  */
-export function mainNeedOutputsOfStation(stationId: StationId): readonly ItemId[] {
-  if (stationId === 'alchemy') return [...POTION_ITEM_IDS, ANY_POTION_ITEM_ID]
+export function mainNeedOutputsOfStation(stationId: StationId, alchemyLevel: unknown = 1): readonly ItemId[] {
+  if (stationId === 'alchemy') return [...unlockedPotionIds(alchemyLevel), ANY_POTION_ITEM_ID]
   if (stationId === 'inscription') return [...RUNE_ITEM_IDS, ANY_RUNE_ITEM_ID]
   return stationRelatedItems(stationId).outputs.filter(
     (id) => id !== 'potion' && id !== 'wildCrystal' && !isStationToolId(id) && !isRuneItemId(id),
@@ -384,10 +391,12 @@ export function mainNeedOutputsOfStation(stationId: StationId): readonly ItemId[
  * 主线需求种类池：只跟当前已解锁工位走（同一套骑士门槛表）。
  * 无存档按骑士 1 级（采药与炼金）。
  */
-export function mainNeedItemPool(save?: Pick<Save, 'knightLevel'> | null): readonly ItemId[] {
+export function mainNeedItemPool(save?: MainNeedPoolSave | null): readonly ItemId[] {
+  const alchemyLevel = alchemyStationLevel(save)
   const pool: ItemId[] = []
-  for (const stationId of unlockedStationIds(save ?? { knightLevel: 1 })) {
-    for (const id of mainNeedOutputsOfStation(stationId)) {
+  const knightSave = save?.knightLevel != null ? { knightLevel: save.knightLevel } : { knightLevel: 1 }
+  for (const stationId of unlockedStationIds(knightSave)) {
+    for (const id of mainNeedOutputsOfStation(stationId, alchemyLevel)) {
       if (!pool.includes(id)) pool.push(id)
     }
   }
@@ -401,7 +410,7 @@ export function isAllowedMainNeedKind(itemId: ItemId, pool: readonly ItemId[]): 
     return pool.includes('potion') || pool.includes(ANY_POTION_ITEM_ID) || pool.some((id) => isPotionItemId(id))
   }
   if (isPotionItemId(itemId)) {
-    return pool.includes(itemId) || pool.includes('potion') || pool.includes(ANY_POTION_ITEM_ID)
+    return pool.includes(itemId) || pool.includes('potion')
   }
   if (isLegacyGenericToolNeed(itemId) || isStationToolId(itemId) || isAnyRuneNeed(itemId)) {
     return pool.some((id) => isRuneItemId(id)) || pool.includes(ANY_RUNE_ITEM_ID)
@@ -447,10 +456,11 @@ export function applyMainNeedWildcard(itemId: ItemId, pool: readonly ItemId[], r
 /**
  * 六站全开时的种类池。新刷实际抽取走 `mainNeedItemPool`（按当前已解锁工位）。
  * 旧 `tool` 只是种类标记：落地时改抽 `MAIN_NEED_TOOL_POOL`（铭刻符文）。
- * `potion` 同样是种类标记：落地时改抽 7 种药剂之一。
+ * `potion` 同样是种类标记：落地时改抽当前已解锁药剂之一。
  */
 export const MAIN_NEED_ITEM_POOL: readonly ItemId[] = mainNeedItemPool({
   knightLevel: STATION_UNLOCK_KNIGHT_MAX,
+  stations: { alchemy: { stationLevel: 7 } },
 })
 
 /** 订单要符文时的 id 池，与铭刻配方同一套。旧名保留给测试。 */
@@ -667,7 +677,7 @@ export function pickMainNeedTool(
   return RUNE_ITEM_IDS[Math.min(RUNE_ITEM_IDS.length - 1, idx)]
 }
 
-/** 种类池掷到通用工具 / 专属工具时改抽符文；掷到 `potion` 改抽 7 种药剂。 */
+/** 种类池掷到通用工具 / 专属工具时改抽符文；掷到 `potion` 改抽当前已解锁药剂。 */
 export function resolveMainNeedItem(
   itemId: ItemId,
   quality: EncounterQuality,
@@ -675,10 +685,11 @@ export function resolveMainNeedItem(
   chapterBoss = false,
   rng?: { rngState: number },
   salt = 0,
+  alchemyLevel: unknown = 1,
 ): ItemId {
   if (itemId === 'potion') {
     const roll = rng ? rollRng(rng) : fracFromSalt(salt, 29)
-    return pickMainNeedPotion(roll)
+    return pickMainNeedPotion(roll, alchemyLevel)
   }
   if (isRuneItemId(itemId)) return itemId
   if (!isLegacyGenericToolNeed(itemId) && !isStationToolId(itemId)) return itemId
@@ -693,15 +704,24 @@ export function resolveUnlockedMainNeedItem(
   chapterBoss = false,
   rng?: { rngState: number },
   salt = 0,
-  save?: Pick<Save, 'knightLevel'> | null,
+  save?: MainNeedPoolSave | null,
 ): ItemId {
   const pool = mainNeedItemPool(save)
+  const alchemyLevel = alchemyStationLevel(save)
   if (isAllowedMainNeedKind(itemId, pool)) {
-    const resolved = resolveMainNeedItem(itemId, quality, chapter, chapterBoss, rng, salt)
+    const resolved = resolveMainNeedItem(itemId, quality, chapter, chapterBoss, rng, salt, alchemyLevel)
     const roll = rng ? rollRng(rng) : fracFromSalt(salt, 41)
     return applyMainNeedWildcard(resolved, pool, roll)
   }
-  return resolveMainNeedItem(pickFromMainNeedPool(pool, rng, salt), quality, chapter, chapterBoss, rng, salt)
+  return resolveMainNeedItem(
+    pickFromMainNeedPool(pool, rng, salt),
+    quality,
+    chapter,
+    chapterBoss,
+    rng,
+    salt,
+    alchemyLevel,
+  )
 }
 
 /** 章节需求倍率：1 + (chapter-1) * CHAPTER_NEED_STEP。 */
@@ -746,10 +766,18 @@ export function pickMainNeedItem(
   quality: EncounterQuality,
   chapter: unknown,
   chapterBoss = false,
-  save?: Pick<Save, 'knightLevel'> | null,
+  save?: MainNeedPoolSave | null,
 ): ItemId {
   const pool = mainNeedItemPool(save)
-  return resolveMainNeedItem(pickFromMainNeedPool(pool, rng), quality, chapter, chapterBoss, rng)
+  return resolveMainNeedItem(
+    pickFromMainNeedPool(pool, rng),
+    quality,
+    chapter,
+    chapterBoss,
+    rng,
+    undefined,
+    alchemyStationLevel(save),
+  )
 }
 
 /** 报价 / 买货产出：通用工具改抽专属工具，裸 potion 并进 salve。 */

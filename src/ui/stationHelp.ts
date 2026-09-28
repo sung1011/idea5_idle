@@ -1,4 +1,4 @@
-import { STATION_DEF, STATION_IDS } from '../sim/tables'
+import { ITEM_DEF, nextAlchemyPotionUnlock, STATION_DEF, STATION_IDS, unlockedPotionIds } from '../sim/tables'
 import type { StationId } from '../sim/types'
 
 /** 弹层一行。注意可缺，缺则不渲染。 */
@@ -55,10 +55,18 @@ export const STATION_HELP: Record<StationId, StationHelpEntry> = {
     note: '无挖空、无空杆、无遇险。',
   },
   alchemy: {
-    play: '每次成功从 7 种药剂里随机一种并给一批。',
+    play: '按炼金等级解锁药剂。已解锁种类里等概率随机一种并给一批。',
     output: '药剂装进工人页 4 槽后点槽使用，点 i 看效果。',
     cost: '做成即扣光 1 个草或猎副产（血 / 牙 / 眼，优先扣草）。',
   },
+}
+
+/** 炼金「怎么玩」：规则 + 当前池 + 下一种解锁等级。7 级起写已全部解锁。 */
+export function alchemyStationHelpPlay(stationLevel?: unknown): string {
+  const names = unlockedPotionIds(stationLevel).map((id) => ITEM_DEF[id].label)
+  const next = nextAlchemyPotionUnlock(stationLevel)
+  const tail = next ? `下一种${ITEM_DEF[next.id].label}在 ${next.level} 级解锁。` : '已全部解锁。'
+  return `${STATION_HELP.alchemy.play}当前可炼：${names.join('、')}。${tail}`
 }
 
 export const STATION_HP_HELP =
@@ -73,12 +81,13 @@ const FIELD_LABEL = {
   hp: '体力',
 } as const
 
-export function stationHelpCopy(id: StationId): StationHelpCopy {
+export function stationHelpCopy(id: StationId, stationLevel?: unknown): StationHelpCopy {
   const help = STATION_HELP[id]
   const name = STATION_DEF[id].label
+  const play = id === 'alchemy' ? alchemyStationHelpPlay(stationLevel) : help.play
   const rows: StationHelpRow[] = [
     { label: FIELD_LABEL.name, text: name },
-    { label: FIELD_LABEL.play, text: help.play },
+    { label: FIELD_LABEL.play, text: play },
     { label: FIELD_LABEL.output, text: help.output },
     { label: FIELD_LABEL.cost, text: help.cost },
   ]

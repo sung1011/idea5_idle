@@ -84,7 +84,7 @@ const sourceFlashStation = computed(() => isItemSourceStationFlash(props.station
 const locked = computed(() => !isStationUnlocked(game.save, props.stationId))
 const canWithdraw = computed(() => count.value > 0)
 const helpOpen = ref(false)
-const help = computed(() => stationHelpCopy(props.stationId))
+const help = computed(() => stationHelpCopy(props.stationId, station.value.stationLevel))
 
 /** 在岗且未战斗的空血才闪。残血不闪；战斗中的人不算工坊空血闪。 */
 function crewEmptyHpFlash(worker: (typeof crew.value)[number]): boolean {

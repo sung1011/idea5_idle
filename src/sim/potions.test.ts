@@ -11,6 +11,7 @@ import {
   CLEAR_MIND_SECONDARY_RATIO,
   POTION_BATCH_RANGE,
   POTION_ITEM_IDS,
+  unlockedPotionIds,
   RENEW_DURATION_S,
   RENEW_HEAL_RATIO,
   RENEW_TICK_S,
@@ -23,6 +24,8 @@ import {
   applyPotionTicks,
   hydratePotionState,
   installPotionSlot,
+  alchemyStationLevel,
+  pickMainNeedPotion,
   rollAlchemyPotionBatch,
   stimSpeedMul,
   unequipPotionSlot,
@@ -84,10 +87,77 @@ describe('alchemy batch roll', () => {
     }
     setRollOverride(() => 0)
     const save = createSave()
+    expect(alchemyStationLevel(save)).toBe(1)
     expect(rollAlchemyPotionBatch(save)).toEqual({
-      itemId: 'stim',
-      qty: POTION_BATCH_RANGE.stim.min,
+      itemId: 'salve',
+      qty: POTION_BATCH_RANGE.salve.min,
     })
+  })
+
+  it('unlocks potions by alchemy station level and treats a missing level as 1', () => {
+    expect(unlockedPotionIds(1)).toEqual(['salve'])
+    expect(unlockedPotionIds(2)).toEqual(['salve', 'stim'])
+    expect(unlockedPotionIds(3)).toEqual(['salve', 'stim', 'brinkSalve'])
+    expect(unlockedPotionIds(4)).toEqual(['salve', 'stim', 'brinkSalve', 'clearMind'])
+    expect(unlockedPotionIds(5)).toEqual(['salve', 'stim', 'brinkSalve', 'clearMind', 'renewSoup'])
+    expect(unlockedPotionIds(6)).toEqual(['salve', 'stim', 'brinkSalve', 'clearMind', 'renewSoup', 'rushPowder'])
+    expect(unlockedPotionIds(7)).toEqual([
+      'salve',
+      'stim',
+      'brinkSalve',
+      'clearMind',
+      'renewSoup',
+      'rushPowder',
+      'doubleMist',
+    ])
+    expect(unlockedPotionIds(10)).toEqual(unlockedPotionIds(7))
+    expect(unlockedPotionIds(undefined)).toEqual(['salve'])
+    expect(unlockedPotionIds(Number.NaN)).toEqual(['salve'])
+
+    const missing = createSave()
+    delete (missing.stations.alchemy as { stationLevel?: number }).stationLevel
+    expect(alchemyStationLevel(missing)).toBe(1)
+    expect(alchemyStationLevel(null)).toBe(1)
+    setRollOverride(() => 0.99)
+    expect(rollAlchemyPotionBatch(missing).itemId).toBe('salve')
+    expect(pickMainNeedPotion(0.99)).toBe('salve')
+    expect(pickMainNeedPotion(0.99, 1)).toBe('salve')
+    expect(pickMainNeedPotion(0, 2)).toBe('salve')
+    expect(pickMainNeedPotion(0.99, 2)).toBe('stim')
+  })
+
+  it('rolls only salve at level 1 and evenly inside a wider pool', () => {
+    const save = createSave()
+    save.stations.alchemy.stationLevel = 1
+    for (const roll of [0, 0.5, 0.99]) {
+      setRollOverride(() => roll)
+      const rolled = rollAlchemyPotionBatch(save)
+      expect(rolled.itemId).toBe('salve')
+      const span = POTION_BATCH_RANGE.salve.max - POTION_BATCH_RANGE.salve.min + 1
+      expect(rolled.qty).toBe(POTION_BATCH_RANGE.salve.min + Math.floor(roll * span))
+    }
+
+    save.stations.alchemy.stationLevel = 3
+    const picks = [0, 0.34, 0.67]
+    const expected = ['salve', 'stim', 'brinkSalve']
+    let n = 0
+    setRollOverride(() => {
+      const turn = Math.floor(n / 2)
+      const which = n % 2
+      n += 1
+      return which === 0 ? picks[turn]! : 0
+    })
+    const seen: string[] = []
+    for (const id of expected) {
+      const rolled = rollAlchemyPotionBatch(save)
+      seen.push(rolled.itemId)
+      expect(rolled.itemId).toBe(id)
+      expect(rolled.qty).toBe(POTION_BATCH_RANGE[rolled.itemId].min)
+      expect(unlockedPotionIds(3)).toContain(rolled.itemId)
+    }
+    expect(new Set(seen).size).toBe(3)
+    expect(seen).not.toContain('clearMind')
+    expect(seen).not.toContain('doubleMist')
   })
 })
 
@@ -237,8 +307,9 @@ describe('seven potion effects', () => {
     expect(picked.potionBuffs.rushStation).toBe('mining')
   })
 
-  it('clearMind heals the most wounded on-duty workers and skips full HP', () => {
+  it('clearMind heals the two most wounded on duty at 30% then 20% even above half HP', () => {
     const save = roster(4)
+    expect(save.stations.alchemy.stationLevel).toBe(1)
     const worst = save.workers[0]
     const second = save.workers[1]
     const lighter = save.workers[2]
@@ -249,17 +320,19 @@ describe('seven potion effects', () => {
     assignWorker(save, full.id, 'cooking')
     worst.fatigueDebt = 2.4
     worst.hp = 1
-    second.hp = Math.floor(second.hpMax * 0.45)
-    lighter.hp = Math.min(lighter.hpMax, Math.floor(lighter.hpMax * 0.5) + 1)
-    if (lighter.hp / lighter.hpMax <= 0.5) lighter.hp = Math.min(lighter.hpMax, lighter.hp + 1)
+    second.hp = Math.max(1, Math.floor(second.hpMax * 0.8))
+    lighter.hp = Math.max(second.hp + 1, Math.floor(lighter.hpMax * 0.9))
+    if (lighter.hp >= lighter.hpMax) lighter.hp = lighter.hpMax - 1
     const lighterBefore = lighter.hp
     const secondBefore = second.hp
+    expect(second.hp / second.hpMax).toBeGreaterThan(0.5)
     full.hp = full.hpMax
     save.bank.clearMind = 2
     expect(installPotionSlot(save, 0, 'clearMind').ok).toBe(true)
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(worst.fatigueDebt).toBe(2.4)
     expect(worst.hp).toBe(1 + Math.ceil(worst.hpMax * CLEAR_MIND_PRIMARY_RATIO))
+    expect(CLEAR_MIND_PRIMARY_RATIO).toBe(0.3)
     expect(second.hp).toBe(Math.min(second.hpMax, secondBefore + Math.ceil(second.hpMax * CLEAR_MIND_SECONDARY_RATIO)))
     expect(lighter.hp).toBe(lighterBefore)
     expect(full.hp).toBe(full.hpMax)
@@ -271,6 +344,23 @@ describe('seven potion effects', () => {
     lighter.hp = lighter.hpMax
     expect(usePotionSlot(save, 0)).toEqual({ ok: false, reason: POTION_FULL_HP_TIP })
     expect(bankQty(save, 'clearMind')).toBe(1)
+  })
+
+  it('clearMind heals the only wounded worker by 30% and still works from a locked stock', () => {
+    const save = roster(2)
+    expect(unlockedPotionIds(save.stations.alchemy.stationLevel)).toEqual(['salve'])
+    const wounded = save.workers[0]
+    const healthy = save.workers[1]
+    assignWorker(save, wounded.id, 'herbalism')
+    assignWorker(save, healthy.id, 'mining')
+    wounded.hp = 1
+    healthy.hp = healthy.hpMax
+    save.bank.clearMind = 1
+    expect(installPotionSlot(save, 0, 'clearMind').ok).toBe(true)
+    expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(wounded.hp).toBe(1 + Math.ceil(wounded.hpMax * CLEAR_MIND_PRIMARY_RATIO))
+    expect(healthy.hp).toBe(healthy.hpMax)
+    expect(bankQty(save, 'clearMind')).toBe(0)
   })
 })
 

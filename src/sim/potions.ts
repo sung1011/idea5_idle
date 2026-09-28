@@ -6,13 +6,13 @@ import {
   BRINK_LOW_RATIO,
   BRINK_LOW_TARGET_RATIO,
   CLEAR_MIND_PRIMARY_RATIO,
-  CLEAR_MIND_SECONDARY_MAX_RATIO,
   CLEAR_MIND_SECONDARY_RATIO,
   DOUBLE_MIST_DOUBLE_RATE,
   ITEM_DEF,
   PLAYABLE_STATION_IDS,
   POTION_BATCH_RANGE,
-  POTION_ITEM_IDS,
+  normalizeAlchemyLevel,
+  unlockedPotionIds,
   RENEW_DURATION_S,
   RENEW_HEAL_RATIO,
   RENEW_TICK_S,
@@ -149,9 +149,18 @@ function pickDutyStation(save: Save): StationId | null {
   return stations[idx] ?? null
 }
 
+/** 炼金站等级。字段缺失或非法时按 1 级。 */
+export function alchemyStationLevel(
+  save: { stations?: { alchemy?: { stationLevel?: unknown } } } | null | undefined,
+): number {
+  return normalizeAlchemyLevel(save?.stations?.alchemy?.stationLevel)
+}
+
+/** 已解锁药剂里等概率一种。瓶数区间、配伍札记加成不变。 */
 export function rollAlchemyPotionBatch(save: Save): { itemId: PotionItemId; qty: number } {
-  const idx = Math.min(POTION_ITEM_IDS.length - 1, Math.floor(roll01(save) * POTION_ITEM_IDS.length))
-  const itemId = POTION_ITEM_IDS[idx]
+  const pool = unlockedPotionIds(alchemyStationLevel(save))
+  const idx = Math.min(pool.length - 1, Math.floor(roll01(save) * pool.length))
+  const itemId = pool[idx] ?? 'salve'
   const range = POTION_BATCH_RANGE[itemId]
   const span = range.max - range.min + 1
   const qty = range.min + Math.floor(roll01(save) * span) + alchemyBatchBonus(save)
@@ -189,15 +198,12 @@ function hpRatio(worker: Worker): number {
   return worker.hp / hpMax
 }
 
-/** 满血不选。按 HP/hpMax 升序，第 2 人还须 ≤50%。 */
+/** 满血不选。按 HP/hpMax 升序，平局按 id，最多 2 人。 */
 function clearMindTargets(save: Save): Worker[] {
-  const wounded = potionDutyWorkers(save)
+  return potionDutyWorkers(save)
     .filter((worker) => worker.hp < worker.hpMax)
     .sort((a, b) => hpRatio(a) - hpRatio(b) || a.id.localeCompare(b.id))
-  const picked: Worker[] = []
-  if (wounded[0]) picked.push(wounded[0])
-  if (wounded[1] && hpRatio(wounded[1]) <= CLEAR_MIND_SECONDARY_MAX_RATIO) picked.push(wounded[1])
-  return picked
+    .slice(0, 2)
 }
 
 function applyBrink(save: Save, worker: Worker): number {
@@ -374,7 +380,9 @@ export function hydratePotionState(save: Save, raw?: unknown): void {
   }
 }
 
-export function pickMainNeedPotion(roll: number): PotionItemId {
+/** 主线等随机要药：只在当前已解锁药剂里等概率抽。等级缺省按 1。 */
+export function pickMainNeedPotion(roll: number, stationLevel?: unknown): PotionItemId {
+  const pool = unlockedPotionIds(stationLevel ?? 1)
   const t = Number.isFinite(roll) ? Math.min(0.999999, Math.max(0, roll)) : 0
-  return POTION_ITEM_IDS[Math.min(POTION_ITEM_IDS.length - 1, Math.floor(t * POTION_ITEM_IDS.length))]
+  return pool[Math.min(pool.length - 1, Math.floor(t * pool.length))] ?? 'salve'
 }

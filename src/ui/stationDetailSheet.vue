@@ -52,7 +52,7 @@ const consumeGroups = computed(() => stationConsumeGroups(game.save, props.stati
 const stallLine = computed(() => stationBottleneckText(game.save, props.stationId))
 const gatherLine = computed(() => gatherStatusText(game.save, props.stationId))
 const frozen = computed(() => isGatherFrozen(game.save, props.stationId))
-const help = computed(() => stationHelpCopy(props.stationId))
+const help = computed(() => stationHelpCopy(props.stationId, station.value.stationLevel))
 const playLine = computed(() => help.value.rows.find((row) => row.label === '怎么玩')?.text ?? '')
 const outputLine = computed(() => {
   const bits = cat.value.outputs.map((io) => `${ITEM_DEF[io.itemId].label} ×${io.qty}`)

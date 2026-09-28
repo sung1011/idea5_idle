@@ -63,5 +63,9 @@ describe('potion help bubble', () => {
     for (const id of POTION_ITEM_IDS) {
       expect(potionHelpCopy(id).effect).toBe(POTION_EFFECT_TEXT[id])
     }
+    expect(potionHelpCopy('clearMind').effect).toContain('30%')
+    expect(potionHelpCopy('clearMind').effect).toContain('20%')
+    expect(potionHelpCopy('clearMind').effect).not.toContain('35%')
+    expect(potionHelpCopy('clearMind').effect).not.toContain('50%')
   })
 })

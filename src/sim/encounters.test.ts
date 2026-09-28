@@ -96,6 +96,7 @@ import {
   ANY_RUNE_ITEM_ID,
   POTION_ITEM_IDS,
   RUNE_ITEM_IDS,
+  unlockedPotionIds,
 } from './tables'
 import {
   BATTLEFIELD_SLOT_MAX,
@@ -457,18 +458,27 @@ describe('encounter board', () => {
 describe('unlock-gated main need pool', () => {
   it('expands by currently unlocked stations, not chapter number', () => {
     expect(mainNeedOutputsOfStation('herbalism')).toEqual(['herb', 'spice'])
-    expect(mainNeedOutputsOfStation('alchemy')).toEqual([...POTION_ITEM_IDS, ANY_POTION_ITEM_ID])
+    expect(mainNeedOutputsOfStation('alchemy')).toEqual(['salve', ANY_POTION_ITEM_ID])
+    expect(mainNeedOutputsOfStation('alchemy', 7)).toEqual([...unlockedPotionIds(7), ANY_POTION_ITEM_ID])
     expect(mainNeedOutputsOfStation('hunting')).toEqual(['meat', 'fish', 'tooth', 'blood', 'eye', 'junk'])
     expect(mainNeedOutputsOfStation('cooking')).toEqual(['meal', 'roast', 'stew'])
     expect(mainNeedOutputsOfStation('mining')).toEqual(['ore', 'ironOre', 'mithrilOre'])
     expect(mainNeedOutputsOfStation('inscription')).toEqual([...RUNE_ITEM_IDS, ANY_RUNE_ITEM_ID])
-    expect(mainNeedItemPool({ knightLevel: 1 })).toEqual(['herb', 'spice', ...POTION_ITEM_IDS, ANY_POTION_ITEM_ID])
-    expect(mainNeedItemPool({ knightLevel: 2 })).toEqual(['herb', 'spice', ...POTION_ITEM_IDS, ANY_POTION_ITEM_ID])
-    expect(mainNeedItemPool({ knightLevel: 4 })).toEqual(['herb', 'spice', ...POTION_ITEM_IDS, ANY_POTION_ITEM_ID])
+    expect(mainNeedItemPool({ knightLevel: 1 })).toEqual(['herb', 'spice', 'salve', ANY_POTION_ITEM_ID])
+    expect(mainNeedItemPool({ knightLevel: 2 })).toEqual(['herb', 'spice', 'salve', ANY_POTION_ITEM_ID])
+    expect(mainNeedItemPool({ knightLevel: 4 })).toEqual(['herb', 'spice', 'salve', ANY_POTION_ITEM_ID])
+    expect(mainNeedItemPool({ knightLevel: 4, stations: { alchemy: { stationLevel: 3 } } })).toEqual([
+      'herb',
+      'spice',
+      'salve',
+      'stim',
+      'brinkSalve',
+      ANY_POTION_ITEM_ID,
+    ])
     expect(mainNeedItemPool({ knightLevel: 5 })).toEqual([
       'herb',
       'spice',
-      ...POTION_ITEM_IDS,
+      'salve',
       ANY_POTION_ITEM_ID,
       'meat',
       'fish',
@@ -490,8 +500,13 @@ describe('unlock-gated main need pool', () => {
     expect(mainNeedItemPool({ knightLevel: 9 })).not.toContain('runeSharp')
     expect(mainNeedItemPool({ knightLevel: 10 })).toContain('runeSharp')
     expect(mainNeedItemPool({ knightLevel: 10 })).toContain(ANY_RUNE_ITEM_ID)
-    expect(mainNeedItemPool()).toEqual(['herb', 'spice', ...POTION_ITEM_IDS, ANY_POTION_ITEM_ID])
-    expect(MAIN_NEED_ITEM_POOL).toEqual(mainNeedItemPool({ knightLevel: 10 }))
+    expect(mainNeedItemPool()).toEqual(['herb', 'spice', 'salve', ANY_POTION_ITEM_ID])
+    expect(MAIN_NEED_ITEM_POOL).toEqual(
+      mainNeedItemPool({ knightLevel: 10, stations: { alchemy: { stationLevel: 7 } } }),
+    )
+    expect(MAIN_NEED_ITEM_POOL).toEqual(
+      expect.arrayContaining([...unlockedPotionIds(7), ANY_POTION_ITEM_ID]),
+    )
     expect(MAIN_NEED_ITEM_POOL).toContain(ANY_POTION_ITEM_ID)
     expect(MAIN_NEED_ITEM_POOL).toContain(ANY_RUNE_ITEM_ID)
     expect(MAIN_NEED_ITEM_POOL).not.toContain('potion')
@@ -503,10 +518,11 @@ describe('unlock-gated main need pool', () => {
       lv1.add(pickMainNeedItem({ rngState: seed }, 'green', 8, false, { knightLevel: 1 }))
     }
     expect(
-      [...lv1].every((id) => id === 'herb' || id === 'spice' || isPotionItemId(id) || id === ANY_POTION_ITEM_ID),
+      [...lv1].every((id) => id === 'herb' || id === 'spice' || id === 'salve' || id === ANY_POTION_ITEM_ID),
     ).toBe(true)
     expect([...lv1].some((id) => id === 'herb' || id === 'spice')).toBe(true)
-    expect([...lv1].some((id) => isPotionItemId(id))).toBe(true)
+    expect(lv1.has('salve')).toBe(true)
+    expect([...lv1].some((id) => isPotionItemId(id) && id !== 'salve')).toBe(false)
     expect(lv1.has(ANY_POTION_ITEM_ID)).toBe(true)
     expect(lv1.has('potion')).toBe(false)
     expect(lv1.has('meal')).toBe(false)
@@ -521,7 +537,7 @@ describe('unlock-gated main need pool', () => {
     const potionAtKnight1 = resolveUnlockedMainNeedItem('potion', 'green', 1, false, undefined, 0, {
       knightLevel: 1,
     })
-    expect(isPotionItemId(potionAtKnight1) || potionAtKnight1 === ANY_POTION_ITEM_ID).toBe(true)
+    expect(potionAtKnight1 === 'salve' || potionAtKnight1 === ANY_POTION_ITEM_ID).toBe(true)
     const potionResolved = resolveUnlockedMainNeedItem('potion', 'green', 1, false, undefined, 0, {
       knightLevel: 2,
     })
@@ -530,7 +546,17 @@ describe('unlock-gated main need pool', () => {
       knightLevel: 10,
     })
     expect(isRuneItemId(runeResolved) || runeResolved === ANY_RUNE_ITEM_ID).toBe(true)
-    expect(resolveUnlockedMainNeedItem('salve', 'green', 1, false, undefined, 9, { knightLevel: 2 })).toBe('salve')
+    expect(
+      resolveUnlockedMainNeedItem('salve', 'green', 1, false, undefined, 9, {
+        knightLevel: 2,
+        stations: { alchemy: { stationLevel: 7 } },
+      }),
+    ).toBe('salve')
+    const lockedReroll = resolveUnlockedMainNeedItem('doubleMist', 'green', 1, false, undefined, 3, {
+      knightLevel: 1,
+    })
+    expect(mainNeedItemPool({ knightLevel: 1 })).toContain(lockedReroll)
+    expect(lockedReroll).not.toBe('doubleMist')
     expect(resolveUnlockedMainNeedItem('meal', 'green', 1, false, undefined, 0, { knightLevel: 6 })).toBe('meal')
     const mealFallback = resolveUnlockedMainNeedItem('meal', 'green', 1, false, undefined, 3, { knightLevel: 1 })
     expect(mealFallback).not.toBe('meal')
@@ -588,6 +614,32 @@ describe('unlock-gated main need pool', () => {
     expect(sawTool).toBe(true)
     expect(sawPotion).toBe(true)
   })
+
+  it('draws potion orders only from potions the alchemy station can brew', () => {
+    const save = createSave()
+    save.knightLevel = 10
+    save.stations.alchemy.stationLevel = 2
+    const unlocked = new Set(unlockedPotionIds(2))
+    const seen = new Set<ItemId>()
+    for (let seed = 1; seed <= 160; seed++) {
+      seen.add(pickMainNeedItem({ rngState: seed }, 'orange', 4, true, save))
+    }
+    const potions = [...seen].filter((id) => isPotionItemId(id))
+    expect(potions.length).toBeGreaterThan(0)
+    expect(potions.every((id) => unlocked.has(id))).toBe(true)
+    expect(seen.has('clearMind')).toBe(false)
+    expect(seen.has('doubleMist')).toBe(false)
+    expect(seen.has(ANY_POTION_ITEM_ID)).toBe(true)
+    for (let seed = 1; seed <= 40; seed++) {
+      const board = generateEncounterBoard(seed, 4, { board: 'battlefield', mainChapter: 3, save })
+      for (const enc of board) {
+        if (enc.kind !== 'enemy') continue
+        const id = needEntries(enc.needs)[0][0]
+        if (isPotionItemId(id)) expect(unlocked.has(id)).toBe(true)
+        expect(mainNeedItemPool(save)).toContain(id)
+      }
+    }
+  })
 })
 
 describe('main need wildcards', () => {
@@ -607,7 +659,10 @@ describe('main need wildcards', () => {
   })
 
   it('converts a specific potion / rune to wildcard when the roll is in the wildcard band', () => {
-    const alchemyPool = mainNeedItemPool({ knightLevel: 2 })
+    const alchemyPool = mainNeedItemPool({
+      knightLevel: 2,
+      stations: { alchemy: { stationLevel: 7 } },
+    })
     const fullPool = mainNeedItemPool({ knightLevel: 10 })
     expect(applyMainNeedWildcard('salve', alchemyPool, 0)).toBe(ANY_POTION_ITEM_ID)
     expect(applyMainNeedWildcard('salve', alchemyPool, 0.4)).toBe('salve')

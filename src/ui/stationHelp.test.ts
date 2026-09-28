@@ -6,6 +6,7 @@ import {
   nextStationHelp,
   STATION_HELP,
   STATION_HP_HELP,
+  alchemyStationHelpPlay,
   stationHelpCopy,
   stationHelpIds,
 } from './stationHelp'
@@ -31,7 +32,9 @@ describe('station help copy', () => {
           : ['名称', '怎么玩', '产出', '消耗', '体力'],
       )
       expect(copy.rows[0]?.text).toBe(STATION_DEF[id].label)
-      expect(copy.rows.find((row) => row.label === '怎么玩')?.text).toBe(help.play)
+      expect(copy.rows.find((row) => row.label === '怎么玩')?.text).toBe(
+        id === 'alchemy' ? alchemyStationHelpPlay(1) : help.play,
+      )
       expect(copy.rows.find((row) => row.label === '产出')?.text).toBe(help.output)
       expect(copy.rows.find((row) => row.label === '消耗')?.text).toBe(help.cost)
       expect(copy.rows.find((row) => row.label === '注意')?.text).toBe(help.note)
@@ -63,10 +66,23 @@ describe('station help copy', () => {
     expect(STATION_HELP.hunting.note).toMatch(/1 份/)
     expect(STATION_HELP.hunting.output).toMatch(/杂物/)
     expect(STATION_HELP.hunting.cost).toBe('无额外原料')
-    expect(STATION_HELP.alchemy.play).toMatch(/随机/)
-    expect(STATION_HELP.alchemy.play).toMatch(/7 种/)
+    expect(STATION_HELP.alchemy.play).toMatch(/炼金等级/)
+    expect(STATION_HELP.alchemy.play).toMatch(/等概率/)
     expect(STATION_HELP.alchemy.output).toMatch(/4 槽/)
     expect(STATION_HELP.alchemy.note).toBeUndefined()
+    expect(alchemyStationHelpPlay(1)).toContain('当前可炼：回春散。')
+    expect(alchemyStationHelpPlay(1)).toContain('下一种兴奋剂在 2 级解锁')
+    expect(alchemyStationHelpPlay(1)).not.toContain('已全部解锁')
+    expect(alchemyStationHelpPlay(4)).toContain('当前可炼：回春散、兴奋剂、绝境膏、醒神散。')
+    expect(alchemyStationHelpPlay(4)).toContain('下一种续命汤在 5 级解锁')
+    expect(alchemyStationHelpPlay(6)).toContain('下一种双份雾在 7 级解锁')
+    expect(alchemyStationHelpPlay(7)).toContain('已全部解锁')
+    expect(alchemyStationHelpPlay(7)).not.toContain('下一种')
+    expect(alchemyStationHelpPlay(10)).toBe(alchemyStationHelpPlay(7))
+    expect(stationHelpCopy('alchemy', 3).rows.find((row) => row.label === '怎么玩')?.text).toBe(
+      alchemyStationHelpPlay(3),
+    )
+    expect(stationHelpCopy('alchemy').rows.find((row) => row.label === '怎么玩')?.text).toContain('回春散')
     expect(STATION_HELP.herbalism.play).toMatch(/必出/)
     expect(STATION_HELP.herbalism.cost).toBe('无额外原料')
     expect(STATION_HELP.herbalism.note).toMatch(/无挖空/)

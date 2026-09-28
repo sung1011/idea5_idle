@@ -435,7 +435,7 @@ export const HERBALISM_DROP_TABLE: HerbalismDropWeight[] = [
   { itemId: 'spice', weight: 30 },
 ]
 
-/** 炼金一次扣光其中一组：草或猎副产。产物从 7 种药剂池随机出一批。 */
+/** 炼金一次扣光其中一组：草或猎副产。产物从当前站等级已解锁的药剂里等概率出一批。 */
 export const ALCHEMY_COST_OPTIONS: IoRule[][] = [
   [{ itemId: 'herb', qty: 1 }],
   [{ itemId: 'blood', qty: 1 }],
@@ -459,6 +459,41 @@ export const POTION_ITEM_IDS: readonly PotionItemId[] = [
   'clearMind',
 ]
 
+/**
+ * 炼金站等级解锁药剂。达到该级起进入随机池；顺序即表序。
+ * 7 级及以上为全部。读不到等级时按 1 级。
+ */
+export const ALCHEMY_POTION_UNLOCK: readonly { level: number; id: PotionItemId }[] = [
+  { level: 1, id: 'salve' },
+  { level: 2, id: 'stim' },
+  { level: 3, id: 'brinkSalve' },
+  { level: 4, id: 'clearMind' },
+  { level: 5, id: 'renewSoup' },
+  { level: 6, id: 'rushPowder' },
+  { level: 7, id: 'doubleMist' },
+]
+
+/** 非法或读不到的炼金站等级按 1。 */
+export function normalizeAlchemyLevel(stationLevel: unknown): number {
+  if (typeof stationLevel !== 'number' || !Number.isFinite(stationLevel) || stationLevel < 1) return 1
+  return Math.floor(stationLevel)
+}
+
+/** 该炼金站等级已解锁的药剂。空表时仍保底回春散。 */
+export function unlockedPotionIds(stationLevel: unknown): PotionItemId[] {
+  const level = normalizeAlchemyLevel(stationLevel)
+  const ids = ALCHEMY_POTION_UNLOCK.filter((row) => row.level <= level).map((row) => row.id)
+  return ids.length > 0 ? ids : ['salve']
+}
+
+/** 下一档尚未解锁的药剂。已到表末（7 级及以上）则为 null。 */
+export function nextAlchemyPotionUnlock(
+  stationLevel: unknown,
+): { level: number; id: PotionItemId } | null {
+  const level = normalizeAlchemyLevel(stationLevel)
+  return ALCHEMY_POTION_UNLOCK.find((row) => row.level > level) ?? null
+}
+
 /** 装配列表分组。顺序固定；过滤后某组为空则整组不画。 */
 export const POTION_INSTALL_GROUPS: readonly { label: string; ids: readonly PotionItemId[] }[] = [
   { label: '提效', ids: ['stim', 'rushPowder', 'doubleMist'] },
@@ -467,7 +502,7 @@ export const POTION_INSTALL_GROUPS: readonly { label: string; ids: readonly Poti
 
 export type PotionBatchRange = { min: number; max: number }
 
-/** 炼金一次成功随机一种，数量落在该区间（含端点）。 */
+/** 炼金一次成功，数量落在该区间（含端点）。种类另看炼金站等级。 */
 export const POTION_BATCH_RANGE: Readonly<Record<PotionItemId, PotionBatchRange>> = {
   salve: { min: 8, max: 14 },
   stim: { min: 4, max: 8 },
@@ -485,7 +520,7 @@ export const POTION_EFFECT_TEXT: Readonly<Record<PotionItemId, string>> = {
   brinkSalve: '在岗：生命 ≤30% 抬到 40% 最大生命，其余立刻回复 5%',
   rushPowder: '随机一个有在岗工人的工位，下一次产出周期缩短 40%',
   doubleMist: '随机一个有在岗工人的工位，下一批成功产出 80% 为 ×2、20% 为 ×3',
-  clearMind: '只治疗在岗里最残的 1～2 人：第 1 人回复 35% 最大生命；第 2 人若生命 ≤50% 再回复 20%',
+  clearMind: '只治疗在岗里受伤最重的 1～2 人：第 1 人回复 30% 最大生命，第 2 人回复 20% 最大生命',
 }
 
 export function isPotionItemId(id: unknown): id is PotionItemId {
@@ -945,10 +980,9 @@ export const RENEW_HEAL_RATIO = 0.05
 export const BRINK_LOW_RATIO = 0.3
 export const BRINK_LOW_TARGET_RATIO = 0.4
 export const BRINK_HEAL_RATIO = 0.05
-/** 醒神散：最残一人、次残一人（次残还须 HP≤50%）。 */
-export const CLEAR_MIND_PRIMARY_RATIO = 0.35
+/** 醒神散：在岗受伤者按 HP/hpMax 升序，第 1 人 30%，第 2 人 20%。 */
+export const CLEAR_MIND_PRIMARY_RATIO = 0.3
 export const CLEAR_MIND_SECONDARY_RATIO = 0.2
-export const CLEAR_MIND_SECONDARY_MAX_RATIO = 0.5
 /** 双份雾：低于此掷骰为 ×2，否则 ×3。 */
 export const DOUBLE_MIST_DOUBLE_RATE = 0.8
 /** 赶工粉：下一次周期缩短的比例。 */

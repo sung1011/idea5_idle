@@ -47,10 +47,11 @@ describe('alchemy random potion batches', () => {
       const next = ticks(save, 40)
       expect(bankQty(next, row.itemId)).toBe(0)
       expect(bankQty(next, 'potion')).toBe(0)
-      expect(bankQty(next, 'stim')).toBe(POTION_BATCH_RANGE.stim.min)
+      expect(bankQty(next, 'salve')).toBe(POTION_BATCH_RANGE.salve.min)
+      expect(bankQty(next, 'stim')).toBe(0)
       expect(next.stations.alchemy.completed).toBe(1)
       expect(next.stations.alchemy.craftNotice).toBe(
-        `炼成兴奋剂×${POTION_BATCH_RANGE.stim.min}（耗${row.label}）`,
+        `炼成回春散×${POTION_BATCH_RANGE.salve.min}（耗${row.label}）`,
       )
     }
   })
@@ -64,7 +65,7 @@ describe('alchemy random potion batches', () => {
     const next = ticks(save, 40)
     expect(bankQty(next, 'herb')).toBe(0)
     expect(bankQty(next, 'blood')).toBe(1)
-    expect(craftedPotion(next)?.id).toBe('stim')
+    expect(craftedPotion(next)?.id).toBe('salve')
   })
 
   it('idles with a bottleneck naming herb and hunting parts', () => {
