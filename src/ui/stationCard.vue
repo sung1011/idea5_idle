@@ -179,7 +179,7 @@ onUnmounted(() => {
         @click.stop="toggleHelp"
       >？</button>
     </header>
-    <ul class="crew" aria-label="在岗工人">
+    <ul class="crew" aria-label="在岗苦工">
       <li v-if="crew.length" class="crew-row">
         <span
           v-for="w in crew"
@@ -189,7 +189,7 @@ onUnmounted(() => {
         >
           <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
           <b class="crew-name" :style="workerQualityNameStyle(w)">{{ w.name ?? w.id }}</b>
-          <i v-if="w.isNew" class="worker-new" aria-label="新工人">NEW</i>
+          <i v-if="w.isNew" class="worker-new" aria-label="新苦工">NEW</i>
           <span class="crew-lv">Lv{{ w.level }}</span>
         </span>
       </li>

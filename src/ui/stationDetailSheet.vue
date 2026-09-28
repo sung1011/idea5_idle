@@ -211,7 +211,7 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
         <div class="actions">
           <button type="button" :disabled="!duty" @click="onWithdraw">撤出</button>
           <button type="button" @click="onSwap">换人</button>
-          <button type="button" @click="onWorker">工人详情</button>
+          <button type="button" @click="onWorker">苦工详情</button>
         </div>
         <section v-if="helpOpen" class="help-box" :aria-label="`${def.label}说明`">
           <h3>{{ help.title }}</h3>

@@ -239,7 +239,7 @@ const PRODUCTION_ROWS: readonly RowSeed[] = [
       {
         id: 'artisanArchive',
         name: '工匠密录',
-        desc: '成功吞吐时，在岗工人获得的经验 ×1.25。',
+        desc: '成功吞吐时，在岗苦工获得的经验 ×1.25。',
         icon: '📗',
         ...implemented(ARTISAN_ARCHIVE_XP_EFFECT),
       },
@@ -332,14 +332,14 @@ const COMBAT_ROWS: readonly RowSeed[] = [
       {
         id: 'dummyDrill',
         name: '木桩加训',
-        desc: '加练出拳，工人 ATK +10%。',
+        desc: '加练出拳，苦工 ATK +10%。',
         icon: '🪵',
         ...implemented(WORKER_ATK_EFFECT),
       },
       {
         id: 'bracerTighten',
         name: '护腕束紧',
-        desc: '护腕勒紧，工人 HP +10%。',
+        desc: '护腕勒紧，苦工 HP +10%。',
         icon: '🥊',
         ...implemented(WORKER_HP_EFFECT),
       },
@@ -377,7 +377,7 @@ const COMBAT_ROWS: readonly RowSeed[] = [
       {
         id: 'rematchSupply',
         name: '回营绷带',
-        desc: '倒地回休息的工人立刻恢复 10% HP。',
+        desc: '倒地回休息的苦工立刻恢复 10% HP。',
         icon: '🎒',
         ...implemented(CAMP_BANDAGE_EFFECT),
       },
@@ -396,21 +396,21 @@ const COMBAT_ROWS: readonly RowSeed[] = [
       {
         id: 'combatBanner',
         name: '破晓号令',
-        desc: '开战时工人首次攻击间隔 −0.5 秒。',
+        desc: '开战时苦工首次攻击间隔 −0.5 秒。',
         icon: '🚩',
         ...implemented(FIRST_STRIKE_EFFECT),
       },
       {
         id: 'combatEdge',
         name: '符刃开光',
-        desc: '本场已装备符文的工人 ATK +15%；无符文不加。',
+        desc: '本场已装备符文的苦工 ATK +15%；无符文不加。',
         icon: '🗡️',
         ...implemented(RUNE_ATK_EFFECT),
       },
       {
         id: 'combatArmor',
         name: '残血顽抗',
-        desc: '工人 HP≤30% 上限时受到伤害 −20%。',
+        desc: '苦工 HP≤30% 上限时受到伤害 −20%。',
         icon: '🪖',
         ...implemented(WOUNDED_GUARD_EFFECT),
       },
@@ -422,7 +422,7 @@ const COMBAT_ROWS: readonly RowSeed[] = [
       {
         id: 'combatCourt',
         name: '增援鼓点',
-        desc: '经增援上场的工人第一击伤害 +20%。',
+        desc: '经增援上场的苦工第一击伤害 +20%。',
         icon: '🏰',
         ...implemented(REINFORCE_FIRST_EFFECT),
       },
@@ -557,7 +557,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'affairsRoster',
         name: '募兵折',
-        desc: '抽工人钻石费用 12→7。',
+        desc: '抽苦工钻石费用 12→7。',
         icon: '📒',
         ...implemented(RECRUIT_COST_EFFECT),
       },

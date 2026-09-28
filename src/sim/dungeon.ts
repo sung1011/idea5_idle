@@ -479,7 +479,7 @@ export function startDungeonCombat(
   const party = workerIds
     .map((id) => findCombatPartyWorker(save, id, guests))
     .filter((w): w is Worker => !!w)
-  if (!party.length) return { ok: false, reason: '请选择出战工人' }
+  if (!party.length) return { ok: false, reason: '请选择出战苦工' }
   if (!canAffordCosts(save, needRules(DUNGEON_NEEDS))) {
     return { ok: false, reason: dungeonSupplyBlockReason(save, enc.id) ?? '货不够' }
   }
@@ -523,7 +523,7 @@ export function reinforceDungeonCombat(
   const party = workerIds
     .map((id) => findCombatPartyWorker(save, id, guests))
     .filter((w): w is Worker => !!w)
-  if (!party.length) return { ok: false, reason: '请选择出战工人' }
+  if (!party.length) return { ok: false, reason: '请选择出战苦工' }
   const consumed = consumeRunePicks(save, runePicks)
   if (!consumed.ok) return consumed
   clearWorkersNew(
@@ -597,7 +597,7 @@ function grantDungeonChestNow(save: Save, enc: EnemyEncounter): ActionResult {
   const payBits: string[] = []
   if (payout.diamonds > 0) payBits.push(`钻石 ×${payout.diamonds}`)
   if (payout.gold > 0) payBits.push(`金币 ×${payout.gold}`)
-  const xpNote = grantedXp ? '。工人获得经验' : ''
+  const xpNote = grantedXp ? '。苦工获得经验' : ''
   const itemNote = itemBits.length ? `、${itemBits.join('、')}` : ''
   return { ok: true, message: `${enc.label}宝箱（${payout.tier}）：${payBits.join('、')}${itemNote}${xpNote}` }
 }

@@ -206,8 +206,8 @@ describe('fuseWorkers', () => {
     const a = spawnWorker(save)
     const b = spawnWorker(save)
     expect(fuseWorkers(save, a.id, a.id)).toEqual({ ok: false, reason: '不能合成同一个人' })
-    expect(fuseWorkers(save, a.id, 'w-missing')).toEqual({ ok: false, reason: '没有这个工人' })
-    expect(fuseWorkers(save, '', b.id)).toEqual({ ok: false, reason: '请选两个同品质工人' })
+    expect(fuseWorkers(save, a.id, 'w-missing')).toEqual({ ok: false, reason: '没有这个苦工' })
+    expect(fuseWorkers(save, '', b.id)).toEqual({ ok: false, reason: '请选两个同品质苦工' })
 
     expect(assignWorker(save, a.id, 'herbalism').ok).toBe(true)
     b.assignment = 'herbalism'

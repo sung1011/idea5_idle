@@ -632,7 +632,7 @@ onUnmounted(() => {
                       :style="stationAvatarStyle(w)"
                     >
                       <ClassIcon :name="classIconOf(w)" />
-                      <i v-if="w.isNew" class="worker-new" aria-label="新工人">NEW</i>
+                      <i v-if="w.isNew" class="worker-new" aria-label="新苦工">NEW</i>
                     </span>
                     <span class="slot-main">
                       <b>
@@ -714,7 +714,7 @@ onUnmounted(() => {
               >
                 <span class="avatar" :style="workerQualityTileStyle(item.worker)">
                   <ClassIcon :name="classIconOf(item.worker)" />
-                  <i v-if="item.worker.isNew" class="worker-new" aria-label="新工人">NEW</i>
+                  <i v-if="item.worker.isNew" class="worker-new" aria-label="新苦工">NEW</i>
                 </span>
                 <b class="rest-name" :style="workerQualityNameStyle(item.worker)">{{ workerShortName(item.worker) }}</b>
                 <i class="march-tag">{{ item.row.label }}<template v-if="item.row.tone !== 'fight'"> {{ formatRemainClock(item.row.remainS) }}</template></i>
@@ -744,10 +744,10 @@ onUnmounted(() => {
             class="recruit-bar"
             :class="{ off: !canRecruit, 'guide-flash': guideFlashRecruit }"
             :disabled="!canRecruit"
-            :aria-label="`抽工人 · ${recruitPrice} 钻`"
+            :aria-label="`抽苦工 · ${recruitPrice} 钻`"
             @click="game.recruit()"
           >
-            <span class="recruit-bar-lab">抽工人</span>
+            <span class="recruit-bar-lab">抽苦工</span>
             <span class="recruit-bar-cost">{{ recruitPrice }} 钻</span>
           </button>
           <button
@@ -793,7 +793,7 @@ onUnmounted(() => {
                 </span>
                 <span class="avatar" :style="workerQualityTileStyle(row.worker)">
                   <ClassIcon :name="classIconOf(row.worker)" />
-                  <i v-if="row.worker.isNew" class="worker-new" aria-label="新工人">NEW</i>
+                  <i v-if="row.worker.isNew" class="worker-new" aria-label="新苦工">NEW</i>
                 </span>
                 <em v-if="workerEatFlashText(row.id)" class="eat-float">{{ workerEatFlashText(row.id) }}</em>
                 <b class="rest-name" :style="workerQualityNameStyle(row.worker)">{{ workerShortName(row.worker) }}</b>

@@ -22,9 +22,9 @@ export const GUIDE_QUEST_REV = 5
 export const GUIDE_QUEST_RECRUIT_NEED = 2
 
 export const GUIDE_QUEST_GOALS = [
-  '抽取工人 2 次',
+  '抽取苦工 2 次',
   '满血队首会自动上采药，不能手拖空岗',
-  '合成两名同品质工人',
+  '合成两名同品质苦工',
   '选好休息区伙食',
   '在 PVE 弹层中点击开战',
   '在炼金站炼成药剂',

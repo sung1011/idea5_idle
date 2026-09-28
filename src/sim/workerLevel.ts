@@ -40,7 +40,7 @@ export function scaleArtisanStationXp(amount: number, mul: number): number {
 
 /** 升级浮字。N 为升完后的等级。 */
 export function workerLevelUpTip(shortName: string, level: number): string {
-  const name = shortName.trim() || '工人'
+  const name = shortName.trim() || '苦工'
   const lv = Math.max(1, Math.floor(level))
   return `${name} 升至 Lv${lv}`
 }

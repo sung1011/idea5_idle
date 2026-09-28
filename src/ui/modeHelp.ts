@@ -37,7 +37,7 @@ export const MODE_HELP: Record<ModeHelpId, ModeHelp> = {
     rows: [
       {
         label: '怎么玩',
-        text: '8×8 全是杂草。从休息区派满血工人，一块 3 分钟，同时最多 3 块。体力 10，除草花 1，30 分钟回 1。',
+        text: '8×8 全是杂草。从休息区派满血苦工，一块 3 分钟，同时最多 3 块。体力 10，除草花 1，30 分钟回 1。',
       },
       {
         label: '规则要点',
@@ -73,7 +73,7 @@ export const MODE_HELP: Record<ModeHelpId, ModeHelp> = {
     rows: [
       {
         label: '怎么玩',
-        text: '点开战，从满血休息工人里选 1～3 人。场上不满 3 人可以增援。',
+        text: '点开战，从满血休息苦工里选 1～3 人。场上不满 3 人可以增援。',
       },
       {
         label: '规则要点',

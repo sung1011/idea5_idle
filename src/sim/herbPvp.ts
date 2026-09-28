@@ -646,7 +646,7 @@ function playerHitsRival(save: Save, plot: HerbPlot, worker: Worker, rival: Herb
   }
   sendHerbWorkerHome(save, worker)
   if (worker.hp <= 0) return { ok: true, message: `被${rival.name}打倒，回休息区` }
-  return { ok: true, message: `没打退${rival.name}，工人回来了` }
+  return { ok: true, message: `没打退${rival.name}，苦工回来了` }
 }
 
 function rivalHitsPlayer(save: Save, plot: HerbPlot, rival: HerbRival, offline: boolean): void {
@@ -837,7 +837,7 @@ export function startHerbWeed(save: Save, plotIndex: number, workerId: string): 
   if (plot.workerId) return { ok: false, reason: '这块已经有人在除' }
   if (state.plots.filter((row) => row.workerId).length >= HERB_PVP_PLAYER_CAP) return { ok: false, reason: '最多同时除 3 块' }
   const worker = save.workers.find((row) => row.id === workerId)
-  if (!worker) return { ok: false, reason: '没有这个工人' }
+  if (!worker) return { ok: false, reason: '没有这个苦工' }
   if (isWorkerInHerbPvp(save, workerId)) return { ok: false, reason: '正在割草' }
   if (worker.assignment) return { ok: false, reason: '不在休息区' }
   if (isWorkerInCombat(save, workerId)) return { ok: false, reason: '正在战斗' }
@@ -851,7 +851,7 @@ export function startHerbWeed(save: Save, plotIndex: number, workerId: string): 
   plot.workerId = worker.id
   plot.weeder = null
   plot.progressS = 0
-  const name = worker.name ?? '工人'
+  const name = worker.name ?? '苦工'
   return { ok: true, message: `${name} 开始除草` }
 }
 

@@ -102,7 +102,7 @@ describe('combat assist invite', () => {
     expect(second.qualityTier).not.toBe(first.qualityTier)
     expect(findCombatPartyWorker(save, ASSIST_WORKER_ID)).toBeUndefined()
     expect(findCombatPartyWorker(save, ASSIST_WORKER_ID, [second])).toBe(second)
-    expect(combatPartyBlockReason(save, [ASSIST_WORKER_ID])).toBe('没有这个工人')
+    expect(combatPartyBlockReason(save, [ASSIST_WORKER_ID])).toBe('没有这个苦工')
     expect(combatPartyBlockReason(save, [ASSIST_WORKER_ID], [second])).toBeNull()
   })
 

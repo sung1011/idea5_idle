@@ -153,7 +153,7 @@ describe('worker xp tables', () => {
 
   it('formats a level-up tip from the reached level', () => {
     expect(workerLevelUpTip('阿铁', 4)).toBe('阿铁 升至 Lv4')
-    expect(workerLevelUpTip('  ', 2)).toBe('工人 升至 Lv2')
+    expect(workerLevelUpTip('  ', 2)).toBe('苦工 升至 Lv2')
   })
 })
 
@@ -169,7 +169,7 @@ describe('claim loot grants combat xp', () => {
 
     const result = claimLoot(save, 0)
     expect(result.ok).toBe(true)
-    if (result.ok) expect(result.message).toContain('工人获得经验')
+    if (result.ok) expect(result.message).toContain('苦工获得经验')
     const gain = workerLootXp('minion', 1)
     expect(a.xp).toBe(gain)
     expect(b.xp).toBe(gain)

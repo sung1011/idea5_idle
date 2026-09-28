@@ -71,7 +71,7 @@ describe('station worker cap', () => {
     beginEnemyCombat(save.encounters[0] as EnemyEncounter, [worker], 1_000)
     expect(assignWorker(save, worker.id, 'mining')).toEqual({ ok: false, reason: '正在战斗' })
     expect(worker.assignment).toBeNull()
-    expect(assignIdleWorker(save, 'mining')).toEqual({ ok: false, reason: '没有空闲工人' })
+    expect(assignIdleWorker(save, 'mining')).toEqual({ ok: false, reason: '没有空闲苦工' })
   })
 
   it('withdraws one station worker back to rest', () => {
@@ -84,7 +84,7 @@ describe('station worker cap', () => {
     expect(first.assignment).toBeNull()
     expect(second.assignment).toBe('alchemy')
     expect(save.workers.map((worker) => worker.id)).toEqual([second.id, first.id])
-    expect(withdrawWorker(save, 'herbalism')).toEqual({ ok: false, reason: '该站没有工人' })
+    expect(withdrawWorker(save, 'herbalism')).toEqual({ ok: false, reason: '该站没有苦工' })
   })
 
   it('blocks assignIdle when the station is full', () => {

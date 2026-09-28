@@ -88,7 +88,7 @@ export function firstEmptyDispatchStation(save: Save): StationId | null {
 /** 休息区队首派到第一空槽。未满血或不可派时本轮不看后面的人。 */
 export function assignRestingToFirstEmpty(save: Save): ActionResult {
   const idle = restingWorkers(save)[0]
-  if (!idle) return { ok: false, reason: '没有可派的工人' }
+  if (!idle) return { ok: false, reason: '没有可派的苦工' }
   if (!isFullWorkshopHp(idle)) return { ok: false, reason: '满血才能上岗' }
   if (isWorkerInCombat(save, idle.id)) return { ok: false, reason: '正在战斗' }
   const mineBusy = treasureMineBlockReason(save, idle.id)
@@ -115,12 +115,12 @@ export function toggleStationClosed(save: Save, stationId: StationId): ActionRes
 export function assignIdleWorker(save: Save, stationId: StationId): ActionResult {
   if (!isStationUnlocked(save, stationId)) return { ok: false, reason: stationLockedTip(stationId) }
   const idle = restingWorkers(save)[0]
-  if (!idle) return { ok: false, reason: '没有空闲工人' }
+  if (!idle) return { ok: false, reason: '没有空闲苦工' }
   return assignWorker(save, idle.id, stationId)
 }
 
 export function withdrawWorker(save: Save, stationId: StationId): ActionResult {
   const assigned = [...save.workers].reverse().find((w) => w.assignment === stationId)
-  if (!assigned) return { ok: false, reason: '该站没有工人' }
+  if (!assigned) return { ok: false, reason: '该站没有苦工' }
   return assignWorker(save, assigned.id, null)
 }

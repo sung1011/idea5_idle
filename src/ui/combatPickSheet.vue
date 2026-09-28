@@ -68,7 +68,7 @@ const runeSlotUnlocked = computed(() => isRuneSlotUnlocked(game.save))
 const runeOptions = computed(() => listRunePickOptions(game.save))
 const hint = computed(() => {
   const assist = props.showAssist ? '点邀请才加入 1 名临时助战。' : ''
-  return `列出休息工人；未达出战条件的灰显。出战不算派驻工坊。${assist}${copy.value.hintTail}`
+  return `列出休息苦工；未达出战条件的灰显。出战不算派驻工坊。${assist}${copy.value.hintTail}`
 })
 
 function recommend(worker: Worker): string | null {
@@ -184,7 +184,7 @@ function closeAll() {
             </button>
           </span>
         </li>
-        <li v-if="!candidates.length" class="hint">没有休息中的工人</li>
+        <li v-if="!candidates.length" class="hint">没有休息中的苦工</li>
       </ul>
       <div class="row">
         <span class="act-hit" @click="supplyBlocked && emit('supply-warn')">

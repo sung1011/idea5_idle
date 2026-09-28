@@ -20,7 +20,7 @@ export default defineConfig({
       manifest: {
         name: '骑士工坊',
         short_name: '工坊',
-        description: '抽工人、排流水线的生活挂机',
+        description: '抽苦工、排流水线的生活挂机',
         lang: 'zh-CN',
         dir: 'ltr',
         display: 'standalone',

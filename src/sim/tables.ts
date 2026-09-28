@@ -514,12 +514,12 @@ export const POTION_BATCH_RANGE: Readonly<Record<PotionItemId, PotionBatchRange>
 }
 
 export const POTION_EFFECT_TEXT: Readonly<Record<PotionItemId, string>> = {
-  stim: '在岗工人工作速度 ×1.5，持续 3 分钟',
-  salve: '在岗工人立刻回复 10% 最大生命',
-  renewSoup: '在岗存活工人每 10 秒回复 5% 最大生命，持续 2 分钟',
+  stim: '在岗苦工工作速度 ×1.5，持续 3 分钟',
+  salve: '在岗苦工立刻回复 10% 最大生命',
+  renewSoup: '在岗存活苦工每 10 秒回复 5% 最大生命，持续 2 分钟',
   brinkSalve: '在岗：生命 ≤30% 抬到 40% 最大生命，其余立刻回复 5%',
-  rushPowder: '随机一个有在岗工人的工位，下一次产出周期缩短 40%',
-  doubleMist: '随机一个有在岗工人的工位，下一批成功产出 80% 为 ×2、20% 为 ×3',
+  rushPowder: '随机一个有在岗苦工的工位，下一次产出周期缩短 40%',
+  doubleMist: '随机一个有在岗苦工的工位，下一批成功产出 80% 为 ×2、20% 为 ×3',
   clearMind: '只治疗在岗里受伤最重的 1～2 人：第 1 人回复 30% 最大生命，第 2 人回复 20% 最大生命',
 }
 
@@ -606,7 +606,7 @@ export const RUNE_DEF: Readonly<Record<RuneItemId, RuneDef>> = {
   runeBlood: {
     id: 'runeBlood',
     label: '血酬',
-    effect: '本场结束后该工人额外获得战斗经验（胜负都发）',
+    effect: '本场结束后该苦工额外获得战斗经验（胜负都发）',
     unlockLevel: 5,
     costs: [{ itemId: 'wildCrystal', qty: 2 }],
     batch: { min: 1, max: 2 },

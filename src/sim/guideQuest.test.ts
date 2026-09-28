@@ -63,7 +63,7 @@ describe('guideQuest normalize and hydrate', () => {
       phaseStep: 1,
       phaseTotal: 5,
       title: '工坊 · 1/5',
-      goal: '抽取工人 2 次',
+      goal: '抽取苦工 2 次',
       progress: 0,
       progressLabel: '进度 0/2',
       claimable: false,
@@ -245,7 +245,7 @@ describe('guideQuest steps and claim', () => {
     spawnWorker(save)
     spawnWorker(save)
     expect(fuseRestWorkers(save, save.workers[1].id, save.workers[2].id).ok).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('合成两名同品质工人')
+    expect(guideQuestView(save)?.goal).toBe('合成两名同品质苦工')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(4)
 

@@ -24,7 +24,7 @@ export function enemyPickCopy(mode: EnemyPickMode, max: number): {
 } {
   if (mode === 'loseReinforce') {
     return {
-      title: '选择增援工人',
+      title: '选择增援苦工',
       hintTail: '增援不消耗补给，敌方回满血重开本单。',
       confirm: '增援',
       costsSupply: false,
@@ -32,14 +32,14 @@ export function enemyPickCopy(mode: EnemyPickMode, max: number): {
   }
   if (mode === 'reinforce') {
     return {
-      title: '选择增援工人',
+      title: '选择增援苦工',
       hintTail: '增援不消耗补给。',
       confirm: '增援',
       costsSupply: false,
     }
   }
   return {
-    title: '选择出战工人',
+    title: '选择出战苦工',
     hintTail: `1～${max} 人即可，不必凑满。`,
     confirm: '开战',
     costsSupply: true,

@@ -65,7 +65,7 @@ function progressOf(plot: HerbPlot): number {
 
 function workerName(id: string | null): string {
   if (!id) return ''
-  return game.save.workers.find((worker) => worker.id === id)?.name ?? '工人'
+  return game.save.workers.find((worker) => worker.id === id)?.name ?? '苦工'
 }
 
 function rowKey(row: { id: string; rank: number }): string {
@@ -93,7 +93,7 @@ function rowKey(row: { id: string; rank: number }): string {
         4格 {{ hud.probe4 }}
       </button>
     </div>
-    <p class="hint">{{ probe ? '点一块未除的地使用侦测' : '点杂草，派满血工人除草' }}</p>
+    <p class="hint">{{ probe ? '点一块未除的地使用侦测' : '点杂草，派满血苦工除草' }}</p>
     <div class="grid" role="grid" aria-label="割草地图">
       <button
         v-for="plot in plots"
@@ -118,12 +118,12 @@ function rowKey(row: { id: string; rank: number }): string {
       </li>
     </ol>
     <div v-if="pickIndex != null" class="mask" @click.self="pickIndex = null">
-      <div class="sheet" role="dialog" aria-label="派工人除草">
+      <div class="sheet" role="dialog" aria-label="派苦工除草">
         <h3>派去这块地</h3>
         <button v-for="worker in candidates" :key="worker.id" type="button" @click="dispatch(worker.id)">
           {{ worker.name ?? worker.id }}
         </button>
-        <p v-if="!candidates.length">休息区没有满血工人</p>
+        <p v-if="!candidates.length">休息区没有满血苦工</p>
         <button type="button" class="ghost" @click="pickIndex = null">关闭</button>
       </div>
     </div>

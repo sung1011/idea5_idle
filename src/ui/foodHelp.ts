@@ -7,7 +7,7 @@ export const REST_FOOD_HELP_TITLE = '休息区伙食'
 export const REST_FOOD_HELP_ROWS: ModeHelpRow[] = [
   {
     label: '怎么玩',
-    text: '休息区共用一份伙食。残血工人进入休息时，自动吃 1 份当前选中的食物。',
+    text: '休息区共用一份伙食。残血苦工进入休息时，自动吃 1 份当前选中的食物。',
   },
   {
     label: '规则要点',

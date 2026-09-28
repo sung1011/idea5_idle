@@ -74,9 +74,9 @@ onUnmounted(() => {
           <li>已运行 {{ clock }}</li>
           <li>探索 {{ game.save.exploreCount }} 次</li>
           <li>出发 {{ game.save.departCount }} 次</li>
-          <li>抽工人 {{ recruited }}</li>
+          <li>抽苦工 {{ recruited }}</li>
           <li>骑士等级 {{ game.save.knightLevel }}</li>
-          <li>当前工人 {{ game.save.workers.length }}</li>
+          <li>当前苦工 {{ game.save.workers.length }}</li>
           <li>离线 {{ game.save.offlineCount }} 次</li>
         </ul>
       </div>
@@ -104,8 +104,8 @@ onUnmounted(() => {
           <button type="button" @click="game.gmSkipGuide()">跳过引导</button>
           <button type="button" @click="game.gmAddGold()">加金币 1w</button>
           <button type="button" @click="game.gmAddDiamonds()">加钻石 1w</button>
-          <button type="button" @click="game.gmAddWorkers()">加工人×5</button>
-          <button type="button" @click="game.gmAddMaxQualityWorker()">满品质工人</button>
+          <button type="button" @click="game.gmAddWorkers()">加苦工×5</button>
+          <button type="button" @click="game.gmAddMaxQualityWorker()">满品质苦工</button>
           <button type="button" @click="game.gmMaxStations()">站点全满级</button>
           <button type="button" @click="game.gmFillBankBasics()">加基础物资</button>
           <button type="button" @click="game.gmAddTechPoints()">加灵感 1万</button>

@@ -54,10 +54,10 @@ describe('hud resource chips', () => {
     const diamonds = hudChipDetail(save, 'diamonds')
     expect(diamonds.name).toBe('钻石')
     expect(diamonds.source).toMatch(/150|订单/)
-    expect(diamonds.usage).toMatch(/抽工/)
+    expect(diamonds.usage).toMatch(/抽苦工/)
 
     const workers = hudChipDetail(save, 'workers')
-    expect(workers.name).toBe('工人')
+    expect(workers.name).toBe('苦工')
     expect(workers.source).toMatch(/钻石/)
     expect(workers.usage).toMatch(/派驻/)
     expect(workers.usage).toMatch(/出战|战斗/)

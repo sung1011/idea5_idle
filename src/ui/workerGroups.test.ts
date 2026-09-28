@@ -277,7 +277,7 @@ describe('assign resting to first empty slot', () => {
     const empty = createSave()
     expect(firstEmptyDispatchStation(empty)).toBe('herbalism')
     expect(canDispatchRestingWorker(empty)).toBe(false)
-    expect(assignRestingToFirstEmpty(empty)).toEqual({ ok: false, reason: '没有可派的工人' })
+    expect(assignRestingToFirstEmpty(empty)).toEqual({ ok: false, reason: '没有可派的苦工' })
 
     const save = createSave()
     const fighter = spawnWorkerWith(save, 1, 'wanderer')
@@ -297,7 +297,7 @@ describe('assign resting to first empty slot', () => {
     }
     save.encounters[0] = enc
     beginEnemyCombat(enc, [fighter], 1_000)
-    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '没有可派的工人' })
+    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '没有可派的苦工' })
 
     const full = createSave()
     for (const stationId of DISPATCH_STATION_IDS) {
@@ -353,7 +353,7 @@ describe('withdraw workshop to rest', () => {
     const empty = createSave()
     expect(lastOccupiedDispatchStation(empty)).toBeNull()
     expect(canWithdrawWorkshopWorker(empty)).toBe(false)
-    expect(withdrawWorkshopToRest(empty)).toEqual({ ok: false, reason: '没有可撤的工人' })
+    expect(withdrawWorkshopToRest(empty)).toEqual({ ok: false, reason: '没有可撤的苦工' })
 
     const save = createSave()
     const fighter = spawnWorkerWith(save, 1, 'wanderer')
@@ -374,7 +374,7 @@ describe('withdraw workshop to rest', () => {
     save.encounters[0] = enc
     beginEnemyCombat(enc, [fighter], 1_000)
     expect(canWithdrawWorkshopWorker(save)).toBe(false)
-    expect(withdrawWorkshopToRest(save)).toEqual({ ok: false, reason: '没有可撤的工人' })
+    expect(withdrawWorkshopToRest(save)).toEqual({ ok: false, reason: '没有可撤的苦工' })
     expect(fighter.assignment).toBeNull()
   })
 
@@ -396,7 +396,7 @@ describe('withdraw workshop to rest', () => {
     expect(withdrawWorkshopToRest(save)).toEqual({ ok: true })
     expect(herb.assignment).toBeNull()
     expect(lastOccupiedDispatchStation(save)).toBeNull()
-    expect(withdrawWorkshopToRest(save)).toEqual({ ok: false, reason: '没有可撤的工人' })
+    expect(withdrawWorkshopToRest(save)).toEqual({ ok: false, reason: '没有可撤的苦工' })
     expect(canWithdrawWorkshopWorker(save)).toBe(false)
   })
 

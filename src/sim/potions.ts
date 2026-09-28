@@ -38,8 +38,8 @@ import { POTION_SLOT_COUNT } from './types'
 export { POTION_SLOT_COUNT }
 export { installPotionSlot, unequipPotionSlot } from './potionSlots'
 
-export const POTION_NO_DUTY_TIP = '没有在岗工人可用药'
-export const POTION_FULL_HP_TIP = '在岗工人已满血'
+export const POTION_NO_DUTY_TIP = '没有在岗苦工可用药'
+export const POTION_FULL_HP_TIP = '在岗苦工已满血'
 
 function isAssistLike(worker: Pick<Worker, 'id' | 'guest'>): boolean {
   return worker.guest === true || worker.id.startsWith('assist-')
@@ -231,7 +231,7 @@ function applyPotionEffect(save: Save, itemId: PotionItemId): string {
   const t = save.elapsedS
   if (itemId === 'stim') {
     buffs.stimUntil = t + STIM_DURATION_S
-    return '在岗工人工作效率 ×1.5，持续 3 分钟'
+    return '在岗苦工工作效率 ×1.5，持续 3 分钟'
   }
   if (itemId === 'salve') {
     const healed = healDuty(save, (worker) => healAmount(worker.hpMax, SALVE_HEAL_RATIO))

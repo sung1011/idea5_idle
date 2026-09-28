@@ -169,7 +169,7 @@ export function loadFood(save: Save, workerId: string, itemId: ItemId, qty: numb
   const copies = Math.floor(qty)
   if (copies < 1) return { ok: false, reason: '数量无效' }
   const worker = findWorker(save, workerId)
-  if (!worker) return { ok: false, reason: '没有这个工人' }
+  if (!worker) return { ok: false, reason: '没有这个苦工' }
   clearWorkerNew(save, workerId)
   if (bankQty(save, itemId) < copies) return { ok: false, reason: `${ITEM_DEF[itemId].label}见底` }
 
@@ -195,7 +195,7 @@ export function loadFood(save: Save, workerId: string, itemId: ItemId, qty: numb
 
 export function unloadFood(save: Save, workerId: string): ActionResult {
   const worker = findWorker(save, workerId)
-  if (!worker) return { ok: false, reason: '没有这个工人' }
+  if (!worker) return { ok: false, reason: '没有这个苦工' }
   clearWorkerNew(save, workerId)
   if (!worker.foodSlot) return { ok: false, reason: '没有装食物' }
   returnLeftover(save, worker.foodSlot)
@@ -230,7 +230,7 @@ function canEatSlot(slot: NonNullable<Worker['foodSlot']>): boolean {
 /** 槽内再吃 1 份：扣 qty，按当前食物重计 Buff，并按食物回血。 */
 export function eatFood(save: Save, workerId: string, now = Date.now()): ActionResult {
   const worker = findWorker(save, workerId)
-  if (!worker) return { ok: false, reason: '没有这个工人' }
+  if (!worker) return { ok: false, reason: '没有这个苦工' }
   const slot = worker.foodSlot
   if (!slot) return { ok: false, reason: '没有装食物' }
   if (!canEatSlot(slot)) return { ok: false, reason: '没有余粮' }

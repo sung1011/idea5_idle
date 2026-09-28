@@ -85,13 +85,13 @@ export function dungeonAffixEffect(id: DungeonAffixId, scope: CombatAffixScope =
     case 'ironShield':
       return `每个阶段破防盾 +${DUNGEON_AFFIX_FX.ironShieldBonus}。开战写入，持续整场。只作用于本单。`
     case 'jagged':
-      return `本单 Boss 每次打中场上工人额外造成 ${DUNGEON_AFFIX_FX.jaggedExtra} 点伤害。不波及工坊站。只作用于本单。`
+      return `本单 Boss 每次打中场上苦工额外造成 ${DUNGEON_AFFIX_FX.jaggedExtra} 点伤害。不波及工坊站。只作用于本单。`
     case 'richVein':
       return `领取本单宝箱时，该单货币 ×${DUNGEON_AFFIX_FX.richVeinDiamondMul}（四舍五入）。钻单抬钻石，金单抬金币。`
     case 'shortStun':
       return `破防硬直 ${DUNGEON_STUN_S + DUNGEON_AFFIX_FX.shortStunDelta}s（基准 ${DUNGEON_STUN_S}s ${DUNGEON_AFFIX_FX.shortStunDelta}s）。只作用于本单。`
     case 'workshopRage':
-      return `本单 Boss 打中工坊在岗工人的伤害 ×${DUNGEON_AFFIX_FX.workshopRageMul}。不改变对场上工人的伤害。`
+      return `本单 Boss 打中工坊在岗苦工的伤害 ×${DUNGEON_AFFIX_FX.workshopRageMul}。不改变对场上苦工的伤害。`
     case 'slowReinforce':
       return `增援入场后延迟 ${DUNGEON_AFFIX_FX.reinforceDelayMs / 1000}s 才能出手。开战首发不受影响。只作用于本单。`
     case 'dullEdge':
@@ -110,13 +110,13 @@ export function battlefieldAffixEffect(id: DungeonAffixId): string {
     case 'ironShield':
       return `破防盾 +${DUNGEON_AFFIX_FX.ironShieldBonus}。开战写入，持续整场。`
     case 'jagged':
-      return `该敌每次打中场上工人额外造成 ${DUNGEON_AFFIX_FX.jaggedExtra} 点伤害。不波及工坊站。`
+      return `该敌每次打中场上苦工额外造成 ${DUNGEON_AFFIX_FX.jaggedExtra} 点伤害。不波及工坊站。`
     case 'richVein':
       return `领取战利品时金币或钻石 ×${DUNGEON_AFFIX_FX.richVeinDiamondMul}（四舍五入）。只作用于本单。`
     case 'shortStun':
       return `破防硬直 ${DUNGEON_AFFIX_FX.shortStunDelta}s。只作用于本单。`
     case 'workshopRage':
-      return `该敌打中工坊在岗工人的伤害 ×${DUNGEON_AFFIX_FX.workshopRageMul}。不改变对场上工人的伤害。`
+      return `该敌打中工坊在岗苦工的伤害 ×${DUNGEON_AFFIX_FX.workshopRageMul}。不改变对场上苦工的伤害。`
     case 'slowReinforce':
       return `增援入场后延迟 ${DUNGEON_AFFIX_FX.reinforceDelayMs / 1000}s 才能出手。开战首发不受影响。`
     case 'dullEdge':
@@ -196,7 +196,7 @@ export const DUNGEON_AFFIX_DEFS: Readonly<Record<DungeonAffixId, { label: string
   quickened: { label: '迅捷', tip: '地牢 Boss 出手更快', effect: dungeonAffixEffect('quickened') },
   heavyHands: { label: '重击', tip: '地牢 Boss 伤害更高', effect: dungeonAffixEffect('heavyHands') },
   ironShield: { label: '铁盾', tip: '每阶段盾数 +2', effect: dungeonAffixEffect('ironShield') },
-  jagged: { label: '尖刺', tip: '工人挨打额外受伤', effect: dungeonAffixEffect('jagged') },
+  jagged: { label: '尖刺', tip: '苦工挨打额外受伤', effect: dungeonAffixEffect('jagged') },
   richVein: { label: '富矿', tip: '本单货币更多', effect: dungeonAffixEffect('richVein') },
   shortStun: { label: '急醒', tip: '破防硬直更短', effect: dungeonAffixEffect('shortStun') },
   workshopRage: { label: '砸场强化', tip: '工坊波及更疼', effect: dungeonAffixEffect('workshopRage') },

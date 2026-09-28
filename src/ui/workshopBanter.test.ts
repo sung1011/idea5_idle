@@ -247,7 +247,7 @@ describe('workshop banter bubbles', () => {
     const save = createSave()
     save.workers.push(onDuty('a', 'cooking'))
     greetWorkshopBanter(save, () => {
-      throw new Error('不在工人页，不应掷骰')
+      throw new Error('不在苦工页，不应掷骰')
     })
     expect(workshopBanterBubble('cooking')).toBeNull()
     expect(workshopBanterText('a')).toBe('')
@@ -286,7 +286,7 @@ describe('workshop banter bubbles', () => {
     resetWorkshopBanterForTests()
     appTab.value = 'tech'
     offerActionBanter(save, 'assign', { workerId: 'a', stationId: 'cooking' }, () => {
-      throw new Error('不在工人页，不应掷骰')
+      throw new Error('不在苦工页，不应掷骰')
     })
     expect(workshopBanterBubble('cooking')).toBeNull()
     appTab.value = 'workshop'

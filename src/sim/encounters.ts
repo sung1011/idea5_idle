@@ -1834,7 +1834,7 @@ export function startCombat(
   const party = workerIds
     .map((id) => findCombatPartyWorker(save, id, guests))
     .filter((w): w is Worker => !!w)
-  if (!party.length) return { ok: false, reason: '请选择出战工人' }
+  if (!party.length) return { ok: false, reason: '请选择出战苦工' }
   if (!suppliesAlreadyTaken(enc)) {
     const took = takeCosts(save, needMapToRules(combatSupplyNeeds(save, enc)))
     if (!took.ok) return took
@@ -1873,7 +1873,7 @@ export function reinforceCombat(
   const party = workerIds
     .map((id) => findCombatPartyWorker(save, id, guests))
     .filter((w): w is Worker => !!w)
-  if (!party.length) return { ok: false, reason: '请选择出战工人' }
+  if (!party.length) return { ok: false, reason: '请选择出战苦工' }
   const consumed = consumeRunePicks(save, runePicks)
   if (!consumed.ok) return consumed
   clearWorkersNew(
@@ -1917,7 +1917,7 @@ export function reinforceLostCombat(
   const party = workerIds
     .map((id) => findCombatPartyWorker(save, id, guests))
     .filter((w): w is Worker => !!w)
-  if (!party.length) return { ok: false, reason: '请选择出战工人' }
+  if (!party.length) return { ok: false, reason: '请选择出战苦工' }
   const consumed = consumeRunePicks(save, runePicks)
   if (!consumed.ok) return consumed
   clearWorkersNew(
@@ -1936,7 +1936,7 @@ export function reinforceLostCombat(
 /** @deprecated 改走 startCombat。无工人时只报「请选择出战工人」。 */
 export function departEncounter(save: Save, index: number, now = Date.now()): ActionResult {
   const idle = selectableCombatWorkers(save).slice(0, COMBAT_PARTY_MAX).map((w) => w.id)
-  if (!idle.length) return { ok: false, reason: startCombatBlockReason(save, index, []) ?? '请选择出战工人' }
+  if (!idle.length) return { ok: false, reason: startCombatBlockReason(save, index, []) ?? '请选择出战苦工' }
   return startCombat(save, index, idle, now)
 }
 
@@ -1976,7 +1976,7 @@ function grantCombatLootXp(save: Save, enc: EnemyEncounter): boolean {
 }
 
 function lootClaimMessage(payout: CurrencyPayout, grantedXp: boolean, chapterNote?: string): string {
-  const xpNote = grantedXp ? '。工人获得经验' : ''
+  const xpNote = grantedXp ? '。苦工获得经验' : ''
   const tail = chapterNote ? `。${chapterNote}` : ''
   const gain = currencyGainText(payout) || '金币 +0'
   return `战利品：${gain}${xpNote}${tail}`

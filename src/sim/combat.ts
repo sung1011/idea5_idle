@@ -390,8 +390,8 @@ export function combatReturnBlockReason(enc: EnemyEncounter): string | null {
   const combat = enc.combat
   if (!combat) return null
   const phase = combatPhaseOf(combat)
-  if (phase === 'marchHomeWin' || phase === 'marchHomeLose') return '工人尚未归来'
-  if (combat.outcome && (combat.returning?.length ?? 0) > 0) return '工人尚未归来'
+  if (phase === 'marchHomeWin' || phase === 'marchHomeLose') return '苦工尚未归来'
+  if (combat.outcome && (combat.returning?.length ?? 0) > 0) return '苦工尚未归来'
   return null
 }
 
@@ -425,7 +425,7 @@ export function combatPartyBlockReason(
   guests: readonly Worker[] = [],
   maxParty = COMBAT_PARTY_MAX,
 ): string | null {
-  if (!workerIds.length) return '请选择出战工人'
+  if (!workerIds.length) return '请选择出战苦工'
   if (workerIds.length > maxParty) return `最多选 ${maxParty} 人`
   const seen = new Set<string>()
   const busy = fightingWorkerIds(save)
@@ -434,7 +434,7 @@ export function combatPartyBlockReason(
     seen.add(id)
     const roster = save.workers.find((w) => w.id === id && w.guest !== true && !w.id.startsWith('assist-'))
     const worker = roster ?? guests.find((w) => w.id === id && (w.guest === true || w.id.startsWith('assist-')))
-    if (!worker) return '没有这个工人'
+    if (!worker) return '没有这个苦工'
     if (worker.assignment !== null) return `${worker.name ?? worker.id} 不在休息`
     const mineBusy = treasureMineBlockReason(save, id)
     if (mineBusy) return `${worker.name ?? worker.id} ${mineBusy}`

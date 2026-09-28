@@ -264,6 +264,6 @@ export function canWithdrawWorkshopWorker(save: Save): boolean {
 /** 在岗一人撤回休息。沿用 withdrawWorker / assignWorker。 */
 export function withdrawWorkshopToRest(save: Save): ActionResult {
   const stationId = lastOccupiedDispatchStation(save)
-  if (!stationId) return { ok: false, reason: '没有可撤的工人' }
+  if (!stationId) return { ok: false, reason: '没有可撤的苦工' }
   return withdrawWorker(save, stationId)
 }

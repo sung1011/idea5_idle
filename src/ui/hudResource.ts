@@ -51,10 +51,10 @@ const CORE_COPY: Record<HudResourceId, { name: string; source: string; usage: st
   diamonds: {
     name: '钻石',
     source: '新档自带 150；主线战场与商场部分订单掉落。',
-    usage: '抽工人。',
+    usage: '抽苦工。',
   },
   workers: {
-    name: '工人',
+    name: '苦工',
     source: '花钻石抽人获得；同档两人可合成升一档。',
     usage: '派驻工坊生产，或出战主线敌人。',
   },
@@ -128,7 +128,7 @@ export function itemHudUsage(itemId: ItemId): string {
   )
   const extras: string[] = []
   if (isFoodItemId(itemId)) extras.push('休息区伙食，残血入休息回血')
-  if (isPotionItemId(itemId) || itemId === 'potion') extras.push('工人页药剂槽短按使用')
+  if (isPotionItemId(itemId) || itemId === 'potion') extras.push('苦工页药剂槽短按使用')
   if (itemId === 'anyPotion') extras.push('主线订单通配：扣库存最多的一种药剂')
   if (isRuneItemId(itemId)) extras.push('开战选人一槽装备，本场消耗')
   if (itemId === 'anyRune') extras.push('主线订单通配：扣库存最多的一种符文')

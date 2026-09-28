@@ -718,7 +718,7 @@ export function claimTreasureMine(save: Save, mineId: string, workerIds: readonl
   if (!mine) return { ok: false, reason: '没有这个矿洞' }
   if (mine.owner === 'player') return { ok: false, reason: '这洞不能补采' }
   if (mine.owner !== 'empty') return { ok: false, reason: '这洞现在不能开采' }
-  if (!workerIds.length) return { ok: false, reason: '请选择开采工人' }
+  if (!workerIds.length) return { ok: false, reason: '请选择开采苦工' }
   const cap = treasureCrewCap(save)
   if (workerIds.length > cap) return { ok: false, reason: `这洞最多 ${cap} 人` }
   const seen = new Set<string>()
@@ -727,8 +727,8 @@ export function claimTreasureMine(save: Save, mineId: string, workerIds: readonl
     if (seen.has(id)) return { ok: false, reason: '不能重复选同一个人' }
     seen.add(id)
     const worker = save.workers.find((row) => row.id === id)
-    if (!worker) return { ok: false, reason: '没有这个工人' }
-    if (worker.assignment != null) return { ok: false, reason: '工人不在休息区' }
+    if (!worker) return { ok: false, reason: '没有这个苦工' }
+    if (worker.assignment != null) return { ok: false, reason: '苦工不在休息区' }
     const busy = treasureMineBlockReason(save, id)
     if (busy) return { ok: false, reason: busy }
     party.push(worker)
@@ -821,7 +821,7 @@ export function startTreasureRaid(
   if (isTreasureRaidLocked(mine)) return { ok: false, reason: '这洞抢夺进行中' }
   if (mine.owner === 'empty' || !mine.shadows.length) return { ok: false, reason: '洞里没有守军' }
   if (mine.owner !== 'shadow') return { ok: false, reason: '这洞现在不能抢' }
-  if (!workerIds.length) return { ok: false, reason: '请选择抢夺工人' }
+  if (!workerIds.length) return { ok: false, reason: '请选择抢夺苦工' }
   if (workerIds.length > TREASURE_RAID_CAP) return { ok: false, reason: '抢夺最多 3 人' }
   const seen = new Set<string>()
   const party: Worker[] = []
@@ -829,7 +829,7 @@ export function startTreasureRaid(
     if (seen.has(id)) return { ok: false, reason: '不能重复选同一个人' }
     seen.add(id)
     const worker = save.workers.find((row) => row.id === id)
-    if (!worker) return { ok: false, reason: '没有这个工人' }
+    if (!worker) return { ok: false, reason: '没有这个苦工' }
     if (worker.assignment != null) return { ok: false, reason: `${worker.name ?? worker.id} 不在休息区` }
     const busy = treasureMineBlockReason(save, id)
     if (busy) return { ok: false, reason: `${worker.name ?? worker.id} ${busy}` }
@@ -873,11 +873,11 @@ export function reinforceTreasureRaid(save: Save, mineId: string, workerId: stri
     return { ok: false, reason: '抢夺最多 3 人' }
   }
   const worker = save.workers.find((row) => row.id === workerId)
-  if (!worker) return { ok: false, reason: '没有这个工人' }
-  if (worker.assignment != null) return { ok: false, reason: '工人不在休息区' }
+  if (!worker) return { ok: false, reason: '没有这个苦工' }
+  if (worker.assignment != null) return { ok: false, reason: '苦工不在休息区' }
   const busy = treasureMineBlockReason(save, worker.id)
   if (busy) return { ok: false, reason: busy }
-  if (!isFullCombatHp(worker)) return { ok: false, reason: '没有满血工人' }
+  if (!isFullCombatHp(worker)) return { ok: false, reason: '没有满血苦工' }
   if (vaultQty(save, 'jewel') < TREASURE_REINFORCE_COST) {
     return { ok: false, reason: jewelShortTip(TREASURE_REINFORCE_COST, vaultQty(save, 'jewel')) }
   }

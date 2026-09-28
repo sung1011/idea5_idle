@@ -60,7 +60,7 @@ export function hydrateFuseDragTip(save: Save): void {
 }
 
 function fusePairReady(a: Worker | undefined, b: Worker | undefined): ActionResult | null {
-  if (!a || !b) return { ok: false, reason: '没有这个工人' }
+  if (!a || !b) return { ok: false, reason: '没有这个苦工' }
   if (a.id === b.id) return { ok: false, reason: '不能合成同一个人' }
   if (a.qualityTier !== b.qualityTier) return { ok: false, reason: '品质不同，不能合成' }
   if (a.qualityTier >= QUALITY_MAX) return { ok: false, reason: '已是最高品质' }
@@ -69,12 +69,12 @@ function fusePairReady(a: Worker | undefined, b: Worker | undefined): ActionResu
 
 /** 同站同档两人合成：消耗两人，产出 1 个高一档新人（留在原站、空槽）。满档 / 不同档 / 不同站失败。 */
 export function fuseWorkers(save: Save, workerIdA: string, workerIdB: string): ActionResult {
-  if (!workerIdA || !workerIdB) return { ok: false, reason: '请选两个同品质工人' }
+  if (!workerIdA || !workerIdB) return { ok: false, reason: '请选两个同品质苦工' }
   if (workerIdA === workerIdB) return { ok: false, reason: '不能合成同一个人' }
   const a = findWorker(save, workerIdA)
   const b = findWorker(save, workerIdB)
   const ready = fusePairReady(a, b)
-  if (ready || !a || !b) return ready ?? { ok: false, reason: '没有这个工人' }
+  if (ready || !a || !b) return ready ?? { ok: false, reason: '没有这个苦工' }
   if (!a.assignment || a.assignment !== b.assignment) {
     return { ok: false, reason: '只能合并同一工坊的两人' }
   }
@@ -95,11 +95,11 @@ export function canFuseRestWorkers(save: Save, workerIdA: string, workerIdB: str
 
 /** 休息区同档合成，或在岗拖到休息区同档人。新人回休息，不留在工位。 */
 export function fuseRestWorkers(save: Save, workerIdA: string, workerIdB: string): ActionResult {
-  if (!workerIdA || !workerIdB) return { ok: false, reason: '请选两个同品质工人' }
+  if (!workerIdA || !workerIdB) return { ok: false, reason: '请选两个同品质苦工' }
   const a = findWorker(save, workerIdA)
   const b = findWorker(save, workerIdB)
   const ready = fusePairReady(a, b)
-  if (ready || !a || !b) return ready ?? { ok: false, reason: '没有这个工人' }
+  if (ready || !a || !b) return ready ?? { ok: false, reason: '没有这个苦工' }
   if (isWorkerInHerbPvp(save, a.id) || isWorkerInHerbPvp(save, b.id)) return { ok: false, reason: '正在割草' }
   if (a.assignment != null && b.assignment != null) return { ok: false, reason: '只能在休息区合成' }
   return fusePairAt(save, a, b, null)
@@ -126,11 +126,11 @@ export function fuseWorkerOntoOccupant(
   stationId: StationId,
 ): ActionResult {
   if (!isStationId(stationId)) return { ok: false, reason: '没有这个站点' }
-  if (!sourceId || !occupantId) return { ok: false, reason: '请选两个同品质工人' }
+  if (!sourceId || !occupantId) return { ok: false, reason: '请选两个同品质苦工' }
   const source = findWorker(save, sourceId)
   const occupant = findWorker(save, occupantId)
   const ready = fusePairReady(source, occupant)
-  if (ready || !source || !occupant) return ready ?? { ok: false, reason: '没有这个工人' }
+  if (ready || !source || !occupant) return ready ?? { ok: false, reason: '没有这个苦工' }
   if (occupant.assignment !== stationId) return { ok: false, reason: '只能合并同一工坊的两人' }
   return fusePairAt(save, source, occupant, stationId)
 }
@@ -175,7 +175,7 @@ export function fuseStationWorkers(save: Save, stationId: StationId): ActionResu
 /** 派驻弹层入口：人未在目标站则先派驻，再走 fuseStationWorkers。不可合成时不派驻。 */
 export function fuseWorkerWithStation(save: Save, workerId: string, stationId: StationId): ActionResult {
   const worker = findWorker(save, workerId)
-  if (!worker) return { ok: false, reason: '没有这个工人' }
+  if (!worker) return { ok: false, reason: '没有这个苦工' }
   if (!canFuseWorkerWithStation(save, workerId, stationId)) {
     if (worker.assignment === stationId) return fuseStationWorkers(save, stationId)
     if (!isStationId(stationId)) return { ok: false, reason: '没有这个站点' }

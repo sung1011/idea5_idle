@@ -196,7 +196,7 @@ describe('start combat party', () => {
     expect(combatPartyBlockReason(save, [c.id])).toContain('未满血')
     expect(combatPartyBlockReason(save, [d.id])).toContain('未满血')
     expect(combatPartyBlockReason(save, [e.id])).toContain('未满血')
-    expect(combatPartyBlockReason(save, [])).toBe('请选择出战工人')
+    expect(combatPartyBlockReason(save, [])).toBe('请选择出战苦工')
     expect(combatPartyBlockReason(save, [a.id, a.id])).toContain('重复')
     expect(combatPartyBlockReason(save, [a.id, c.id, d.id, e.id])).toContain(`最多选 ${COMBAT_PARTY_MAX}`)
 

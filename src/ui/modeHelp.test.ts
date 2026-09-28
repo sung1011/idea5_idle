@@ -16,7 +16,7 @@ describe('mode help', () => {
     expect(treasure).toContain('行军')
     expect(treasure).not.toContain('出征')
     expect(treasure).toContain('保留战斗中与我方开采')
-    expect(treasure).not.toContain('我方开采工人回休息')
+    expect(treasure).not.toContain('我方开采苦工回休息')
     expect(treasure).toContain('开采不装符文')
     expect(treasure).toContain('抢夺可以装')
     expect(treasure).not.toContain('快照')

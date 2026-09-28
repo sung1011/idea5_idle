@@ -126,7 +126,7 @@ const pickSlotOffset = computed(() => {
   if (pickKind.value === 'mine') return activeMine.value?.crewIds.length ?? 0
   return 0
 })
-const pickTitle = computed(() => (pickKind.value === 'reinforce' ? '选择增援工人' : ''))
+const pickTitle = computed(() => (pickKind.value === 'reinforce' ? '选择增援苦工' : ''))
 const pickConfirm = computed(() => (pickKind.value === 'reinforce' ? '增援' : ''))
 const slotSheet = ref<SlotSheet | null>(null)
 
@@ -181,7 +181,7 @@ function assaultWho(mine: TreasureMine): string {
 function reinforceBlock(mine: TreasureMine): string | null {
   const jewel = jewelBlock(TREASURE_REINFORCE_COST)
   if (jewel) return jewel
-  if (fullIdle.value.length === 0) return '没有满血工人'
+  if (fullIdle.value.length === 0) return '没有满血苦工'
   if ((mine.raid?.queue.length ?? 0) >= TREASURE_RAID_CAP) return '抢夺最多 3 人'
   return null
 }
