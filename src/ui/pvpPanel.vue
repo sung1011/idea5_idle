@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { treasureAssaultWarning } from '../sim/treasureMine'
 import ModeHelpSheet from './modeHelpSheet.vue'
 import { modeHelpOf } from './modeHelp'
 import TreasureArmoryPanel from './treasureArmoryPanel.vue'
 import TreasureBannerPanel from './treasureBannerPanel.vue'
 import TreasureMinePanel from './treasureMinePanel.vue'
+import { useGameStore } from './gameStore'
 
 const PVP_TABS = [
   { id: 'treasure', label: '夺宝' },
@@ -14,6 +16,8 @@ const PVP_TABS = [
 
 type PvpTabId = (typeof PVP_TABS)[number]['id']
 
+const game = useGameStore()
+const assaultAlert = computed(() => treasureAssaultWarning(game.save))
 const tab = ref<PvpTabId>('treasure')
 const helpOpen = ref(false)
 const treasureHelp = modeHelpOf('treasure')
@@ -37,10 +41,11 @@ const help = computed(() => {
           type="button"
           role="tab"
           :aria-selected="tab === item.id"
-          :class="{ on: tab === item.id }"
+          :class="{ on: tab === item.id, alert: item.id === 'treasure' && assaultAlert }"
           @click="tab = item.id"
         >
           {{ item.label }}
+          <i v-if="item.id === 'treasure' && assaultAlert" class="tab-dot" />
         </button>
       </nav>
       <button type="button" class="mode-help" aria-label="玩法说明" @click="helpOpen = true">？</button>
@@ -89,6 +94,7 @@ const help = computed(() => {
 }
 
 .sub button {
+  position: relative;
   flex: 1 1 0;
   min-height: 32px;
   padding: 4px 10px;
@@ -111,6 +117,17 @@ const help = computed(() => {
   box-shadow: 0 2px 6px rgba(212, 160, 23, 0.32);
   opacity: 1;
   filter: none;
+}
+
+.tab-dot {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 2px #fff8df;
 }
 
 .mode-help {

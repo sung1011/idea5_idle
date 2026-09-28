@@ -41,6 +41,7 @@ import {
   addTreasureMiner,
   buyTreasureRune,
   claimTreasureMine,
+  fortifyTreasureMine,
   refreshTreasureMineBoard,
   reinforceTreasureRaid,
   scoutTreasureMine,
@@ -316,6 +317,7 @@ export const useGameStore = defineStore('game', () => {
     claimTreasureMine: (mineId: string, workerIds: string[]) =>
       apply((s) => claimTreasureMine(s, mineId, workerIds)),
     abandonTreasureMine: (mineId: string) => apply((s) => abandonTreasureMine(s, mineId)),
+    fortifyTreasureMine: (mineId: string) => apply((s) => fortifyTreasureMine(s, mineId)),
     refreshTreasureMines: (pay: TreasureRefreshPay = 'diamonds') =>
       apply((s) => refreshTreasureMineBoard(s, pay)),
     setPlayerProfile: (name: string, avatarId: string) => apply((s) => applyPlayerProfile(s, name, avatarId)),

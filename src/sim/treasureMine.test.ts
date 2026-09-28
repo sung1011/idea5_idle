@@ -27,14 +27,24 @@ import {
   TREASURE_REFRESH_COST,
   TREASURE_REFRESH_SAND_COST,
   TREASURE_SCOUT_COST,
+  TREASURE_ASSAULT_INTERVAL_S,
+  TREASURE_ASSAULT_LOOT,
+  TREASURE_ASSAULT_WARN_S,
   TREASURE_FILL_COST,
+  TREASURE_FORTIFY_COST,
+  TREASURE_FORTIFY_HP_MUL,
   TREASURE_REINFORCE_COST,
   TREASURE_RUNE_COST,
   TREASURE_BANNER_COSTS,
   TREASURE_BANNER_MAX,
   TREASURE_STAKE_PER_GUARD,
+  assaultCrewCount,
+  assaultHits,
+  assaultLootTip,
   bannerFrameOf,
   bannerLevelOf,
+  fortifyTreasureMine,
+  treasureAssaultWarning,
   bannerReserveMax,
   buyTreasureRune,
   jadeShortTip,
@@ -63,6 +73,7 @@ import {
   stepTreasureMines,
 } from './treasureMine'
 import { treasureMineBlockReason } from './treasureMineQuery'
+import { raidSlotPress, treasureRaidHud } from '../ui/treasureRaidHud'
 import { applyTick } from './tick'
 import { marchDurationS } from './tech'
 import { settleOffline } from './offline'
@@ -1549,5 +1560,356 @@ describe('treasure jade banner', () => {
     expect(loaded?.treasureMines.mines.find((mine) => mine.id === standing.id)?.reserveMax).toBe(standingMax)
     expect(loaded?.treasureMines.mines.find((mine) => mine.id === born?.id)?.reserveMax).toBe(1200)
     expect(loaded?.treasureMines.mines.find((mine) => mine.id === born?.id)?.reserve).toBe(1200)
+  })
+})
+
+function stepOnline(save: Save, rolls?: number[]): void {
+  save.elapsedS += 1
+  stepTreasureMines(save, undefined, rolls ? { rolls } : undefined)
+}
+
+function claimFirstEmpty(save: Save, workerIds: readonly string[]): TreasureMine {
+  const mine = save.treasureMines.mines[0]
+  setGuards(mine, 0)
+  const claimed = claimTreasureMine(save, mine.id, workerIds)
+  expect(claimed.ok).toBe(true)
+  return mine
+}
+
+describe('treasure assault', () => {
+  it('checks every 10 peaceful minutes and uses the injected roll for a hit', () => {
+    expect(assaultHits(0)).toBe(true)
+    expect(assaultHits(0.2 - 1e-9)).toBe(true)
+    expect(assaultHits(0.2)).toBe(false)
+    expect(assaultCrewCount(0)).toBe(1)
+    expect(assaultCrewCount(1 / 3 - 1e-9)).toBe(1)
+    expect(assaultCrewCount(1 / 3)).toBe(2)
+    expect(assaultCrewCount(2 / 3 - 1e-9)).toBe(2)
+    expect(assaultCrewCount(2 / 3)).toBe(3)
+
+    const save = createSave()
+    const miner = spawnWorker(save)
+    const mine = claimFirstEmpty(save, [miner.id])
+    for (let i = 0; i < TREASURE_ASSAULT_INTERVAL_S - 1; i += 1) stepOnline(save)
+    expect(mine.assaultWarnAtS).toBeNull()
+    expect(mine.raid).toBeNull()
+    expect(mine.assaultChargeS).toBe(TREASURE_ASSAULT_INTERVAL_S - 1)
+    expect(treasureAssaultWarning(save)).toBe(false)
+
+    const miss = [0.2]
+    stepOnline(save, miss)
+    expect(miss).toEqual([])
+    expect(mine.assaultWarnAtS).toBeNull()
+    expect(mine.assaultParty).toEqual([])
+    expect(mine.assaultChargeS).toBe(0)
+
+    save.knightLevel = 4
+    save.treasureMines.bannerLevel = 2
+    mine.assaultChargeS = TREASURE_ASSAULT_INTERVAL_S - 1
+    const hit = [0, 0, 0.2, 0.4]
+    stepOnline(save, hit)
+    expect(hit).toEqual([])
+    expect(mine.assaultParty).toHaveLength(1)
+    expect(mine.assaultParty[0]?.level).toBe(6)
+    expect(PLAYER_AVATAR_IDS).toContain(mine.assaultAvatarId)
+    expect(mine.assaultWarnAtS).toBe(save.elapsedS + TREASURE_ASSAULT_WARN_S)
+    expect(mine.raid).toBeNull()
+    expect(mineDigReadout(save, mine)).not.toBeNull()
+    expect(treasureAssaultWarning(save)).toBe(true)
+
+    const pending = mine.assaultParty.map((shadow) => shadow.id)
+    mine.assaultChargeS = TREASURE_ASSAULT_INTERVAL_S - 1
+    stepOnline(save, [0, 0.9, 0.1, 0.2, 0.3, 0.4])
+    expect(mine.assaultParty.map((shadow) => shadow.id)).toEqual(pending)
+    expect(mine.assaultChargeS).toBe(TREASURE_ASSAULT_INTERVAL_S - 1)
+  })
+
+  it('rolls one to three attackers in equal thirds', () => {
+    const save = createSave()
+    const miner = spawnWorker(save)
+    const mine = claimFirstEmpty(save, [miner.id])
+    mine.assaultChargeS = TREASURE_ASSAULT_INTERVAL_S - 1
+    stepOnline(save, [0, 2 / 3, 0.1, 0.2, 0.3, 0.5])
+    expect(mine.assaultParty).toHaveLength(3)
+    expect(new Set(mine.assaultParty.map((shadow) => shadow.name)).size).toBe(3)
+  })
+
+  it('does not assault while offline and restarts the clock on return', () => {
+    const save = createSave()
+    const miner = spawnWorker(save)
+    const mine = claimFirstEmpty(save, [miner.id])
+    mine.assaultChargeS = TREASURE_ASSAULT_INTERVAL_S - 1
+    mine.assaultWarnAtS = save.elapsedS + 5
+    mine.assaultParty = [
+      {
+        id: `${mine.id}-assault-0`,
+        name: '青石',
+        level: 1,
+        hp: 20,
+        hpMax: 20,
+        atk: 4,
+        spd: 4,
+        runeId: 'runeSharp',
+      },
+    ]
+    mine.assaultAvatarId = 'helm'
+    const now = Date.now()
+    save.lastTick = now - 180_000
+    const settled = settleOffline(save, now)
+    const hole = settled.save.treasureMines.mines.find((row) => row.id === mine.id)
+    expect(hole?.owner).toBe('player')
+    expect(hole?.raid).toBeNull()
+    expect(hole?.assaultWarnAtS).toBeNull()
+    expect(hole?.assaultParty).toEqual([])
+    expect(hole?.assaultChargeS).toBe(0)
+    expect(hole?.crewIds).toContain(miner.id)
+  })
+
+  it('opens the fight when the warning ends, with us defending on top', () => {
+    const save = createSave()
+    save.playerName = '旅人甲'
+    const miner = spawnWorker(save)
+    const mine = claimFirstEmpty(save, [miner.id])
+    mine.assaultChargeS = TREASURE_ASSAULT_INTERVAL_S - 1
+    stepOnline(save, [0, 0, 0.15, 0.2])
+    expect(mine.assaultWarnAtS).toBe(save.elapsedS + TREASURE_ASSAULT_WARN_S)
+    const beforeWarn = mine.reserve
+    for (let i = 0; i < TREASURE_ASSAULT_WARN_S - 1; i += 1) stepOnline(save)
+    expect(mine.raid).toBeNull()
+    expect(mine.reserve).toBeLessThan(beforeWarn)
+    expect(mineDigReadout(save, mine)).not.toBeNull()
+    const atFight = mine.reserve
+    stepOnline(save)
+    expect(mine.raid?.incoming).toBe(true)
+    expect(mine.raid?.phase).toBe('fighting')
+    expect(mine.raid?.queue).toEqual([miner.id])
+    expect(mine.shadows).toHaveLength(1)
+    expect(mine.owner).toBe('player')
+    expect(mine.reserve).toBe(atFight)
+    expect(mineDigReadout(save, mine)).toBeNull()
+    expect(treasureAssaultWarning(save)).toBe(false)
+
+    const hud = treasureRaidHud(mine, save.workers, save.elapsedS, save.playerName, save.playerAvatarId)
+    expect(hud?.defend.name).toContain('旅人甲')
+    expect(hud?.attack?.name).toBe(mine.shadows[0]?.name)
+    expect(hud?.defend.avatarId).toBe(save.playerAvatarId)
+    const top = raidSlotPress(mine, save.workers, 'defend', 0, save)
+    const bottom = raidSlotPress(mine, save.workers, 'attack', 0, save)
+    expect(top.kind).toBe('sheet')
+    expect(bottom.kind).toBe('sheet')
+    if (top.kind === 'sheet') expect(top.sheet.rows.some((row) => row.label === '职业')).toBe(true)
+    if (bottom.kind === 'sheet') expect(bottom.sheet.rows.some((row) => row.label === '职业')).toBe(false)
+
+    const ids = save.treasureMines.mines.map((row) => row.id)
+    save.diamonds = TREASURE_REFRESH_COST
+    expect(refreshTreasureMineBoard(save).ok).toBe(true)
+    expect(save.treasureMines.mines.some((row) => row.id === mine.id)).toBe(true)
+    expect(save.treasureMines.mines.map((row) => row.id)).not.toEqual(ids)
+  })
+
+  it('loots sand when the hole is held and lets survivors keep digging', () => {
+    const save = createSave()
+    const miner = spawnWorker(save)
+    const mine = claimFirstEmpty(save, [miner.id])
+    mine.fortified = true
+    mine.assaultChargeS = TREASURE_ASSAULT_INTERVAL_S - 1
+    stepOnline(save, [0, 0, 0.1, 0.2])
+    for (let i = 0; i < TREASURE_ASSAULT_WARN_S; i += 1) stepOnline(save)
+    const raid = mine.raid
+    const shadow = mine.shadows[0]
+    expect(raid?.incoming).toBe(true)
+    expect(raid?.fortified).toBe(true)
+    if (!raid || !shadow) return
+    shadow.hp = 1
+    raid.defHp = 1
+    raid.atkAtk = 500
+    raid.atkNext = save.elapsedS
+    raid.defNext = save.elapsedS + 999
+    save.treasureMines.vault.sandGold = 8
+    takeTreasureVaultNotices()
+    stepOnline(save)
+    expect(mine.raid).toBeNull()
+    expect(mine.owner).toBe('player')
+    expect(mine.crewIds).toEqual([miner.id])
+    expect(mine.fortified).toBe(false)
+    expect(mine.shadows).toEqual([])
+    expect(save.treasureMines.vault.sandGold).toBe(8 + TREASURE_ASSAULT_LOOT)
+    expect(takeTreasureVaultNotices().map((notice) => notice.text)).toContain(assaultLootTip())
+    expect(mineDigReadout(save, mine)).not.toBeNull()
+  })
+
+  it('gives the hole to the remaining shadows and sends our workers to the rest tail', () => {
+    const save = createSave()
+    const miner = spawnWorker(save)
+    const mine = claimFirstEmpty(save, [miner.id])
+    const bystander = spawnWorker(save)
+    mine.assaultChargeS = TREASURE_ASSAULT_INTERVAL_S - 1
+    stepOnline(save, [0, 0, 0.1, 0.2])
+    for (let i = 0; i < TREASURE_ASSAULT_WARN_S; i += 1) stepOnline(save)
+    const reserve = mine.reserve
+    const expiresAtS = mine.expiresAtS
+    const raid = mine.raid
+    const shadow = mine.shadows[0]
+    expect(raid && shadow).toBeTruthy()
+    if (!raid || !shadow) return
+    shadow.hp = 99999
+    shadow.atk = 99999
+    raid.defHp = 99999
+    raid.defAtk = 99999
+    raid.defNext = save.elapsedS
+    raid.atkNext = save.elapsedS + 999
+    save.treasureMines.vault.sandGold = 12
+    save.treasureMines.vault.jewel = 4
+    save.treasureMines.vault.jade = 2
+    takeTreasureVaultNotices()
+    stepOnline(save)
+    expect(mine.raid?.phase).toBe('marchHomeLose')
+    expect(mine.owner).toBe('player')
+    for (let i = 0; i < marchDurationS(save) + 2 && mine.owner === 'player'; i += 1) stepOnline(save)
+    expect(mine.owner).toBe('shadow')
+    expect(mine.raid).toBeNull()
+    expect(mine.shadows).toHaveLength(1)
+    expect(mine.crewIds).toEqual([])
+    expect(mine.reserve).toBe(reserve)
+    expect(mine.expiresAtS).toBe(expiresAtS)
+    expect(mine.fortified).toBe(false)
+    expect(save.treasureMines.vault.sandGold).toBe(12)
+    expect(save.treasureMines.vault.jewel).toBe(4)
+    expect(save.treasureMines.vault.jade).toBe(2)
+    expect(save.workers.at(-1)?.id).toBe(miner.id)
+    expect(save.workers.at(-2)?.id).toBe(bystander.id)
+    expect(treasureMineBlockReason(save, miner.id)).toBeNull()
+    expect(openTreasureRaid(save, mine.id, [bystander.id])).toEqual({
+      ok: false,
+      reason: sandShortTip(TREASURE_STAKE_PER_GUARD),
+    })
+    save.treasureMines.vault.sandGold = TREASURE_STAKE_PER_GUARD
+    expect(openTreasureRaid(save, mine.id, [bystander.id]).ok).toBe(true)
+    expect(mine.raid?.incoming).not.toBe(true)
+    expect(save.treasureMines.vault.sandGold).toBe(0)
+    expect(save.treasureMines.vault.jewel).toBe(4)
+    expect(save.treasureMines.vault.jade).toBe(2)
+  })
+
+  it('spends 60 jewels for one fortify layer and consumes it when the fight ends', () => {
+    const save = createSave()
+    const miner = spawnWorker(save)
+    const extra = spawnWorker(save)
+    const mine = claimFirstEmpty(save, [miner.id])
+    const hpMax = miner.hpMax
+    save.treasureMines.vault.jewel = TREASURE_FORTIFY_COST - 1
+    expect(fortifyTreasureMine(save, mine.id)).toEqual({
+      ok: false,
+      reason: jewelShortTip(TREASURE_FORTIFY_COST, TREASURE_FORTIFY_COST - 1),
+    })
+    expect(mine.fortified).toBe(false)
+    expect(save.treasureMines.vault.jewel).toBe(TREASURE_FORTIFY_COST - 1)
+
+    save.treasureMines.vault.jewel = TREASURE_FORTIFY_COST
+    expect(fortifyTreasureMine(save, mine.id)).toEqual({
+      ok: true,
+      message: `珠宝 −${TREASURE_FORTIFY_COST}`,
+    })
+    expect(mine.fortified).toBe(true)
+    expect(save.treasureMines.vault.jewel).toBe(0)
+    expect(fortifyTreasureMine(save, mine.id)).toEqual({ ok: false, reason: '已经加固' })
+    expect(save.treasureMines.vault.jewel).toBe(0)
+
+    expect(abandonTreasureMine(save, mine.id).ok).toBe(true)
+    expect(mine.fortified).toBe(false)
+    expect(claimTreasureMine(save, mine.id, [miner.id]).ok).toBe(true)
+    save.treasureMines.vault.jewel = TREASURE_FORTIFY_COST + TREASURE_REINFORCE_COST
+    expect(fortifyTreasureMine(save, mine.id).ok).toBe(true)
+    mine.assaultChargeS = TREASURE_ASSAULT_INTERVAL_S - 1
+    stepOnline(save, [0, 0, 0.1, 0.2])
+    for (let i = 0; i < TREASURE_ASSAULT_WARN_S; i += 1) stepOnline(save)
+    const raid = mine.raid
+    expect(raid?.fortified).toBe(true)
+    expect(raid?.atkMax).toBe(Math.round(hpMax * TREASURE_FORTIFY_HP_MUL))
+    expect(raid?.atkHp).toBe(raid?.atkMax)
+    expect(miner.hpMax).toBe(hpMax)
+    expect(fortifyTreasureMine(save, mine.id)).toEqual({ ok: false, reason: '这洞现在不能加固' })
+
+    expect(reinforceTreasureRaid(save, mine.id, extra.id).ok).toBe(true)
+    const slot = raid?.attackSlots?.indexOf(extra.id) ?? -1
+    expect(slot).toBeGreaterThan(0)
+    expect(raid?.attackSlotMax[slot]).toBe(Math.round(extra.hpMax * TREASURE_FORTIFY_HP_MUL))
+    expect(raid?.reinforced).toBe(true)
+    save.treasureMines.vault.jewel = TREASURE_REINFORCE_COST
+    expect(reinforceTreasureRaid(save, mine.id, miner.id)).toEqual({ ok: false, reason: '本场已经增援' })
+
+    const shadow = mine.shadows[0]
+    if (!raid || !shadow) return
+    shadow.hp = 1
+    raid.defHp = 1
+    raid.atkAtk = 500
+    raid.atkNext = save.elapsedS
+    raid.defNext = save.elapsedS + 999
+    stepOnline(save)
+    expect(mine.raid).toBeNull()
+    expect(mine.fortified).toBe(false)
+    expect(miner.hpMax).toBe(hpMax)
+    expect(extra.hpMax).toBeGreaterThan(0)
+  })
+
+  it('round-trips the warning, fortify, and incoming fight, and old saves do not arrive already under attack', () => {
+    const save = createSave()
+    const miner = spawnWorker(save)
+    const mine = claimFirstEmpty(save, [miner.id])
+    mine.assaultChargeS = 42
+    mine.fortified = true
+    mine.assaultWarnAtS = save.elapsedS + 11
+    mine.assaultAvatarId = 'helm'
+    mine.assaultParty = [
+      {
+        id: `${mine.id}-assault-0`,
+        name: '青石',
+        level: 3,
+        hp: 18,
+        hpMax: 18,
+        atk: 5,
+        spd: 4,
+        runeId: 'runeArmor',
+      },
+    ]
+    const loaded = hydrateLoadedSave(JSON.parse(JSON.stringify(save)))
+    const kept = loaded?.treasureMines.mines.find((row) => row.id === mine.id)
+    expect(kept?.assaultChargeS).toBe(42)
+    expect(kept?.fortified).toBe(true)
+    expect(kept?.assaultWarnAtS).toBe(save.elapsedS + 11)
+    expect(kept?.assaultAvatarId).toBe('helm')
+    expect(kept?.assaultParty.map((shadow) => shadow.name)).toEqual(['青石'])
+    expect(treasureAssaultWarning(loaded ?? save)).toBe(true)
+
+    if (!loaded) return
+    for (let i = 0; i < 11; i += 1) stepOnline(loaded)
+    const fighting = loaded.treasureMines.mines.find((row) => row.id === mine.id)
+    expect(fighting?.raid?.incoming).toBe(true)
+    expect(fighting?.raid?.fortified).toBe(true)
+    const again = hydrateLoadedSave(JSON.parse(JSON.stringify(loaded)))
+    const keptFight = again?.treasureMines.mines.find((row) => row.id === mine.id)
+    expect(keptFight?.raid?.incoming).toBe(true)
+    expect(keptFight?.raid?.queue).toEqual([miner.id])
+    expect(keptFight?.fortified).toBe(true)
+
+    const legacy = JSON.parse(JSON.stringify(save)) as Save
+    const bare = legacy.treasureMines.mines.find((row) => row.id === mine.id)
+    expect(bare).toBeTruthy()
+    if (!bare) return
+    delete (bare as { assaultChargeS?: number }).assaultChargeS
+    delete (bare as { assaultWarnAtS?: number }).assaultWarnAtS
+    delete (bare as { assaultParty?: unknown }).assaultParty
+    delete (bare as { assaultAvatarId?: string }).assaultAvatarId
+    delete (bare as { fortified?: boolean }).fortified
+    bare.raid = null
+    const old = hydrateLoadedSave(legacy)
+    const quiet = old?.treasureMines.mines.find((row) => row.id === mine.id)
+    expect(quiet?.assaultChargeS).toBe(0)
+    expect(quiet?.fortified).toBe(false)
+    expect(quiet?.assaultWarnAtS).toBeNull()
+    expect(quiet?.assaultParty).toEqual([])
+    if (!old) return
+    stepOnline(old)
+    expect(old.treasureMines.mines.find((row) => row.id === mine.id)?.raid).toBeNull()
   })
 })

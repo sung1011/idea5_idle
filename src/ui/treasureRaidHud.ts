@@ -193,6 +193,60 @@ function fallenDefendHud(mine: TreasureMine): TreasureRaidFighterHud {
   }
 }
 
+/**
+ * 我方洞被袭：队列仍记在攻方数据上，画面要把两边对调。
+ * 守方在上是我方工人，攻方在下是来袭影子。
+ */
+function incomingRaidHud(
+  mine: TreasureMine,
+  workers: readonly Worker[],
+  elapsedS: number,
+  playerName: unknown,
+  playerAvatar: unknown,
+): TreasureRaidHud | null {
+  const raid = mine.raid
+  if (!raid?.incoming) return null
+  const attackerId = raid.queue[0]
+  const ourHp = squadBarHp(raid.attackSlots, raid.attackSlotMax, (id, index) => {
+    if (!raid.queue.includes(id)) return null
+    if (id === attackerId) return raid.atkHp
+    const snapped = raid.attackSlotHp?.[index]
+    return typeof snapped === 'number' && Number.isFinite(snapped) ? snapped : 0
+  })
+  const shadow = mine.shadows[0]
+  const theirHp = squadBarHp(raid.defendSlots, raid.defendSlotMax, (id) => {
+    const row = mine.shadows.find((shadowRow) => shadowRow.id === id)
+    if (!row) return null
+    if (shadow && id === shadow.id) return raid.defHp
+    return row.hp
+  })
+  return {
+    defend: {
+      name: attackerId
+        ? attackLine(playerName, fighterName(workers, attackerId))
+        : playerDisplayName(playerName),
+      avatarId: playerAvatarId(playerAvatar),
+      hp: ourHp.hp,
+      hpMax: ourHp.hpMax,
+      barFill: hpBarFill(ourHp.hp, ourHp.hpMax),
+      fill: raidActChargeFill(raid.atkSpd, raid.atkNext, elapsedS),
+      slots: slotStates(raid.attackSlots, raid.queue),
+    },
+    attack: {
+      name: shadow?.name || '来袭',
+      avatarId: normalizeMineAvatarId(mine.assaultAvatarId || mine.ownerAvatarId, mine.id),
+      hp: theirHp.hp,
+      hpMax: theirHp.hpMax,
+      barFill: hpBarFill(theirHp.hp, theirHp.hpMax),
+      fill: raidActChargeFill(raid.defSpd, raid.defNext, elapsedS),
+      slots: slotStates(raid.defendSlots, mine.shadows.map((row) => row.id)),
+    },
+    waitingAttack: mine.shadows.slice(1).map((row) => row.name),
+    waitingDefend: raid.queue.slice(1).map((id) => fighterName(workers, id)),
+    fighting: true,
+  }
+}
+
 /** 开战画攻守两边。未开战的敌人驻守洞、以及我方开采洞，都只画守方。无人矿不画。凯旋守军已空时仍留攻方。 */
 export function treasureRaidHud(
   mine: TreasureMine,
@@ -204,6 +258,8 @@ export function treasureRaidHud(
 ): TreasureRaidHud | null {
   const owned = playerMineHud(mine, workers, playerName, playerAvatar, crewCap)
   if (owned) return owned
+  const incoming = incomingRaidHud(mine, workers, elapsedS, playerName, playerAvatar)
+  if (incoming) return incoming
   const raid = mine.raid
   const shadow = mine.shadows[0]
   const attackerId = raid?.queue[0]
@@ -388,14 +444,15 @@ export function raidSlotPress(
   save?: Save,
 ): SlotPress {
   const cap = save ? treasureCrewCap(save) : TREASURE_CREW_CAP
-  const snap = slotIds(mine, side, cap)
+  const stored = mine.raid?.incoming ? (side === 'defend' ? 'attack' : 'defend') : side
+  const snap = slotIds(mine, stored, cap)
   const mark = slotStates(snap.ids, snap.living)[index]
   const id = snap.ids[index]
   if (mark !== 'filled' || !id) {
     return { kind: 'tip', text: mark === 'dead' ? '已阵亡' : '空槽' }
   }
   const sheet =
-    side === 'attack'
+    stored === 'attack'
       ? attackSheet(mine, workers, id, index, save)
       : mine.owner === 'player' && !mine.raid
         ? playerCrewSheet(workers, id, save)

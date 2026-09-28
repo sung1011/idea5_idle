@@ -19,6 +19,8 @@ export type TickOpts = {
   onCombatLog?: CombatLogSink
   /** 仅在线 tick 传入。离线追赶不要刷夺宝矿卡漂字。 */
   onTreasureDrop?: TreasureDropSink
+  /** 离线追赶。来袭不判定；回来后由离线结算重新计时。 */
+  offline?: boolean
 }
 
 /** 在线与离线共用。按站点结算：同站人数加速。 */
@@ -33,7 +35,7 @@ export function applyTick(save: Save, opts: TickOpts = {}): void {
   for (const id of STATION_IDS) stepStation(save, id, now, opts.onGain)
   assignRestingToFirstEmpty(save)
   stepCombats(save, now, opts.onCombatLog)
-  stepTreasureMines(save, opts.onTreasureDrop)
+  stepTreasureMines(save, opts.onTreasureDrop, { offline: opts.offline === true })
   applyRestHeal(save)
 }
 

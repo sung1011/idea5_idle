@@ -1,5 +1,6 @@
 import { bankQty } from './bank'
 import { cloneSave } from './clone'
+import { resetTreasureAssaultAfterOffline } from './treasureMine'
 import { pushMessage } from './messages'
 import { ITEM_DEF, ITEM_IDS, OFFLINE_CAP_S, STATION_DEF, STATION_IDS } from './tables'
 import { offlineCapHours, offlineCapS } from './tech'
@@ -181,7 +182,8 @@ export function settleOffline(save: Save, now = Date.now()): OfflineResult {
   const before = cloneSave(save)
   const next = cloneSave(save)
   const start = now - seconds * 1000
-  for (let i = 0; i < seconds; i++) applyTick(next, { now: start + (i + 1) * 1000 })
+  for (let i = 0; i < seconds; i++) applyTick(next, { now: start + (i + 1) * 1000, offline: true })
+  resetTreasureAssaultAfterOffline(next)
   next.lastTick = now
   next.offlineCount = (Number.isFinite(next.offlineCount) ? Math.max(0, Math.floor(next.offlineCount)) : 0) + 1
   const summary = buildOfflineSummary(before, next, seconds, capped)

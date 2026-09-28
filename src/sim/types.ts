@@ -501,6 +501,13 @@ export type TreasureRaid = {
   stakeSand?: number
   /** 本场是否已花珠宝增援。旧档缺字段当没有，读档后仍可补一次。 */
   reinforced?: boolean
+  /**
+   * 我方洞被袭。队列仍是我方工人，影子仍在守军位，结算沿用连环 1v1。
+   * 画面上我方是守方、影子是攻方。旧档缺字段当不是来袭。
+   */
+  incoming?: boolean
+  /** 开战时带上的加固。打完就没了。旧档缺字段当没有。 */
+  fortified?: boolean
 }
 
 export type TreasureRaidReturnee = {
@@ -534,6 +541,19 @@ export type TreasureMine = {
   revealedWeaknesses: CombatAttrId[]
   raid: TreasureRaid | null
   digCharge: Partial<Record<string, number>>
+  /**
+   * 在线和平开采累计的秒。满一个判定周期清零再掷。
+   * 旧档缺字段当 0，读档后不立刻来袭。
+   */
+  assaultChargeS: number
+  /** 预警结束的游戏秒。没有预警是 null。 */
+  assaultWarnAtS: number | null
+  /** 预警期间生成、尚未进洞的来袭影子。 */
+  assaultParty: TreasureShadow[]
+  /** 这一波来袭共用的头像。没有是 null。 */
+  assaultAvatarId: string | null
+  /** 是否已花珠宝加固 1 层。打完、撤出、被夺或洞消失后没有。 */
+  fortified: boolean
 }
 
 export type TreasureMineState = {
@@ -545,7 +565,7 @@ export type TreasureMineState = {
   /**
    * 古玉战旗等级，0～5。旧档缺字段当 0。
    * 只改之后新刷洞的储量和守军等级，以及开采人数上限、顶栏头像框。
-   * 我方洞被袭和加固以后另记，不放在这一级上。
+   * 来袭计时、预警和加固记在各个矿洞上，不放在这一级。
    */
   bannerLevel: number
 }

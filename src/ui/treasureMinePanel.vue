@@ -10,6 +10,7 @@ import { useFrameNow, visualStationProgress } from './visualProgress'
 import { isFullCombatHp, restCombatCandidates } from '../sim/combat'
 import {
   TREASURE_FILL_COST,
+  TREASURE_FORTIFY_COST,
   TREASURE_KIND_LABEL,
   TREASURE_KINDS,
   TREASURE_LABEL,
@@ -146,6 +147,27 @@ function showFill(mine: TreasureMine): boolean {
   return mine.owner === 'player' && mine.raid == null && mine.crewIds.length < crewCap.value
 }
 
+function showFortify(mine: TreasureMine): boolean {
+  return mine.owner === 'player' && mine.raid == null
+}
+
+function fortifyBlock(mine: TreasureMine): string | null {
+  if (mine.fortified) return '已经加固'
+  return jewelBlock(TREASURE_FORTIFY_COST)
+}
+
+function assaultRemain(mine: TreasureMine): number {
+  if (mine.raid || typeof mine.assaultWarnAtS !== 'number') return 0
+  return Math.max(0, Math.ceil(mine.assaultWarnAtS - raidElapsed()))
+}
+
+function assaultWho(mine: TreasureMine): string {
+  const names = (mine.assaultParty ?? []).map((shadow) => shadow.name).filter((name) => name)
+  if (names.length === 0) return ''
+  if (names.length === 1) return names[0] ?? ''
+  return `${names[0]} 等 ${names.length} 人`
+}
+
 function reinforceBlock(mine: TreasureMine): string | null {
   const jewel = jewelBlock(TREASURE_REINFORCE_COST)
   if (jewel) return jewel
@@ -256,6 +278,15 @@ function onFill(mine: TreasureMine) {
   openPick('fill', mine.id)
 }
 
+function onFortify(mine: TreasureMine) {
+  const blocked = fortifyBlock(mine)
+  if (blocked) {
+    pushFloatTip(blocked)
+    return
+  }
+  game.fortifyTreasureMine(mine.id)
+}
+
 function confirmPick() {
   const mineId = pickMineId.value
   if (!mineId) return
@@ -352,6 +383,10 @@ function confirmPick() {
           </p>
         </div>
         <p class="label">消失倒计时 {{ clock(mine) }}</p>
+        <p v-if="assaultRemain(mine) > 0" class="assault-warn">
+          即将来袭 {{ assaultWho(mine) }} {{ formatRemainClock(assaultRemain(mine)) }}
+        </p>
+        <p v-if="mine.fortified" class="fort-state">已加固</p>
         <template v-for="hud in raidHuds(mine)" :key="`${mine.id}-raid`">
           <div class="bars">
             <p class="bar-line">
@@ -420,6 +455,13 @@ function confirmPick() {
             @click="onFill(mine)"
           >补位 {{ TREASURE_FILL_COST }} 珠宝</button>
           <button v-if="mine.owner === 'player' && !mine.raid" type="button" @click="game.abandonTreasureMine(mine.id)">撤出</button>
+          <button
+            v-if="showFortify(mine)"
+            type="button"
+            :class="{ 'is-short': fortifyBlock(mine) != null }"
+            :title="fortifyBlock(mine) ?? undefined"
+            @click="onFortify(mine)"
+          >加固 {{ TREASURE_FORTIFY_COST }} 珠宝</button>
           <button
             v-if="showReinforce(mine)"
             type="button"
@@ -635,6 +677,24 @@ function confirmPick() {
   font-size: 13px;
   color: var(--copper);
   line-height: 1.5;
+}
+
+.assault-warn {
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: #fde8e4;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.fort-state {
+  margin: 0;
+  color: var(--copper);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .march-line {

@@ -2,7 +2,7 @@ import { hashString, isCombatAttrId, matchingWeaknesses, pickEnemyWeaknesses } f
 import { PLAYER_AVATAR_DEFAULT, PLAYER_AVATAR_IDS, type PlayerAvatarId } from './playerAvatarIds'
 import { addToBank } from './bank'
 import { applyDownedReturn, isFullCombatHp, workerLiveStats } from './combat'
-import { offerRestFood } from './food'
+import { offerRestFood, sendWorkerToRestTail } from './food'
 import { raidPhaseOf } from './march'
 import { marchDurationS } from './tech'
 import { clearWorkerNew } from './recruit'
@@ -42,18 +42,31 @@ export const TREASURE_RAID_CAP = 3
 export const TREASURE_REFRESH_COST = 10
 
 /**
- * 宝物消耗起步值，集中在这里方便以后改。
- * 我方洞被袭、加固的费用以后加在这组，收支仍走宝库。这一步不做被袭。
+ * 宝物消耗起步值，集中在这里方便以后改。收支仍走宝库。
  */
 export const TREASURE_STAKE_PER_GUARD = 40
 export const TREASURE_SCOUT_COST = 20
 export const TREASURE_REFRESH_SAND_COST = 100
 /** 军械铺一枚符文的珠宝价。锋锐、厚甲、迅击同价。 */
 export const TREASURE_RUNE_COST = 40
-/** 夺宝一场抢夺增援一名工人。 */
+/** 夺宝一场抢夺、以及我方洞被袭时，增援一名工人。 */
 export const TREASURE_REINFORCE_COST = 60
 /** 我方开采未满员时补一名工人。 */
 export const TREASURE_FILL_COST = 80
+/** 我方开采中的洞，在线每这么多秒判定一次来袭。 */
+export const TREASURE_ASSAULT_INTERVAL_S = 10 * 60
+/** 判定命中。roll 小于这个值就来袭。 */
+export const TREASURE_ASSAULT_CHANCE = 0.2
+/** 命中后来袭开战前的预警秒数。 */
+export const TREASURE_ASSAULT_WARN_S = 30
+/** 守住来袭缴获的砂金。 */
+export const TREASURE_ASSAULT_LOOT = 30
+/** 加固一层的珠宝价。每洞最多一层。 */
+export const TREASURE_FORTIFY_COST = 60
+/** 下一场来袭里，我方血上限和当前血同乘这个数。 */
+export const TREASURE_FORTIFY_HP_MUL = 1.3
+/** 每洞加固层数上限。 */
+export const TREASURE_FORTIFY_CAP = 1
 /** 战旗最高级。 */
 export const TREASURE_BANNER_MAX = 5
 /** 升到下一级的古玉价。下标是当前等级，0→1 起。 */
@@ -420,14 +433,36 @@ export function hydrateTreasureMines(save: Save): void {
     if (!mine.digCharge || typeof mine.digCharge !== 'object') mine.digCharge = {}
     if (mine.raid && !Array.isArray(mine.raid.queue)) mine.raid = null
     if (mine.raid) {
-      mine.raid.attackSlots = normalizeRaidSlots(mine.raid.attackSlots, mine.raid.queue)
+      mine.raid.incoming = mine.raid.incoming === true
+      mine.raid.fortified = mine.raid.fortified === true
+      const attackLen = mine.raid.incoming
+        ? assaultSlotCount(Math.max(mine.raid.queue.length, Array.isArray(mine.raid.attackSlots) ? mine.raid.attackSlots.length : 0))
+        : TREASURE_RAID_CAP
+      mine.raid.attackSlots = normalizeRaidSlots(mine.raid.attackSlots, mine.raid.queue, attackLen)
       mine.raid.defendSlots = normalizeRaidSlots(
         mine.raid.defendSlots,
         mine.shadows.map((shadow) => shadow.id),
+        TREASURE_RAID_CAP,
       )
       ensureRaidVitals(save, mine)
       mine.raid.stakeSand = keptStake(mine.raid.stakeSand)
       mine.raid.reinforced = mine.raid.reinforced === true
+    }
+    mine.assaultChargeS = keptAssaultCharge(mine.assaultChargeS)
+    mine.fortified = mine.owner === 'player' && mine.fortified === true
+    mine.assaultParty = keptAssaultParty(mine.assaultParty)
+    mine.assaultAvatarId = typeof mine.assaultAvatarId === 'string' && mine.assaultAvatarId ? mine.assaultAvatarId : null
+    mine.assaultWarnAtS =
+      mine.owner === 'player' &&
+      !mine.raid &&
+      mine.assaultParty.length > 0 &&
+      typeof mine.assaultWarnAtS === 'number' &&
+      Number.isFinite(mine.assaultWarnAtS)
+        ? mine.assaultWarnAtS
+        : null
+    if (mine.assaultWarnAtS == null && !mine.raid?.incoming) {
+      mine.assaultParty = []
+      mine.assaultAvatarId = null
     }
     if (mine.owner !== 'player' && mine.owner !== 'shadow' && mine.owner !== 'empty') {
       mine.owner = mine.shadows.length > 0 ? 'shadow' : 'empty'
@@ -581,6 +616,8 @@ export function claimTreasureMine(save: Save, mineId: string, workerIds: readonl
   mine.raid = null
   mine.crewIds = party.map((worker) => worker.id)
   mine.digCharge = {}
+  clearAssault(mine)
+  mine.fortified = false
   for (const worker of party) {
     clearWorkerNew(save, worker.id)
     revealMineWeaknesses(mine, worker.combatAttrs)
@@ -599,7 +636,26 @@ export function abandonTreasureMine(save: Save, mineId: string): ActionResult {
   mine.shadows = []
   mine.raid = null
   mine.digCharge = {}
+  clearAssault(mine)
+  mine.fortified = false
   return { ok: true, message: '已放弃矿洞' }
+}
+
+/**
+ * 我方开采、且没在战斗时，花珠宝加固 1 层。
+ * 已经加固、珠宝不够、或这洞不是正在开采，都不扣。
+ */
+export function fortifyTreasureMine(save: Save, mineId: string): ActionResult {
+  const mine = findMine(save, mineId)
+  if (!mine) return { ok: false, reason: '没有这个矿洞' }
+  if (mine.owner !== 'player' || mine.raid) return { ok: false, reason: '这洞现在不能加固' }
+  if (mine.fortified || TREASURE_FORTIFY_CAP < 1) return { ok: false, reason: '已经加固' }
+  if (vaultQty(save, 'jewel') < TREASURE_FORTIFY_COST) {
+    return { ok: false, reason: jewelShortTip(TREASURE_FORTIFY_COST, vaultQty(save, 'jewel')) }
+  }
+  trySpendVault(save, 'jewel', TREASURE_FORTIFY_COST)
+  mine.fortified = true
+  return { ok: true, message: jewelSpentTip(TREASURE_FORTIFY_COST) }
 }
 
 /** 弱点是否都已揭开。没有弱点表不算揭开。 */
@@ -706,7 +762,7 @@ export function reinforceTreasureRaid(save: Save, mineId: string, workerId: stri
   clearWorkerNew(save, worker.id)
   raid.queue = [...raid.queue, worker.id]
   raid.attackSlots[slot] = worker.id
-  const vitals = attackerCombatVitals(save, worker, undefined)
+  const vitals = fortifyVitals(attackerCombatVitals(save, worker, undefined), raid.fortified === true)
   raid.attackSlotHp[slot] = Math.max(1, vitals.hp)
   raid.attackSlotMax[slot] = vitals.hpMax
   raid.reinforced = true
@@ -777,13 +833,179 @@ function armRaidFight(save: Save, mine: TreasureMine, raid: TreasureRaid, atS: n
   loadDefender(mine, raid, atS)
 }
 
-export function stepTreasureMines(save: Save, onDrop?: TreasureDropSink): void {
+export type TreasureStepOpts = {
+  /** 离线追赶不判定来袭。 */
+  offline?: boolean
+  /** 测例注入的 0～1 骰。来袭按命中、人数、每人名字、头像的顺序取走。 */
+  rolls?: number[]
+}
+
+export function stepTreasureMines(save: Save, onDrop?: TreasureDropSink, opts?: TreasureStepOpts): void {
   const state = ensureTreasureMines(save)
   for (const mine of state.mines) {
+    if (!opts?.offline) stepAssault(save, mine, opts?.rolls)
     if (mine.raid) stepRaid(save, mine)
     if (mine.reserve > 0 && save.elapsedS < mine.expiresAtS) stepDig(save, mine, onDrop)
   }
   refreshTreasureMines(save)
+}
+
+/** 在线才走。预警和战斗中不计时、不重判。 */
+function stepAssault(save: Save, mine: TreasureMine, rolls?: number[]): void {
+  if (mine.owner !== 'player' || mine.crewIds.length === 0) return
+  if (mine.raid) return
+  if (mine.assaultWarnAtS != null) {
+    if (save.elapsedS < mine.assaultWarnAtS) return
+    beginIncomingFight(save, mine)
+    return
+  }
+  const charge = keptAssaultCharge(mine.assaultChargeS) + 1
+  if (charge < TREASURE_ASSAULT_INTERVAL_S) {
+    mine.assaultChargeS = charge
+    return
+  }
+  mine.assaultChargeS = 0
+  const state = save.treasureMines
+  if (!assaultHits(pullRoll(state, rolls))) return
+  const count = assaultCrewCount(pullRoll(state, rolls))
+  const taken = namesOnBoard(save)
+  for (const other of state.mines) {
+    for (const shadow of other.assaultParty ?? []) taken.add(shadow.name)
+  }
+  const party: TreasureShadow[] = []
+  for (let i = 0; i < count; i += 1) {
+    const shadow = makeShadow(save, mine.id, i, taken, () => pullRoll(state, rolls))
+    shadow.id = `${mine.id}-assault-${i}`
+    taken.add(shadow.name)
+    party.push(shadow)
+  }
+  mine.assaultParty = party
+  mine.assaultAvatarId = pickMineAvatarId(pullRoll(state, rolls))
+  mine.assaultWarnAtS = save.elapsedS + TREASURE_ASSAULT_WARN_S
+}
+
+function beginIncomingFight(save: Save, mine: TreasureMine): void {
+  const party = mine.assaultParty ?? []
+  const workers = mine.crewIds
+    .map((id) => save.workers.find((row) => row.id === id))
+    .filter((row): row is Worker => row != null)
+  if (!party.length || !workers.length) {
+    clearAssault(mine)
+    return
+  }
+  mine.shadows = party.map((shadow) => ({ ...shadow, hp: shadow.hpMax }))
+  if (mine.assaultAvatarId) mine.ownerAvatarId = mine.assaultAvatarId
+  mine.raid = openIncomingRaid(save, mine, workers, mine.fortified === true)
+  mine.assaultWarnAtS = null
+  mine.assaultParty = []
+  mine.assaultChargeS = 0
+}
+
+function openIncomingRaid(save: Save, mine: TreasureMine, party: Worker[], fortified: boolean): TreasureRaid {
+  const attackSlots = padSlots(party.map((worker) => worker.id), assaultSlotCount(party.length))
+  const defendSlots = raidSlotSnapshot(mine.shadows.map((shadow) => shadow.id))
+  const attackVitals = attackSlots.map((id) => {
+    if (!id) return { hp: 0, hpMax: 0 }
+    const worker = party.find((row) => row.id === id)
+    if (!worker) return { hp: 0, hpMax: 0 }
+    const vitals = fortifyVitals(attackerCombatVitals(save, worker, undefined), fortified)
+    return { hp: Math.max(1, vitals.hp), hpMax: vitals.hpMax }
+  })
+  const defendVitals = defendSlots.map((id) => {
+    if (!id) return { hp: 0, hpMax: 0 }
+    const shadow = mine.shadows.find((row) => row.id === id)
+    return { hp: Math.max(0, shadow?.hp ?? 0), hpMax: Math.max(0, shadow?.hpMax ?? 0) }
+  })
+  const raid: TreasureRaid = {
+    queue: party.map((worker) => worker.id),
+    attackSlots,
+    defendSlots,
+    attackSlotHp: attackVitals.map((row) => row.hp),
+    attackSlotMax: attackVitals.map((row) => row.hpMax),
+    defendSlotHp: defendVitals.map((row) => row.hp),
+    defendSlotMax: defendVitals.map((row) => row.hpMax),
+    garrison: mine.shadows.length,
+    atkHp: 1,
+    atkMax: 1,
+    atkAtk: 1,
+    atkSpd: 1,
+    atkNext: save.elapsedS,
+    defHp: 1,
+    defAtk: 1,
+    defSpd: 1,
+    defNext: save.elapsedS,
+    runes: {},
+    phase: 'fighting',
+    phaseStartedAtS: save.elapsedS,
+    returning: [],
+    stakeSand: 0,
+    reinforced: false,
+    incoming: true,
+    fortified,
+  }
+  loadAttacker(save, raid, false)
+  loadDefender(mine, raid, save.elapsedS)
+  raid.atkNext = save.elapsedS + Math.max(1, raid.atkSpd)
+  return raid
+}
+
+function padSlots(ids: readonly string[], count: number): (string | null)[] {
+  const slots: (string | null)[] = []
+  for (const id of ids) {
+    if (slots.length >= count) break
+    if (id) slots.push(id)
+  }
+  while (slots.length < count) slots.push(null)
+  return slots
+}
+
+/** 守住：立刻结束，不走行军。存活的人继续开采，倒地的回休息队尾。 */
+function resolveIncomingHold(save: Save, mine: TreasureMine, raid: TreasureRaid): void {
+  if (raid.queue[0]) writeAttackerHp(save, raid)
+  const survivors = raid.queue.filter((id) => save.workers.some((worker) => worker.id === id))
+  const downed = [...(raid.returning ?? [])]
+  mine.raid = null
+  mine.shadows = []
+  mine.crewIds = survivors
+  mine.digCharge = {}
+  mine.fortified = false
+  clearAssault(mine)
+  addVault(save, 'sandGold', TREASURE_ASSAULT_LOOT)
+  noteVault(mine.id, assaultLootTip(), 'ok')
+  for (const row of downed) {
+    if (row.reason === 'down') applyDownedReturn(save, row.id, row.hp, save.lastTick || 0)
+    else {
+      const worker = save.workers.find((workerRow) => workerRow.id === row.id)
+      if (worker) worker.assignment = null
+    }
+    sendWorkerToRestTail(save, row.id)
+  }
+}
+
+/** 溃退走完：洞交给剩下的来袭影子，我方工人排到休息队尾。宝库不动。 */
+function finishIncomingLoss(save: Save, mine: TreasureMine, raid: TreasureRaid): void {
+  const ids: string[] = []
+  const pushId = (id: string | null | undefined) => {
+    if (id && !ids.includes(id)) ids.push(id)
+  }
+  for (const id of mine.crewIds) pushId(id)
+  for (const id of raid.queue) pushId(id)
+  for (const id of raid.attackSlots ?? []) pushId(id)
+  for (const row of raid.returning ?? []) pushId(row.id)
+  const shadows = mine.shadows.map((shadow) => ({ ...shadow }))
+  mine.raid = null
+  mine.crewIds = []
+  mine.digCharge = {}
+  mine.owner = shadows.length ? 'shadow' : 'empty'
+  mine.shadows = shadows
+  mine.fortified = false
+  clearAssault(mine)
+  for (const id of ids) {
+    const worker = save.workers.find((row) => row.id === id)
+    if (worker && worker.assignment !== null) worker.assignment = null
+    offerRestFood(save, id, save.lastTick || 0)
+    sendWorkerToRestTail(save, id)
+  }
 }
 
 function pushRaidReturn(
@@ -848,6 +1070,10 @@ function finishRaidHome(save: Save, mine: TreasureMine, raid: TreasureRaid): voi
     takeOver(save, mine, raid)
     return
   }
+  if (raid.incoming) {
+    finishIncomingLoss(save, mine, raid)
+    return
+  }
   const ids = [...raid.queue]
   for (const id of ids) {
     const worker = save.workers.find((row) => row.id === id)
@@ -882,14 +1108,18 @@ function stepRaid(save: Save, mine: TreasureMine): void {
       shadow.hp -= dealt
       raid.defHp = shadow.hp
       raid.atkNext = atS + raid.atkSpd
-      if (shadow.hp <= 0) {
-        mine.shadows.shift()
-        delete mine.digCharge[shadow.id]
-        if (!mine.shadows.length) {
-          beginRaidHome(save, mine, 'win', atS)
-          finishRaidHome(save, mine, raid)
-          return
-        }
+        if (shadow.hp <= 0) {
+          mine.shadows.shift()
+          delete mine.digCharge[shadow.id]
+          if (!mine.shadows.length) {
+            if (raid.incoming) {
+              resolveIncomingHold(save, mine, raid)
+              return
+            }
+            beginRaidHome(save, mine, 'win', atS)
+            finishRaidHome(save, mine, raid)
+            return
+          }
         loadDefender(mine, raid, atS)
       }
     } else {
@@ -917,6 +1147,10 @@ function stepRaid(save: Save, mine: TreasureMine): void {
     }
   }
   if (!mine.shadows.length && mine.raid && raidPhaseOf(mine.raid) === 'fighting') {
+    if (mine.raid.incoming) {
+      resolveIncomingHold(save, mine, mine.raid)
+      return
+    }
     beginRaidHome(save, mine, 'win', save.elapsedS)
     finishRaidHome(save, mine, mine.raid)
   } else if (mine.raid && !mine.raid.queue.length && raidPhaseOf(mine.raid) === 'fighting') {
@@ -932,6 +1166,8 @@ function takeOver(save: Save, mine: TreasureMine, raid: TreasureRaid): void {
   mine.crewIds = raid.queue.filter((id) => save.workers.some((worker) => worker.id === id))
   mine.raid = null
   mine.digCharge = {}
+  clearAssault(mine)
+  mine.fortified = false
   const worker = lead ? save.workers.find((row) => row.id === lead) : undefined
   if (worker && raid.atkMax > 0 && raid.atkHp > 0) {
     worker.hp = clampInt(Math.round((raid.atkHp / raid.atkMax) * worker.hpMax), 1, worker.hpMax)
@@ -1039,6 +1275,93 @@ export function shadowCrewCount(roll: number): number {
   return 3
 }
 
+/** 来袭判定命中。roll 为 0～1。 */
+export function assaultHits(roll: number): boolean {
+  return roll < TREASURE_ASSAULT_CHANCE
+}
+
+/** 来袭人数。三段各约 1/3，对应 1、2、3 人。不会是 0。 */
+export function assaultCrewCount(roll: number): number {
+  if (roll < 1 / 3) return 1
+  if (roll < 2 / 3) return 2
+  return 3
+}
+
+export function assaultLootTip(qty = TREASURE_ASSAULT_LOOT): string {
+  return `缴获砂金 +${qty}`
+}
+
+/** 有我方矿洞正在预警、还没开打。页签上的注意用这个。 */
+export function treasureAssaultWarning(save: Save): boolean {
+  const elapsed = save.elapsedS
+  for (const mine of save.treasureMines?.mines ?? []) {
+    if (mine.owner !== 'player' || mine.raid) continue
+    if (typeof mine.assaultWarnAtS === 'number' && mine.assaultWarnAtS > elapsed) return true
+  }
+  return false
+}
+
+/**
+ * 离线追赶结束：进行中的战斗留下，和平计时和还没开打的预警清掉。
+ * 回来后从 0 重新累计，不补判离线那一段。
+ */
+export function resetTreasureAssaultAfterOffline(save: Save): void {
+  const state = save.treasureMines
+  if (!state?.mines) return
+  for (const mine of state.mines) {
+    mine.assaultChargeS = 0
+    if (mine.raid) continue
+    mine.assaultWarnAtS = null
+    mine.assaultParty = []
+    mine.assaultAvatarId = null
+  }
+}
+
+function clearAssault(mine: TreasureMine): void {
+  mine.assaultChargeS = 0
+  mine.assaultWarnAtS = null
+  mine.assaultParty = []
+  mine.assaultAvatarId = null
+}
+
+/** 来袭槽。1～2 人补到 3，方便增援；3 人以上按实际人数，最多跟开采上限一样。 */
+function assaultSlotCount(partySize: number): number {
+  const cap = TREASURE_CREW_CAP + TREASURE_BANNER_CREW_LEVELS.length
+  return Math.min(cap, Math.max(TREASURE_RAID_CAP, Math.floor(partySize)))
+}
+
+function keptAssaultCharge(raw: unknown): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return 0
+  return Math.min(TREASURE_ASSAULT_INTERVAL_S - 1, Math.floor(raw))
+}
+
+function keptAssaultParty(raw: unknown): TreasureShadow[] {
+  if (!Array.isArray(raw)) return []
+  const out: TreasureShadow[] = []
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue
+    const shadow = row as TreasureShadow
+    if (typeof shadow.id !== 'string' || !shadow.id) continue
+    if (typeof shadow.name !== 'string') continue
+    out.push(shadow)
+    if (out.length >= 3) break
+  }
+  return out
+}
+
+function pullRoll(state: TreasureMineState, rolls?: number[]): number {
+  const next = rolls?.shift()
+  if (typeof next === 'number' && Number.isFinite(next)) return next
+  return nextMineRoll(state)
+}
+
+function fortifyVitals(vitals: { hp: number; hpMax: number }, fortified: boolean): { hp: number; hpMax: number } {
+  if (!fortified) return vitals
+  const hpMax = Math.max(1, Math.round(vitals.hpMax * TREASURE_FORTIFY_HP_MUL))
+  if (vitals.hp <= 0) return { hp: 0, hpMax }
+  return { hp: Math.min(hpMax, Math.max(1, Math.round(vitals.hp * TREASURE_FORTIFY_HP_MUL))), hpMax }
+}
+
 function spawnMine(save: Save, elapsed: number): TreasureMine {
   const state = save.treasureMines
   const id = `mine-${state.nextId}`
@@ -1068,6 +1391,11 @@ function spawnMine(save: Save, elapsed: number): TreasureMine {
     revealedWeaknesses: [],
     raid: null,
     digCharge: {},
+    assaultChargeS: 0,
+    assaultWarnAtS: null,
+    assaultParty: [],
+    assaultAvatarId: null,
+    fortified: false,
   }
 }
 
@@ -1106,10 +1434,16 @@ export function mineWeaknessSlots(mine: TreasureMine): Array<CombatAttrId | null
   return (mine.weaknesses ?? []).filter(isCombatAttrId).map((id) => (revealed.has(id) ? id : null))
 }
 
-function makeShadow(save: Save, mineId: string, index: number, taken: ReadonlySet<string>): TreasureShadow {
+function makeShadow(
+  save: Save,
+  mineId: string,
+  index: number,
+  taken: ReadonlySet<string>,
+  pull: () => number = () => nextMineRoll(save.treasureMines),
+): TreasureShadow {
   const tier = (3 + ((save.treasureMines.nextId + index) % 3)) as QualityTier
   const runeId = SHADOW_RUNES[(save.knightLevel + index) % SHADOW_RUNES.length]
-  const name = pickSnapshotPlayerName(nextMineRoll(save.treasureMines), taken)
+  const name = pickSnapshotPlayerName(pull(), taken)
   const fake = {
     id: `${mineId}-shadow-${index}`,
     qualityTier: tier,
@@ -1148,17 +1482,18 @@ export function raidSlotSnapshot(ids: readonly string[]): (string | null)[] {
   return slots
 }
 
-function normalizeRaidSlots(raw: unknown, fallback: readonly string[]): (string | null)[] {
-  if (!Array.isArray(raw)) return raidSlotSnapshot(fallback)
-  const slots = raw.slice(0, TREASURE_RAID_CAP).map((id) => (typeof id === 'string' && id ? id : null))
-  while (slots.length < TREASURE_RAID_CAP) slots.push(null)
+function normalizeRaidSlots(raw: unknown, fallback: readonly string[], count = TREASURE_RAID_CAP): (string | null)[] {
+  const len = Math.max(TREASURE_RAID_CAP, Math.floor(count))
+  if (!Array.isArray(raw)) return padSlots(fallback, len)
+  const slots = raw.slice(0, len).map((id) => (typeof id === 'string' && id ? id : null))
+  while (slots.length < len) slots.push(null)
   return slots
 }
 
-function isVitalRow(raw: unknown): raw is number[] {
+function isVitalRow(raw: unknown, count: number): raw is number[] {
   return (
     Array.isArray(raw) &&
-    raw.length === TREASURE_RAID_CAP &&
+    raw.length === count &&
     raw.every((n) => typeof n === 'number' && Number.isFinite(n))
   )
 }
@@ -1179,10 +1514,12 @@ function ensureRaidVitals(save: Save, mine: TreasureMine): void {
   const raid = mine.raid
   if (!raid) return
   if (!raid.runes || typeof raid.runes !== 'object') raid.runes = {}
-  if (!isVitalRow(raid.attackSlotHp) || !isVitalRow(raid.attackSlotMax)) {
+  const attackLen = raid.attackSlots?.length ?? TREASURE_RAID_CAP
+  const defendLen = raid.defendSlots?.length ?? TREASURE_RAID_CAP
+  if (!isVitalRow(raid.attackSlotHp, attackLen) || !isVitalRow(raid.attackSlotMax, attackLen)) {
     const hp: number[] = []
     const max: number[] = []
-    for (let i = 0; i < TREASURE_RAID_CAP; i += 1) {
+    for (let i = 0; i < attackLen; i += 1) {
       const id = raid.attackSlots[i]
       const worker = id ? save.workers.find((row) => row.id === id) : undefined
       if (!id || !worker) {
@@ -1190,7 +1527,7 @@ function ensureRaidVitals(save: Save, mine: TreasureMine): void {
         max.push(0)
         continue
       }
-      const vitals = attackerCombatVitals(save, worker, raid.runes[id])
+      const vitals = fortifyVitals(attackerCombatVitals(save, worker, raid.runes[id]), raid.fortified === true)
       max.push(vitals.hpMax)
       if (!raid.queue.includes(id)) hp.push(0)
       else if (id === raid.queue[0]) hp.push(Math.max(0, raid.atkHp))
@@ -1199,10 +1536,10 @@ function ensureRaidVitals(save: Save, mine: TreasureMine): void {
     raid.attackSlotHp = hp
     raid.attackSlotMax = max
   }
-  if (!isVitalRow(raid.defendSlotHp) || !isVitalRow(raid.defendSlotMax)) {
+  if (!isVitalRow(raid.defendSlotHp, defendLen) || !isVitalRow(raid.defendSlotMax, defendLen)) {
     const hp: number[] = []
     const max: number[] = []
-    for (let i = 0; i < TREASURE_RAID_CAP; i += 1) {
+    for (let i = 0; i < defendLen; i += 1) {
       const id = raid.defendSlots[i]
       const shadow = id ? mine.shadows.find((row) => row.id === id) : undefined
       if (!id || !shadow) {
@@ -1223,7 +1560,7 @@ function loadAttacker(save: Save, raid: TreasureRaid, armNext: boolean): void {
   if (!worker) return
   const runeId = raid.runes[worker.id]
   const stats = workerLiveStats(worker, save, runeId)
-  const vitals = attackerCombatVitals(save, worker, runeId)
+  const vitals = fortifyVitals(attackerCombatVitals(save, worker, runeId), raid.fortified === true)
   raid.atkMax = vitals.hpMax
   raid.atkHp = Math.max(1, vitals.hp)
   raid.atkAtk = Math.max(1, stats.atk)

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import app from './app.vue?raw'
 import panel from './pvpPanel.vue?raw'
 import mine from './treasureMinePanel.vue?raw'
 import banner from './treasureBannerPanel.vue?raw'
@@ -32,6 +33,12 @@ describe('pvp treasure tab', () => {
     expect(avatar).toContain('frame-copper')
     expect(avatar).toContain('frame-silver')
     expect(avatar).toContain('frame-gold')
+    expect(mine).toContain('即将来袭')
+    expect(mine).toContain('已加固')
+    expect(mine).toContain('加固 {{ TREASURE_FORTIFY_COST }} 珠宝')
+    expect(panel).toContain('treasureAssaultWarning')
+    expect(panel).toContain('class="tab-dot"')
+    expect(app).toContain('treasureAssaultWarning')
     expect(mine).toContain('抢夺 {{ stakeOf(mine) }} 砂金')
     expect(mine).toContain('is-short')
     const tags = mine.slice(mine.indexOf('class="tags"'), mine.indexOf('</span>', mine.indexOf('class="tags"')))

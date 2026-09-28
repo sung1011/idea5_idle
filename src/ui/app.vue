@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { playerDisplayName, type PlayerAvatarId } from '../sim/createSave'
-import { bannerFrameOf, bannerLevelOf } from '../sim/treasureMine'
+import { bannerFrameOf, bannerLevelOf, treasureAssaultWarning } from '../sim/treasureMine'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
 import { dockStationHp } from './dockStationHp'
 import { useGameStore } from './gameStore'
@@ -33,6 +33,7 @@ const resourceOpen = ref<HudChipId | null>(null)
 const profileOpen = ref(false)
 const playerName = computed(() => playerDisplayName(game.save.playerName))
 const bannerFrame = computed(() => bannerFrameOf(bannerLevelOf(game.save)))
+const assaultAlert = computed(() => treasureAssaultWarning(game.save))
 const chips = computed(() => listHudChips(game.save))
 const stationHp = computed(() => dockStationHp(game.save))
 const resourceDetail = computed(() => (resourceOpen.value ? hudChipDetail(game.save, resourceOpen.value) : null))
@@ -132,6 +133,7 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
         >
           <UiIcon :name="t.id" />
           <span>{{ t.label }}</span>
+          <i v-if="t.id === 'pvp' && assaultAlert" class="dot" />
         </button>
       </div>
     </nav>
@@ -351,6 +353,7 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
 }
 
 .dock button {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
