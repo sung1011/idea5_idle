@@ -22,11 +22,11 @@ import {
 import { HERB_PVP_STAMINA_MAX } from './herbPvp'
 import {
   GUIDE_QUEST_DONE_STEP,
-  GUIDE_QUEST_PHASE2_START,
   GUIDE_QUEST_REV,
   guideQuestView,
   isGuideQuestVisible,
 } from './guideQuest'
+import { mainlineStepOf } from './mainlineQuest'
 import { QUALITY_MAX, START_DIAMONDS, START_GOLD, classPoolForQuality } from './tables'
 
 describe('gm debug grants', () => {
@@ -165,10 +165,10 @@ describe('gm debug grants', () => {
     expect(guideQuestView(save)).toBeNull()
     expect(isGuideQuestVisible(save)).toBe(false)
 
-    save.guideQuestStep = GUIDE_QUEST_PHASE2_START
+    save.guideQuestStep = mainlineStepOf('potionInstall')
     save.knightLevel = 2
     const gold2 = save.gold
-    expect(guideQuestView(save)?.title).toBe('进阶 · 1/2')
+    expect(guideQuestView(save)?.title).toBe('装药')
     expect(gmSkipGuide(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(GUIDE_QUEST_DONE_STEP)
     expect(save.gold).toBe(gold2)

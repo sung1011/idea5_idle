@@ -795,11 +795,11 @@ export type Save = {
    */
   mainLootClaims: number
   /**
-   * 左下悬浮主线当前步。任何时候只有这一条，顺序写死在任务表里。
+   * 左下悬浮主线当前步。任何时候只有这一条，顺序是确认过的 90 步。
    * 领完后步号不再显示浮层。旧档或缺低于当前 `guideQuestRev`：从第 1 条连续跳过已满足的任务。
    */
   guideQuestStep: number
-  /** 引导表版本。8 = 同级功能整组做完再接下一个。缺或低于当前 REV 按现况重落步号。 */
+  /** 引导表版本。9 = 90 步确认清单。缺或低于当前 REV 按现况重落步号。 */
   guideQuestRev: number
   /** 是否已从药剂槽点用过。hydrate 时若有时效 buff 也算。 */
   guideQuestPotionUsed: boolean
@@ -813,8 +813,11 @@ export type Save = {
   openedModules: string[]
   /** 酋长升级跨过门槛后待弹的「新玩法开放」卡片，按顺序。 */
   moduleUnlockQueue: string[]
-  /** 旧引导步位图。只在读档时折进 `guideQuestSkipped`，新进度不再往这里写。 */
-  guideQuestSkipMask: number
+  /**
+   * 跳过位图，容量 90 步。旧档是一个数字（只含低 31 位）；
+   * 新档是 3 个 31 位字。读档时折进 `guideQuestSkipped`。
+   */
+  guideQuestSkipMask: number | number[]
   /** 已跳过、不发奖的主线任务 id。旧档迁移写入。 */
   guideQuestSkipped: string[]
   /** 开放后曾经达成过的任务 id。日切或离岗后仍可领。 */

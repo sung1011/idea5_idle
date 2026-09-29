@@ -1,5 +1,5 @@
 import { isWorkerInBeastPvp } from './beastPvpQuery'
-import { noteRuneWin } from './mainlineStats'
+import { noteRuneFight } from './mainlineStats'
 import { isWorkerInHerbPvp } from './herbPvpQuery'
 import { isWorkerInTreasureMine, treasureMineBlockReason } from './treasureMineQuery'
 import {
@@ -733,7 +733,10 @@ export function beginEnemyCombat(
   opts?: BeginCombatOpts,
 ): EnemyCombat {
   const combat = buildEnemyCombat(enc, workers, now, chapter, onLog, save, opts)
-  if (save) stepEnemyCombat(save, enc, now, onLog)
+  if (save) {
+    noteRuneFight(save, combat.runeLoadout)
+    stepEnemyCombat(save, enc, now, onLog)
+  }
   return combat
 }
 
@@ -1029,7 +1032,7 @@ function finishCombat(
 ): void {
   retireFallenFighters(save, enc, combat, at, onLog)
   combat.outcome = outcome
-  if (outcome === 'win') noteRuneWin(save, combat.runeLoadout)
+  noteRuneFight(save, combat.runeLoadout)
   emitLog(enc, combat, at, text, outcome === 'win' ? 'ok' : 'err', onLog)
   grantRuneBloodXp(save, combat)
   writeBackWorkers(save, combat)

@@ -315,6 +315,7 @@ export function strikeBeast(save: Save, amount: number, actor: StrikeActor, quie
   const dealt = before - state.hp
   if (actor.player) {
     state.playerDamage += dealt
+    if (dealt > 0) noteBeastChallenge(save)
     if (state.offline) state.offline.damage += dealt
   } else {
     const rival = state.rivals.find((row) => row.id === actor.id)
@@ -1032,7 +1033,6 @@ export function startBeastFight(save: Save, workerIds: readonly string[]): Actio
   }
   state.stamina -= BEAST_STAMINA_COST
   state.fight = makeFight(save, party, state.auto)
-  noteBeastChallenge(save)
   const names = party.map((worker) => worker.name ?? '苦工').join('、')
   return { ok: true, message: `${names} 上阵，花 ${BEAST_STAMINA_COST} 体力` }
 }

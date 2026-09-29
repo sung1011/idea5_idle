@@ -6,7 +6,6 @@ import { fuseRestWorkers } from './fuse'
 import {
   GUIDE_QUEST_DONE_STEP,
   GUIDE_QUEST_GOLD,
-  GUIDE_QUEST_PHASE2_START,
   GUIDE_QUEST_PHASE3_START,
   GUIDE_FUSE_DRAG_GOAL,
   GUIDE_FUSE_EMPTY_GOAL,
@@ -71,10 +70,10 @@ describe('guideQuest normalize and hydrate', () => {
       phase: 1,
       phaseStep: 1,
       phaseTotal: 5,
-      title: '新手 · 1/5',
+      title: '招兵',
       taskId: 'recruit',
       goal: '抽取苦工 2 次',
-      rewardLabel: '金币 +20',
+      rewardLabel: '金币 +20、酋长经验 +20',
       progress: 0,
       progressLabel: '进度 0/2',
       claimable: false,
@@ -91,13 +90,13 @@ describe('guideQuest normalize and hydrate', () => {
 
   it('shows phase 2 at knight 1 once the main steps are claimed', () => {
     const save = createSave()
-    save.guideQuestStep = GUIDE_QUEST_PHASE2_START
+    save.guideQuestStep = mainlineStepOf('potionInstall')
     expect(save.knightLevel).toBe(1)
     expect(isGuideQuestPhase2Open(save)).toBe(true)
     expect(isGuideQuestVisible(save)).toBe(true)
     const view = guideQuestView(save)
-    expect(view?.title).toBe('进阶 · 1/2')
-    expect(view?.goal).toBe('点工坊底部的空药剂槽，装入药剂')
+    expect(view?.title).toBe('装药')
+    expect(view?.goal).toBe('任一药剂槽装了药')
     expect(guideQuestFlashId(save)).toBe('potionInstall')
   })
 
@@ -133,9 +132,9 @@ describe('guideQuest normalize and hydrate', () => {
     veteran.techLevels = { pathOutpost: 1 }
     const { guideQuestStep: _vs, guideQuestRev: _vr, ...vetRaw } = veteran
     hydrateGuideQuestFields(vetRaw as Save, vetRaw)
-    expect((vetRaw as Save).guideQuestStep).toBe(mainlineStepOf('firstBlood'))
-    expect(guideQuestView(vetRaw as Save)?.waiting).toBe(false)
-    expect(guideQuestView(vetRaw as Save)?.goal).toBe('在战场打赢一个敌人并领到战利品')
+    expect((vetRaw as Save).guideQuestStep).toBe(mainlineStepOf('level2'))
+    expect(guideQuestView(vetRaw as Save)?.waiting).toBe(true)
+    expect(guideQuestView(vetRaw as Save)?.goal).toBe('升到酋长 2 级')
     expect((vetRaw as Save).guideQuestRuneOpened).toBe(false)
 
     const fed = createSave()
@@ -151,9 +150,9 @@ describe('guideQuest normalize and hydrate', () => {
     fed.techLevels = { pathOutpost: 1 }
     const { guideQuestStep: _fs, guideQuestRev: _fr, ...fedRaw } = fed
     hydrateGuideQuestFields(fedRaw as Save, fedRaw)
-    expect((fedRaw as Save).guideQuestStep).toBe(mainlineStepOf('firstBlood'))
+    expect((fedRaw as Save).guideQuestStep).toBe(mainlineStepOf('level2'))
     expect(isGuideQuestVisible(fedRaw as Save)).toBe(true)
-    expect(guideQuestView(fedRaw as Save)?.goal).toBe('在战场打赢一个敌人并领到战利品')
+    expect(guideQuestView(fedRaw as Save)?.goal).toBe('升到酋长 2 级')
   })
 
   it('does not auto-complete recruit step when an old rev-2 save only recruited once', () => {
@@ -181,7 +180,7 @@ describe('guideQuest normalize and hydrate', () => {
     hydrateGuideQuestFields(save, save)
     expect(save.guideQuestRev).toBe(GUIDE_QUEST_REV)
     expect(save.guideQuestStep).toBe(4)
-    expect(guideQuestView(save)?.goal).toBe('炼金站有人在岗就会自动炼药，等出第一瓶')
+    expect(guideQuestView(save)?.goal).toBe('炼金站出过货，或手里、槽里有药')
     expect(guideQuestFlashId(save)).toBe('alchemy')
 
     const ahead = createSave()
@@ -194,7 +193,7 @@ describe('guideQuest normalize and hydrate', () => {
     ahead.guideQuestRev = 4
     hydrateGuideQuestFields(ahead, ahead)
     expect(ahead.guideQuestStep).toBe(4)
-    expect(guideQuestView(ahead)?.goal).toBe('炼金站有人在岗就会自动炼药，等出第一瓶')
+    expect(guideQuestView(ahead)?.goal).toBe('炼金站出过货，或手里、槽里有药')
   })
 
   it('keeps a current-rev step number', () => {
@@ -245,12 +244,12 @@ describe('guideQuest steps and claim', () => {
     expect(recruitWorker(save).ok).toBe(true)
     expect(guideQuestProgressAt(save, 1)).toBe(1)
     expect(guideQuestView(save)?.progressLabel).toBe('进度 2/2 · 可领')
-    expect(claimGuideQuest(save)).toEqual({ ok: true, message: `金币 +${GUIDE_QUEST_GOLD}` })
+    expect(claimGuideQuest(save)).toEqual({ ok: true, message: `金币 +${GUIDE_QUEST_GOLD}、酋长经验 +20` })
     expect(save.guideQuestStep).toBe(2)
     expect(save.gold).toBe(gold0 + GUIDE_QUEST_GOLD)
     expect(save.diamonds).toBe(START_DIAMONDS - RECRUIT_COST * 2)
 
-    expect(guideQuestView(save)?.goal).toBe('满血队首会自动上采药，不能手拖空岗')
+    expect(guideQuestView(save)?.goal).toBe('采药站有人在岗，或采药站出过货')
     expect(assignRestingToFirstEmpty(save).ok).toBe(true)
     expect(save.workers.some((worker) => worker.assignment === 'herbalism')).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
@@ -259,40 +258,43 @@ describe('guideQuest steps and claim', () => {
     spawnWorker(save)
     spawnWorker(save)
     expect(fuseRestWorkers(save, save.workers[1].id, save.workers[2].id).ok).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('合成两名同品质苦工')
+    expect(guideQuestView(save)?.goal).toBe('名册里有 2 档及以上苦工')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(4)
-    expect(guideQuestView(save)?.title).toBe('新手 · 4/5')
-    expect(guideQuestView(save)?.goal).toBe('炼金站有人在岗就会自动炼药，等出第一瓶')
+    expect(guideQuestView(save)?.title).toBe('熬药')
+    expect(guideQuestView(save)?.goal).toBe('炼金站出过货，或手里、槽里有药')
     save.stations.alchemy.completed = 1
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(save.guideQuestStep).toBe(5)
-    expect(guideQuestView(save)?.title).toBe('工坊 · 5/5')
-    expect(guideQuestView(save)?.goal).toBe('在 PVE 弹层中点击开战')
+    expect(save.guideQuestStep).toBe(mainlineStepOf('level2'))
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(save.guideQuestStep).toBe(mainlineStepOf('combat'))
+    expect(guideQuestView(save)?.title).toBe('出征')
+    expect(guideQuestView(save)?.goal).toBe('在 PVE 选人弹层点过开战')
     markCombatStarted(save)
     expect(hasStartedBattlefieldCombat(save)).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(save.guideQuestStep).toBe(6)
-    expect(guideQuestView(save)?.title).toBe('进阶 · 1/2')
+    expect(save.guideQuestStep).toBe(mainlineStepOf('potionInstall'))
+    expect(guideQuestView(save)?.title).toBe('装药')
 
     save.bank.salve = 2
     expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('点工坊底部的空药剂槽，装入药剂')
+    expect(guideQuestView(save)?.goal).toBe('任一药剂槽装了药')
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(save.guideQuestStep).toBe(7)
+    expect(save.guideQuestStep).toBe(mainlineStepOf('potionUse'))
 
     const duty = save.workers.find((worker) => worker.assignment != null)
     if (duty) duty.hp = Math.max(1, duty.hpMax - 1)
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(save.guideQuestPotionUsed).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('点药剂槽产生效果')
+    expect(guideQuestView(save)?.goal).toBe('点用过药剂槽')
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(save.guideQuestStep).toBe(8)
+    expect(save.guideQuestStep).toBe(mainlineStepOf('level3'))
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(save.guideQuestStep).toBe(mainlineStepOf('firstBlood'))
     expect(guideQuestView(save)?.waiting).toBe(false)
     expect(guideQuestView(save)?.taskId).toBe('firstBlood')
     expect(guideQuestView(save)?.goal).toBe('在战场打赢一个敌人并领到战利品')
-    expect(save.gold).toBe(gold0 + GUIDE_QUEST_GOLD * 7)
-    expect(save.knightXp).toBe(0)
+    expect(save.gold).toBe(gold0 + GUIDE_QUEST_GOLD * 9)
   })
 
   it('completes step 2 when the queue head auto-fills herbalism or herbalism has produced', () => {
@@ -331,22 +333,22 @@ describe('guideQuest steps and claim', () => {
 
   it('completes step 5 only after the pick-sheet 开战 click starts combat', () => {
     const save = createSave()
-    save.guideQuestStep = 5
-    expect(guideQuestView(save)?.goal).toBe('在 PVE 弹层中点击开战')
-    expect(guideQuestProgressAt(save, 5)).toBe(0)
+    save.guideQuestStep = mainlineStepOf('combat')
+    expect(guideQuestView(save)?.goal).toBe('在 PVE 选人弹层点过开战')
+    expect(guideQuestProgressAt(save, save.guideQuestStep)).toBe(0)
     expect(hasStartedBattlefieldCombat(save)).toBe(false)
 
     const idle = save.encounters[0] as EnemyEncounter
     expect(idle.departed).toBe(false)
     expect(idle.combat).toBeNull()
-    expect(guideQuestProgressAt(save, 5)).toBe(0)
+    expect(guideQuestProgressAt(save, save.guideQuestStep)).toBe(0)
 
     save.departCount = 1
-    expect(guideQuestProgressAt(save, 5)).toBe(1)
+    expect(guideQuestProgressAt(save, save.guideQuestStep)).toBe(1)
     expect(hasStartedBattlefieldCombat(save)).toBe(true)
 
     const fighting = createSave()
-    fighting.guideQuestStep = 5
+    fighting.guideQuestStep = mainlineStepOf('combat')
     const enc = fighting.encounters[0] as EnemyEncounter
     enc.combat = {
       startedAt: 1,
@@ -357,7 +359,7 @@ describe('guideQuest steps and claim', () => {
       logs: [],
       outcome: null,
     }
-    expect(guideQuestProgressAt(fighting, 5)).toBe(1)
+    expect(guideQuestProgressAt(fighting, fighting.guideQuestStep)).toBe(1)
   })
 
   it('shows the rune step only after inscription unlock and a battlefield fight button', () => {
@@ -366,14 +368,14 @@ describe('guideQuest steps and claim', () => {
     expect(guideQuestView(save)?.waiting).toBe(true)
     expect(guideQuestView(save)?.goal).toBe('下一个目标：酋长 18 级开放符文槽')
     save.knightLevel = 18
-    expect(guideQuestView(save)?.title).toBe('符文 · 1/1')
+    expect(guideQuestView(save)?.title).toBe('符文槽')
     for (const enc of save.encounters) {
       if (enc.kind === 'enemy') enc.lootClaimed = true
     }
-    expect(guideQuestView(save)?.goal).toBe('在选人面板点开符文槽')
+    expect(guideQuestView(save)?.goal).toBe('在选人面板点开过符文槽')
     const first = save.encounters[0] as EnemyEncounter
     first.lootClaimed = false
-    expect(guideQuestView(save)?.goal).toBe('在选人面板点开符文槽')
+    expect(guideQuestView(save)?.goal).toBe('在选人面板点开过符文槽')
     expect(guideQuestFlashId(save)).toBe('rune')
   })
 })
@@ -404,6 +406,7 @@ describe('guideQuest flash target', () => {
 
     save.stations.alchemy.completed = 1
     expect(claimGuideQuest(save).ok).toBe(true)
+    expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('combat')
     expect(isGuideQuestCombatFlash(save, save.encounters[0])).toBe(true)
 
@@ -420,6 +423,7 @@ describe('guideQuest flash target', () => {
     if (onDuty) onDuty.hp = Math.max(1, onDuty.hpMax - 1)
     usePotionSlot(save, 0)
     expect(guideQuestFlashId(save)).toBeNull()
+    expect(claimGuideQuest(save).ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('firstBlood')
     save.knightLevel = 18

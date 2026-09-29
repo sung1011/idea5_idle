@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { createSave } from './createSave'
 import { claimGuideQuest, guideQuestProgressAt, guideQuestView, hydrateGuideQuestFields } from './guideQuest'
 import { isModuleUnlocked } from './moduleUnlock'
-import { noteMarketDeal, noteDungeonRun } from './mainlineStats'
+import { noteDungeonRun, noteMarketDeal, noteRuneFight, noteTreasureRaid } from './mainlineStats'
 import {
+  GUIDE_SKIP_CAP,
   MAINLINE_TASKS,
+  blankSkipMask,
   mainlineStepOf,
   payMainlineReward,
+  skipMaskHas,
+  skipMaskSet,
   syncGuideQuestMet,
 } from './mainlineQuest'
 import { spawnWorker } from './recruit'
@@ -32,49 +36,107 @@ function pawn(): PawnEncounter {
 }
 
 describe('mainline schedule', () => {
-  it('keeps one fixed sequence and finishes each feature group before the next', () => {
-    const order = ids()
-    expect(order.slice(0, 9)).toEqual([
+  it('follows the confirmed 90-step list in order', () => {
+    expect(ids()).toEqual([
       'recruit',
       'autoHerb',
       'fuse',
       'alchemy',
+      'level2',
       'combat',
       'potionInstall',
       'potionUse',
+      'level3',
       'firstBlood',
       'explore',
-    ])
-    expect(order.indexOf('market')).toBeLessThan(order.indexOf('tech'))
-    expect(order.indexOf('restFood')).toBeLessThan(order.indexOf('tech'))
-    expect(order.indexOf('herb')).toBeLessThan(order.indexOf('tech'))
-    const level6 = order.indexOf('level6')
-    expect(order.slice(level6, level6 + 6)).toEqual(['level6', 'huntStart', 'huntHaul', 'market', 'pawn', 'timed'])
-    const level8 = order.indexOf('level8')
-    expect(order.slice(level8, level8 + 7)).toEqual([
+      'level4',
+      'alchemy3',
+      'slotsFull',
+      'level5',
+      'blueWorker',
+      'level6',
+      'huntStart',
+      'market',
+      'huntHaul',
+      'pawn',
+      'timed',
+      'level7',
+      'herbSickle',
       'level8',
       'cookStart',
       'restFood',
-      'stockFood',
       'dungeon',
+      'stockFood',
       'chest',
       'dungeonBoth',
-    ])
-    const level18 = order.indexOf('level18')
-    expect(order.slice(level18, level18 + 5)).toEqual(['level18', 'inscribe', 'runeCraft', 'rune', 'runeWin'])
-    const banner = order.indexOf('banner1')
-    expect(order.slice(banner)).toEqual([
+      'level9',
+      'huntWolf',
+      'marketHigh',
+      'level10',
+      'herbAssign',
+      'herb',
+      'herbCounter',
+      'level11',
+      'tech',
+      'techTabs',
+      'cookStew',
+      'level12',
+      'marketSlot',
+      'chapter2',
+      'level13',
+      'beast',
+      'beastManual',
+      'boneSoup',
+      'level14',
+      'cyanWorker',
+      'dungeonGold',
+      'level15',
+      'tech8',
+      'chapter3',
+      'huntDeer',
+      'level16',
+      'mining',
+      'crystal',
+      'miningIron',
+      'level17',
+      'herbPayout',
+      'oreDeal',
+      'veteran',
+      'level18',
+      'inscribe',
+      'runeCraft',
+      'rune',
+      'runeWin',
+      'stationsOpen',
+      'level19',
+      'miningMithril',
+      'inscribe5',
+      'level20',
+      'treasure',
+      'scout',
+      'raid',
+      'guard',
+      'feast',
+      'chapter5',
       'banner1',
       'level22',
-      'banner3',
       'purpleWorker',
+      'banner3',
       'level25',
       'chapter8',
       'stations10',
       'level28',
       'banner5',
+      'level30',
     ])
-    expect(order).toHaveLength(88)
+    const byId = new Map(MAINLINE_TASKS.map((row) => [row.id, row]))
+    expect(byId.get('recruit')?.reward).toEqual({ gold: 20, xp: 20 })
+    expect(byId.get('market')?.reward).toEqual({ gold: 20, xp: 20 })
+    expect(byId.get('herb')?.goal).toBe('割到一株珍贵草药')
+    expect(byId.get('herb')?.reward).toEqual({ probes: 1, xp: 20 })
+    expect(byId.get('level6')?.reward).toEqual({ gold: 20 })
+    expect(byId.get('level22')?.reward).toEqual({ diamonds: 24, xp: 10 })
+    expect(byId.get('level30')?.title).toBe('升到酋长 30 级')
   })
 
   it('shows the next level task once the open steps are done, and inserts that level’s group after it', () => {
@@ -87,7 +149,8 @@ describe('mainline schedule', () => {
 
     save.knightLevel = 6
     expect(guideQuestView(save)?.claimable).toBe(true)
-    expect(claimGuideQuest(save)).toEqual({ ok: true, message: '金币 +12' })
+    expect(claimGuideQuest(save)).toEqual({ ok: true, message: '金币 +20' })
+    expect(save.moduleUnlockQueue).toEqual(['hunting', 'market'])
     expect(save.guideQuestStep).toBe(mainlineStepOf('huntStart'))
     expect(guideQuestView(save)?.taskId).toBe('huntStart')
     expect(save.knightXp).toBe(0)
@@ -113,9 +176,9 @@ describe('mainline sticky completion and rewards', () => {
     market.starterCopperPawnDone = false
     expect(guideQuestProgressAt(market, market.guideQuestStep)).toBe(1)
     const gold = market.gold
-    expect(claimGuideQuest(market)).toEqual({ ok: true, message: '金币 +20' })
+    expect(claimGuideQuest(market)).toEqual({ ok: true, message: '金币 +20、酋长经验 +20' })
     expect(market.gold).toBe(gold + 20)
-    expect(market.knightXp).toBe(0)
+    expect(market.knightXp).toBe(20)
   })
 
   it('does not latch a task before it becomes the current one', () => {
@@ -152,8 +215,8 @@ describe('mainline sticky completion and rewards', () => {
     expect(save.techPoints).toBe(points)
 
     const long = createSave()
-    long.guideQuestStep = mainlineStepOf('chapter2')
-    long.mainChapter = 2
+    long.guideQuestStep = mainlineStepOf('chapter3')
+    long.mainChapter = 3
     const before = long.techPoints
     const claimed = claimGuideQuest(long)
     expect(claimed.ok).toBe(true)
@@ -190,7 +253,7 @@ describe('mainline old saves and market flag', () => {
     save.techLevels = { pathOutpost: 1 }
     const gold = save.gold
     hydrateGuideQuestFields(save, save)
-    expect(save.guideQuestRev).toBe(8)
+    expect(save.guideQuestRev).toBe(9)
     expect(save.gold).toBe(gold)
     expect(guideQuestView(save)?.taskId).not.toBe('recruit')
     expect(guideQuestView(save)?.goal).not.toBe('抽取苦工 2 次')
@@ -207,6 +270,45 @@ describe('mainline old saves and market flag', () => {
     expect(guideQuestView(save)?.taskId).toBe('recruit')
     expect(save.guideQuestSkipped).not.toContain('tech')
     expect(save.guideQuestSkipped).not.toContain('level20')
+  })
+
+  it('counts a market board deal, a treasure haul, a raid win, and a rune fight', () => {
+    const market = createSave()
+    market.guideQuestStep = mainlineStepOf('market')
+    market.mainLootClaims = 3
+    expect(guideQuestProgressAt(market, market.guideQuestStep)).toBe(0)
+    noteMarketDeal(market, pawn())
+    expect(guideQuestProgressAt(market, market.guideQuestStep)).toBe(1)
+
+    const haul = createSave()
+    haul.guideQuestStep = mainlineStepOf('treasure')
+    expect(guideQuestProgressAt(haul, haul.guideQuestStep)).toBe(0)
+    haul.treasureMines.haul = { wildCrystal: 1 }
+    expect(guideQuestProgressAt(haul, haul.guideQuestStep)).toBe(1)
+
+    const raid = createSave()
+    raid.guideQuestStep = mainlineStepOf('raid')
+    expect(guideQuestProgressAt(raid, raid.guideQuestStep)).toBe(0)
+    noteTreasureRaid(raid)
+    expect(guideQuestProgressAt(raid, raid.guideQuestStep)).toBe(1)
+
+    const rune = createSave()
+    rune.guideQuestStep = mainlineStepOf('runeWin')
+    noteRuneFight(rune, { w1: 'runeSharp' })
+    expect(guideQuestProgressAt(rune, rune.guideQuestStep)).toBe(1)
+
+    const sickle = createSave()
+    sickle.guideQuestStep = mainlineStepOf('herbSickle')
+    sickle.stations.herbalism.stationLevel = 5
+    expect(guideQuestProgressAt(sickle, sickle.guideQuestStep)).toBe(1)
+  })
+
+  it('stores a skip bit for step 90', () => {
+    const mask = blankSkipMask()
+    skipMaskSet(mask, GUIDE_SKIP_CAP)
+    expect(skipMaskHas(mask, 90)).toBe(true)
+    expect(skipMaskHas(mask, 31)).toBe(false)
+    expect(mask[2]).toBeGreaterThan(0)
   })
 
   it('does not open the market at knight 1 just because battlefield loot set the old flag', () => {

@@ -2,7 +2,7 @@ import { assignedWorkers, restingWorkers } from './assign'
 import { bankQty } from './bank'
 import { canReinforceCombat, isCombatLost, isCombatWon, isFighting } from './combat'
 import { combatSupplyBlockReason, isEncounterDone, isStarterCopperPawn } from './encounters'
-import { isModuleUnlocked, knightLevelProgress, moduleLabel, moduleUnlockKnightLevel } from './moduleUnlock'
+import { isModuleUnlocked, knightLevelProgress, moduleLabel, moduleUnlockKnightLevel, queueModuleUnlocks } from './moduleUnlock'
 import { knightLevelOf } from './stationUnlock'
 import { POTION_ITEM_IDS, QUALITY_MAX, STATION_ORDER } from './tables'
 import type { ActionResult, Encounter, EnemyEncounter, Save, StationId } from './types'
@@ -15,6 +15,7 @@ import {
   mainlineTaskAt,
   migrateOldGuide,
   normalizeGuideIdList,
+  normalizeSkipMask,
   payMainlineReward,
   seedGuideEvidence,
   syncGuideQuestMet,
@@ -31,11 +32,11 @@ export const GUIDE_QUEST_GOLD = 20
 /** 骑士 1 级即可装槽 / 点用。炼金在第一段，排在开战前面。 */
 export const GUIDE_QUEST_PHASE2_KNIGHT = 1
 /**
- * 8：一条主线，顺序写死。升到 N 级后把刚开放的功能整组做完，再接进阶和长目标。
+ * 9：确认过的 90 步清单。升到 N 级达到即完成，并接上该级的开放卡片。
  * 旧 REV 从第 1 条连续跳过已满足的任务，停在第一条未满足的上，跳过的不发奖。
- * 旧步号到 10 视为旧段已领完。第一步仍须抽工人 2 次，只抽过 1 次的不跳过。
+ * 跳过位图记到 90 步。旧步号到 10 视为旧段已领完。第一步仍须抽工人 2 次。
  */
-export const GUIDE_QUEST_REV = 8
+export const GUIDE_QUEST_REV = 9
 /** 第 3 步营地无人时的浮条文案。 */
 export const GUIDE_FUSE_EMPTY_GOAL = '再抽 1 名苦工，新人会进营地'
 /** 第 3 步营地有人、名单还没打开。 */
@@ -355,7 +356,7 @@ function guidePhaseMeta(row: MainlineTask): Pick<GuideQuestView, 'phase' | 'phas
       phase: 1,
       phaseStep,
       phaseTotal: GUIDE_QUEST_PHASE1_STEPS,
-      title: row.id === 'combat' ? `工坊 · ${phaseStep}/${GUIDE_QUEST_PHASE1_STEPS}` : `新手 · ${phaseStep}/${GUIDE_QUEST_PHASE1_STEPS}`,
+      title: row.title,
     }
   }
   if (row.id === 'potionInstall' || row.id === 'potionUse') {
@@ -364,7 +365,7 @@ function guidePhaseMeta(row: MainlineTask): Pick<GuideQuestView, 'phase' | 'phas
       phase: 2,
       phaseStep,
       phaseTotal: GUIDE_QUEST_PHASE2_STEPS,
-      title: `进阶 · ${phaseStep}/${GUIDE_QUEST_PHASE2_STEPS}`,
+      title: row.title,
     }
   }
   if (row.tier === 'level') {
@@ -450,6 +451,7 @@ export function claimGuideQuest(save: Save): ActionResult {
   }
   if (!mainlineDone(save, row.id)) return { ok: false, reason: '尚未完成' }
   const message = payMainlineReward(save, row.reward)
+  if (row.tier === 'level') queueModuleUnlocks(save, row.gate - 1, row.gate)
   save.guideQuestStep = step + 1
   advanceSkippedGuideSteps(save)
   return { ok: true, message }
@@ -471,10 +473,7 @@ export function hydrateGuideQuestFields(save: Save, raw?: object): Save {
   incoming.guideQuestRuneOpened = normalizeGuideQuestRuneOpened(incoming.guideQuestRuneOpened)
   incoming.guideQuestSkipped = normalizeGuideIdList(incoming.guideQuestSkipped)
   incoming.guideQuestMet = normalizeGuideIdList(incoming.guideQuestMet)
-  incoming.guideQuestSkipMask =
-    typeof incoming.guideQuestSkipMask === 'number' && Number.isFinite(incoming.guideQuestSkipMask)
-      ? Math.max(0, Math.floor(incoming.guideQuestSkipMask))
-      : 0
+  incoming.guideQuestSkipMask = normalizeSkipMask(incoming.guideQuestSkipMask)
   seedGuideEvidence(save)
 
   const hadRev = !!raw && Object.prototype.hasOwnProperty.call(raw, 'guideQuestRev')

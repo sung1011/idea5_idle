@@ -1,7 +1,7 @@
 import { addToBank, itemQty } from './bank'
 import { grantHerbProbes, herbWorkerCounters } from './herbPvp'
 import { grantKnightXp } from './knightLevel'
-import { MODULE_IDS, MODULE_UNLOCK_KNIGHT, isModuleUnlocked, moduleLabel, type ModuleId } from './moduleUnlock'
+import { isModuleUnlocked, type ModuleId } from './moduleUnlock'
 import { knightLevelOf } from './stationUnlock'
 import { POTION_ITEM_IDS, STATION_ORDER } from './tables'
 import { TECH_TABS } from './tech'
@@ -165,10 +165,120 @@ const REV7_GUIDE_IDS = [
   'banner5',
 ] as const
 
-const EMPTY_DIAMOND_LEVELS = new Set([2, 4, 7, 12, 15, 19])
+/** 跳过位图能记到的步数。一个 JS 数字只有 31 个正位，90 步拆成 3 个字。 */
+export const GUIDE_SKIP_CAP = 90
+const SKIP_WORD_BITS = 31
+
+/** REV 8 的 88 步顺序。升到 REV 9 时用来认已经领过的前缀。 */
+const REV8_GUIDE_IDS = [
+  'recruit',
+  'autoHerb',
+  'fuse',
+  'alchemy',
+  'combat',
+  'potionInstall',
+  'potionUse',
+  'firstBlood',
+  'explore',
+  'level2',
+  'level3',
+  'alchemy3',
+  'blueWorker',
+  'level4',
+  'slotsFull',
+  'level5',
+  'chapter2',
+  'level6',
+  'huntStart',
+  'huntHaul',
+  'market',
+  'pawn',
+  'timed',
+  'level7',
+  'huntWolf',
+  'level8',
+  'cookStart',
+  'restFood',
+  'stockFood',
+  'dungeon',
+  'chest',
+  'dungeonBoth',
+  'level9',
+  'marketHigh',
+  'level10',
+  'herbAssign',
+  'herb',
+  'herbCounter',
+  'cookStew',
+  'level11',
+  'tech',
+  'techTabs',
+  'herbPayout',
+  'level12',
+  'marketSlot',
+  'dungeonGold',
+  'huntDeer',
+  'chapter3',
+  'level13',
+  'beast',
+  'beastManual',
+  'boneSoup',
+  'cyanWorker',
+  'level14',
+  'tech8',
+  'level15',
+  'feast',
+  'level16',
+  'mining',
+  'crystal',
+  'miningIron',
+  'veteran',
+  'level17',
+  'oreDeal',
+  'level18',
+  'inscribe',
+  'runeCraft',
+  'rune',
+  'runeWin',
+  'stationsOpen',
+  'level19',
+  'miningMithril',
+  'inscribe5',
+  'chapter5',
+  'level20',
+  'treasure',
+  'scout',
+  'raid',
+  'guard',
+  'banner1',
+  'level22',
+  'banner3',
+  'purpleWorker',
+  'level25',
+  'chapter8',
+  'stations10',
+  'level28',
+  'banner5',
+] as const
+
+const LEVEL_OPEN: Partial<Record<number, string>> = {
+  6: '狩猎、集市',
+  8: '烹饪、伙食、地牢',
+  10: '割草',
+  11: '科技',
+  13: '困兽',
+  16: '采矿',
+  18: '铭刻、符文槽',
+  20: '夺宝',
+}
 
 function gold(n: number): MainlineReward {
   return { gold: n }
+}
+
+/** 保留的原有引导步：20 金 + 20 经验。 */
+function kept(): MainlineReward {
+  return { gold: 20, xp: 20 }
 }
 
 function gems(n: number, xp = 0): MainlineReward {
@@ -183,30 +293,27 @@ function longReward(inspiration = 1, diamonds = 24): MainlineReward {
   return { diamonds, inspiration, xp: 30 }
 }
 
-function endReward(): MainlineReward {
-  return { diamonds: 40, inspiration: 2, xp: 30 }
-}
-
-function unlockNames(level: number): string[] {
-  return MODULE_IDS.filter((id) => MODULE_UNLOCK_KNIGHT[id] === level).map((id) => moduleLabel(id))
+function rich(): MainlineReward {
+  return { diamonds: 24, inspiration: 2, xp: 30 }
 }
 
 function levelReward(level: number): MainlineReward {
-  if (EMPTY_DIAMOND_LEVELS.has(level)) return { diamonds: 6 }
-  return { gold: 12 }
+  if (level <= 20) return { gold: 20 }
+  return { diamonds: 24, xp: 10 }
 }
 
 function levelGoal(level: number): string {
-  const names = unlockNames(level)
-  if (!names.length) return `升到酋长 ${level} 级`
-  return `升到酋长 ${level} 级（开放${names.join('、')}）`
+  const names = LEVEL_OPEN[level]
+  if (!names) return `升到酋长 ${level} 级`
+  return `升到酋长 ${level} 级（开放${names}）`
 }
 
 function levelTask(level: number): MainlineTask {
+  const goal = levelGoal(level)
   return {
     id: `level${level}`,
-    goal: levelGoal(level),
-    title: `酋长 ${level} 级`,
+    goal,
+    title: goal,
     gate: level,
     module: null,
     tier: 'level',
@@ -227,103 +334,100 @@ function task(
 
 /**
  * 唯一的主线顺序。下标就是步号，运行时不重排。
- * 每一段都是：升到酋长 N 级 → 刚开放的功能整组上手（一组做完再下一组）→ 这一级的进阶和长目标。
+ * 顺序以确认过的 90 步清单为准，运行时不重排。
  */
 function buildSchedule(): MainlineTask[] {
   const rows: MainlineTask[] = [
-    task('recruit', '抽取苦工 2 次', '新手 · 1/5', 'intro', gold(20)),
-    task('autoHerb', '满血队首会自动上采药，不能手拖空岗', '新手 · 2/5', 'intro', gold(20)),
-    task('fuse', '合成两名同品质苦工', '新手 · 3/5', 'intro', gold(20)),
-    task('alchemy', '炼金站有人在岗就会自动炼药，等出第一瓶', '新手 · 4/5', 'intro', gold(20)),
-    task('combat', '在 PVE 弹层中点击开战', '工坊 · 5/5', 'intro', gold(20)),
-    task('potionInstall', '点工坊底部的空药剂槽，装入药剂', '进阶 · 1/2', 'intro', gold(20)),
-    task('potionUse', '点药剂槽产生效果', '进阶 · 2/2', 'intro', gold(20)),
-    task('firstBlood', '在战场打赢一个敌人并领到战利品', '战场 · 头功', 'intro', gold(30)),
-    task('explore', '探索 1 次', '战场 · 探路', 'intro', gold(16)),
+    task('recruit', '抽取苦工 2 次', '招兵', 'intro', kept()),
+    task('autoHerb', '采药站有人在岗，或采药站出过货', '上岗', 'intro', kept()),
+    task('fuse', '名册里有 2 档及以上苦工', '合伙', 'intro', kept()),
+    task('alchemy', '炼金站出过货，或手里、槽里有药', '熬药', 'intro', kept()),
     levelTask(2),
+    task('combat', '在 PVE 选人弹层点过开战', '出征', 'intro', kept()),
+    task('potionInstall', '任一药剂槽装了药', '装药', 'intro', kept()),
+    task('potionUse', '点用过药剂槽', '用药', 'intro', kept()),
     levelTask(3),
-    task('alchemy3', '把炼金站升到 3 级', '工坊 · 药方', 'advanced', goods([{ id: 'salve', qty: 2, label: '巫毒回春剂' }], 10)),
-    task('blueWorker', '名册里有 1 名蓝色苦工', '营地 · 蓝衣', 'advanced', gems(12, 10)),
+    task('firstBlood', '在战场打赢一个敌人并领到战利品', '头功', 'intro', gold(30)),
+    task('explore', '战场探索 1 次', '探路', 'intro', gold(16)),
     levelTask(4),
-    task('slotsFull', '4 个药剂槽全部装上药剂', '药剂 · 四槽', 'advanced', goods([{ id: 'stim', qty: 1, label: '嗜血药剂' }], 10)),
+    task('alchemy3', '把炼金站升到 3 级', '药方渐丰', 'advanced', gems(12, 10)),
+    task('slotsFull', '4 个药剂槽全部装上药剂', '四槽齐备', 'advanced', gems(12, 10)),
     levelTask(5),
-    task('chapter2', '击败本章首领，进入第 2 章', '战场 · 斩将', 'long', longReward()),
+    task('blueWorker', '名册里有 1 名蓝色苦工', '蓝衣苦工', 'advanced', gems(12, 10)),
     levelTask(6),
-    task('huntStart', '狩猎站有苦工在岗', '狩猎 · 出发', 'intro', gold(20), 'hunting'),
-    task('huntHaul', '狩猎站成功出货累计 10 次', '狩猎 · 满载', 'intro', goods([{ id: 'salve', qty: 2, label: '巫毒回春剂' }]), 'hunting'),
-    task('market', '完成一单集市', '集市 · 赶集', 'intro', gold(20), 'market'),
-    task('pawn', '在地精当铺典当成交一单', '集市 · 当铺', 'intro', gold(16), 'market'),
-    task('timed', '成交一单限时集市', '集市 · 时辰', 'intro', gems(12), 'market'),
+    task('huntStart', '狩猎站有苦工在岗', '猎手出发', 'intro', gold(20), 'hunting'),
+    task('market', '在集市板成交一单', '赶集', 'intro', kept(), 'market'),
+    task('huntHaul', '狩猎站成功出货累计 10 次', '满载而归', 'intro', goods([{ id: 'salve', qty: 2, label: '巫毒回春剂' }]), 'hunting'),
+    task('pawn', '在地精当铺典当成交一单', '地精当铺', 'intro', gold(16), 'market'),
+    task('timed', '成交一单限时集市', '抢时辰', 'intro', gold(20), 'market'),
     levelTask(7),
-    task('huntWolf', '狩猎站升到 5 级，并把猎物换成狼', '狩猎 · 猎狼', 'advanced', gems(12, 10), 'hunting'),
+    task('herbSickle', '把采药站升到 5 级', '磨镰', 'advanced', gems(12, 10)),
     levelTask(8),
-    task('cookStart', '烹饪站有苦工在岗', '烹饪 · 起灶', 'intro', gold(20), 'cooking'),
-    task('restFood', '选好营地伙食', '营地 · 开饭', 'intro', gold(20), 'restFood'),
-    task('stockFood', '物资里熟食、烤肉、香料炖合计至少 10 份', '烹饪 · 囤粮', 'intro', goods([{ id: 'spice', qty: 10, label: '香料' }]), 'cooking'),
-    task('dungeon', '打一次地牢', '地牢 · 下牢', 'intro', gold(20), 'dungeon'),
-    task('chest', '领取一次地牢宝箱', '地牢 · 开箱', 'intro', goods([{ id: 'salve', qty: 3, label: '巫毒回春剂' }]), 'dungeon'),
-    task('dungeonBoth', '同一个游戏日里两张地牢单都开过战', '地牢 · 两单', 'intro', goods([{ id: 'meal', qty: 4, label: '熟食' }]), 'dungeon'),
+    task('cookStart', '烹饪站有苦工在岗', '起灶', 'intro', gold(20), 'cooking'),
+    task('restFood', '选好营地伙食', '开饭', 'intro', kept(), 'restFood'),
+    task('dungeon', '当天地牢开过战', '下地牢', 'intro', kept(), 'dungeon'),
+    task('stockFood', '物资里熟食、烤肉、香料炖合计至少 10 份', '囤粮', 'intro', goods([{ id: 'spice', qty: 10, label: '香料' }]), 'cooking'),
+    task('chest', '领取过一次地牢宝箱', '开箱', 'intro', goods([{ id: 'salve', qty: 3, label: '巫毒回春剂' }]), 'dungeon'),
+    task('dungeonBoth', '同一个游戏日里两张地牢单都开过战', '两单全开', 'intro', goods([{ id: 'meal', qty: 4, label: '熟食' }]), 'dungeon'),
     levelTask(9),
-    task('marketHigh', '成交一单紫色或橙色集市', '集市 · 主顾', 'advanced', gems(24, 10), 'market'),
+    task('huntWolf', '狩猎站升到 5 级，并把猎物换成狼', '猎狼', 'advanced', gems(12, 10), 'hunting'),
+    task('marketHigh', '成交一单紫色或橙色集市', '大主顾', 'advanced', gems(24, 10), 'market'),
     levelTask(10),
-    task('herbAssign', '派一名苦工去割草', '割草 · 下田', 'intro', gold(20), 'herb'),
-    task('herb', '割到一株珍贵草药', '割草 · 珍草', 'intro', { probes: 1 }, 'herb'),
-    task('herbCounter', '派一名克制该地块弱点的苦工去割', '割草 · 对症', 'intro', gold(20), 'herb'),
-    task('cookStew', '烹饪站升到 5 级，并把营地伙食换成香料炖', '烹饪 · 香料炖', 'advanced', gems(12, 10), 'cooking'),
+    task('herbAssign', '派一名苦工去割草', '下田', 'intro', gold(20), 'herb'),
+    task('herb', '割到一株珍贵草药', '珍草上榜', 'intro', { probes: 1, xp: 20 }, 'herb'),
+    task('herbCounter', '派一名克制该地块弱点的苦工去割', '对症下镰', 'intro', gold(20), 'herb'),
     levelTask(11),
-    task('tech', '点亮一项科技', '科技 · 灵窍', 'intro', gold(20), 'tech'),
-    task('techTabs', '生产、战斗、事务三页各点亮至少 1 项', '科技 · 三路', 'intro', { inspiration: 2 }, 'tech'),
-    task('herbPayout', '领到一次割草日结奖励', '割草 · 日结', 'advanced', gems(12, 10), 'herb'),
+    task('tech', '点亮一项科技', '初开灵窍', 'intro', kept(), 'tech'),
+    task('techTabs', '生产、战斗、事务三页各点亮至少 1 项', '三路并进', 'intro', gold(20), 'tech'),
+    task('cookStew', '烹饪站升到 5 级，并把营地伙食换成香料炖', '香料炖', 'advanced', gems(12, 10), 'cooking'),
     levelTask(12),
-    task('marketSlot', '点亮科技「市集摊位」', '科技 · 摊位', 'advanced', gems(12, 10), 'tech'),
-    task('dungeonGold', '地牢开出一次金箱', '地牢 · 破门', 'long', longReward(), 'dungeon'),
-    task('huntDeer', '狩猎站升到 10 级，并把猎物换成鹿', '狩猎 · 逐鹿', 'long', longReward(), 'hunting'),
-    task('chapter3', '进入第 3 章', '战场 · 三章', 'long', longReward()),
+    task('marketSlot', '点亮科技「市集摊位」', '多开一格', 'advanced', gems(12, 10), 'tech'),
+    task('chapter2', '击败本章首领，进入第 2 章', '斩将夺旗', 'advanced', gems(24, 10)),
     levelTask(13),
-    task('beast', '挑战一次困兽', '困兽 · 猎兽', 'intro', gold(20), 'beast'),
-    task('beastManual', '在困兽战里用出打断、闪避或畏缩', '困兽 · 拆招', 'intro', goods([{ id: 'salve', qty: 2, label: '巫毒回春剂' }]), 'beast'),
-    task('boneSoup', '做出一份骨汤，或把营地伙食换成骨汤', '困兽 · 骨汤', 'intro', goods([{ id: 'meat', qty: 10, label: '肉' }]), 'beast'),
-    task('cyanWorker', '名册里有 1 名青色苦工', '营地 · 青衣', 'long', longReward()),
+    task('beast', '对困兽造成过伤害', '猎兽', 'intro', kept(), 'beast'),
+    task('beastManual', '在困兽战里用出打断、闪避或畏缩', '见招拆招', 'intro', goods([{ id: 'salve', qty: 2, label: '巫毒回春剂' }]), 'beast'),
+    task('boneSoup', '做出一份骨汤，或把营地伙食换成骨汤', '熬骨汤', 'intro', goods([{ id: 'meat', qty: 10, label: '肉' }]), 'beast'),
     levelTask(14),
-    task('tech8', '累计点亮 8 项科技', '科技 · 博学', 'long', { diamonds: 24, inspiration: 2, xp: 30 }, 'tech'),
+    task('cyanWorker', '名册里有 1 名青色苦工', '青衣头目', 'long', longReward()),
+    task('dungeonGold', '地牢开出一次金箱', '典狱破门', 'long', longReward(), 'dungeon'),
     levelTask(15),
-    task('feast', '摆一次酋长宴', '困兽 · 酋长宴', 'long', longReward(), 'beast'),
+    task('tech8', '累计点亮 8 项科技', '博学', 'long', rich(), 'tech'),
+    task('chapter3', '进入第 3 章', '三章告捷', 'long', longReward()),
+    task('huntDeer', '狩猎站升到 10 级，并把猎物换成鹿', '逐鹿', 'long', longReward(), 'hunting'),
     levelTask(16),
-    task('mining', '采矿站有苦工在岗', '采矿 · 开矿', 'intro', gold(20), 'mining'),
-    task('crystal', '物资里荒晶至少 10 个', '采矿 · 荒晶', 'intro', gold(30), 'mining'),
-    task('miningIron', '采矿站升到 5 级，并换成铁矿', '采矿 · 铁矿', 'intro', gems(12), 'mining'),
-    task('veteran', '任一苦工的战斗等级达到 8', '营地 · 老兵', 'long', longReward()),
+    task('mining', '采矿站有苦工在岗', '开矿', 'intro', kept(), 'mining'),
+    task('crystal', '物资里荒晶至少 10 个', '攒荒晶', 'intro', gold(30), 'mining'),
+    task('miningIron', '采矿站升到 5 级，并换成铁矿', '换铁矿', 'advanced', gems(12, 10), 'mining'),
     levelTask(17),
-    task('oreDeal', '用矿石成交一单集市', '集市 · 矿石', 'advanced', gems(24, 10), 'market'),
+    task('herbPayout', '领到一次割草日结奖励', '日结领赏', 'advanced', gems(12, 10), 'herb'),
+    task('oreDeal', '用矿石成交一单集市', '矿石换钱', 'advanced', gems(24, 10), 'market'),
+    task('veteran', '任一苦工的战斗等级达到 8', '百战老兵', 'long', longReward()),
     levelTask(18),
-    task('inscribe', '铭刻站有苦工在岗', '铭刻 · 刻符', 'intro', gold(20), 'inscription'),
-    task('runeCraft', '铭刻站成功刻出 1 枚符文', '铭刻 · 成符', 'intro', goods([{ id: 'wildCrystal', qty: 6, label: '荒晶' }]), 'inscription'),
-    task('rune', '在选人面板点开符文槽', '符文 · 1/1', 'intro', gold(20), 'rune'),
-    task('runeWin', '带着符文打赢一场战斗', '符文 · 出征', 'intro', goods([{ id: 'runeSharp', qty: 2, label: '锋锐符文' }]), 'rune'),
-    task('stationsOpen', '六个生产站同时都有苦工在岗', '工坊 · 六站', 'long', longReward()),
+    task('inscribe', '铭刻站有苦工在岗', '刻符人', 'intro', gold(20), 'inscription'),
+    task('runeCraft', '铭刻站成功刻出 1 枚符文', '第一枚符文', 'intro', goods([{ id: 'wildCrystal', qty: 6, label: '荒晶' }]), 'inscription'),
+    task('rune', '在选人面板点开过符文槽', '符文槽', 'intro', kept(), 'rune'),
+    task('runeWin', '带着符文打一场战场或地牢', '带符出征', 'intro', goods([{ id: 'runeSharp', qty: 2, label: '锋锐符文' }]), 'rune'),
+    task('stationsOpen', '六个生产站同时都有苦工在岗', '六站齐开', 'long', longReward()),
     levelTask(19),
-    task('miningMithril', '采矿站升到 10 级，并换成秘银矿', '采矿 · 秘银', 'long', longReward(), 'mining'),
-    task('inscribe5', '铭刻站升到 5 级', '铭刻 · 破障', 'long', longReward(), 'inscription'),
-    task('chapter5', '进入第 5 章', '战场 · 五章', 'long', longReward()),
+    task('miningMithril', '采矿站升到 10 级，并换成秘银矿', '秘银', 'long', longReward(), 'mining'),
+    task('inscribe5', '铭刻站升到 5 级', '破障', 'long', longReward(), 'inscription'),
     levelTask(20),
-    task('treasure', '夺宝累计收获大于 0', '夺宝 · 开采', 'intro', gold(20), 'treasure'),
-    task('scout', '揭开一座矿洞的全部弱点', '夺宝 · 探洞', 'intro', { vault: [{ id: 'sandGold', qty: 20, label: '砂金' }] }, 'treasure'),
-    task('raid', '从守军手里抢下一座矿洞', '夺宝 · 夺洞', 'intro', { vault: [{ id: 'jewel', qty: 60, label: '珠宝' }] }, 'treasure'),
-    task('guard', '给自己的矿洞加固或布置陷阱', '夺宝 · 设防', 'intro', { vault: [{ id: 'sandGold', qty: 40, label: '砂金' }] }, 'treasure'),
-    task('banner1', '把战旗升到 1 级', '夺宝 · 竖旗', 'long', {
-      diamonds: 24,
-      inspiration: 1,
-      xp: 30,
-      vault: [{ id: 'jade', qty: 30, label: '荣誉徽记' }],
-    }, 'treasure'),
+    task('treasure', '夺宝累计收获大于 0', '开采', 'intro', kept(), 'treasure'),
+    task('scout', '揭开一座矿洞的全部弱点', '探洞', 'intro', { vault: [{ id: 'sandGold', qty: 20, label: '砂金' }] }, 'treasure'),
+    task('raid', '从守军手里抢下一座矿洞', '夺洞', 'intro', { vault: [{ id: 'jewel', qty: 60, label: '珠宝' }] }, 'treasure'),
+    task('guard', '给自己的矿洞加固或布置陷阱', '设防', 'intro', { vault: [{ id: 'sandGold', qty: 40, label: '砂金' }] }, 'treasure'),
+    task('feast', '摆一次酋长宴', '酋长宴', 'advanced', gems(24, 10), 'beast'),
+    task('chapter5', '进入第 5 章', '第五章', 'long', longReward()),
+    task('banner1', '把战旗升到 1 级', '竖旗', 'long', longReward(), 'treasure'),
     levelTask(22),
-    task('banner3', '把战旗升到 3 级', '终局 · 战旗', 'long', endReward(), 'treasure'),
-    task('purpleWorker', '名册里有 1 名紫色苦工', '终局 · 紫衣', 'long', endReward()),
+    task('purpleWorker', '名册里有 1 名紫色苦工', '紫衣头目', 'long', rich()),
+    task('banner3', '把战旗升到 3 级', '战旗三级', 'long', rich(), 'treasure'),
     levelTask(25),
-    task('chapter8', '进入第 8 章', '终局 · 八章', 'long', endReward()),
-    task('stations10', '六个生产站都升到 10 级', '终局 · 六站', 'long', endReward()),
+    task('chapter8', '进入第 8 章', '第八章', 'long', rich()),
+    task('stations10', '六个生产站都升到 10 级', '六站十级', 'long', rich()),
     levelTask(28),
-    task('banner5', '把战旗升到 5 级', '终局 · 满旗', 'long', endReward(), 'treasure'),
+    task('banner5', '把战旗升到 5 级', '战旗五级', 'long', rich(), 'treasure'),
+    levelTask(30),
   ]
   return rows
 }
@@ -458,13 +562,13 @@ function herbCounterLive(save: Save): boolean {
   return false
 }
 
-function runeWinLive(save: Save): boolean {
+function runeLoadoutOn(loadout: Partial<Record<string, string>> | undefined): boolean {
+  return !!loadout && Object.values(loadout).some((id) => typeof id === 'string' && id.length > 0)
+}
+
+function runeFightLive(save: Save): boolean {
   const boards = [...(save.encounters ?? []), ...(save.dungeon?.encounters ?? [])]
-  return boards.some((enc) => {
-    if (enc.kind !== 'enemy' || enc.combat?.outcome !== 'win') return false
-    const loadout = enc.combat.runeLoadout
-    return !!loadout && Object.values(loadout).some((id) => typeof id === 'string' && id.length > 0)
-  })
+  return boards.some((enc) => enc.kind === 'enemy' && runeLoadoutOn(enc.combat?.runeLoadout))
 }
 
 function feastLive(save: Save): boolean {
@@ -523,6 +627,8 @@ export function mainlineLive(save: Save, id: string): boolean {
       return stats.marketPawn >= 1 || marketBoardDone(save, (enc) => enc.kind === 'pawn')
     case 'timed':
       return stats.marketTimed >= 1 || marketBoardDone(save, (enc) => enc.timedUntil != null)
+    case 'herbSickle':
+      return (save.stations?.herbalism?.stationLevel ?? 1) >= 5
     case 'huntWolf':
       return stationAt(save, 'hunting', 5, 'iron')
     case 'cookStart':
@@ -562,11 +668,7 @@ export function mainlineLive(save: Save, id: string): boolean {
     case 'chapter3':
       return (save.mainChapter ?? 1) >= 3
     case 'beast':
-      return (
-        stats.beastChallenges >= 1 ||
-        (save.beastPvp?.playerDamage ?? 0) > 0 ||
-        save.beastPvp?.fight != null
-      )
+      return stats.beastChallenges >= 1 || (save.beastPvp?.playerDamage ?? 0) > 0
     case 'beastManual':
       return (
         stats.beastManual >= 1 ||
@@ -597,7 +699,7 @@ export function mainlineLive(save: Save, id: string): boolean {
     case 'runeCraft':
       return (save.stations?.inscription?.completed ?? 0) >= 1
     case 'runeWin':
-      return stats.runeWins >= 1 || runeWinLive(save)
+      return stats.runeFights >= 1 || stats.runeWins >= 1 || runeFightLive(save)
     case 'stationsOpen':
       return STATION_ORDER.every((id) => onStation(save, id))
     case 'miningMithril':
@@ -720,18 +822,59 @@ export function syncGuideQuestMet(save: Save): void {
   save.guideQuestMet = [...save.guideQuestMet, row.id]
 }
 
-function skipBit(mask: number, step: number): boolean {
-  if (step < 1 || step > 30) return false
-  return (mask & (1 << (step - 1))) !== 0
+export function blankSkipMask(): number[] {
+  return [0, 0, 0]
+}
+
+/** 旧档一个数字只覆盖低 31 位。新档是 3 个字，第 90 步落在第 3 个字。 */
+export function normalizeSkipMask(raw: unknown): number[] {
+  const words = blankSkipMask()
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    words[0] = Math.max(0, Math.floor(raw))
+    return words
+  }
+  if (!Array.isArray(raw)) return words
+  for (let i = 0; i < words.length; i += 1) {
+    const value = raw[i]
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) words[i] = Math.floor(value)
+  }
+  return words
+}
+
+export function skipMaskHas(mask: readonly number[], step: number): boolean {
+  if (step < 1 || step > GUIDE_SKIP_CAP) return false
+  const index = step - 1
+  const word = Math.floor(index / SKIP_WORD_BITS)
+  const bit = index % SKIP_WORD_BITS
+  return ((mask[word] ?? 0) & (1 << bit)) !== 0
+}
+
+export function skipMaskSet(mask: number[], step: number): void {
+  if (step < 1 || step > GUIDE_SKIP_CAP) return
+  const index = step - 1
+  const word = Math.floor(index / SKIP_WORD_BITS)
+  const bit = index % SKIP_WORD_BITS
+  mask[word] = (mask[word] ?? 0) | (1 << bit)
+}
+
+function writeSkipMask(skipped: ReadonlySet<string>): number[] {
+  const mask = blankSkipMask()
+  MAINLINE_TASKS.forEach((row, index) => {
+    if (skipped.has(row.id)) skipMaskSet(mask, index + 1)
+  })
+  return mask
 }
 
 /**
  * 旧档从第 1 条往后走：已经领过，或当前条件成立，就连续跳过且不发奖。
  * 停在第一条两边都不成立的任务上。后面即使已经做成，也不提前跳过，轮到时还能领。
  */
-export function migrateOldGuide(save: Save, oldRev: number, rawStep: number, mask: number): void {
+export function migrateOldGuide(save: Save, oldRev: number, rawStep: number, mask: unknown): void {
   const claimed = new Set<string>()
-  if (oldRev === 7 && rawStep > 1) {
+  const bits = normalizeSkipMask(mask)
+  if (oldRev === 8 && rawStep > 1) {
+    for (let i = 0; i < rawStep - 1 && i < REV8_GUIDE_IDS.length; i += 1) claimed.add(REV8_GUIDE_IDS[i])
+  } else if (oldRev === 7 && rawStep > 1) {
     for (let i = 0; i < rawStep - 1 && i < REV7_GUIDE_IDS.length; i += 1) claimed.add(REV7_GUIDE_IDS[i])
   } else if (rawStep >= 10) {
     for (const id of ANCIENT_GUIDE_IDS) claimed.add(id)
@@ -743,7 +886,7 @@ export function migrateOldGuide(save: Save, oldRev: number, rawStep: number, mas
     }
   }
   for (let step = 1; step <= REV6_GUIDE_IDS.length; step += 1) {
-    if (skipBit(mask, step)) claimed.add(REV6_GUIDE_IDS[step - 1])
+    if (skipMaskHas(bits, step)) claimed.add(REV6_GUIDE_IDS[step - 1])
   }
   const skipped = new Set(claimed)
   for (const row of MAINLINE_TASKS) {
@@ -754,6 +897,7 @@ export function migrateOldGuide(save: Save, oldRev: number, rawStep: number, mas
     break
   }
   save.guideQuestSkipped = [...skipped]
+  save.guideQuestSkipMask = writeSkipMask(skipped)
   save.guideQuestStep = 1
 }
 

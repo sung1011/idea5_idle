@@ -17,6 +17,7 @@ import {
   KNIGHT_XP_CHEST_GOLD,
   KNIGHT_XP_CHEST_SILVER,
   KNIGHT_XP_ENEMY,
+  KNIGHT_XP_GUIDE_STEP,
   KNIGHT_XP_MARKET,
   KNIGHT_XP_MARKET_TIMED,
   KNIGHT_XP_STATION_LEVEL,
@@ -124,14 +125,14 @@ describe('knight xp sources', () => {
     expect(save.messages[0]?.title).toBe('酋长升级')
   })
 
-  it('pays gold but no chief xp for a starter guide step', () => {
+  it('pays 20 gold and 20 chief xp for a kept starter guide step', () => {
     const save = createSave()
     expect(claimGuideQuest(save).ok).toBe(false)
     expect(save.knightXp).toBe(0)
     spawnWorker(save)
     spawnWorker(save)
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(save.knightXp).toBe(0)
+    expect(save.knightXp).toBe(KNIGHT_XP_GUIDE_STEP)
   })
 
   it('pays 5 for a battlefield win and an extra 60 for a chapter boss', () => {

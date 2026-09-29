@@ -21,6 +21,8 @@ export type GuideQuestStats = {
   herbPayouts: number
   beastChallenges: number
   beastManual: number
+  /** 带着符文打过战场或地牢，不论胜负。 */
+  runeFights: number
   runeWins: number
   treasureRaids: number
   treasureScouted: number
@@ -49,6 +51,7 @@ export function blankGuideQuestStats(): GuideQuestStats {
     herbPayouts: 0,
     beastChallenges: 0,
     beastManual: 0,
+    runeFights: 0,
     runeWins: 0,
     treasureRaids: 0,
     treasureScouted: 0,
@@ -87,6 +90,7 @@ export function normalizeGuideQuestStats(raw: unknown): GuideQuestStats {
     herbPayouts: countOf(src.herbPayouts),
     beastChallenges: countOf(src.beastChallenges),
     beastManual: countOf(src.beastManual),
+    runeFights: countOf(src.runeFights),
     runeWins: countOf(src.runeWins),
     treasureRaids: countOf(src.treasureRaids),
     treasureScouted: countOf(src.treasureScouted),
@@ -101,7 +105,8 @@ export function ensureGuideQuestStats(save: Save): GuideQuestStats {
     current &&
     typeof current.marketDeals === 'number' &&
     Array.isArray(current.dungeonFought) &&
-    typeof current.feast === 'boolean'
+    typeof current.feast === 'boolean' &&
+    typeof current.runeFights === 'number'
   ) {
     return current
   }
@@ -173,10 +178,21 @@ export function noteBeastManual(save: Save): void {
   ensureGuideQuestStats(save).beastManual += 1
 }
 
+function loadoutHasRune(loadout: Partial<Record<string, string>> | undefined): boolean {
+  return !!loadout && Object.values(loadout).some((id) => typeof id === 'string' && id.length > 0)
+}
+
+/** 带着符文开打就算，不要求打赢。抢洞胜利另记在 treasureRaids。 */
+export function noteRuneFight(save: Save, loadout: Partial<Record<string, string>> | undefined): void {
+  if (!loadoutHasRune(loadout)) return
+  ensureGuideQuestStats(save).runeFights += 1
+}
+
 export function noteRuneWin(save: Save, loadout: Partial<Record<string, string>> | undefined): void {
-  if (!loadout) return
-  if (!Object.values(loadout).some((id) => typeof id === 'string' && id.length > 0)) return
-  ensureGuideQuestStats(save).runeWins += 1
+  if (!loadoutHasRune(loadout)) return
+  const stats = ensureGuideQuestStats(save)
+  stats.runeWins += 1
+  stats.runeFights += 1
 }
 
 export function noteTreasureRaid(save: Save): void {
