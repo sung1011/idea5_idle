@@ -5,6 +5,8 @@ import {
   HUD_CORE_IDS,
   hudChipAmount,
   hudChipDetail,
+  hudChipGrouped,
+  hudChipTone,
   itemHudSource,
   itemHudUsage,
   listHudChips,
@@ -95,5 +97,22 @@ describe('hud resource chips', () => {
     expect(ore.amount).toBe('12')
     expect(ore.source).toBe('采矿产出')
     expect(ore.usage).toMatch(/库存暂无常规消耗/)
+  })
+
+  it('groups capsule numbers and colors the border by resource', () => {
+    const save = createSave()
+    save.gold = 2845
+    save.diamonds = 180
+    expect(hudChipGrouped(save, 'gold')).toBe('2,845')
+    expect(hudChipGrouped(save, 'diamonds')).toBe('180')
+    expect(hudChipTone('gold')).toBe('gold')
+    expect(hudChipTone('diamonds')).toBe('gem')
+    expect(hudChipTone('workers')).toBe('worker')
+    expect(hudChipTone('herb')).toBe('grass')
+    expect(hudChipTone('spice')).toBe('grass')
+    expect(hudChipTone('wood')).toBe('wood')
+    expect(hudChipTone('weapon')).toBe('steel')
+    expect(hudChipTone('salve')).toBe('potion')
+    expect(hudChipTone('runeSharp')).toBe('rune')
   })
 })

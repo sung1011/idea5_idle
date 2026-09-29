@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatHudQty } from './formatHud'
+import { formatHudGrouped, formatHudQty } from './formatHud'
 
 describe('formatHudQty', () => {
   it('keeps small counts raw so diamonds and workers stay readable', () => {
@@ -15,6 +15,17 @@ describe('formatHudQty', () => {
     expect(formatHudQty(125400)).toBe('125.4K')
     expect(formatHudQty(1_250_000)).toBe('1.3M')
     expect(formatHudQty(1_000_000_000)).toBe('1B')
+  })
+
+  it('groups capsule amounts with thousands separators', () => {
+    expect(formatHudGrouped(0)).toBe('0')
+    expect(formatHudGrouped(180)).toBe('180')
+    expect(formatHudGrouped(2845)).toBe('2,845')
+    expect(formatHudGrouped(28455)).toBe('28,455')
+    expect(formatHudGrouped(1_250_000)).toBe('1,250,000')
+    expect(formatHudGrouped(12.9)).toBe('12')
+    expect(formatHudGrouped(-2845)).toBe('-2,845')
+    expect(formatHudGrouped(Number.NaN)).toBe('0')
   })
 
   it('floors dirty numbers and rejects non-finite', () => {

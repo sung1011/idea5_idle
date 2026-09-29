@@ -13,3 +13,11 @@ export function formatHudQty(n: number): string {
 function trimHudDecimal(n: number): string {
   return n.toFixed(1).replace(/\.0$/, '')
 }
+
+/** 顶栏胶囊上的数字：千分位，不缩成 K/M。 */
+export function formatHudGrouped(n: number): string {
+  if (!Number.isFinite(n)) return '0'
+  const sign = n < 0 ? '-' : ''
+  const abs = Math.floor(Math.abs(n))
+  return `${sign}${String(abs).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
+}

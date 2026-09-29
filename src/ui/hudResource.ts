@@ -16,7 +16,7 @@ import {
 } from '../sim/tables'
 import type { ItemId, Save } from '../sim/types'
 import { leftoverStockRows } from '../sim/query'
-import { formatHudQty } from './formatHud'
+import { formatHudGrouped, formatHudQty } from './formatHud'
 
 /** 顶栏核心芯片从左到右：骑士等级最先。灵感只在科技页。 */
 export const HUD_CORE_IDS = ['knight', 'gold', 'diamonds', 'workers'] as const
@@ -83,13 +83,51 @@ export function listHudChips(save: Save): HudChip[] {
   return chips
 }
 
+export function hudChipCount(save: Save, id: HudChipId): number {
+  if (id === 'knight') return Number.isFinite(save.knightLevel) ? save.knightLevel : 0
+  if (id === 'gold') return save.gold
+  if (id === 'diamonds') return save.diamonds
+  if (id === 'workers') return save.workers.length
+  if (id === 'inspiration') return save.techPoints
+  return itemQty(save, id)
+}
+
 export function hudChipAmount(save: Save, id: HudChipId): string {
   if (id === 'knight') return `Lv${save.knightLevel}`
-  if (id === 'gold') return formatHudQty(save.gold)
-  if (id === 'diamonds') return formatHudQty(save.diamonds)
-  if (id === 'workers') return formatHudQty(save.workers.length)
-  if (id === 'inspiration') return formatHudQty(save.techPoints)
-  return formatHudQty(itemQty(save, id))
+  return formatHudQty(hudChipCount(save, id))
+}
+
+/** 胶囊上的展示数字。等级徽章和经验条不用这个。 */
+export function hudChipGrouped(save: Save, id: HudChipId): string {
+  return formatHudGrouped(hudChipCount(save, id))
+}
+
+/** 胶囊描边。金币金、钻石珠宝紫、草类草绿，其余按种类配色。 */
+export function hudChipTone(id: HudChipId): string {
+  if (id === 'gold') return 'gold'
+  if (id === 'diamonds') return 'gem'
+  if (id === 'workers') return 'worker'
+  if (id === 'herb' || id === 'spice') return 'grass'
+  if (id === 'wood') return 'wood'
+  if (id === 'wildCrystal') return 'crystal'
+  if (id === 'blueprint') return 'paper'
+  if (id === 'ore' || id === 'ironOre' || id === 'mithrilOre' || id === 'slag') return 'ore'
+  if (id === 'blood' || id === 'tooth' || id === 'eye') return 'hunt'
+  if (isFoodItemId(id)) return 'food'
+  if (isPotionItemId(id) || id === 'potion') return 'potion'
+  if (isRuneItemId(id) || id === 'anyRune') return 'rune'
+  if (
+    id === 'weapon' ||
+    id === 'ironWeapon' ||
+    id === 'mithrilWeapon' ||
+    id === 'tool' ||
+    id === 'ironTool' ||
+    id === 'mithrilTool'
+  ) {
+    return 'steel'
+  }
+  if (typeof id === 'string' && id.startsWith('beast')) return 'beast'
+  return 'misc'
 }
 
 export function hudChipAriaLabel(save: Save, chip: HudChip): string {

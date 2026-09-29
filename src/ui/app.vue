@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { playerDisplayName, type PlayerAvatarId } from '../sim/createSave'
+import { xpToNextKnightLevel } from '../sim/knightLevel'
 import { bannerFrameOf, bannerLevelOf, treasureAssaultWarning } from '../sim/treasureMine'
 import { appTabLockedTip, isAppTabUnlocked, isModuleId, isModuleUnlocked, moduleBlurb, moduleLabel } from '../sim/moduleUnlock'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
@@ -16,10 +17,12 @@ import TechPanel from './techPanel.vue'
 import WorkersPanelV2 from './workersPanelV2.vue'
 import FloatTips from './floatTips.vue'
 import GuideQuestFloat from './guideQuestFloat.vue'
+import { formatHudGrouped } from './formatHud'
 import {
-  hudChipAmount,
   hudChipAriaLabel,
   hudChipDetail,
+  hudChipGrouped,
+  hudChipTone,
   listHudChips,
   type HudChipId,
 } from './hudResource'
@@ -57,6 +60,16 @@ const unlockNotice = computed(() => {
   return isModuleId(id) ? id : null
 })
 const chips = computed(() => listHudChips(game.save))
+const resourceChips = computed(() => chips.value.filter((chip) => chip.id !== 'knight'))
+const knightLevel = computed(() => (Number.isFinite(game.save.knightLevel) ? Math.max(0, Math.floor(game.save.knightLevel)) : 1))
+const knightXp = computed(() => (Number.isFinite(game.save.knightXp) ? Math.max(0, Math.floor(game.save.knightXp)) : 0))
+const knightNeed = computed(() => xpToNextKnightLevel(knightLevel.value))
+const knightXpPct = computed(() => {
+  const need = knightNeed.value
+  if (need <= 0) return '0%'
+  return `${Math.min(100, (knightXp.value / need) * 100).toFixed(2)}%`
+})
+const knightXpLabel = computed(() => `${formatHudGrouped(knightXp.value)} / ${formatHudGrouped(knightNeed.value)}`)
 const stationHp = computed(() => dockStationHp(game.save))
 const showStationHp = computed(() => showDockStationHp(tab.value))
 const resourceDetail = computed(() => (resourceOpen.value ? hudChipDetail(game.save, resourceOpen.value) : null))
@@ -71,10 +84,6 @@ onUnmounted(() => {
   stopAppUpdate?.()
   stopAppUpdate = null
 })
-
-function setKnightBtn(el: unknown) {
-  knightBtn.value = el instanceof HTMLButtonElement ? el : null
-}
 
 function placeXpPop() {
   const el = knightBtn.value
@@ -148,37 +157,44 @@ watch(
 <template>
   <div class="shell">
     <header class="hud" aria-label="资源">
-      <button type="button" class="player" aria-label="玩家" @click="profileOpen = true">
-        <span class="chief-face">
-          <PlayerAvatar :id="game.save.playerAvatarId" :frame="bannerFrame" />
-          <span class="lv-badge">{{ hudChipAmount(game.save, 'knight') }}</span>
+      <div class="chief">
+        <button type="button" class="player" aria-label="酋长等级" @click="knightOpen = true">
+          <span class="chief-face" :class="{ 'knight-jump': knightJump }">
+            <PlayerAvatar :id="game.save.playerAvatarId" :frame="bannerFrame" />
+            <span class="lv-badge">Lv{{ knightLevel }}</span>
+          </span>
+        </button>
+        <button type="button" class="player-name" :aria-label="`玩家 ${playerName}`" @click="profileOpen = true">
+          {{ playerName }}
+        </button>
+      </div>
+      <button
+        ref="knightBtn"
+        type="button"
+        class="xp-meter"
+        :aria-label="`酋长经验 ${knightXpLabel}`"
+        @click="knightOpen = true"
+      >
+        <span class="xp-track">
+          <i class="xp-fill" :style="{ width: knightXpPct }" />
+          <span class="xp-num">{{ knightXpLabel }}</span>
         </span>
-        <span class="player-name">{{ playerName }}</span>
       </button>
       <div class="resources">
         <button
-          v-for="chip in chips"
+          v-for="chip in resourceChips"
           :key="chip.id"
           type="button"
           class="chip"
-          :class="{ 'knight-jump': chip.id === 'knight' && knightJump }"
-          :ref="chip.id === 'knight' ? setKnightBtn : undefined"
+          :class="`tone-${hudChipTone(chip.id)}`"
           :aria-label="hudChipAriaLabel(game.save, chip)"
           @click="onChip(chip.id)"
         >
           <i v-if="chip.id === 'gold'" class="sprite sprite-res gold" aria-hidden="true" />
           <i v-else-if="chip.id === 'diamonds'" class="sprite sprite-res diamonds" aria-hidden="true" />
           <i v-else-if="chip.id === 'workers'" class="sprite sprite-res workers" aria-hidden="true" />
-          <svg v-else-if="chip.id === 'knight'" class="hud-ico" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              fill="currentColor"
-              d="M14.6 3.4 20.6 9.4 19.2 10.8 17.5 9.1 8.8 17.8v2.3h2.3l1.6-1.6 1.4 1.4-4.4 4.4-1.4-1.4.7-.7H3.8v-4.8l-.7.7-1.4-1.4 4.4-4.4 1.4 1.4-1.6 1.6H8.2v2.3l8.7-8.7-1.7-1.7z"
-            />
-          </svg>
-          <span v-if="chip.kind === 'item'">{{ chip.name }} {{ hudChipAmount(game.save, chip.id) }}</span>
-          <span v-else :class="{ 'level-jump': chip.id === 'knight' && knightJump }">{{
-            hudChipAmount(game.save, chip.id)
-          }}</span>
+          <i v-else class="mark" aria-hidden="true">{{ chip.name.slice(0, 1) }}</i>
+          <span class="qty">{{ hudChipGrouped(game.save, chip.id) }}</span>
         </button>
       </div>
       <i v-if="xpText" class="xp-pop" :style="xpStyle">+{{ xpText }} 经验</i>
@@ -302,105 +318,327 @@ watch(
   top: 0;
   z-index: var(--z-hud);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
-  min-height: 44px;
+  gap: 6px 8px;
   min-width: 0;
-  padding: 4px 6px;
-  background:
-    var(--paper-grain),
-    var(--wood-face);
-  background-blend-mode: multiply, normal;
-  border-bottom: 3px solid var(--gold);
-  box-shadow: 0 2px 0 var(--gold-deep);
+  padding: 6px 8px 4px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
-.player {
+.chief {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  flex: 0 1 auto;
-  max-width: 108px;
-  min-width: 0;
-  min-height: 36px;
-  padding: 1px 6px 1px 2px;
-  border-color: transparent;
-  border-radius: 999px;
+  order: 1;
+  flex: 0 0 auto;
+  gap: 1px;
+  max-width: 68px;
+}
+
+.player,
+.player-name,
+.xp-meter,
+.resources > .chip {
+  border: none;
   background: transparent;
   box-shadow: none;
 }
 
-.player:active:not(:disabled) {
+.player,
+.player-name,
+.xp-meter {
+  min-height: 0;
+  padding: 0;
+}
+
+.player:active:not(:disabled),
+.player-name:active:not(:disabled),
+.xp-meter:active:not(:disabled),
+.resources > .chip:active:not(:disabled) {
   transform: none;
   box-shadow: none;
+  filter: brightness(1.06);
 }
 
 .chief-face {
   position: relative;
   display: grid;
   flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
+  width: 52px;
+  height: 52px;
+}
+
+.chief-face :deep(.face) {
+  width: 52px;
+  height: 52px;
+  border-width: 4px;
+  border-color: #c4a06a;
+  box-shadow:
+    0 0 0 3px #5c3a1e,
+    inset 0 0 0 2px rgba(255, 248, 230, 0.55);
+}
+
+.chief-face :deep(.face svg) {
+  width: 36px;
+  height: 36px;
+}
+
+.chief-face :deep(.face::after) {
+  inset: -9px;
+  background:
+    radial-gradient(circle at 50% 0, #f7f1e4 0 5px, #3a2414 5.2px 6.6px, transparent 7.2px),
+    radial-gradient(circle at 50% 100%, #f7f1e4 0 5px, #3a2414 5.2px 6.6px, transparent 7.2px),
+    radial-gradient(circle at 0 50%, #f7f1e4 0 5px, #3a2414 5.2px 6.6px, transparent 7.2px),
+    radial-gradient(circle at 100% 50%, #f7f1e4 0 5px, #3a2414 5.2px 6.6px, transparent 7.2px);
 }
 
 .lv-badge {
   position: absolute;
-  right: -7px;
-  bottom: -2px;
-  z-index: 2;
-  min-width: 24px;
-  height: 14px;
-  padding: 0 3px;
-  border: 2px solid var(--stroke);
-  border-radius: var(--radius-pill);
-  background: var(--accent-face);
-  color: #3a2208;
+  right: -10px;
+  bottom: -4px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  height: 34px;
+  padding: 6px 3px 7px;
+  border: none;
+  border-radius: 0;
+  background: linear-gradient(180deg, #f8e7b0 0%, #e2b15a 46%, #a86a28 100%);
+  clip-path: polygon(50% 0%, 100% 16%, 86% 62%, 50% 100%, 14% 62%, 0 16%);
+  color: #fff8ee;
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 900;
-  line-height: 10px;
+  line-height: 1;
   letter-spacing: 0;
   text-align: center;
+  text-shadow:
+    0 1px 0 #3a2414,
+    0 -1px 0 #3a2414,
+    1px 0 0 #3a2414,
+    -1px 0 0 #3a2414;
   pointer-events: none;
-  box-shadow: 0 1px 0 var(--stroke-deep);
+  filter: drop-shadow(0 1px 0 #3a2414);
 }
 
 .player-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 4em;
-  font-size: 12px;
-  font-weight: 700;
+  max-width: 64px;
+  border-radius: 0;
+  color: #fff6e0;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-shadow:
+    0 1px 0 #1a1208,
+    0 0 2px #1a1208;
+}
+
+.xp-meter {
+  position: relative;
+  display: flex;
+  align-items: center;
+  order: 2;
+  flex: 1 1 96px;
+  min-width: 88px;
+  max-width: 168px;
+  height: 26px;
+  padding: 0 12px;
+  border: 3px solid #3a2414;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #4a3018, #24160e);
+  box-shadow:
+    inset 0 2px 3px rgba(0, 0, 0, 0.45),
+    0 2px 0 #1a1008;
+  overflow: visible;
+}
+
+.xp-meter::before,
+.xp-meter::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 12px;
+  transform: translateY(-50%);
+  z-index: 2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 4px 50%, #f7f1e4 0 4.2px, #3a2414 4.4px 5.6px, transparent 6px),
+    radial-gradient(circle at 14px 50%, #f7f1e4 0 4.2px, #3a2414 4.4px 5.6px, transparent 6px);
+}
+
+.xp-meter::before {
+  left: -4px;
+}
+
+.xp-meter::after {
+  right: -4px;
+}
+
+.xp-track {
+  position: relative;
+  flex: 1 1 auto;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #1a100c;
+}
+
+.xp-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, #e8ff8a 0%, #7adf3a 42%, #2ea828 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.xp-num,
+.resources > .chip .qty {
+  color: #fff;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow:
+    0 1px 0 #1a1208,
+    0 -1px 0 #1a1208,
+    1px 0 0 #1a1208,
+    -1px 0 0 #1a1208,
+    1px 1px 0 #1a1208,
+    -1px -1px 0 #1a1208;
+}
+
+.xp-num {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  letter-spacing: 0.01em;
 }
 
 .resources {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 3px;
-  flex: 1 1 auto;
+  order: 4;
+  gap: 6px 12px;
+  flex: 1 1 100%;
   min-width: 0;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  padding: 2px 0 2px 10px;
+  overflow: visible;
 }
 
-.resources::-webkit-scrollbar {
-  display: none;
-}
-
-.chip {
-  flex: 0 0 auto;
-  min-height: 28px;
-  padding: 1px 5px 1px 2px;
-  gap: 2px;
-  border-width: 2px;
+.resources > .chip {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  height: 24px;
+  min-height: 24px;
+  margin-left: 8px;
+  padding: 0 8px 0 14px;
+  gap: 0;
+  border: 2px solid #e6b325;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #3d2a18 0%, #24180f 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 196, 0.16),
+    0 2px 0 rgba(0, 0, 0, 0.35);
   font-size: 12px;
 }
 
-.level-jump {
-  display: inline-block;
+.resources > .chip.tone-gold {
+  border-color: #e6b325;
+}
+
+.resources > .chip.tone-gem {
+  border-color: #c45cff;
+}
+
+.resources > .chip.tone-grass {
+  border-color: #5dcc3a;
+}
+
+.resources > .chip.tone-worker {
+  border-color: #e08a3c;
+}
+
+.resources > .chip.tone-ore {
+  border-color: #d08a4a;
+}
+
+.resources > .chip.tone-food {
+  border-color: #e25a3a;
+}
+
+.resources > .chip.tone-potion {
+  border-color: #4ec8d8;
+}
+
+.resources > .chip.tone-rune {
+  border-color: #6aa4ff;
+}
+
+.resources > .chip.tone-wood {
+  border-color: #c4924a;
+}
+
+.resources > .chip.tone-steel {
+  border-color: #c8d0dc;
+}
+
+.resources > .chip.tone-beast {
+  border-color: #f0e2c0;
+}
+
+.resources > .chip.tone-crystal {
+  border-color: #7ee0ff;
+}
+
+.resources > .chip.tone-hunt {
+  border-color: #e24a4a;
+}
+
+.resources > .chip.tone-paper {
+  border-color: #f0d090;
+}
+
+.resources > .chip.tone-misc {
+  border-color: #e0c080;
+}
+
+.resources > .chip .sprite-res,
+.resources > .chip .mark {
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  transform: translateY(-50%);
+  filter: drop-shadow(0 1px 0 #1a1208);
+}
+
+.resources > .chip .mark {
+  display: grid;
+  place-items: center;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #5a3e24, #24180f 70%);
+  color: #fff6e0;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.chief-face.knight-jump {
   animation: knight-level-jump 0.42s ease;
 }
 
@@ -448,12 +686,6 @@ watch(
   filter: brightness(1.03);
 }
 
-.chip .sprite-res {
-  width: 16px;
-  height: 16px;
-}
-
-.hud-ico,
 .glyph {
   width: 16px;
   height: 16px;
@@ -464,8 +696,10 @@ watch(
 .hud-actions {
   display: flex;
   align-items: center;
+  order: 3;
   gap: 4px;
   flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .icon-btn {
