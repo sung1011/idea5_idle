@@ -10,7 +10,7 @@ export function startAppUpdateWatch(opts: {
   currentVersion: string
   intervalMs?: number
   fetchVersion: () => Promise<AppVersionInfo | null>
-  onUpdate: (ready: boolean) => void
+  onUpdate: (ready: boolean, remote?: AppVersionInfo) => void
   setInterval?: (fn: () => void, ms: number) => ReturnType<typeof setInterval>
   clearInterval?: (id: ReturnType<typeof setInterval>) => void
   listenVisible?: (fn: () => void) => () => void
@@ -29,7 +29,7 @@ export function startAppUpdateWatch(opts: {
       return
     }
     if (stopped || !remote) return
-    opts.onUpdate(hasRemoteUpdate(opts.currentVersion, remote))
+    opts.onUpdate(hasRemoteUpdate(opts.currentVersion, remote), remote)
   }
 
   const timer = setTimer(() => {

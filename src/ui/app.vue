@@ -3,7 +3,8 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { playerDisplayName, type PlayerAvatarId } from '../sim/createSave'
 import { bannerFrameOf, bannerLevelOf, treasureAssaultWarning } from '../sim/treasureMine'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
-import { startAppUpdateSchedule, updateReady } from './appUpdateState'
+import { dismissUpdateBubble, refreshToNewVersion, startAppUpdateSchedule, updateBubble, updateReady } from './appUpdateState'
+import AppUpdateBubble from './appUpdateBubble.vue'
 import { useGameStore } from './gameStore'
 import EncounterPanel from './encounterPanel.vue'
 import PvpPanel from './pvpPanel.vue'
@@ -30,6 +31,7 @@ let stopAppUpdate: (() => void) | null = null
 const tab = appTab
 const mailOpen = ref(false)
 const settingsOpen = ref(false)
+const settingsBtn = ref<HTMLButtonElement | null>(null)
 const resourceOpen = ref<HudChipId | null>(null)
 const profileOpen = ref(false)
 const playerName = computed(() => playerDisplayName(game.save.playerName))
@@ -101,6 +103,7 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
           <i v-if="game.unread" class="dot" />
         </button>
         <button
+          ref="settingsBtn"
           type="button"
           class="icon-btn"
           :class="{ unread: updateReady }"
@@ -143,6 +146,14 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
       </div>
     </nav>
 
+    <AppUpdateBubble
+      v-if="updateBubble && !settingsOpen"
+      :version="updateBubble.version"
+      :lines="updateBubble.lines"
+      :anchor="settingsBtn"
+      @close="dismissUpdateBubble"
+      @refresh="refreshToNewVersion"
+    />
     <GuideQuestFloat />
     <MessagePanel v-if="mailOpen" @close="mailOpen = false" />
     <SettingsPanel v-if="settingsOpen" @close="settingsOpen = false" />

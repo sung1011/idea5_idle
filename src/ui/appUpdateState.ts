@@ -1,12 +1,20 @@
 import { ref } from 'vue'
 import { APP_VERSION } from '../generated/appVersion'
 import { applyAppUpdate } from './applyAppUpdate'
+import {
+  loadDismissedUpdateVersion,
+  saveDismissedUpdateVersion,
+  shouldShowUpdateBubble,
+  updateBubbleLines,
+  type UpdateBubbleView,
+} from './appUpdateBubble'
 import { startAppUpdateWatch } from './appUpdateWatch'
-import { APP_UPDATE_CHECK_MS, hasRemoteUpdate, parseRemoteVersion, versionJsonUrl } from './appVersion'
+import { APP_UPDATE_CHECK_MS, hasRemoteUpdate, parseRemoteVersion, versionJsonUrl, type AppVersionInfo } from './appVersion'
 import { pushFloatTip } from './floatTips'
 
 export const updateReady = ref(false)
 export const updateChecking = ref(false)
+export const updateBubble = ref<UpdateBubbleView | null>(null)
 
 let watch: ReturnType<typeof startAppUpdateWatch> | null = null
 
@@ -31,13 +39,38 @@ async function nudgeServiceWorker() {
   }
 }
 
+function noteRemote(remote: AppVersionInfo, automatic: boolean) {
+  updateReady.value = hasRemoteUpdate(APP_VERSION.version, remote)
+  if (
+    shouldShowUpdateBubble({
+      currentVersion: APP_VERSION.version,
+      remote,
+      dismissedVersion: loadDismissedUpdateVersion(),
+      automatic,
+    })
+  ) {
+    updateBubble.value = {
+      version: remote.version.trim(),
+      lines: updateBubbleLines(remote.notes),
+    }
+    return
+  }
+  if (!updateReady.value) updateBubble.value = null
+}
+
+export function dismissUpdateBubble(): void {
+  const version = updateBubble.value?.version
+  if (version) saveDismissedUpdateVersion(version)
+  updateBubble.value = null
+}
+
 export async function checkForAppUpdate(manual = false): Promise<void> {
   if (updateChecking.value) return
   updateChecking.value = true
   try {
     const remote = await fetchRemote()
     if (remote) {
-      updateReady.value = hasRemoteUpdate(APP_VERSION.version, remote)
+      noteRemote(remote, !manual)
       if (manual) pushFloatTip(updateReady.value ? '有新版本' : '已是当前版本')
     } else if (manual) {
       pushFloatTip('暂时查不到新版本', 'err')
@@ -58,8 +91,9 @@ export function startAppUpdateSchedule(): () => void {
       await nudgeServiceWorker()
       return remote
     },
-    onUpdate: (ready) => {
-      updateReady.value = ready
+    onUpdate: (ready, remote) => {
+      if (remote) noteRemote(remote, true)
+      else updateReady.value = ready
     },
     listenVisible(fn) {
       const onVis = () => {

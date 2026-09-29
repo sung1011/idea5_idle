@@ -116,7 +116,7 @@ onUnmounted(() => {
         <button type="button" :disabled="updateChecking" @click="checkForAppUpdate(true)">
           {{ updateChecking ? '检查中' : '检查更新' }}
         </button>
-        <p class="hint">打开游戏、每 30 分钟、回到前台时会自动检查。不会自动刷新，存档不受影响。</p>
+        <p class="hint">打开游戏、每 30 分钟、回到前台时会自动检查。自动发现新版本时，设置按钮旁会弹出提示，关掉后红点还在。不会自动刷新，存档不受影响。</p>
         <ol v-if="notes.length" class="notes">
           <li v-for="note in notes" :key="`${note.at}-${note.title}`">
             <time>{{ note.at }}</time>
