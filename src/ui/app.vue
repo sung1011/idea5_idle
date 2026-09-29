@@ -168,33 +168,34 @@ watch(
           {{ playerName }}
         </button>
       </div>
-      <button
-        ref="knightBtn"
-        type="button"
-        class="xp-meter"
-        :aria-label="`酋长经验 ${knightXpLabel}`"
-        @click="knightOpen = true"
-      >
-        <span class="xp-track">
-          <i class="xp-fill" :style="{ width: knightXpPct }" />
-          <span class="xp-num">{{ knightXpLabel }}</span>
-        </span>
-      </button>
-      <div class="resources">
+      <div class="hud-stack">
+        <div class="resources">
+          <button
+            v-for="chip in resourceChips"
+            :key="chip.id"
+            type="button"
+            class="chip"
+            :class="`tone-${hudChipTone(chip.id)}`"
+            :aria-label="hudChipAriaLabel(game.save, chip)"
+            @click="onChip(chip.id)"
+          >
+            <i v-if="chip.id === 'gold'" class="sprite sprite-res gold" aria-hidden="true" />
+            <i v-else-if="chip.id === 'diamonds'" class="sprite sprite-res diamonds" aria-hidden="true" />
+            <i v-else-if="chip.id === 'workers'" class="sprite sprite-res workers" aria-hidden="true" />
+            <i v-else class="mark" aria-hidden="true">{{ chip.name.slice(0, 1) }}</i>
+            <span class="qty">{{ hudChipGrouped(game.save, chip.id) }}</span>
+          </button>
+        </div>
         <button
-          v-for="chip in resourceChips"
-          :key="chip.id"
+          ref="knightBtn"
           type="button"
-          class="chip"
-          :class="`tone-${hudChipTone(chip.id)}`"
-          :aria-label="hudChipAriaLabel(game.save, chip)"
-          @click="onChip(chip.id)"
+          class="xp-meter"
+          :aria-label="`酋长经验 ${knightXpLabel}`"
+          @click="knightOpen = true"
         >
-          <i v-if="chip.id === 'gold'" class="sprite sprite-res gold" aria-hidden="true" />
-          <i v-else-if="chip.id === 'diamonds'" class="sprite sprite-res diamonds" aria-hidden="true" />
-          <i v-else-if="chip.id === 'workers'" class="sprite sprite-res workers" aria-hidden="true" />
-          <i v-else class="mark" aria-hidden="true">{{ chip.name.slice(0, 1) }}</i>
-          <span class="qty">{{ hudChipGrouped(game.save, chip.id) }}</span>
+          <span class="xp-track">
+            <i class="xp-fill" :style="{ width: knightXpPct }" />
+          </span>
         </button>
       </div>
       <i v-if="xpText" class="xp-pop" :style="xpStyle">+{{ xpText }} 经验</i>
@@ -318,11 +319,11 @@ watch(
   top: 0;
   z-index: var(--z-hud);
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 6px 8px;
+  gap: 6px;
   min-width: 0;
-  padding: 6px 8px 4px;
+  padding: 4px 6px 3px;
   background: transparent;
   border: none;
   box-shadow: none;
@@ -332,10 +333,11 @@ watch(
   display: flex;
   flex-direction: column;
   align-items: center;
-  order: 1;
+  justify-content: center;
+  align-self: stretch;
   flex: 0 0 auto;
-  gap: 1px;
-  max-width: 68px;
+  gap: 0;
+  width: 52px;
 }
 
 .player,
@@ -367,13 +369,13 @@ watch(
   position: relative;
   display: grid;
   flex: 0 0 auto;
-  width: 52px;
-  height: 52px;
+  width: 46px;
+  height: 46px;
 }
 
 .chief-face :deep(.face) {
-  width: 52px;
-  height: 52px;
+  width: 46px;
+  height: 46px;
   border-width: 4px;
   border-color: #c4a06a;
   box-shadow:
@@ -382,8 +384,8 @@ watch(
 }
 
 .chief-face :deep(.face svg) {
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
 }
 
 .chief-face :deep(.face::after) {
@@ -397,14 +399,14 @@ watch(
 
 .lv-badge {
   position: absolute;
-  right: -10px;
-  bottom: -4px;
+  right: -8px;
+  bottom: -2px;
   z-index: 3;
   display: grid;
   place-items: center;
-  min-width: 30px;
-  height: 34px;
-  padding: 6px 3px 7px;
+  min-width: 26px;
+  height: 28px;
+  padding: 5px 2px 6px;
   border: none;
   border-radius: 0;
   background: linear-gradient(180deg, #f8e7b0 0%, #e2b15a 46%, #a86a28 100%);
@@ -429,33 +431,40 @@ watch(
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 64px;
+  max-width: 52px;
+  margin-top: -2px;
   border-radius: 0;
   color: #fff6e0;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
-  line-height: 1.2;
+  line-height: 1.1;
   text-shadow:
     0 1px 0 #1a1208,
     0 0 2px #1a1208;
+}
+
+.hud-stack {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .xp-meter {
   position: relative;
   display: flex;
   align-items: center;
-  order: 2;
-  flex: 1 1 96px;
-  min-width: 88px;
-  max-width: 168px;
-  height: 26px;
-  padding: 0 12px;
-  border: 3px solid #3a2414;
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  height: 10px;
+  padding: 0 8px;
+  border: 2px solid #3a2414;
   border-radius: 999px;
   background: linear-gradient(180deg, #4a3018, #24160e);
-  box-shadow:
-    inset 0 2px 3px rgba(0, 0, 0, 0.45),
-    0 2px 0 #1a1008;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45);
   overflow: visible;
 }
 
@@ -464,28 +473,28 @@ watch(
   content: '';
   position: absolute;
   top: 50%;
-  width: 18px;
-  height: 12px;
+  width: 12px;
+  height: 8px;
   transform: translateY(-50%);
   z-index: 2;
   pointer-events: none;
   background:
-    radial-gradient(circle at 4px 50%, #f7f1e4 0 4.2px, #3a2414 4.4px 5.6px, transparent 6px),
-    radial-gradient(circle at 14px 50%, #f7f1e4 0 4.2px, #3a2414 4.4px 5.6px, transparent 6px);
+    radial-gradient(circle at 3px 50%, #f7f1e4 0 2.6px, #3a2414 2.8px 3.6px, transparent 4px),
+    radial-gradient(circle at 9px 50%, #f7f1e4 0 2.6px, #3a2414 2.8px 3.6px, transparent 4px);
 }
 
 .xp-meter::before {
-  left: -4px;
+  left: -2px;
 }
 
 .xp-meter::after {
-  right: -4px;
+  right: -2px;
 }
 
 .xp-track {
   position: relative;
   flex: 1 1 auto;
-  height: 14px;
+  height: 6px;
   overflow: hidden;
   border-radius: 999px;
   background: #1a100c;
@@ -501,7 +510,6 @@ watch(
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
-.xp-num,
 .resources > .chip .qty {
   color: #fff;
   font-weight: 900;
@@ -515,44 +523,34 @@ watch(
     -1px -1px 0 #1a1208;
 }
 
-.xp-num {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-size: 11px;
-  letter-spacing: 0.01em;
-}
-
 .resources {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  order: 4;
-  gap: 6px 12px;
-  flex: 1 1 100%;
+  gap: 2px 4px;
+  width: 100%;
   min-width: 0;
-  padding: 2px 0 2px 10px;
-  overflow: visible;
+  padding: 0 0 0 10px;
+  overflow: hidden;
 }
 
 .resources > .chip {
   position: relative;
-  flex: 0 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   max-width: 100%;
-  height: 24px;
-  min-height: 24px;
-  margin-left: 8px;
-  padding: 0 8px 0 14px;
+  height: 20px;
+  min-height: 20px;
+  margin-left: 6px;
+  padding: 0 6px 0 10px;
   gap: 0;
   border: 2px solid #e6b325;
   border-radius: 999px;
   background: linear-gradient(180deg, #3d2a18 0%, #24180f 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 236, 196, 0.16),
-    0 2px 0 rgba(0, 0, 0, 0.35);
-  font-size: 12px;
+    0 1px 0 rgba(0, 0, 0, 0.35);
+  font-size: clamp(9px, 2.8vw, 12px);
 }
 
 .resources > .chip.tone-gold {
@@ -615,13 +613,20 @@ watch(
   border-color: #e0c080;
 }
 
+.resources > .chip .qty {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
 .resources > .chip .sprite-res,
 .resources > .chip .mark {
   position: absolute;
-  left: -14px;
+  left: -11px;
   top: 50%;
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   transform: translateY(-50%);
   filter: drop-shadow(0 1px 0 #1a1208);
 }
@@ -696,8 +701,8 @@ watch(
 .hud-actions {
   display: flex;
   align-items: center;
-  order: 3;
-  gap: 4px;
+  align-self: center;
+  gap: 2px;
   flex: 0 0 auto;
   margin-left: auto;
 }
@@ -706,9 +711,9 @@ watch(
   position: relative;
   display: grid;
   place-items: center;
-  width: 36px;
-  min-width: 36px;
-  min-height: 36px;
+  width: 32px;
+  min-width: 32px;
+  min-height: 32px;
   padding: 0;
 }
 

@@ -6,15 +6,19 @@ import sheet from './playerProfileSheet.vue?raw'
 
 describe('player profile hud', () => {
   it('pins the avatar and name on the left of the resource bar', () => {
-    const hud = app.slice(app.indexOf('<header class="hud"'), app.indexOf('<div class="resources">'))
+    const hud = app.slice(app.indexOf('<header class="hud"'), app.indexOf('class="hud-actions"'))
     expect(hud).toContain('class="player"')
     expect(hud).toContain('<PlayerAvatar')
     expect(hud).toContain('player-name')
+    expect(hud).toContain('class="hud-stack"')
     expect(hud).toContain('class="xp-meter"')
+    expect(hud).not.toContain('class="xp-num"')
+    expect(hud).toContain('knightXpLabel')
     expect(hud).toContain('knightOpen = true')
     expect(hud).toContain('profileOpen = true')
     expect(app).toContain('ref="settingsBtn"')
-    expect(hud.indexOf('class="player"')).toBeLessThan(hud.indexOf('class="xp-meter"'))
+    expect(hud.indexOf('class="player"')).toBeLessThan(hud.indexOf('<div class="resources">'))
+    expect(hud.indexOf('<div class="resources">')).toBeLessThan(hud.indexOf('class="xp-meter"'))
     expect(app.indexOf('class="player"')).toBeLessThan(app.indexOf('<div class="resources">'))
     expect(app).toContain('v-for="chip in resourceChips"')
     expect(app).toContain('<PlayerProfileSheet')
