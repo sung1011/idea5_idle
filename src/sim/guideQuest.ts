@@ -32,7 +32,7 @@ export const GUIDE_WEAKNESS_CARD_TIP =
 /** 开战步选人面板，对准带「推荐」的苦工。 */
 export const GUIDE_WEAKNESS_PICK_TIP = '这名苦工的属性正好打中弱点'
 /** 第 3 步营地名单已打开。 */
-export const GUIDE_FUSE_DRAG_GOAL = '把营地苦工拖到同品质的人身上合成（营地里两人互拖也行）'
+export const GUIDE_FUSE_DRAG_GOAL = '按住苦工，往任意方向拖到同品质的人身上合成'
 /** 第一阶段「抽工人」完成所需次数（花名册人数或已生成序号，取较大）。 */
 export const GUIDE_QUEST_RECRUIT_NEED = 2
 

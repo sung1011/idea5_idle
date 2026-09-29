@@ -92,6 +92,7 @@ import {
   setWorkerDragActive,
   shouldShowFuseDragTip,
   shouldStartWorkerDrag,
+  workerDragEdgeDelta,
   type WorkerDragSource,
   type WorkerDropTarget,
 } from './workerDrag'
@@ -553,6 +554,37 @@ type DragSession = {
 }
 
 const drag = ref<DragSession | null>(null)
+const restListEl = ref<HTMLElement | null>(null)
+let edgeScrollFrame = 0
+
+function stopEdgeScroll() {
+  if (!edgeScrollFrame) return
+  cancelAnimationFrame(edgeScrollFrame)
+  edgeScrollFrame = 0
+}
+
+function tickEdgeScroll() {
+  edgeScrollFrame = 0
+  const session = drag.value
+  const list = restListEl.value
+  if (!session?.active || !list) return
+  const rect = list.getBoundingClientRect()
+  const delta = workerDragEdgeDelta(session.y, rect.top, rect.bottom)
+  if (delta) {
+    const max = Math.max(0, list.scrollHeight - list.clientHeight)
+    const next = Math.min(max, Math.max(0, list.scrollTop + delta))
+    if (next !== list.scrollTop) {
+      list.scrollTop = next
+      session.over = hitTarget(session.x, session.y)
+    }
+  }
+  edgeScrollFrame = requestAnimationFrame(tickEdgeScroll)
+}
+
+function startEdgeScroll() {
+  if (edgeScrollFrame) return
+  edgeScrollFrame = requestAnimationFrame(tickEdgeScroll)
+}
 
 function sourceOf(w: Worker, stationId: StationId | null, slotIndex: number | null): WorkerDragSource | null {
   if (stationId && slotIndex != null) {
@@ -564,6 +596,7 @@ function sourceOf(w: Worker, stationId: StationId | null, slotIndex: number | nu
 }
 
 function unbindDrag() {
+  stopEdgeScroll()
   window.removeEventListener('pointermove', onDragMove)
   window.removeEventListener('pointerup', onDragEnd)
   window.removeEventListener('pointercancel', onDragEnd)
@@ -578,10 +611,11 @@ function hitTarget(x: number, y: number): WorkerDropTarget | null {
 function onWorkerPointerDown(ev: PointerEvent, w: Worker, stationId: StationId | null, slotIndex: number | null) {
   if (ev.pointerType === 'mouse' && ev.button !== 0) return
   unbindDrag()
+  const source = sourceOf(w, stationId, slotIndex)
   drag.value = {
     workerId: w.id,
     name: workerShortName(w),
-    source: sourceOf(w, stationId, slotIndex),
+    source,
     startX: ev.clientX,
     startY: ev.clientY,
     x: ev.clientX,
@@ -589,6 +623,17 @@ function onWorkerPointerDown(ev: PointerEvent, w: Worker, stationId: StationId |
     active: false,
     pointerId: ev.pointerId,
     over: null,
+  }
+  if (source?.kind === 'rest') {
+    ev.preventDefault()
+    const handle = ev.currentTarget
+    if (handle instanceof Element) {
+      try {
+        handle.setPointerCapture(ev.pointerId)
+      } catch {
+        // already released
+      }
+    }
   }
   window.addEventListener('pointermove', onDragMove, { passive: false })
   window.addEventListener('pointerup', onDragEnd)
@@ -598,6 +643,7 @@ function onWorkerPointerDown(ev: PointerEvent, w: Worker, stationId: StationId |
 function onDragMove(ev: PointerEvent) {
   const session = drag.value
   if (!session || session.pointerId !== ev.pointerId) return
+  if (session.source?.kind === 'rest') ev.preventDefault()
   session.x = ev.clientX
   session.y = ev.clientY
   if (!session.active) {
@@ -608,9 +654,10 @@ function onDragMove(ev: PointerEvent) {
     if (!shouldStartWorkerDrag(session.source, dx, dy)) return
     session.active = true
     setWorkerDragActive(true)
+    startEdgeScroll()
     game.clearWorkerNew(session.workerId)
-    const handle = ev.target
-    if (handle instanceof Element && handle.setPointerCapture) {
+    const handle = ev.currentTarget instanceof Element ? ev.currentTarget : ev.target
+    if (handle instanceof Element) {
       try {
         handle.setPointerCapture(ev.pointerId)
       } catch {
@@ -923,7 +970,7 @@ onUnmounted(() => {
           >
             战斗 {{ fightingRoster.length }}
           </button>
-          <div v-if="restRows.length" class="zone-list rest-list">
+          <div v-if="restRows.length" ref="restListEl" class="zone-list rest-list">
             <div
               v-for="row in restRows"
               :key="row.id"
@@ -2479,6 +2526,12 @@ onUnmounted(() => {
   background: transparent;
   box-shadow: none;
   touch-action: pan-y;
+}
+
+.rest-list .rest-row,
+.rest-list .rest-face,
+.rest-list .rest-go {
+  touch-action: none;
 }
 
 .rest-go {

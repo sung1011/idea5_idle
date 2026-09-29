@@ -8,6 +8,10 @@ import type { ActionResult, Save, StationId } from '../sim/types'
 import { workshopStationBoards } from './workerGroups'
 
 export const WORKER_DRAG_THRESHOLD_PX = 12
+/** 指针进名单上下沿这个距离内就开始自动滚。 */
+export const WORKER_DRAG_EDGE_PX = 36
+/** 贴边时每帧最多滚这么多。 */
+export const WORKER_DRAG_EDGE_MAX_PX = 14
 
 let workerDragActive = false
 
@@ -36,16 +40,40 @@ export function isWorkerDragThreshold(dist: number, threshold = WORKER_DRAG_THRE
   return dist >= threshold
 }
 
-/** 休息列优先左右拖才开拖，避免竖滑列表误触；工坊槽任意方向超过阈值即可。 */
+/** 按下后任意方向超过很小的阈值就进入拖动。营地名单不靠苦工上的滑动来滚。 */
 export function shouldStartWorkerDrag(
   source: WorkerDragSource,
   dx: number,
   dy: number,
   threshold = WORKER_DRAG_THRESHOLD_PX,
 ): boolean {
-  if (!isWorkerDragThreshold(Math.hypot(dx, dy), threshold)) return false
-  if (source.kind === 'rest') return Math.abs(dx) >= Math.abs(dy)
-  return true
+  void source
+  return isWorkerDragThreshold(Math.hypot(dx, dy), threshold)
+}
+
+/**
+ * 拖动中指针靠近滚动容器上下沿时，返回这一帧应加到 scrollTop 的像素。
+ * 越贴边越快；在中间或容器无效时为 0。
+ */
+export function workerDragEdgeDelta(
+  pointerY: number,
+  top: number,
+  bottom: number,
+  edge = WORKER_DRAG_EDGE_PX,
+  maxStep = WORKER_DRAG_EDGE_MAX_PX,
+): number {
+  if (!(bottom > top) || edge <= 0 || maxStep <= 0) return 0
+  const fromTop = pointerY - top
+  const fromBottom = bottom - pointerY
+  if (fromTop < edge && fromTop <= fromBottom) {
+    const t = Math.min(1, Math.max(0, (edge - fromTop) / edge))
+    return -Math.max(1, Math.round(maxStep * t))
+  }
+  if (fromBottom < edge) {
+    const t = Math.min(1, Math.max(0, (edge - fromBottom) / edge))
+    return Math.max(1, Math.round(maxStep * t))
+  }
+  return 0
 }
 
 export function canDragWorker(save: Save, workerId: string): boolean {

@@ -469,6 +469,7 @@ describe('guide fuse and alchemy cues', () => {
     expect(guideFuseFlashStations(save, false)).toEqual([])
     expect(guideFuseCue(save, true)).toBe('drag')
     expect(guideQuestView(save, true)?.goal).toBe(GUIDE_FUSE_DRAG_GOAL)
+    expect(GUIDE_FUSE_DRAG_GOAL).toContain('任意方向')
     expect(guideFuseFlashStations(save, true)).toEqual(['herbalism', 'cooking'])
   })
 

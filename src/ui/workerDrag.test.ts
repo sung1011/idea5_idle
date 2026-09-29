@@ -20,19 +20,39 @@ import {
   shouldShowFuseDragTip,
   shouldStartWorkerDrag,
   slotOccupantId,
+  workerDragEdgeDelta,
+  WORKER_DRAG_EDGE_MAX_PX,
   WORKER_DRAG_THRESHOLD_PX,
 } from './workerDrag'
 
 describe('worker drag threshold', () => {
-  it('starts only after a short move, rest prefers sideways', () => {
+  it('starts after a short move in any direction', () => {
     expect(isWorkerDragThreshold(WORKER_DRAG_THRESHOLD_PX - 1)).toBe(false)
     expect(isWorkerDragThreshold(WORKER_DRAG_THRESHOLD_PX)).toBe(true)
     const rest = { kind: 'rest' as const, workerId: 'w' }
     const slot = { kind: 'slot' as const, workerId: 'w', stationId: 'mining' as const, slotIndex: 0 }
-    expect(shouldStartWorkerDrag(rest, 0, 20)).toBe(false)
+    expect(shouldStartWorkerDrag(rest, 0, WORKER_DRAG_THRESHOLD_PX)).toBe(true)
+    expect(shouldStartWorkerDrag(rest, 0, WORKER_DRAG_THRESHOLD_PX - 1)).toBe(false)
     expect(shouldStartWorkerDrag(rest, -16, 4)).toBe(true)
     expect(shouldStartWorkerDrag(slot, 0, 16)).toBe(true)
     expect(shouldStartWorkerDrag(slot, 4, 4)).toBe(false)
+  })
+
+  it('scrolls the camp list only while the pointer sits on an edge', () => {
+    expect(workerDragEdgeDelta(100, 0, 200)).toBe(0)
+    expect(workerDragEdgeDelta(0, 0, 200)).toBe(-WORKER_DRAG_EDGE_MAX_PX)
+    expect(workerDragEdgeDelta(200, 0, 200)).toBe(WORKER_DRAG_EDGE_MAX_PX)
+    expect(workerDragEdgeDelta(8, 0, 200)).toBeLessThan(0)
+    expect(workerDragEdgeDelta(190, 0, 200)).toBeGreaterThan(0)
+    expect(workerDragEdgeDelta(10, 40, 40)).toBe(0)
+  })
+
+  it('keeps native scrolling off camp workers and cancels it in the pointer path', () => {
+    expect(panelSource).toMatch(/\.rest-list \.rest-face[\s\S]*?touch-action:\s*none/)
+    expect(panelSource).toContain('if (source?.kind === \'rest\')')
+    expect(panelSource).toContain('ev.preventDefault()')
+    expect(panelSource).toContain('workerDragEdgeDelta')
+    expect(panelSource).toContain('ref="restListEl"')
   })
 })
 
