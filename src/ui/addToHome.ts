@@ -9,6 +9,9 @@ export const ADD_TO_HOME_EXTERNAL_TIP = '请点右上角，用系统浏览器打
 export const ADD_TO_HOME_WAIT_TITLE = '稍后再试'
 export const ADD_TO_HOME_WAIT_TIP = '系统安装框还没准备好，请稍后再试。'
 
+/** 点过「添加」之后不再亮红点。不进游戏存档。 */
+export const ADD_TO_HOME_DOT_KEY = 'idea5IdleAddToHomeDot'
+
 /** 设置里「添加到桌面」点下去之后该做什么。 */
 export type AddToHomeChoice = 'hidden' | 'native' | 'ios' | 'external'
 
@@ -65,6 +68,40 @@ export function addToHomeChoice(env: AddToHomeEnv): AddToHomeChoice {
   if (isNativeInstallBrowser(env.userAgent)) return 'native'
   if (isIosSafari(env.userAgent, env.maxTouchPoints)) return 'ios'
   return 'external'
+}
+
+/** 卡片还在、且还没点过「添加」，三处红点才亮。 */
+export function shouldShowAddToHomeDot(choice: AddToHomeChoice, seen: boolean): boolean {
+  return choice !== 'hidden' && !seen
+}
+
+function storageOf(storage?: Storage | null): Storage | null {
+  if (storage) return storage
+  if (typeof localStorage === 'undefined') return null
+  return localStorage
+}
+
+export function loadAddToHomeDotSeen(storage?: Storage | null): boolean {
+  const store = storageOf(storage)
+  if (!store) return false
+  try {
+    const raw = store.getItem(ADD_TO_HOME_DOT_KEY)
+    if (raw == null) return false
+    const text = raw.trim().toLowerCase()
+    return text === '1' || text === 'true' || text === 'seen'
+  } catch {
+    return false
+  }
+}
+
+export function saveAddToHomeDotSeen(storage?: Storage | null): void {
+  const store = storageOf(storage)
+  if (!store) return
+  try {
+    store.setItem(ADD_TO_HOME_DOT_KEY, '1')
+  } catch {
+    // quota / private mode
+  }
 }
 
 function asInstallPrompt(ev: Event): InstallPromptEvent | null {

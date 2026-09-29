@@ -6,7 +6,7 @@ import { bannerFrameOf, bannerLevelOf, treasureAssaultWarning } from '../sim/tre
 import { appTabLockedTip, isAppTabUnlocked, isModuleId, isModuleUnlocked, moduleBlurb, moduleLabel } from '../sim/moduleUnlock'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
 import { dockStationHp, showDockStationHp } from './dockStationHp'
-import { startAddToHomeWatch } from './addToHomeState'
+import { addToHomeDotOn, startAddToHomeWatch } from './addToHomeState'
 import { dismissUpdateBubble, refreshToNewVersion, startAppUpdateSchedule, updateBubble, updateReady } from './appUpdateState'
 import AppUpdateBubble from './appUpdateBubble.vue'
 import { useGameStore } from './gameStore'
@@ -224,8 +224,8 @@ watch(
           ref="settingsBtn"
           type="button"
           class="icon-btn"
-          :class="{ unread: updateReady }"
-          :aria-label="updateReady ? '设置，有新版本' : '设置'"
+          :class="{ unread: updateReady || addToHomeDotOn }"
+          :aria-label="updateReady && addToHomeDotOn ? '设置，有新版本，可添加到桌面' : updateReady ? '设置，有新版本' : addToHomeDotOn ? '设置，可添加到桌面' : '设置'"
           @click="settingsOpen = true"
         >
           <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">
@@ -234,7 +234,7 @@ watch(
               d="M19.1 12.7a7.4 7.4 0 0 0 .1-1.4 7.4 7.4 0 0 0-.1-1.4l2-1.6a.5.5 0 0 0 .1-.6l-1.9-3.3a.5.5 0 0 0-.6-.2l-2.4 1a7 7 0 0 0-2.4-1.4l-.4-2.5a.5.5 0 0 0-.5-.4h-3.8a.5.5 0 0 0-.5.4l-.4 2.5a7 7 0 0 0-2.4 1.4l-2.4-1a.5.5 0 0 0-.6.2L2.7 7.7a.5.5 0 0 0 .1.6l2 1.6a7.4 7.4 0 0 0-.1 1.4 7.4 7.4 0 0 0 .1 1.4l-2 1.6a.5.5 0 0 0-.1.6l1.9 3.3a.5.5 0 0 0 .6.2l2.4-1a7 7 0 0 0 2.4 1.4l.4 2.5a.5.5 0 0 0 .5.4h3.8a.5.5 0 0 0 .5-.4l.4-2.5a7 7 0 0 0 2.4-1.4l2.4 1a.5.5 0 0 0 .6-.2l1.9-3.3a.5.5 0 0 0-.1-.6Zm-7.1 2.1A2.8 2.8 0 1 1 14.8 12 2.8 2.8 0 0 1 12 14.8Z"
             />
           </svg>
-          <i v-if="updateReady" class="dot" />
+          <i v-if="updateReady || addToHomeDotOn" class="dot" />
         </button>
       </div>
     </header>

@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import app from './app.vue?raw'
 import settings from './settingsPanel.vue?raw'
+import { UPDATE_BUBBLE_DISMISS_KEY } from './appUpdateBubble'
 import {
+  ADD_TO_HOME_DOT_KEY,
   ADD_TO_HOME_EXTERNAL_TIP,
   ADD_TO_HOME_IOS_STEPS,
   ADD_TO_HOME_LABEL,
@@ -10,10 +12,14 @@ import {
   PWA_THEME_COLOR,
   addToHomeChoice,
   createAddToHomeSession,
+  loadAddToHomeDotSeen,
+  saveAddToHomeDotSeen,
+  shouldShowAddToHomeDot,
   type AddToHomeChoice,
   type AddToHomeEnv,
   type InstallPromptEvent,
 } from './addToHome'
+import { addToHomeChoiceNow, addToHomeDotOn, addToHomeDotSeenNow, markAddToHomeDotSeen } from './addToHomeState'
 
 const CHROME_ANDROID =
   'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
@@ -141,6 +147,62 @@ describe('add to home session', () => {
   })
 })
 
+function memoryStorage(seed: Record<string, string> = {}) {
+  const data = { ...seed }
+  return {
+    getItem(key: string) {
+      return Object.prototype.hasOwnProperty.call(data, key) ? data[key] : null
+    },
+    setItem(key: string, value: string) {
+      data[key] = value
+    },
+    removeItem(key: string) {
+      delete data[key]
+    },
+  } as Storage
+}
+
+describe('add to home dot', () => {
+  afterEach(() => {
+    addToHomeChoiceNow.value = 'external'
+    addToHomeDotSeenNow.value = false
+  })
+
+  it('shows only while the card is visible and the add button has not been used', () => {
+    expect(shouldShowAddToHomeDot('native', false)).toBe(true)
+    expect(shouldShowAddToHomeDot('ios', false)).toBe(true)
+    expect(shouldShowAddToHomeDot('external', false)).toBe(true)
+    expect(shouldShowAddToHomeDot('hidden', false)).toBe(false)
+    expect(shouldShowAddToHomeDot('native', true)).toBe(false)
+    expect(shouldShowAddToHomeDot('ios', true)).toBe(false)
+    expect(shouldShowAddToHomeDot('external', true)).toBe(false)
+    expect(shouldShowAddToHomeDot('hidden', true)).toBe(false)
+  })
+
+  it('remembers the click in local storage and keeps the version bubble key', () => {
+    const store = memoryStorage({ [UPDATE_BUBBLE_DISMISS_KEY]: 'abc1234' })
+    expect(loadAddToHomeDotSeen(store)).toBe(false)
+    saveAddToHomeDotSeen(store)
+    expect(store.getItem(ADD_TO_HOME_DOT_KEY)).toBe('1')
+    expect(loadAddToHomeDotSeen(store)).toBe(true)
+    expect(loadAddToHomeDotSeen(memoryStorage({ [ADD_TO_HOME_DOT_KEY]: ' seen ' }))).toBe(true)
+    expect(store.getItem(UPDATE_BUBBLE_DISMISS_KEY)).toBe('abc1234')
+    expect(shouldShowAddToHomeDot('native', loadAddToHomeDotSeen(store))).toBe(false)
+  })
+
+  it('clears the three dots as soon as add is marked, without waiting for install', () => {
+    addToHomeChoiceNow.value = 'ios'
+    expect(addToHomeDotOn.value).toBe(true)
+    const store = memoryStorage()
+    markAddToHomeDotSeen(store)
+    expect(addToHomeDotSeenNow.value).toBe(true)
+    expect(addToHomeDotOn.value).toBe(false)
+    expect(loadAddToHomeDotSeen(store)).toBe(true)
+    addToHomeChoiceNow.value = 'hidden'
+    expect(addToHomeDotOn.value).toBe(false)
+  })
+})
+
 describe('add to home surface', () => {
   it('keeps the grass green on the manifest and the theme-color meta', () => {
     expect(PWA_THEME_COLOR).toBe('#1c522c')
@@ -167,5 +229,27 @@ describe('add to home surface', () => {
     expect(settings).toContain('检查更新')
     expect(app).toContain('startAddToHomeWatch')
     expect(app).toContain('startAppUpdateSchedule')
+    expect(settings).not.toContain('localStorage')
+  })
+
+  it('puts the same dot on the add button, the general tab, and the settings button', () => {
+    const general = settings.indexOf("p.id === 'general' && addToHomeDotOn")
+    const versionDot = settings.indexOf("p.id === 'version' && updateReady")
+    const add = settings.indexOf('class="add"')
+    const addDot = settings.indexOf('v-if="addToHomeDotOn" class="dot"', add)
+    const click = settings.indexOf('async function onAddToHome')
+    const mark = settings.indexOf('markAddToHomeDotSeen()', click)
+    const request = settings.indexOf('requestAddToHome()', click)
+    expect(general).toBeGreaterThan(0)
+    expect(versionDot).toBeGreaterThan(0)
+    expect(versionDot).not.toBe(general)
+    expect(addDot).toBeGreaterThan(add)
+    expect(mark).toBeGreaterThan(click)
+    expect(request).toBeGreaterThan(mark)
+    expect(settings).toContain('.add .dot')
+    expect(app).toContain('updateReady || addToHomeDotOn')
+    expect(app).toContain('设置，有新版本')
+    expect(app).toContain('设置，可添加到桌面')
+    expect(app).toContain('updateBubble && !settingsOpen')
   })
 })

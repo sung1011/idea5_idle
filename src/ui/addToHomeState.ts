@@ -1,7 +1,25 @@
-import { ref } from 'vue'
-import { addToHomeChoice, createAddToHomeSession, type AddToHomeChoice, type AddToHomeClick } from './addToHome'
+import { computed, ref } from 'vue'
+import {
+  addToHomeChoice,
+  createAddToHomeSession,
+  loadAddToHomeDotSeen,
+  saveAddToHomeDotSeen,
+  shouldShowAddToHomeDot,
+  type AddToHomeChoice,
+  type AddToHomeClick,
+} from './addToHome'
 
 export const addToHomeChoiceNow = ref<AddToHomeChoice>('external')
+export const addToHomeDotSeenNow = ref(loadAddToHomeDotSeen())
+
+/** 卡片会显示、且还没点过「添加」。 */
+export const addToHomeDotOn = computed(() => shouldShowAddToHomeDot(addToHomeChoiceNow.value, addToHomeDotSeenNow.value))
+
+/** 点「添加」一次就记下，不论后面是安装框、说明还是没装上。 */
+export function markAddToHomeDotSeen(storage?: Storage | null) {
+  saveAddToHomeDotSeen(storage)
+  addToHomeDotSeenNow.value = true
+}
 
 let session: ReturnType<typeof createAddToHomeSession> | null = null
 

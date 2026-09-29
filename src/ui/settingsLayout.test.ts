@@ -24,7 +24,8 @@ describe('settings layout', () => {
     expect(banter).toBeGreaterThan(sfx)
     expect(version).toBeGreaterThan(banter)
     expect(settings).toContain('像 App 一样全屏打开')
-    expect(settings).toContain('>添加</button>')
+    expect(settings).toContain('class="add"')
+    expect(settings).toContain('添加')
     expect(settings).toContain("addToHomeChoiceNow !== 'hidden'")
   })
 
