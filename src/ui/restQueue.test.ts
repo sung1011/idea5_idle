@@ -46,15 +46,16 @@ describe('rest queue display', () => {
     expect(restZoneTitle(rows.length)).toBe('营地')
   })
 
-  it('draws no numbers when the rest queue is empty', () => {
+  it('draws no roster numbers; the grid is only the resting list', () => {
     expect(restQueueRows(createSave())).toEqual([])
     expect(restZoneTitle(0)).toBe('营地')
     const restAt = sheetSource.indexOf('aria-label="营地"')
     const emptyAt = sheetSource.indexOf('class="empty"')
     const list = sheetSource.slice(restAt, emptyAt)
     expect(list).toContain('v-if="rows.length"')
-    expect(list).toContain('class="order"')
-    expect(list.indexOf('v-if="rows.length"')).toBeLessThan(list.indexOf('class="order"'))
+    expect(list).toContain('class="badge"')
+    expect(list).not.toContain('class="order"')
+    expect(list.indexOf('v-if="rows.length"')).toBeLessThan(list.indexOf('class="badge"'))
   })
 
   it('marks a not-full head as blocking and dims the rows behind', () => {

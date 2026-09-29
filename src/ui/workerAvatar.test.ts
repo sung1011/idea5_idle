@@ -88,7 +88,7 @@ describe('worker race avatars', () => {
     expect(workers).toContain('size="lg"')
     expect(workers).toContain(':show-new="!!w.isNew"')
     expect(workers).toContain(':size="rosterFaceSize"')
-    expect(camp).toContain('size="md"')
+    expect(camp).toContain('size="lg"')
     expect(camp).toContain(':race="row.worker.race"')
     expect(workers).not.toContain('queueHead.worker.race')
     expect(herb).toContain('size="md"')

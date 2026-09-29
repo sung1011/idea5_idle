@@ -175,7 +175,7 @@ describe('rest area shared food', () => {
   })
 
   it('does not show personal food loading in the worker sheet', () => {
-    expect(sheetSource).toContain('未选伙食')
+    expect(sheetSource).toContain("return '未选'")
     expect(sheetSource).toContain('选择伙食')
     expect(sheetSource).toContain('onPickFood(null)')
     expect(sheetSource).toContain('营地伙食')

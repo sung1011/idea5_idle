@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref } from 'vue'
 import { bankQty } from '../sim/bank'
+import { campDockCount } from '../sim/campDock'
 import { guideFuseCue, isGuideQuestFlash } from '../sim/guideQuest'
 import { isModuleUnlocked, moduleLockedTip } from '../sim/moduleUnlock'
 import { FOOD_ITEM_IDS, ITEM_DEF, type FoodItemId } from '../sim/tables'
 import { recruitCost } from '../sim/tech'
 import type { Worker } from '../sim/types'
-import { workerRaceShortLabel } from '../sim/workerRace'
 import { workerWearHp } from '../sim/workshopHp'
 import { appTab } from './appNav'
 import { CAMP_STATION_DRAG_TIP, campDragStationTip } from './campDragTip'
@@ -15,9 +15,9 @@ import { foodHelpCopy, nextFoodHelp, REST_FOOD_HELP_ROWS, REST_FOOD_HELP_TITLE }
 import FoodIcon from './foodIcon.vue'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
-import { hpBarFill, hpBarTone } from './hpBar'
+import { hpBarFill } from './hpBar'
 import ModeHelpSheet from './modeHelpSheet.vue'
-import { REST_HEAD_BADGE, restQueueRows, restZoneTitle } from './restQueue'
+import { REST_HEAD_BADGE, restQueueRows } from './restQueue'
 import { restFoodBand } from './workshopQueueHead'
 import { isWorkerEatFlashing, workerEatFlashText } from './workerEatFlash'
 import { isWorkerLevelFlashing } from './workerLevelFlash'
@@ -45,6 +45,7 @@ const foodHelpPos = ref({ left: 8, top: 8 })
 const foodRuleOpen = ref(false)
 const detailId = ref<string | null>(null)
 const rows = computed(() => restQueueRows(game.save))
+const dispatchCount = computed(() => campDockCount(game.save))
 const fuseCue = computed(() => guideFuseCue(game.save, true))
 const guideFlashRecruit = computed(() => isGuideQuestFlash(game.save, 'recruit'))
 const guideFlashAutoHerb = computed(() => isGuideQuestFlash(game.save, 'autoHerb'))
@@ -58,8 +59,8 @@ const foodBand = computed(() => {
 })
 const foodLabel = computed(() => {
   const id = game.save.restFoodId
-  if (!id) return '未选伙食'
-  return `${ITEM_DEF[id].label} ×${bankQty(game.save, id)}`
+  if (!id) return '未选'
+  return ITEM_DEF[id].label
 })
 const foodHelpBubble = computed(() => {
   const id = foodHelp.value
@@ -69,10 +70,6 @@ const foodHelpBubble = computed(() => {
 
 function hpFillStyle(worker: Worker) {
   return { width: `${(hpBarFill(workerWearHp(worker), worker.hpMax) * 100).toFixed(2)}%` }
-}
-
-function hpToneClass(worker: Worker) {
-  return `hp-${hpBarTone(workerWearHp(worker), worker.hpMax)}`
 }
 
 function onFood() {
@@ -273,78 +270,101 @@ onUnmounted(() => {
   <Teleport to="body">
     <div class="camp-mask" :class="{ passing: drag?.active }" @click.self="closeCampSheet">
       <section class="camp-sheet" :class="{ 'guide-flash': fuseCue === 'drag' }" role="dialog" aria-modal="true" aria-label="营地" data-drop="rest">
-        <header>
-          <h2>{{ restZoneTitle(rows.length) }}</h2>
-          <button type="button" class="close" @click="closeCampSheet">关闭</button>
+        <button type="button" class="close" aria-label="关闭" @click="closeCampSheet">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M7 7l10 10M17 7L7 17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" />
+          </svg>
+        </button>
+        <header class="head">
+          <h2>营地 · 可派 {{ dispatchCount }}</h2>
+          <p class="fuse-hint">拖动同品质苦工可合成</p>
         </header>
-        <div class="jumps">
+        <div class="board">
+          <div v-if="rows.length" ref="restListEl" class="list">
+            <div
+              v-for="row in rows"
+              :key="row.id"
+              class="row"
+              :class="[
+                restWorkerDropClass(row.id),
+                {
+                  dim: row.dim,
+                  'queue-dim': row.dim,
+                  blocked: row.badge === '堵队',
+                  head: row.badge === '队首',
+                  'queue-ready': row.badge === REST_HEAD_BADGE,
+                  'level-flash': isWorkerLevelFlashing(row.id),
+                  'eat-flash': isWorkerEatFlashing(row.id),
+                  'guide-flash': guideFlashAutoHerb && row.order === 1,
+                },
+              ]"
+              data-drop="rest-worker"
+              :data-worker="row.id"
+              @pointerdown="onWorkerPointerDown($event, row.worker)"
+            >
+              <i v-if="row.badge" class="badge">{{ row.badge }}</i>
+              <button
+                type="button"
+                class="info"
+                :aria-label="`${workerShortName(row.worker)} 详情`"
+                @pointerdown.stop
+                @click.stop="openDetail(row.worker)"
+              >i</button>
+              <WorkerAvatar
+                size="lg"
+                :show-new="!!row.worker.isNew"
+                :race="row.worker.race"
+                :quality="row.worker.qualityTier"
+                :worker-id="row.worker.id"
+              />
+              <em v-if="workerEatFlashText(row.id)" class="eat-float">{{ workerEatFlashText(row.id) }}</em>
+              <b class="name" :style="workerQualityNameStyle(row.worker)">{{ workerShortName(row.worker) }}</b>
+              <span class="hp-track" aria-hidden="true">
+                <i class="hp" :style="hpFillStyle(row.worker)" />
+              </span>
+            </div>
+          </div>
+          <p v-else class="empty">无人</p>
+        </div>
+        <div class="actions">
           <button
             type="button"
-            class="jump recruit"
-            :class="{ off: !canRecruit, 'guide-flash': guideFlashRecruit || fuseCue === 'recruit' }"
-            :disabled="!canRecruit"
-            :aria-label="`抽苦工 · ${recruitPrice} 钻`"
-            @click="game.recruit()"
-          >
-            抽苦工 · {{ recruitPrice }} 钻
-          </button>
-          <button
-            type="button"
-            class="jump food"
+            class="food"
             :class="{ locked: foodLocked, low: foodBand.low, 'guide-flash': guideFlashRestFood }"
             :aria-label="foodLocked ? '营地伙食未开放' : `营地伙食 · ${foodLabel}`"
             @click="onFood"
           >
             <FoodIcon v-if="foodBand.itemId" :name="foodBand.itemId" />
+            <svg v-else class="bowl" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 10h16c0 5-3.2 8-8 8s-8-3-8-8z" fill="none" stroke="currentColor" stroke-width="2" />
+              <path d="M8 10c.4-2 1.6-3 2.4-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+            </svg>
             伙食 · {{ foodLabel }}
           </button>
-        </div>
-        <div v-if="rows.length" ref="restListEl" class="list">
-          <div
-            v-for="row in rows"
-            :key="row.id"
-            class="row"
-            :class="[
-              hpToneClass(row.worker),
-              restWorkerDropClass(row.id),
-              {
-                dim: row.dim,
-                'queue-dim': row.dim,
-                blocked: row.badge === '堵队',
-                head: row.badge === '队首',
-                'queue-ready': row.badge === REST_HEAD_BADGE,
-                'level-flash': isWorkerLevelFlashing(row.id),
-                'eat-flash': isWorkerEatFlashing(row.id),
-                'guide-flash': guideFlashAutoHerb && row.order === 1,
-              },
-            ]"
-            data-drop="rest-worker"
-            :data-worker="row.id"
-            @pointerdown="onWorkerPointerDown($event, row.worker)"
+          <button
+            type="button"
+            class="recruit"
+            :class="{ off: !canRecruit, 'guide-flash': guideFlashRecruit || fuseCue === 'recruit' }"
+            :disabled="!canRecruit"
+            :aria-label="`抽苦工 · ${recruitPrice} 钻`"
+            @click="game.recruit()"
           >
-            <i class="hp" :style="hpFillStyle(row.worker)" aria-hidden="true" />
-            <span class="order">{{ row.order }}</span>
-            <i v-if="row.badge" class="badge">{{ row.badge }}</i>
-            <WorkerAvatar
-              size="md"
-              :show-new="!!row.worker.isNew"
-              :race="row.worker.race"
-              :quality="row.worker.qualityTier"
-              :worker-id="row.worker.id"
-            />
-            <em v-if="workerEatFlashText(row.id)" class="eat-float">{{ workerEatFlashText(row.id) }}</em>
-            <b class="name" :style="workerQualityNameStyle(row.worker)">{{ workerShortName(row.worker) }}</b>
-            <i v-if="workerRaceShortLabel(row.worker.race)" class="race">{{ workerRaceShortLabel(row.worker.race) }}</i>
-            <button
-              type="button"
-              class="detail"
-              :aria-label="`${workerShortName(row.worker)} 详情`"
-              @pointerdown.stop
-              @click.stop="openDetail(row.worker)"
-            >详情</button>
-          </div>
+            <span class="recruit-label">
+              <svg class="dice" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="2" />
+                <circle cx="9" cy="9" r="1.3" fill="currentColor" />
+                <circle cx="15" cy="15" r="1.3" fill="currentColor" />
+                <circle cx="15" cy="9" r="1.3" fill="currentColor" />
+                <circle cx="9" cy="15" r="1.3" fill="currentColor" />
+              </svg>
+              抽苦工
+            </span>
+            <span class="price">
+              <i class="sprite sprite-res diamonds" aria-hidden="true" />
+              {{ recruitPrice }}
+            </span>
+          </button>
         </div>
-        <p v-else class="empty">无人</p>
       </section>
     </div>
   </Teleport>
@@ -441,95 +461,108 @@ onUnmounted(() => {
 }
 
 .camp-sheet {
-  width: min(420px, 100%);
-  max-height: min(68vh, 520px);
-  overflow: auto;
-  padding: 10px 10px 12px;
-  border: 3px solid var(--stroke);
-  border-radius: 16px 16px 12px 12px;
-  background: var(--wood-lite);
-  box-shadow: 0 -6px 0 rgba(90, 48, 16, 0.12);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(440px, 100%);
+  max-height: min(78vh, 680px);
+  overflow: hidden;
+  padding: 14px 12px 12px;
+  border: 4px solid #6b3a16;
+  border-radius: 18px;
+  background:
+    var(--wood-grain),
+    linear-gradient(180deg, #f0c98a 0%, #d59a48 46%, #b4742c 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 236, 190, 0.55),
+    0 8px 0 rgba(70, 36, 10, 0.28);
   color: var(--ink);
 }
 
-header {
+.close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  line-height: 1;
+  color: #fff8f4;
+  border-color: #8d241c;
+  background: linear-gradient(#e85a4c, #c43228);
+  box-shadow: 0 3px 0 #7a1c16;
+}
+
+.close svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 0 auto;
+}
+
+.head {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
+  padding: 2px 40px 8px;
 }
 
 h2 {
   margin: 0;
-  font-size: 16px;
-}
-
-.close {
-  min-height: 28px;
-  padding: 0 8px;
-  border: 2px solid var(--stroke);
-  border-radius: 8px;
-  background: var(--wood-face);
-  font-weight: 800;
-}
-
-.jumps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 8px 0;
-}
-
-.jump {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 32px;
-  padding: 0 10px;
-  border: 2px solid var(--stroke);
-  border-radius: 10px;
-  background: var(--accent-face);
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
   color: #3a2208;
+  text-shadow: 0 1px 0 rgba(255, 236, 190, 0.65);
+}
+
+.fuse-hint {
+  margin: 0;
+  padding: 2px 12px;
+  border-radius: 999px;
+  background: linear-gradient(#4ea044, #2f7330);
+  color: #f4ffe8;
+  font-size: 12px;
   font-weight: 800;
+  line-height: 1.4;
+  box-shadow: 0 2px 0 #1e4a1c;
 }
 
-.jump.food {
-  background: var(--wood-face);
-  color: var(--ink);
-}
-
-.jump.food.low {
-  color: #b42318;
-}
-
-.jump.locked,
-.jump.recruit.off,
-.jump.recruit:disabled {
-  filter: grayscale(1);
-  opacity: 0.55;
-}
-
-.jump :deep(.food-ico) {
-  width: 16px;
-  height: 16px;
+.board {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(62, 32, 12, 0.28);
+  box-shadow: inset 0 2px 6px rgba(40, 18, 6, 0.28);
 }
 
 .list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  align-content: start;
+  max-height: min(46vh, 360px);
+  overflow: auto;
 }
 
 .row {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 6px 52px 6px 8px;
+  gap: 4px;
+  min-height: 112px;
+  padding: 18px 4px 8px;
   overflow: hidden;
   border-radius: 10px;
-  background: rgba(255, 248, 230, 0.45);
+  background: rgba(90, 48, 16, 0.16);
   touch-action: none;
 }
 
@@ -539,7 +572,15 @@ h2 {
 }
 
 .row.queue-ready {
-  background: rgba(255, 236, 160, 0.95);
+  background: rgba(255, 236, 160, 0.42);
+}
+
+.row.drop-ok {
+  box-shadow: inset 0 0 0 2px #3f9a3a;
+}
+
+.row.drop-no {
+  box-shadow: inset 0 0 0 2px #e24a3a;
 }
 
 .row.eat-flash {
@@ -548,40 +589,20 @@ h2 {
   animation: eat-glow 0.7s ease-out;
 }
 
-.hp {
+.badge {
   position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  background: rgba(226, 163, 26, 0.28);
-  pointer-events: none;
-}
-
-.row.hp-full .hp {
-  background: rgba(47, 191, 50, 0.28);
-}
-
-.row.hp-low .hp {
-  background: rgba(226, 74, 58, 0.28);
-}
-
-.row.eat-flash .hp {
-  background: linear-gradient(90deg, rgba(150, 230, 110, 0.88), rgba(90, 190, 70, 0.72));
-}
-
-.order,
-.badge {
-  position: relative;
-  font-style: normal;
-  font-weight: 900;
-  font-size: 12px;
-}
-
-.badge {
+  top: 3px;
+  left: 3px;
+  z-index: 2;
   padding: 0 4px;
   border-radius: 4px;
-  background: #f0d48a;
-  color: #5a3a10;
+  background: #3f9a3a;
+  color: #f4ffe8;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.4;
+  pointer-events: none;
 }
 
 .row.blocked .badge {
@@ -589,40 +610,137 @@ h2 {
   color: #fff8f0;
 }
 
+.info {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  padding: 0;
+  border: 1px solid #6a5030;
+  border-radius: 50%;
+  background: rgba(70, 48, 24, 0.55);
+  color: #fff6e4;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 16px;
+  box-shadow: none;
+}
+
 .name {
-  position: relative;
-  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.race {
-  position: relative;
-  font-style: normal;
-  font-size: 11px;
-  color: #7a4a22;
-}
-
-.detail {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  z-index: 2;
-  min-height: 28px;
-  padding: 0 8px;
-  border: 2px solid var(--stroke);
-  border-radius: 8px;
-  background: var(--wood-face);
-  color: #7a4a22;
   font-size: 12px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.hp-track {
+  width: 72%;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(30, 16, 6, 0.45);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+
+.hp {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--bar-fill-green);
+}
+
+.row.eat-flash .hp {
+  background: linear-gradient(90deg, #e8ff9a, #7adf4a);
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.food,
+.recruit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 56px;
+  padding: 6px 8px;
+  border: 2px solid var(--stroke);
+  border-radius: 12px;
   font-weight: 900;
 }
 
+.food {
+  background: var(--wood-face);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.food.low {
+  color: #b42318;
+}
+
+.food :deep(.food-ico),
+.bowl {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+.recruit {
+  flex-direction: column;
+  gap: 0;
+  background: var(--accent-face);
+  color: #3a2208;
+}
+
+.recruit-label,
+.price {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.15;
+}
+
+.recruit-label {
+  font-size: 16px;
+}
+
+.price {
+  font-size: 13px;
+}
+
+.dice {
+  width: 18px;
+  height: 18px;
+}
+
+.price .sprite-res {
+  width: 16px;
+  height: 16px;
+}
+
+.food.locked,
+.recruit.off,
+.recruit:disabled {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
 .empty {
-  margin: 12px 0;
+  margin: 28px 0;
   text-align: center;
-  color: var(--muted);
+  color: #f6e2bc;
   font-weight: 800;
 }
 
@@ -677,7 +795,35 @@ h2 {
 }
 
 .food-sheet header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 10px;
+}
+
+.food-sheet h2 {
+  font-size: 16px;
+  letter-spacing: 0;
+  color: var(--ink);
+  text-shadow: none;
+}
+
+.food-sheet .close {
+  position: static;
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 2px solid var(--stroke);
+  border-radius: 8px;
+  background: var(--wood-face);
+  color: var(--ink);
+  box-shadow: 0 3px 0 var(--stroke);
+  font-weight: 800;
+  line-height: inherit;
 }
 
 .sheet-head-actions {
