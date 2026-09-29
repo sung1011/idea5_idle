@@ -21,7 +21,7 @@ export type GuideQuestStats = {
   herbPayouts: number
   beastChallenges: number
   beastManual: number
-  /** 带着符文打过战场或地牢，不论胜负。 */
+  /** 带着符文打过悬赏或地牢，不论胜负。 */
   runeFights: number
   runeWins: number
   treasureRaids: number
@@ -126,7 +126,7 @@ function wantsOre(enc: Encounter): boolean {
   return Object.entries(map).some(([id, qty]) => ORE_IDS.has(id) && typeof qty === 'number' && qty > 0)
 }
 
-/** 集市板成交。战场领战利品不要走这里。 */
+/** 集市板成交。悬赏领战利品不要走这里。 */
 export function noteMarketDeal(save: Save, enc: Encounter): void {
   const stats = ensureGuideQuestStats(save)
   stats.marketDeals += 1

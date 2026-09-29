@@ -13,7 +13,7 @@ export type ModeHelp = {
   rows: ModeHelpRow[]
 }
 
-/** 夺宝 / 战旗 / 战场 / 地牢 / 商场的玩法说明。文案按现行规则写死。战旗从夺宝顶部栏打开。 */
+/** 夺宝 / 战旗 / 悬赏 / 地牢 / 商场的玩法说明。文案按现行规则写死。战旗从夺宝顶部栏打开。 */
 export const MODE_HELP: Record<ModeHelpId, ModeHelp> = {
   treasure: {
     id: 'treasure',
@@ -89,7 +89,7 @@ export const MODE_HELP: Record<ModeHelpId, ModeHelp> = {
   },
   battlefield: {
     id: 'battlefield',
-    title: '战场',
+    title: '悬赏',
     rows: [
       {
         label: '怎么玩',
@@ -111,11 +111,11 @@ export const MODE_HELP: Record<ModeHelpId, ModeHelp> = {
     rows: [
       {
         label: '怎么玩',
-        text: '地牢按游戏日刷新，不占战场格子，也不被探索换掉。每天两单并排：联盟典狱官给钻石，联盟军需官给金币。每单卡头 2 条词缀，点词缀看效果。',
+        text: '地牢按游戏日刷新，不占悬赏格子，也不被探索换掉。每天两单并排：联盟典狱官给钻石，联盟军需官给金币。每单卡头 2 条词缀，点词缀看效果。',
       },
       {
         label: '规则要点',
-        text: '顶栏写今日两单，开战后加上已开战次数。选人和战场一样，但一单最多 5 人，每单当天只能开战 1 次。战斗分 3 个阶段。日切会强制刷新，先自动发还没领的宝箱，打到一半也会被清掉。',
+        text: '顶栏写今日两单，开战后加上已开战次数。选人和悬赏一样，但一单最多 5 人，每单当天只能开战 1 次。战斗分 3 个阶段。日切会强制刷新，先自动发还没领的宝箱，打到一半也会被清掉。',
       },
       {
         label: '注意',
@@ -129,7 +129,7 @@ export const MODE_HELP: Record<ModeHelpId, ModeHelp> = {
     rows: [
       {
         label: '怎么玩',
-        text: '集市只放交易单：地精当铺、路人、地精奸商、工匠委托、收购。货够就成交，不进战斗。探索和战场一起刷新可换的格子。',
+        text: '集市只放交易单：地精当铺、路人、地精奸商、工匠委托、收购。货够就成交，不进战斗。探索和悬赏一起刷新可换的格子。',
       },
       {
         label: '规则要点',
@@ -137,7 +137,7 @@ export const MODE_HELP: Record<ModeHelpId, ModeHelp> = {
       },
       {
         label: '注意',
-        text: '开局第一格是地精铜矿当，采矿还没开也照样要铜矿。限时只在集市。右侧简/详和战场、地牢共用。',
+        text: '开局第一格是地精铜矿当，采矿还没开也照样要铜矿。限时只在集市。右侧简/详和悬赏、地牢共用。',
       },
     ],
   },
@@ -167,7 +167,7 @@ export function modeHelpOf(id: ModeHelpId): ModeHelp {
   return MODE_HELP[id]
 }
 
-/** 主线页签对到说明。旧值 mine 和未知页都算战场。 */
+/** 主线页签对到说明。旧值 mine 和未知页都算悬赏。 */
 export function modeHelpIdForMainline(tab: string): ModeHelpId {
   if (tab === 'dungeon' || tab === 'market') return tab
   return 'battlefield'

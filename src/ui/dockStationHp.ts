@@ -12,7 +12,7 @@ export type DockStationHpCell = {
   tone: HpBarTone
 }
 
-/** 工坊页站卡已有血色，底栏收起。战场、夺宝、割草、困兽和其它页显示。 */
+/** 工坊页站卡已有血色，底栏收起。悬赏、夺宝、割草、困兽和其它页显示。 */
 export function showDockStationHp(tab: AppTabId): boolean {
   return tab !== 'workshop'
 }

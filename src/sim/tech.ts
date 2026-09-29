@@ -9,7 +9,7 @@ export const BATTLEFIELD_SLOT_MIN = 2
 export const BATTLEFIELD_SLOT_MAX = 4
 export const MARKET_SLOT_MIN = 2
 export const MARKET_SLOT_MAX = 4
-/** 战场订单格科技。每级 +1，与初始 2 格相加，封顶 4。 */
+/** 悬赏单格科技。每级 +1，与初始 2 格相加，封顶 4。 */
 export const BATTLEFIELD_SLOT_EFFECT = 'battlefieldSlot'
 /** 商场订单格科技。每级 +1，与初始 2 格相加，封顶 4。 */
 export const MARKET_SLOT_EFFECT = 'marketSlot'
@@ -452,7 +452,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'pathOutpost',
         name: '探路哨岗',
-        desc: '在工坊外立一座哨岗，战场订单格 +1（2→3）。',
+        desc: '在工坊外立一座哨岗，悬赏单 +1 格（2→3）。',
         icon: '🏕️',
         effectId: BATTLEFIELD_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
@@ -492,7 +492,7 @@ const AFFAIRS_ROWS: readonly RowSeed[] = [
       {
         id: 'scoutRelay',
         name: '斥候驿站',
-        desc: '路书可传到更远，战场订单格 +1（3→4）。',
+        desc: '路书可传到更远，悬赏单 +1 格（3→4）。',
         icon: '🏇',
         effectId: BATTLEFIELD_SLOT_EFFECT,
         maxLevel: IMPLEMENTED_TECH_MAX_LEVEL,
@@ -634,7 +634,7 @@ export const MARKET_SLOT_TECH_IDS: readonly TechId[] = TECH_TREE.filter(
   (node) => node.effectId === MARKET_SLOT_EFFECT,
 ).map((node) => node.id)
 
-/** 战场 + 商场订单格科技，按科技树顺序。 */
+/** 悬赏 + 商场订单格科技，按科技树顺序。 */
 export const ENCOUNTER_SLOT_TECH_IDS: readonly TechId[] = TECH_TREE.filter((node) =>
   isSlotEffect(node.effectId),
 ).map((node) => node.id)
@@ -815,7 +815,7 @@ function slotCountFor(
   return Math.min(max, Math.max(min, min + bonus))
 }
 
-/** 战场订单格。初始 2，每级战场格科技 +1，封顶 4。 */
+/** 悬赏单格。初始 2，每级悬赏格科技 +1，封顶 4。 */
 export function battlefieldSlotCount(save: Save): number {
   return slotCountFor(save, BATTLEFIELD_SLOT_TECH_IDS, BATTLEFIELD_SLOT_MIN, BATTLEFIELD_SLOT_MAX)
 }

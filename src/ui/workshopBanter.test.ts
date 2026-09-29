@@ -98,11 +98,11 @@ describe('workshop banter bubbles', () => {
       stationId: 'cooking',
       kind: 'duet',
       beats: [
-        { workerId: 'a', stationId: 'cooking', text: '战场缺人', delayMs: 0 },
+        { workerId: 'a', stationId: 'cooking', text: '悬赏缺人', delayMs: 0 },
         { workerId: 'b', stationId: 'cooking', text: '工坊也缺', delayMs: 900 },
       ],
     })
-    expect(workshopBanterBubble('cooking')?.text).toBe('战场缺人')
+    expect(workshopBanterBubble('cooking')?.text).toBe('悬赏缺人')
     dismissWorkshopBanter()
     vi.advanceTimersByTime(900)
     expect(workshopBanterBubble('cooking')).toBeNull()

@@ -41,7 +41,7 @@ export type HudChipDetail = {
 const CORE_COPY: Record<HudResourceId, { name: string; source: string; usage: string }> = {
   knight: {
     name: '酋长等级',
-    source: '酋长经验：站升级、引导、战场、集市、地牢和每日名次。',
+    source: '酋长经验：站升级、引导、悬赏、集市、地牢和每日名次。',
     usage: '点开可看经验和下一开放目标。升级时发放 1 点灵感，用来点科技。',
   },
   gold: {
@@ -51,7 +51,7 @@ const CORE_COPY: Record<HudResourceId, { name: string; source: string; usage: st
   },
   diamonds: {
     name: '钻石',
-    source: '新档自带 150；主线战场与集市部分订单掉落。',
+    source: '新档自带 150；主线悬赏与集市部分订单掉落。',
     usage: '抽苦工。',
   },
   workers: {

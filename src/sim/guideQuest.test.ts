@@ -298,7 +298,7 @@ describe('guideQuest steps and claim', () => {
     expect(save.guideQuestStep).toBe(mainlineStepOf('firstBlood'))
     expect(guideQuestView(save)?.waiting).toBe(false)
     expect(guideQuestView(save)?.taskId).toBe('firstBlood')
-    expect(guideQuestView(save)?.goal).toBe('在战场打赢一个敌人并领到战利品')
+    expect(guideQuestView(save)?.goal).toBe('在悬赏打赢一个敌人并领到战利品')
     expect(save.gold).toBe(gold0 + GUIDE_QUEST_GOLD * 9)
   })
 

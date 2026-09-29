@@ -9,7 +9,7 @@ export type CampDockTone = 'blocked' | 'ready' | 'quiet'
 export type CampDispatchEntry = 'battlefield' | 'herb'
 
 export const CAMP_DISPATCH_LABEL: Record<CampDispatchEntry, string> = {
-  battlefield: '派去战场',
+  battlefield: '派去悬赏',
   herb: '派去割草',
 }
 
@@ -37,7 +37,7 @@ export function campDockTone(save: Save): CampDockTone {
   return 'quiet'
 }
 
-/** 战场 1 级就有。割草没开放时不给入口。 */
+/** 悬赏 1 级就有。割草没开放时不给入口。 */
 export function campDispatchEntries(save: Pick<Save, 'knightLevel' | 'openedModules'>): CampDispatchEntry[] {
   const entries: CampDispatchEntry[] = ['battlefield']
   if (isModuleUnlocked(save, 'herb')) entries.push('herb')

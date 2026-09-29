@@ -1157,7 +1157,7 @@ export type EncounterSpawnOpts = {
    * 采矿未开（含没传存档）不刷这张，第 0 格走普通集市单。
    */
   starterCopperPawn?: boolean
-  /** 新档战场第 0、1 格固定新手杂兵。探索和老档不走这条。 */
+  /** 新档悬赏第 0、1 格固定新手杂兵。探索和老档不走这条。 */
   starterGuideEnemy?: boolean
   /** 生成弱点初始暴露时读科技。 */
   save?: Save
@@ -1350,7 +1350,7 @@ export function isStarterHerbEnemy(enc: Encounter): enc is EnemyEncounter {
 }
 
 /**
- * 新档战场第 0 格。绿档杂兵，草 ×2，奖励 6 金。
+ * 新档悬赏第 0 格。绿档杂兵，草 ×2，奖励 6 金。
  * 主线第 4 步出征在熬药之前，首单不消耗药剂。弱点和敌人写死，不走 rng。
  */
 export function makeStarterGuideEnemy(seed = 0, slot = 0): EnemyEncounter {
@@ -1375,7 +1375,7 @@ export function makeStarterGuideEnemy(seed = 0, slot = 0): EnemyEncounter {
 }
 
 /**
- * 新档战场第 1 格。绿档杂兵，草 ×2，奖励 6 金。
+ * 新档悬赏第 1 格。绿档杂兵，草 ×2，奖励 6 金。
  * 弱点和敌人写死，不走 rng。合成属性仍只认第 0 格。
  */
 export function makeStarterHerbEnemy(seed = 0, slot = 1): EnemyEncounter {
@@ -1796,7 +1796,7 @@ function resizeOneBoard(save: Save, board: EncounterBoardId, now: number, reuseI
   return writeBoard(save, board, placeKeptThenFill(size, previous, kept, fill, reuseIdle))
 }
 
-/** 按当前格数补齐或收两板；战场交战中 / 待领胜 / 战败未清优先保留，可暂超目标格数。 */
+/** 按当前格数补齐或收两板；悬赏交战中 / 待领胜 / 战败未清优先保留，可暂超目标格数。 */
 export function resizeEncounterBoard(save: Save, now = Date.now()): Encounter[] {
   if (!Array.isArray(save.marketEncounters)) save.marketEncounters = []
   resizeOneBoard(save, 'battlefield', now, true)
@@ -2400,7 +2400,7 @@ export function shouldKeepOnExplore(enc: Encounter, now = Date.now()): boolean {
   return isExploreProtected(enc, now)
 }
 
-/** 探索：扣金币，两板各自只替换可刷新格；战场保留战斗 / 未领本章 Boss，可暂超目标。不碰地牢。 */
+/** 探索：扣金币，两板各自只替换可刷新格；悬赏保留战斗 / 未领本章 Boss，可暂超目标。不碰地牢。 */
 export function exploreBoard(save: Save, now = Date.now()): ActionResult {
   const blocked = exploreBlockReason(save)
   if (blocked) return { ok: false, reason: blocked }
@@ -2715,7 +2715,7 @@ function seedEmptyBoards(save: LegacyOrderSave): void {
   })
 }
 
-/** 旧存档补双板；混合单板拆成战场 / 商场；单格出发字段迁进战场第 0 格敌人。 */
+/** 旧存档补双板；混合单板拆成悬赏 / 商场；单格出发字段迁进悬赏第 0 格敌人。 */
 export function hydrateEncounterFields(save: Save): Save {
   const raw = save as LegacyOrderSave
   raw.exploreCount =

@@ -3,7 +3,7 @@ import type { ActIconId } from './actIcons'
 export type OrderActKind = 'primary' | 'minor' | 'danger'
 export type OrderActTone = 'combat' | 'gain' | 'produce'
 
-/** 战场 / 集市订单上每个操作钮的归类。页签不在此列。 */
+/** 悬赏 / 集市订单上每个操作钮的归类。页签不在此列。 */
 export type OrderActSpec = {
   label: string
   kind: OrderActKind

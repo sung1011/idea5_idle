@@ -4,7 +4,7 @@ import { knightLevelOf, stationUnlockKnightLevel } from './stationUnlock'
 import { isStationId, PLAYABLE_STATION_IDS } from './tables'
 import type { Save, StationId } from './types'
 
-/** 跟酋长等级走的玩法。1 级的工坊、抽人、营地、合成、药剂和战场不进这张表。 */
+/** 跟酋长等级走的玩法。1 级的工坊、抽人、营地、合成、药剂和悬赏不进这张表。 */
 export const MODULE_IDS = [
   'tech',
   'hunting',

@@ -347,8 +347,8 @@ function buildSchedule(): MainlineTask[] {
     task('potionInstall', '任一药剂槽装了药', '装药', 'intro', kept()),
     task('potionUse', '点用过药剂槽', '用药', 'intro', kept()),
     levelTask(3),
-    task('firstBlood', '在战场打赢一个敌人并领到战利品', '头功', 'intro', gold(30)),
-    task('explore', '战场探索 1 次', '探路', 'intro', gold(16)),
+    task('firstBlood', '在悬赏打赢一个敌人并领到战利品', '头功', 'intro', gold(30)),
+    task('explore', '探索悬赏 1 次', '探路', 'intro', gold(16)),
     levelTask(4),
     task('alchemy3', '把炼金站升到 3 级', '药方渐丰', 'advanced', gems(12, 10)),
     task('slotsFull', '4 个药剂槽全部装上药剂', '四槽齐备', 'advanced', gems(12, 10)),
@@ -406,7 +406,7 @@ function buildSchedule(): MainlineTask[] {
     task('inscribe', '铭刻站有苦工在岗', '刻符人', 'intro', gold(20), 'inscription'),
     task('runeCraft', '铭刻站成功刻出 1 枚符文', '第一枚符文', 'intro', goods([{ id: 'wildCrystal', qty: 6, label: '荒晶' }]), 'inscription'),
     task('rune', '在选人面板点开过符文槽', '符文槽', 'intro', kept(), 'rune'),
-    task('runeWin', '带着符文打一场战场或地牢', '带符出征', 'intro', goods([{ id: 'runeSharp', qty: 2, label: '锋锐符文' }]), 'rune'),
+    task('runeWin', '带着符文打一场悬赏或地牢', '带符出征', 'intro', goods([{ id: 'runeSharp', qty: 2, label: '锋锐符文' }]), 'rune'),
     task('stationsOpen', '六个生产站同时都有苦工在岗', '六站齐开', 'long', longReward()),
     levelTask(19),
     task('miningMithril', '采矿站升到 10 级，并换成秘银矿', '秘银', 'long', longReward(), 'mining'),
@@ -912,7 +912,7 @@ export function normalizeGuideIdList(raw: unknown): string[] {
 }
 
 /**
- * 集市标记只认集市板。1 级战场领奖留下的旧标记清掉，避免读档提前开放集市。
+ * 集市标记只认集市板。1 级悬赏领奖留下的旧标记清掉，避免读档提前开放集市。
  * 酋长已经到 6 级、又带着旧标记的，当成成交过 1 单，避免换板后丢进度。
  */
 export function reconcileMarketFlag(save: Save): void {

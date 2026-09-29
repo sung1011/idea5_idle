@@ -1,4 +1,4 @@
-/** 战场 / 商场货币掉落：一单只发金币或钻石。 */
+/** 悬赏 / 商场货币掉落：一单只发金币或钻石。 */
 
 export const REWARD_DIAMOND_CHANCE = {
   minion: 0.28,

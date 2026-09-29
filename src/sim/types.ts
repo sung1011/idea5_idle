@@ -764,7 +764,7 @@ export type HerbPvpState = {
 export type Save = {
   /** 探索 / 黑心商人购买扣金；当铺典当 / 收购 / 部分敌人与商场订单加金。 */
   gold: number
-  /** 抽工人消耗。新档 100；旧档缺字段 hydrate 补 100，已有字段（含已花到 0）不重灌。战场 / 商场部分订单掉落。 */
+  /** 抽工人消耗。新档 100；旧档缺字段 hydrate 补 100，已有字段（含已花到 0）不重灌。悬赏 / 商场部分订单掉落。 */
   diamonds: number
   /** 我方玩家显示名。新档与缺字段 / 空串为「见习勇者」；已有非空自定义名 hydrate 保留。 */
   playerName: string
@@ -782,7 +782,7 @@ export type Save = {
   lastTick: number
   elapsedS: number
   nextWorkerId: number
-  /** 战场订单板，只放敌人。格数由 `battlefieldSlotCount` 决定：初始 2、封顶 4。 */
+  /** 悬赏单板，只放敌人。格数由 `battlefieldSlotCount` 决定：初始 2、封顶 4。 */
   encounters: Encounter[]
   /** 商场订单板，只放交易单。格数由 `marketSlotCount` 决定：初始 2、封顶 4。旧档缺字段由 hydrate 从混合板拆出。 */
   marketEncounters: Encounter[]
@@ -835,8 +835,8 @@ export type Save = {
    */
   fuseDragTipDone: boolean
   /**
-   * 是否已在集市板成交过至少一单。战场领战利品不算。
-   * 字段名沿用旧档。1 级只因战场领奖而写成 true 的，读档时清掉。
+   * 是否已在集市板成交过至少一单。悬赏领战利品不算。
+   * 字段名沿用旧档。1 级只因悬赏领奖而写成 true 的，读档时清掉。
    */
   starterCopperPawnDone: boolean
   /** 工匠委托留下的工坊产量加成；到期后不算。 */
@@ -890,7 +890,7 @@ export type Save = {
    */
   potionBuffs: PotionBuffs
   /**
-   * 主线地牢：按游戏日掷 3 词缀、1 次开战。独立战斗，不进战场板、不被探索刷新。
+   * 主线地牢：按游戏日掷 3 词缀、1 次开战。独立战斗，不进悬赏板、不被探索刷新。
    * 游戏日切强制刷新（先自动发未领宝箱 / 日切判败），旧档缺字段 hydrate 补当天词缀。
    * 旧档若只存 2 条，当日实例保留，下一次日切再掷满 3 条。
    */
@@ -1071,7 +1071,7 @@ export type EnemyEncounter = EncounterBase & {
   targetRuleId?: EnemyTargetRuleId
   /** 地牢单：下次轮转选目标规则的墙钟。 */
   targetRuleUntil?: number | null
-  /** 主线地牢独立战，不进战场板。 */
+  /** 主线地牢独立战，不进悬赏板。 */
   dungeon?: boolean
   dungeonPhase?: number
   dungeonPhaseReached?: number
@@ -1079,7 +1079,7 @@ export type EnemyEncounter = EncounterBase & {
   dungeonPendingPhase?: boolean
   dungeonShieldBonus?: number
   /**
-   * 战场敌人格词缀（与地牢共用词缀池，每卡 1 条）。商场单不写。
+   * 悬赏敌人格词缀（与地牢共用词缀池，每卡 1 条）。商场单不写。
    * 探索刷新该格时重掷。旧档缺字段：非进行中的战斗卡 hydrate 补 1 条。
    */
   affixId?: DungeonAffixId

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { campDispatchEntries, campDockCount, campDockTone, campQueueBlocked } from './campDock'
+import { CAMP_DISPATCH_LABEL, campDispatchEntries, campDockCount, campDockTone, campQueueBlocked } from './campDock'
 import { createSave } from './createSave'
 import type { EnemyEncounter, HerbPvpState, Save, TreasureMine, Worker } from './types'
 
@@ -94,6 +94,8 @@ describe('camp dock tone', () => {
 describe('camp dispatch entries', () => {
   it('always offers the battlefield and adds herb only after it unlocks', () => {
     const save = createSave()
+    expect(CAMP_DISPATCH_LABEL.battlefield).toBe('派去悬赏')
+    expect(CAMP_DISPATCH_LABEL.herb).toBe('派去割草')
     expect(campDispatchEntries(save)).toEqual(['battlefield'])
     save.knightLevel = 9
     expect(campDispatchEntries(save)).toEqual(['battlefield'])

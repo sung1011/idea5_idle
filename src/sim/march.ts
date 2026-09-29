@@ -44,7 +44,7 @@ export function formatRemainClock(remainS: number): string {
 
 /**
  * 矿洞读条用的游戏秒。权威仍是 `elapsedS`，两拍之间按墙钟往前插，最多 1 秒。
- * 与矿卡出手条、战场 `actNow` 同一路：不要等下一次 sim tick 才动。
+ * 与矿卡出手条、悬赏 `actNow` 同一路：不要等下一次 sim tick 才动。
  */
 export function visualRaidElapsedS(save: Save, now = Date.now()): number {
   const elapsed = save.elapsedS

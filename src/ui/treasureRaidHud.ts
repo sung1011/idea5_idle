@@ -67,7 +67,7 @@ export function slotStates(
 }
 
 /**
- * 夺宝出手条。战斗时钟是秒，战场 `actChargeFill` 用毫秒。
+ * 夺宝出手条。战斗时钟是秒，悬赏 `actChargeFill` 用毫秒。
  * 只换单位，公式仍是同一套。
  */
 export function raidActChargeFill(spd: number, nextAtS: number, elapsedS: number): number {
@@ -83,7 +83,7 @@ export type TreasureRaidFighterHud = {
   hpMax: number
   /** 血条填充，与 `hpBarFill` 相同。 */
   barFill: number
-  /** 出手蓄力，与战场 `actChargeFill` 相同。 */
+  /** 出手蓄力，与悬赏 `actChargeFill` 相同。 */
   fill: number
   /** 开战 3 槽：有人 / 空 / 亡。 */
   slots: RaidSlotMark[]

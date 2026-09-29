@@ -115,7 +115,7 @@ const BY_STATION: Record<StationId, readonly string[]> = {
 /** A 先说，B 隔一拍接。不点名。 */
 export const BANTER_DUETS: readonly (readonly [string, string])[] = [
   ['先做完这锅带着香味走', '你是高级材料'],
-  ['战场缺人', '工坊也缺'],
+  ['悬赏缺人', '工坊也缺'],
   ['词缀不扣草', '残血别抢熟食'],
   ['你扛伤害', '我出手数'],
   ['先把这锅收了', '香味你带着走'],

@@ -191,7 +191,7 @@ export function markGuideQuestRuneOpened(save: Save): boolean {
   return true
 }
 
-/** 战场卡面出「开战」或「增援」的格子；物资不够的开战仍算出。 */
+/** 悬赏卡面出「开战」或「增援」的格子；物资不够的开战仍算出。 */
 export function isBattlefieldRuneGuideFight(enc: Encounter): enc is EnemyEncounter {
   if (enc.kind !== 'enemy' || enc.lootClaimed) return false
   if (isFighting(enc)) return canReinforceCombat(enc)
@@ -278,7 +278,7 @@ export function isGuideQuestFlash(save: Save, id: GuideQuestFlashId): boolean {
   return guideQuestFlashId(save) === id
 }
 
-/** 出征步要闪的那张战场敌：未入战可点「开战」的优先，否则第一张未领。 */
+/** 出征步要闪的那张悬赏单上的敌人：未入战可点「开战」的优先，否则第一张未领。 */
 export function guideQuestCombatFlashEncounter(save: Save): Encounter | null {
   if (!isGuideQuestFlash(save, 'combat')) return null
   const board = save.encounters.filter((enc) => enc.kind === 'enemy')

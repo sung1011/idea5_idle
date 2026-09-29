@@ -6,7 +6,7 @@ export const MAINLINE_TAB_IDS = ['battlefield', 'dungeon', 'market'] as const
 export type MainlineTabId = (typeof MAINLINE_TAB_IDS)[number]
 
 export const MAINLINE_TAB_LABELS: Record<MainlineTabId, string> = {
-  battlefield: '战场',
+  battlefield: '悬赏',
   dungeon: '地牢',
   market: '集市',
 }

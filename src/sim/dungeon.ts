@@ -133,7 +133,7 @@ export function rollBattlefieldAffix(salt: string): DungeonAffixId {
   return rollDungeonAffixes(roll01Bag(hashString(`battlefield-affix:${salt}`)), 1)[0]
 }
 
-/** 战场敌人格缺词缀时补 1 条。进行中的战斗不补，避免日中改结算。 */
+/** 悬赏敌人格缺词缀时补 1 条。进行中的战斗不补，避免日中改结算。 */
 export function ensureBattlefieldAffix(enc: EnemyEncounter, force = false): EnemyEncounter {
   if (isDungeonEncounter(enc)) return enc
   if (isDungeonAffixId(enc.affixId)) return enc
@@ -410,7 +410,7 @@ function repairDungeonShape(save: Save): void {
   save.dungeon = { day, chapter, encounters: [jailer, broker], attemptsUsedById }
 }
 
-/** 地牢到刷新时间仍强制刷新，两单一起重建。与战场探索保留交战单分开。 */
+/** 地牢到刷新时间仍强制刷新，两单一起重建。与悬赏探索时保留交战单分开。 */
 export function ensureDungeonDay(save: Save, now = Date.now()): DungeonState {
   const day = gameDay(save.elapsedS)
   if (!pairReady(save.dungeon)) repairDungeonShape(save)

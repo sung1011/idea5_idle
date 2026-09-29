@@ -571,7 +571,7 @@ export function mineDigIntervalS(level: number, matchesWeakness = false): number
   return Math.max(1, TREASURE_DIG_BASE_S - bonus - weak)
 }
 
-/** 与战场相同：工人属性命中矿洞弱点表才算吃到。多条命中也只快 1 秒。判定走共用的 workerMatchesWeakness。 */
+/** 与悬赏相同：工人属性命中矿洞弱点表才算吃到。多条命中也只快 1 秒。判定走共用的 workerMatchesWeakness。 */
 export function workerMatchesMineWeakness(
   attrs: readonly CombatAttrId[] | undefined,
   weaknesses: readonly CombatAttrId[] | undefined,

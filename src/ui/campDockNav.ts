@@ -20,7 +20,7 @@ export function toggleCampSheet() {
   campSheetOpen.value = !campSheetOpen.value
 }
 
-/** 第一张还能开战的战场单。都缺货时仍返回第一张「开战」，交给选人去提示。 */
+/** 第一张还能开战的悬赏单。都缺货时仍返回第一张「开战」，交给选人去提示。 */
 export function firstBattlefieldPickIndex(save: Save): number | null {
   let fallback: number | null = null
   for (let index = 0; index < save.encounters.length; index += 1) {

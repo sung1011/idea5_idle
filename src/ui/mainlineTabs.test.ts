@@ -3,6 +3,7 @@ import {
   DEFAULT_MAINLINE_TAB,
   MAINLINE_TAB_IDS,
   MAINLINE_TAB_KEY,
+  MAINLINE_TAB_LABELS,
   loadMainlineTab,
   mainlineTab,
   mainlineTabOf,
@@ -43,6 +44,7 @@ describe('mainlineTabs', () => {
     expect(mainlineTabOf('mine')).toBe('battlefield')
     expect(mainlineTabOf('nope')).toBe(DEFAULT_MAINLINE_TAB)
     expect(DEFAULT_MAINLINE_TAB).toBe('battlefield')
+    expect(MAINLINE_TAB_LABELS).toEqual({ battlefield: '悬赏', dungeon: '地牢', market: '集市' })
   })
 
   it('persists the active mainline tab', () => {

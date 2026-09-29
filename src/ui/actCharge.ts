@@ -1,7 +1,7 @@
 import { actIntervalMs } from '../sim/combat'
 
 /**
- * 战场 / 地牢卡面的出手蓄力，只展示，不参与结算。
+ * 悬赏 / 地牢卡面的出手蓄力，只展示，不参与结算。
  *
  * 与 `stepEnemyCombat` 同一周期：某人在 `nextAt` 出手后
  * `nextActAt = nextAt + actIntervalMs(spd)`，
