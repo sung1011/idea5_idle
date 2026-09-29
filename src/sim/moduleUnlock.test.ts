@@ -29,12 +29,14 @@ describe('module unlock by knight level', () => {
     expect(isModuleUnlocked(save, 'tech')).toBe(false)
     expect(isModuleUnlocked(save, 'market')).toBe(false)
     expect(isModuleUnlocked(save, 'herb')).toBe(false)
-    expect(moduleLockedTip('tech')).toBe('酋长 4 级开放科技')
+    expect(moduleLockedTip('tech')).toBe('酋长 11 级开放科技')
     save.knightLevel = 8
-    expect(isModuleUnlocked(save, 'tech')).toBe(true)
+    expect(isModuleUnlocked(save, 'tech')).toBe(false)
     expect(isModuleUnlocked(save, 'market')).toBe(true)
     expect(isModuleUnlocked(save, 'dungeon')).toBe(true)
     expect(isModuleUnlocked(save, 'herb')).toBe(false)
+    save.knightLevel = 11
+    expect(isModuleUnlocked(save, 'tech')).toBe(true)
     save.knightLevel = 1
     save.herbPvp.playerScore = 12
     hydrateModuleUnlocks(save)
@@ -67,7 +69,11 @@ describe('module unlock by knight level', () => {
     const save = createSave()
     save.knightLevel = 1
     queueModuleUnlocks(save, 1, 8)
-    expect(save.moduleUnlockQueue).toEqual(['tech', 'hunting', 'market', 'cooking', 'restFood', 'dungeon'])
+    expect(save.moduleUnlockQueue).toEqual(['hunting', 'market', 'cooking', 'restFood', 'dungeon'])
+    const later = createSave()
+    later.knightLevel = 10
+    queueModuleUnlocks(later, 10, 11)
+    expect(later.moduleUnlockQueue).toEqual(['tech'])
     grantStationXp(save, 'herbalism', xpToNextLevel(1) * 3)
     expect(save.knightLevel).toBeGreaterThan(1)
     expect(save.moduleUnlockQueue.length).toBeGreaterThan(0)

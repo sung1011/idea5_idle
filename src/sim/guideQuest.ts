@@ -70,7 +70,7 @@ const GUIDE_STEPS: readonly GuideStepDef[] = [
   { id: 'combat', knight: 1, module: null, segment: 'start', goal: '在 PVE 弹层中点击开战' },
   { id: 'potionInstall', knight: 1, module: null, segment: 'potion', goal: '点工坊底部的空药剂槽，装入药剂' },
   { id: 'potionUse', knight: 1, module: null, segment: 'potion', goal: '点药剂槽产生效果' },
-  { id: 'tech', knight: 4, module: 'tech', segment: 'tech', goal: '点亮一项科技' },
+  { id: 'tech', knight: 11, module: 'tech', segment: 'tech', goal: '点亮一项科技' },
   { id: 'market', knight: 6, module: 'market', segment: 'market', goal: '完成一单集市' },
   { id: 'restFood', knight: 8, module: 'restFood', segment: 'camp', goal: '选好营地伙食' },
   { id: 'dungeon', knight: 8, module: 'dungeon', segment: 'camp', goal: '打一次地牢' },

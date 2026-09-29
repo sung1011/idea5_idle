@@ -90,8 +90,9 @@ describe('knight xp curve', () => {
   })
 
   it('names the next unlock at the coming threshold', () => {
-    expect(nextModuleUnlock(1)?.label).toBe('酋长 4 级开放科技')
+    expect(nextModuleUnlock(1)?.label).toBe('酋长 6 级开放狩猎、集市')
     expect(nextModuleUnlock(7)?.label).toBe('酋长 8 级开放烹饪、营地伙食、地牢')
+    expect(nextModuleUnlock(10)?.label).toBe('酋长 11 级开放科技')
     expect(nextModuleUnlock(20)).toBeNull()
   })
 })

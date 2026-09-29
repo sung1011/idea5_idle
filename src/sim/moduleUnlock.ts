@@ -23,7 +23,7 @@ export const MODULE_IDS = [
 export type ModuleId = (typeof MODULE_IDS)[number]
 
 export const MODULE_UNLOCK_KNIGHT: Record<ModuleId, number> = {
-  tech: 4,
+  tech: 11,
   hunting: 6,
   market: 6,
   cooking: 8,

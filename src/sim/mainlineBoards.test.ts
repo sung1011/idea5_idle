@@ -6,8 +6,10 @@ import {
   exploreBoard,
   isStarterCopperPawn,
   isStarterGuideEnemy,
+  isStarterHerbEnemy,
   makeStarterCopperPawn,
   makeStarterGuideEnemy,
+  makeStarterHerbEnemy,
 } from './encounters'
 import { isFighting } from './combat'
 import {
@@ -64,12 +66,22 @@ describe('mainline battlefield / market boards', () => {
     expect(first.quality).toBe('green')
     expect(first.enemyRank).toBe('minion')
     expect(first.revealedWeaknesses).toEqual(['sword', 'fire'])
-    const before = save.encounters[1].id
+    const second = save.encounters[1]
+    expect(isStarterHerbEnemy(second)).toBe(true)
+    expect(isStarterGuideEnemy(second)).toBe(false)
+    expect(second).toMatchObject(makeStarterHerbEnemy(0, 1))
+    if (second.kind !== 'enemy') return
+    expect(second.needs).toEqual({ herb: 2 })
+    expect(second.lootGold).toBe(6)
+    expect(second.lootDiamonds).toBe(0)
+    expect(second.quality).toBe('green')
+    expect(second.enemyRank).toBe('minion')
+    expect(second.revealedWeaknesses).toEqual(['axe', 'bow'])
     expect(exploreBoard(save).ok).toBe(true)
     expect(save.encounters[0].id).toBe(first.id)
-    expect(save.encounters.some((enc) => enc.id === before)).toBe(false)
+    expect(save.encounters[1].id).toBe(second.id)
     const rolled = generateEncounterBoard(3, 2, { board: 'battlefield' })
-    expect(rolled.some((enc) => isStarterGuideEnemy(enc))).toBe(false)
+    expect(rolled.some((enc) => isStarterGuideEnemy(enc) || isStarterHerbEnemy(enc))).toBe(false)
   })
 
   it('generates only enemies on battlefield and only trades on market', () => {

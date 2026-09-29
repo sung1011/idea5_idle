@@ -284,14 +284,17 @@ describe('guideQuest steps and claim', () => {
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(8)
     expect(guideQuestView(save)?.waiting).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('下一个目标：酋长 4 级开放科技')
+    expect(guideQuestView(save)?.goal).toBe('下一个目标：酋长 11 级开放科技')
+    save.knightLevel = 10
+    expect(guideQuestView(save)?.waiting).toBe(true)
+    expect(guideQuestView(save)?.goal).toBe('下一个目标：酋长 11 级开放科技')
 
-    save.knightLevel = 4
+    save.knightLevel = 11
     save.techLevels = { pathOutpost: 1 }
     expect(guideQuestView(save)?.goal).toBe('点亮一项科技')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(9)
-    expect(guideQuestView(save)?.goal).toBe('下一个目标：酋长 6 级开放集市')
+    expect(guideQuestView(save)?.goal).toBe('完成一单集市')
     expect(save.gold).toBe(gold0 + GUIDE_QUEST_GOLD * 8)
   })
 

@@ -1156,7 +1156,7 @@ export type EncounterSpawnOpts = {
    * 采矿未开（含没传存档）不刷这张，第 0 格走普通集市单。
    */
   starterCopperPawn?: boolean
-  /** 新档战场第 0 格固定新手杂兵。探索和老档不走这条。 */
+  /** 新档战场第 0、1 格固定新手杂兵。探索和老档不走这条。 */
   starterGuideEnemy?: boolean
   /** 生成弱点初始暴露时读科技。 */
   save?: Save
@@ -1327,8 +1327,20 @@ export const STARTER_GUIDE_ENEMY_LABEL = '联盟斥候'
 export const STARTER_GUIDE_WEAKNESSES = ['sword', 'fire', 'ice'] as const
 export const STARTER_GUIDE_REVEALED = ['sword', 'fire'] as const
 
+/** 第 2 格单独前缀，避免和第一张新手单抢合成属性。 */
+export const STARTER_HERB_ENEMY_ID = 'guideHerbMinion'
+export const STARTER_HERB_ENEMY_LABEL = '人类步兵'
+export const STARTER_HERB_ITEM_ID: ItemId = 'herb'
+export const STARTER_HERB_QTY = 2
+export const STARTER_HERB_WEAKNESSES = ['axe', 'bow', 'lightning'] as const
+export const STARTER_HERB_REVEALED = ['axe', 'bow'] as const
+
 export function isStarterGuideEnemy(enc: Encounter): enc is EnemyEncounter {
   return enc.kind === 'enemy' && enc.id.startsWith(`${STARTER_GUIDE_ENEMY_ID}-`)
+}
+
+export function isStarterHerbEnemy(enc: Encounter): enc is EnemyEncounter {
+  return enc.kind === 'enemy' && enc.id.startsWith(`${STARTER_HERB_ENEMY_ID}-`)
 }
 
 /**
@@ -1352,6 +1364,31 @@ export function makeStarterGuideEnemy(seed = 0, slot = 0): EnemyEncounter {
     chapterBoss: false,
     weaknesses: [...STARTER_GUIDE_WEAKNESSES],
     revealedWeaknesses: [...STARTER_GUIDE_REVEALED],
+    affixId: rollBattlefieldAffix(id),
+  }
+}
+
+/**
+ * 新档战场第 1 格。绿档杂兵，草 ×2，奖励 6 金。
+ * 弱点和敌人写死，不走 rng。合成属性仍只认第 0 格。
+ */
+export function makeStarterHerbEnemy(seed = 0, slot = 1): EnemyEncounter {
+  const id = `${STARTER_HERB_ENEMY_ID}-green-${seed}-${slot}`
+  return {
+    kind: 'enemy',
+    id,
+    label: STARTER_HERB_ENEMY_LABEL,
+    quality: 'green',
+    needs: { [STARTER_HERB_ITEM_ID]: STARTER_HERB_QTY },
+    lootGold: LOOT_GOLD_BASE,
+    lootDiamonds: 0,
+    departed: false,
+    combat: null,
+    lootClaimed: false,
+    enemyRank: 'minion',
+    chapterBoss: false,
+    weaknesses: [...STARTER_HERB_WEAKNESSES],
+    revealedWeaknesses: [...STARTER_HERB_REVEALED],
     affixId: rollBattlefieldAffix(id),
   }
 }
@@ -1534,6 +1571,7 @@ export function generateEncounterBoard(
   }
   if (opts.starterGuideEnemy && opts.board === 'battlefield' && n >= 1) {
     board[0] = makeStarterGuideEnemy(safe, 0)
+    if (n >= 2) board[1] = makeStarterHerbEnemy(safe, 1)
   }
   return board
 }
@@ -2339,7 +2377,14 @@ export function isExploreProtected(enc: Encounter, now = Date.now()): boolean {
   if (enc.kind !== 'enemy') return false
   void now
   if (isChapterBoss(enc) && !enc.lootClaimed) return true
-  if (isStarterGuideEnemy(enc) && !enc.lootClaimed && !enc.departed && !enc.combat) return true
+  if (
+    (isStarterGuideEnemy(enc) || isStarterHerbEnemy(enc)) &&
+    !enc.lootClaimed &&
+    !enc.departed &&
+    !enc.combat
+  ) {
+    return true
+  }
   return isFighting(enc) || isCombatWon(enc) || combatStatus(enc) === 'lose'
 }
 
