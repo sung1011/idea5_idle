@@ -35,6 +35,7 @@ const props = withDefaults(
     showAssist?: boolean
     supplyBlocked?: boolean
     guideFlashConfirm?: boolean
+    guideFlashRecommend?: boolean
     guideFlashRune?: boolean
     slotOffset?: number
     titleText?: string
@@ -51,6 +52,7 @@ const props = withDefaults(
     showAssist: true,
     supplyBlocked: false,
     guideFlashConfirm: false,
+    guideFlashRecommend: false,
     guideFlashRune: false,
     slotOffset: 0,
     titleText: '',
@@ -167,7 +169,13 @@ function closeAll() {
           <button
             type="button"
             class="pick-worker"
-            :class="{ on: picked.includes(w.id), assist: isAssistWorker(w), dim: !canPickWorker(w) }"
+            :class="{
+              on: picked.includes(w.id),
+              assist: isAssistWorker(w),
+              dim: !canPickWorker(w),
+              'guide-flash':
+                guideFlashRecommend && (recommend(w) === '推荐' || recommend(w) === '强烈推荐'),
+            }"
             :disabled="!canPickWorker(w)"
             @click="emit('toggle', w)"
           >

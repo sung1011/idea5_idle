@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { assignRestingToFirstEmpty } from './assign'
+import { fighterRecommendLabel } from './combatAttrs'
 import { createSave } from './createSave'
 import { fuseRestWorkers } from './fuse'
 import {
@@ -68,8 +69,8 @@ describe('guideQuest normalize and hydrate', () => {
       step: 1,
       phase: 1,
       phaseStep: 1,
-      phaseTotal: 4,
-      title: '新手 · 1/4',
+      phaseTotal: 5,
+      title: '新手 · 1/5',
       goal: '抽取苦工 2 次',
       progress: 0,
       progressLabel: '进度 0/2',
@@ -92,9 +93,9 @@ describe('guideQuest normalize and hydrate', () => {
     expect(isGuideQuestPhase2Open(save)).toBe(true)
     expect(isGuideQuestVisible(save)).toBe(true)
     const view = guideQuestView(save)
-    expect(view?.title).toBe('进阶 · 1/3')
-    expect(view?.goal).toBe('炼金站有人在岗就会自动炼药，等出第一瓶')
-    expect(guideQuestFlashId(save)).toBe('alchemy')
+    expect(view?.title).toBe('进阶 · 1/2')
+    expect(view?.goal).toBe('点工坊底部的空药剂槽，装入药剂')
+    expect(guideQuestFlashId(save)).toBe('potionInstall')
   })
 
   it('migrates an old 5-step save onto the first incomplete new step', () => {
@@ -177,8 +178,8 @@ describe('guideQuest normalize and hydrate', () => {
     hydrateGuideQuestFields(save, save)
     expect(save.guideQuestRev).toBe(GUIDE_QUEST_REV)
     expect(save.guideQuestStep).toBe(4)
-    expect(guideQuestView(save)?.goal).toBe('在 PVE 弹层中点击开战')
-    expect(guideQuestFlashId(save)).toBe('combat')
+    expect(guideQuestView(save)?.goal).toBe('炼金站有人在岗就会自动炼药，等出第一瓶')
+    expect(guideQuestFlashId(save)).toBe('alchemy')
 
     const ahead = createSave()
     spawnWorker(ahead)
@@ -190,7 +191,7 @@ describe('guideQuest normalize and hydrate', () => {
     ahead.guideQuestRev = 4
     hydrateGuideQuestFields(ahead, ahead)
     expect(ahead.guideQuestStep).toBe(4)
-    expect(guideQuestView(ahead)?.goal).toBe('在 PVE 弹层中点击开战')
+    expect(guideQuestView(ahead)?.goal).toBe('炼金站有人在岗就会自动炼药，等出第一瓶')
   })
 
   it('keeps a current-rev step number', () => {
@@ -258,16 +259,18 @@ describe('guideQuest steps and claim', () => {
     expect(guideQuestView(save)?.goal).toBe('合成两名同品质苦工')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(4)
-    expect(guideQuestView(save)?.title).toBe('工坊 · 4/4')
+    expect(guideQuestView(save)?.title).toBe('新手 · 4/5')
+    expect(guideQuestView(save)?.goal).toBe('炼金站有人在岗就会自动炼药，等出第一瓶')
+    save.stations.alchemy.completed = 1
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(save.guideQuestStep).toBe(5)
+    expect(guideQuestView(save)?.title).toBe('工坊 · 5/5')
     expect(guideQuestView(save)?.goal).toBe('在 PVE 弹层中点击开战')
     markCombatStarted(save)
     expect(hasStartedBattlefieldCombat(save)).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(save.guideQuestStep).toBe(5)
-    expect(guideQuestView(save)?.title).toBe('进阶 · 1/3')
-    save.stations.alchemy.completed = 1
-    expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(6)
+    expect(guideQuestView(save)?.title).toBe('进阶 · 1/2')
 
     save.bank.salve = 2
     expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
@@ -324,24 +327,24 @@ describe('guideQuest steps and claim', () => {
     expect(guideQuestProgressAt(save, 10)).toBe(1)
   })
 
-  it('completes step 4 only after the pick-sheet 开战 click starts combat', () => {
+  it('completes step 5 only after the pick-sheet 开战 click starts combat', () => {
     const save = createSave()
-    save.guideQuestStep = 4
+    save.guideQuestStep = 5
     expect(guideQuestView(save)?.goal).toBe('在 PVE 弹层中点击开战')
-    expect(guideQuestProgressAt(save, 4)).toBe(0)
+    expect(guideQuestProgressAt(save, 5)).toBe(0)
     expect(hasStartedBattlefieldCombat(save)).toBe(false)
 
     const idle = save.encounters[0] as EnemyEncounter
     expect(idle.departed).toBe(false)
     expect(idle.combat).toBeNull()
-    expect(guideQuestProgressAt(save, 4)).toBe(0)
+    expect(guideQuestProgressAt(save, 5)).toBe(0)
 
     save.departCount = 1
-    expect(guideQuestProgressAt(save, 4)).toBe(1)
+    expect(guideQuestProgressAt(save, 5)).toBe(1)
     expect(hasStartedBattlefieldCombat(save)).toBe(true)
 
     const fighting = createSave()
-    fighting.guideQuestStep = 4
+    fighting.guideQuestStep = 5
     const enc = fighting.encounters[0] as EnemyEncounter
     enc.combat = {
       startedAt: 1,
@@ -352,7 +355,7 @@ describe('guideQuest steps and claim', () => {
       logs: [],
       outcome: null,
     }
-    expect(guideQuestProgressAt(fighting, 4)).toBe(1)
+    expect(guideQuestProgressAt(fighting, 5)).toBe(1)
   })
 
   it('shows the rune step only after inscription unlock and a battlefield fight button', () => {
@@ -395,14 +398,14 @@ describe('guideQuest flash target', () => {
     spawnWorker(save)
     fuseRestWorkers(save, save.workers[1].id, save.workers[2].id)
     expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBe('alchemy')
+
+    save.stations.alchemy.completed = 1
+    expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('combat')
     expect(isGuideQuestCombatFlash(save, save.encounters[0])).toBe(true)
 
     markCombatStarted(save)
-    expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestFlashId(save)).toBe('alchemy')
-
-    save.stations.alchemy.completed = 1
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('potionInstall')
 
@@ -469,9 +472,22 @@ describe('guide fuse and alchemy cues', () => {
     expect(guideFuseFlashStations(save, true)).toEqual(['herbalism', 'cooking'])
   })
 
+  it('aligns the first fused worker with the starter enemy so the pick sheet marks 推荐', () => {
+    const save = createSave()
+    const enc = save.encounters[0]
+    expect(enc.kind).toBe('enemy')
+    if (enc.kind !== 'enemy') return
+    spawnWorker(save)
+    spawnWorker(save)
+    expect(fuseRestWorkers(save, save.workers[0].id, save.workers[1].id).ok).toBe(true)
+    const green = save.workers.find((worker) => worker.qualityTier >= 2)
+    expect(green?.combatAttrs[0]).toBe('sword')
+    expect(fighterRecommendLabel(green?.combatAttrs ?? [], enc)).toBe('推荐')
+  })
+
   it('flashes the alchemy card until its detail opens, then the progress', () => {
     const save = createSave()
-    save.guideQuestStep = 5
+    save.guideQuestStep = 4
     expect(guideAlchemyCardFlash(save, 'alchemy', null)).toBe(true)
     expect(guideAlchemyCardFlash(save, 'herbalism', null)).toBe(false)
     expect(guideAlchemyProgressFlash(save, 'alchemy')).toBe(true)

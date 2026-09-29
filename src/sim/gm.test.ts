@@ -168,7 +168,7 @@ describe('gm debug grants', () => {
     save.guideQuestStep = GUIDE_QUEST_PHASE2_START
     save.knightLevel = 2
     const gold2 = save.gold
-    expect(guideQuestView(save)?.title).toBe('进阶 · 1/3')
+    expect(guideQuestView(save)?.title).toBe('进阶 · 1/2')
     expect(gmSkipGuide(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(GUIDE_QUEST_DONE_STEP)
     expect(save.gold).toBe(gold2)

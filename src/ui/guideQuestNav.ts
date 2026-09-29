@@ -37,11 +37,11 @@ export function openGuideQuestStep(step: number, storage?: Storage | null): AppT
       requestGuideCampSheet()
       return selectAppTab('workshop', storage)
     case 4:
-      selectMainlineTab('battlefield', storage)
-      return selectAppTab('encounters', storage)
-    case 5:
       openWorkshopStation('alchemy', storage)
       return 'workshop'
+    case 5:
+      selectMainlineTab('battlefield', storage)
+      return selectAppTab('encounters', storage)
     case 6:
     case 7:
     case 10:

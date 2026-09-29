@@ -47,6 +47,8 @@ import {
 } from '../sim/dungeon'
 import {
   battlefieldRuneGuideOpenIndex,
+  GUIDE_WEAKNESS_CARD_TIP,
+  GUIDE_WEAKNESS_PICK_TIP,
   isGuideQuestCombatFlash,
   isGuideQuestFlash,
   isGuideQuestRuneFlash,
@@ -101,6 +103,9 @@ function liveFight(enc: Encounter) {
 }
 function guideFlashEnemy(enc: Encounter) {
   return isGuideQuestCombatFlash(game.save, enc) || (guideFlashRune.value && isGuideQuestRuneFlash(game.save, enc))
+}
+function guideWeaknessCue(enc: Encounter) {
+  return guideFlashCombat.value && isGuideQuestCombatFlash(game.save, enc) && !pickOpen.value
 }
 function tryOpenGuideRunePick() {
   if (!guideFlashRune.value || pickOpen.value) return
@@ -573,7 +578,11 @@ function timedLine(enc: Encounter) {
           </header>
           <p class="label">{{ enc.label }}</p>
           <EncounterDealLines :encounter="enc" />
-          <p v-if="showFightReadout(enc)" class="weak">
+          <p
+            v-if="showFightReadout(enc) || guideWeaknessCue(enc)"
+            class="weak"
+            :class="{ 'guide-flash': guideWeaknessCue(enc) }"
+          >
             弱点
             <CombatAttrIcon
               v-for="(slot, si) in weaknessSlots(enc)"
@@ -588,6 +597,7 @@ function timedLine(enc: Encounter) {
               {{ cardClass(enc).stunned ? '破防中' : `盾 ${combatShield(enc)}` }}
             </i>
           </p>
+          <p v-if="guideWeaknessCue(enc)" class="guide-note">{{ GUIDE_WEAKNESS_CARD_TIP }}</p>
           <template v-if="enc.combat && liveFight(enc) && (!isBrief || isFighting(enc))">
             <div class="bars">
               <p class="bar-line">敌</p>
@@ -780,7 +790,9 @@ function timedLine(enc: Encounter) {
       :confirm-icon="pickMode === 'start' ? BATTLEFIELD_ACTS.start.icon : BATTLEFIELD_ACTS.reinforce.icon"
       :confirm-tone="BATTLEFIELD_ACTS.start.tone"
       :guide-flash-confirm="guideFlashCombat && pickMode === 'start'"
+      :guide-flash-recommend="guideFlashCombat && pickMode === 'start'"
       :guide-flash-rune="guideFlashRune"
+      :note-text="guideFlashCombat && pickMode === 'start' ? GUIDE_WEAKNESS_PICK_TIP : ''"
       :slot-offset="pickSlotOffset"
       :recommend-label="pickRecommend"
       @close="closePick"
@@ -1357,6 +1369,14 @@ ul {
 .hint {
   color: var(--muted);
   font-size: 14px;
+}
+
+.guide-note {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
 }
 
 .weak {

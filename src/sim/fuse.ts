@@ -1,4 +1,5 @@
 import { assignedWorkers, assignWorker } from './assign'
+import { starterGuideFuseAttr } from './encounters'
 import { isWorkerInBeastPvp } from './beastPvpQuery'
 import { isWorkerInHerbPvp } from './herbPvpQuery'
 import { fillWorkerHp } from './combat'
@@ -42,7 +43,8 @@ function fusePairAt(save: Save, a: Worker, b: Worker, stayAt: StationId | null):
   const classId = pickClassFromPool(pool, roll01(save))
   const race = rollWorkerRace(save)
   const givenName = rollWorkerName(save, race)
-  const keptAttrs = a.combatAttrs
+  const pinned = starterGuideFuseAttr(save)
+  const keptAttrs = pinned ? [pinned] : a.combatAttrs
   const sumTotal = workerTotalXp(a.level, a.xp) + workerTotalXp(b.level, b.xp)
   const progress = workerFromTotalXp(sumTotal)
   save.workers = save.workers.filter((w) => w.id !== a.id && w.id !== b.id)

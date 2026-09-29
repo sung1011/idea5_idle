@@ -107,7 +107,7 @@ describe('segmented guide rewards', () => {
     const fresh = createSave()
     fresh.guideQuestRev = GUIDE_QUEST_REV
     fresh.stations.alchemy.completed = 1
-    fresh.guideQuestStep = 5
+    fresh.guideQuestStep = 4
     const before = fresh.gold
     expect(claimGuideQuest(fresh)).toEqual({ ok: true, message: `金币 +${GUIDE_QUEST_GOLD}` })
     expect(fresh.gold).toBe(before + GUIDE_QUEST_GOLD)

@@ -97,6 +97,7 @@ export function createSave(): Save {
     rng: save,
     mainChapter: save.mainChapter,
     board: 'battlefield',
+    starterGuideEnemy: true,
     save,
   })
   save.marketEncounters = generateEncounterBoard(17, marketSlotCount(save), {

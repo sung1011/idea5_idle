@@ -8,13 +8,13 @@ import { knightLevelOf } from './stationUnlock'
 import { POTION_ITEM_IDS, QUALITY_MAX, STATION_ORDER } from './tables'
 import type { ActionResult, Encounter, EnemyEncounter, Save, StationId } from './types'
 
-export const GUIDE_QUEST_PHASE1_STEPS = 4
-export const GUIDE_QUEST_PHASE2_STEPS = 3
+export const GUIDE_QUEST_PHASE1_STEPS = 5
+export const GUIDE_QUEST_PHASE2_STEPS = 2
 export const GUIDE_QUEST_PHASE3_STEPS = 1
 /** 旧九步引导领完后的步号。REV 6 起只用来认老档。 */
 export const GUIDE_OLD_DONE_STEP = 10
 export const GUIDE_QUEST_GOLD = 20
-/** 骑士 1 级即可做炼金 / 装槽 / 点用。 */
+/** 骑士 1 级即可装槽 / 点用。炼金在第一段，排在开战前面。 */
 export const GUIDE_QUEST_PHASE2_KNIGHT = 1
 /**
  * 6：按解锁分段。旧 REV 按现况重落；已满足的步跳过不发金。
@@ -26,6 +26,11 @@ export const GUIDE_QUEST_REV = 6
 export const GUIDE_FUSE_EMPTY_GOAL = '再抽 1 名苦工，新人会进营地'
 /** 第 3 步营地有人、名单还没打开。 */
 export const GUIDE_FUSE_OPEN_GOAL = '点营地，打开名单'
+/** 开战步卡面弱点行说明。 */
+export const GUIDE_WEAKNESS_CARD_TIP =
+  '敌人有弱点，派属性对得上的苦工出战，伤害更高，还会削敌人的盾；盾打空会破防，敌人暂停出手。'
+/** 开战步选人面板，对准带「推荐」的苦工。 */
+export const GUIDE_WEAKNESS_PICK_TIP = '这名苦工的属性正好打中弱点'
 /** 第 3 步营地名单已打开。 */
 export const GUIDE_FUSE_DRAG_GOAL = '把营地苦工拖到同品质的人身上合成（营地里两人互拖也行）'
 /** 第一阶段「抽工人」完成所需次数（花名册人数或已生成序号，取较大）。 */
@@ -61,8 +66,8 @@ const GUIDE_STEPS: readonly GuideStepDef[] = [
   { id: 'recruit', knight: 1, module: null, segment: 'start', goal: '抽取苦工 2 次' },
   { id: 'autoHerb', knight: 1, module: null, segment: 'start', goal: '满血队首会自动上采药，不能手拖空岗' },
   { id: 'fuse', knight: 1, module: null, segment: 'start', goal: '合成两名同品质苦工' },
+  { id: 'alchemy', knight: 1, module: null, segment: 'start', goal: '炼金站有人在岗就会自动炼药，等出第一瓶' },
   { id: 'combat', knight: 1, module: null, segment: 'start', goal: '在 PVE 弹层中点击开战' },
-  { id: 'alchemy', knight: 1, module: null, segment: 'potion', goal: '炼金站有人在岗就会自动炼药，等出第一瓶' },
   { id: 'potionInstall', knight: 1, module: null, segment: 'potion', goal: '点工坊底部的空药剂槽，装入药剂' },
   { id: 'potionUse', knight: 1, module: null, segment: 'potion', goal: '点药剂槽产生效果' },
   { id: 'tech', knight: 4, module: 'tech', segment: 'tech', goal: '点亮一项科技' },

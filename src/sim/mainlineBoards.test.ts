@@ -3,8 +3,11 @@ import { createSave } from './createSave'
 import {
   generateEncounterBoard,
   hydrateEncounterFields,
+  exploreBoard,
   isStarterCopperPawn,
+  isStarterGuideEnemy,
   makeStarterCopperPawn,
+  makeStarterGuideEnemy,
 } from './encounters'
 import { isFighting } from './combat'
 import {
@@ -47,6 +50,26 @@ describe('mainline battlefield / market boards', () => {
     })
     expect(isStarterCopperPawn(save.marketEncounters[0])).toBe(true)
     expect(save.marketEncounters[0]).toMatchObject(makeStarterCopperPawn(17, 0))
+  })
+
+  it('pins a fixed green minion on a new battlefield and keeps it through explore', () => {
+    const save = createSave()
+    const first = save.encounters[0]
+    expect(isStarterGuideEnemy(first)).toBe(true)
+    expect(first).toMatchObject(makeStarterGuideEnemy(0, 0))
+    if (first.kind !== 'enemy') return
+    expect(first.needs).toEqual({ anyPotion: 1 })
+    expect(first.lootGold).toBe(6)
+    expect(first.lootDiamonds).toBe(0)
+    expect(first.quality).toBe('green')
+    expect(first.enemyRank).toBe('minion')
+    expect(first.revealedWeaknesses).toEqual(['sword', 'fire'])
+    const before = save.encounters[1].id
+    expect(exploreBoard(save).ok).toBe(true)
+    expect(save.encounters[0].id).toBe(first.id)
+    expect(save.encounters.some((enc) => enc.id === before)).toBe(false)
+    const rolled = generateEncounterBoard(3, 2, { board: 'battlefield' })
+    expect(rolled.some((enc) => isStarterGuideEnemy(enc))).toBe(false)
   })
 
   it('generates only enemies on battlefield and only trades on market', () => {

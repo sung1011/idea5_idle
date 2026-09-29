@@ -101,6 +101,7 @@ import type {
   ArtisanEncounter,
   BlackMerchantEncounter,
   BulkBuyEncounter,
+  CombatAttrId,
   Encounter,
   EncounterKind,
   EncounterNeedMap,
@@ -1155,6 +1156,8 @@ export type EncounterSpawnOpts = {
    * 采矿未开（含没传存档）不刷这张，第 0 格走普通集市单。
    */
   starterCopperPawn?: boolean
+  /** 新档战场第 0 格固定新手杂兵。探索和老档不走这条。 */
+  starterGuideEnemy?: boolean
   /** 生成弱点初始暴露时读科技。 */
   save?: Save
   /** 指定板只刷该板种类；缺省为混合（测试覆盖六种）。 */
@@ -1316,6 +1319,50 @@ export function isStarterCopperPawn(enc: Encounter): enc is PawnEncounter {
     (enc.id.startsWith('merchantPawnCopper-') ||
       (enc.label === STARTER_PAWN_LABEL && (enc.pawnWants.ore ?? 0) >= STARTER_PAWN_QTY))
   )
+}
+
+export const STARTER_GUIDE_ENEMY_ID = 'guideMinion'
+export const STARTER_GUIDE_ENEMY_LABEL = '联盟斥候'
+/** 开局亮出前两条；第三条留着，打中才揭。 */
+export const STARTER_GUIDE_WEAKNESSES = ['sword', 'fire', 'ice'] as const
+export const STARTER_GUIDE_REVEALED = ['sword', 'fire'] as const
+
+export function isStarterGuideEnemy(enc: Encounter): enc is EnemyEncounter {
+  return enc.kind === 'enemy' && enc.id.startsWith(`${STARTER_GUIDE_ENEMY_ID}-`)
+}
+
+/**
+ * 新档战场第 0 格。绿档杂兵，任意药剂 ×1，奖励 6 金。
+ * 弱点和敌人写死，不走 rng。
+ */
+export function makeStarterGuideEnemy(seed = 0, slot = 0): EnemyEncounter {
+  const id = `${STARTER_GUIDE_ENEMY_ID}-green-${seed}-${slot}`
+  return {
+    kind: 'enemy',
+    id,
+    label: STARTER_GUIDE_ENEMY_LABEL,
+    quality: 'green',
+    needs: { [ANY_POTION_ITEM_ID]: 1 },
+    lootGold: LOOT_GOLD_BASE,
+    lootDiamonds: 0,
+    departed: false,
+    combat: null,
+    lootClaimed: false,
+    enemyRank: 'minion',
+    chapterBoss: false,
+    weaknesses: [...STARTER_GUIDE_WEAKNESSES],
+    revealedWeaknesses: [...STARTER_GUIDE_REVEALED],
+    affixId: rollBattlefieldAffix(id),
+  }
+}
+
+/** 第一次合成出的 2 档苦工，属性对齐新手单已揭示的第一条弱点。没有这张单则不改。 */
+export function starterGuideFuseAttr(save: Save): CombatAttrId | null {
+  if (save.workers.some((worker) => worker.qualityTier >= 2)) return null
+  const enc = save.encounters.find((row) => isStarterGuideEnemy(row))
+  if (!enc || enc.departed || enc.combat) return null
+  const revealed = enc.revealedWeaknesses.filter((id) => enc.weaknesses.includes(id))
+  return revealed[0] ?? null
 }
 
 /** 新档 / 空板第 0 格：绿档当铺，消耗铜矿 ×2，奖励按 pawnUnitGold / rewardGold。 */
@@ -1481,9 +1528,12 @@ export function generateEncounterBoard(
   const n = boardSlotClamp(slotCount, opts.board)
   const fill = encounterFiller(seed, opts)
   const board = Array.from({ length: n }, (_, slot) => fill(slot))
+  const safe = Number.isFinite(seed) && seed >= 0 ? Math.floor(seed) : 0
   if (wantsStarterCopperPawn(opts) && n >= 1) {
-    const safe = Number.isFinite(seed) && seed >= 0 ? Math.floor(seed) : 0
     board[0] = makeStarterCopperPawn(safe, 0)
+  }
+  if (opts.starterGuideEnemy && opts.board === 'battlefield' && n >= 1) {
+    board[0] = makeStarterGuideEnemy(safe, 0)
   }
   return board
 }
@@ -2289,6 +2339,7 @@ export function isExploreProtected(enc: Encounter, now = Date.now()): boolean {
   if (enc.kind !== 'enemy') return false
   void now
   if (isChapterBoss(enc) && !enc.lootClaimed) return true
+  if (isStarterGuideEnemy(enc) && !enc.lootClaimed && !enc.departed && !enc.combat) return true
   return isFighting(enc) || isCombatWon(enc) || combatStatus(enc) === 'lose'
 }
 
