@@ -82,7 +82,6 @@ function closeSheet() {
 
 <template>
   <section class="panel tree">
-    <p class="kicker">部落工坊 · 科技</p>
     <p class="title">科技树</p>
     <div class="chips">
       <button type="button" class="chip" aria-label="可用灵感" @click="pointsOpen = true">
@@ -184,16 +183,10 @@ p,
   line-height: 1.5;
 }
 
-.kicker,
 .hint,
 .desc {
   color: var(--muted);
   font-size: 13px;
-}
-
-.kicker {
-  letter-spacing: 0.12em;
-  font-size: 12px;
 }
 
 .title {

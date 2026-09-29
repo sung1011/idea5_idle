@@ -97,16 +97,23 @@ describe('alchemy batch roll', () => {
 
   it('unlocks potions by alchemy station level and treats a missing level as 1', () => {
     expect(unlockedPotionIds(1)).toEqual(['salve'])
-    expect(unlockedPotionIds(2)).toEqual(['salve', 'stim'])
-    expect(unlockedPotionIds(3)).toEqual(['salve', 'stim', 'brinkSalve'])
-    expect(unlockedPotionIds(4)).toEqual(['salve', 'stim', 'brinkSalve', 'clearMind'])
-    expect(unlockedPotionIds(5)).toEqual(['salve', 'stim', 'brinkSalve', 'clearMind', 'renewSoup'])
-    expect(unlockedPotionIds(6)).toEqual(['salve', 'stim', 'brinkSalve', 'clearMind', 'renewSoup', 'rushPowder'])
-    expect(unlockedPotionIds(7)).toEqual([
+    expect(unlockedPotionIds(2)).toEqual(['salve', 'brinkSalve'])
+    expect(unlockedPotionIds(3)).toEqual(['salve', 'brinkSalve', 'clearMind'])
+    expect(unlockedPotionIds(4)).toEqual(['salve', 'brinkSalve', 'clearMind', 'stim'])
+    expect(unlockedPotionIds(5)).toEqual(['salve', 'brinkSalve', 'clearMind', 'stim', 'renewSoup'])
+    expect(unlockedPotionIds(6)).toEqual([
       'salve',
-      'stim',
       'brinkSalve',
       'clearMind',
+      'stim',
+      'renewSoup',
+      'rushPowder',
+    ])
+    expect(unlockedPotionIds(7)).toEqual([
+      'salve',
+      'brinkSalve',
+      'clearMind',
+      'stim',
       'renewSoup',
       'rushPowder',
       'doubleMist',
@@ -124,7 +131,7 @@ describe('alchemy batch roll', () => {
     expect(pickMainNeedPotion(0.99)).toBe('salve')
     expect(pickMainNeedPotion(0.99, 1)).toBe('salve')
     expect(pickMainNeedPotion(0, 2)).toBe('salve')
-    expect(pickMainNeedPotion(0.99, 2)).toBe('stim')
+    expect(pickMainNeedPotion(0.99, 2)).toBe('brinkSalve')
   })
 
   it('rolls only salve at level 1 and evenly inside a wider pool', () => {
@@ -140,7 +147,7 @@ describe('alchemy batch roll', () => {
 
     save.stations.alchemy.stationLevel = 3
     const picks = [0, 0.34, 0.67]
-    const expected = ['salve', 'stim', 'brinkSalve']
+    const expected = ['salve', 'brinkSalve', 'clearMind']
     let n = 0
     setRollOverride(() => {
       const turn = Math.floor(n / 2)
@@ -157,7 +164,7 @@ describe('alchemy batch roll', () => {
       expect(unlockedPotionIds(3)).toContain(rolled.itemId)
     }
     expect(new Set(seen).size).toBe(3)
-    expect(seen).not.toContain('clearMind')
+    expect(seen).not.toContain('stim')
     expect(seen).not.toContain('doubleMist')
   })
 })

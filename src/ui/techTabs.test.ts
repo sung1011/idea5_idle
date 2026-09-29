@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_TECH_TAB, loadTechTab, saveTechTab, selectTechTab, TECH_TAB_KEY, techTab, techTabOf } from './techTabs'
 
@@ -42,6 +43,12 @@ describe('techTabs', () => {
     expect(loadTechTab(store)).toBe('affairs')
     expect(saveTechTab('bad', store)).toBe('production')
     expect(loadTechTab(store)).toBe('production')
+  })
+
+  it('keeps the tech tree title and drops the workshop kicker', () => {
+    const source = readFileSync(new URL('./techPanel.vue', import.meta.url), 'utf8')
+    expect(source).toContain('科技树')
+    expect(source).not.toContain('部落工坊 · 科技')
   })
 
   it('selectTechTab updates the shared tab ref', () => {

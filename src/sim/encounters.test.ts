@@ -484,8 +484,8 @@ describe('unlock-gated main need pool', () => {
       'herb',
       'spice',
       'salve',
-      'stim',
       'brinkSalve',
+      'clearMind',
       ANY_POTION_ITEM_ID,
     ])
     expect(mainNeedItemPool({ knightLevel: 5 })).toEqual(['herb', 'spice', 'salve', ANY_POTION_ITEM_ID])

@@ -474,9 +474,9 @@ export const POTION_ITEM_IDS: readonly PotionItemId[] = [
  */
 export const ALCHEMY_POTION_UNLOCK: readonly { level: number; id: PotionItemId }[] = [
   { level: 1, id: 'salve' },
-  { level: 2, id: 'stim' },
-  { level: 3, id: 'brinkSalve' },
-  { level: 4, id: 'clearMind' },
+  { level: 2, id: 'brinkSalve' },
+  { level: 3, id: 'clearMind' },
+  { level: 4, id: 'stim' },
   { level: 5, id: 'renewSoup' },
   { level: 6, id: 'rushPowder' },
   { level: 7, id: 'doubleMist' },
