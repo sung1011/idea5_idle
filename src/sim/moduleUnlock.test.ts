@@ -9,6 +9,7 @@ import {
   guideQuestView,
   hydrateGuideQuestFields,
 } from './guideQuest'
+import { mainlineStepOf } from './mainlineQuest'
 import { grantStationXp } from './stationProgress'
 import { xpToNextLevel } from './tables'
 import {
@@ -113,7 +114,7 @@ describe('segmented guide rewards', () => {
     const fresh = createSave()
     fresh.guideQuestRev = GUIDE_QUEST_REV
     fresh.stations.alchemy.completed = 1
-    fresh.guideQuestStep = 4
+    fresh.guideQuestStep = mainlineStepOf('alchemy')
     const before = fresh.gold
     expect(claimGuideQuest(fresh)).toEqual({ ok: true, message: `金币 +${GUIDE_QUEST_GOLD}、酋长经验 +20` })
     expect(fresh.gold).toBe(before + GUIDE_QUEST_GOLD)

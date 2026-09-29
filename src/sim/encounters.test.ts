@@ -584,7 +584,9 @@ describe('unlock-gated main need pool', () => {
     for (const enc of save.encounters) {
       expect(enc.kind).toBe('enemy')
       if (enc.kind !== 'enemy') continue
-      expect(mainNeedItemPool(save)).toContain(needEntries(enc.needs)[0][0])
+      const [need] = needEntries(enc.needs)
+      if (!need) continue
+      expect(mainNeedItemPool(save)).toContain(need[0])
     }
 
     const lv1Save = createSave()

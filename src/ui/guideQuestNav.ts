@@ -129,8 +129,9 @@ export function openGuideQuestStep(step: number, storage?: Storage | null): AppT
     'recruit',
     'autoHerb',
     'fuse',
-    'alchemy',
     'combat',
+    'level2',
+    'alchemy',
     'potionInstall',
     'potionUse',
   ]

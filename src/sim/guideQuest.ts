@@ -29,7 +29,7 @@ export const GUIDE_QUEST_PHASE3_STEPS = 1
 /** 旧九步引导领完后的步号。REV 6 起只用来认老档。 */
 export const GUIDE_OLD_DONE_STEP = 10
 export const GUIDE_QUEST_GOLD = 20
-/** 骑士 1 级即可装槽 / 点用。炼金在第一段，排在开战前面。 */
+/** 骑士 1 级即可装槽 / 点用。主线在升到 2 级之后才引导炼金，开战排在炼金前面。 */
 export const GUIDE_QUEST_PHASE2_KNIGHT = 1
 /**
  * 9：确认过的 90 步清单。升到 N 级达到即完成，并接上该级的开放卡片。
@@ -278,7 +278,7 @@ export function isGuideQuestFlash(save: Save, id: GuideQuestFlashId): boolean {
   return guideQuestFlashId(save) === id
 }
 
-/** 步骤 5 要闪的那张战场敌：未入战可点「开战」的优先，否则第一张未领。 */
+/** 出征步要闪的那张战场敌：未入战可点「开战」的优先，否则第一张未领。 */
 export function guideQuestCombatFlashEncounter(save: Save): Encounter | null {
   if (!isGuideQuestFlash(save, 'combat')) return null
   const board = save.encounters.filter((enc) => enc.kind === 'enemy')
@@ -359,7 +359,7 @@ function guideStepGoal(save: Save, row: MainlineTask, claimable: boolean, campOp
 }
 
 function guidePhaseMeta(row: MainlineTask): Pick<GuideQuestView, 'phase' | 'phaseStep' | 'phaseTotal' | 'title'> {
-  const start = ['recruit', 'autoHerb', 'fuse', 'alchemy', 'combat'].indexOf(row.id)
+  const start = ['recruit', 'autoHerb', 'fuse', 'combat', 'alchemy'].indexOf(row.id)
   if (start >= 0) {
     const phaseStep = start + 1
     return {

@@ -184,8 +184,8 @@ describe('guideQuest normalize and hydrate', () => {
     hydrateGuideQuestFields(save, save)
     expect(save.guideQuestRev).toBe(GUIDE_QUEST_REV)
     expect(save.guideQuestStep).toBe(4)
-    expect(guideQuestView(save)?.goal).toBe('炼金站出过货，或手里、槽里有药')
-    expect(guideQuestFlashId(save)).toBe('alchemy')
+    expect(guideQuestView(save)?.goal).toBe('在 PVE 选人弹层点过开战')
+    expect(guideQuestFlashId(save)).toBe('combat')
 
     const ahead = createSave()
     spawnWorker(ahead)
@@ -197,7 +197,7 @@ describe('guideQuest normalize and hydrate', () => {
     ahead.guideQuestRev = 4
     hydrateGuideQuestFields(ahead, ahead)
     expect(ahead.guideQuestStep).toBe(4)
-    expect(guideQuestView(ahead)?.goal).toBe('炼金站出过货，或手里、槽里有药')
+    expect(guideQuestView(ahead)?.goal).toBe('在 PVE 选人弹层点过开战')
   })
 
   it('keeps a current-rev step number', () => {
@@ -266,17 +266,17 @@ describe('guideQuest steps and claim', () => {
     expect(guideQuestView(save)?.goal).toBe('名册里有 2 档及以上苦工')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(4)
-    expect(guideQuestView(save)?.title).toBe('熬药')
-    expect(guideQuestView(save)?.goal).toBe('炼金站出过货，或手里、槽里有药')
-    save.stations.alchemy.completed = 1
-    expect(claimGuideQuest(save).ok).toBe(true)
-    expect(save.guideQuestStep).toBe(mainlineStepOf('level2'))
-    expect(claimGuideQuest(save).ok).toBe(true)
-    expect(save.guideQuestStep).toBe(mainlineStepOf('combat'))
     expect(guideQuestView(save)?.title).toBe('出征')
     expect(guideQuestView(save)?.goal).toBe('在 PVE 选人弹层点过开战')
     markCombatStarted(save)
     expect(hasStartedBattlefieldCombat(save)).toBe(true)
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(save.guideQuestStep).toBe(mainlineStepOf('level2'))
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(save.guideQuestStep).toBe(mainlineStepOf('alchemy'))
+    expect(guideQuestView(save)?.title).toBe('熬药')
+    expect(guideQuestView(save)?.goal).toBe('炼金站出过货，或手里、槽里有药')
+    save.stations.alchemy.completed = 1
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('potionInstall'))
     expect(guideQuestView(save)?.title).toBe('装药')
@@ -407,15 +407,15 @@ describe('guideQuest flash target', () => {
     spawnWorker(save)
     fuseRestWorkers(save, save.workers[1].id, save.workers[2].id)
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestFlashId(save)).toBe('alchemy')
-
-    save.stations.alchemy.completed = 1
-    expect(claimGuideQuest(save).ok).toBe(true)
-    expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('combat')
     expect(isGuideQuestCombatFlash(save, save.encounters[0])).toBe(true)
 
     markCombatStarted(save)
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBe('alchemy')
+
+    save.stations.alchemy.completed = 1
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('potionInstall')
 
@@ -514,7 +514,7 @@ describe('guide fuse and alchemy cues', () => {
 
   it('flashes the alchemy card until its detail opens, then the progress', () => {
     const save = createSave()
-    save.guideQuestStep = 4
+    save.guideQuestStep = mainlineStepOf('alchemy')
     expect(guideAlchemyCardFlash(save, 'alchemy', null)).toBe(true)
     expect(guideAlchemyCardFlash(save, 'herbalism', null)).toBe(false)
     expect(guideAlchemyProgressFlash(save, 'alchemy')).toBe(true)

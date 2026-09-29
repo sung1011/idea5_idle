@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createSave } from './createSave'
 import {
+  combatSupplyBlockReason,
   generateEncounterBoard,
   hydrateEncounterFields,
   exploreBoard,
@@ -10,8 +11,10 @@ import {
   makeStarterCopperPawn,
   makeStarterGuideEnemy,
   makeStarterHerbEnemy,
+  startCombat,
 } from './encounters'
 import { isFighting } from './combat'
+import { spawnWorker } from './recruit'
 import {
   BATTLEFIELD_SLOT_MAX,
   BATTLEFIELD_SLOT_MIN,
@@ -60,7 +63,8 @@ describe('mainline battlefield / market boards', () => {
     expect(isStarterGuideEnemy(first)).toBe(true)
     expect(first).toMatchObject(makeStarterGuideEnemy(0, 0))
     if (first.kind !== 'enemy') return
-    expect(first.needs).toEqual({ anyPotion: 1 })
+    expect(first.needs).toEqual({})
+    expect(combatSupplyBlockReason(save, 0)).toBeNull()
     expect(first.lootGold).toBe(6)
     expect(first.lootDiamonds).toBe(0)
     expect(first.quality).toBe('green')
@@ -82,6 +86,19 @@ describe('mainline battlefield / market boards', () => {
     expect(save.encounters[1].id).toBe(second.id)
     const rolled = generateEncounterBoard(3, 2, { board: 'battlefield' })
     expect(rolled.some((enc) => isStarterGuideEnemy(enc) || isStarterHerbEnemy(enc))).toBe(false)
+  })
+
+  it('starts the new-save first order with an empty bank and no potion', () => {
+    const save = createSave()
+    expect(save.bank).toEqual({})
+    const first = save.encounters[0]
+    expect(isStarterGuideEnemy(first)).toBe(true)
+    if (first.kind !== 'enemy') return
+    expect(first.needs).toEqual({})
+    expect(combatSupplyBlockReason(save, 0)).toBeNull()
+    const fighter = spawnWorker(save)
+    expect(startCombat(save, 0, [fighter.id]).ok).toBe(true)
+    expect(isFighting(first)).toBe(true)
   })
 
   it('generates only enemies on battlefield and only trades on market', () => {

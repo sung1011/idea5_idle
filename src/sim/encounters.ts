@@ -1345,8 +1345,8 @@ export function isStarterHerbEnemy(enc: Encounter): enc is EnemyEncounter {
 }
 
 /**
- * 新档战场第 0 格。绿档杂兵，任意药剂 ×1，奖励 6 金。
- * 弱点和敌人写死，不走 rng。
+ * 新档战场第 0 格。绿档杂兵，不消耗物资，奖励 6 金。
+ * 主线第 4 步出征在熬药之前，首单不能卡药剂。弱点和敌人写死，不走 rng。
  */
 export function makeStarterGuideEnemy(seed = 0, slot = 0): EnemyEncounter {
   const id = `${STARTER_GUIDE_ENEMY_ID}-green-${seed}-${slot}`
@@ -1355,7 +1355,7 @@ export function makeStarterGuideEnemy(seed = 0, slot = 0): EnemyEncounter {
     id,
     label: STARTER_GUIDE_ENEMY_LABEL,
     quality: 'green',
-    needs: { [ANY_POTION_ITEM_ID]: 1 },
+    needs: {},
     lootGold: LOOT_GOLD_BASE,
     lootDiamonds: 0,
     departed: false,
