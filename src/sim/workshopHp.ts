@@ -99,6 +99,9 @@ export function stationHpEfficiencyLabel(mul: number): string {
   return `效率 ${Math.round(mul * 100)}%`
 }
 
+/** 站卡效率位按三位数预留（「效率 100%」或更高），50% / 100% 切换时宽度不变。 */
+export const STATION_HP_EFFICIENCY_RESERVE = '效率 999%'
+
 export const WORKSHOP_HP_EFFICIENCY_TIP =
   '苦工体力不足，工坊效率下降。营地选好伙食，残血回来会自动吃；紧急可用药剂。'
 

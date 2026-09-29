@@ -2620,15 +2620,21 @@ onUnmounted(() => {
 }
 
 .roster-v2:not(.sheet-ops) .station-craft-row :deep(.station-progress .bar) {
-  grid-column: 1 / -1;
+  grid-column: 1;
   grid-row: 1;
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
 }
 
 .roster-v2:not(.sheet-ops) .station-craft-row :deep(.station-progress .eff) {
-  grid-column: 1 / -1;
-  grid-row: 2;
+  grid-column: 2;
+  grid-row: 1;
   justify-self: end;
+  text-align: right;
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .station.closed .station-name b::after {

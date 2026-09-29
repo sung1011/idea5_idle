@@ -94,6 +94,35 @@ describe('station craft label', () => {
     expect(detailSource).not.toContain('stationCraftPickOptions')
   })
 
+  it('puts the workshop progress bar and efficiency on one row with a fixed efficiency width', () => {
+    const row = workersPanelSource.slice(
+      workersPanelSource.indexOf('.roster-v2:not(.sheet-ops) .station-craft-row :deep(.station-progress .bar)'),
+      workersPanelSource.indexOf('.station.closed .station-name b::after'),
+    )
+    const barRule = row.match(/\.station-progress \.bar\)\s*\{[^}]*\}/)
+    const effRule = row.match(/\.station-progress \.eff\)\s*\{[^}]*\}/)
+    expect(barRule?.[0]).toContain('grid-column: 1;')
+    expect(barRule?.[0]).not.toContain('1 / -1')
+    expect(barRule?.[0]).toContain('grid-row: 1')
+    expect(barRule?.[0]).toContain('box-sizing: border-box')
+    expect(barRule?.[0]).toContain('min-width: 0')
+    expect(barRule?.[0]).toContain('width: 100%')
+    expect(effRule?.[0]).toContain('grid-column: 2')
+    expect(effRule?.[0]).toContain('grid-row: 1')
+    expect(effRule?.[0]).toContain('justify-self: end')
+    expect(effRule?.[0]).toContain('text-align: right')
+    expect(effRule?.[0]).toContain('tabular-nums')
+    expect(effRule?.[0]).toContain('white-space: nowrap')
+    expect(miniSource).toContain('STATION_HP_EFFICIENCY_RESERVE')
+    expect(miniSource).toContain('class="eff-reserve"')
+    expect(miniSource).toContain('class="eff-value"')
+    expect(miniSource).toContain('tabular-nums')
+    expect(miniSource).toMatch(/\.eff-reserve,[\s\S]*?\.eff-value\s*\{[^}]*grid-area:\s*1 \/ 1/)
+    expect(workersPanelSource).toContain("content: '封'")
+    expect(workersPanelSource).toMatch(/\.station\s*\{[^}]*min-width:\s*0/)
+    expect(workersPanelSource).toMatch(/\.station-craft-row\s*\{[^}]*min-width:\s*0/)
+  })
+
   it('enlarges only the workshop station slot, not the rest column avatar', () => {
     const css = workersPanelSource.slice(workersPanelSource.indexOf('<style'))
     expect(css).toMatch(/\.avatar\s*\{[^}]*width:\s*24px/)

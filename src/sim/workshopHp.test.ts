@@ -20,6 +20,7 @@ import {
   HP_EMPTY_RATIO,
   HP_WOUNDED_RATIO,
   restHealAmount,
+  STATION_HP_EFFICIENCY_RESERVE,
   stationHpEfficiencyLabel,
   stationHpWorkMul,
   takeWorkshopHpEfficiencyTip,
@@ -72,6 +73,10 @@ describe('workshop HP formulas', () => {
     expect(stationHpEfficiencyLabel(1)).toBe('效率 100%')
     expect(stationHpEfficiencyLabel(WORKSHOP_WOUNDED_WORK_MUL)).toBe('效率 80%')
     expect(stationHpEfficiencyLabel(WORKSHOP_EMPTY_WORK_MUL)).toBe('效率 50%')
+    expect(STATION_HP_EFFICIENCY_RESERVE).toBe('效率 999%')
+    for (const label of ['效率 50%', '效率 80%', '效率 100%']) {
+      expect(label.length).toBeLessThanOrEqual(STATION_HP_EFFICIENCY_RESERVE.length)
+    }
 
     const save = roster(1)
     const worker = save.workers[0]

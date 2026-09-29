@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { assignedCount, currentSpeed } from '../sim/query'
 import { isGatherFrozen } from '../sim/gather'
-import { stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
+import { STATION_HP_EFFICIENCY_RESERVE, stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
 import type { StationId } from '../sim/types'
 import { useGameStore } from './gameStore'
 import { useVisualProgress } from './visualProgress'
@@ -48,7 +48,13 @@ const halted = computed(() => stalled.value || assigned.value <= 0)
       aria-valuemax="100"
     ><b :style="{ width: pct.toFixed(2) + '%' }" /></i>
     <em v-if="layout === 'sheet'">{{ Math.round(pct) }}%</em>
-    <em v-if="assigned > 0 || layout !== 'sheet'" class="eff">{{ eff }}</em>
+    <em v-if="assigned > 0 || layout !== 'sheet'" class="eff">
+      <template v-if="layout !== 'sheet'">
+        <span class="eff-reserve" aria-hidden="true">{{ STATION_HP_EFFICIENCY_RESERVE }}</span>
+        <span class="eff-value">{{ eff }}</span>
+      </template>
+      <template v-else>{{ eff }}</template>
+    </em>
     <em v-else>空岗</em>
   </span>
 </template>
@@ -99,6 +105,24 @@ em {
   font-size: 9px;
   font-weight: 800;
   color: var(--ink-soft, #6b4e2e);
+}
+
+.mini.rail .eff {
+  display: inline-grid;
+  justify-items: end;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.mini.rail .eff-reserve,
+.mini.rail .eff-value {
+  grid-area: 1 / 1;
+}
+
+.mini.rail .eff-reserve {
+  visibility: hidden;
 }
 
 .sheet em {
