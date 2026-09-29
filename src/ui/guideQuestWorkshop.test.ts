@@ -30,4 +30,10 @@ describe('workshop guide wiring', () => {
   it('reads whether the camp list is open when drawing the guide line', () => {
     expect(floatSource).toContain('guideQuestView(game.save, guideCampSheetOpen.value)')
   })
+
+  it('lifts the quest bar on the workshop page and keeps the dock offset elsewhere', () => {
+    expect(appSource).toContain(':workshop="tab === \'workshop\'"')
+    expect(floatSource).toContain("questFloatBottomCss(props.workshop ? 'workshop' : 'dock')")
+    expect(floatSource).not.toContain('bottom: calc(var(--dock-height) + 64px)')
+  })
 })

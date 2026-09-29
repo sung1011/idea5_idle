@@ -5,10 +5,16 @@ import { mainlineTaskById } from '../sim/mainlineQuest'
 import { useGameStore } from './gameStore'
 import { pushFloatTip } from './floatTips'
 import { guideCampSheetOpen, openGuideQuestTask } from './guideQuestNav'
+import { questFloatBottomCss } from './guideQuestFloatPos'
+
+const props = defineProps<{
+  workshop?: boolean
+}>()
 
 const game = useGameStore()
 const collapsed = ref(false)
 const view = computed(() => guideQuestView(game.save, guideCampSheetOpen.value))
+const bottom = computed(() => questFloatBottomCss(props.workshop ? 'workshop' : 'dock'))
 
 function jump() {
   const current = view.value
@@ -41,6 +47,7 @@ function claim() {
     v-if="view"
     class="ck"
     :class="{ collapsed }"
+    :style="{ bottom }"
     aria-label="新手主线"
   >
     <div class="row">
@@ -65,7 +72,6 @@ function claim() {
 .ck {
   position: absolute;
   left: 8px;
-  bottom: calc(var(--dock-height) + 64px);
   z-index: 6;
   width: min(210px, calc(100% - 90px));
   overflow: hidden;

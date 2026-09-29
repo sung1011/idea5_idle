@@ -353,7 +353,7 @@ watch(guideCampOpenRequest, openRequestedCamp)
       @close="dismissUpdateBubble"
       @refresh="refreshToNewVersion"
     />
-    <GuideQuestFloat />
+    <GuideQuestFloat :workshop="tab === 'workshop'" />
     <MessagePanel v-if="mailOpen" @close="mailOpen = false" />
     <SettingsPanel v-if="settingsOpen" @close="settingsOpen = false" />
     <KnightLevelSheet v-if="knightOpen" @close="knightOpen = false" />
