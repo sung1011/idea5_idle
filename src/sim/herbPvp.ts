@@ -146,6 +146,10 @@ export type HerbClashFighter = {
   hpMax: number
   hpStart: number
   hpEnd: number
+  /** 我方种族。缺省时界面按 id 兜底，不报错。 */
+  race?: string
+  qualityTier?: number
+  workerId?: string
 }
 
 export type HerbClashResult = 'took' | 'lost' | 'held'
@@ -955,6 +959,7 @@ function clashFighter(
   hpMax: number,
   hpStart: number,
   hpEnd: number,
+  face?: { race?: string; qualityTier?: number; workerId?: string },
 ): HerbClashFighter {
   return {
     name,
@@ -963,6 +968,9 @@ function clashFighter(
     hpMax: Math.max(1, hpMax),
     hpStart: Math.max(0, hpStart),
     hpEnd: Math.max(0, hpEnd),
+    race: face?.race,
+    qualityTier: face?.qualityTier,
+    workerId: face?.workerId,
   }
 }
 
@@ -984,7 +992,11 @@ function playerHitsRival(save: Save, plot: HerbPlot, worker: Worker, rival: Herb
     {
       plotIndex: plot.index,
       attacker: 'player',
-      player: clashFighter(worker.name ?? '苦工', '', worker.classId || 'laborer', worker.hpMax, playerHpStart, blow.attackerHp),
+      player: clashFighter(worker.name ?? '苦工', '', worker.classId || 'laborer', worker.hpMax, playerHpStart, blow.attackerHp, {
+        race: worker.race,
+        qualityTier: worker.qualityTier,
+        workerId: worker.id,
+      }),
       rival: clashFighter(rival.name, rival.avatarId, '', rival.hpMax, rivalHpStart, blow.defenderHp),
       playerDamage: Math.min(herbStrikeDamage(playerAtk), rivalHpStart),
       rivalDamage: blow.took ? 0 : Math.min(herbStrikeDamage(rivalAtk), playerHpStart),
@@ -1029,7 +1041,11 @@ function rivalHitsPlayer(save: Save, plot: HerbPlot, rival: HerbRival, offline: 
     {
       plotIndex: plot.index,
       attacker: 'rival',
-      player: clashFighter(worker.name ?? '苦工', '', worker.classId || 'laborer', worker.hpMax, playerHpStart, blow.defenderHp),
+      player: clashFighter(worker.name ?? '苦工', '', worker.classId || 'laborer', worker.hpMax, playerHpStart, blow.defenderHp, {
+        race: worker.race,
+        qualityTier: worker.qualityTier,
+        workerId: worker.id,
+      }),
       rival: clashFighter(rival.name, rival.avatarId, '', rival.hpMax, rivalHpStart, blow.attackerHp),
       playerDamage: blow.took ? 0 : Math.min(herbStrikeDamage(playerAtk), rivalHpStart),
       rivalDamage: Math.min(herbStrikeDamage(rivalAtk), playerHpStart),

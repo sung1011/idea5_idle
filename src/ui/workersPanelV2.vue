@@ -47,8 +47,8 @@ import {
 } from './workerEnterFlash'
 import { recruitCost } from '../sim/tech'
 import { workerRaceLabel, workerRaceShortLabel } from '../sim/workerRace'
-import type { CategoryId, ClassId, PotionItemId, StationId, Worker } from '../sim/types'
-import ClassIcon from './classIcon.vue'
+import type { CategoryId, PotionItemId, StationId, Worker } from '../sim/types'
+import WorkerAvatar from './workerAvatar.vue'
 import { openWorkshopStation } from './appNav'
 import { stationCraftPickOptions, stationCraftPickReadonly } from './stationCraftLabel'
 import StationDetailSheet from './stationDetailSheet.vue'
@@ -78,7 +78,7 @@ import FoodIcon from './foodIcon.vue'
 import PotionIcon from './potionIcon.vue'
 import UiIcon from './uiIcon.vue'
 import UiSelect from './uiSelect.vue'
-import { qualityOf, workerQualityDotStyle, workerQualityNameStyle, workerQualityTileStyle } from './workerQuality'
+import { qualityOf, workerQualityDotStyle, workerQualityFrameStyle, workerQualityNameStyle } from './workerQuality'
 import {
   canDragWorker,
   canDropWorker,
@@ -175,6 +175,7 @@ const campSheetShown = computed(() => shownRest.value && !shownCombat.value)
 const fuseCue = computed(() => guideFuseCue(game.save, campSheetShown.value))
 const fuseStations = computed(() => guideFuseFlashStations(game.save, campSheetShown.value))
 const alchemyCardFlash = computed(() => guideAlchemyCardFlash(game.save, 'alchemy', openStationDetailId.value))
+const rosterFaceSize = computed(() => (shownRest.value || shownCombat.value ? 'md' : 'sm'))
 watch(
   () => fightingRoster.value.length,
   (n) => {
@@ -368,10 +369,6 @@ function raceLabel(w: Worker) {
 
 function raceShortLabel(w: Worker) {
   return workerRaceShortLabel(w.race)
-}
-
-function classIconOf(w: Worker): ClassId {
-  return w.classId ?? 'laborer'
 }
 
 function sheetMeta(w: Worker) {
@@ -622,12 +619,10 @@ watch(
 )
 
 function stationAvatarStyle(worker: Worker) {
-  const face = workerQualityTileStyle(worker)
-  if (!isWorkerEntering(worker.id)) return face
+  if (!isWorkerEntering(worker.id)) return undefined
   return {
-    ...face,
     '--enter-delay': `${workerEnterDelayMs(worker.id)}ms`,
-    '--enter-edge': face.borderColor,
+    '--enter-edge': workerQualityFrameStyle(worker.qualityTier).borderColor,
   }
 }
 
@@ -740,14 +735,16 @@ onUnmounted(() => {
                       @keydown.enter.stop.prevent="onDismissTutor"
                       @keydown.space.stop.prevent="onDismissTutor"
                     >{{ tutorLine(w.id) }}</span>
-                    <span
-                      class="avatar"
+                    <WorkerAvatar
+                      class="worker-avatar"
                       :class="{ 'enter-land': isWorkerEntering(w.id) }"
                       :style="stationAvatarStyle(w)"
-                    >
-                      <ClassIcon :name="classIconOf(w)" />
-                      <i v-if="w.isNew" class="worker-new" aria-label="新苦工">NEW</i>
-                    </span>
+                      size="lg"
+                      :show-new="!!w.isNew"
+                      :race="w.race"
+                      :quality="w.qualityTier"
+                      :worker-id="w.id"
+                    />
                     <span class="slot-main">
                       <b>
                         <i class="qdot" :style="workerQualityDotStyle(w.qualityTier)" />
@@ -799,10 +796,13 @@ onUnmounted(() => {
                 :aria-label="`战斗区 ${workerShortName(item.worker)} ${item.row.label}`"
                 @pointerdown="onWorkerPointerDown($event, item.worker, null, null)"
               >
-                <span class="avatar" :style="workerQualityTileStyle(item.worker)">
-                  <ClassIcon :name="classIconOf(item.worker)" />
-                  <i v-if="item.worker.isNew" class="worker-new" aria-label="新苦工">NEW</i>
-                </span>
+                <WorkerAvatar
+                  :size="rosterFaceSize"
+                  :show-new="!!item.worker.isNew"
+                  :race="item.worker.race"
+                  :quality="item.worker.qualityTier"
+                  :worker-id="item.worker.id"
+                />
                 <b class="rest-name" :style="workerQualityNameStyle(item.worker)">{{ workerShortName(item.worker) }}</b>
                 <i v-if="raceShortLabel(item.worker)" class="race-tag">{{ raceShortLabel(item.worker) }}</i>
                 <i class="march-tag">{{ item.row.label }}<template v-if="item.row.tone !== 'fight'"> {{ formatRemainClock(item.row.remainS) }}</template></i>
@@ -871,10 +871,13 @@ onUnmounted(() => {
                   <span class="rest-order">{{ row.order }}</span>
                   <i v-if="row.badge" class="rest-badge">{{ row.badge }}</i>
                 </span>
-                <span class="avatar" :style="workerQualityTileStyle(row.worker)">
-                  <ClassIcon :name="classIconOf(row.worker)" />
-                  <i v-if="row.worker.isNew" class="worker-new" aria-label="新苦工">NEW</i>
-                </span>
+                <WorkerAvatar
+                  :size="rosterFaceSize"
+                  :show-new="!!row.worker.isNew"
+                  :race="row.worker.race"
+                  :quality="row.worker.qualityTier"
+                  :worker-id="row.worker.id"
+                />
                 <em v-if="workerEatFlashText(row.id)" class="eat-float">{{ workerEatFlashText(row.id) }}</em>
                 <b class="rest-name" :style="workerQualityNameStyle(row.worker)">{{ workerShortName(row.worker) }}</b>
                 <i v-if="raceShortLabel(row.worker)" class="race-tag">{{ raceShortLabel(row.worker) }}</i>
@@ -957,9 +960,13 @@ onUnmounted(() => {
         >
           {{ tutorLine(queueHead.id) }}
         </button>
-        <span class="queue-avatar" :style="workerQualityTileStyle(queueHead.worker)">
-          <ClassIcon :name="classIconOf(queueHead.worker)" />
-        </span>
+        <WorkerAvatar
+          class="queue-avatar"
+          size="md"
+          :race="queueHead.worker.race"
+          :quality="queueHead.worker.qualityTier"
+          :worker-id="queueHead.worker.id"
+        />
         <span class="queue-copy">
           <b class="queue-name">{{ queueHead.title }}</b>
           <span class="queue-hp">
@@ -1996,28 +2003,11 @@ onUnmounted(() => {
     transition: none;
   }
 
-  .station .slot .avatar.enter-land,
+  .station .slot :deep(.worker-avatar.enter-land),
   .rest-row.eat-flash,
   .eat-float {
     animation: none;
   }
-}
-
-.avatar {
-  position: relative;
-  z-index: 1;
-  flex: none;
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  border: 2px solid currentColor;
-  border-radius: 7px;
-}
-
-.avatar :deep(.class-ico) {
-  width: 13px;
-  height: 13px;
 }
 
 .station .slot.enter-slot {
@@ -2025,14 +2015,11 @@ onUnmounted(() => {
   z-index: 2;
 }
 
-.station .slot .avatar {
-  width: 48px;
-  height: 48px;
-  border-width: 4px;
-  border-radius: 10px;
+.station .slot :deep(.worker-avatar) {
+  z-index: 1;
 }
 
-.station .slot .avatar.enter-land {
+.station .slot :deep(.worker-avatar.enter-land) {
   z-index: 2;
   animation: worker-enter 0.45s cubic-bezier(0.22, 0.9, 0.24, 1) both;
   animation-delay: var(--enter-delay, 0ms);
@@ -2051,30 +2038,6 @@ onUnmounted(() => {
     transform: translateY(0) scale(1);
     box-shadow: 0 0 0 0 transparent;
   }
-}
-
-.station .slot .avatar :deep(.class-ico) {
-  width: 26px;
-  height: 26px;
-}
-
-.worker-new {
-  position: absolute;
-  top: -5px;
-  right: -7px;
-  z-index: 2;
-  padding: 0 3px;
-  border: 1px solid #7a1808;
-  border-radius: 3px;
-  background: linear-gradient(#ff6a3d, #d62828);
-  color: #fff8e8;
-  font-size: 7px;
-  font-style: normal;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  line-height: 1.25;
-  box-shadow: 0 1px 0 #7a1808;
-  pointer-events: none;
 }
 
 .slot-main {
@@ -2705,18 +2668,6 @@ onUnmounted(() => {
   padding: 6px 32px 6px 8px;
 }
 
-.roster-v2.sheet-rest .avatar,
-.roster-v2.sheet-combat .avatar {
-  width: 32px;
-  height: 32px;
-}
-
-.roster-v2.sheet-rest .avatar :deep(.class-ico),
-.roster-v2.sheet-combat .avatar :deep(.class-ico) {
-  width: 18px;
-  height: 18px;
-}
-
 .roster-v2.sheet-rest .rest-go,
 .roster-v2.sheet-combat .rest-go {
   width: 28px;
@@ -2777,17 +2728,6 @@ onUnmounted(() => {
 
 .queue-avatar {
   flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  border: 2px solid currentColor;
-  border-radius: 50%;
-}
-
-.queue-avatar :deep(.class-ico) {
-  width: 16px;
-  height: 16px;
 }
 
 .queue-copy {
@@ -2855,6 +2795,12 @@ onUnmounted(() => {
   color: #9a9286;
   font-size: 12px;
   font-weight: 800;
+}
+
+.band-head em {
+  min-width: 0;
+  overflow: hidden;
+  font-style: normal;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

@@ -125,10 +125,10 @@ describe('station craft label', () => {
 
   it('enlarges only the workshop station slot, not the rest column avatar', () => {
     const css = workersPanelSource.slice(workersPanelSource.indexOf('<style'))
-    expect(css).toMatch(/\.avatar\s*\{[^}]*width:\s*24px/)
-    expect(css).toMatch(/\.avatar :deep\(\.class-ico\)\s*\{[^}]*width:\s*13px/)
-    expect(css).toMatch(/\.station \.slot \.avatar\s*\{[^}]*width:\s*48px[^}]*border-width:\s*4px/)
-    expect(css).toMatch(/\.station \.slot \.avatar :deep\(\.class-ico\)\s*\{[^}]*width:\s*26px/)
+    expect(workersPanelSource).toContain('size="lg"')
+    expect(workersPanelSource).toContain(':size="rosterFaceSize"')
+    expect(workersPanelSource).toContain("shownRest.value || shownCombat.value ? 'md' : 'sm'")
+    expect(workersPanelSource).not.toContain('ClassIcon')
     expect(css).toMatch(/\.station \.slot \.slot-main b\s*\{[^}]*font-size:\s*20px/)
     expect(css).toMatch(/\.station \.slot \.slot-main small\s*\{[^}]*font-size:\s*18px/)
     expect(css).toMatch(/\.station \.slot \.qdot\s*\{[^}]*width:\s*12px[^}]*border-width:\s*2px/)
@@ -137,7 +137,7 @@ describe('station craft label', () => {
     const banter = css.slice(css.indexOf('.banter {'), css.indexOf('@keyframes worker-banter'))
     expect(banter).toMatch(/bottom:\s*calc\(100% \+ 1px\)/)
     expect(workersPanelSource).toMatch(
-      /<span v-if="banterLine\(w\.id\)" class="banter"[\s\S]*?<span class="avatar"/,
+      /<span v-if="banterLine\(w\.id\)" class="banter"[\s\S]*?<WorkerAvatar/,
     )
   })
 })

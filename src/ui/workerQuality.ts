@@ -1,4 +1,4 @@
-import { workerQualityDef } from '../sim/tables'
+import { hydrateQualityTier, workerQualityDef } from '../sim/tables'
 import type { QualityTier, Worker, WorkerQualityId } from '../sim/types'
 
 const TILE_FACE: Record<WorkerQualityId, { background: string; color: string }> = {
@@ -71,11 +71,20 @@ export function workerQualityDotStyle(tier: QualityTier) {
 
 /** 工人页小图标底：浅档渐变 + 表色描边，和分组色点同一套档。 */
 export function workerQualityTileStyle(worker: Worker) {
-  const q = qualityOf(worker)
+  const framed = workerQualityFrameStyle(worker.qualityTier)
+  return {
+    background: framed.background,
+    color: TILE_FACE[qualityOf(worker).id].color,
+    borderColor: framed.borderColor,
+  }
+}
+
+/** 苦工圆头像的底色和描边。脏档落到白，不抛。 */
+export function workerQualityFrameStyle(tier: unknown): { background: string; borderColor: string } {
+  const q = workerQualityDef(hydrateQualityTier(tier))
   const face = TILE_FACE[q.id]
   return {
     background: face.background,
-    color: face.color,
     borderColor: q.color,
   }
 }

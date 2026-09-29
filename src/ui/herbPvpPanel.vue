@@ -28,9 +28,9 @@ import {
   takeHerbClearEvents,
   takeHerbClashEvents,
 } from '../sim/herbPvp'
-import type { ClassId, HerbPlot, Worker } from '../sim/types'
+import type { HerbPlot, Worker } from '../sim/types'
 import { isFullWorkshopHp } from '../sim/workshopHp'
-import ClassIcon from './classIcon.vue'
+import WorkerAvatar from './workerAvatar.vue'
 import CombatAttrIcon from './combatAttrIcon.vue'
 import CombatPickSheet from './combatPickSheet.vue'
 import {
@@ -204,10 +204,6 @@ const clashView = computed(() => {
     float,
   }
 })
-
-function workerClass(id: string): ClassId {
-  return (id || 'laborer') as ClassId
-}
 
 onMounted(() => {
   discardHerbClearEvents()
@@ -388,9 +384,14 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
       >
         <button type="button" class="clash-card" aria-label="撞车对战，点击跳过" @click="skipClash">
           <span class="side">
-            <span class="mug" :class="{ lunge: clashView.motion.lunge === 'player', hurt: clashView.motion.hurt === 'player' }">
-              <ClassIcon :name="workerClass(clashView.player.classId)" />
-            </span>
+            <WorkerAvatar
+              class="clash-face"
+              size="md"
+              :race="clashView.player.race"
+              :quality="clashView.player.qualityTier"
+              :worker-id="clashView.player.workerId"
+              :class="{ lunge: clashView.motion.lunge === 'player', hurt: clashView.motion.hurt === 'player' }"
+            />
             <i
               class="hp"
               :key="`p-${clashView.phase}`"
@@ -598,14 +599,8 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
 }
 
 .mug :deep(.face) {
-  width: 28px;
-  height: 28px;
-  border-width: 1px;
-}
-
-.mug :deep(.class-ico) {
-  width: 20px;
-  height: 20px;
+  width: 32px;
+  height: 32px;
 }
 
 .hp {
@@ -754,14 +749,14 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
 }
 
 .foe :deep(.face) {
-  width: 14px;
-  height: 14px;
+  width: 20px;
+  height: 20px;
   border-width: 1px;
 }
 
 .foe :deep(svg) {
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
 }
 
 .foe em,

@@ -32,8 +32,8 @@ function faceOf(id: string | null | undefined) {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border: 2px solid var(--gold-deep);
   border-radius: 50%;
   overflow: hidden;
@@ -55,8 +55,8 @@ function faceOf(id: string | null | undefined) {
 }
 
 svg {
-  width: 20px;
-  height: 20px;
+  width: 23px;
+  height: 23px;
   display: block;
 }
 </style>

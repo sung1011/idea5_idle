@@ -85,6 +85,7 @@ import {
   type MainlineTabId,
 } from './mainlineTabs'
 import HpBar from './hpBar.vue'
+import WorkerAvatar from './workerAvatar.vue'
 
 const game = useGameStore()
 const guideFlashCombat = computed(() => isGuideQuestFlash(game.save, 'combat'))
@@ -396,6 +397,10 @@ function rosterFighters(enc: Encounter) {
   return enc.kind === 'enemy' ? combatRosterFighters(enc.combat) : []
 }
 
+function rosterWorker(id: string) {
+  return game.save.workers.find((worker) => worker.id === id)
+}
+
 function combatShield(enc: EnemyEncounter): number | null {
   if (!enc.combat || typeof enc.combat.shield !== 'number') return null
   return enc.combat.shield
@@ -564,7 +569,15 @@ function timedLine(enc: Encounter) {
                 :fill="actChargeFill(enc.combat.enemy.spd, enc.combat.enemy.nextActAt, actNow)"
               />
               <template v-for="w in rosterFighters(enc)" :key="w.id">
-                <p class="bar-line">{{ w.label }}</p>
+                <p class="bar-line">
+                  <WorkerAvatar
+                    size="sm"
+                    :race="rosterWorker(w.id)?.race"
+                    :quality="rosterWorker(w.id)?.qualityTier"
+                    :worker-id="w.id"
+                  />
+                  <span>{{ w.label }}</span>
+                </p>
                 <HpBar :hp="w.hp" :hp-max="w.hpMax" />
                 <ActChargeBar
                   v-if="liveFight(enc)"
@@ -1361,6 +1374,9 @@ ul {
 }
 
 .bar-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 0;
   font-family: var(--font-mono);
   font-size: 13px;

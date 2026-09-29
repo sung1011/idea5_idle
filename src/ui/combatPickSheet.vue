@@ -21,6 +21,7 @@ import { useGameStore } from './gameStore'
 import { pickSlotNumber } from './pickSlot'
 import { pickWorkerName } from './pickWorkerName'
 import { qualityOf, workerQualityBadgeStyle, workerQualityNameStyle } from './workerQuality'
+import WorkerAvatar from './workerAvatar.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -170,6 +171,7 @@ function closeAll() {
             :disabled="!canPickWorker(w)"
             @click="emit('toggle', w)"
           >
+            <WorkerAvatar size="sm" :race="w.race" :quality="w.qualityTier" :worker-id="w.id" />
             <span class="pick-name">
               <b v-if="slotNumber(w.id)" class="pick-slot" :aria-label="`槽位 ${slotNumber(w.id)}`">{{ slotNumber(w.id) }}</b>
               <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
