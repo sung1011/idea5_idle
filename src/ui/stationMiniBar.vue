@@ -70,14 +70,17 @@ const halted = computed(() => stalled.value || assigned.value <= 0)
 .bar {
   flex: 1 1 auto;
   height: 7px;
-  border-radius: 99px;
-  background: rgba(90, 58, 20, 0.18);
+  padding: 2px 7px;
+  border: none;
+  border-radius: 0;
+  background: var(--tex-progress) center / 100% 100% no-repeat;
   overflow: hidden;
 }
 
 .bar b {
   display: block;
   height: 100%;
+  border-radius: 99px;
   background: var(--bar-fill-green);
 }
 

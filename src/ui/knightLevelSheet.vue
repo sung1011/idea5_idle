@@ -115,10 +115,11 @@ header .title {
 }
 
 .bar {
-  height: 14px;
-  border: 2px solid var(--gold-deep);
-  border-radius: 999px;
-  background: rgba(92, 58, 26, 0.12);
+  height: 16px;
+  padding: 3px 10px;
+  border: none;
+  border-radius: 0;
+  background: var(--tex-progress) center / 100% 100% no-repeat;
   overflow: hidden;
 }
 
@@ -126,7 +127,7 @@ header .title {
   display: block;
   height: 100%;
   width: 0;
-  border-radius: inherit;
+  border-radius: 99px;
   background: linear-gradient(90deg, #c6ff6a, #2fbf32);
   transition: width 0.55s linear;
 }
