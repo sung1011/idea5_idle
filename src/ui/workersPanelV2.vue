@@ -37,6 +37,7 @@ import {
 } from '../sim/guideQuest'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { pushFloatTip } from './floatTips'
+import { potionEffectRemainRatio, potionEmptyAcquireTip, potionQtyRestocked } from './potionHotbar'
 import { isWorkerEatFlashing, workerEatFlashText } from './workerEatFlash'
 import { isWorkerLevelFlashing } from './workerLevelFlash'
 import {
@@ -280,6 +281,71 @@ function potionSlotQty(id: PotionItemId | null) {
   return id ? bankQty(game.save, id) : 0
 }
 
+const potionPressed = ref<number[]>([])
+const potionRestock = ref<number[]>([])
+const potionPressTimers = new Map<number, ReturnType<typeof setTimeout>>()
+let potionQtySnap: { id: PotionItemId | null; qty: number }[] | null = null
+
+function potionRemainRatio(itemId: PotionItemId | null) {
+  return potionEffectRemainRatio({
+    itemId,
+    elapsedS: game.save.elapsedS,
+    lastTick: game.save.lastTick,
+    now: frameNow.value,
+    buffs: game.save.potionBuffs,
+  })
+}
+
+function potionHaloStyle(itemId: PotionItemId | null) {
+  return { '--remain': potionRemainRatio(itemId).toFixed(4) }
+}
+
+watch(
+  () => potionSlots.value.map((id) => ({ id, qty: potionSlotQty(id) })),
+  (rows) => {
+    if (!potionQtySnap) {
+      potionQtySnap = rows.map((row) => ({ id: row.id, qty: row.qty }))
+      return
+    }
+    const prev = potionQtySnap
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    rows.forEach((row, index) => {
+      const before = prev[index]
+      const same = !!before && before.id != null && before.id === row.id
+      if (reduced || !potionQtyRestocked(before?.qty ?? 0, row.qty, same)) return
+      potionRestock.value = potionRestock.value.filter((slot) => slot !== index)
+      void nextTick(() => {
+        if (!potionRestock.value.includes(index)) potionRestock.value = [...potionRestock.value, index]
+      })
+    })
+    potionQtySnap = rows.map((row) => ({ id: row.id, qty: row.qty }))
+  },
+  { immediate: true },
+)
+
+function onPotionRestockEnd(index: number, ev: AnimationEvent) {
+  if (!ev.animationName.includes('potion-breathe')) return
+  potionRestock.value = potionRestock.value.filter((slot) => slot !== index)
+}
+
+function onPotionPointerDown(index: number, ev: PointerEvent) {
+  const target = ev.target
+  if (target instanceof Element && target.closest('.potion-help')) return
+  const pending = potionPressTimers.get(index)
+  if (pending) clearTimeout(pending)
+  potionPressed.value = potionPressed.value.filter((slot) => slot !== index)
+  void nextTick(() => {
+    if (!potionPressed.value.includes(index)) potionPressed.value = [...potionPressed.value, index]
+  })
+  potionPressTimers.set(
+    index,
+    setTimeout(() => {
+      potionPressed.value = potionPressed.value.filter((slot) => slot !== index)
+      potionPressTimers.delete(index)
+    }, 220),
+  )
+}
+
 const potionHelp = ref<PotionHelpKey | null>(null)
 const potionHelpPos = ref({ left: 8, top: 8 })
 
@@ -341,6 +407,10 @@ function onPotionSlot(index: number) {
   closePotionHelp()
   if (!id) {
     pickPotionIndex.value = index
+    return
+  }
+  if (potionSlotQty(id) <= 0) {
+    pushFloatTip(potionEmptyAcquireTip(id), 'err')
     return
   }
   game.usePotionSlot(index)
@@ -651,6 +721,8 @@ onUnmounted(() => {
   hideWorkerTutor()
   bandObserver?.disconnect()
   document.removeEventListener('pointerdown', onDocPotionHelp, true)
+  for (const timer of potionPressTimers.values()) clearTimeout(timer)
+  potionPressTimers.clear()
 })
 </script>
 
@@ -907,41 +979,6 @@ onUnmounted(() => {
         </section>
       </div>
     </div>
-    <div class="potion-dock">
-      <div class="potion-row" aria-label="药剂技能槽">
-        <button
-          v-for="(itemId, i) in potionSlots"
-          :key="`potion-${i}`"
-          type="button"
-          class="potion-slot"
-          :class="{
-            empty: !itemId,
-            dry: !!itemId && potionSlotQty(itemId) <= 0,
-            'guide-flash': (!itemId && guideFlashPotionInstall) || (!!itemId && guideFlashPotionUse),
-          }"
-          :aria-label="itemId ? `${potionSlotLabel(itemId)} · 点击使用` : `装入药剂槽 ${i + 1}`"
-          @click="onPotionSlot(i)"
-        >
-          <template v-if="itemId">
-            <PotionIcon :name="itemId" />
-            <span class="potion-name">{{ ITEM_DEF[itemId].label }}</span>
-            <span class="potion-qty">×{{ potionSlotQty(itemId) }}</span>
-            <span
-              class="potion-help"
-              data-potion-help
-              role="button"
-              :aria-pressed="isPotionHelpOpen(potionHelp, 'slot', itemId, i)"
-              :aria-label="`查看 ${ITEM_DEF[itemId].label} 效果`"
-              @click.stop="onPotionHelp($event, 'slot', itemId, i)"
-            >i</span>
-          </template>
-          <template v-else>
-            <span class="potion-vacant" aria-hidden="true"></span>
-          </template>
-        </button>
-      </div>
-      <p v-if="potionBuffLine" class="potion-buffs">{{ potionBuffLine }}</p>
-    </div>
     <section ref="statusBandEl" class="status-band" aria-label="工坊状态">
       <div
         v-if="queueHead.kind === 'worker'"
@@ -1035,6 +1072,51 @@ onUnmounted(() => {
       </button>
       <span v-if="fightingRoster.length" class="band-combat band-combat-measure" data-combat-measure aria-hidden="true">战斗 {{ fightingRoster.length }}</span>
     </section>
+    <div class="potion-dock">
+      <div class="potion-row" aria-label="药剂技能槽">
+        <button
+          v-for="(itemId, i) in potionSlots"
+          :key="`potion-${i}`"
+          type="button"
+          class="potion-slot"
+          :class="{
+            empty: !itemId,
+            dry: !!itemId && potionSlotQty(itemId) <= 0,
+            pressed: potionPressed.includes(i),
+            restock: potionRestock.includes(i),
+            'guide-flash': (!itemId && guideFlashPotionInstall) || (!!itemId && guideFlashPotionUse),
+          }"
+          :aria-label="itemId ? `${potionSlotLabel(itemId)} · 点击使用` : `装入药剂槽 ${i + 1}`"
+          @pointerdown="onPotionPointerDown(i, $event)"
+          @click="onPotionSlot(i)"
+          @animationend="onPotionRestockEnd(i, $event)"
+        >
+          <template v-if="itemId">
+            <span
+              v-if="potionRemainRatio(itemId) > 0"
+              class="potion-halo"
+              :style="potionHaloStyle(itemId)"
+              aria-hidden="true"
+            />
+            <PotionIcon :name="itemId" />
+            <span class="potion-name">{{ ITEM_DEF[itemId].label }}</span>
+            <span class="potion-qty">{{ potionSlotQty(itemId) }}</span>
+            <span
+              class="potion-help"
+              data-potion-help
+              role="button"
+              :aria-pressed="isPotionHelpOpen(potionHelp, 'slot', itemId, i)"
+              :aria-label="`查看 ${ITEM_DEF[itemId].label} 效果`"
+              @click.stop="onPotionHelp($event, 'slot', itemId, i)"
+            >i</span>
+          </template>
+          <template v-else>
+            <span class="potion-vacant" aria-hidden="true"></span>
+          </template>
+        </button>
+      </div>
+      <p v-if="potionBuffLine" class="potion-buffs">{{ potionBuffLine }}</p>
+    </div>
     <Teleport to="body">
       <div v-if="drag?.active" class="drag-ghost" :style="{ left: `${drag.x}px`, top: `${drag.y}px` }">
         {{ drag.name }}
@@ -1504,7 +1586,7 @@ onUnmounted(() => {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  padding: 4px 6px;
+  padding: 4px 6px 16px;
   gap: var(--workshop-rail-row-gap);
 }
 
@@ -1644,9 +1726,9 @@ onUnmounted(() => {
 .potion-row {
   display: flex;
   align-items: stretch;
-  min-height: var(--workshop-rail-row-min);
+  min-height: 78px;
   min-width: 0;
-  gap: 4px;
+  gap: 6px;
 }
 
 .potion-slot {
@@ -1654,51 +1736,83 @@ onUnmounted(() => {
   overflow: visible;
   flex: 1;
   min-width: 0;
-  min-height: 0;
+  min-height: 78px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  padding: 2px;
-  border: 2px solid var(--gold);
-  border-radius: 8px;
-  background: linear-gradient(145deg, #fff9de, #f3ddaa);
-  box-shadow: 0 2px 0 var(--gold-deep);
+  gap: 3px;
+  padding: 8px 4px 16px;
+  border: 1px solid #6a4a22;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #6e5736 0%, #3a2a18 58%, #24180f 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 228, 170, 0.5), 0 4px 0 #120e0a;
+  color: #ffe7b8;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.potion-slot:active:not(:has(.potion-help:active)) {
+  transform: translateY(3px);
+  box-shadow: inset 0 1px 0 rgba(255, 228, 170, 0.22), 0 1px 0 #120e0a;
+}
+
+.potion-slot.pressed::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(255, 220, 140, 0.42);
+  pointer-events: none;
+  animation: potion-flash 0.2s ease-out;
 }
 
 .potion-slot.empty {
   border-style: dashed;
-  border-color: #ddd8d0;
-  background: #f6f4f0;
-  box-shadow: none;
+  border-color: rgba(226, 163, 26, 0.38);
+  background: rgba(255, 244, 220, 0.05);
+  box-shadow: inset 0 1px 0 rgba(255, 228, 170, 0.12), 0 3px 0 #120e0a;
+  color: #b7a48a;
 }
 
 .potion-slot.dry {
-  border-style: dashed;
-  background: rgba(255, 241, 190, 0.35);
-  color: #a77840;
-  box-shadow: none;
+  background: linear-gradient(180deg, #4a463f 0%, #2c2925 100%);
+  border-color: #3a342c;
+  color: #8d867c;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 3px 0 #120e0a;
+}
+
+.potion-halo {
+  position: absolute;
+  inset: -3px;
+  z-index: 1;
+  border-radius: 16px;
+  padding: 2px;
+  background: conic-gradient(from -90deg, #ffc14a calc(var(--remain) * 1turn), rgba(255, 193, 74, 0.14) 0);
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
 }
 
 .potion-vacant {
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  background: #e4e0d8;
-  box-shadow: inset 0 0 0 1.5px #d0cbc3;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(255, 244, 220, 0.08);
+  box-shadow: inset 0 0 0 1.5px rgba(226, 163, 26, 0.28);
 }
 
 .potion-slot .potion-help {
   position: absolute;
-  top: -2px;
+  top: 3px;
   z-index: 2;
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   line-height: 1;
   text-align: center;
@@ -1711,7 +1825,7 @@ onUnmounted(() => {
 }
 
 .potion-slot .potion-help {
-  right: -2px;
+  right: 3px;
   background: #6a4a18;
   color: #fff8ee;
 }
@@ -1819,33 +1933,96 @@ onUnmounted(() => {
 }
 
 .potion-buffs {
-  margin: 0;
+  margin: 4px 0 0;
   padding: 0 2px;
-  color: #7a4a22;
+  color: #f0c56a;
   font-size: 10px;
   font-weight: 800;
 }
 
 .potion-slot :deep(.potion-ico) {
-  width: 16px;
-  height: 16px;
-  color: #6a3218;
+  width: 28px;
+  height: 28px;
+  color: #ffd98a;
 }
 
-.potion-name,
-.potion-qty {
+.potion-slot.dry :deep(.potion-ico) {
+  color: #8d867c;
+}
+
+.potion-name {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
-  line-height: 1.05;
+  line-height: 1.1;
   letter-spacing: 0.02em;
+  text-align: center;
 }
 
 .potion-qty {
-  color: #8a5a28;
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: #3a2a14;
+  color: #ffe7b0;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 1px 0 #120e0a;
+}
+
+.potion-slot.dry .potion-qty {
+  background: #b42318;
+  color: #fff6f4;
+}
+
+.potion-slot.pressed .potion-qty {
+  animation: potion-badge-pop 0.22s ease-out;
+}
+
+@keyframes potion-flash {
+  from { opacity: 0.95; }
+  to { opacity: 0; }
+}
+
+@keyframes potion-badge-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+@keyframes potion-breathe {
+  0%,
+  100% { filter: brightness(1); }
+  45% {
+    filter: brightness(1.45);
+    box-shadow: inset 0 0 0 2px #ffc14a, 0 0 14px rgba(255, 196, 74, 0.85), 0 4px 0 #120e0a;
+  }
+}
+
+.potion-slot.restock {
+  animation: potion-breathe 0.45s ease-in-out 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .potion-slot,
+  .potion-slot.restock,
+  .potion-slot.pressed::after,
+  .potion-slot.pressed .potion-qty {
+    animation: none;
+    transition: none;
+  }
 }
 
 .slots {
@@ -2635,11 +2812,14 @@ onUnmounted(() => {
 
 .potion-dock {
   flex: 0 0 auto;
-  margin: 6px 2px 0;
-}
-
-.potion-dock .potion-row {
-  min-height: 62px;
+  margin: 4px 6px 4px;
+  padding: 7px 7px 6px;
+  border: 1px solid #e2a31a;
+  border-radius: 12px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(226, 163, 26, 0.18), transparent 58%),
+    linear-gradient(180deg, #2c241c, #14110e);
+  box-shadow: inset 0 0 14px rgba(226, 163, 26, 0.22), inset 0 1px 0 rgba(255, 214, 140, 0.22);
 }
 
 .roster-v2.sheet-rest .col.side,

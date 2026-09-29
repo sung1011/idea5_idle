@@ -149,7 +149,7 @@ export function itemHudUsage(itemId: ItemId): string {
   const extras: string[] = []
   if (isBeastManualItem(itemId)) extras.push(beastHudUsage(itemId))
   if (isFoodItemId(itemId)) extras.push('营地伙食，残血入休息回血')
-  if (isPotionItemId(itemId) || itemId === 'potion') extras.push('苦工页药剂槽短按使用')
+  if (isPotionItemId(itemId) || itemId === 'potion') extras.push('工坊页药剂槽短按使用')
   if (itemId === 'anyPotion') extras.push('主线订单通配：扣库存最多的一种药剂')
   if (isRuneItemId(itemId)) extras.push('开战选人一槽装备，本场消耗')
   if (itemId === 'anyRune') extras.push('主线订单通配：扣库存最多的一种符文')

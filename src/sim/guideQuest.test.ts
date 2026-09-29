@@ -275,7 +275,7 @@ describe('guideQuest steps and claim', () => {
 
     save.bank.salve = 2
     expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('点状态条上方的空药剂槽，装入药剂')
+    expect(guideQuestView(save)?.goal).toBe('点工坊底部的空药剂槽，装入药剂')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(8)
 
