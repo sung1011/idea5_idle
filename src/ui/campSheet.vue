@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref } from 'vue'
 import { bankQty } from '../sim/bank'
-import { CAMP_DISPATCH_LABEL, campDispatchEntries, type CampDispatchEntry } from '../sim/campDock'
 import { guideFuseCue, isGuideQuestFlash } from '../sim/guideQuest'
 import { isModuleUnlocked, moduleLockedTip } from '../sim/moduleUnlock'
 import { FOOD_ITEM_IDS, ITEM_DEF, type FoodItemId } from '../sim/tables'
@@ -11,7 +10,7 @@ import { workerRaceShortLabel } from '../sim/workerRace'
 import { workerWearHp } from '../sim/workshopHp'
 import { appTab } from './appNav'
 import { CAMP_STATION_DRAG_TIP, campDragStationTip } from './campDragTip'
-import { closeCampSheet, requestCampDispatch } from './campDockNav'
+import { closeCampSheet } from './campDockNav'
 import { foodHelpCopy, nextFoodHelp, REST_FOOD_HELP_ROWS, REST_FOOD_HELP_TITLE } from './foodHelp'
 import FoodIcon from './foodIcon.vue'
 import { pushFloatTip } from './floatTips'
@@ -46,7 +45,6 @@ const foodHelpPos = ref({ left: 8, top: 8 })
 const foodRuleOpen = ref(false)
 const detailId = ref<string | null>(null)
 const rows = computed(() => restQueueRows(game.save))
-const entries = computed(() => campDispatchEntries(game.save))
 const fuseCue = computed(() => guideFuseCue(game.save, true))
 const guideFlashRecruit = computed(() => isGuideQuestFlash(game.save, 'recruit'))
 const guideFlashAutoHerb = computed(() => isGuideQuestFlash(game.save, 'autoHerb'))
@@ -111,10 +109,6 @@ function onPickFood(itemId: FoodItemId | null) {
   closeFoodHelp()
   game.selectRestFood(itemId)
   closeFood()
-}
-
-function onDispatch(entry: CampDispatchEntry) {
-  requestCampDispatch(entry)
 }
 
 function openDetail(worker: Worker) {
@@ -293,9 +287,6 @@ onUnmounted(() => {
             @click="game.recruit()"
           >
             抽苦工 · {{ recruitPrice }} 钻
-          </button>
-          <button v-for="entry in entries" :key="entry" type="button" class="jump" @click="onDispatch(entry)">
-            {{ CAMP_DISPATCH_LABEL[entry] }}
           </button>
           <button
             type="button"

@@ -1,16 +1,9 @@
 import { restingWorkers } from './assign'
-import { isModuleUnlocked } from './moduleUnlock'
 import type { Save } from './types'
 import { isFullWorkshopHp } from './workshopHp'
 
 /** 底栏营地圆钮。堵优先于可派；两边都没有才是安静木色。 */
 export type CampDockTone = 'blocked' | 'ready' | 'quiet'
-
-export type CampDispatchEntry = 'herb'
-
-export const CAMP_DISPATCH_LABEL: Record<CampDispatchEntry, string> = {
-  herb: '派去割草',
-}
 
 /**
  * 营地里满血、可立即派出的人。
@@ -34,10 +27,4 @@ export function campDockTone(save: Save): CampDockTone {
   if (campQueueBlocked(save)) return 'blocked'
   if (campDockCount(save) > 0) return 'ready'
   return 'quiet'
-}
-
-/** 割草没开放时不给入口。悬赏不再从营地弹框跳过去。 */
-export function campDispatchEntries(save: Pick<Save, 'knightLevel' | 'openedModules'>): CampDispatchEntry[] {
-  if (isModuleUnlocked(save, 'herb')) return ['herb']
-  return []
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CAMP_DISPATCH_LABEL, campDispatchEntries, campDockCount, campDockTone, campQueueBlocked } from './campDock'
+import { campDockCount, campDockTone, campQueueBlocked } from './campDock'
 import { createSave } from './createSave'
 import type { EnemyEncounter, HerbPvpState, Save, TreasureMine, Worker } from './types'
 
@@ -88,20 +88,5 @@ describe('camp dock tone', () => {
     const debt = saveWith(worker({ id: 'head', fatigueDebt: 1 }))
     expect(campDockTone(debt)).toBe('blocked')
     expect(campDockCount(debt)).toBe(0)
-  })
-})
-
-describe('camp dispatch entries', () => {
-  it('offers herb dispatch only after herb unlocks', () => {
-    const save = createSave()
-    expect(CAMP_DISPATCH_LABEL).toEqual({ herb: '派去割草' })
-    expect(campDispatchEntries(save)).toEqual([])
-    save.knightLevel = 9
-    expect(campDispatchEntries(save)).toEqual([])
-    save.openedModules = ['herb']
-    expect(campDispatchEntries(save)).toEqual(['herb'])
-    save.openedModules = []
-    save.knightLevel = 10
-    expect(campDispatchEntries(save)).toEqual(['herb'])
   })
 })

@@ -19,11 +19,13 @@ describe('camp dock ui', () => {
     expect(motion).toContain('animation: none')
   })
 
-  it('reuses the camp list and only offers dispatch jumps that the save has unlocked', () => {
+  it('reuses the camp list without a dispatch shortcut', () => {
     expect(sheetSource).toContain('restQueueRows')
-    expect(sheetSource).toContain('campDispatchEntries')
-    expect(sheetSource).toContain('CAMP_DISPATCH_LABEL')
+    expect(sheetSource).not.toContain('campDispatchEntries')
+    expect(sheetSource).not.toContain('CAMP_DISPATCH_LABEL')
+    expect(sheetSource).not.toContain('requestCampDispatch')
     expect(sheetSource).not.toContain('派去悬赏')
+    expect(sheetSource).not.toContain('派去割草')
     expect(sheetSource).toContain('CAMP_STATION_DRAG_TIP')
     expect(sheetSource).toContain('抽苦工')
     expect(sheetSource).toContain('>详情</button>')

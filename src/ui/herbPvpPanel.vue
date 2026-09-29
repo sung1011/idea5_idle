@@ -46,7 +46,6 @@ import {
 import { createHerbClearBoard, herbClearCaption, offerHerbClearFx, pumpHerbClearFx, type HerbClearFx } from './herbClearFx'
 import { herbClashFeedText, pushHerbFeed, type HerbFeedLine } from './herbFeed'
 import { herbProbeAimAfterPlot, herbProbeAimOnOutside, nextHerbProbeAim } from './herbProbeAim'
-import { campDispatchJump, firstHerbPickIndex, takeCampDispatch } from './campDockNav'
 import { pushFloatTip } from './floatTips'
 import PlayerAvatar from './playerAvatar.vue'
 import RankBoard from './rankBoard.vue'
@@ -210,7 +209,6 @@ onMounted(() => {
   discardHerbClearEvents()
   discardHerbClashEvents()
   window.addEventListener('pointerdown', onWindowPointerDown, true)
-  consumeCampHerb()
 })
 onBeforeUnmount(() => {
   window.removeEventListener('pointerdown', onWindowPointerDown, true)
@@ -226,15 +224,6 @@ function previewAim(index: number) {
   if (!aiming.value) return
   aimIndex.value = index
 }
-
-function consumeCampHerb() {
-  if (!takeCampDispatch('herb')) return
-  const index = firstHerbPickIndex(game.save)
-  if (index == null) return
-  onPlot(index)
-}
-
-watch(campDispatchJump, consumeCampHerb)
 
 function onPlot(index: number) {
   const plot = plots.value[index]
