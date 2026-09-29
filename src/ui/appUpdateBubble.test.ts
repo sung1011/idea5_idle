@@ -117,7 +117,7 @@ describe('update bubble decision', () => {
     ).toBe(false)
   })
 
-  it('lists at most the first three notes and keeps the title when notes are missing', () => {
+  it('lists only the latest note and keeps the title when notes are missing', () => {
     expect(
       updateBubbleLines([
         { at: '', title: '  第一条  ' },
@@ -126,7 +126,14 @@ describe('update bubble decision', () => {
         { at: '', title: '第三条' },
         { at: '', title: '第四条不进气泡' },
       ]),
-    ).toEqual(['第一条', '第二条', '第三条'])
+    ).toEqual(['第一条'])
+    expect(
+      updateBubbleLines([
+        { at: '', title: '   ' },
+        { at: '', title: '第二条才是最新一条有效说明' },
+        { at: '', title: '第三条' },
+      ]),
+    ).toEqual(['第二条才是最新一条有效说明'])
     expect(updateBubbleLines([])).toEqual([])
     expect(updateBubbleLines(null)).toEqual([])
     expect(updateBubbleTitle('')).toBe('发现新版本')

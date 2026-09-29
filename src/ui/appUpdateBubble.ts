@@ -3,7 +3,7 @@ import { hasRemoteUpdate } from './appVersion'
 
 /** 关掉过的新版本号。不进游戏存档。 */
 export const UPDATE_BUBBLE_DISMISS_KEY = 'idea5IdleUpdateBubble'
-export const UPDATE_BUBBLE_NOTE_LIMIT = 3
+export const UPDATE_BUBBLE_NOTE_LIMIT = 1
 export const UPDATE_BUBBLE_MAX_WIDTH = 272
 export const UPDATE_BUBBLE_SCREEN_GAP = 8
 
@@ -23,7 +23,7 @@ export function updateBubbleTitle(version: string): string {
   return text ? `发现新版本 v${text}` : '发现新版本'
 }
 
-/** 这次更新说明的前几条。没有记录就空列表，气泡只留标题。 */
+/** 这次更新说明里最新的一条。没有记录就空列表，气泡只留标题。 */
 export function updateBubbleLines(notes: readonly AppVersionNote[] | null | undefined, limit = UPDATE_BUBBLE_NOTE_LIMIT): string[] {
   if (!notes?.length) return []
   const cap = Math.max(0, limit)
