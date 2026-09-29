@@ -13,6 +13,9 @@ import {
   BOUNTY_TARGETS,
   TREASURE_BOUNTY_COST,
   TREASURE_FORTIFY_COST,
+  TREASURE_TRAP_COST,
+  fortifyRemainS,
+  trapRemainS,
   TREASURE_KINDS,
   TREASURE_LABEL,
   TREASURE_RAID_CAP,
@@ -158,13 +161,26 @@ function showReinforce(mine: TreasureMine): boolean {
   return treasureRaidOpenForReinforce(mine)
 }
 
-function showFortify(mine: TreasureMine): boolean {
+function showWard(mine: TreasureMine): boolean {
   return mine.owner === 'player' && mine.raid == null
 }
 
+function fortifyRemain(mine: TreasureMine): number {
+  return fortifyRemainS(mine, raidElapsed())
+}
+
+function trapRemain(mine: TreasureMine): number {
+  return trapRemainS(mine, raidElapsed())
+}
+
 function fortifyBlock(mine: TreasureMine): string | null {
-  if (mine.fortified) return '已经加固'
+  if (fortifyRemain(mine) > 0) return null
   return jewelBlock(TREASURE_FORTIFY_COST)
+}
+
+function trapBlock(mine: TreasureMine): string | null {
+  if (trapRemain(mine) > 0) return null
+  return jewelBlock(TREASURE_TRAP_COST)
 }
 
 function assaultRemain(mine: TreasureMine): number {
@@ -303,12 +319,23 @@ function onReinforce(mine: TreasureMine) {
 }
 
 function onFortify(mine: TreasureMine) {
+  if (fortifyRemain(mine) > 0) return
   const blocked = fortifyBlock(mine)
   if (blocked) {
     pushFloatTip(blocked)
     return
   }
   game.fortifyTreasureMine(mine.id)
+}
+
+function onTrap(mine: TreasureMine) {
+  if (trapRemain(mine) > 0) return
+  const blocked = trapBlock(mine)
+  if (blocked) {
+    pushFloatTip(blocked)
+    return
+  }
+  game.trapTreasureMine(mine.id)
 }
 
 function confirmPick() {
@@ -435,7 +462,8 @@ function confirmPick() {
         <p v-if="assaultRemain(mine) > 0" class="assault-warn">
           即将来袭 {{ assaultWho(mine) }} {{ formatRemainClock(assaultRemain(mine)) }}
         </p>
-        <p v-if="mine.fortified" class="fort-state">已加固</p>
+        <p v-if="fortifyRemain(mine) > 0" class="ward-state">加固中 剩 {{ formatRemainClock(fortifyRemain(mine)) }}</p>
+        <p v-if="trapRemain(mine) > 0" class="ward-state">陷阱中 剩 {{ formatRemainClock(trapRemain(mine)) }}</p>
         <template v-for="hud in raidHuds(mine)" :key="`${mine.id}-raid`">
           <div class="bars">
             <p class="bar-line">
@@ -480,6 +508,28 @@ function confirmPick() {
           {{ raidCaption(mine)!.label }} {{ formatRemainClock(raidCaption(mine)!.remainS) }}
           <i class="march-bar" aria-hidden="true"><b :style="{ width: `${Math.round(raidCaption(mine)!.progress * 100)}%` }" /></i>
         </p>
+        <div v-if="showWard(mine)" class="row ward-row">
+          <ActButton
+            icon="shield"
+            kind="primary"
+            tone="produce"
+            :cost="fortifyRemain(mine) > 0 ? undefined : `${TREASURE_FORTIFY_COST} 珠宝`"
+            :disabled="fortifyRemain(mine) > 0"
+            :class="{ 'is-short': fortifyRemain(mine) > 0 || fortifyBlock(mine) != null }"
+            :title="fortifyBlock(mine) ?? undefined"
+            @click="onFortify(mine)"
+          >{{ fortifyRemain(mine) > 0 ? `加固中 剩 ${formatRemainClock(fortifyRemain(mine))}` : '加固' }}</ActButton>
+          <ActButton
+            icon="trap"
+            kind="primary"
+            tone="produce"
+            :cost="trapRemain(mine) > 0 ? undefined : `${TREASURE_TRAP_COST} 珠宝`"
+            :disabled="trapRemain(mine) > 0"
+            :class="{ 'is-short': trapRemain(mine) > 0 || trapBlock(mine) != null }"
+            :title="trapBlock(mine) ?? undefined"
+            @click="onTrap(mine)"
+          >{{ trapRemain(mine) > 0 ? `陷阱中 剩 ${formatRemainClock(trapRemain(mine))}` : '陷阱' }}</ActButton>
+        </div>
         <div class="row">
           <ActButton
             v-if="mine.owner === 'shadow' && !mine.raid"
@@ -498,16 +548,6 @@ function confirmPick() {
             tone="produce"
             @click="openPick('mine', mine.id)"
           >开采</ActButton>
-          <ActButton
-            v-if="showFortify(mine)"
-            icon="shield"
-            kind="primary"
-            tone="produce"
-            :cost="`${TREASURE_FORTIFY_COST} 珠宝`"
-            :class="{ 'is-short': fortifyBlock(mine) != null }"
-            :title="fortifyBlock(mine) ?? undefined"
-            @click="onFortify(mine)"
-          >加固</ActButton>
           <ActButton
             v-if="showReinforce(mine)"
             icon="reinforce"
@@ -910,11 +950,37 @@ function confirmPick() {
   letter-spacing: 0.04em;
 }
 
-.fort-state {
+.ward-state {
   margin: 0;
   color: var(--copper);
   font-size: 12px;
   font-weight: 800;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ward-row {
+  flex-wrap: nowrap;
+  width: 100%;
+  min-width: 0;
+}
+
+.ward-row :deep(button.act.primary) {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  min-height: 40px;
+  padding: 4px 6px;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.ward-row :deep(button.act .lab) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .march-line {

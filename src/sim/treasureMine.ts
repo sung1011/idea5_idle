@@ -61,12 +61,16 @@ export const TREASURE_ASSAULT_CHANCE = 0.2
 export const TREASURE_ASSAULT_WARN_S = 30
 /** 守住来袭缴获的砂金。 */
 export const TREASURE_ASSAULT_LOOT = 30
-/** 加固一层的珠宝价。每洞最多一层。 */
+/** 加固的珠宝价。生效中不能再买。 */
 export const TREASURE_FORTIFY_COST = 60
-/** 下一场来袭里，我方血上限和当前血同乘这个数。 */
-export const TREASURE_FORTIFY_HP_MUL = 1.3
-/** 每洞加固层数上限。 */
-export const TREASURE_FORTIFY_CAP = 1
+/** 陷阱的珠宝价。和加固各算各的。 */
+export const TREASURE_TRAP_COST = 60
+/** 加固或陷阱各自持续的游戏秒。再买重新计满，不往已有时长上加。 */
+export const TREASURE_WARD_S = 30 * 60
+/** 加固期间，被袭守方和本场增援的血上限、当前血同乘这个数。 */
+export const TREASURE_FORTIFY_HP_MUL = 1.5
+/** 陷阱期间，来袭影子开战时按血上限扣的比例。 */
+export const TREASURE_TRAP_HP_RATIO = 0.2
 /** 战旗最高级。 */
 export const TREASURE_BANNER_MAX = 5
 /** 升到下一级的古玉价。下标是当前等级，0→1 起。 */
@@ -626,7 +630,7 @@ export function hydrateTreasureMines(save: Save): void {
       mine.raid.reinforced = mine.raid.reinforced === true
     }
     mine.assaultChargeS = keptAssaultCharge(mine.assaultChargeS)
-    mine.fortified = mine.owner === 'player' && mine.fortified === true
+    keepMineWards(save, mine)
     mine.assaultParty = keptAssaultParty(mine.assaultParty)
     mine.assaultAvatarId = typeof mine.assaultAvatarId === 'string' && mine.assaultAvatarId ? mine.assaultAvatarId : null
     mine.assaultWarnAtS =
@@ -773,7 +777,7 @@ export function claimTreasureMine(save: Save, mineId: string, workerIds: readonl
   mine.crewIds = party.map((worker) => worker.id)
   mine.digCharge = {}
   clearAssault(mine)
-  mine.fortified = false
+  clearMineWards(mine)
   for (const worker of party) {
     clearWorkerNew(save, worker.id)
     revealMineWeaknesses(mine, worker.combatAttrs)
@@ -793,25 +797,38 @@ export function abandonTreasureMine(save: Save, mineId: string): ActionResult {
   mine.raid = null
   mine.digCharge = {}
   clearAssault(mine)
-  mine.fortified = false
+  clearMineWards(mine)
   return { ok: true, message: '已放弃矿洞' }
 }
 
 /**
- * 我方开采、且没在战斗时，花珠宝加固 1 层。
- * 已经加固、珠宝不够、或这洞不是正在开采，都不扣。
+ * 我方开采、且没在战斗时，花珠宝加固 30 分钟。
+ * 还在生效、珠宝不够、或这洞不是正在开采，都不扣。再买从当前游戏秒重新计满。
  */
 export function fortifyTreasureMine(save: Save, mineId: string): ActionResult {
-  const mine = findMine(save, mineId)
-  if (!mine) return { ok: false, reason: '没有这个矿洞' }
-  if (mine.owner !== 'player' || mine.raid) return { ok: false, reason: '这洞现在不能加固' }
-  if (mine.fortified || TREASURE_FORTIFY_CAP < 1) return { ok: false, reason: '已经加固' }
-  if (vaultQty(save, 'jewel') < TREASURE_FORTIFY_COST) {
-    return { ok: false, reason: jewelShortTip(TREASURE_FORTIFY_COST, vaultQty(save, 'jewel')) }
-  }
-  trySpendVault(save, 'jewel', TREASURE_FORTIFY_COST)
-  mine.fortified = true
-  return { ok: true, message: jewelSpentTip(TREASURE_FORTIFY_COST) }
+  return buyMineWard(save, mineId, 'fortify')
+}
+
+/**
+ * 我方开采、且没在战斗时，花珠宝布置陷阱 30 分钟。
+ * 和加固分开扣、分开计时。还在生效时不扣、不延长。
+ */
+export function trapTreasureMine(save: Save, mineId: string): ActionResult {
+  return buyMineWard(save, mineId, 'trap')
+}
+
+/** 距结束还剩的游戏秒。没有或已到点是 0。 */
+export function wardRemainS(untilS: number | null | undefined, nowS: number): number {
+  if (typeof untilS !== 'number' || !Number.isFinite(untilS) || !Number.isFinite(nowS)) return 0
+  return Math.max(0, Math.ceil(untilS - nowS))
+}
+
+export function fortifyRemainS(mine: TreasureMine, nowS: number): number {
+  return wardRemainS(mine.fortifyUntilS, nowS)
+}
+
+export function trapRemainS(mine: TreasureMine, nowS: number): number {
+  return wardRemainS(mine.trapUntilS, nowS)
 }
 
 /** 弱点是否都已揭开。没有弱点表不算揭开。 */
@@ -1050,9 +1067,15 @@ function beginIncomingFight(save: Save, mine: TreasureMine): void {
     clearAssault(mine)
     return
   }
-  mine.shadows = party.map((shadow) => ({ ...shadow, hp: shadow.hpMax }))
+  const fortified = fortifyRemainS(mine, save.elapsedS) > 0
+  const trapped = trapRemainS(mine, save.elapsedS) > 0
+  mine.shadows = party.map((shadow) => {
+    const fresh = { ...shadow, hp: shadow.hpMax }
+    if (trapped) fresh.hp = trapOpeningHp(fresh.hp, fresh.hpMax)
+    return fresh
+  })
   if (mine.assaultAvatarId) mine.ownerAvatarId = mine.assaultAvatarId
-  mine.raid = openIncomingRaid(save, mine, workers, mine.fortified === true)
+  mine.raid = openIncomingRaid(save, mine, workers, fortified)
   mine.assaultWarnAtS = null
   mine.assaultParty = []
   mine.assaultChargeS = 0
@@ -1125,7 +1148,6 @@ function resolveIncomingHold(save: Save, mine: TreasureMine, raid: TreasureRaid)
   mine.shadows = []
   mine.crewIds = survivors
   mine.digCharge = {}
-  mine.fortified = false
   clearAssault(mine)
   addVault(save, 'sandGold', TREASURE_ASSAULT_LOOT)
   noteVault(mine.id, assaultLootTip(), 'ok')
@@ -1155,7 +1177,7 @@ function finishIncomingLoss(save: Save, mine: TreasureMine, raid: TreasureRaid):
   mine.digCharge = {}
   mine.owner = shadows.length ? 'shadow' : 'empty'
   mine.shadows = shadows
-  mine.fortified = false
+  clearMineWards(mine)
   clearAssault(mine)
   for (const id of ids) {
     const worker = save.workers.find((row) => row.id === id)
@@ -1324,7 +1346,7 @@ function takeOver(save: Save, mine: TreasureMine, raid: TreasureRaid): void {
   mine.raid = null
   mine.digCharge = {}
   clearAssault(mine)
-  mine.fortified = false
+  clearMineWards(mine)
   const worker = lead ? save.workers.find((row) => row.id === lead) : undefined
   if (worker && raid.atkMax > 0 && raid.atkHp > 0) {
     worker.hp = clampInt(Math.round((raid.atkHp / raid.atkMax) * worker.hpMax), 1, worker.hpMax)
@@ -1556,6 +1578,57 @@ function pullRoll(state: TreasureMineState, rolls?: number[]): number {
   return nextMineRoll(state)
 }
 
+function clearMineWards(mine: TreasureMine): void {
+  mine.fortifyUntilS = null
+  mine.trapUntilS = null
+}
+
+function keptWardUntil(raw: unknown): number | null {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return null
+  return raw
+}
+
+/** 旧档只有布尔加固。已经写过结束时间的，再读档不重新计 30 分钟。 */
+function keepMineWards(save: Save, mine: TreasureMine): void {
+  const legacy = (mine as { fortified?: unknown }).fortified === true
+  const storedFortify = keptWardUntil((mine as { fortifyUntilS?: unknown }).fortifyUntilS)
+  const storedTrap = keptWardUntil((mine as { trapUntilS?: unknown }).trapUntilS)
+  if (mine.owner === 'player') {
+    mine.fortifyUntilS = storedFortify ?? (legacy ? save.elapsedS + TREASURE_WARD_S : null)
+    mine.trapUntilS = storedTrap
+  } else {
+    mine.fortifyUntilS = null
+    mine.trapUntilS = null
+  }
+  delete (mine as { fortified?: boolean }).fortified
+}
+
+function buyMineWard(save: Save, mineId: string, kind: 'fortify' | 'trap'): ActionResult {
+  const mine = findMine(save, mineId)
+  if (!mine) return { ok: false, reason: '没有这个矿洞' }
+  const fortify = kind === 'fortify'
+  if (mine.owner !== 'player' || mine.raid) {
+    return { ok: false, reason: fortify ? '这洞现在不能加固' : '这洞现在不能布置陷阱' }
+  }
+  const remain = fortify ? fortifyRemainS(mine, save.elapsedS) : trapRemainS(mine, save.elapsedS)
+  if (remain > 0) return { ok: false, reason: fortify ? '加固还在生效' : '陷阱还在生效' }
+  const cost = fortify ? TREASURE_FORTIFY_COST : TREASURE_TRAP_COST
+  if (vaultQty(save, 'jewel') < cost) {
+    return { ok: false, reason: jewelShortTip(cost, vaultQty(save, 'jewel')) }
+  }
+  trySpendVault(save, 'jewel', cost)
+  const until = save.elapsedS + TREASURE_WARD_S
+  if (fortify) mine.fortifyUntilS = until
+  else mine.trapUntilS = until
+  return { ok: true, message: jewelSpentTip(cost) }
+}
+
+/** 开战先扣血上限的 20%，四舍五入，最低留 1。 */
+export function trapOpeningHp(hp: number, hpMax: number): number {
+  const cut = Math.round(Math.max(0, hpMax) * TREASURE_TRAP_HP_RATIO)
+  return Math.max(1, Math.max(0, hp) - cut)
+}
+
 function fortifyVitals(vitals: { hp: number; hpMax: number }, fortified: boolean): { hp: number; hpMax: number } {
   if (!fortified) return vitals
   const hpMax = Math.max(1, Math.round(vitals.hpMax * TREASURE_FORTIFY_HP_MUL))
@@ -1605,7 +1678,8 @@ function spawnMine(save: Save, elapsed: number, rolls?: number[]): TreasureMine 
     assaultWarnAtS: null,
     assaultParty: [],
     assaultAvatarId: null,
-    fortified: false,
+    fortifyUntilS: null,
+    trapUntilS: null,
   }
 }
 
