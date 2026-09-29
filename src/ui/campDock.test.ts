@@ -23,6 +23,7 @@ describe('camp dock ui', () => {
     expect(sheetSource).toContain('restQueueRows')
     expect(sheetSource).toContain('campDispatchEntries')
     expect(sheetSource).toContain('CAMP_DISPATCH_LABEL')
+    expect(sheetSource).not.toContain('派去悬赏')
     expect(sheetSource).toContain('CAMP_STATION_DRAG_TIP')
     expect(sheetSource).toContain('抽苦工')
     expect(sheetSource).toContain('>详情</button>')

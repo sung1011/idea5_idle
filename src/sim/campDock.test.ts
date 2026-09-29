@@ -92,17 +92,16 @@ describe('camp dock tone', () => {
 })
 
 describe('camp dispatch entries', () => {
-  it('always offers the battlefield and adds herb only after it unlocks', () => {
+  it('offers herb dispatch only after herb unlocks', () => {
     const save = createSave()
-    expect(CAMP_DISPATCH_LABEL.battlefield).toBe('派去悬赏')
-    expect(CAMP_DISPATCH_LABEL.herb).toBe('派去割草')
-    expect(campDispatchEntries(save)).toEqual(['battlefield'])
+    expect(CAMP_DISPATCH_LABEL).toEqual({ herb: '派去割草' })
+    expect(campDispatchEntries(save)).toEqual([])
     save.knightLevel = 9
-    expect(campDispatchEntries(save)).toEqual(['battlefield'])
+    expect(campDispatchEntries(save)).toEqual([])
     save.openedModules = ['herb']
-    expect(campDispatchEntries(save)).toEqual(['battlefield', 'herb'])
+    expect(campDispatchEntries(save)).toEqual(['herb'])
     save.openedModules = []
     save.knightLevel = 10
-    expect(campDispatchEntries(save)).toEqual(['battlefield', 'herb'])
+    expect(campDispatchEntries(save)).toEqual(['herb'])
   })
 })

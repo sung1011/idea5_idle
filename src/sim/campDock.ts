@@ -6,10 +6,9 @@ import { isFullWorkshopHp } from './workshopHp'
 /** 底栏营地圆钮。堵优先于可派；两边都没有才是安静木色。 */
 export type CampDockTone = 'blocked' | 'ready' | 'quiet'
 
-export type CampDispatchEntry = 'battlefield' | 'herb'
+export type CampDispatchEntry = 'herb'
 
 export const CAMP_DISPATCH_LABEL: Record<CampDispatchEntry, string> = {
-  battlefield: '派去悬赏',
   herb: '派去割草',
 }
 
@@ -37,9 +36,8 @@ export function campDockTone(save: Save): CampDockTone {
   return 'quiet'
 }
 
-/** 悬赏 1 级就有。割草没开放时不给入口。 */
+/** 割草没开放时不给入口。悬赏不再从营地弹框跳过去。 */
 export function campDispatchEntries(save: Pick<Save, 'knightLevel' | 'openedModules'>): CampDispatchEntry[] {
-  const entries: CampDispatchEntry[] = ['battlefield']
-  if (isModuleUnlocked(save, 'herb')) entries.push('herb')
-  return entries
+  if (isModuleUnlocked(save, 'herb')) return ['herb']
+  return []
 }
