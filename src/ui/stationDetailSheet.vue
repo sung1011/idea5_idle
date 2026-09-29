@@ -18,6 +18,8 @@ import { guideAlchemyProgressFlash } from '../sim/guideQuest'
 import { itemSourceFlashCategories, isItemSourceStationFlash } from './itemSource'
 import { pushFloatTip } from './floatTips'
 import { MANUAL_DUTY_REASON } from './workerDrag'
+import HelpMark from './helpMark.vue'
+import ModeHelpSheet from './modeHelpSheet.vue'
 import { stationHelpCopy } from './stationHelp'
 import StationTips from './stationTips.vue'
 import UiSelect from './uiSelect.vue'
@@ -191,12 +193,12 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
         :class="{ 'guide-flash': sourceFlashStation }"
       >
         <StationTips :station-id="stationId" />
-        <header>
+        <header class="page-head">
           <h2 class="title">
             {{ def.label }}
             <span class="cat">{{ cat.label }}</span>
           </h2>
-          <button type="button" class="help" :aria-pressed="helpOpen" :aria-label="`查看${def.label}说明`" @click="helpOpen = !helpOpen">？</button>
+          <HelpMark :label="`查看${def.label}说明`" @click="helpOpen = true" />
           <button type="button" class="close" aria-label="关闭" @click="emit('close')">×</button>
         </header>
         <label v-if="showCategoryPick" class="pick">
@@ -301,15 +303,6 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
           <button type="button" @click="onSwap">换人</button>
           <button type="button" @click="onWorker">苦工详情</button>
         </div>
-        <section v-if="helpOpen" class="help-box" :aria-label="`${def.label}说明`">
-          <h3>{{ help.title }}</h3>
-          <dl>
-            <div v-for="row in help.rows" :key="row.label">
-              <dt>{{ row.label }}</dt>
-              <dd>{{ row.text }}</dd>
-            </div>
-          </dl>
-        </section>
         <div class="seal">
           <ActButton v-if="station.closed" icon="check" kind="minor" @click="onOpenStation">开启</ActButton>
           <template v-else>
@@ -341,6 +334,7 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
         </button>
       </section>
     </div>
+    <ModeHelpSheet v-if="helpOpen" :title="help.title" :rows="help.rows" @close="helpOpen = false" />
   </Teleport>
 </template>
 
@@ -421,8 +415,8 @@ header {
   opacity: 0.45;
 }
 
-.help,
 .close {
+  flex: 0 0 auto;
   min-width: 32px;
   min-height: 32px;
 }
@@ -565,25 +559,6 @@ dd {
 
 .actions button {
   flex: 1 1 0;
-}
-
-.help-box {
-  padding: 8px;
-  border-radius: 10px;
-  background: rgba(255, 248, 230, 0.9);
-}
-
-.help-box h3 {
-  margin: 0 0 6px;
-  font-size: 14px;
-}
-
-.help-box dl {
-  margin: 0;
-}
-
-.help-box dt {
-  margin-top: 6px;
 }
 
 .seal {

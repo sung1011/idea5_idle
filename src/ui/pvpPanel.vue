@@ -5,6 +5,7 @@ import { isModuleUnlocked, moduleLockedTip } from '../sim/moduleUnlock'
 import { pushFloatTip } from './floatTips'
 import { unlockFlashKey } from './moduleUnlockNav'
 import { useGameStore } from './gameStore'
+import HelpMark from './helpMark.vue'
 import ModeHelpSheet from './modeHelpSheet.vue'
 import { modeHelpOf, type ModeHelpId } from './modeHelp'
 import { bootPvpView, PVP_VIEW_LABELS, PVP_VIEWS, pvpView, selectPvpView } from './pvpTabs'
@@ -58,7 +59,7 @@ const help = computed(() => modeHelpOf(helpId()))
 
 <template>
   <section class="panel">
-    <div class="head">
+    <div class="head page-head">
       <h2 class="title">PVP</h2>
       <nav class="sub" role="tablist" aria-label="PVP玩法">
         <button
@@ -79,7 +80,7 @@ const help = computed(() => modeHelpOf(helpId()))
           <i v-if="viewLocked(id)" class="lock" aria-hidden="true" />
         </button>
       </nav>
-      <button type="button" class="mode-help" aria-label="玩法说明" @click="helpOpen = true">？</button>
+      <HelpMark @click="helpOpen = true" />
     </div>
     <TreasureMinePanel v-if="pvpView === 'treasure'" />
     <HerbPvpPanel v-else-if="pvpView === 'herb'" />
@@ -182,17 +183,4 @@ const help = computed(() => modeHelpOf(helpId()))
   box-shadow: 0 2px 6px rgba(212, 160, 23, 0.32);
 }
 
-.mode-help {
-  flex: 0 0 32px;
-  width: 32px;
-  min-width: 32px;
-  height: 32px;
-  min-height: 32px;
-  padding: 0;
-  border-radius: 50%;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0;
-}
 </style>

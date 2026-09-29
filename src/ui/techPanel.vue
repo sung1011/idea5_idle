@@ -18,11 +18,15 @@ import type { TechId } from '../sim/types'
 import { useGameStore } from './gameStore'
 import { hudChipAmount, hudChipDetail } from './hudResource'
 import HudResourceSheet from './hudResourceSheet.vue'
+import HelpMark from './helpMark.vue'
+import ModeHelpSheet from './modeHelpSheet.vue'
+import { TECH_HELP } from './modeHelp'
 import { selectTechTab, techTab } from './techTabs'
 import { isGuideQuestFlash } from '../sim/guideQuest'
 
 const game = useGameStore()
 const selected = ref<TechNodeDef | null>(null)
+const helpOpen = ref(false)
 const pointsOpen = ref(false)
 const points = computed(() => hudChipAmount(game.save, 'inspiration'))
 const pointsLive = computed(() => (pointsOpen.value ? hudChipDetail(game.save, 'inspiration') : null))
@@ -82,7 +86,10 @@ function closeSheet() {
 
 <template>
   <section class="panel tree">
-    <p class="title">科技树</p>
+    <header class="page-head">
+      <h2 class="title">科技树</h2>
+      <HelpMark @click="helpOpen = true" />
+    </header>
     <div class="chips">
       <button type="button" class="chip" aria-label="可用灵感" @click="pointsOpen = true">
         <svg class="hud-ico" viewBox="0 0 24 24" aria-hidden="true">
@@ -161,6 +168,7 @@ function closeSheet() {
       </div>
     </Teleport>
     <HudResourceSheet v-if="pointsLive" :detail="pointsLive" @close="pointsOpen = false" />
+    <ModeHelpSheet v-if="helpOpen" :title="TECH_HELP.title" :rows="TECH_HELP.rows" @close="helpOpen = false" />
   </section>
 </template>
 

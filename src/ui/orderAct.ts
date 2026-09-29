@@ -19,7 +19,6 @@ function act(spec: OrderActSpec): OrderActSpec {
 }
 
 export const BATTLEFIELD_ACTS = {
-  help: act({ label: '说明', kind: 'minor', icon: 'search', place: '页签行右侧' }),
   explore: act({ label: '探索', kind: 'minor', icon: 'refresh', place: '章节标题旁', cost: true }),
   affix: act({ label: '词缀', kind: 'minor', icon: 'search', place: '卡头标签' }),
   start: act({ label: '开战', kind: 'primary', tone: 'combat', icon: 'raid', place: '卡片底部整行' }),

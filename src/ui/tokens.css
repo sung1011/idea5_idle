@@ -122,8 +122,16 @@ h3,
   letter-spacing: 0.08em;
 }
 
+.page-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+}
+
 h2.title,
-.tree > .title {
+.tree > .title,
+.tree > .page-head > .title {
   position: relative;
   display: inline-block;
   width: fit-content;
@@ -143,7 +151,9 @@ h2.title,
 h2.title::before,
 h2.title::after,
 .tree > .title::before,
-.tree > .title::after {
+.tree > .title::after,
+.tree > .page-head > .title::before,
+.tree > .page-head > .title::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -155,14 +165,16 @@ h2.title::after,
 }
 
 h2.title::before,
-.tree > .title::before {
+.tree > .title::before,
+.tree > .page-head > .title::before {
   left: -8px;
   clip-path: polygon(0 8%, 100% 0, 100% 100%, 0 92%);
   border-radius: 2px 0 0 2px;
 }
 
 h2.title::after,
-.tree > .title::after {
+.tree > .title::after,
+.tree > .page-head > .title::after {
   right: -8px;
   clip-path: polygon(0 0, 100% 8%, 100% 92%, 0 100%);
   border-radius: 0 2px 2px 0;

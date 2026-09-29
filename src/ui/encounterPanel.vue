@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ENEMY_RANK_LABEL, enemyWeaknessView, fighterRecommendLabel } from '../sim/combatAttrs'
 import ActButton from './actButton.vue'
+import HelpMark from './helpMark.vue'
 import ActIcon from './actIcon.vue'
 import CombatAttrIcon from './combatAttrIcon.vue'
 import CombatPickSheet from './combatPickSheet.vue'
@@ -458,7 +459,10 @@ function timedLine(enc: Encounter) {
 
 <template>
   <section class="panel encounter">
-    <h2 class="title">PVE</h2>
+    <header class="page-head">
+      <h2 class="title">PVE</h2>
+      <HelpMark @click="helpOpen = true" />
+    </header>
     <div class="board-nav">
       <nav class="sub" role="tablist" aria-label="PVE分页">
         <button
@@ -495,12 +499,6 @@ function timedLine(enc: Encounter) {
           {{ MAINLINE_DENSITY_LABELS[id] }}
         </button>
       </nav>
-      <ActButton
-        :icon="BATTLEFIELD_ACTS.help.icon"
-        :kind="BATTLEFIELD_ACTS.help.kind"
-        aria-label="玩法说明"
-        @click="helpOpen = true"
-      >{{ BATTLEFIELD_ACTS.help.label }}</ActButton>
     </div>
     <ModeHelpSheet v-if="helpOpen" :title="help.title" :rows="help.rows" @close="helpOpen = false" />
     <div class="chapter-head">

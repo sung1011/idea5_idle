@@ -8,7 +8,7 @@ export type ModeHelpRow = {
 }
 
 export type ModeHelp = {
-  id: ModeHelpId
+  id: string
   title: string
   rows: ModeHelpRow[]
 }
@@ -141,6 +141,26 @@ export const MODE_HELP: Record<ModeHelpId, ModeHelp> = {
       },
     ],
   },
+}
+
+/** 科技页说明。三行按现行规则：灵感来源、怎么点亮、前置和效果在哪看。 */
+export const TECH_HELP: ModeHelp = {
+  id: 'tech',
+  title: '科技',
+  rows: [
+    {
+      label: '灵感',
+      text: '新档自带 20 点。酋长每升 1 级再给 1 点。工坊做完不再加。',
+    },
+    {
+      label: '点亮',
+      text: '点本层已开、还没点满的节点，扣这一层标的灵感。同一层都能点，点过一个就开上一层。',
+    },
+    {
+      label: '效果',
+      text: '点开节点看效果和花费。还没开的层点一下，会提示未解锁。',
+    },
+  ],
 }
 
 export function modeHelpOf(id: ModeHelpId): ModeHelp {

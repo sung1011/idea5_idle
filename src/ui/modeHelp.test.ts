@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import encounter from './encounterPanel.vue?raw'
+import helpMark from './helpMark.vue?raw'
 import sheet from './modeHelpSheet.vue?raw'
 import pvp from './pvpPanel.vue?raw'
-import { MODE_HELP, modeHelpIdForMainline, modeHelpOf } from './modeHelp'
+import station from './stationDetailSheet.vue?raw'
+import tech from './techPanel.vue?raw'
+import { MODE_HELP, TECH_HELP, modeHelpIdForMainline, modeHelpOf } from './modeHelp'
 
 describe('mode help', () => {
   it('writes the four modes from the current rules', () => {
@@ -76,19 +79,43 @@ describe('mode help', () => {
     expect(modeHelpIdForMainline('mine')).toBe('battlefield')
   })
 
-  it('opens the shared sheet from the tab row', () => {
+  it('opens the shared sheet from the same question mark', () => {
     expect(sheet).toContain('class="mask"')
     expect(sheet).toContain('<dt>')
     expect(sheet).toContain('关闭')
     expect(sheet).toContain('role="dialog"')
-    for (const source of [pvp, encounter]) {
-      expect(source).toContain('aria-label="玩法说明"')
+    expect(helpMark).toContain('class="help-mark"')
+    expect(helpMark).toContain('border-radius: 50%')
+    expect(helpMark).toContain('width: 32px')
+    expect(helpMark).toContain('height: 32px')
+    expect(helpMark).toContain('aria-label="label"')
+    for (const source of [pvp, encounter, tech, station]) {
+      expect(source).toContain('<HelpMark')
       expect(source).toContain('<ModeHelpSheet')
       expect(source).toContain('helpOpen')
+      expect(source).toContain('page-head')
     }
     expect(pvp).toContain('modeHelpOf(helpId())')
     expect(pvp).toContain("'herb'")
+    expect(pvp).toContain("'beast'")
     expect(pvp).toContain("'treasure'")
     expect(encounter).toContain('modeHelpIdForMainline(currentTab.value)')
+    expect(encounter).not.toContain('BATTLEFIELD_ACTS.help')
+    expect(tech).toContain('TECH_HELP')
+    expect(station).toContain('查看${def.label}说明')
+    expect(station).not.toContain('class="help-box"')
+  })
+
+  it('writes the tech help in three lines from the current rules', () => {
+    expect(TECH_HELP.rows).toHaveLength(3)
+    expect(TECH_HELP.rows.map((row) => row.label)).toEqual(['灵感', '点亮', '效果'])
+    const text = TECH_HELP.rows.map((row) => row.text).join('')
+    expect(text).toContain('20')
+    expect(text).toContain('酋长每升 1 级再给 1 点')
+    expect(text).toContain('不再加')
+    expect(text).toContain('同一层都能点')
+    expect(text).toContain('开上一层')
+    expect(text).toContain('点开节点看效果')
+    expect(text).toContain('未解锁')
   })
 })
