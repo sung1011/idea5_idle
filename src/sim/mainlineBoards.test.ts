@@ -11,10 +11,17 @@ import {
   makeStarterCopperPawn,
   makeStarterGuideEnemy,
   makeStarterHerbEnemy,
+  STARTER_GUIDE_HERB_QTY,
+  STARTER_GUIDE_REVEALED,
+  STARTER_GUIDE_WEAKNESSES,
+  STARTER_HERB_QTY,
   startCombat,
 } from './encounters'
+import { assignWorker } from './assign'
 import { isFighting } from './combat'
+import { currentSpeed } from './query'
 import { spawnWorker } from './recruit'
+import { HERBALISM_DROP_TABLE } from './tables'
 import {
   BATTLEFIELD_SLOT_MAX,
   BATTLEFIELD_SLOT_MIN,
@@ -63,8 +70,7 @@ describe('mainline battlefield / market boards', () => {
     expect(isStarterGuideEnemy(first)).toBe(true)
     expect(first).toMatchObject(makeStarterGuideEnemy(0, 0))
     if (first.kind !== 'enemy') return
-    expect(first.needs).toEqual({})
-    expect(combatSupplyBlockReason(save, 0)).toBeNull()
+    expect(first.needs).toEqual({ herb: STARTER_GUIDE_HERB_QTY })
     expect(first.lootGold).toBe(6)
     expect(first.lootDiamonds).toBe(0)
     expect(first.quality).toBe('green')
@@ -88,16 +94,38 @@ describe('mainline battlefield / market boards', () => {
     expect(rolled.some((enc) => isStarterGuideEnemy(enc) || isStarterHerbEnemy(enc))).toBe(false)
   })
 
-  it('starts the new-save first order with an empty bank and no potion', () => {
+  it('charges the guide minion two herbs and starts once that herb is in the bank', () => {
     const save = createSave()
     expect(save.bank).toEqual({})
     const first = save.encounters[0]
     expect(isStarterGuideEnemy(first)).toBe(true)
     if (first.kind !== 'enemy') return
-    expect(first.needs).toEqual({})
-    expect(combatSupplyBlockReason(save, 0)).toBeNull()
+    expect(STARTER_GUIDE_HERB_QTY).toBe(2)
+    expect(STARTER_GUIDE_HERB_QTY).toBe(STARTER_HERB_QTY)
+    expect(first.needs).toEqual({ herb: 2 })
+    expect(first.needs).not.toHaveProperty('anyPotion')
+    expect(first.quality).toBe('green')
+    expect(first.weaknesses).toEqual([...STARTER_GUIDE_WEAKNESSES])
+    expect(first.revealedWeaknesses).toEqual([...STARTER_GUIDE_REVEALED])
+
+    const herbalist = spawnWorker(save)
+    expect(assignWorker(save, herbalist.id, 'herbalism').ok).toBe(true)
+    const herbWeight = HERBALISM_DROP_TABLE.find((row) => row.itemId === 'herb')?.weight ?? 0
+    const weightSum = HERBALISM_DROP_TABLE.reduce((sum, row) => sum + row.weight, 0)
+    const herbsInThreeMinutes = currentSpeed(save, 'herbalism') * 180 * (herbWeight / weightSum)
+    expect(herbsInThreeMinutes).toBeGreaterThanOrEqual(STARTER_GUIDE_HERB_QTY)
+
     const fighter = spawnWorker(save)
+    expect(combatSupplyBlockReason(save, 0)).toContain('货不够')
+    expect(startCombat(save, 0, [fighter.id]).ok).toBe(false)
+    save.bank.salve = 1
+    expect(combatSupplyBlockReason(save, 0)).toContain('货不够')
+    save.bank.herb = 1
+    expect(startCombat(save, 0, [fighter.id]).ok).toBe(false)
+    save.bank.herb = STARTER_GUIDE_HERB_QTY
+    expect(combatSupplyBlockReason(save, 0)).toBeNull()
     expect(startCombat(save, 0, [fighter.id]).ok).toBe(true)
+    expect(save.bank.herb ?? 0).toBe(0)
     expect(isFighting(first)).toBe(true)
   })
 

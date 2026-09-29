@@ -1327,6 +1327,11 @@ export const STARTER_GUIDE_ENEMY_LABEL = '联盟斥候'
 /** 开局亮出前两条；第三条留着，打中才揭。 */
 export const STARTER_GUIDE_WEAKNESSES = ['sword', 'fire', 'ice'] as const
 export const STARTER_GUIDE_REVEALED = ['sword', 'fire'] as const
+/**
+ * 新手单消耗草，不消耗药剂。
+ * 采药 20s 一周期，1 人在岗再 ×1.5，草占掉落 70%。几分钟期望远多于 2 株，数量对齐第 2 单。
+ */
+export const STARTER_GUIDE_HERB_QTY = 2
 
 /** 第 2 格单独前缀，避免和第一张新手单抢合成属性。 */
 export const STARTER_HERB_ENEMY_ID = 'guideHerbMinion'
@@ -1345,8 +1350,8 @@ export function isStarterHerbEnemy(enc: Encounter): enc is EnemyEncounter {
 }
 
 /**
- * 新档战场第 0 格。绿档杂兵，不消耗物资，奖励 6 金。
- * 主线第 4 步出征在熬药之前，首单不能卡药剂。弱点和敌人写死，不走 rng。
+ * 新档战场第 0 格。绿档杂兵，草 ×2，奖励 6 金。
+ * 主线第 4 步出征在熬药之前，首单不消耗药剂。弱点和敌人写死，不走 rng。
  */
 export function makeStarterGuideEnemy(seed = 0, slot = 0): EnemyEncounter {
   const id = `${STARTER_GUIDE_ENEMY_ID}-green-${seed}-${slot}`
@@ -1355,7 +1360,7 @@ export function makeStarterGuideEnemy(seed = 0, slot = 0): EnemyEncounter {
     id,
     label: STARTER_GUIDE_ENEMY_LABEL,
     quality: 'green',
-    needs: {},
+    needs: { [STARTER_HERB_ITEM_ID]: STARTER_GUIDE_HERB_QTY },
     lootGold: LOOT_GOLD_BASE,
     lootDiamonds: 0,
     departed: false,
