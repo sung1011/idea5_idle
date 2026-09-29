@@ -9,7 +9,7 @@ import type { Worker } from '../sim/types'
 import ActButton from './actButton.vue'
 import BeastIcon from './beastIcon.vue'
 import CombatPickSheet from './combatPickSheet.vue'
-import PlayerAvatar from './playerAvatar.vue'
+import RankBoard from './rankBoard.vue'
 import { useGameStore } from './gameStore'
 
 const game = useGameStore()
@@ -185,13 +185,17 @@ onUnmounted(() => {
 
     <section class="board" aria-label="本组输出排行">
       <h3>本组输出 · 日结 {{ formatBeastDuration(hud.dayRemainS) }} · 你第 {{ hud.rank }} 名</h3>
-      <ol>
-        <li v-for="row in hud.board" :key="row.id" :class="{ self: row.self }">
-          <PlayerAvatar :id="row.avatarId" />
-          <span>{{ row.rank }}. {{ row.name }}</span>
-          <b>{{ row.damage }}</b>
-        </li>
-      </ol>
+      <RankBoard
+        label="本组输出排行"
+        :rows="hud.board.map((row) => ({
+          id: row.id,
+          name: row.name,
+          avatarId: row.avatarId,
+          rank: row.rank,
+          score: row.damage,
+          self: row.self,
+        }))"
+      />
     </section>
 
     <section class="recent" aria-label="最近">
@@ -394,25 +398,17 @@ onUnmounted(() => {
   gap: 8px;
   align-items: center;
 }
-.board ol,
 .recent ul {
   margin: 6px 0 0;
   padding: 0;
   list-style: none;
 }
-.board li,
 .recent li {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 4px 0;
   font-size: 13px;
-}
-.board li.self {
-  font-weight: 700;
-}
-.board b {
-  margin-left: auto;
 }
 @keyframes flash {
   50% {

@@ -48,6 +48,7 @@ import { herbClashFeedText, pushHerbFeed, type HerbFeedLine } from './herbFeed'
 import { herbProbeAimAfterPlot, herbProbeAimOnOutside, nextHerbProbeAim } from './herbProbeAim'
 import { pushFloatTip } from './floatTips'
 import PlayerAvatar from './playerAvatar.vue'
+import RankBoard from './rankBoard.vue'
 import { useGameStore } from './gameStore'
 import { useFrameNow } from './visualProgress'
 
@@ -307,10 +308,6 @@ function workerName(id: string | null): string {
   return game.save.workers.find((worker) => worker.id === id)?.name ?? '苦工'
 }
 
-function rowKey(row: { id: string; rank: number }): string {
-  return `${row.rank}-${row.id}`
-}
-
 function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string {
   if (!spot) return herbPlotLabel(plot)
   return `${herbPlotLabel(plot)}，${spot.name}，剩余血量 ${spot.hp}`
@@ -431,13 +428,7 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
     </section>
     <h3 class="board-title">割草排行</h3>
     <p class="day-remain">距日结 {{ dayRemainText }}</p>
-    <ol class="ranks" aria-label="割草排行榜">
-      <li v-for="row in board" :key="rowKey(row)" :class="{ self: row.self }">
-        <PlayerAvatar :id="row.avatarId" />
-        <span class="who">{{ row.rank }}. {{ row.name }}</span>
-        <b>{{ row.score }}</b>
-      </li>
-    </ol>
+    <RankBoard label="割草排行榜" :rows="board" />
     <CombatPickSheet
       :open="pickIndex != null"
       :max="1"
@@ -1126,36 +1117,4 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
   font-weight: 700;
 }
 
-.ranks {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 220px;
-  margin: 0;
-  padding: 0;
-  overflow: auto;
-  list-style: none;
-}
-
-.ranks li {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 28px;
-  padding: 2px 6px;
-  border-radius: 8px;
-  background: rgba(255, 248, 230, 0.7);
-}
-
-.ranks li.self {
-  background: #fff1b8;
-}
-
-.who {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 </style>
