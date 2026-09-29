@@ -1,6 +1,8 @@
 /** 构建时写入的版本。`version` 是 git 短哈希；没有提交记录时是 `dev`。 */
 export type AppVersionInfo = {
   version: string
+  /** 完整提交哈希。旧构建可能没有。 */
+  sha?: string
   /** ISO 时间。没有记录时是空串。 */
   releasedAt: string
   notes: AppVersionNote[]
@@ -13,8 +15,28 @@ export type AppVersionNote = {
 }
 
 export const APP_VERSION_NOTE_LIMIT = 10
+/** 发现新版本时，气泡和版本页最多列出这么多条中间提交。 */
+export const UPDATE_DIFF_LIMIT = 10
 export const APP_UPDATE_CHECK_MS = 30 * 60 * 1000
 const DEV_VERSION = 'dev'
+
+export type UpdateCommit = {
+  version: string
+  at: string
+  title: string
+}
+
+export type UpdateHistory = {
+  version: string
+  commits: UpdateCommit[]
+}
+
+/** 本地版本到线上版本之间的提交。`notes` 从新到旧，最多 `limit` 条。 */
+export type UpdateGap = {
+  behind: number
+  notes: AppVersionNote[]
+  earlier: number
+}
 
 export function parseCommitLog(raw: string, limit = APP_VERSION_NOTE_LIMIT): Array<AppVersionNote & { version: string }> {
   const notes: Array<AppVersionNote & { version: string }> = []
@@ -79,6 +101,68 @@ export function hasRemoteUpdate(current: string, remote: AppVersionInfo | null):
 export function versionJsonUrl(base: string, now: number): string {
   const root = base.endsWith('/') ? base : `${base}/`
   return `${root}version.json?t=${Math.floor(now)}`
+}
+
+export function historyJsonUrl(base: string, now: number): string {
+  const root = base.endsWith('/') ? base : `${base}/`
+  return `${root}history.json?t=${Math.floor(now)}`
+}
+
+/** 短哈希和完整哈希都能对上。短于 7 位或 `dev` 不算同一提交。 */
+export function sameCommitId(local: string, remote: string): boolean {
+  const a = local.trim().toLowerCase()
+  const b = remote.trim().toLowerCase()
+  if (a.length < 7 || b.length < 7 || a === DEV_VERSION || b === DEV_VERSION) return false
+  return a === b || a.startsWith(b) || b.startsWith(a)
+}
+
+export function parseHistory(payload: unknown): UpdateHistory | null {
+  if (!payload || typeof payload !== 'object') return null
+  const row = payload as { version?: unknown; commits?: unknown }
+  const version = typeof row.version === 'string' ? row.version.trim() : ''
+  if (!version || version === DEV_VERSION || !Array.isArray(row.commits)) return null
+  const commits: UpdateCommit[] = []
+  for (const item of row.commits) {
+    if (!item || typeof item !== 'object') continue
+    const commit = item as { version?: unknown; at?: unknown; title?: unknown }
+    const id = typeof commit.version === 'string' ? commit.version.trim() : ''
+    const at = typeof commit.at === 'string' ? commit.at.trim() : ''
+    const title = typeof commit.title === 'string' ? firstLine(commit.title) : ''
+    if (!id || !at || !title) continue
+    commits.push({ version: id, at, title })
+  }
+  if (!commits.length) return null
+  return { version, commits }
+}
+
+/**
+ * `commits` 从新到旧。找到本地提交后，它前面的都是还没更新到的版本。
+ * 找不到本地提交时返回 null，调用方退回只显示最新一条。
+ */
+export function commitsBehind(
+  localVersion: string,
+  commits: readonly UpdateCommit[] | null | undefined,
+  limit = UPDATE_DIFF_LIMIT,
+): UpdateGap | null {
+  if (!commits?.length) return null
+  const index = commits.findIndex((commit) => sameCommitId(localVersion, commit.version))
+  if (index < 0) return null
+  const cap = Math.max(0, limit)
+  const notes = commits.slice(0, index).slice(0, cap).map((commit) => ({ at: commit.at, title: commit.title }))
+  return {
+    behind: index,
+    notes,
+    earlier: Math.max(0, index - cap),
+  }
+}
+
+export function updateBehindLabel(behind: number): string {
+  return `落后 ${Math.max(0, Math.floor(behind))} 个版本`
+}
+
+export function updateEarlierLabel(earlier: number): string {
+  const count = Math.max(0, Math.floor(earlier))
+  return count > 0 ? `还有 ${count} 条更早的更新` : ''
 }
 
 export function formatBeijingDateTime(iso: string): string {

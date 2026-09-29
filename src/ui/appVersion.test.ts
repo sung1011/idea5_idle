@@ -7,10 +7,15 @@ import {
   APP_UPDATE_CHECK_MS,
   APP_VERSION_NOTE_LIMIT,
   dueForUpdateCheck,
+  commitsBehind,
   formatBeijingDateTime,
   hasRemoteUpdate,
+  historyJsonUrl,
   parseCommitLog,
+  parseHistory,
   parseRemoteVersion,
+  updateBehindLabel,
+  updateEarlierLabel,
   versionInfoFromCommitLog,
   versionJsonUrl,
 } from './appVersion'
@@ -83,6 +88,77 @@ describe('app version compare', () => {
     expect(formatBeijingDateTime('nope')).toBe('')
     expect(versionJsonUrl('/idea5_idle/', 1_700_000_000_123)).toBe('/idea5_idle/version.json?t=1700000000123')
     expect(versionJsonUrl('/idea5_idle', 12)).toBe('/idea5_idle/version.json?t=12')
+    expect(historyJsonUrl('/idea5_idle/', 12)).toBe('/idea5_idle/history.json?t=12')
+    expect(historyJsonUrl('/idea5_idle', 12)).toBe('/idea5_idle/history.json?t=12')
+  })
+
+  it('lists commits between the local hash and the online head, newest first', () => {
+    const commits = Array.from({ length: 12 }, (_, index) => ({
+      version: `abc${index.toString(16).padStart(4, '0')}`,
+      at: `2026-09-28T01:${String(12 - index).padStart(2, '0')}:00.000Z`,
+      title: `说明 ${index}`,
+    }))
+    commits[3] = { version: 'bbbbbbb', at: '2026-09-28T01:09:00.000Z', title: '本地这一条' }
+    const near = commitsBehind('bbbbbbb', commits)
+    expect(near).toEqual({
+      behind: 3,
+      earlier: 0,
+      notes: [
+        { at: commits[0]!.at, title: '说明 0' },
+        { at: commits[1]!.at, title: '说明 1' },
+        { at: commits[2]!.at, title: '说明 2' },
+      ],
+    })
+    expect(updateBehindLabel(near?.behind ?? 0)).toBe('落后 3 个版本')
+    expect(updateEarlierLabel(0)).toBe('')
+
+    const far = commitsBehind('bbbbbbb', [
+      ...commits.slice(0, 3),
+      ...Array.from({ length: 9 }, (_, index) => ({
+        version: `def${index.toString(16).padStart(4, '0')}`,
+        at: `2026-09-27T00:${String(index).padStart(2, '0')}:00.000Z`,
+        title: `更早 ${index}`,
+      })),
+      { version: 'bbbbbbb', at: '2026-09-26T00:00:00.000Z', title: '本地' },
+    ])
+    expect(far?.behind).toBe(12)
+    expect(far?.notes).toHaveLength(10)
+    expect(far?.notes[0]?.title).toBe('说明 0')
+    expect(far?.notes[9]?.title).toBe('更早 6')
+    expect(far?.earlier).toBe(2)
+    expect(updateEarlierLabel(2)).toBe('还有 2 条更早的更新')
+    expect(updateBehindLabel(12)).toBe('落后 12 个版本')
+
+    expect(commitsBehind('bbbbbbb', commits.slice(0, 3)) ).toBeNull()
+    expect(commitsBehind('dev', commits)).toBeNull()
+    expect(commitsBehind('bbbbbbb', [])).toBeNull()
+    expect(commitsBehind('bbbbbbb', null)).toBeNull()
+    expect(commitsBehind('bbbbbbbfull', [{ version: 'bbbbbbb', at: '2026-09-28T00:00:00.000Z', title: '头' }])?.behind).toBe(0)
+    expect(
+      commitsBehind('abc0000', [{ version: 'abc0000fullhash', at: '2026-09-28T00:00:00.000Z', title: '同一条' }])?.behind,
+    ).toBe(0)
+  })
+
+  it('parses the online history and drops a broken payload', () => {
+    expect(parseHistory(null)).toBeNull()
+    expect(parseHistory({ version: 'abc1234' })).toBeNull()
+    expect(parseHistory({ version: 'dev', commits: [{ version: 'abc1234', at: '2026-09-28T00:00:00.000Z', title: 'x' }] })).toBeNull()
+    expect(
+      parseHistory({
+        version: ' abc1234 ',
+        commits: [
+          { version: 'abc1234', at: '2026-09-28T01:36:00.000Z', title: '  新的 \n第二行' },
+          { version: '', at: '2026-09-28T00:00:00.000Z', title: '缺哈希' },
+          { version: 'bbbbbbb', at: '2026-09-27T00:00:00.000Z', title: '更早' },
+        ],
+      }),
+    ).toEqual({
+      version: 'abc1234',
+      commits: [
+        { version: 'abc1234', at: '2026-09-28T01:36:00.000Z', title: '新的' },
+        { version: 'bbbbbbb', at: '2026-09-27T00:00:00.000Z', title: '更早' },
+      ],
+    })
   })
 
   it('checks on open, then again after 30 minutes', () => {

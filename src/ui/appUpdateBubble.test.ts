@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import app from './app.vue?raw'
 import bubble from './appUpdateBubble.vue?raw'
+import settings from './settingsPanel.vue?raw'
 import state from './appUpdateState.ts?raw'
 import type { AppVersionInfo } from './appVersion'
 import {
@@ -170,8 +171,16 @@ describe('update bubble frame', () => {
 describe('update bubble shell', () => {
   it('hangs the bubble on the settings button and refreshes from the primary button', () => {
     expect(bubble).toContain('updateBubbleTitle(version)')
+    expect(bubble).toContain('updateBehindLabel(gap.behind)')
+    expect(bubble).toContain('updateEarlierLabel(gap.earlier)')
+    expect(bubble).toContain('formatBeijingDateTime(note.at)')
     expect(bubble).toContain('class="arrow"')
     expect(bubble).toContain('立即更新')
+    expect(state).toContain('fetchHistory')
+    expect(state).toContain('commitsBehind')
+    expect(settings).toContain('updateBehindLabel(updateGap.behind)')
+    expect(settings).toContain('updateEarlierLabel(updateGap.earlier)')
+    expect(app).toContain(':gap="updateBubble.gap"')
     expect(bubble).toContain('tone="produce"')
     expect(bubble).toContain('aria-label="关闭"')
     expect(app).toContain('updateBubble')

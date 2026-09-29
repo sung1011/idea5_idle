@@ -12,8 +12,8 @@ import {
   ADD_TO_HOME_WAIT_TITLE,
 } from './addToHome'
 import { addToHomeChoiceNow, addToHomeDotOn, markAddToHomeDotSeen, requestAddToHome } from './addToHomeState'
-import { checkForAppUpdate, refreshToNewVersion, updateChecking, updateReady } from './appUpdateState'
-import { formatBeijingDateTime } from './appVersion'
+import { checkForAppUpdate, refreshToNewVersion, updateChecking, updateDiffPending, updateGap, updateLatestNote, updateReady } from './appUpdateState'
+import { formatBeijingDateTime, updateBehindLabel, updateEarlierLabel } from './appVersion'
 import { useGameStore } from './gameStore'
 import { loadPrefs, savePrefs, type Prefs } from './prefs'
 import { loadWorkshopBanter, saveWorkshopBanter } from './workshopBanter'
@@ -209,14 +209,34 @@ onUnmounted(() => {
         <button v-else type="button" class="wide" :disabled="updateChecking" @click="checkForAppUpdate(true)">
           {{ updateChecking ? '检查中' : '检查更新' }}
         </button>
-        <p v-if="notes.length" class="notes-title">更新记录</p>
-        <ol v-if="notes.length" class="notes">
-          <li v-for="note in notes" :key="`${note.at}-${note.title}`">
-            <time>{{ note.at }}</time>
-            <span>{{ note.title }}</span>
-          </li>
-        </ol>
-        <p v-else class="hint">暂时没有更新记录。</p>
+        <template v-if="updateReady && updateGap && updateGap.behind > 0">
+          <p class="notes-title">{{ updateBehindLabel(updateGap.behind) }}</p>
+          <ol v-if="updateGap.notes.length" class="notes">
+            <li v-for="note in updateGap.notes" :key="`${note.at}-${note.title}`">
+              <time>{{ formatBeijingDateTime(note.at) }}</time>
+              <span>{{ note.title }}</span>
+            </li>
+          </ol>
+          <p v-if="updateEarlierLabel(updateGap.earlier)" class="hint">{{ updateEarlierLabel(updateGap.earlier) }}</p>
+        </template>
+        <template v-else-if="updateReady && !updateDiffPending && updateLatestNote">
+          <ol class="notes">
+            <li>
+              <time v-if="formatBeijingDateTime(updateLatestNote.at)">{{ formatBeijingDateTime(updateLatestNote.at) }}</time>
+              <span>{{ updateLatestNote.title }}</span>
+            </li>
+          </ol>
+        </template>
+        <template v-else-if="!updateReady">
+          <p v-if="notes.length" class="notes-title">更新记录</p>
+          <ol v-if="notes.length" class="notes">
+            <li v-for="note in notes" :key="`${note.at}-${note.title}`">
+              <time>{{ note.at }}</time>
+              <span>{{ note.title }}</span>
+            </li>
+          </ol>
+          <p v-else class="hint">暂时没有更新记录。</p>
+        </template>
         <p class="hint">打开游戏、每 30 分钟、回到前台时会自动检查。自动发现新版本时，设置按钮旁会弹出提示，关掉后红点还在。不会自动刷新，存档不受影响。</p>
       </div>
 

@@ -1,4 +1,4 @@
-import type { AppVersionInfo, AppVersionNote } from './appVersion'
+import type { AppVersionInfo, AppVersionNote, UpdateGap } from './appVersion'
 import { hasRemoteUpdate } from './appVersion'
 
 /** 关掉过的新版本号。不进游戏存档。 */
@@ -10,6 +10,8 @@ export const UPDATE_BUBBLE_SCREEN_GAP = 8
 export type UpdateBubbleView = {
   version: string
   lines: string[]
+  /** 比对成功才有。失败时为 null，气泡退回 `lines` 里的最新一条。 */
+  gap: UpdateGap | null
 }
 
 export type UpdateBubbleFrame = {

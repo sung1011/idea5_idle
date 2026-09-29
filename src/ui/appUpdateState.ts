@@ -9,14 +9,30 @@ import {
   type UpdateBubbleView,
 } from './appUpdateBubble'
 import { startAppUpdateWatch } from './appUpdateWatch'
-import { APP_UPDATE_CHECK_MS, hasRemoteUpdate, parseRemoteVersion, versionJsonUrl, type AppVersionInfo } from './appVersion'
+import {
+  APP_UPDATE_CHECK_MS,
+  commitsBehind,
+  hasRemoteUpdate,
+  historyJsonUrl,
+  parseHistory,
+  parseRemoteVersion,
+  sameCommitId,
+  versionJsonUrl,
+  type AppVersionInfo,
+  type AppVersionNote,
+  type UpdateGap,
+} from './appVersion'
 import { pushFloatTip } from './floatTips'
 
 export const updateReady = ref(false)
 export const updateChecking = ref(false)
+export const updateDiffPending = ref(false)
+export const updateGap = ref<UpdateGap | null>(null)
+export const updateLatestNote = ref<AppVersionNote | null>(null)
 export const updateBubble = ref<UpdateBubbleView | null>(null)
 
 let watch: ReturnType<typeof startAppUpdateWatch> | null = null
+let remoteTicket = 0
 
 async function fetchRemote() {
   try {
@@ -29,6 +45,26 @@ async function fetchRemote() {
   }
 }
 
+async function fetchHistory() {
+  try {
+    const url = historyJsonUrl(import.meta.env.BASE_URL, Date.now())
+    const res = await fetch(url, { cache: 'no-store' })
+    if (!res.ok) return null
+    return parseHistory(await res.json())
+  } catch {
+    return null
+  }
+}
+
+function latestNote(notes: readonly AppVersionNote[]): AppVersionNote | null {
+  for (const note of notes) {
+    const title = note?.title?.trim() ?? ''
+    if (!title) continue
+    return { at: note.at?.trim() ?? '', title }
+  }
+  return null
+}
+
 async function nudgeServiceWorker() {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
   try {
@@ -39,8 +75,25 @@ async function nudgeServiceWorker() {
   }
 }
 
-function noteRemote(remote: AppVersionInfo, automatic: boolean) {
-  updateReady.value = hasRemoteUpdate(APP_VERSION.version, remote)
+async function noteRemote(remote: AppVersionInfo, automatic: boolean) {
+  const ticket = ++remoteTicket
+  const ready = hasRemoteUpdate(APP_VERSION.version, remote)
+  updateReady.value = ready
+  updateLatestNote.value = latestNote(remote.notes)
+  updateGap.value = null
+  updateDiffPending.value = ready
+  let gap: UpdateGap | null = null
+  if (ready) {
+    const history = await fetchHistory()
+    if (ticket !== remoteTicket) return
+    if (history && sameCommitId(history.version, remote.version)) {
+      const found = commitsBehind(APP_VERSION.version, history.commits)
+      if (found && found.behind > 0) gap = found
+    }
+  }
+  if (ticket !== remoteTicket) return
+  updateGap.value = gap
+  updateDiffPending.value = false
   if (
     shouldShowUpdateBubble({
       currentVersion: APP_VERSION.version,
@@ -51,11 +104,12 @@ function noteRemote(remote: AppVersionInfo, automatic: boolean) {
   ) {
     updateBubble.value = {
       version: remote.version.trim(),
-      lines: updateBubbleLines(remote.notes),
+      lines: gap ? [] : updateBubbleLines(remote.notes),
+      gap,
     }
     return
   }
-  if (!updateReady.value) updateBubble.value = null
+  if (!ready) updateBubble.value = null
 }
 
 export function dismissUpdateBubble(): void {
@@ -70,7 +124,7 @@ export async function checkForAppUpdate(manual = false): Promise<void> {
   try {
     const remote = await fetchRemote()
     if (remote) {
-      noteRemote(remote, !manual)
+      await noteRemote(remote, !manual)
       if (manual) pushFloatTip(updateReady.value ? '有新版本' : '已是当前版本')
     } else if (manual) {
       pushFloatTip('暂时查不到新版本', 'err')
@@ -92,7 +146,7 @@ export function startAppUpdateSchedule(): () => void {
       return remote
     },
     onUpdate: (ready, remote) => {
-      if (remote) noteRemote(remote, true)
+      if (remote) void noteRemote(remote, true)
       else updateReady.value = ready
     },
     listenVisible(fn) {

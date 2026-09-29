@@ -2,10 +2,12 @@
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import ActButton from './actButton.vue'
 import { updateBubbleArrowLeft, updateBubbleFrame, updateBubbleTitle } from './appUpdateBubble'
+import { formatBeijingDateTime, updateBehindLabel, updateEarlierLabel, type UpdateGap } from './appVersion'
 
 const props = defineProps<{
   version: string
   lines: string[]
+  gap: UpdateGap | null
   anchor: HTMLElement | null
 }>()
 
@@ -65,7 +67,17 @@ watch(() => props.anchor, () => watchAnchor())
       <i class="arrow" aria-hidden="true" :style="{ left: `${arrowLeft}px` }" />
       <button type="button" class="x" aria-label="关闭" @click="emit('close')">×</button>
       <p class="head">{{ updateBubbleTitle(version) }}</p>
-      <ul v-if="lines.length" class="lines">
+      <div v-if="gap && gap.behind > 0" class="diff">
+        <p class="behind">{{ updateBehindLabel(gap.behind) }}</p>
+        <ul v-if="gap.notes.length" class="lines">
+          <li v-for="note in gap.notes" :key="`${note.at}-${note.title}`">
+            <time>{{ formatBeijingDateTime(note.at) }}</time>
+            <span>{{ note.title }}</span>
+          </li>
+        </ul>
+        <p v-if="updateEarlierLabel(gap.earlier)" class="earlier">{{ updateEarlierLabel(gap.earlier) }}</p>
+      </div>
+      <ul v-else-if="lines.length" class="lines">
         <li v-for="(line, index) in lines" :key="`${index}-${line}`">{{ line }}</li>
       </ul>
       <ActButton icon="refresh" kind="primary" tone="produce" @click="emit('refresh')">立即更新</ActButton>
@@ -138,6 +150,27 @@ watch(() => props.anchor, () => watchAnchor())
   line-height: 1.35;
 }
 
+.diff {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: min(46vh, 280px);
+  overflow: auto;
+}
+
+.behind,
+.earlier {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.earlier {
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .lines {
   display: flex;
   flex-direction: column;
@@ -147,6 +180,13 @@ watch(() => props.anchor, () => watchAnchor())
   font-size: 13px;
   font-weight: 700;
   line-height: 1.4;
+}
+
+.lines time {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .lines li {

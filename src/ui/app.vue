@@ -345,6 +345,7 @@ watch(guideCampOpenRequest, openRequestedCamp)
       v-if="updateBubble && !settingsOpen"
       :version="updateBubble.version"
       :lines="updateBubble.lines"
+      :gap="updateBubble.gap"
       :anchor="settingsBtn"
       @close="dismissUpdateBubble"
       @refresh="refreshToNewVersion"

@@ -37,22 +37,47 @@ function readLog() {
   return notes
 }
 
+function readHistory() {
+  const raw = git(['log', '--abbrev=7', '--pretty=format:%h%x09%cI%x09%s'])
+  const commits = []
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+    const first = trimmed.indexOf('\t')
+    const second = first >= 0 ? trimmed.indexOf('\t', first + 1) : -1
+    if (first <= 0 || second <= first) continue
+    const id = trimmed.slice(0, first).trim()
+    const at = trimmed.slice(first + 1, second).trim()
+    const title = firstLine(trimmed.slice(second + 1))
+    if (!id || !at || !title) continue
+    commits.push({ version: id, at, title })
+  }
+  return commits
+}
+
 const parsed = readLog()
 const head = parsed[0]
 let version = head?.version ?? ''
 let releasedAt = head?.at ?? ''
 let notes = parsed.map((note) => ({ at: note.at, title: note.title }))
+let commits = readHistory()
 
 if (!version) {
   version = git(['rev-parse', '--short=7', 'HEAD'])
   releasedAt = git(['show', '-s', '--format=%cI', 'HEAD'])
   const title = firstLine(git(['show', '-s', '--format=%s', 'HEAD']))
-  if (version && releasedAt && title) notes = [{ at: releasedAt, title }]
+  if (version && releasedAt && title) {
+    notes = [{ at: releasedAt, title }]
+    if (!commits.length) commits = [{ version, at: releasedAt, title }]
+  }
   if (!version) version = 'dev'
 }
 
+const sha = git(['rev-parse', 'HEAD'])
+
 const info = {
   version,
+  ...(sha ? { sha } : {}),
   releasedAt,
   notes: notes.slice(0, limit),
 }
@@ -67,3 +92,8 @@ const ts = `import type { AppVersionInfo } from '../ui/appVersion'
 export const APP_VERSION: AppVersionInfo = ${JSON.stringify(info, null, 2)}
 `
 writeFileSync(join(dir, 'appVersion.ts'), ts)
+const history = {
+  version,
+  commits,
+}
+writeFileSync(join(dir, 'history.json'), `${JSON.stringify(history)}\n`)
