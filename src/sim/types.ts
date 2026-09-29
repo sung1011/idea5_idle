@@ -795,11 +795,11 @@ export type Save = {
    */
   mainLootClaims: number
   /**
-   * 左下悬浮主线当前步。开局 7 步之后，等级任务和功能任务组按解锁等级交替。
-   * 领完后步号不再显示浮层。旧档或缺低于当前 `guideQuestRev`：已满足的任务跳过且不发奖。
+   * 左下悬浮主线当前步。任何时候只有这一条，顺序写死在任务表里。
+   * 领完后步号不再显示浮层。旧档或缺低于当前 `guideQuestRev`：从第 1 条连续跳过已满足的任务。
    */
   guideQuestStep: number
-  /** 引导表版本。7 = 等级任务与功能组交替。缺或低于当前 REV 按现况重落步号。 */
+  /** 引导表版本。8 = 同级功能整组做完再接下一个。缺或低于当前 REV 按现况重落步号。 */
   guideQuestRev: number
   /** 是否已从药剂槽点用过。hydrate 时若有时效 buff 也算。 */
   guideQuestPotionUsed: boolean

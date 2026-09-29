@@ -430,7 +430,7 @@ describe('guideQuest flash target', () => {
     markGuideQuestRuneOpened(save)
     expect(guideQuestFlashId(save)).toBeNull()
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestFlashId(save)).toBe('runeCraft')
+    expect(guideQuestFlashId(save)).toBe('runeWin')
   })
 
   it('infers first incomplete step for missing fields', () => {

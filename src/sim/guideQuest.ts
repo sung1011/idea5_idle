@@ -31,10 +31,11 @@ export const GUIDE_QUEST_GOLD = 20
 /** 骑士 1 级即可装槽 / 点用。炼金在第一段，排在开战前面。 */
 export const GUIDE_QUEST_PHASE2_KNIGHT = 1
 /**
- * 7：酋长等级任务和功能任务组交替。旧 REV 按现况重落；已满足的步跳过不发奖。
+ * 8：一条主线，顺序写死。升到 N 级后把刚开放的功能整组做完，再接进阶和长目标。
+ * 旧 REV 从第 1 条连续跳过已满足的任务，停在第一条未满足的上，跳过的不发奖。
  * 旧步号到 10 视为旧段已领完。第一步仍须抽工人 2 次，只抽过 1 次的不跳过。
  */
-export const GUIDE_QUEST_REV = 7
+export const GUIDE_QUEST_REV = 8
 /** 第 3 步营地无人时的浮条文案。 */
 export const GUIDE_FUSE_EMPTY_GOAL = '再抽 1 名苦工，新人会进营地'
 /** 第 3 步营地有人、名单还没打开。 */

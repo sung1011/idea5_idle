@@ -32,7 +32,7 @@ function pawn(): PawnEncounter {
 }
 
 describe('mainline schedule', () => {
-  it('alternates level gates with the feature groups and does not let tech block market', () => {
+  it('keeps one fixed sequence and finishes each feature group before the next', () => {
     const order = ids()
     expect(order.slice(0, 9)).toEqual([
       'recruit',
@@ -49,19 +49,19 @@ describe('mainline schedule', () => {
     expect(order.indexOf('restFood')).toBeLessThan(order.indexOf('tech'))
     expect(order.indexOf('herb')).toBeLessThan(order.indexOf('tech'))
     const level6 = order.indexOf('level6')
-    expect(order.slice(level6, level6 + 6)).toEqual(['level6', 'huntStart', 'market', 'huntHaul', 'pawn', 'timed'])
+    expect(order.slice(level6, level6 + 6)).toEqual(['level6', 'huntStart', 'huntHaul', 'market', 'pawn', 'timed'])
     const level8 = order.indexOf('level8')
     expect(order.slice(level8, level8 + 7)).toEqual([
       'level8',
       'cookStart',
       'restFood',
-      'dungeon',
       'stockFood',
+      'dungeon',
       'chest',
       'dungeonBoth',
     ])
     const level18 = order.indexOf('level18')
-    expect(order.slice(level18, level18 + 5)).toEqual(['level18', 'inscribe', 'rune', 'runeCraft', 'runeWin'])
+    expect(order.slice(level18, level18 + 5)).toEqual(['level18', 'inscribe', 'runeCraft', 'rune', 'runeWin'])
     const banner = order.indexOf('banner1')
     expect(order.slice(banner)).toEqual([
       'banner1',
@@ -116,6 +116,18 @@ describe('mainline sticky completion and rewards', () => {
     expect(claimGuideQuest(market)).toEqual({ ok: true, message: '金币 +20' })
     expect(market.gold).toBe(gold + 20)
     expect(market.knightXp).toBe(0)
+  })
+
+  it('does not latch a task before it becomes the current one', () => {
+    const save = createSave()
+    save.knightLevel = 6
+    spawnWorker(save)
+    assignWorker(save, save.workers[0].id, 'hunting')
+    save.guideQuestStep = 1
+    syncGuideQuestMet(save)
+    save.workers[0].assignment = null
+    save.guideQuestStep = mainlineStepOf('huntStart')
+    expect(guideQuestProgressAt(save, save.guideQuestStep)).toBe(0)
   })
 
   it('keeps a dungeon start after the daily attempt counter is cleared', () => {
@@ -178,11 +190,23 @@ describe('mainline old saves and market flag', () => {
     save.techLevels = { pathOutpost: 1 }
     const gold = save.gold
     hydrateGuideQuestFields(save, save)
-    expect(save.guideQuestRev).toBe(7)
+    expect(save.guideQuestRev).toBe(8)
     expect(save.gold).toBe(gold)
     expect(guideQuestView(save)?.taskId).not.toBe('recruit')
     expect(guideQuestView(save)?.goal).not.toBe('抽取苦工 2 次')
     expect(save.guideQuestStep).toBeGreaterThan(mainlineStepOf('explore'))
+  })
+
+  it('stops an old save at the first unmet task and leaves a later satisfied task to claim', () => {
+    const save = createSave()
+    save.knightLevel = 20
+    save.guideQuestRev = 6
+    save.guideQuestStep = 1
+    save.techLevels = { pathOutpost: 1 }
+    hydrateGuideQuestFields(save, save)
+    expect(guideQuestView(save)?.taskId).toBe('recruit')
+    expect(save.guideQuestSkipped).not.toContain('tech')
+    expect(save.guideQuestSkipped).not.toContain('level20')
   })
 
   it('does not open the market at knight 1 just because battlefield loot set the old flag', () => {

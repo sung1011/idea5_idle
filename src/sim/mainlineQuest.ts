@@ -70,6 +70,101 @@ export const ANCIENT_GUIDE_IDS = [
   'rune',
 ] as const
 
+/**
+ * REV 7 的任务顺序。同级功能是穿插的。
+ * 升到 REV 8 时按这个顺序认「已经领过的前缀」，再落到新的固定序列上。
+ */
+const REV7_GUIDE_IDS = [
+  'recruit',
+  'autoHerb',
+  'fuse',
+  'alchemy',
+  'combat',
+  'potionInstall',
+  'potionUse',
+  'firstBlood',
+  'explore',
+  'level2',
+  'level3',
+  'alchemy3',
+  'blueWorker',
+  'level4',
+  'slotsFull',
+  'level5',
+  'chapter2',
+  'level6',
+  'huntStart',
+  'market',
+  'huntHaul',
+  'pawn',
+  'timed',
+  'level7',
+  'huntWolf',
+  'level8',
+  'cookStart',
+  'restFood',
+  'dungeon',
+  'stockFood',
+  'chest',
+  'dungeonBoth',
+  'level9',
+  'marketHigh',
+  'level10',
+  'herbAssign',
+  'herb',
+  'herbCounter',
+  'cookStew',
+  'level11',
+  'tech',
+  'techTabs',
+  'herbPayout',
+  'level12',
+  'marketSlot',
+  'dungeonGold',
+  'huntDeer',
+  'chapter3',
+  'level13',
+  'beast',
+  'beastManual',
+  'boneSoup',
+  'cyanWorker',
+  'level14',
+  'tech8',
+  'level15',
+  'feast',
+  'level16',
+  'mining',
+  'crystal',
+  'miningIron',
+  'veteran',
+  'level17',
+  'oreDeal',
+  'level18',
+  'inscribe',
+  'rune',
+  'runeCraft',
+  'runeWin',
+  'stationsOpen',
+  'level19',
+  'miningMithril',
+  'inscribe5',
+  'chapter5',
+  'level20',
+  'treasure',
+  'scout',
+  'raid',
+  'guard',
+  'banner1',
+  'level22',
+  'banner3',
+  'purpleWorker',
+  'level25',
+  'chapter8',
+  'stations10',
+  'level28',
+  'banner5',
+] as const
+
 const EMPTY_DIAMOND_LEVELS = new Set([2, 4, 7, 12, 15, 19])
 
 function gold(n: number): MainlineReward {
@@ -130,6 +225,10 @@ function task(
   return { id, goal, title, gate: 0, module, tier, reward }
 }
 
+/**
+ * 唯一的主线顺序。下标就是步号，运行时不重排。
+ * 每一段都是：升到酋长 N 级 → 刚开放的功能整组上手（一组做完再下一组）→ 这一级的进阶和长目标。
+ */
 function buildSchedule(): MainlineTask[] {
   const rows: MainlineTask[] = [
     task('recruit', '抽取苦工 2 次', '新手 · 1/5', 'intro', gold(20)),
@@ -151,8 +250,8 @@ function buildSchedule(): MainlineTask[] {
     task('chapter2', '击败本章首领，进入第 2 章', '战场 · 斩将', 'long', longReward()),
     levelTask(6),
     task('huntStart', '狩猎站有苦工在岗', '狩猎 · 出发', 'intro', gold(20), 'hunting'),
-    task('market', '完成一单集市', '集市 · 赶集', 'intro', gold(20), 'market'),
     task('huntHaul', '狩猎站成功出货累计 10 次', '狩猎 · 满载', 'intro', goods([{ id: 'salve', qty: 2, label: '巫毒回春剂' }]), 'hunting'),
+    task('market', '完成一单集市', '集市 · 赶集', 'intro', gold(20), 'market'),
     task('pawn', '在地精当铺典当成交一单', '集市 · 当铺', 'intro', gold(16), 'market'),
     task('timed', '成交一单限时集市', '集市 · 时辰', 'intro', gems(12), 'market'),
     levelTask(7),
@@ -160,8 +259,8 @@ function buildSchedule(): MainlineTask[] {
     levelTask(8),
     task('cookStart', '烹饪站有苦工在岗', '烹饪 · 起灶', 'intro', gold(20), 'cooking'),
     task('restFood', '选好营地伙食', '营地 · 开饭', 'intro', gold(20), 'restFood'),
-    task('dungeon', '打一次地牢', '地牢 · 下牢', 'intro', gold(20), 'dungeon'),
     task('stockFood', '物资里熟食、烤肉、香料炖合计至少 10 份', '烹饪 · 囤粮', 'intro', goods([{ id: 'spice', qty: 10, label: '香料' }]), 'cooking'),
+    task('dungeon', '打一次地牢', '地牢 · 下牢', 'intro', gold(20), 'dungeon'),
     task('chest', '领取一次地牢宝箱', '地牢 · 开箱', 'intro', goods([{ id: 'salve', qty: 3, label: '巫毒回春剂' }]), 'dungeon'),
     task('dungeonBoth', '同一个游戏日里两张地牢单都开过战', '地牢 · 两单', 'intro', goods([{ id: 'meal', qty: 4, label: '熟食' }]), 'dungeon'),
     levelTask(9),
@@ -198,8 +297,8 @@ function buildSchedule(): MainlineTask[] {
     task('oreDeal', '用矿石成交一单集市', '集市 · 矿石', 'advanced', gems(24, 10), 'market'),
     levelTask(18),
     task('inscribe', '铭刻站有苦工在岗', '铭刻 · 刻符', 'intro', gold(20), 'inscription'),
-    task('rune', '在选人面板点开符文槽', '符文 · 1/1', 'intro', gold(20), 'rune'),
     task('runeCraft', '铭刻站成功刻出 1 枚符文', '铭刻 · 成符', 'intro', goods([{ id: 'wildCrystal', qty: 6, label: '荒晶' }]), 'inscription'),
+    task('rune', '在选人面板点开符文槽', '符文 · 1/1', 'intro', gold(20), 'rune'),
     task('runeWin', '带着符文打赢一场战斗', '符文 · 出征', 'intro', goods([{ id: 'runeSharp', qty: 2, label: '锋锐符文' }]), 'rune'),
     task('stationsOpen', '六个生产站同时都有苦工在岗', '工坊 · 六站', 'long', longReward()),
     levelTask(19),
@@ -608,17 +707,17 @@ export function payMainlineReward(save: Save, reward: MainlineReward): string {
   return mainlineRewardLabel(reward)
 }
 
-/** 条件曾经成立就记下，之后日切或离岗也不收回。不在渲染时写档。 */
+/**
+ * 只给当前这一条记「达成过」。任务还没轮到时不算，轮到之后离岗或日切也不收回。
+ * 不在渲染时写档。
+ */
 export function syncGuideQuestMet(save: Save): void {
-  const met = new Set(Array.isArray(save.guideQuestMet) ? save.guideQuestMet : [])
-  let changed = !Array.isArray(save.guideQuestMet)
-  for (const row of MAINLINE_TASKS) {
-    if (met.has(row.id)) continue
-    if (!mainlineLive(save, row.id)) continue
-    met.add(row.id)
-    changed = true
-  }
-  if (changed) save.guideQuestMet = [...met]
+  if (!Array.isArray(save.guideQuestMet)) save.guideQuestMet = []
+  const step = typeof save.guideQuestStep === 'number' ? Math.floor(save.guideQuestStep) : 1
+  const row = mainlineTaskAt(step)
+  if (!row || !mainlineLive(save, row.id)) return
+  if (save.guideQuestMet.includes(row.id)) return
+  save.guideQuestMet = [...save.guideQuestMet, row.id]
 }
 
 function skipBit(mask: number, step: number): boolean {
@@ -626,23 +725,33 @@ function skipBit(mask: number, step: number): boolean {
   return (mask & (1 << (step - 1))) !== 0
 }
 
-/** 旧档：已满足的任务跳过且不发奖，避免高级档卡在 1 级。 */
+/**
+ * 旧档从第 1 条往后走：已经领过，或当前条件成立，就连续跳过且不发奖。
+ * 停在第一条两边都不成立的任务上。后面即使已经做成，也不提前跳过，轮到时还能领。
+ */
 export function migrateOldGuide(save: Save, oldRev: number, rawStep: number, mask: number): void {
-  const skipped = new Set<string>()
-  if (rawStep >= 10) {
-    for (const id of ANCIENT_GUIDE_IDS) skipped.add(id)
+  const claimed = new Set<string>()
+  if (oldRev === 7 && rawStep > 1) {
+    for (let i = 0; i < rawStep - 1 && i < REV7_GUIDE_IDS.length; i += 1) claimed.add(REV7_GUIDE_IDS[i])
+  } else if (rawStep >= 10) {
+    for (const id of ANCIENT_GUIDE_IDS) claimed.add(id)
   } else if (oldRev >= 5 && rawStep > 1) {
     for (let i = 0; i < rawStep - 1 && i < ANCIENT_GUIDE_IDS.length; i += 1) {
       const id = ANCIENT_GUIDE_IDS[i]
       if (id === 'recruit' && !recruited(save)) continue
-      skipped.add(id)
+      claimed.add(id)
     }
   }
   for (let step = 1; step <= REV6_GUIDE_IDS.length; step += 1) {
-    if (skipBit(mask, step)) skipped.add(REV6_GUIDE_IDS[step - 1])
+    if (skipBit(mask, step)) claimed.add(REV6_GUIDE_IDS[step - 1])
   }
+  const skipped = new Set(claimed)
   for (const row of MAINLINE_TASKS) {
-    if (mainlineLive(save, row.id)) skipped.add(row.id)
+    if (skipped.has(row.id) || mainlineLive(save, row.id)) {
+      skipped.add(row.id)
+      continue
+    }
+    break
   }
   save.guideQuestSkipped = [...skipped]
   save.guideQuestStep = 1
