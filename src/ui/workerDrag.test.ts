@@ -234,7 +234,7 @@ describe('worker drag assign', () => {
 
 describe('fuse drag tip', () => {
   it('shows only while a drag-fuse pair exists and hides after the first merge', () => {
-    expect(FUSE_DRAG_TIP).toBe('休息区同品质可合；拖到站上同品质也可合')
+    expect(FUSE_DRAG_TIP).toBe('营地同品质可合；拖到站上同品质也可合')
     const resting = unlockPlayableStations(createSave())
     const left = spawnWorkerWith(resting, 1, 'laborer')
     const right = spawnWorkerWith(resting, 1, 'artisan')

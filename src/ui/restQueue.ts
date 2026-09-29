@@ -17,8 +17,9 @@ export type RestQueueRow = {
   dim: boolean
 }
 
-export function restZoneTitle(count: number): string {
-  return `休息区 · 队首上工 · ${count} 人`
+/** 弹层标题只写地方名。人数在队列条按钮上。 */
+export function restZoneTitle(_count: number): string {
+  return '营地'
 }
 
 /**

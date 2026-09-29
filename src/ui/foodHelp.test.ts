@@ -50,7 +50,7 @@ describe('food help bubble', () => {
     expect(food).toContain('aria-label="伙食说明"')
     expect(food).toContain('ModeHelpSheet')
     expect(food).toContain('REST_FOOD_HELP_TITLE')
-    expect(REST_FOOD_HELP_TITLE).toBe('休息区伙食')
+    expect(REST_FOOD_HELP_TITLE).toBe('营地伙食')
     const noneAt = food.indexOf('>\n              不选\n            </button>')
     expect(noneAt).toBeGreaterThan(0)
     expect(food.slice(noneAt)).not.toContain('data-food-help')

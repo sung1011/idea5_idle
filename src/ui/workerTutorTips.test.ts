@@ -55,7 +55,7 @@ describe('worker tutor tips', () => {
 
   it('keeps the lines aligned with fuse and queue-head rules', () => {
     const text = WORKER_TUTOR_LINES.join('\n')
-    expect(text).toContain('休息区互合')
+    expect(text).toContain('营地互合')
     expect(text).toContain('拖到站上同品质')
     expect(text).toContain('别拖空槽')
     expect(text).toContain('队首')
@@ -180,7 +180,7 @@ describe('worker tutor tips', () => {
 
   it('hangs the tip on rest and station rows, not the combat zone', () => {
     const combatAt = workersPanelSource.indexOf('aria-label="战斗区"')
-    const restAt = workersPanelSource.indexOf('aria-label="休息区"')
+    const restAt = workersPanelSource.indexOf('aria-label="营地"')
     const styleAt = workersPanelSource.indexOf('<style')
     expect(workersPanelSource.slice(0, combatAt)).toContain('class="tutor-tip"')
     expect(workersPanelSource.slice(combatAt, restAt)).not.toContain('tutor-tip')

@@ -762,7 +762,7 @@ export function claimTreasureMine(save: Save, mineId: string, workerIds: readonl
     seen.add(id)
     const worker = save.workers.find((row) => row.id === id)
     if (!worker) return { ok: false, reason: '没有这个苦工' }
-    if (worker.assignment != null) return { ok: false, reason: '苦工不在休息区' }
+    if (worker.assignment != null) return { ok: false, reason: '苦工不在营地' }
     const busy = treasureMineBlockReason(save, id)
     if (busy) return { ok: false, reason: busy }
     party.push(worker)
@@ -864,7 +864,7 @@ export function startTreasureRaid(
     seen.add(id)
     const worker = save.workers.find((row) => row.id === id)
     if (!worker) return { ok: false, reason: '没有这个苦工' }
-    if (worker.assignment != null) return { ok: false, reason: `${worker.name ?? worker.id} 不在休息区` }
+    if (worker.assignment != null) return { ok: false, reason: `${worker.name ?? worker.id} 不在营地` }
     const busy = treasureMineBlockReason(save, id)
     if (busy) return { ok: false, reason: `${worker.name ?? worker.id} ${busy}` }
     party.push(worker)
@@ -890,7 +890,7 @@ export function treasureRaidOpenForReinforce(mine: TreasureMine): boolean {
 }
 
 /**
- * 我方洞被袭时，花珠宝从休息区派一名满血工人进入我方队列。
+ * 我方洞被袭时，花珠宝从营地派一名满血工人进入我方队列。
  * 抢别人的洞不能用。每一仗只能一次。人未进场、珠宝未动，除非全部条件都过。
  */
 export function reinforceTreasureRaid(save: Save, mineId: string, workerId: string): ActionResult {
@@ -908,7 +908,7 @@ export function reinforceTreasureRaid(save: Save, mineId: string, workerId: stri
   }
   const worker = save.workers.find((row) => row.id === workerId)
   if (!worker) return { ok: false, reason: '没有这个苦工' }
-  if (worker.assignment != null) return { ok: false, reason: '苦工不在休息区' }
+  if (worker.assignment != null) return { ok: false, reason: '苦工不在营地' }
   const busy = treasureMineBlockReason(save, worker.id)
   if (busy) return { ok: false, reason: busy }
   if (!isFullCombatHp(worker)) return { ok: false, reason: '没有满血苦工' }

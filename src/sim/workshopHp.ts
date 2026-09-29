@@ -100,7 +100,7 @@ export function stationHpEfficiencyLabel(mul: number): string {
 }
 
 export const WORKSHOP_HP_EFFICIENCY_TIP =
-  '苦工体力不足，工坊效率下降。休息区选好伙食，残血回来会自动吃；紧急可用药剂。'
+  '苦工体力不足，工坊效率下降。营地选好伙食，残血回来会自动吃；紧急可用药剂。'
 
 export function anyOnDutyHpEfficiencyDropped(save: Save): boolean {
   return save.workers.some((worker) => worker.assignment != null && workshopHpWorkMul(worker) < 1)

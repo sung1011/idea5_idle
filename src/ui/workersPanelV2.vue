@@ -804,7 +804,7 @@ onUnmounted(() => {
         <section
           class="zone rest"
           :class="[restDropClass(), { 'guide-flash': guideFlashFuse }]"
-          aria-label="休息区"
+          aria-label="营地"
           data-drop="rest"
           data-rest-pop
         >
@@ -947,7 +947,7 @@ onUnmounted(() => {
         class="band-tile band-rest"
         data-rest-toggle
         :aria-pressed="shownRest && !shownCombat"
-        aria-label="展开休息区"
+        aria-label="展开营地"
         @click="toggleRest"
       >
         <svg class="tile-ico" viewBox="0 0 16 16" aria-hidden="true">
@@ -956,14 +956,14 @@ onUnmounted(() => {
           <path fill="currentColor" d="M7 6.4H13.2V11.2H7Z" />
           <path fill="currentColor" d="M8.2 4.2H10.4V6.4H8.2Z" />
         </svg>
-        <span class="cap">休息 {{ restRows.length }}</span>
+        <span class="cap">营地 {{ restRows.length }}</span>
         <i v-if="restRows.length" class="tile-badge">{{ restRows.length }}</i>
       </button>
       <button
         type="button"
         class="band-tile band-food"
         :class="{ low: foodBand.low, 'guide-flash': guideFlashRestFood }"
-        :aria-label="`休息区伙食 · ${restFoodLabel}`"
+        :aria-label="`营地伙食 · ${restFoodLabel}`"
         @click="restFoodOpen = true"
       >
         <FoodIcon v-if="foodBand.itemId" :name="foodBand.itemId" />

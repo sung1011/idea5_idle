@@ -25,7 +25,7 @@ export const GUIDE_QUEST_GOALS = [
   '抽取苦工 2 次',
   '满血队首会自动上采药，不能手拖空岗',
   '合成两名同品质苦工',
-  '选好休息区伙食',
+  '选好营地伙食',
   '在 PVE 弹层中点击开战',
   '在炼金站炼成药剂',
   '把药剂装进技能槽',
@@ -96,7 +96,7 @@ export function hasFusedWorkers(save: Save): boolean {
   return save.workers.some((w) => w.qualityTier >= 2)
 }
 
-/** 休息区已选定一份共享伙食。未选（null）不算。 */
+/** 营地已选定一份共享伙食。未选（null）不算。 */
 export function hasSelectedRestFood(save: Pick<Save, 'restFoodId'>): boolean {
   return save.restFoodId != null
 }

@@ -174,7 +174,7 @@ describe('rest area shared food', () => {
     expect(workersPanelSource).toContain('未选伙食')
     expect(workersPanelSource).toContain('选择伙食')
     expect(workersPanelSource).toContain('onPickRestFood(null)')
-    expect(workersPanelSource).toContain('休息区伙食')
+    expect(workersPanelSource).toContain('营地伙食')
     expect(workersPanelSource).toContain('game.selectRestFood')
     expect(workersPanelSource).not.toContain('rest-food-btn')
     expect(workersPanelSource).not.toContain('卸下食物')

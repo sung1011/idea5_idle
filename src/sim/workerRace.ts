@@ -27,7 +27,7 @@ export const WORKER_RACE_LABEL: Record<WorkerRaceId, string> = {
   kobold: '狗头人',
 }
 
-/** 站点槽、休息区、行军行用的短标签。其余与全称相同。 */
+/** 站点槽、营地、行军行用的短标签。其余与全称相同。 */
 export const WORKER_RACE_SHORT_LABEL: Record<WorkerRaceId, string> = {
   orc: '兽人',
   troll: '巨魔',

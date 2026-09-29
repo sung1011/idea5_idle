@@ -142,7 +142,7 @@ describe('workshop banter bubbles', () => {
     save.workers.push(onDuty('rest', null))
     appTab.value = 'workshop'
     greetWorkshopBanter(save, () => {
-      throw new Error('休息区不应入选')
+      throw new Error('营地不应入选')
     })
     expect(workshopBanterText('rest')).toBe('')
 

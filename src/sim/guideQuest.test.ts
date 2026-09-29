@@ -121,7 +121,7 @@ describe('guideQuest normalize and hydrate', () => {
     const { guideQuestStep: _vs, guideQuestRev: _vr, ...vetRaw } = veteran
     hydrateGuideQuestFields(vetRaw as Save, vetRaw)
     expect((vetRaw as Save).guideQuestStep).toBe(4)
-    expect(guideQuestView(vetRaw as Save)?.goal).toBe('选好休息区伙食')
+    expect(guideQuestView(vetRaw as Save)?.goal).toBe('选好营地伙食')
     expect((vetRaw as Save).guideQuestRuneOpened).toBe(false)
 
     const fed = createSave()
@@ -167,7 +167,7 @@ describe('guideQuest normalize and hydrate', () => {
     hydrateGuideQuestFields(save, save)
     expect(save.guideQuestRev).toBe(GUIDE_QUEST_REV)
     expect(save.guideQuestStep).toBe(4)
-    expect(guideQuestView(save)?.goal).toBe('选好休息区伙食')
+    expect(guideQuestView(save)?.goal).toBe('选好营地伙食')
     expect(guideQuestFlashId(save)).toBe('restFood')
 
     const ahead = createSave()
@@ -249,7 +249,7 @@ describe('guideQuest steps and claim', () => {
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(4)
 
-    expect(guideQuestView(save)?.goal).toBe('选好休息区伙食')
+    expect(guideQuestView(save)?.goal).toBe('选好营地伙食')
     expect(guideQuestProgressAt(save, 4)).toBe(0)
     expect(selectRestFood(save, 'meal').ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
@@ -314,7 +314,7 @@ describe('guideQuest steps and claim', () => {
   it('completes step 4 only after a rest food is selected', () => {
     const save = createSave()
     save.guideQuestStep = 4
-    expect(guideQuestView(save)?.goal).toBe('选好休息区伙食')
+    expect(guideQuestView(save)?.goal).toBe('选好营地伙食')
     expect(guideQuestProgressAt(save, 4)).toBe(0)
     expect(selectRestFood(save, null).ok).toBe(true)
     expect(guideQuestProgressAt(save, 4)).toBe(0)

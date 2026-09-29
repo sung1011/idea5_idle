@@ -1,6 +1,6 @@
 import type { FoodItemId } from '../sim/tables'
 
-/** 休息区伙食五种。16×16 单色，和药剂图标同一套。 */
+/** 营地伙食五种。16×16 单色，和药剂图标同一套。 */
 export const FOOD_ICON_PATHS: Record<FoodItemId, readonly string[]> = {
   meal: [
     'M1.6 8.2H14.4V9.5H1.6Z',

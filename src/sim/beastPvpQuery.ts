@@ -1,6 +1,6 @@
 import type { Save } from './types'
 
-/** 正在打困兽的苦工。不进休息区，也不能开战、割草或上岗。 */
+/** 正在打困兽的苦工。不进营地，也不能开战、割草或上岗。 */
 export function isWorkerInBeastPvp(save: Save, workerId: string): boolean {
   const workers = save.beastPvp?.fight?.workers
   if (!workers) return false

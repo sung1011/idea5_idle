@@ -1017,7 +1017,7 @@ export function startBeastFight(save: Save, workerIds: readonly string[]): Actio
   for (const id of ids) {
     const worker = save.workers.find((row) => row.id === id)
     if (!worker) return { ok: false, reason: '没有这个苦工' }
-    if (worker.assignment) return { ok: false, reason: '不在休息区' }
+    if (worker.assignment) return { ok: false, reason: '不在营地' }
     if (isWorkerInCombat(save, id)) return { ok: false, reason: '正在战斗' }
     const mine = treasureMineBlockReason(save, id)
     if (mine) return { ok: false, reason: mine }

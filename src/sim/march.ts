@@ -229,7 +229,7 @@ function rowsFromRaid(mine: TreasureMine, elapsedS: number, rows: CombatZoneRow[
   }
 }
 
-/** 工坊战斗区：行军、交战、凯旋、溃退。休息区不要再列这些人。 */
+/** 工坊战斗区：行军、交战、凯旋、溃退。营地不要再列这些人。 */
 export function combatZoneRows(save: Save, now = Date.now()): CombatZoneRow[] {
   const rows: CombatZoneRow[] = []
   const seen = new Set<string>()

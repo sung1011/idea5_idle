@@ -43,13 +43,13 @@ describe('rest queue display', () => {
     expect(rows.map((row) => row.order)).toEqual([1, 2])
     expect(rows[0]).toMatchObject({ badge: REST_HEAD_BADGE, dim: false })
     expect(rows[1]).toMatchObject({ badge: null, dim: false })
-    expect(restZoneTitle(rows.length)).toBe('休息区 · 队首上工 · 2 人')
+    expect(restZoneTitle(rows.length)).toBe('营地')
   })
 
   it('draws no numbers when the rest queue is empty', () => {
     expect(restQueueRows(createSave())).toEqual([])
-    expect(restZoneTitle(0)).toBe('休息区 · 队首上工 · 0 人')
-    const restAt = workersPanelSource.indexOf('aria-label="休息区"')
+    expect(restZoneTitle(0)).toBe('营地')
+    const restAt = workersPanelSource.indexOf('aria-label="营地"')
     const emptyAt = workersPanelSource.indexOf('class="empty-rest"')
     const list = workersPanelSource.slice(restAt, emptyAt)
     expect(list).toContain('v-if="restRows.length"')

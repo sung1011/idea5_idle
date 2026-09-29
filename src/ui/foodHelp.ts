@@ -1,13 +1,13 @@
 import { EFFECT_ID, FOOD_BUFF_DEF, FOOD_HEAL_RATIO, ITEM_DEF, type FoodItemId } from '../sim/tables'
 import type { ModeHelpRow } from './modeHelp'
 
-export const REST_FOOD_HELP_TITLE = '休息区伙食'
+export const REST_FOOD_HELP_TITLE = '营地伙食'
 
 /** 选择伙食标题栏「？」的短说明。数字在食物旁的 i 里。 */
 export const REST_FOOD_HELP_ROWS: ModeHelpRow[] = [
   {
     label: '怎么玩',
-    text: '休息区共用一份伙食。残血苦工进入休息时，自动吃 1 份当前选中的食物。',
+    text: '营地共用一份伙食。残血苦工进入休息时，自动吃 1 份当前选中的食物。',
   },
   {
     label: '规则要点',

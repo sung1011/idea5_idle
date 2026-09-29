@@ -1007,7 +1007,7 @@ function playerHitsRival(save: Save, plot: HerbPlot, worker: Worker, rival: Herb
     return { ok: true, message: `撞上${rival.name}，对方退走，接着除，花 ${cost} 体力` }
   }
   sendHerbWorkerHome(save, worker)
-  if (worker.hp <= 0) return { ok: true, message: `被${rival.name}打倒，回休息区，体力未扣` }
+  if (worker.hp <= 0) return { ok: true, message: `被${rival.name}打倒，回营地，体力未扣` }
   return { ok: true, message: `没打退${rival.name}，苦工回来了，体力未扣` }
 }
 
@@ -1244,7 +1244,7 @@ export function startHerbWeed(save: Save, plotIndex: number, workerId: string): 
   if (isWorkerInHerbPvp(save, workerId)) return { ok: false, reason: '正在割草' }
   const beastBusy = beastPvpBlockReason(save, workerId)
   if (beastBusy) return { ok: false, reason: beastBusy }
-  if (worker.assignment) return { ok: false, reason: '不在休息区' }
+  if (worker.assignment) return { ok: false, reason: '不在营地' }
   if (isWorkerInCombat(save, workerId)) return { ok: false, reason: '正在战斗' }
   const mineBusy = treasureMineBlockReason(save, workerId)
   if (mineBusy) return { ok: false, reason: mineBusy }

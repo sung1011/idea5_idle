@@ -77,7 +77,7 @@ const FUSE_WISH = [
 ] as const
 
 const GOSSIP = [
-  '休息区血条比进度条满',
+  '营地血条比进度条满',
   '战斗区又倒了',
   'NEW还亮着',
   '炼金运气好我运气在挖空',
@@ -97,7 +97,7 @@ const IDLE = [
   '进度条动一下今天没白活',
   '订单不吃库存能否躺平',
   '符文一场就没',
-  '休息区回血我在回扣',
+  '营地回血我在回扣',
   '条不动我也算在岗',
   '空转这一分钟先发呆',
   '百分比再跳一下',
@@ -259,7 +259,7 @@ export type BanterPlan = {
  * 一次 tick 最多一条。成功吞吐的站，以及在岗空转的站，先按权重挑一个再做 4%～8% 检定。
  * `forced` 是第一次进工人页那一次：只挑六个生产站上在岗且未战斗的人，跳过检定、全局冷却、个人冷却。
  * 默认立刻写入冷却；`deferCommit` 时只返回计划，由调用方在确认上屏后 `apply`。
- * 不改 save（含 isNew / rngState）。休息区（无派驻）和战斗中的人不说；dragging 时整段跳过。
+ * 不改 save（含 isNew / rngState）。营地（无派驻）和战斗中的人不说；dragging 时整段跳过。
  * 掷骰顺序：选站 → 检定（forced 跳过）→（两人）对白检定 → 台词 →（对白）间隔 → 全局冷却。
  */
 export function planWorkshopBanter(input: {
@@ -346,7 +346,7 @@ export function planWorkshopBanter(input: {
 
 export type ActionBanterKind = 'assign' | 'fuse' | 'potion'
 
-/** 休息区派到生产站成功。 */
+/** 营地派到生产站成功。 */
 export const BANTER_ASSIGN_CHANCE = 0.25
 /** 合成成功。 */
 export const BANTER_FUSE_CHANCE = 0.4

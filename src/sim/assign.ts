@@ -89,7 +89,7 @@ export function firstEmptyDispatchStation(save: Save): StationId | null {
   return null
 }
 
-/** 休息区队首派到第一空槽。未满血或不可派时本轮不看后面的人。 */
+/** 营地队首派到第一空槽。未满血或不可派时本轮不看后面的人。 */
 export function assignRestingToFirstEmpty(save: Save): ActionResult {
   const idle = restingWorkers(save)[0]
   if (!idle) return { ok: false, reason: '没有可派的苦工' }

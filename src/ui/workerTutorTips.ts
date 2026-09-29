@@ -19,12 +19,12 @@ export const WORKER_TUTOR_LIFE_MS = 5000
 export const WORKER_TUTOR_GAP_MS = 7000
 
 /**
- * 与现规则一致：休息区互合，或休息工人拖到站上同品质；不能拖空槽上岗。
+ * 与现规则一致：营地互合，或休息工人拖到站上同品质；不能拖空槽上岗。
  * 队首上工、满血、封闭、回休息进队尾、不能手动上下岗。
  */
 export const WORKER_TUTOR_LINES = [
-  '拖同品质可以合成更强的：休息区互合，或拖到站上同品质的人，别拖空槽',
-  '休息区按队首上工，队首太弱会堵住后面',
+  '拖同品质可以合成更强的：营地互合，或拖到站上同品质的人，别拖空槽',
+  '营地按队首上工，队首太弱会堵住后面',
   '满血才能上岗',
   '站可以封闭，封闭后不再自动进人',
   '回休息排到队尾，不会堵在队首',
@@ -84,7 +84,7 @@ export function pickWorkerTutorLine(roll: number, previous = ''): string {
   return lines[pickIndex(lines.length, roll)] ?? WORKER_TUTOR_LINES[0]
 }
 
-/** 优先休息区。跳过战斗、夺宝，以及已经挂着工坊闲话的人。不挂空槽。 */
+/** 优先营地。跳过战斗、夺宝，以及已经挂着工坊闲话的人。不挂空槽。 */
 export function workerTutorCandidateIds(save: Save): string[] {
   const resting = restingWorkers(save)
     .map((worker) => worker.id)

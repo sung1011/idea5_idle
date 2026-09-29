@@ -88,7 +88,7 @@ export function fuseWorkers(save: Save, workerIdA: string, workerIdB: string): A
   return fusePairAt(save, a, b, stayAt)
 }
 
-/** 至少一人在休息、同档、未满档。在岗拖到休息区同档人也可以合。两人都在岗不算。 */
+/** 至少一人在休息、同档、未满档。在岗拖到营地同档人也可以合。两人都在岗不算。 */
 export function canFuseRestWorkers(save: Save, workerIdA: string, workerIdB: string): boolean {
   if (!workerIdA || !workerIdB || workerIdA === workerIdB) return false
   const a = findWorker(save, workerIdA)
@@ -100,7 +100,7 @@ export function canFuseRestWorkers(save: Save, workerIdA: string, workerIdB: str
   return fusePairReady(a, b) == null
 }
 
-/** 休息区同档合成，或在岗拖到休息区同档人。新人回休息，不留在工位。 */
+/** 营地同档合成，或在岗拖到营地同档人。新人回休息，不留在工位。 */
 export function fuseRestWorkers(save: Save, workerIdA: string, workerIdB: string): ActionResult {
   if (!workerIdA || !workerIdB) return { ok: false, reason: '请选两个同品质苦工' }
   const a = findWorker(save, workerIdA)
@@ -109,7 +109,7 @@ export function fuseRestWorkers(save: Save, workerIdA: string, workerIdB: string
   if (ready || !a || !b) return ready ?? { ok: false, reason: '没有这个苦工' }
   if (isWorkerInHerbPvp(save, a.id) || isWorkerInHerbPvp(save, b.id)) return { ok: false, reason: '正在割草' }
   if (isWorkerInBeastPvp(save, a.id) || isWorkerInBeastPvp(save, b.id)) return { ok: false, reason: '正在困兽' }
-  if (a.assignment != null && b.assignment != null) return { ok: false, reason: '只能在休息区合成' }
+  if (a.assignment != null && b.assignment != null) return { ok: false, reason: '只能在营地合成' }
   return fusePairAt(save, a, b, null)
 }
 

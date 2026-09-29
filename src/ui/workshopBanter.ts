@@ -164,7 +164,7 @@ export function offerWorkshopBanter(save: Save, successStationIds: readonly Stat
   playWorkshopBanter(event)
 }
 
-/** 工作区六个生产站上、且当前不在战斗的人。休息区与战斗区不算。 */
+/** 工作区六个生产站上、且当前不在战斗的人。营地与战斗区不算。 */
 function onDutyWorkers(save: Save) {
   return save.workers.filter(
     (worker) =>

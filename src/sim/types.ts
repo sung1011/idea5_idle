@@ -144,7 +144,7 @@ export type ClassId =
 export type TechId = string
 
 /** 工人品质档。1 最低（抽人默认），10 最高（不能再合成）。 */
-/** 休息区伙食。骨汤 / 猎人肉串是困兽兽材手动做的，不进烹饪站自动循环。 */
+/** 营地伙食。骨汤 / 猎人肉串是困兽兽材手动做的，不进烹饪站自动循环。 */
 export type RestFoodId = 'meal' | 'roast' | 'stew' | 'boneSoup' | 'hunterSkewer'
 
 export type QualityTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10
@@ -457,7 +457,7 @@ export type StationState = {
   craftNotice?: string | null
   /** 站内连招 / 毒雾 / 挫败。旧档缺字段 hydrate 为零。 */
   fatigueCombo: StationFatigueCombo
-  /** 封闭：休息区自动填岗跳过。已在岗的人继续干。旧档缺省 false。 */
+  /** 封闭：营地自动填岗跳过。已在岗的人继续干。旧档缺省 false。 */
   closed: boolean
 }
 
@@ -756,7 +756,7 @@ export type Save = {
   /** 站间物资数量。旧档字段名仍叫 bank；无容量。 */
   bank: Partial<Record<ItemId, number>>
   /**
-   * 休息区当前伙食。残血工人进入休息时从物资扣 1 份。
+   * 营地当前伙食。残血工人进入休息时从物资扣 1 份。
    * 缺省 null 表示未选。
    */
   restFoodId: RestFoodId | null
@@ -782,7 +782,7 @@ export type Save = {
    * 旧档或缺低于当前 `guideQuestRev`：按现况落到第一未完成新步。
    */
   guideQuestStep: number
-  /** 引导表版本。5 = 工坊五步（队首自动上采药、选休息区伙食）。缺或低于当前 REV 按现况重落步号。 */
+  /** 引导表版本。5 = 工坊五步（队首自动上采药、选营地伙食）。缺或低于当前 REV 按现况重落步号。 */
   guideQuestRev: number
   /** 是否已从药剂槽点用过。hydrate 时若有时效 buff 也算。 */
   guideQuestPotionUsed: boolean

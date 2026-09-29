@@ -264,7 +264,7 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
           <ActButton v-if="station.closed" icon="check" kind="minor" @click="onOpenStation">开启</ActButton>
           <template v-else>
             <p v-if="sealAsk" class="seal-ask" role="alertdialog" :aria-label="`确认封闭${def.label}`">
-              封闭后休息区不再自动派到这一站，已在岗的人继续干。
+              封闭后营地不再自动派到这一站，已在岗的人继续干。
               <button type="button" @click="onCancelSeal">取消</button>
               <button type="button" @click="onConfirmSeal">确定封闭</button>
             </p>

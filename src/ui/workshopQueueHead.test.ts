@@ -93,7 +93,7 @@ describe('workshop status band', () => {
     expect(band.indexOf('队列空')).toBeLessThan(band.indexOf('band-rest'))
     expect(band.indexOf('band-rest')).toBeLessThan(band.indexOf('band-food'))
     expect(band.indexOf('band-food')).toBeLessThan(band.indexOf('band-recruit'))
-    expect(band).toContain('休息 {{ restRows.length }}')
+    expect(band).toContain('营地 {{ restRows.length }}')
     expect(band).toContain('tile-badge')
     expect(band).toContain('抽苦工')
     const styleAt = workersPanelSource.indexOf('<style')

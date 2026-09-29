@@ -36,7 +36,7 @@ describe('combat pick sheet', () => {
     expect(herb).toContain(':show-assist="false"')
     expect(herb).toContain(':can-pick="canSend"')
     expect(herb).not.toContain('class="pick-list"')
-    expect(herb).not.toContain('休息区没有满血苦工')
+    expect(herb).not.toContain('营地没有满血苦工')
     expect(encounter).not.toContain('orderHerbPick')
     expect(encounter).not.toContain('herbCounterMark')
     expect(mine).not.toContain('orderHerbPick')

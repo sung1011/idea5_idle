@@ -70,7 +70,7 @@ export function sameDragEndpoint(source: WorkerDragSource, target: WorkerDropTar
   )
 }
 
-export const FUSE_DRAG_TIP = '休息区同品质可合；拖到站上同品质也可合'
+export const FUSE_DRAG_TIP = '营地同品质可合；拖到站上同品质也可合'
 
 /** 休息拖进空槽、或把在岗拖回休息。合成两条路不走这里。 */
 export const MANUAL_DUTY_REASON = '不能手动上下岗'
@@ -84,7 +84,7 @@ function manualDutyDragReason(save: Save, source: WorkerDragSource, target: Work
   return null
 }
 
-/** 休息区同档，或有人可拖到站上同档工人。满档与战斗中不算。 */
+/** 营地同档，或有人可拖到站上同档工人。满档与战斗中不算。 */
 export function canDragFuseAny(save: Save): boolean {
   const draggable = save.workers.filter((worker) => canDragWorker(save, worker.id))
   for (let i = 0; i < draggable.length; i += 1) {
