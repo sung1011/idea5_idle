@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import sheetSource from './campSheet.vue?raw'
 import detailSource from './stationDetailSheet.vue?raw'
 import miniSource from './stationMiniBar.vue?raw'
 import workersPanelSource from './workersPanelV2.vue?raw'
@@ -54,8 +55,9 @@ describe('station detail button', () => {
     expect(workersPanelSource).not.toContain('从${board.label}撤出')
     expect(workersPanelSource).not.toContain('assignHerb')
     expect(workersPanelSource).toContain("guideFlashAutoHerb && board.stationId === 'herbalism'")
-    expect(workersPanelSource).toContain('guideFlashAutoHerb && row.order === 1')
-    expect(workersPanelSource).toContain('guideFlashRestFood')
+    expect(sheetSource).toContain('guideFlashAutoHerb && row.order === 1')
+    expect(sheetSource).toContain('guideFlashRestFood')
+    expect(workersPanelSource).not.toContain('guideFlashRestFood')
     expect(workersPanelSource).not.toContain('rest-actions')
     expect(workersPanelSource).not.toContain('aria-label="派入"')
     expect(workersPanelSource).not.toContain('canDispatch')

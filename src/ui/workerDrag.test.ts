@@ -7,6 +7,8 @@ import { unlockPlayableStations } from '../sim/stationUnlock'
 import { QUALITY_MAX, STATION_WORKER_CAP } from '../sim/tables'
 import type { EnemyEncounter } from '../sim/types'
 import detailSheetSource from './stationDetailSheet.vue?raw'
+import campSource from './campSheet.vue?raw'
+import workerDetailSource from './workerDetailSheet.vue?raw'
 import panelSource from './workersPanelV2.vue?raw'
 import {
   applyWorkerDrag,
@@ -48,11 +50,11 @@ describe('worker drag threshold', () => {
   })
 
   it('keeps native scrolling off camp workers and cancels it in the pointer path', () => {
-    expect(panelSource).toMatch(/\.rest-list \.rest-face[\s\S]*?touch-action:\s*none/)
-    expect(panelSource).toContain('if (source?.kind === \'rest\')')
-    expect(panelSource).toContain('ev.preventDefault()')
-    expect(panelSource).toContain('workerDragEdgeDelta')
-    expect(panelSource).toContain('ref="restListEl"')
+    expect(campSource).toMatch(/\.row\s*\{[^}]*touch-action:\s*none/)
+    expect(campSource).toContain("kind: 'rest'")
+    expect(campSource).toContain('ev.preventDefault()')
+    expect(campSource).toContain('workerDragEdgeDelta')
+    expect(campSource).toContain('ref="restListEl"')
   })
 })
 
@@ -303,7 +305,8 @@ describe('fuse drag tip', () => {
     expect(save.workers.find((worker) => worker.qualityTier === 3)?.assignment).toBeNull()
     expect(detailSheetSource).toContain('MANUAL_DUTY_REASON')
     expect(detailSheetSource).not.toContain('game.withdraw')
-    expect(panelSource).toContain('MANUAL_DUTY_REASON')
+    expect(workerDetailSource).toContain('MANUAL_DUTY_REASON')
+    expect(panelSource).not.toContain('MANUAL_DUTY_REASON')
     expect(panelSource).not.toContain('game.assignIdle')
     expect(panelSource).not.toContain('onEmptySlot')
     expect(panelSource).not.toContain('点此派入')

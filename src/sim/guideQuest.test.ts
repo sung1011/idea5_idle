@@ -7,9 +7,13 @@ import {
   GUIDE_QUEST_DONE_STEP,
   GUIDE_QUEST_GOLD,
   GUIDE_QUEST_PHASE3_START,
+  GUIDE_AUTO_HERB_CLOSED_GOAL,
+  GUIDE_AUTO_HERB_OPEN_GOAL,
   GUIDE_FUSE_DRAG_GOAL,
   GUIDE_FUSE_EMPTY_GOAL,
   GUIDE_FUSE_OPEN_GOAL,
+  GUIDE_RECRUIT_CLOSED_GOAL,
+  GUIDE_RECRUIT_OPEN_GOAL,
   GUIDE_QUEST_REV,
   GUIDE_QUEST_STEPS,
   claimGuideQuest,
@@ -72,7 +76,7 @@ describe('guideQuest normalize and hydrate', () => {
       phaseTotal: 5,
       title: '招兵',
       taskId: 'recruit',
-      goal: '抽取苦工 2 次',
+      goal: GUIDE_RECRUIT_CLOSED_GOAL,
       rewardLabel: '金币 +20、酋长经验 +20',
       progress: 0,
       progressLabel: '进度 0/2',
@@ -249,7 +253,8 @@ describe('guideQuest steps and claim', () => {
     expect(save.gold).toBe(gold0 + GUIDE_QUEST_GOLD)
     expect(save.diamonds).toBe(START_DIAMONDS - RECRUIT_COST * 2)
 
-    expect(guideQuestView(save)?.goal).toBe('采药站有人在岗，或采药站出过货')
+    expect(guideQuestView(save)?.goal).toBe(GUIDE_AUTO_HERB_CLOSED_GOAL)
+    expect(guideQuestView(save, true)?.goal).toBe(GUIDE_AUTO_HERB_OPEN_GOAL)
     expect(assignRestingToFirstEmpty(save).ok).toBe(true)
     expect(save.workers.some((worker) => worker.assignment === 'herbalism')).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
@@ -452,6 +457,18 @@ describe('guideQuest flash target', () => {
 })
 
 describe('guide fuse and alchemy cues', () => {
+  it('points recruit and auto-assign copy at the camp button and the open sheet', () => {
+    const save = createSave()
+    expect(guideQuestView(save, false)?.goal).toBe(GUIDE_RECRUIT_CLOSED_GOAL)
+    expect(guideQuestView(save, true)?.goal).toBe(GUIDE_RECRUIT_OPEN_GOAL)
+    expect(GUIDE_RECRUIT_CLOSED_GOAL).toContain('底部营地')
+    expect(GUIDE_RECRUIT_OPEN_GOAL).toContain('营地弹框')
+    expect(GUIDE_AUTO_HERB_CLOSED_GOAL).toContain('底部营地')
+    expect(GUIDE_AUTO_HERB_OPEN_GOAL).toContain('队首')
+    expect(GUIDE_FUSE_EMPTY_GOAL).toContain('底部营地')
+    expect(GUIDE_FUSE_DRAG_GOAL).toContain('营地弹框')
+  })
+
   it('flashes recruit while step 3 has an empty camp', () => {
     const save = createSave()
     save.guideQuestStep = 3

@@ -37,8 +37,16 @@ export const GUIDE_QUEST_PHASE2_KNIGHT = 1
  * 跳过位图记到 90 步。旧步号到 10 视为旧段已领完。第一步仍须抽工人 2 次。
  */
 export const GUIDE_QUEST_REV = 9
+/** 第 1 步还没打开营地。 */
+export const GUIDE_RECRUIT_CLOSED_GOAL = '点底部营地，抽取苦工 2 次'
+/** 第 1 步营地弹框已打开。 */
+export const GUIDE_RECRUIT_OPEN_GOAL = '在营地弹框里抽取苦工 2 次'
+/** 第 2 步还没打开营地。 */
+export const GUIDE_AUTO_HERB_CLOSED_GOAL = '点底部营地，队首满血会自动上采药站'
+/** 第 2 步营地弹框已打开。 */
+export const GUIDE_AUTO_HERB_OPEN_GOAL = '看营地弹框里的队首，满血就会上采药站'
 /** 第 3 步营地无人时的浮条文案。 */
-export const GUIDE_FUSE_EMPTY_GOAL = '再抽 1 名苦工，新人会进营地'
+export const GUIDE_FUSE_EMPTY_GOAL = '点底部营地，再抽 1 名苦工，新人会进营地'
 /** 第 3 步营地有人、名单还没打开。 */
 export const GUIDE_FUSE_OPEN_GOAL = '点底部营地，打开名单'
 /** 开战步卡面弱点行说明。 */
@@ -47,7 +55,7 @@ export const GUIDE_WEAKNESS_CARD_TIP =
 /** 开战步选人面板，对准带「推荐」的苦工。 */
 export const GUIDE_WEAKNESS_PICK_TIP = '这名苦工的属性正好打中弱点'
 /** 第 3 步营地名单已打开。 */
-export const GUIDE_FUSE_DRAG_GOAL = '按住苦工，往任意方向拖到同品质的人身上合成'
+export const GUIDE_FUSE_DRAG_GOAL = '在营地弹框里按住苦工，往任意方向拖到同品质的人身上合成'
 /** 第一阶段「抽工人」完成所需次数（花名册人数或已生成序号，取较大）。 */
 export const GUIDE_QUEST_RECRUIT_NEED = 2
 
@@ -339,6 +347,8 @@ export function guideAlchemyProgressFlash(save: Save, stationId: StationId): boo
 }
 
 function guideStepGoal(save: Save, row: MainlineTask, claimable: boolean, campOpen: boolean): string {
+  if (!claimable && row.id === 'recruit') return campOpen ? GUIDE_RECRUIT_OPEN_GOAL : GUIDE_RECRUIT_CLOSED_GOAL
+  if (!claimable && row.id === 'autoHerb') return campOpen ? GUIDE_AUTO_HERB_OPEN_GOAL : GUIDE_AUTO_HERB_CLOSED_GOAL
   if (row.id === 'fuse' && !claimable) {
     const cue = guideFuseCue(save, campOpen)
     if (cue === 'recruit') return GUIDE_FUSE_EMPTY_GOAL

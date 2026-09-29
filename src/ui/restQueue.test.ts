@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createSave } from '../sim/createSave'
 import type { Save, Worker } from '../sim/types'
-import workersPanelSource from './workersPanelV2.vue?raw'
+import sheetSource from './campSheet.vue?raw'
 import {
   REST_BLOCK_BADGE,
   REST_HEAD_BADGE,
@@ -49,12 +49,12 @@ describe('rest queue display', () => {
   it('draws no numbers when the rest queue is empty', () => {
     expect(restQueueRows(createSave())).toEqual([])
     expect(restZoneTitle(0)).toBe('营地')
-    const restAt = workersPanelSource.indexOf('aria-label="营地"')
-    const emptyAt = workersPanelSource.indexOf('class="empty-rest"')
-    const list = workersPanelSource.slice(restAt, emptyAt)
-    expect(list).toContain('v-if="restRows.length"')
-    expect(list).toContain('class="rest-order"')
-    expect(list.indexOf('v-if="restRows.length"')).toBeLessThan(list.indexOf('class="rest-order"'))
+    const restAt = sheetSource.indexOf('aria-label="营地"')
+    const emptyAt = sheetSource.indexOf('class="empty"')
+    const list = sheetSource.slice(restAt, emptyAt)
+    expect(list).toContain('v-if="rows.length"')
+    expect(list).toContain('class="order"')
+    expect(list.indexOf('v-if="rows.length"')).toBeLessThan(list.indexOf('class="order"'))
   })
 
   it('marks a not-full head as blocking and dims the rows behind', () => {
@@ -87,9 +87,9 @@ describe('rest queue display', () => {
       dim: false,
     })
 
-    const styleAt = workersPanelSource.indexOf('<style')
-    expect(workersPanelSource.slice(styleAt)).toMatch(/\.rest-row\.queue-dim\s*\{[^}]*opacity:\s*0\.5/)
-    expect(workersPanelSource).toContain("'queue-dim': row.dim")
-    expect(workersPanelSource).toContain("'queue-ready': row.badge === REST_HEAD_BADGE")
+    const styleAt = sheetSource.indexOf('<style')
+    expect(sheetSource.slice(styleAt)).toMatch(/\.row\.queue-dim\s*\{[^}]*opacity:\s*0\.5/)
+    expect(sheetSource).toContain("'queue-dim': row.dim")
+    expect(sheetSource).toContain("'queue-ready': row.badge === REST_HEAD_BADGE")
   })
 })

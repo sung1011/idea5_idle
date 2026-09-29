@@ -85,12 +85,12 @@ describe('potion hotbar stock cues', () => {
 })
 
 describe('workshop potion dock placement', () => {
-  it('keeps the hotbar under the status band, above the page bottom', () => {
+  it('keeps the hotbar under the stations, above the page bottom', () => {
     const template = workersPanelSource.slice(0, workersPanelSource.indexOf('<style'))
-    const band = template.indexOf('class="status-band"')
+    const stations = template.indexOf('class="station-list"')
     const dock = template.lastIndexOf('class="potion-dock"')
-    expect(band).toBeGreaterThan(-1)
-    expect(dock).toBeGreaterThan(band)
+    expect(template).not.toContain('class="status-band"')
+    expect(dock).toBeGreaterThan(stations)
     expect(template).toContain('class="potion-halo"')
     expect(template.indexOf('<PotionIcon :name="itemId" />')).toBeLessThan(template.indexOf('class="potion-name"'))
     expect(template.indexOf('class="potion-name"')).toBeLessThan(template.indexOf('class="potion-qty"'))

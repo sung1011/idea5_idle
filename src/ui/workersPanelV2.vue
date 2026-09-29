@@ -2,18 +2,13 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { bankQty } from '../sim/bank'
 import { formatMarchClock } from '../sim/encounters'
-import { isWorkerInCombat, workerLiveStats } from '../sim/combat'
 import { combatZoneRows, formatRemainClock, type CombatZoneRow } from '../sim/march'
-import { workerXpProgress } from '../sim/workerLevel'
-import CombatAttrRow from './combatAttrRow.vue'
 import { potionInstallGroups } from '../sim/potionSlots'
 import {
   CLASS_LABEL,
-  FOOD_ITEM_IDS,
   ITEM_DEF,
   isPotionItemId,
   STATION_DEF,
-  type FoodItemId,
 } from '../sim/tables'
 import {
   isStimActive,
@@ -26,20 +21,11 @@ import {
   potionHelpCopy,
   type PotionHelpKey,
 } from './potionHelp'
-import { foodHelpCopy, nextFoodHelp, REST_FOOD_HELP_ROWS, REST_FOOD_HELP_TITLE } from './foodHelp'
-import ModeHelpSheet from './modeHelpSheet.vue'
 import type { ItemId } from '../sim/types'
-import {
-  guideAlchemyCardFlash,
-  guideFuseCue,
-  guideFuseFlashStations,
-  isGuideQuestFlash,
-} from '../sim/guideQuest'
-import { isModuleUnlocked, moduleLockedTip } from '../sim/moduleUnlock'
+import { guideAlchemyCardFlash, guideFuseFlashStations, isGuideQuestFlash } from '../sim/guideQuest'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { pushFloatTip } from './floatTips'
 import { potionEffectRemainRatio, potionEmptyAcquireTip, potionQtyRestocked } from './potionHotbar'
-import { isWorkerEatFlashing, workerEatFlashText } from './workerEatFlash'
 import { isWorkerLevelFlashing } from './workerLevelFlash'
 import {
   announceWorkerStationEnters,
@@ -47,16 +33,14 @@ import {
   workerAssignSnapshot,
   workerEnterDelayMs,
 } from './workerEnterFlash'
-import { recruitCost } from '../sim/tech'
-import { workerRaceLabel, workerRaceShortLabel } from '../sim/workerRace'
+import { workerRaceShortLabel } from '../sim/workerRace'
 import type { CategoryId, PotionItemId, StationId, Worker } from '../sim/types'
 import WorkerAvatar from './workerAvatar.vue'
-import { openWorkshopStation } from './appNav'
+import WorkerDetailSheet from './workerDetailSheet.vue'
 import { stationCraftPickOptions, stationCraftPickReadonly } from './stationCraftLabel'
 import StationDetailSheet from './stationDetailSheet.vue'
 import StationMiniBar from './stationMiniBar.vue'
 import { campSheetOpen } from './campDockNav'
-import { guideCampOpenRequest, takeGuideCampOpenRequest } from './guideQuestNav'
 import { showStationDetail, openStationDetailId } from './stationDetailNav'
 import { isItemSourceStationFlash } from './itemSource'
 import StationTips from './stationTips.vue'
@@ -64,20 +48,9 @@ import { dismissWorkshopBanter, greetWorkshopBanter, workshopBanterText } from '
 import { considerWorkerTutor, dismissWorkerTutor, hideWorkerTutor, workerTutorText } from './workerTutorTips'
 import { useFrameNow } from './visualProgress'
 import { useGameStore } from './gameStore'
-import HpBar from './hpBar.vue'
 import { hpBarFill, hpBarTone } from './hpBar'
 import { workerWearHp } from '../sim/workshopHp'
-import {
-  canGoToAssignedWorkshop,
-  workerAssignChoices,
-  workerDutyLabel,
-  workerShortName,
-  workshopStationBoards,
-} from './workerGroups'
-import { REST_BLOCK_BADGE, REST_HEAD_BADGE, restQueueRows, restZoneTitle } from './restQueue'
-import { restFoodBand, workshopQueueHead } from './workshopQueueHead'
-import { formatAtkSpeed } from './formatAtkSpeed'
-import FoodIcon from './foodIcon.vue'
+import { workerDutyLabel, workerShortName, workshopStationBoards } from './workerGroups'
 import PotionIcon from './potionIcon.vue'
 import UiIcon from './uiIcon.vue'
 import UiSelect from './uiSelect.vue'
@@ -88,7 +61,6 @@ import {
   dropTargetEquals,
   dropTargetFromDataset,
   FUSE_DRAG_TIP,
-  MANUAL_DUTY_REASON,
   sameDragEndpoint,
   setWorkerDragActive,
   shouldShowFuseDragTip,
@@ -100,71 +72,11 @@ import {
 
 const game = useGameStore()
 const showFuseDragTip = computed(() => shouldShowFuseDragTip(game.save))
-const guideFlashRecruit = computed(() => isGuideQuestFlash(game.save, 'recruit'))
 const guideFlashAutoHerb = computed(() => isGuideQuestFlash(game.save, 'autoHerb'))
-const guideFlashRestFood = computed(() => isGuideQuestFlash(game.save, 'restFood'))
 const guideFlashPotionInstall = computed(() => isGuideQuestFlash(game.save, 'potionInstall'))
 const guideFlashPotionUse = computed(() => isGuideQuestFlash(game.save, 'potionUse'))
 const frameNow = useFrameNow()
-const restFoodOpen = ref(false)
-const restFoodLabel = computed(() => {
-  const id = game.save.restFoodId
-  if (!id) return '未选伙食'
-  return `${ITEM_DEF[id].label} ×${bankQty(game.save, id)}`
-})
-const foodBand = computed(() => {
-  const id = game.save.restFoodId
-  return restFoodBand(id, id ? bankQty(game.save, id) : 0)
-})
-const foodHelp = ref<FoodItemId | null>(null)
-const foodHelpPos = ref({ left: 8, top: 8 })
-const foodRuleOpen = ref(false)
-
-function closeFoodHelp() {
-  foodHelp.value = null
-}
-
-function closeRestFood() {
-  restFoodOpen.value = false
-  foodRuleOpen.value = false
-  closeFoodHelp()
-}
-
-function onFoodHelp(ev: MouseEvent, id: FoodItemId) {
-  ev.stopPropagation()
-  const next = nextFoodHelp(foodHelp.value, id)
-  foodHelp.value = next
-  if (!next) return
-  const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect()
-  foodHelpPos.value = {
-    left: Math.min(window.innerWidth - 228, Math.max(8, rect.left)),
-    top: Math.min(window.innerHeight - 120, rect.bottom + 6),
-  }
-}
-
-const foodHelpBubble = computed(() => {
-  const id = foodHelp.value
-  if (!id) return null
-  return foodHelpCopy(id, bankQty(game.save, id))
-})
-
-const foodLocked = computed(() => !isModuleUnlocked(game.save, 'restFood'))
-
-function onFoodBand() {
-  if (foodLocked.value) {
-    pushFloatTip(moduleLockedTip('restFood'), 'err')
-    return
-  }
-  restFoodOpen.value = true
-}
-
-function onPickRestFood(itemId: FoodItemId | null) {
-  closeFoodHelp()
-  game.selectRestFood(itemId)
-  closeRestFood()
-}
-const selectedId = ref<string | null>(null)
-const pickId = ref<string | null>(null)
+const detailId = ref<string | null>(null)
 const pickPotionIndex = ref<number | null>(null)
 
 const boards = computed(() => workshopStationBoards(game.save))
@@ -176,100 +88,22 @@ const fightingRoster = computed(() =>
     })
     .filter((item): item is { worker: Worker; row: CombatZoneRow } => !!item),
 )
-const restRows = computed(() => restQueueRows(game.save))
-const queueHead = computed(() => workshopQueueHead(game.save))
-const restOpen = campSheetOpen
 const combatOpen = ref(false)
-const statusBandEl = ref<HTMLElement | null>(null)
-const combatFits = ref(true)
-let bandObserver: ResizeObserver | null = null
-const shownRest = computed(() => restOpen.value)
 const shownCombat = computed(() => combatOpen.value && fightingRoster.value.length > 0)
-const campSheetShown = computed(() => shownRest.value && !shownCombat.value)
-const fuseCue = computed(() => guideFuseCue(game.save, campSheetShown.value))
-const fuseStations = computed(() => guideFuseFlashStations(game.save, campSheetShown.value))
+const fuseStations = computed(() => guideFuseFlashStations(game.save, campSheetOpen.value))
 const alchemyCardFlash = computed(() => guideAlchemyCardFlash(game.save, 'alchemy', openStationDetailId.value))
-const rosterFaceSize = computed(() => (shownRest.value || shownCombat.value ? 'md' : 'sm'))
+const rosterFaceSize = computed(() => (shownCombat.value ? 'md' : 'sm'))
 watch(
   () => fightingRoster.value.length,
   (n) => {
     if (!n) combatOpen.value = false
   },
 )
-function openCampSheet() {
-  combatOpen.value = false
-  restOpen.value = true
-}
-function syncGuideCampRequest() {
-  if (!takeGuideCampOpenRequest()) return
-  openCampSheet()
-}
-watch(guideCampOpenRequest, syncGuideCampRequest)
 watch(campSheetOpen, (open) => {
   if (open) combatOpen.value = false
 })
-function toggleRest() {
-  if (campSheetShown.value) {
-    restOpen.value = false
-    return
-  }
-  openCampSheet()
-}
 function toggleCombat() {
-  if (shownCombat.value) {
-    combatOpen.value = false
-    return
-  }
-  restOpen.value = false
-  combatOpen.value = true
-}
-function measureCombatFit() {
-  const band = statusBandEl.value
-  if (!band || fightingRoster.value.length === 0 || band.clientWidth <= 0) {
-    if (fightingRoster.value.length === 0) combatFits.value = true
-    return
-  }
-  const measure = band.querySelector<HTMLElement>('[data-combat-measure]')
-  const chipW = measure?.offsetWidth ?? 0
-  let fixed = 0
-  for (const child of Array.from(band.children) as HTMLElement[]) {
-    if (child.hasAttribute('data-combat-measure') || child.hasAttribute('data-combat-toggle')) continue
-    if (child.classList.contains('band-head')) continue
-    fixed += child.offsetWidth
-  }
-  const headMin = 88
-  const gaps = 4 * 4
-  combatFits.value = fixed + headMin + chipW + gaps <= band.clientWidth + 1
-}
-function queueMeasureCombatFit() {
-  void nextTick(measureCombatFit)
-}
-const recruitPrice = computed(() => recruitCost(game.save))
-watch(
-  () => `${fightingRoster.value.length}|${restRows.value.length}|${restFoodLabel.value}|${recruitPrice.value}|${queueHead.value.kind === 'worker' ? queueHead.value.id : ''}`,
-  () => queueMeasureCombatFit(),
-)
-const canRecruit = computed(() => game.save.diamonds >= recruitPrice.value)
-const selected = computed(() => {
-  const id = selectedId.value
-  if (!id) return null
-  return game.save.workers.find((w) => w.id === id) ?? null
-})
-const picking = computed(() => {
-  const id = pickId.value
-  if (!id) return null
-  return game.save.workers.find((w) => w.id === id) ?? null
-})
-const pickChoices = computed(() => (picking.value ? workerAssignChoices(game.save, picking.value) : []))
-
-function fighting(w: Worker) {
-  return isWorkerInCombat(game.save, w.id)
-}
-
-function combatTail(w: Worker) {
-  const stats = workerLiveStats(w, game.save)
-  const xp = workerXpProgress(w)
-  return `Lv${w.level} · ATK ${stats.atk} · 攻速 ${formatAtkSpeed(stats.spd)} · XP ${xp.xp}/${xp.need}`
+  combatOpen.value = !shownCombat.value
 }
 
 const potionSlots = computed(() => game.save.potionSlots)
@@ -395,17 +229,8 @@ function onDocPotionHelp(ev: PointerEvent) {
   const el = ev.target
   if (!(el instanceof Element)) return
   if (!(el.closest('[data-potion-help]') || el.closest('[data-potion-bubble]'))) closePotionHelp()
-  if (!(el.closest('[data-food-help]') || el.closest('[data-food-bubble]'))) closeFoodHelp()
-  if (
-    el.closest('[data-rest-pop]') ||
-    el.closest('[data-rest-toggle]') ||
-    el.closest('[data-combat-pop]') ||
-    el.closest('[data-combat-toggle]')
-  ) {
-    return
-  }
-  if (!shownRest.value && !shownCombat.value) return
-  restOpen.value = false
+  if (el.closest('[data-combat-pop]') || el.closest('[data-combat-toggle]')) return
+  if (!shownCombat.value) return
   combatOpen.value = false
 }
 
@@ -446,10 +271,6 @@ function jobLabel(w: Worker) {
   return w.classId ? CLASS_LABEL[w.classId] : '未标'
 }
 
-function raceLabel(w: Worker) {
-  return workerRaceLabel(w.race)
-}
-
 function raceShortLabel(w: Worker) {
   return workerRaceShortLabel(w.race)
 }
@@ -468,26 +289,7 @@ function hpToneClass(w: Worker) {
 
 function openSheet(w: Worker) {
   game.clearWorkerNew(w.id)
-  selectedId.value = w.id
-}
-
-function closeSheet() {
-  selectedId.value = null
-}
-
-function openPick(w: Worker) {
-  pickId.value = w.id
-}
-
-function closePick() {
-  pickId.value = null
-}
-
-function goWorkshop() {
-  const w = picking.value
-  if (!w?.assignment) return
-  openWorkshopStation(w.assignment)
-  closePick()
+  detailId.value = w.id
 }
 
 function openStationDetail(stationId: StationId) {
@@ -511,22 +313,6 @@ function closeStationDetail() {
   showStationDetail(null)
 }
 
-function onPickStation(stationId: StationId | null) {
-  const w = picking.value
-  if (!w) return
-  if (stationId == null || w.assignment == null) {
-    pushFloatTip(MANUAL_DUTY_REASON)
-    return
-  }
-  if (!isStationUnlocked(game.save, stationId)) {
-    pushFloatTip(stationLockedTip(stationId))
-    return
-  }
-  const result = game.assign(w.id, stationId)
-  if (result.ok) closePick()
-  else if (result.reason) pushFloatTip(result.reason)
-}
-
 function stationLocked(stationId: StationId) {
   return !isStationUnlocked(game.save, stationId)
 }
@@ -534,11 +320,6 @@ function stationLocked(stationId: StationId) {
 function potionSlotLabel(itemId: ItemId | null) {
   if (!itemId || !isPotionItemId(itemId)) return '空'
   return `${ITEM_DEF[itemId].label} ×${bankQty(game.save, itemId)}`
-}
-
-function openSheetThenPick(w: Worker) {
-  closeSheet()
-  openPick(w)
 }
 
 type DragSession = {
@@ -698,24 +479,6 @@ function slotDropClass(stationId: StationId, slotIndex: number): string {
   return ''
 }
 
-function restDropClass(): string {
-  const session = drag.value
-  if (!session?.active || !session.source) return ''
-  const target: WorkerDropTarget = { kind: 'rest' }
-  if (canDropWorker(game.save, session.source, target)) return 'drop-ok'
-  if (dropTargetEquals(session.over, target)) return 'drop-no'
-  return ''
-}
-
-function restWorkerDropClass(workerId: string): string {
-  const session = drag.value
-  if (!session?.active || !session.source) return ''
-  const target: WorkerDropTarget = { kind: 'restWorker', workerId }
-  if (canDropWorker(game.save, session.source, target)) return 'drop-ok'
-  if (dropTargetEquals(session.over, target)) return 'drop-no'
-  return ''
-}
-
 function onCraftCategory(stationId: StationId, value: string) {
   const row = stationCraftPickOptions(game.save, stationId).find((opt) => opt.value === value)
   if (!row || row.disabled) return
@@ -760,16 +523,10 @@ function refreshTutor() {
   considerWorkerTutor(game.save, Date.now())
 }
 onMounted(() => {
-  syncGuideCampRequest()
   document.addEventListener('pointerdown', onDocPotionHelp, true)
   greetWorkshopBanter(game.save)
   refreshTutor()
   tutorTimer = window.setInterval(refreshTutor, 1000)
-  if (statusBandEl.value) {
-    bandObserver = new ResizeObserver(() => measureCombatFit())
-    bandObserver.observe(statusBandEl.value)
-  }
-  queueMeasureCombatFit()
 })
 onUnmounted(() => {
   unbindDrag()
@@ -777,7 +534,6 @@ onUnmounted(() => {
   dismissWorkshopBanter()
   window.clearInterval(tutorTimer)
   hideWorkerTutor()
-  bandObserver?.disconnect()
   document.removeEventListener('pointerdown', onDocPotionHelp, true)
   for (const timer of potionPressTimers.values()) clearTimeout(timer)
   potionPressTimers.clear()
@@ -789,7 +545,6 @@ onUnmounted(() => {
     class="panel roster-v2"
     :class="{
       dragging: drag?.active,
-      'sheet-rest': shownRest && !shownCombat,
       'sheet-combat': shownCombat,
     }"
   >
@@ -905,15 +660,19 @@ onUnmounted(() => {
           </article>
         </div>
       </section>
-      <div
-        class="col side"
-        :data-rest-pop="(shownRest && !shownCombat) || undefined"
-        :data-combat-pop="shownCombat || undefined"
-      >
-        <section class="zone combat" :class="{ empty: !fightingRoster.length }" aria-label="战斗区" data-combat-pop>
-          <header class="zone-head">战斗区 · {{ fightingRoster.length }}</header>
-          <p v-if="!fightingRoster.length" class="empty-combat">无人出战</p>
-          <div v-if="fightingRoster.length" class="zone-list">
+      <div v-if="fightingRoster.length" class="col side" :data-combat-pop="shownCombat || undefined">
+        <section class="zone combat" aria-label="战斗区" data-combat-pop>
+          <button
+            type="button"
+            class="zone-head combat-toggle"
+            data-combat-toggle
+            :aria-pressed="shownCombat"
+            aria-label="展开战斗区"
+            @click="toggleCombat"
+          >
+            战斗 {{ fightingRoster.length }}
+          </button>
+          <div class="zone-list">
             <div
               v-for="item in fightingRoster"
               :key="item.worker.id"
@@ -951,163 +710,8 @@ onUnmounted(() => {
             </div>
           </div>
         </section>
-        <section
-          class="zone rest"
-          :class="[restDropClass(), { 'guide-flash': fuseCue === 'drag' }]"
-          aria-label="营地"
-          data-drop="rest"
-          data-rest-pop
-        >
-          <header class="zone-head">{{ restZoneTitle(restRows.length) }}</header>
-          <button
-            v-if="fightingRoster.length && !combatFits"
-            type="button"
-            class="rest-combat-entry"
-            data-combat-toggle
-            :aria-pressed="shownCombat"
-            aria-label="展开战斗区"
-            @click.stop="toggleCombat"
-          >
-            战斗 {{ fightingRoster.length }}
-          </button>
-          <div v-if="restRows.length" ref="restListEl" class="zone-list rest-list">
-            <div
-              v-for="row in restRows"
-              :key="row.id"
-              class="rest-row"
-              :class="[
-                hpToneClass(row.worker),
-                restWorkerDropClass(row.id),
-                {
-                  'level-flash': isWorkerLevelFlashing(row.id),
-                  'eat-flash': isWorkerEatFlashing(row.id),
-                  'queue-ready': row.badge === REST_HEAD_BADGE,
-                  'queue-blocked': row.badge === '堵队',
-                  'queue-dim': row.dim,
-                  'guide-flash': guideFlashAutoHerb && row.order === 1,
-                },
-              ]"
-              data-drop="rest-worker"
-              :data-worker="row.id"
-            >
-              <i class="hp-fill" :style="hpFillStyle(row.worker)" aria-hidden="true" />
-              <button
-                type="button"
-                class="rest-face"
-                :aria-label="`${row.order}${row.badge ? ' ' + row.badge : ''} 拖动派驻 ${workerShortName(row.worker)}`"
-                @pointerdown="onWorkerPointerDown($event, row.worker, null, null)"
-              >
-                <span class="rest-queue">
-                  <span class="rest-order">{{ row.order }}</span>
-                  <i v-if="row.badge" class="rest-badge">{{ row.badge }}</i>
-                </span>
-                <WorkerAvatar
-                  :size="rosterFaceSize"
-                  :show-new="!!row.worker.isNew"
-                  :race="row.worker.race"
-                  :quality="row.worker.qualityTier"
-                  :worker-id="row.worker.id"
-                />
-                <em v-if="workerEatFlashText(row.id)" class="eat-float">{{ workerEatFlashText(row.id) }}</em>
-                <b class="rest-name" :style="workerQualityNameStyle(row.worker)">{{ workerShortName(row.worker) }}</b>
-                <i v-if="raceShortLabel(row.worker)" class="race-tag">{{ raceShortLabel(row.worker) }}</i>
-              </button>
-              <button
-                type="button"
-                class="rest-go"
-                :aria-label="`${workerShortName(row.worker)} 详情`"
-                @pointerdown.stop
-                @click="openSheet(row.worker)"
-              >
-                ›
-              </button>
-            </div>
-          </div>
-          <p v-else class="empty-rest">无人</p>
-        </section>
       </div>
     </div>
-    <section ref="statusBandEl" class="status-band" aria-label="工坊状态">
-      <div
-        v-if="queueHead.kind === 'worker'"
-        class="queue-head band-head"
-        :class="{ 'guide-flash': guideFlashAutoHerb }"
-        role="status"
-        :aria-label="`${queueHead.title} 血量 ${queueHead.hpLabel}`"
-      >
-        <WorkerAvatar
-          class="queue-avatar"
-          size="md"
-          :race="queueHead.worker.race"
-          :quality="queueHead.worker.qualityTier"
-          :worker-id="queueHead.worker.id"
-        />
-        <span class="queue-copy">
-          <b class="queue-name">{{ queueHead.title }}</b>
-          <span class="queue-hp">
-            <span class="queue-bar" :class="hpToneClass(queueHead.worker)">
-              <i :style="hpFillStyle(queueHead.worker)" />
-            </span>
-            <em class="queue-hp-num">{{ queueHead.hpLabel }}</em>
-          </span>
-        </span>
-      </div>
-      <p v-else class="queue-empty band-head">队列空</p>
-      <button
-        type="button"
-        class="band-tile band-rest"
-        data-rest-toggle
-        :aria-pressed="shownRest && !shownCombat"
-        aria-label="休息"
-        @click="toggleRest"
-      >
-        <svg class="tile-ico" viewBox="0 0 16 16" aria-hidden="true">
-          <path fill="currentColor" d="M2 11.2H14V13.2H2Z" />
-          <path fill="currentColor" d="M3 8.2H7.2V11.2H3Z" />
-          <path fill="currentColor" d="M7 6.4H13.2V11.2H7Z" />
-          <path fill="currentColor" d="M8.2 4.2H10.4V6.4H8.2Z" />
-        </svg>
-        <span class="cap">休息</span>
-      </button>
-      <button
-        type="button"
-        class="band-tile band-food"
-        :class="{ low: foodBand.low, 'guide-flash': guideFlashRestFood, locked: foodLocked }"
-        :aria-label="foodLocked ? '营地伙食未开放' : `营地伙食 · ${restFoodLabel}`"
-        @click="onFoodBand"
-      >
-        <FoodIcon v-if="foodBand.itemId" :name="foodBand.itemId" />
-        <svg v-else class="tile-ico" viewBox="0 0 16 16" aria-hidden="true">
-          <path fill="currentColor" d="M1.6 8.2H14.4V9.6H1.6Z" />
-          <path fill="currentColor" d="M3.4 9.4H12.6V12.6H3.4Z" />
-        </svg>
-        <span class="cap">{{ foodBand.caption }}</span>
-      </button>
-      <button
-        type="button"
-        class="band-recruit"
-        :class="{ off: !canRecruit, 'guide-flash': guideFlashRecruit || fuseCue === 'recruit' }"
-        :disabled="!canRecruit"
-        :aria-label="`抽苦工 · ${recruitPrice} 钻`"
-        @click="game.recruit()"
-      >
-        <span>抽苦工</span>
-        <small>· {{ recruitPrice }} 钻</small>
-      </button>
-      <button
-        v-if="fightingRoster.length && combatFits"
-        type="button"
-        class="band-combat"
-        data-combat-toggle
-        :class="{ on: shownCombat }"
-        :aria-pressed="shownCombat"
-        aria-label="展开战斗区"
-        @click="toggleCombat"
-      >
-        战斗 {{ fightingRoster.length }}
-      </button>
-      <span v-if="fightingRoster.length" class="band-combat band-combat-measure" data-combat-measure aria-hidden="true">战斗 {{ fightingRoster.length }}</span>
-    </section>
     <div class="potion-dock">
       <div class="potion-row" aria-label="药剂技能槽">
         <button
@@ -1160,35 +764,7 @@ onUnmounted(() => {
     </Teleport>
   </section>
 
-  <Teleport to="body">
-    <div
-      v-if="selected"
-      class="modal"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="workerShortName(selected)"
-      @click.self="closeSheet"
-    >
-      <div class="sheet">
-        <header>
-          <h2 class="title">
-            {{ workerShortName(selected) }}
-            <i v-if="raceLabel(selected)" class="race-tag">{{ raceLabel(selected) }}</i>
-          </h2>
-          <button type="button" class="close" @click="closeSheet">关闭</button>
-        </header>
-        <p class="meta">{{ sheetMeta(selected) }}</p>
-        <HpBar class="hp-slot" :hp="selected.hp" :hp-max="selected.hpMax" />
-        <p class="hint">{{ combatTail(selected) }}<template v-if="fighting(selected)"> · 战斗中</template></p>
-        <p class="attrs">
-          <CombatAttrRow :attrs="selected.combatAttrs" />
-        </p>
-        <div class="sheet-actions">
-          <button type="button" class="go" @click="openSheetThenPick(selected)">派驻</button>
-        </div>
-      </div>
-    </div>
-  </Teleport>
+  <WorkerDetailSheet v-if="detailId" :worker-id="detailId" @close="detailId = null" />
 
   <StationDetailSheet
     v-if="openStationDetailId"
@@ -1196,117 +772,6 @@ onUnmounted(() => {
     @close="closeStationDetail"
     @open-worker="openSheet"
   />
-
-  <Teleport to="body">
-    <div
-      v-if="picking"
-      class="modal"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="`派驻 · ${workerShortName(picking)}`"
-      @click.self="closePick"
-    >
-      <div class="sheet">
-        <header>
-          <h2 class="title">派驻 · {{ workerShortName(picking) }}</h2>
-        </header>
-        <div class="pick-list">
-          <div v-for="choice in pickChoices" :key="choice.stationId ?? 'rest'" class="pick-cell">
-            <button
-              type="button"
-              :class="{
-                on: choice.current,
-                locked: choice.locked,
-              }"
-              :disabled="choice.disabled && !choice.locked"
-              :aria-pressed="choice.current"
-              @click="onPickStation(choice.stationId)"
-            >
-              <span class="crew" aria-hidden="true">
-                <i
-                  v-for="(dot, i) in choice.dots"
-                  :key="i"
-                  :class="{ empty: dot.empty }"
-                  :style="{ background: dot.color }"
-                />
-              </span>
-              <span>{{ choice.label }}</span>
-            </button>
-          </div>
-        </div>
-        <div class="sheet-actions">
-          <button type="button" class="go" :disabled="!canGoToAssignedWorkshop(picking)" @click="goWorkshop">
-            前往
-          </button>
-          <button type="button" class="close" @click="closePick">关闭</button>
-        </div>
-      </div>
-    </div>
-  </Teleport>
-
-  <Teleport to="body">
-    <div
-      v-if="restFoodOpen"
-      class="modal"
-      role="dialog"
-      aria-modal="true"
-      aria-label="选择伙食"
-      @click.self="closeRestFood"
-    >
-      <div class="sheet">
-        <header>
-          <h2 class="title">选择伙食</h2>
-          <span class="sheet-head-actions">
-            <button type="button" class="food-rule" aria-label="伙食说明" @click="closeFoodHelp(); foodRuleOpen = true">？</button>
-            <button type="button" class="close" @click="closeRestFood">关闭</button>
-          </span>
-        </header>
-        <div class="pick-list">
-          <div v-for="id in FOOD_ITEM_IDS" :key="id" class="pick-cell">
-            <div class="potion-pick-row">
-              <button
-                type="button"
-                class="potion-pick-main"
-                :class="{ on: game.save.restFoodId === id }"
-                :aria-pressed="game.save.restFoodId === id"
-                :disabled="bankQty(game.save, id) <= 0"
-                @click="onPickRestFood(id)"
-              >
-                {{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}
-              </button>
-              <button
-                type="button"
-                class="potion-help pick"
-                data-food-help
-                :aria-pressed="foodHelp === id"
-                :aria-label="`查看 ${ITEM_DEF[id].label} 效果`"
-                @click.stop="onFoodHelp($event, id)"
-              >i</button>
-            </div>
-          </div>
-          <div class="pick-cell">
-            <button
-              type="button"
-              :class="{ on: !game.save.restFoodId }"
-              :aria-pressed="!game.save.restFoodId"
-              @click="onPickRestFood(null)"
-            >
-              不选
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </Teleport>
-
-  <Teleport to="body">
-    <ModeHelpSheet
-      v-if="foodRuleOpen"
-      :title="REST_FOOD_HELP_TITLE"
-      :rows="REST_FOOD_HELP_ROWS"
-      @close="foodRuleOpen = false"
-    />
-  </Teleport>
 
   <Teleport to="body">
     <div
@@ -1364,18 +829,6 @@ onUnmounted(() => {
       <p>{{ potionHelpBubble.effect }}</p>
       <small v-if="potionHelpBubble.stock != null">库存 ×{{ potionHelpBubble.stock }}</small>
       <button v-if="canUnequipPotionHelp" type="button" class="potion-bubble-unequip" @click="onUnequipPotionHelp">卸下</button>
-    </div>
-    <div
-      v-if="foodHelpBubble"
-      class="potion-bubble"
-      data-food-bubble
-      role="dialog"
-      :aria-label="foodHelpBubble.title"
-      :style="{ left: `${foodHelpPos.left}px`, top: `${foodHelpPos.top}px` }"
-    >
-      <b>{{ foodHelpBubble.title }}</b>
-      <p>{{ foodHelpBubble.effect }}</p>
-      <small>库存 ×{{ foodHelpBubble.stock }}</small>
     </div>
   </Teleport>
 </template>
@@ -1447,10 +900,20 @@ onUnmounted(() => {
 }
 
 .combat {
-  flex: 0 1 auto;
-  max-height: 62%;
+  flex: 1 1 auto;
+  max-height: none;
   background: linear-gradient(180deg, rgba(176, 62, 58, 0.14), rgba(255, 214, 196, 0.28));
   border-bottom: 2px solid rgba(176, 72, 64, 0.32);
+}
+
+.combat-toggle {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #8a3228;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .combat.empty {
@@ -2920,238 +2383,4 @@ onUnmounted(() => {
   text-align: center;
 }
 
-.status-band {
-  position: relative;
-  flex: 0 0 auto;
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  margin-top: 6px;
-  padding: 4px;
-  overflow: hidden;
-  border: 2px solid var(--gold);
-  border-radius: 10px;
-  background: var(--wood-lite);
-}
-
-.band-head,
-.queue-head,
-.queue-empty {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.queue-head {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.queue-avatar {
-  flex: 0 0 auto;
-}
-
-.queue-copy {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.queue-name {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  color: #5a3a10;
-  font-size: 12px;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.queue-hp {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-.queue-bar {
-  flex: 1 1 auto;
-  height: 4px;
-  min-width: 12px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--bar-track);
-}
-
-.queue-bar i {
-  display: block;
-  height: 100%;
-  background: #e2a31a;
-}
-
-.queue-bar.hp-full i {
-  background: #2fbf32;
-}
-
-.queue-bar.hp-low i {
-  background: #e24a3a;
-}
-
-.queue-hp-num {
-  flex: 0 0 auto;
-  color: #7a4a22;
-  font-size: 10px;
-  font-style: normal;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-
-.queue-empty {
-  margin: 0;
-  overflow: hidden;
-  color: #9a9286;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.band-head em {
-  min-width: 0;
-  overflow: hidden;
-  font-style: normal;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.band-tile {
-  position: relative;
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 2px;
-  border: 2px solid var(--stroke);
-  border-radius: 10px;
-  background: var(--wood-face);
-  background-blend-mode: multiply, normal;
-  color: var(--ink);
-  box-shadow: 0 2px 0 var(--stroke);
-}
-
-.band-food.locked {
-  filter: grayscale(1);
-  opacity: 0.55;
-}
-
-.band-tile .cap {
-  max-width: 100%;
-  overflow: hidden;
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1.1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.band-tile .tile-ico,
-.band-tile :deep(.food-ico) {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 auto;
-}
-
-.tile-badge {
-  position: absolute;
-  top: 1px;
-  right: 1px;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
-  border-radius: 999px;
-  border: 1px solid #1f5c16;
-  background: #3cb82e;
-  color: #14300c;
-  font-size: 9px;
-  font-style: normal;
-  font-weight: 900;
-  line-height: 14px;
-  text-align: center;
-}
-
-.band-food.low .cap {
-  color: #b42318;
-}
-
-.band-recruit {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 2px;
-  min-height: 32px;
-  padding: 2px 8px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--accent-face);
-  color: #5a3010;
-  box-shadow: 0 2px 0 var(--gold-deep);
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.band-recruit small {
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.band-recruit.off,
-.band-recruit:disabled {
-  opacity: 0.45;
-  filter: grayscale(0.28);
-  box-shadow: none;
-}
-
-.band-combat,
-.rest-combat-entry {
-  flex: 0 0 auto;
-  min-height: 32px;
-  padding: 2px 6px;
-  border: 1.5px solid #9a9286;
-  border-radius: 8px;
-  background: #f6f4f0;
-  color: #6d665c;
-  box-shadow: none;
-  font-size: 12px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.band-combat.on {
-  border-color: var(--gold-deep);
-  background: var(--tab-on);
-  color: #5a3010;
-  box-shadow: 0 2px 0 var(--gold-deep);
-}
-
-.rest-combat-entry {
-  margin: 2px 8px 4px;
-  font-size: 13px;
-}
-
-.band-combat-measure {
-  position: absolute;
-  visibility: hidden;
-  pointer-events: none;
-}
 </style>

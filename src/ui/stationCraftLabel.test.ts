@@ -127,7 +127,7 @@ describe('station craft label', () => {
     const css = workersPanelSource.slice(workersPanelSource.indexOf('<style'))
     expect(workersPanelSource).toContain('size="lg"')
     expect(workersPanelSource).toContain(':size="rosterFaceSize"')
-    expect(workersPanelSource).toContain("shownRest.value || shownCombat.value ? 'md' : 'sm'")
+    expect(workersPanelSource).toContain("shownCombat.value ? 'md' : 'sm'")
     expect(workersPanelSource).not.toContain('ClassIcon')
     expect(css).toMatch(/\.station \.slot \.slot-main b\s*\{[^}]*font-size:\s*20px/)
     expect(css).toMatch(/\.station \.slot \.slot-main small\s*\{[^}]*font-size:\s*18px/)

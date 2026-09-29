@@ -11,6 +11,7 @@ import { EFFECT_ID, FOOD_BUFF_DEF } from './tables'
 import { ticks } from './tick'
 import { workerEffectValue } from './tools'
 import type { Save } from './types'
+import sheetSource from '../ui/campSheet.vue?raw'
 import workersPanelSource from '../ui/workersPanelV2.vue?raw'
 
 function eatNoticesFor(workerId: string) {
@@ -174,14 +175,14 @@ describe('rest area shared food', () => {
   })
 
   it('does not show personal food loading in the worker sheet', () => {
-    expect(workersPanelSource).toContain('未选伙食')
-    expect(workersPanelSource).toContain('选择伙食')
-    expect(workersPanelSource).toContain('onPickRestFood(null)')
-    expect(workersPanelSource).toContain('营地伙食')
-    expect(workersPanelSource).toContain('game.selectRestFood')
+    expect(sheetSource).toContain('未选伙食')
+    expect(sheetSource).toContain('选择伙食')
+    expect(sheetSource).toContain('onPickFood(null)')
+    expect(sheetSource).toContain('营地伙食')
+    expect(sheetSource).toContain('game.selectRestFood')
     expect(workersPanelSource).not.toContain('rest-food-btn')
-    expect(workersPanelSource).not.toContain('卸下食物')
-    expect(workersPanelSource).not.toContain('换食')
+    expect(sheetSource).not.toContain('卸下食物')
+    expect(sheetSource).not.toContain('换食')
     expect(workersPanelSource).not.toContain('game.loadFood')
     expect(workersPanelSource).not.toContain('game.unloadFood')
   })

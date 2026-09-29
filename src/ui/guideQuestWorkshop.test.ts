@@ -1,17 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import appSource from './app.vue?raw'
+import sheetSource from './campSheet.vue?raw'
 import detailSource from './stationDetailSheet.vue?raw'
 import floatSource from './guideQuestFloat.vue?raw'
 import panelSource from './workersPanelV2.vue?raw'
 
 describe('workshop guide wiring', () => {
-  it('flashes recruit, the bottom camp button, then the camp list on step 3', () => {
-    expect(panelSource).toContain("fuseCue === 'recruit'")
-    expect(panelSource).toContain("fuseCue === 'drag'")
+  it('flashes the camp button, then recruit and the list inside the shared sheet', () => {
+    expect(sheetSource).toContain("fuseCue === 'recruit'")
+    expect(sheetSource).toContain("fuseCue === 'drag'")
+    expect(sheetSource).toContain('guideFlashRecruit')
+    expect(sheetSource).toContain('guideFlashAutoHerb && row.order === 1')
     expect(panelSource).not.toContain('guideFlashFuse')
     expect(panelSource).not.toContain("fuseCue === 'openCamp'")
-    const camp = appSource.slice(appSource.indexOf('class="camp-fab"'), appSource.indexOf('class="camp-fab"') + 280)
-    expect(camp).toContain("campCue === 'openCamp'")
+    expect(sheetSource).not.toContain("fuseCue === 'openCamp'")
+    const camp = appSource.slice(appSource.indexOf('class="camp-fab"'), appSource.indexOf('class="camp-fab"') + 320)
+    expect(camp).toContain('campButtonFlash')
+    expect(appSource).toContain("isGuideQuestFlash(game.save, 'recruit')")
+    expect(appSource).toContain("isGuideQuestFlash(game.save, 'autoHerb')")
+    expect(appSource).toContain('v-if="campSheetOpen"')
   })
 
   it('flashes the alchemy station card, and the detail progress after it opens', () => {

@@ -32,20 +32,21 @@ function memory(): Storage {
 describe('guideQuestNav', () => {
   it('opens the matching dock and sub-tab for each guide step', () => {
     const store = memory()
+    const campBefore = guideCampOpenRequest.value
     expect(openGuideQuestStep(1, store)).toBe('workshop')
     expect(appTab.value).toBe('workshop')
     expect(store.getItem(APP_TAB_KEY)).toBe('workshop')
-
-    const campBefore = guideCampOpenRequest.value
-    expect(openGuideQuestStep(2, store)).toBe('workshop')
-    expect(guideCampOpenRequest.value).toBe(campBefore)
-    expect(openGuideQuestStep(3, store)).toBe('workshop')
     expect(guideCampOpenRequest.value).toBe(campBefore + 1)
+
+    expect(openGuideQuestStep(2, store)).toBe('workshop')
+    expect(guideCampOpenRequest.value).toBe(campBefore + 2)
+    expect(openGuideQuestStep(3, store)).toBe('workshop')
+    expect(guideCampOpenRequest.value).toBe(campBefore + 3)
     expect(openGuideQuestStep(4, store)).toBe('workshop')
     expect(appTab.value).toBe('workshop')
     expect(workshopTab.value).toBe('alchemy')
     expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('alchemy')
-    expect(guideCampOpenRequest.value).toBe(campBefore + 1)
+    expect(guideCampOpenRequest.value).toBe(campBefore + 3)
 
     expect(openGuideQuestStep(5, store)).toBe('encounters')
     expect(mainlineTab.value).toBe('battlefield')

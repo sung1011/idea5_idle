@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createSave } from '../sim/createSave'
 import type { Save, Worker } from '../sim/types'
+import sheetSource from './campSheet.vue?raw'
 import workersPanelSource from './workersPanelV2.vue?raw'
 import { restFoodBand, workshopQueueHead } from './workshopQueueHead'
 
@@ -80,27 +81,16 @@ describe('workshop queue head', () => {
   })
 })
 
-describe('workshop status band', () => {
-  it('puts the queue head on the left and keeps recruit at the right', () => {
-    const bandAt = workersPanelSource.indexOf('aria-label="工坊状态"')
-    const bandEnd = workersPanelSource.indexOf('</section>', bandAt)
-    const band = workersPanelSource.slice(bandAt, bandEnd)
-    expect(band).toContain('队列空')
-    expect(band).toContain('queueHead.title')
-    expect(band).toContain('queueHead.hpLabel')
-    expect(band).not.toContain('在岗')
-    expect(band).not.toContain('restHeadLine')
-    expect(band.indexOf('队列空')).toBeLessThan(band.indexOf('band-rest'))
-    expect(band.indexOf('band-rest')).toBeLessThan(band.indexOf('band-food'))
-    expect(band.indexOf('band-food')).toBeLessThan(band.indexOf('band-recruit'))
-    expect(band).toContain('休息')
-    expect(band).not.toContain('营地 {{ restRows.length }}')
-    expect(band).not.toContain('tile-badge')
-    expect(band).toContain('抽苦工')
-    const styleAt = workersPanelSource.indexOf('<style')
-    const style = workersPanelSource.slice(styleAt)
-    expect(style).toMatch(/\.status-band\s*\{[^}]*flex-wrap:\s*nowrap/)
-    expect(style).toMatch(/\.queue-name\s*\{[^}]*text-overflow:\s*ellipsis/)
-    expect(style).toMatch(/\.band-food\.low \.cap\s*\{[^}]*color:\s*#b42318/)
+describe('camp sheet replaces the workshop queue bar', () => {
+  it('drops the queue bar and keeps recruit, food, and the low-stock hint in the sheet', () => {
+    expect(workersPanelSource).not.toContain('aria-label="工坊状态"')
+    expect(workersPanelSource).not.toContain('class="band-recruit"')
+    expect(workersPanelSource).not.toContain('队列空')
+    expect(sheetSource).toContain('抽苦工')
+    expect(sheetSource).toContain('伙食 · {{ foodLabel }}')
+    expect(sheetSource).toContain('foodBand.low')
+    expect(sheetSource).toContain('>详情</button>')
+    const style = sheetSource.slice(sheetSource.indexOf('<style'))
+    expect(style).toMatch(/\.jump\.food\.low\s*\{[^}]*color:\s*#b42318/)
   })
 })

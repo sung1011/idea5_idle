@@ -7,7 +7,7 @@ import { enemyCardButton } from './enemyCardAction'
 import { selectMainlineTab } from './mainlineTabs'
 import { selectPvpView } from './pvpTabs'
 
-/** 营地名单是否打开。工坊用侧栏，其它页用浮层，开关是同一个。 */
+/** 营地弹框是否打开。任意页（含工坊）都用这一份。 */
 export const campSheetOpen = ref(false)
 /** 派出入口跳到选人。目标面板挂上后消费一次。 */
 export const campDispatchJump = ref<CampDispatchEntry | null>(null)

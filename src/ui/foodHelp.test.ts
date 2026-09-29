@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { FOOD_BUFF_DEF, FOOD_HEAL_RATIO, FOOD_ITEM_IDS } from '../sim/tables'
-import workersPanelSource from './workersPanelV2.vue?raw'
+import sheetSource from './campSheet.vue?raw'
 import {
   REST_FOOD_HELP_ROWS,
   REST_FOOD_HELP_TITLE,
@@ -42,9 +42,8 @@ describe('food help bubble', () => {
   })
 
   it('puts i beside foods, skips 不选, and opens a short rule sheet', () => {
-    const foodAt = workersPanelSource.indexOf('aria-label="选择伙食"')
-    const equipAt = workersPanelSource.indexOf('aria-label="装配药剂"')
-    const food = workersPanelSource.slice(foodAt, equipAt)
+    const foodAt = sheetSource.indexOf('aria-label="选择伙食"')
+    const food = sheetSource.slice(foodAt, sheetSource.indexOf('@close="foodRuleOpen = false"', foodAt))
     expect(food).toContain('data-food-help')
     expect(food).toContain('>i</button>')
     expect(food).toContain('aria-label="伙食说明"')

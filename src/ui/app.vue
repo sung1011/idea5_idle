@@ -2,14 +2,14 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { campDockCount, campDockTone } from '../sim/campDock'
 import { playerDisplayName, type PlayerAvatarId } from '../sim/createSave'
-import { guideFuseCue } from '../sim/guideQuest'
+import { guideFuseCue, isGuideQuestFlash } from '../sim/guideQuest'
 import { xpToNextKnightLevel } from '../sim/knightLevel'
 import { bannerFrameOf, bannerLevelOf, treasureAssaultWarning } from '../sim/treasureMine'
 import { appTabLockedTip, isAppTabUnlocked, isModuleId, isModuleUnlocked, moduleBlurb, moduleLabel } from '../sim/moduleUnlock'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
 import CampSheet from './campSheet.vue'
 import { campSheetOpen, toggleCampSheet } from './campDockNav'
-import { guideCampSheetOpen } from './guideQuestNav'
+import { guideCampOpenRequest, guideCampSheetOpen, takeGuideCampOpenRequest } from './guideQuestNav'
 import { dockStationHp, showDockStationHp } from './dockStationHp'
 import { addToHomeDotOn, startAddToHomeWatch } from './addToHomeState'
 import { dismissUpdateBubble, refreshToNewVersion, startAppUpdateSchedule, updateBubble, updateReady } from './appUpdateState'
@@ -84,12 +84,23 @@ const dockTail = APP_TABS.slice(2)
 const campCount = computed(() => campDockCount(game.save))
 const campTone = computed(() => campDockTone(game.save))
 const campCue = computed(() => guideFuseCue(game.save, guideCampSheetOpen.value))
+const campButtonFlash = computed(() => {
+  if (campCue.value === 'openCamp') return true
+  if (campSheetOpen.value) return false
+  return isGuideQuestFlash(game.save, 'recruit') || isGuideQuestFlash(game.save, 'autoHerb') || campCue.value === 'recruit'
+})
 const resourceDetail = computed(() => (resourceOpen.value ? hudChipDetail(game.save, resourceOpen.value) : null))
+
+function openRequestedCamp() {
+  if (!takeGuideCampOpenRequest()) return
+  campSheetOpen.value = true
+}
 
 onMounted(() => {
   game.startClock()
   stopAppUpdate = startAppUpdateSchedule()
   stopAddToHome = startAddToHomeWatch()
+  openRequestedCamp()
 })
 
 onUnmounted(() => {
@@ -179,6 +190,8 @@ watch(
   },
   { immediate: true },
 )
+
+watch(guideCampOpenRequest, openRequestedCamp)
 </script>
 
 <template>
@@ -295,7 +308,7 @@ watch(
         <button
           type="button"
           class="camp-fab"
-          :class="[campTone, { 'guide-flash': campCue === 'openCamp', open: campSheetOpen }]"
+          :class="[campTone, { 'guide-flash': campButtonFlash, open: campSheetOpen }]"
           :aria-pressed="campSheetOpen"
           :aria-label="campTone === 'blocked' ? '营地，堵队' : campTone === 'ready' ? `营地，可派 ${campCount}` : '营地'"
           @click="onCamp"
@@ -326,7 +339,7 @@ watch(
       </div>
     </nav>
 
-    <CampSheet v-if="tab !== 'workshop' && campSheetOpen" />
+    <CampSheet v-if="campSheetOpen" />
 
     <AppUpdateBubble
       v-if="updateBubble && !settingsOpen"

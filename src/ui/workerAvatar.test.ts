@@ -7,6 +7,7 @@ import encounter from './encounterPanel.vue?raw'
 import herb from './herbPvpPanel.vue?raw'
 import pick from './combatPickSheet.vue?raw'
 import player from './playerAvatar.vue?raw'
+import camp from './campSheet.vue?raw'
 import workers from './workersPanelV2.vue?raw'
 import face from './workerAvatar.vue?raw'
 import { workerQualityFrameStyle } from './workerQuality'
@@ -87,9 +88,9 @@ describe('worker race avatars', () => {
     expect(workers).toContain('size="lg"')
     expect(workers).toContain(':show-new="!!w.isNew"')
     expect(workers).toContain(':size="rosterFaceSize"')
-    expect(workers).toContain('class="queue-avatar"')
-    expect(workers).toContain('size="md"')
-    expect(workers).toContain('queueHead.worker.race')
+    expect(camp).toContain('size="md"')
+    expect(camp).toContain(':race="row.worker.race"')
+    expect(workers).not.toContain('queueHead.worker.race')
     expect(herb).toContain('size="md"')
     expect(herb).toContain('clashView.player.race')
     expect(herb).toContain('clashView.player.qualityTier')

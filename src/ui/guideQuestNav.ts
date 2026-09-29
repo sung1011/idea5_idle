@@ -1,12 +1,12 @@
 import { ref } from 'vue'
-import { openWorkshopStation, selectAppTab, type AppTabId } from './appNav'
+import { appTab, openWorkshopStation, selectAppTab, type AppTabId } from './appNav'
 import { selectMainlineTab } from './mainlineTabs'
 import { selectPvpView } from './pvpTabs'
 
 export const pendingGuideRunePick = ref(false)
-/** 工坊营地名单是否正打开。引导浮条据此切换第 3 步文案。 */
+/** 营地弹框是否正打开。引导浮条据此切换抽苦工、上岗、合成的文案。 */
 export const guideCampSheetOpen = ref(false)
-/** 点引导浮条要重新打开营地名单。面板挂上后消费。 */
+/** 点引导浮条要重新打开营地弹框。壳挂上后消费。 */
 export const guideCampOpenRequest = ref(0)
 
 let consumedCampRequest = 0
@@ -15,7 +15,7 @@ export function requestGuideCampSheet() {
   guideCampOpenRequest.value += 1
 }
 
-/** 每个请求只打开一次。离开工坊再进来不会把名单重新弹出。 */
+/** 每个请求只打开一次。切页不会把弹框重新弹出。 */
 export function takeGuideCampOpenRequest(): boolean {
   if (guideCampOpenRequest.value === consumedCampRequest) return false
   consumedCampRequest = guideCampOpenRequest.value
@@ -30,12 +30,16 @@ export function takeGuideRunePickRequest(): boolean {
 
 export function openGuideQuestTask(taskId: string, storage?: Storage | null): AppTabId {
   switch (taskId) {
+    case 'recruit':
+    case 'autoHerb':
+      requestGuideCampSheet()
+      return selectAppTab('workshop', storage)
     case 'fuse':
     case 'blueWorker':
     case 'cyanWorker':
     case 'purpleWorker':
       requestGuideCampSheet()
-      return selectAppTab('workshop', storage)
+      return appTab.value
     case 'alchemy':
     case 'alchemy3':
       openWorkshopStation('alchemy', storage)

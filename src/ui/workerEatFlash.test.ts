@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { WORKER_EAT_MS, announceWorkerEats, clearWorkerEatFlash, isWorkerEatFlashing, workerEatFlashText } from './workerEatFlash'
 import { useFloatTips } from './floatTips'
 import gameStoreSource from './gameStore.ts?raw'
-import workersPanelSource from './workersPanelV2.vue?raw'
+import sheetSource from './campSheet.vue?raw'
 
 describe('worker eat flash', () => {
   afterEach(() => {
@@ -34,10 +34,10 @@ describe('worker eat flash', () => {
   })
 
   it('shows the glow and the float on the rest row', () => {
-    expect(workersPanelSource).toContain("'eat-flash': isWorkerEatFlashing(row.id)")
-    expect(workersPanelSource).toContain('class="eat-float"')
-    expect(workersPanelSource).toContain('workerEatFlashText(row.id)')
-    expect(workersPanelSource).toContain('eat-glow 0.7s')
+    expect(sheetSource).toContain("'eat-flash': isWorkerEatFlashing(row.id)")
+    expect(sheetSource).toContain('class="eat-float"')
+    expect(sheetSource).toContain('workerEatFlashText(row.id)')
+    expect(sheetSource).toContain('eat-glow 0.7s')
     expect(gameStoreSource).toContain('announceWorkerEats')
     expect(gameStoreSource).toContain('takeRestEatNotices')
   })
