@@ -66,6 +66,7 @@ import {
   isDungeonAffixHelpOpen,
   nextDungeonAffixHelp,
 } from './dungeonAffixHelp'
+import { campDispatchJump, firstBattlefieldPickIndex, takeCampDispatch } from './campDockNav'
 import { pendingGuideRunePick, takeGuideRunePickRequest } from './guideQuestNav'
 import { actChargeFill, actChargeStunned } from './actCharge'
 import { enemyCardButton, enemyPickCopy, type EnemyPickMode } from './enemyCardAction'
@@ -184,6 +185,7 @@ onMounted(() => {
   }, 100)
   document.addEventListener('pointerdown', onDocAffixHelp)
   tryOpenGuideRunePick()
+  consumeCampBattlefield()
 })
 onUnmounted(() => {
   window.clearInterval(actTimer)
@@ -300,6 +302,17 @@ function resetPick(mode: EnemyPickMode, index: number) {
   assistWorker.value = null
   pickRunes.value = {}
 }
+
+function consumeCampBattlefield() {
+  if (campDispatchJump.value !== 'battlefield') return
+  if (currentTab.value !== 'battlefield') return
+  if (!takeCampDispatch('battlefield')) return
+  const index = firstBattlefieldPickIndex(game.save)
+  if (index == null) return
+  openPick(index)
+}
+
+watch(campDispatchJump, consumeCampBattlefield)
 
 function openPick(index: number) {
   if (consumeShort(index)) {

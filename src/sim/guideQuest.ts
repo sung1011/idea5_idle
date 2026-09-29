@@ -25,7 +25,7 @@ export const GUIDE_QUEST_REV = 6
 /** 第 3 步营地无人时的浮条文案。 */
 export const GUIDE_FUSE_EMPTY_GOAL = '再抽 1 名苦工，新人会进营地'
 /** 第 3 步营地有人、名单还没打开。 */
-export const GUIDE_FUSE_OPEN_GOAL = '点营地，打开名单'
+export const GUIDE_FUSE_OPEN_GOAL = '点底部营地，打开名单'
 /** 开战步卡面弱点行说明。 */
 export const GUIDE_WEAKNESS_CARD_TIP =
   '敌人有弱点，派属性对得上的苦工出战，伤害更高，还会削敌人的盾；盾打空会破防，敌人暂停出手。'

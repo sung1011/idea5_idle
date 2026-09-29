@@ -17,7 +17,7 @@ export type RestQueueRow = {
   dim: boolean
 }
 
-/** 弹层标题只写地方名。人数在队列条按钮上。 */
+/** 弹层标题只写地方名。可派人数在底栏营地圆钮上。 */
 export function restZoneTitle(_count: number): string {
   return '营地'
 }

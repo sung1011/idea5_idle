@@ -55,7 +55,8 @@ import { openWorkshopStation } from './appNav'
 import { stationCraftPickOptions, stationCraftPickReadonly } from './stationCraftLabel'
 import StationDetailSheet from './stationDetailSheet.vue'
 import StationMiniBar from './stationMiniBar.vue'
-import { guideCampOpenRequest, guideCampSheetOpen, takeGuideCampOpenRequest } from './guideQuestNav'
+import { campSheetOpen } from './campDockNav'
+import { guideCampOpenRequest, takeGuideCampOpenRequest } from './guideQuestNav'
 import { showStationDetail, openStationDetailId } from './stationDetailNav'
 import { isItemSourceStationFlash } from './itemSource'
 import StationTips from './stationTips.vue'
@@ -177,7 +178,7 @@ const fightingRoster = computed(() =>
 )
 const restRows = computed(() => restQueueRows(game.save))
 const queueHead = computed(() => workshopQueueHead(game.save))
-const restOpen = ref(false)
+const restOpen = campSheetOpen
 const combatOpen = ref(false)
 const statusBandEl = ref<HTMLElement | null>(null)
 const combatFits = ref(true)
@@ -204,9 +205,9 @@ function syncGuideCampRequest() {
   openCampSheet()
 }
 watch(guideCampOpenRequest, syncGuideCampRequest)
-watch(campSheetShown, (open) => {
-  guideCampSheetOpen.value = open
-}, { immediate: true })
+watch(campSheetOpen, (open) => {
+  if (open) combatOpen.value = false
+})
 function toggleRest() {
   if (campSheetShown.value) {
     restOpen.value = false
@@ -771,7 +772,6 @@ onMounted(() => {
   queueMeasureCombatFit()
 })
 onUnmounted(() => {
-  guideCampSheetOpen.value = false
   unbindDrag()
   setWorkerDragActive(false)
   dismissWorkshopBanter()
@@ -1057,9 +1057,8 @@ onUnmounted(() => {
         type="button"
         class="band-tile band-rest"
         data-rest-toggle
-        :class="{ 'guide-flash': fuseCue === 'openCamp' }"
         :aria-pressed="shownRest && !shownCombat"
-        aria-label="展开营地"
+        aria-label="休息"
         @click="toggleRest"
       >
         <svg class="tile-ico" viewBox="0 0 16 16" aria-hidden="true">
@@ -1068,8 +1067,7 @@ onUnmounted(() => {
           <path fill="currentColor" d="M7 6.4H13.2V11.2H7Z" />
           <path fill="currentColor" d="M8.2 4.2H10.4V6.4H8.2Z" />
         </svg>
-        <span class="cap">营地 {{ restRows.length }}</span>
-        <i v-if="restRows.length" class="tile-badge">{{ restRows.length }}</i>
+        <span class="cap">休息</span>
       </button>
       <button
         type="button"

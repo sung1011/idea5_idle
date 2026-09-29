@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { campDockCount, campDockTone } from '../sim/campDock'
 import { playerDisplayName, type PlayerAvatarId } from '../sim/createSave'
+import { guideFuseCue } from '../sim/guideQuest'
 import { xpToNextKnightLevel } from '../sim/knightLevel'
 import { bannerFrameOf, bannerLevelOf, treasureAssaultWarning } from '../sim/treasureMine'
 import { appTabLockedTip, isAppTabUnlocked, isModuleId, isModuleUnlocked, moduleBlurb, moduleLabel } from '../sim/moduleUnlock'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
+import CampSheet from './campSheet.vue'
+import { campSheetOpen, toggleCampSheet } from './campDockNav'
+import { guideCampSheetOpen } from './guideQuestNav'
 import { dockStationHp, showDockStationHp } from './dockStationHp'
 import { addToHomeDotOn, startAddToHomeWatch } from './addToHomeState'
 import { dismissUpdateBubble, refreshToNewVersion, startAppUpdateSchedule, updateBubble, updateReady } from './appUpdateState'
@@ -74,6 +79,11 @@ const knightXpPct = computed(() => {
 const knightXpLabel = computed(() => `${formatHudGrouped(knightXp.value)} / ${formatHudGrouped(knightNeed.value)}`)
 const stationHp = computed(() => dockStationHp(game.save))
 const showStationHp = computed(() => showDockStationHp(tab.value))
+const dockLead = APP_TABS.slice(0, 2)
+const dockTail = APP_TABS.slice(2)
+const campCount = computed(() => campDockCount(game.save))
+const campTone = computed(() => campDockTone(game.save))
+const campCue = computed(() => guideFuseCue(game.save, guideCampSheetOpen.value))
 const resourceDetail = computed(() => (resourceOpen.value ? hudChipDetail(game.save, resourceOpen.value) : null))
 
 onMounted(() => {
@@ -122,6 +132,10 @@ function onDock(id: (typeof APP_TABS)[number]['id']) {
   selectAppTab(id)
 }
 
+function onCamp() {
+  toggleCampSheet()
+}
+
 function onUnlockGo() {
   const id = unlockNotice.value
   game.dismissModuleUnlock()
@@ -154,6 +168,14 @@ watch(
   () => [tab.value, game.save.knightLevel, (game.save.openedModules ?? []).join(',')] as const,
   () => {
     if (!isAppTabUnlocked(game.save, tab.value)) selectAppTab('workshop')
+  },
+  { immediate: true },
+)
+
+watch(
+  campSheetOpen,
+  (open) => {
+    guideCampSheetOpen.value = open
   },
   { immediate: true },
 )
@@ -254,7 +276,37 @@ watch(
       </div>
       <div class="dock-tabs">
         <button
-          v-for="t in APP_TABS"
+          v-for="t in dockLead"
+          :key="t.id"
+          type="button"
+          role="tab"
+          :aria-selected="tab === t.id"
+          :class="{
+            on: tab === t.id,
+            locked: tabLocked(t.id),
+            'unlock-pulse': unlockFlashKey === `tab:${t.id}`,
+          }"
+          @click="onDock(t.id)"
+        >
+          <UiIcon :name="t.id" />
+          <span>{{ t.label }}</span>
+          <i v-if="tabLocked(t.id)" class="lock" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          class="camp-fab"
+          :class="[campTone, { 'guide-flash': campCue === 'openCamp', open: campSheetOpen }]"
+          :aria-pressed="campSheetOpen"
+          :aria-label="campTone === 'blocked' ? '营地，堵队' : campTone === 'ready' ? `营地，可派 ${campCount}` : '营地'"
+          @click="onCamp"
+        >
+          <b v-if="campTone === 'blocked'" class="camp-mark">堵</b>
+          <b v-else-if="campTone === 'ready'" class="camp-num">{{ campCount }}</b>
+          <UiIcon v-else name="workers" />
+          <span>营地</span>
+        </button>
+        <button
+          v-for="t in dockTail"
           :key="t.id"
           type="button"
           role="tab"
@@ -273,6 +325,8 @@ watch(
         </button>
       </div>
     </nav>
+
+    <CampSheet v-if="tab !== 'workshop' && campSheetOpen" />
 
     <AppUpdateBubble
       v-if="updateBubble && !settingsOpen"
@@ -766,6 +820,7 @@ watch(
 }
 
 .dock {
+  position: relative;
   z-index: var(--z-dock);
   display: flex;
   flex-direction: column;
@@ -774,6 +829,7 @@ watch(
   width: 100%;
   min-width: 0;
   max-width: 100%;
+  overflow: visible;
   padding: var(--dock-pad-y) 8px calc(var(--dock-pad-y) + env(safe-area-inset-bottom, 0px));
   background:
     var(--paper-grain),
@@ -818,9 +874,11 @@ watch(
 
 .dock-tabs {
   display: flex;
+  align-items: flex-end;
   gap: 4px;
   width: 100%;
   min-width: 0;
+  overflow: visible;
 }
 
 .dock button {
@@ -956,8 +1014,56 @@ watch(
   height: 18px;
 }
 
+.dock button.camp-fab {
+  flex: 0 0 68px;
+  width: 68px;
+  height: 68px;
+  margin-top: -22px;
+  border-radius: 50%;
+  border: 3px solid var(--stroke);
+  background: var(--wood-face);
+  color: #6d5840;
+  box-shadow: 0 3px 0 var(--stroke);
+}
+
+.dock button.camp-fab .camp-num,
+.dock button.camp-fab .camp-mark {
+  font-size: 22px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.dock button.camp-fab.ready {
+  background: var(--accent-face);
+  color: #3a2208;
+  animation: camp-breathe 2.4s ease-in-out infinite;
+}
+
+.dock button.camp-fab.blocked {
+  background: linear-gradient(180deg, #f0785a, #b42318);
+  color: #fff8f0;
+}
+
+.dock button.camp-fab.open {
+  box-shadow: 0 0 0 3px rgba(240, 184, 58, 0.45), 0 3px 0 var(--stroke);
+}
+
+@keyframes camp-breathe {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.04);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .page > * {
+    animation: none;
+  }
+
+  .dock button.camp-fab.ready {
     animation: none;
   }
 }
