@@ -23,6 +23,7 @@ import {
 } from './potionHelp'
 import type { ItemId } from '../sim/types'
 import { guideAlchemyCardFlash, guideFuseFlashStations, isGuideQuestFlash } from '../sim/guideQuest'
+import { moduleNoticeOn, type ModuleId } from '../sim/moduleUnlock'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { pushFloatTip } from './floatTips'
 import { potionEffectRemainRatio, potionEmptyAcquireTip, potionQtyRestocked } from './potionHotbar'
@@ -292,11 +293,25 @@ function openSheet(w: Worker) {
   detailId.value = w.id
 }
 
+function stationModule(stationId: StationId): ModuleId | null {
+  if (stationId === 'hunting' || stationId === 'cooking' || stationId === 'mining' || stationId === 'inscription') {
+    return stationId
+  }
+  return null
+}
+
+function stationNotice(stationId: StationId) {
+  const moduleId = stationModule(stationId)
+  return moduleId != null && moduleNoticeOn(game.save, moduleId)
+}
+
 function openStationDetail(stationId: StationId) {
   if (!isStationUnlocked(game.save, stationId)) {
     pushFloatTip(stationLockedTip(stationId))
     return
   }
+  const moduleId = stationModule(stationId)
+  if (moduleId) game.markModuleSeen(moduleId)
   showStationDetail(stationId)
 }
 
@@ -568,6 +583,7 @@ onUnmounted(() => {
             }"
             @click="onStationCardClick($event, board.stationId)"
           >
+            <i v-if="stationNotice(board.stationId)" class="notice" aria-hidden="true" />
             <StationTips :station-id="board.stationId" />
             <div class="station-rail">
               <div class="station-name">
@@ -1113,6 +1129,18 @@ onUnmounted(() => {
 .station.locked {
   filter: grayscale(0.85);
   opacity: 0.48;
+}
+
+.station .notice {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 2px var(--wood-face);
+  pointer-events: none;
 }
 
 .station-rail {

@@ -60,7 +60,7 @@ describe('rune slot unlock', () => {
     const save = createSave()
     expect(save.knightLevel).toBe(1)
     expect(isRuneSlotUnlocked(save)).toBe(false)
-    expect(runeSlotLockedTip()).toBe(`铭刻需酋长等级 ${STATION_UNLOCK_KNIGHT.inscription} 解锁`)
+    expect(runeSlotLockedTip()).toBe('完成主线「升到酋长 18 级（开放铭刻、符文槽）」后开启')
     expect(runeSlotTapKind(save, true)).toBe('locked')
     expect(runeSlotTapKind(save, false)).toBe('locked')
     expect(confirmableRunePicks(save, { a: 'runeSharp' }, ['a'])).toEqual({})
@@ -70,7 +70,7 @@ describe('rune slot unlock', () => {
 
   it('opens the picker after inscription unlocks and keeps injured slots inert', () => {
     const save = createSave()
-    save.knightLevel = STATION_UNLOCK_KNIGHT.inscription
+    save.openedModules = ['inscription']
     expect(isRuneSlotUnlocked(save)).toBe(true)
     expect(runeSlotTapKind(save, true)).toBe('open')
     expect(runeSlotTapKind(save, false)).toBe('ignore')

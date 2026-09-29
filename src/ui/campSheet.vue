@@ -3,7 +3,7 @@ import { computed, onUnmounted, ref } from 'vue'
 import { bankQty } from '../sim/bank'
 import { campDockCount } from '../sim/campDock'
 import { guideFuseCue, isGuideQuestFlash } from '../sim/guideQuest'
-import { isModuleUnlocked, moduleLockedTip } from '../sim/moduleUnlock'
+import { isModuleUnlocked, moduleLockedTip, moduleNoticeOn } from '../sim/moduleUnlock'
 import { FOOD_ITEM_IDS, ITEM_DEF, type FoodItemId } from '../sim/tables'
 import { recruitCost } from '../sim/tech'
 import type { Worker } from '../sim/types'
@@ -72,11 +72,14 @@ function hpFillStyle(worker: Worker) {
   return { width: `${(hpBarFill(workerWearHp(worker), worker.hpMax) * 100).toFixed(2)}%` }
 }
 
+const foodNotice = computed(() => !foodLocked.value && moduleNoticeOn(game.save, 'restFood'))
+
 function onFood() {
   if (foodLocked.value) {
     pushFloatTip(moduleLockedTip('restFood'), 'err')
     return
   }
+  game.markModuleSeen('restFood')
   foodOpen.value = true
 }
 
@@ -330,7 +333,7 @@ onUnmounted(() => {
           <button
             type="button"
             class="food"
-            :class="{ locked: foodLocked, low: foodBand.low, 'guide-flash': guideFlashRestFood }"
+            :class="{ locked: foodLocked, low: foodBand.low, fresh: foodNotice, 'guide-flash': guideFlashRestFood }"
             :aria-label="foodLocked ? '营地伙食未开放' : `营地伙食 · ${foodLabel}`"
             @click="onFood"
           >
@@ -681,9 +684,22 @@ h2 {
 }
 
 .food {
+  position: relative;
   background: var(--wood-face);
   color: var(--ink);
   font-size: 14px;
+}
+
+.food.fresh::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 2px var(--wood-face);
 }
 
 .food.low {

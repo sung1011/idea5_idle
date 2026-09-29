@@ -56,6 +56,8 @@ export function createSave(): Save {
     guideQuestPotionUsed: false,
     guideQuestRuneOpened: false,
     openedModules: [],
+    seenModules: [],
+    mainlineUnlockRev: 1,
     moduleUnlockQueue: [],
     guideQuestSkipMask: blankSkipMask(),
     guideQuestSkipped: [],

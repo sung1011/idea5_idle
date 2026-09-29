@@ -806,12 +806,19 @@ export type Save = {
   /** 是否已在选人面板点开过符文槽。hydrate 缺字段为 false。 */
   guideQuestRuneOpened: boolean
   /**
-   * 已玩过、等级不够也保持开放的模块。
+   * 已经开放的模块。主线「升到酋长 N 级」领奖或被跳过后写入。
    * 站 id 与模块 id 相同的（狩猎 / 烹饪 / 采矿 / 铭刻）也写在这里。
-   * 缺字段 hydrate 按酋长等级和游玩痕迹补。
+   * 玩过的痕迹、以及缺 `mainlineUnlockRev` 的旧档按当时酋长等级补一次。
    */
   openedModules: string[]
-  /** 酋长升级跨过门槛后待弹的「新玩法开放」卡片，按顺序。 */
+  /** 玩家点进过的新入口。有了就不再显示红点。 */
+  seenModules: string[]
+  /**
+   * 1 = 功能由主线领奖开启。
+   * 旧档缺字段时按当时酋长等级把已开放模块补进 `openedModules`，并视为已经看过。
+   */
+  mainlineUnlockRev: number
+  /** 旧档待弹的「新玩法开放」卡片。读档时清空，不再弹出。 */
   moduleUnlockQueue: string[]
   /**
    * 跳过位图，容量 90 步。旧档是一个数字（只含低 31 位）；

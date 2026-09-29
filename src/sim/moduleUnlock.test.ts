@@ -10,13 +10,13 @@ import {
   hydrateGuideQuestFields,
 } from './guideQuest'
 import { mainlineStepOf } from './mainlineQuest'
-import { grantStationXp } from './stationProgress'
-import { xpToNextLevel } from './tables'
 import {
+  grantOpenedModules,
   hydrateModuleUnlocks,
   isModuleUnlocked,
+  markModuleSeen,
   moduleLockedTip,
-  queueModuleUnlocks,
+  moduleNoticeOn,
   recallCrewFromLockedStations,
 } from './moduleUnlock'
 import { isStationUnlocked } from './stationUnlock'
@@ -30,14 +30,21 @@ describe('module unlock by knight level', () => {
     expect(isModuleUnlocked(save, 'tech')).toBe(false)
     expect(isModuleUnlocked(save, 'market')).toBe(false)
     expect(isModuleUnlocked(save, 'herb')).toBe(false)
-    expect(moduleLockedTip('tech')).toBe('酋长 11 级开放科技')
+    expect(moduleLockedTip('tech')).toBe('完成主线「升到酋长 11 级（开放科技）」后开启')
+    expect(moduleLockedTip('hunting')).toBe('完成主线「升到酋长 6 级（开放狩猎、集市）」后开启')
     save.knightLevel = 8
-    expect(isModuleUnlocked(save, 'tech')).toBe(false)
+    expect(isModuleUnlocked(save, 'market')).toBe(false)
+    expect(isModuleUnlocked(save, 'dungeon')).toBe(false)
+    save.guideQuestStep = mainlineStepOf('huntStart')
+    expect(isModuleUnlocked(save, 'hunting')).toBe(true)
     expect(isModuleUnlocked(save, 'market')).toBe(true)
+    expect(isModuleUnlocked(save, 'cooking')).toBe(false)
+    save.guideQuestSkipped = ['level8']
+    expect(isModuleUnlocked(save, 'cooking')).toBe(true)
     expect(isModuleUnlocked(save, 'dungeon')).toBe(true)
     expect(isModuleUnlocked(save, 'herb')).toBe(false)
     save.knightLevel = 11
-    expect(isModuleUnlocked(save, 'tech')).toBe(true)
+    expect(isModuleUnlocked(save, 'tech')).toBe(false)
     save.knightLevel = 1
     save.herbPvp.playerScore = 12
     hydrateModuleUnlocks(save)
@@ -62,22 +69,24 @@ describe('module unlock by knight level', () => {
     expect(locked.workers[0].assignment).toBeNull()
     expect(assignWorker(locked, locked.workers[0].id, 'mining')).toEqual({
       ok: false,
-      reason: '酋长 16 级开放采矿',
+      reason: '完成主线「升到酋长 16 级（开放采矿）」后开启',
     })
   })
 
-  it('queues a card when the chief crosses several gates at once', () => {
+  it('drops a queued unlock card and shows a notice until the entry is opened', () => {
     const save = createSave()
-    save.knightLevel = 1
-    queueModuleUnlocks(save, 1, 8)
-    expect(save.moduleUnlockQueue).toEqual(['hunting', 'market', 'cooking', 'restFood', 'dungeon'])
-    const later = createSave()
-    later.knightLevel = 10
-    queueModuleUnlocks(later, 10, 11)
-    expect(later.moduleUnlockQueue).toEqual(['tech'])
-    grantStationXp(save, 'herbalism', xpToNextLevel(1) * 3)
-    expect(save.knightLevel).toBeGreaterThan(1)
-    expect(save.moduleUnlockQueue.length).toBeGreaterThan(0)
+    save.moduleUnlockQueue = ['hunting', 'market']
+    save.guideQuestStep = mainlineStepOf('huntStart')
+    expect(moduleNoticeOn(save, 'hunting')).toBe(true)
+    expect(markModuleSeen(save, 'hunting')).toBe(true)
+    expect(moduleNoticeOn(save, 'hunting')).toBe(false)
+    expect(markModuleSeen(save, 'hunting')).toBe(false)
+    grantOpenedModules(save, ['market'])
+    expect(moduleNoticeOn(save, 'market')).toBe(true)
+    hydrateModuleUnlocks(save)
+    expect(save.moduleUnlockQueue).toEqual([])
+    expect(moduleNoticeOn(save, 'market')).toBe(true)
+    expect(isModuleUnlocked(save, 'tech')).toBe(false)
   })
 
   it('hydrates an old played save without locking what they already used', () => {
@@ -87,12 +96,25 @@ describe('module unlock by knight level', () => {
     raw.dungeon.attemptsUsedById = { [DUNGEON_JAILER_ID]: DUNGEON_ATTEMPTS_PER_DAY }
     raw.beastPvp.lastRewardText = '兽骨'
     raw.workers = []
+    raw.moduleUnlockQueue = ['treasure']
     const loaded = hydrateLoadedSave(raw)
     expect(isModuleUnlocked(loaded!, 'tech')).toBe(true)
     expect(isModuleUnlocked(loaded!, 'dungeon')).toBe(true)
     expect(isModuleUnlocked(loaded!, 'beast')).toBe(true)
     expect(isModuleUnlocked(loaded!, 'treasure')).toBe(false)
+    expect(moduleNoticeOn(loaded!, 'tech')).toBe(false)
     expect(loaded?.moduleUnlockQueue).toEqual([])
+
+    const veteran = createSave()
+    veteran.knightLevel = 16
+    delete (veteran as { mainlineUnlockRev?: number }).mainlineUnlockRev
+    veteran.moduleUnlockQueue = ['mining']
+    const kept = hydrateLoadedSave(veteran)
+    expect(isModuleUnlocked(kept!, 'mining')).toBe(true)
+    expect(isModuleUnlocked(kept!, 'inscription')).toBe(false)
+    expect(moduleNoticeOn(kept!, 'mining')).toBe(false)
+    expect(kept?.moduleUnlockQueue).toEqual([])
+    expect(kept?.mainlineUnlockRev).toBe(1)
   })
 })
 

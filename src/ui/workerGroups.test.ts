@@ -338,7 +338,10 @@ describe('assign resting to first empty slot', () => {
 
     const next = spawnWorkerWith(save, 3, 'hunter')
     expect(firstEmptyDispatchStation(save)).toBeNull()
-    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '酋长 6 级开放狩猎' })
+    expect(assignRestingToFirstEmpty(save)).toEqual({
+      ok: false,
+      reason: '完成主线「升到酋长 6 级（开放狩猎、集市）」后开启',
+    })
     expect(next.assignment).toBeNull()
 
     unlockPlayableStations(save)

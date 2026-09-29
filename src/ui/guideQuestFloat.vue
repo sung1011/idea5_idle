@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { guideQuestView } from '../sim/guideQuest'
+import { mainlineTaskById } from '../sim/mainlineQuest'
 import { useGameStore } from './gameStore'
 import { pushFloatTip } from './floatTips'
 import { guideCampSheetOpen, openGuideQuestTask } from './guideQuestNav'
@@ -17,6 +18,8 @@ function jump() {
     return
   }
   openGuideQuestTask(current.taskId)
+  const moduleId = mainlineTaskById(current.taskId)?.module
+  if (moduleId) game.markModuleSeen(moduleId)
 }
 
 function onBadge() {
@@ -45,6 +48,7 @@ function claim() {
       <div class="txt" role="button" aria-label="打开对应模块" @click.stop="jump">
         <p class="name">{{ view.title }}</p>
         <p class="goal">{{ view.goal }}</p>
+        <p v-if="view.unlockNote" class="note">{{ view.unlockNote }}</p>
         <p class="prog" :class="{ ok: view.claimable }">{{ view.progressLabel }}</p>
       </div>
     </div>
@@ -111,6 +115,14 @@ function claim() {
 .goal {
   margin: 2px 0 0;
   font-size: 13px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.note {
+  margin: 2px 0 0;
+  color: #ffd27a;
+  font-size: 12px;
   font-weight: 800;
   line-height: 1.25;
 }

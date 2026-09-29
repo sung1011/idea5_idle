@@ -2,7 +2,7 @@ import { assignedWorkers, restingWorkers } from './assign'
 import { bankQty } from './bank'
 import { canReinforceCombat, isCombatLost, isCombatWon, isFighting } from './combat'
 import { combatSupplyBlockReason, isEncounterDone, isStarterCopperPawn } from './encounters'
-import { isModuleUnlocked, knightLevelProgress, moduleLabel, moduleUnlockKnightLevel, queueModuleUnlocks } from './moduleUnlock'
+import { isModuleUnlocked, knightLevelProgress, levelGateUnlockNote, moduleLabel, moduleLockedTip, moduleUnlockKnightLevel } from './moduleUnlock'
 import { knightLevelOf } from './stationUnlock'
 import { POTION_ITEM_IDS, QUALITY_MAX, STATION_ORDER } from './tables'
 import type { ActionResult, Encounter, EnemyEncounter, Save, StationId } from './types'
@@ -16,6 +16,7 @@ import {
   migrateOldGuide,
   normalizeGuideIdList,
   normalizeSkipMask,
+  grantPassedLevelModules,
   payMainlineReward,
   seedGuideEvidence,
   syncGuideQuestMet,
@@ -32,7 +33,7 @@ export const GUIDE_QUEST_GOLD = 20
 /** 骑士 1 级即可装槽 / 点用。主线在升到 2 级之后才引导炼金，开战排在炼金前面。 */
 export const GUIDE_QUEST_PHASE2_KNIGHT = 1
 /**
- * 9：确认过的 90 步清单。升到 N 级达到即完成，并接上该级的开放卡片。
+ * 9：确认过的 90 步清单。升到 N 级的任务领奖后才开启该级功能。
  * 旧 REV 从第 1 条连续跳过已满足的任务，停在第一条未满足的上，跳过的不发奖。
  * 跳过位图记到 90 步。旧步号到 10 视为旧段已领完。第一步仍须抽工人 2 次。
  */
@@ -79,6 +80,8 @@ export type GuideQuestView = {
   claimable: boolean
   fillPct: number
   waiting: boolean
+  /** 等级任务领奖后要开的功能。其它任务为空。 */
+  unlockNote: string | null
 }
 
 export function normalizeGuideQuestStep(value: unknown): number {
@@ -242,6 +245,7 @@ export function advanceSkippedGuideSteps(save: Save): void {
     step += 1
   }
   save.guideQuestStep = step
+  grantPassedLevelModules(save)
 }
 
 export function guideQuestProgressAt(save: Save, step: number): 0 | 1 {
@@ -400,6 +404,7 @@ function waitingLevelView(save: Save, step: number, row: MainlineTask): GuideQue
     claimable: false,
     fillPct: progress.percent,
     waiting: true,
+    unlockNote: levelGateUnlockNote(row.gate),
   }
 }
 
@@ -414,13 +419,14 @@ function waitingModuleView(save: Save, step: number, row: MainlineTask): GuideQu
     phaseStep: need,
     phaseTotal: need,
     title: '下一目标',
-    goal: `下一个目标：酋长 ${need} 级开放${name}`,
+    goal: row.module ? moduleLockedTip(row.module) : `下一个目标：酋长 ${need} 级开放${name}`,
     rewardLabel: mainlineRewardLabel(row.reward),
     progress: 0,
     progressLabel: `酋长 ${progress.level} 级 · 距下一级 ${progress.percent}%`,
     claimable: false,
     fillPct: progress.percent,
     waiting: true,
+    unlockNote: row.module ? moduleLockedTip(row.module) : null,
   }
 }
 
@@ -445,6 +451,7 @@ export function guideQuestView(save: Save, campOpen = false): GuideQuestView | n
     claimable,
     fillPct: meter.denom > 0 ? Math.round((meter.numer / meter.denom) * 100) : 0,
     waiting: false,
+    unlockNote: row.tier === 'level' ? levelGateUnlockNote(row.gate) : null,
   }
 }
 
@@ -457,11 +464,10 @@ export function claimGuideQuest(save: Save): ActionResult {
   if (!row) return { ok: false, reason: '新手任务已完成' }
   if (row.tier === 'level' && knightLevelOf(save) < row.gate) return { ok: false, reason: row.goal }
   if (!taskModuleReady(save, row)) {
-    return { ok: false, reason: row.module ? `酋长 ${moduleUnlockKnightLevel(row.module)} 级开放${moduleLabel(row.module)}` : '尚未开放' }
+    return { ok: false, reason: row.module ? moduleLockedTip(row.module) : '尚未开放' }
   }
   if (!mainlineDone(save, row.id)) return { ok: false, reason: '尚未完成' }
   const message = payMainlineReward(save, row.reward)
-  if (row.tier === 'level') queueModuleUnlocks(save, row.gate - 1, row.gate)
   save.guideQuestStep = step + 1
   advanceSkippedGuideSteps(save)
   return { ok: true, message }

@@ -17,7 +17,7 @@ const xp = computed(() => (Number.isFinite(game.save.knightXp) ? Math.max(0, Mat
 const need = computed(() => xpToNextKnightLevel(level.value))
 const remain = computed(() => Math.max(0, need.value - xp.value))
 const ratio = computed(() => (need.value <= 0 ? 0 : Math.min(1, xp.value / need.value)))
-const nextLine = computed(() => nextModuleUnlock(level.value)?.label ?? '玩法都已开放')
+const nextLine = computed(() => nextModuleUnlock(level.value, game.save)?.label ?? '玩法都已开放')
 const barPct = computed(() => `${(shown.value * 100).toFixed(2)}%`)
 
 function onKey(ev: KeyboardEvent) {

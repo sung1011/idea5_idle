@@ -78,7 +78,7 @@ export function clearItemSourceFlash(): void {
  */
 export function beginItemSourceFlash(
   itemId: ItemId,
-  save?: Pick<Save, 'knightLevel'> | null,
+  save?: Parameters<typeof isStationUnlocked>[0] | null,
 ): ItemSourceHint | null {
   clearItemSourceFlash()
   const hint = itemSourceHint(itemId)

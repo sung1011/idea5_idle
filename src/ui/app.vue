@@ -5,7 +5,7 @@ import { playerDisplayName, type PlayerAvatarId } from '../sim/createSave'
 import { guideFuseCue, isGuideQuestFlash } from '../sim/guideQuest'
 import { xpToNextKnightLevel } from '../sim/knightLevel'
 import { bannerFrameOf, bannerLevelOf, treasureAssaultWarning } from '../sim/treasureMine'
-import { appTabLockedTip, isAppTabUnlocked, isModuleId, isModuleUnlocked, moduleBlurb, moduleLabel } from '../sim/moduleUnlock'
+import { appTabLockedTip, isAppTabUnlocked, isModuleUnlocked, moduleNoticeOn } from '../sim/moduleUnlock'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
 import CampSheet from './campSheet.vue'
 import { campSheetOpen, toggleCampSheet } from './campDockNav'
@@ -39,7 +39,6 @@ import PlayerAvatar from './playerAvatar.vue'
 import PlayerProfileSheet from './playerProfileSheet.vue'
 import UiIcon from './uiIcon.vue'
 import { pushFloatTip } from './floatTips'
-import { openUnlockedModule, unlockFlashKey } from './moduleUnlockNav'
 
 const game = useGameStore()
 let stopAppUpdate: (() => void) | null = null
@@ -62,10 +61,6 @@ const bannerFrame = computed(() => bannerFrameOf(bannerLevelOf(game.save)))
 const assaultAlert = computed(
   () => isModuleUnlocked(game.save, 'treasure') && treasureAssaultWarning(game.save),
 )
-const unlockNotice = computed(() => {
-  const id = game.save.moduleUnlockQueue?.[0]
-  return isModuleId(id) ? id : null
-})
 const chips = computed(() => listHudChips(game.save))
 const resourceChips = computed(() => chips.value.filter((chip) => chip.id !== 'knight'))
 const knightLevel = computed(() => (Number.isFinite(game.save.knightLevel) ? Math.max(0, Math.floor(game.save.knightLevel)) : 1))
@@ -135,22 +130,26 @@ function tabLocked(id: (typeof APP_TABS)[number]['id']) {
   return !isAppTabUnlocked(game.save, id)
 }
 
+function dockNotice(id: (typeof APP_TABS)[number]['id']) {
+  if (tabLocked(id)) return false
+  if (id === 'tech') return moduleNoticeOn(game.save, 'tech')
+  if (id === 'pvp') {
+    return moduleNoticeOn(game.save, 'herb') || moduleNoticeOn(game.save, 'beast') || moduleNoticeOn(game.save, 'treasure')
+  }
+  return false
+}
+
 function onDock(id: (typeof APP_TABS)[number]['id']) {
   if (tabLocked(id)) {
     if (id === 'tech' || id === 'pvp') pushFloatTip(appTabLockedTip(game.save, id), 'err')
     return
   }
   selectAppTab(id)
+  if (id === 'tech') game.markModuleSeen('tech')
 }
 
 function onCamp() {
   toggleCampSheet()
-}
-
-function onUnlockGo() {
-  const id = unlockNotice.value
-  game.dismissModuleUnlock()
-  if (id) openUnlockedModule(id)
 }
 
 watch(knightXpPopToken, () => {
@@ -297,13 +296,13 @@ watch(guideCampOpenRequest, openRequestedCamp)
           :class="{
             on: tab === t.id,
             locked: tabLocked(t.id),
-            'unlock-pulse': unlockFlashKey === `tab:${t.id}`,
           }"
           @click="onDock(t.id)"
         >
           <UiIcon :name="t.id" />
           <span>{{ t.label }}</span>
           <i v-if="tabLocked(t.id)" class="lock" aria-hidden="true" />
+          <i v-else-if="dockNotice(t.id)" class="notice" aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -327,14 +326,13 @@ watch(guideCampOpenRequest, openRequestedCamp)
           :class="{
             on: tab === t.id,
             locked: tabLocked(t.id),
-            'unlock-pulse': unlockFlashKey === `tab:${t.id}`,
           }"
           @click="onDock(t.id)"
         >
           <UiIcon :name="t.id" />
           <span>{{ t.label }}</span>
           <i v-if="tabLocked(t.id)" class="lock" aria-hidden="true" />
-          <i v-if="t.id === 'pvp' && assaultAlert && !tabLocked(t.id)" class="dot" />
+          <i v-else-if="dockNotice(t.id) || (t.id === 'pvp' && assaultAlert)" class="notice" />
         </button>
       </div>
     </nav>
@@ -351,14 +349,6 @@ watch(guideCampOpenRequest, openRequestedCamp)
       @refresh="refreshToNewVersion"
     />
     <GuideQuestFloat />
-    <div v-if="unlockNotice" class="unlock-card" role="dialog" aria-label="新玩法开放">
-      <div class="unlock-sheet">
-        <p class="unlock-kicker">新玩法开放</p>
-        <h3>{{ moduleLabel(unlockNotice) }}</h3>
-        <p class="unlock-blurb">{{ moduleBlurb(unlockNotice) }}</p>
-        <button type="button" class="unlock-go" @click="onUnlockGo">前往</button>
-      </div>
-    </div>
     <MessagePanel v-if="mailOpen" @close="mailOpen = false" />
     <SettingsPanel v-if="settingsOpen" @close="settingsOpen = false" />
     <KnightLevelSheet v-if="knightOpen" @close="knightOpen = false" />
@@ -939,71 +929,15 @@ watch(guideCampOpenRequest, openRequestedCamp)
   border-radius: 4px 4px 0 0;
 }
 
-.dock button.unlock-pulse {
-  animation: unlock-pulse 0.45s ease-in-out 3;
-}
-
-@keyframes unlock-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(240, 184, 58, 0.2);
-  }
-  50% {
-    box-shadow: 0 0 0 6px rgba(240, 184, 58, 0.55);
-  }
-}
-
-.unlock-card {
+.dock button .notice {
   position: absolute;
-  inset: 0;
-  z-index: calc(var(--z-sheet) + 2);
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgba(8, 28, 14, 0.58);
-}
-
-.unlock-sheet {
-  width: min(280px, 100%);
-  padding: 16px 16px 14px;
-  border: 3px solid var(--stroke);
-  border-radius: 16px;
-  background: var(--wood-face);
-  background-blend-mode: multiply, normal;
-  box-shadow: 0 4px 0 var(--stroke);
-  text-align: center;
-  color: var(--ink);
-}
-
-.unlock-kicker {
-  margin: 0;
-  color: #8a5a12;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-}
-
-.unlock-sheet h3 {
-  margin: 6px 0 0;
-  font-size: 22px;
-}
-
-.unlock-blurb {
-  margin: 8px 0 0;
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.unlock-go {
-  width: 100%;
-  margin-top: 12px;
-  min-height: 36px;
-  border: 3px solid var(--stroke);
-  border-radius: 12px;
-  background: var(--accent-face);
-  color: #3a2208;
-  box-shadow: 0 3px 0 var(--stroke);
-  font-weight: 800;
+  top: 4px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 2px var(--plate);
 }
 
 .dock button.on {

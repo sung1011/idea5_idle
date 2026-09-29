@@ -1,6 +1,7 @@
 import { createSave } from './createSave'
 import { HERB_PVP_STAMINA_MAX } from './herbPvp'
 import { GUIDE_QUEST_DONE_STEP, GUIDE_QUEST_REV } from './guideQuest'
+import { grantPassedLevelModules } from './mainlineQuest'
 import { spawnWorker, spawnWorkerWith } from './recruit'
 import { roll01 } from './rng'
 import { syncUnlockedCategories } from './stationProgress'
@@ -117,10 +118,11 @@ export function gmFillHerbStamina(save: Save): ActionResult {
   return { ok: true, message: '割草体力已满' }
 }
 
-/** 三阶段引导全部标完成，浮层/聚光灯消失。不发未领的 20 金，不动骑士等级与其它资源。 */
+/** 主线全部标完成，浮层消失。不发未领奖励，不动骑士等级与其它资源。已走过的等级任务会打开对应功能。 */
 export function gmSkipGuide(save: Save): ActionResult {
   save.guideQuestStep = GUIDE_QUEST_DONE_STEP
   save.guideQuestRev = GUIDE_QUEST_REV
   save.guideQuestRuneOpened = true
+  grantPassedLevelModules(save)
   return { ok: true, message: '已跳过引导' }
 }

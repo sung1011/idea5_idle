@@ -40,6 +40,9 @@ export function openGuideQuestTask(taskId: string, storage?: Storage | null): Ap
     case 'purpleWorker':
       requestGuideCampSheet()
       return appTab.value
+    case 'herbSickle':
+      openWorkshopStation('herbalism', storage)
+      return 'workshop'
     case 'alchemy':
     case 'alchemy3':
       openWorkshopStation('alchemy', storage)
@@ -106,6 +109,12 @@ export function openGuideQuestTask(taskId: string, storage?: Storage | null): Ap
     case 'inscribe5':
       openWorkshopStation('inscription', storage)
       return 'workshop'
+    case 'restFood':
+      requestGuideCampSheet()
+      return selectAppTab('workshop', storage)
+    case 'veteran':
+      selectMainlineTab('battlefield', storage)
+      return selectAppTab('encounters', storage)
     case 'rune':
       pendingGuideRunePick.value = true
       selectMainlineTab('battlefield', storage)

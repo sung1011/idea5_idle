@@ -63,5 +63,16 @@ describe('guideQuestNav', () => {
     expect(mainlineTab.value).toBe('battlefield')
     expect(store.getItem(MAINLINE_TAB_KEY)).toBe('battlefield')
     expect(pendingGuideRunePick.value).toBe(true)
+
+    const campAfterAuto = guideCampOpenRequest.value
+    expect(openGuideQuestTask('autoHerb', store)).toBe('workshop')
+    expect(guideCampOpenRequest.value).toBe(campAfterAuto + 1)
+    expect(openGuideQuestTask('herbSickle', store)).toBe('workshop')
+    expect(workshopTab.value).toBe('herbalism')
+    const camp = guideCampOpenRequest.value
+    expect(openGuideQuestTask('restFood', store)).toBe('workshop')
+    expect(guideCampOpenRequest.value).toBe(camp + 1)
+    expect(openGuideQuestTask('veteran', store)).toBe('encounters')
+    expect(mainlineTab.value).toBe('battlefield')
   })
 })

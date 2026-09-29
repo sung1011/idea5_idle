@@ -1,4 +1,5 @@
 import { addToBank, bankQty, takeFromBank } from './bank'
+import { bindRecallRestFood } from './moduleUnlock'
 import { isWorkerInCombat } from './combat'
 import { clearWorkerNew, findWorker } from './recruit'
 import { FOOD_HEAL_RATIO, foodBuffDef, HUNTER_SKEWER_GUARD_S, isFoodItemId, ITEM_DEF, type FoodItemId } from './tables'
@@ -265,3 +266,5 @@ export function tryAutoEatAfterCombat(save: Save, workerIds: readonly string[], 
 export function restartFoodBuff(slot: FoodSlot, now: number): void {
   applyFreshBuff(slot, now)
 }
+
+bindRecallRestFood(offerRestFood)

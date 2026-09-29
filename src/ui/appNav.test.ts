@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { createSave } from '../sim/createSave'
+import { grantOpenedModules } from '../sim/moduleUnlock'
 import { beginItemSourceFlash, clearItemSourceFlash, itemSourceFlashCategories } from './itemSource'
 import {
   APP_TABS,
@@ -94,6 +95,7 @@ describe('appNav', () => {
     expect(workshopTab.value).toBe('alchemy')
     const save = createSave()
     save.knightLevel = 10
+    grantOpenedModules(save, ['cooking'])
     save.stations.cooking.selectedCategory = 'copper'
     expect(openItemWorkshop('roast', store)).toBe('cooking')
     beginItemSourceFlash('roast', save)

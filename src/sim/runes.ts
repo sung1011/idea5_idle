@@ -1,6 +1,7 @@
 import { addToBank, bankQty, takeFromBank } from './bank'
 import { roll01 } from './rng'
-import { isStationUnlocked, stationUnlockKnightLevel } from './stationUnlock'
+import { moduleLockedTip } from './moduleUnlock'
+import { isStationUnlocked } from './stationUnlock'
 import {
   inscriptionRecipes,
   isRuneItemId,
@@ -67,18 +68,21 @@ export function normalizeRunePicks(picks: RunePickMap | undefined): Partial<Reco
   return out
 }
 
-/** 选人列表符文槽：跟铭刻站同一套骑士门槛。 */
-export function isRuneSlotUnlocked(save: Pick<Save, 'knightLevel'>): boolean {
+/** 选人列表符文槽：跟铭刻同一档主线领奖。 */
+export function isRuneSlotUnlocked(save: Parameters<typeof isStationUnlocked>[0]): boolean {
   return isStationUnlocked(save, 'inscription')
 }
 
 export function runeSlotLockedTip(): string {
-  return `铭刻需酋长等级 ${stationUnlockKnightLevel('inscription')} 解锁`
+  return moduleLockedTip('rune')
 }
 
 export type RuneSlotTapKind = 'open' | 'locked' | 'ignore'
 
-export function runeSlotTapKind(save: Pick<Save, 'knightLevel'>, canFight: boolean): RuneSlotTapKind {
+export function runeSlotTapKind(
+  save: Parameters<typeof isRuneSlotUnlocked>[0],
+  canFight: boolean,
+): RuneSlotTapKind {
   if (!isRuneSlotUnlocked(save)) return 'locked'
   if (!canFight) return 'ignore'
   return 'open'
@@ -86,7 +90,7 @@ export function runeSlotTapKind(save: Pick<Save, 'knightLevel'>, canFight: boole
 
 /** 开战确认：铭刻未开则丢弃已选，避免未解锁仍消耗。 */
 export function confirmableRunePicks(
-  save: Pick<Save, 'knightLevel'>,
+  save: Parameters<typeof isRuneSlotUnlocked>[0],
   picks: RunePickMap | undefined,
   workerIds: readonly string[],
 ): Partial<Record<string, RuneItemId>> {

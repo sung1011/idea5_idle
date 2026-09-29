@@ -110,6 +110,12 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
   if (!Object.prototype.hasOwnProperty.call(parsed, 'knightXp')) {
     delete (merged as { knightXp?: number }).knightXp
   }
+  if (!Object.prototype.hasOwnProperty.call(parsed, 'mainlineUnlockRev')) {
+    merged.mainlineUnlockRev = 0
+  }
+  if (!Array.isArray((parsed as { seenModules?: unknown }).seenModules)) {
+    merged.seenModules = []
+  }
   hydrateTechFields(merged as Save & { inspiration?: unknown })
   syncAllWorkerHpMax(merged)
   if (!Array.isArray(parsed.encounters)) merged.encounters = []

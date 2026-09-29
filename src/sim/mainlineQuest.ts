@@ -1,7 +1,14 @@
 import { addToBank, itemQty } from './bank'
 import { grantHerbProbes, herbWorkerCounters } from './herbPvp'
 import { grantKnightXp } from './knightLevel'
-import { isModuleUnlocked, type ModuleId } from './moduleUnlock'
+import {
+  bindMainlineModuleGate,
+  grantOpenedModules,
+  isModuleUnlocked,
+  levelGateTitle,
+  modulesAtGate,
+  type ModuleId,
+} from './moduleUnlock'
 import { knightLevelOf } from './stationUnlock'
 import { POTION_ITEM_IDS, STATION_ORDER } from './tables'
 import { TECH_TABS } from './tech'
@@ -261,16 +268,6 @@ const REV8_GUIDE_IDS = [
   'banner5',
 ] as const
 
-const LEVEL_OPEN: Partial<Record<number, string>> = {
-  6: '狩猎、集市',
-  8: '烹饪、伙食、地牢',
-  10: '割草',
-  11: '科技',
-  13: '困兽',
-  16: '采矿',
-  18: '铭刻、符文槽',
-  20: '夺宝',
-}
 
 function gold(n: number): MainlineReward {
   return { gold: n }
@@ -303,9 +300,7 @@ function levelReward(level: number): MainlineReward {
 }
 
 function levelGoal(level: number): string {
-  const names = LEVEL_OPEN[level]
-  if (!names) return `升到酋长 ${level} 级`
-  return `升到酋长 ${level} 级（开放${names}）`
+  return levelGateTitle(level)
 }
 
 function levelTask(level: number): MainlineTask {
@@ -957,3 +952,26 @@ export function taskModuleReady(save: Save, row: MainlineTask): boolean {
   if (!row.module) return true
   return isModuleUnlocked(save, row.module)
 }
+
+/** 主线步号已经走过、或跳过位图里的等级任务，打开该级功能。 */
+export function grantPassedLevelModules(save: Save): void {
+  const step = typeof save.guideQuestStep === 'number' && Number.isFinite(save.guideQuestStep) ? Math.floor(save.guideQuestStep) : 1
+  const skipped = new Set(save.guideQuestSkipped ?? [])
+  const ids: ModuleId[] = []
+  for (const row of MAINLINE_TASKS) {
+    if (row.tier !== 'level') continue
+    const at = mainlineStepOf(row.id)
+    if (at > 0 && (step > at || skipped.has(row.id))) ids.push(...modulesAtGate(row.gate))
+  }
+  grantOpenedModules(save, ids)
+}
+
+bindMainlineModuleGate((save, level) => {
+  const id = `level${level}`
+  const at = mainlineStepOf(id)
+  if (at <= 0) return false
+  const step =
+    typeof save.guideQuestStep === 'number' && Number.isFinite(save.guideQuestStep) ? Math.floor(save.guideQuestStep) : 1
+  if (step > at) return true
+  return (save.guideQuestSkipped ?? []).includes(id)
+})

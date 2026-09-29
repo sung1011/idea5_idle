@@ -1,10 +1,19 @@
-import { offerRestFood } from './food'
-import { bindKnightUnlockQueue, xpToNextKnightLevel } from './knightLevel'
-import { knightLevelOf, stationUnlockKnightLevel } from './stationUnlock'
+import { normalizeKnightLevel, xpToNextKnightLevel } from './knightLevel'
 import { isStationId, PLAYABLE_STATION_IDS } from './tables'
 import type { Save, StationId } from './types'
 
-/** 跟酋长等级走的玩法。1 级的工坊、抽人、营地、合成、药剂和悬赏不进这张表。 */
+function knightLevelOf(save: Pick<Save, 'knightLevel'>): number {
+  return normalizeKnightLevel(save.knightLevel)
+}
+
+/** 撤回锁定工位时的休息回血。由 food.ts 晚绑定，避免和工位解锁绕成环。 */
+let recallRestFood: ((save: Save, workerId: string) => void) | null = null
+
+export function bindRecallRestFood(fn: (save: Save, workerId: string) => void): void {
+  recallRestFood = fn
+}
+
+/** 跟主线等级任务走的玩法。1 级的工坊、抽人、营地、合成、药剂和悬赏不进这张表。 */
 export const MODULE_IDS = [
   'tech',
   'hunting',
@@ -74,6 +83,52 @@ const STATION_MODULE: Partial<Record<StationId, ModuleId>> = {
   inscription: 'inscription',
 }
 
+/** 跟主线「升到酋长 N 级」同一句里的开放名单。 */
+export const MODULE_GATE_NAMES: Partial<Record<number, string>> = {
+  6: '狩猎、集市',
+  8: '烹饪、伙食、地牢',
+  10: '割草',
+  11: '科技',
+  13: '困兽',
+  16: '采矿',
+  18: '铭刻、符文槽',
+  20: '夺宝',
+}
+
+type GateSave = {
+  guideQuestStep?: number
+  guideQuestSkipped?: readonly string[] | null
+}
+
+type GateFn = (save: GateSave, level: number) => boolean
+let gateFn: GateFn | null = null
+
+/** 由主线模块挂上，避免和任务表互相引用。 */
+export function bindMainlineModuleGate(fn: GateFn): void {
+  gateFn = fn
+}
+
+export function levelGateTitle(level: number): string {
+  const names = MODULE_GATE_NAMES[level]
+  if (!names) return `升到酋长 ${level} 级`
+  return `升到酋长 ${level} 级（开放${names}）`
+}
+
+export function levelGateUnlockNote(level: number): string | null {
+  const names = MODULE_GATE_NAMES[level]
+  if (!names) return null
+  return `完成后开启：${names}`
+}
+
+export function modulesAtGate(level: number): ModuleId[] {
+  return MODULE_IDS.filter((id) => MODULE_UNLOCK_KNIGHT[id] === level)
+}
+
+export function modulesUpToKnight(level: number): ModuleId[] {
+  const cap = Math.max(1, Math.floor(level))
+  return MODULE_IDS.filter((id) => MODULE_UNLOCK_KNIGHT[id] <= cap)
+}
+
 export function isModuleId(id: unknown): id is ModuleId {
   return typeof id === 'string' && (MODULE_IDS as readonly string[]).includes(id)
 }
@@ -91,21 +146,28 @@ export function moduleBlurb(id: ModuleId): string {
 }
 
 export function moduleLockedTip(id: ModuleId): string {
-  return `酋长 ${moduleUnlockKnightLevel(id)} 级开放${moduleLabel(id)}`
+  return `完成主线「${levelGateTitle(moduleUnlockKnightLevel(id))}」后开启`
 }
 
-export function isModuleUnlocked(save: Pick<Save, 'knightLevel' | 'openedModules'>, id: ModuleId): boolean {
-  if (knightLevelOf(save) >= moduleUnlockKnightLevel(id)) return true
-  return save.openedModules?.includes(id) === true
+function gateOpen(save: GateSave, level: number): boolean {
+  return gateFn?.(save, level) === true
+}
+
+export function isModuleUnlocked(
+  save: { openedModules?: readonly string[] | null } & GateSave,
+  id: ModuleId,
+): boolean {
+  if (save.openedModules?.includes(id)) return true
+  return gateOpen(save, moduleUnlockKnightLevel(id))
 }
 
 /** PVP 页在割草、困兽、夺宝任一开放后才能进。 */
-export function isPvpUnlocked(save: Pick<Save, 'knightLevel' | 'openedModules'>): boolean {
+export function isPvpUnlocked(save: { openedModules?: readonly string[] | null } & GateSave): boolean {
   return isModuleUnlocked(save, 'herb') || isModuleUnlocked(save, 'beast') || isModuleUnlocked(save, 'treasure')
 }
 
 export function isAppTabUnlocked(
-  save: Pick<Save, 'knightLevel' | 'openedModules'>,
+  save: { openedModules?: readonly string[] | null } & GateSave,
   tab: 'workshop' | 'encounters' | 'pvp' | 'tech',
 ): boolean {
   if (tab === 'tech') return isModuleUnlocked(save, 'tech')
@@ -113,33 +175,39 @@ export function isAppTabUnlocked(
   return true
 }
 
-export function appTabLockedTip(save: Pick<Save, 'knightLevel' | 'openedModules'>, tab: 'pvp' | 'tech'): string {
+export function appTabLockedTip(
+  _save: { openedModules?: readonly string[] | null } & GateSave,
+  tab: 'pvp' | 'tech',
+): string {
   if (tab === 'tech') return moduleLockedTip('tech')
   return moduleLockedTip('herb')
 }
 
-/** 酋长升级跨过的门槛。已经玩过、写进 openedModules 的不再弹。 */
-export function queueModuleUnlocks(save: Save, from: number | null, to: number): void {
-  if (from == null || to <= from) return
-  if (!Array.isArray(save.moduleUnlockQueue)) save.moduleUnlockQueue = []
-  const opened = new Set(save.openedModules ?? [])
-  for (const id of MODULE_IDS) {
-    const need = MODULE_UNLOCK_KNIGHT[id]
-    if (need <= from || need > to) continue
-    if (opened.has(id)) continue
-    if (save.moduleUnlockQueue.includes(id)) continue
-    save.moduleUnlockQueue.push(id)
+export function grantOpenedModules(save: Save, ids: readonly string[]): void {
+  const set = new Set<ModuleId>(Array.isArray(save.openedModules) ? save.openedModules.filter(isModuleId) : [])
+  let changed = false
+  for (const id of ids) {
+    if (!isModuleId(id) || set.has(id)) continue
+    set.add(id)
+    changed = true
   }
+  if (!Array.isArray(save.openedModules) || changed) save.openedModules = [...set]
 }
 
-export function dismissModuleUnlock(save: Save): ModuleId | null {
-  const id = save.moduleUnlockQueue?.[0]
-  if (!isModuleId(id)) {
-    save.moduleUnlockQueue = []
-    return null
-  }
-  save.moduleUnlockQueue = save.moduleUnlockQueue.slice(1)
-  return id
+/** 新开的入口还没点进去。 */
+export function moduleNoticeOn(
+  save: { openedModules?: readonly string[] | null; seenModules?: readonly string[] | null } & GateSave,
+  id: ModuleId,
+): boolean {
+  if (!isModuleUnlocked(save, id)) return false
+  return save.seenModules?.includes(id) !== true
+}
+
+export function markModuleSeen(save: Save, id: ModuleId): boolean {
+  if (!isModuleId(id) || !isModuleUnlocked(save, id)) return false
+  if (save.seenModules?.includes(id)) return false
+  save.seenModules = [...(save.seenModules ?? []), id]
+  return true
 }
 
 function stationEvidence(save: Save, stationId: StationId): boolean {
@@ -196,11 +264,21 @@ export function playedModuleIds(save: Save): ModuleId[] {
 
 export function hydrateModuleUnlocks(save: Save): void {
   const prior = Array.isArray(save.openedModules) ? save.openedModules.filter(isModuleId) : []
-  const set = new Set<ModuleId>([...prior, ...playedModuleIds(save)])
+  const played = playedModuleIds(save)
+  const set = new Set<ModuleId>([...prior, ...played])
+  const migrating = (save.mainlineUnlockRev ?? 0) < 1
+  if (migrating) {
+    for (const id of modulesUpToKnight(knightLevelOf(save))) set.add(id)
+    save.mainlineUnlockRev = 1
+  }
   save.openedModules = [...set]
-  save.moduleUnlockQueue = Array.isArray(save.moduleUnlockQueue)
-    ? save.moduleUnlockQueue.filter(isModuleId)
-    : []
+  const seen = new Set<ModuleId>(Array.isArray(save.seenModules) ? save.seenModules.filter(isModuleId) : [])
+  for (const id of played) seen.add(id)
+  if (migrating) {
+    for (const id of set) seen.add(id)
+  }
+  save.seenModules = [...seen]
+  save.moduleUnlockQueue = []
   recallCrewFromLockedStations(save)
 }
 
@@ -210,31 +288,31 @@ export function recallCrewFromLockedStations(save: Save): number {
   for (const worker of save.workers) {
     const stationId = worker.assignment
     if (!stationId || !isStationId(stationId)) continue
-    if (knightLevelOf(save) >= stationUnlockKnightLevel(stationId)) continue
-    if (save.openedModules?.includes(stationId)) continue
+    const moduleId = STATION_MODULE[stationId]
+    if (!moduleId || isModuleUnlocked(save, moduleId)) continue
     worker.assignment = null
-    offerRestFood(save, worker.id)
+    recallRestFood?.(save, worker.id)
     n += 1
   }
   return n
 }
 
-/** 下一个还没到的解锁门槛。同一级的名字拼在一起。满级后没有下一项。 */
-export function nextModuleUnlock(level: number): { knight: number; label: string } | null {
+/** 下一个还没由主线领奖打开的门槛。满了就没有下一项。 */
+export function nextModuleUnlock(
+  level: number,
+  save?: { openedModules?: readonly string[] | null } & GateSave,
+): { knight: number; label: string } | null {
   const current = Math.max(1, Math.floor(level))
   let best = Number.POSITIVE_INFINITY
-  const names: string[] = []
-  for (const id of MODULE_IDS) {
-    const need = MODULE_UNLOCK_KNIGHT[id]
-    if (need <= current) continue
-    if (need < best) {
-      best = need
-      names.length = 0
-    }
-    if (need === best) names.push(MODULE_LABEL[id])
+  for (const gate of Object.keys(MODULE_GATE_NAMES)) {
+    const knight = Number(gate)
+    const ids = modulesAtGate(knight)
+    const stillLocked = save ? ids.some((id) => !isModuleUnlocked(save, id)) : knight > current
+    if (!stillLocked) continue
+    if (knight < best) best = knight
   }
-  if (!names.length || !Number.isFinite(best)) return null
-  return { knight: best, label: `酋长 ${best} 级开放${names.join('、')}` }
+  if (!Number.isFinite(best)) return null
+  return { knight: best, label: `完成主线「${levelGateTitle(best)}」后开启` }
 }
 
 /** 当前酋长经验占下一级门槛的比例。 */
@@ -245,5 +323,3 @@ export function knightLevelProgress(save: Save): { level: number; ratio: number;
   const ratio = need <= 0 ? 0 : Math.min(1, xp / need)
   return { level, ratio, percent: Math.round(ratio * 100) }
 }
-
-bindKnightUnlockQueue(queueModuleUnlocks)

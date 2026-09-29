@@ -32,7 +32,7 @@ import {
   workshopBuffRemainS,
 } from '../sim/encounters'
 import { timedOrderLine } from '../sim/marketTimed'
-import { isModuleUnlocked, moduleLockedTip, type ModuleId } from '../sim/moduleUnlock'
+import { isModuleUnlocked, moduleLockedTip, moduleNoticeOn, type ModuleId } from '../sim/moduleUnlock'
 import ModeHelpSheet from './modeHelpSheet.vue'
 import { modeHelpIdForMainline, modeHelpOf } from './modeHelp'
 import {
@@ -229,6 +229,11 @@ function tabLocked(id: MainlineTabId) {
   return moduleId != null && !isModuleUnlocked(game.save, moduleId)
 }
 
+function tabNotice(id: MainlineTabId) {
+  const moduleId = tabModule(id)
+  return moduleId != null && moduleNoticeOn(game.save, moduleId)
+}
+
 function selectTab(id: MainlineTabId) {
   const moduleId = tabModule(id)
   if (moduleId && !isModuleUnlocked(game.save, moduleId)) {
@@ -236,6 +241,7 @@ function selectTab(id: MainlineTabId) {
     return
   }
   selectMainlineTab(id)
+  if (moduleId) game.markModuleSeen(moduleId)
   closePick()
   closeAffixHelp()
 }
@@ -484,6 +490,7 @@ function timedLine(enc: Encounter) {
         >
           {{ MAINLINE_TAB_LABELS[id] }}
           <i v-if="tabLocked(id)" class="lock" aria-hidden="true" />
+          <i v-else-if="tabNotice(id)" class="notice" aria-hidden="true" />
         </button>
       </nav>
       <nav class="sub density" role="tablist" aria-label="PVE详略">
@@ -862,6 +869,7 @@ function timedLine(enc: Encounter) {
 }
 
 .sub button {
+  position: relative;
   flex: 1 1 0;
   min-height: 32px;
   padding: 4px 10px;
@@ -881,6 +889,17 @@ function timedLine(enc: Encounter) {
 .sub button.locked {
   filter: grayscale(1);
   opacity: 0.5;
+}
+
+.sub button .notice {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 2px var(--wood-face);
 }
 
 .sub button .lock {

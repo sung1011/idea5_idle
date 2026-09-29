@@ -36,6 +36,7 @@ import {
   normalizeGuideQuestStep,
 } from './guideQuest'
 import { selectRestFood } from './food'
+import { isModuleUnlocked } from './moduleUnlock'
 import { mainlineStepOf } from './mainlineQuest'
 import { installPotionSlot } from './potionSlots'
 import { usePotionSlot } from './potions'
@@ -83,6 +84,7 @@ describe('guideQuest normalize and hydrate', () => {
       claimable: false,
       fillPct: 0,
       waiting: false,
+      unlockNote: null,
     })
     expect(normalizeGuideQuestStep(undefined)).toBe(1)
     expect(normalizeGuideQuestStep(0)).toBe(1)
@@ -367,12 +369,18 @@ describe('guideQuest steps and claim', () => {
     expect(guideQuestProgressAt(fighting, fighting.guideQuestStep)).toBe(1)
   })
 
-  it('shows the rune step only after inscription unlock and a battlefield fight button', () => {
+  it('shows the rune step once that mainline task is reached', () => {
     const save = createSave()
-    save.guideQuestStep = GUIDE_QUEST_PHASE3_START
-    expect(guideQuestView(save)?.waiting).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('下一个目标：酋长 18 级开放符文槽')
     save.knightLevel = 18
+    save.guideQuestStep = mainlineStepOf('level18')
+    expect(isModuleUnlocked(save, 'rune')).toBe(false)
+    const levelView = guideQuestView(save)
+    expect(levelView?.waiting).toBe(false)
+    expect(levelView?.claimable).toBe(true)
+    expect(levelView?.unlockNote).toBe('完成后开启：铭刻、符文槽')
+    save.guideQuestStep = GUIDE_QUEST_PHASE3_START
+    expect(isModuleUnlocked(save, 'rune')).toBe(true)
+    expect(guideQuestView(save)?.waiting).toBe(false)
     expect(guideQuestView(save)?.title).toBe('符文槽')
     for (const enc of save.encounters) {
       if (enc.kind === 'enemy') enc.lootClaimed = true

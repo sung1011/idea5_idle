@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createSave } from './createSave'
 import { claimGuideQuest, guideQuestProgressAt, guideQuestView, hydrateGuideQuestFields } from './guideQuest'
-import { isModuleUnlocked } from './moduleUnlock'
+import { grantOpenedModules, isModuleUnlocked } from './moduleUnlock'
 import { noteDungeonRun, noteMarketDeal, noteRuneFight, noteTreasureRaid } from './mainlineStats'
 import {
   GUIDE_SKIP_CAP,
@@ -145,12 +145,18 @@ describe('mainline schedule', () => {
     save.knightLevel = 1
     expect(guideQuestView(save)?.waiting).toBe(true)
     expect(guideQuestView(save)?.goal).toBe('升到酋长 6 级（开放狩猎、集市）')
+    expect(guideQuestView(save)?.unlockNote).toBe('完成后开启：狩猎、集市')
     expect(claimGuideQuest(save).ok).toBe(false)
+    expect(isModuleUnlocked(save, 'hunting')).toBe(false)
 
     save.knightLevel = 6
+    expect(isModuleUnlocked(save, 'hunting')).toBe(false)
     expect(guideQuestView(save)?.claimable).toBe(true)
     expect(claimGuideQuest(save)).toEqual({ ok: true, message: '金币 +20' })
-    expect(save.moduleUnlockQueue).toEqual(['hunting', 'market'])
+    expect(save.moduleUnlockQueue).toEqual([])
+    expect(isModuleUnlocked(save, 'hunting')).toBe(true)
+    expect(isModuleUnlocked(save, 'market')).toBe(true)
+    expect(isModuleUnlocked(save, 'cooking')).toBe(false)
     expect(save.guideQuestStep).toBe(mainlineStepOf('huntStart'))
     expect(guideQuestView(save)?.taskId).toBe('huntStart')
     expect(save.knightXp).toBe(0)
@@ -161,8 +167,9 @@ describe('mainline sticky completion and rewards', () => {
   it('keeps a cleared condition claimable after the worker leaves and the board refreshes', () => {
     const save = createSave()
     save.knightLevel = 6
+    grantOpenedModules(save, ['hunting'])
     spawnWorker(save)
-    assignWorker(save, save.workers[0].id, 'hunting')
+    expect(assignWorker(save, save.workers[0].id, 'hunting').ok).toBe(true)
     save.guideQuestStep = mainlineStepOf('huntStart')
     syncGuideQuestMet(save)
     save.workers[0].assignment = null
@@ -184,8 +191,9 @@ describe('mainline sticky completion and rewards', () => {
   it('does not latch a task before it becomes the current one', () => {
     const save = createSave()
     save.knightLevel = 6
+    grantOpenedModules(save, ['hunting'])
     spawnWorker(save)
-    assignWorker(save, save.workers[0].id, 'hunting')
+    expect(assignWorker(save, save.workers[0].id, 'hunting').ok).toBe(true)
     save.guideQuestStep = 1
     syncGuideQuestMet(save)
     save.workers[0].assignment = null

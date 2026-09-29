@@ -2,14 +2,6 @@ import { pushMessage } from './messages'
 import { PLAYABLE_STATION_IDS } from './tables'
 import type { Save } from './types'
 
-type UnlockQueue = (save: Save, from: number | null, to: number) => void
-let unlockQueue: UnlockQueue | null = null
-
-/** 由玩法解锁模块挂上，避免和站入口互相引用。 */
-export function bindKnightUnlockQueue(fn: UnlockQueue): void {
-  unlockQueue = fn
-}
-
 /** 每提升 1 酋长等级给的灵感。 */
 export const KNIGHT_LEVEL_TECH_POINTS = 1
 
@@ -117,7 +109,7 @@ export type KnightXpGrant = {
   inspiration: number
 }
 
-/** 加上酋长经验。跨级时每级 1 灵感，并排进「新玩法开放」。等级不会回落。 */
+/** 加上酋长经验。跨级时每级 1 灵感。等级不会回落。玩法要等主线领奖才开。 */
 export function grantKnightXp(save: Save, amount: number): KnightXpGrant {
   const gain = Math.floor(amount)
   const from = normalizeKnightLevel(save.knightLevel)
@@ -144,7 +136,6 @@ export function grantKnightXp(save: Save, amount: number): KnightXpGrant {
       title: '酋长升级',
       body: `酋长等级升到 ${level}，灵感 +${inspiration}`,
     })
-    unlockQueue?.(save, from, level)
   }
   noteKnightXpFloat(gain)
   return { amount: gain, from, to: level, xp, gained, inspiration }

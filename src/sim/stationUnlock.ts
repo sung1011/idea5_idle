@@ -1,4 +1,5 @@
 import { normalizeKnightLevel } from './knightLevel'
+import { isModuleId, isModuleUnlocked, levelGateTitle } from './moduleUnlock'
 import { PLAYABLE_STATION_IDS, STATION_DEF } from './tables'
 import type { Save, StationId } from './types'
 
@@ -25,20 +26,27 @@ export function knightLevelOf(save: Pick<Save, 'knightLevel'>): number {
 }
 
 export function isStationUnlocked(
-  save: Pick<Save, 'knightLevel'> & { openedModules?: readonly string[] | null },
+  save: {
+    openedModules?: readonly string[] | null
+    guideQuestStep?: number
+    guideQuestSkipped?: readonly string[] | null
+  },
   stationId: StationId,
 ): boolean {
-  if (knightLevelOf(save) >= stationUnlockKnightLevel(stationId)) return true
-  return save.openedModules?.includes(stationId) === true
+  if (stationUnlockKnightLevel(stationId) <= 1) return true
+  if (save.openedModules?.includes(stationId)) return true
+  return isModuleId(stationId) && isModuleUnlocked(save, stationId)
 }
 
 export function stationLockedTip(stationId: StationId): string {
-  return `酋长 ${stationUnlockKnightLevel(stationId)} 级开放${STATION_DEF[stationId].label}`
+  const level = stationUnlockKnightLevel(stationId)
+  if (level <= 1) return `${STATION_DEF[stationId].label}已开放`
+  return `完成主线「${levelGateTitle(level)}」后开启`
 }
 
 /** 一组里尚未开放、门槛最低的下一站。 */
 export function nextLockedStation(
-  save: Pick<Save, 'knightLevel'>,
+  save: Parameters<typeof isStationUnlocked>[0],
   stationIds: readonly StationId[],
 ): StationId | null {
   let next: StationId | null = null
@@ -55,14 +63,14 @@ export function nextLockedStation(
 }
 
 export function workshopGroupLockedTip(
-  save: Pick<Save, 'knightLevel'>,
+  save: Parameters<typeof isStationUnlocked>[0],
   stationIds: readonly StationId[],
 ): string | null {
   const next = nextLockedStation(save, stationIds)
   return next ? stationLockedTip(next) : null
 }
 
-export function unlockedStationIds(save: Pick<Save, 'knightLevel'>): StationId[] {
+export function unlockedStationIds(save: Parameters<typeof isStationUnlocked>[0]): StationId[] {
   return PLAYABLE_STATION_IDS.filter((id) => isStationUnlocked(save, id))
 }
 
@@ -74,8 +82,27 @@ export function keepStationsOpen(save: Save): Save {
   return save
 }
 
-/** 测试 / GM：按满级门槛开放六站，不改站等级与库存。 */
+/** 测试 / GM：按酋长等级把对应模块写入已开放，不改站等级与库存。 */
 export function unlockPlayableStations(save: Save, knightLevel = STATION_UNLOCK_KNIGHT_MAX): Save {
   save.knightLevel = Math.max(1, Math.floor(knightLevel))
+  const gates: Record<string, number> = {
+    hunting: 6,
+    market: 6,
+    cooking: 8,
+    restFood: 8,
+    dungeon: 8,
+    herb: 10,
+    tech: 11,
+    beast: 13,
+    mining: 16,
+    inscription: 18,
+    rune: 18,
+    treasure: 20,
+  }
+  const open = new Set(save.openedModules ?? [])
+  for (const [id, need] of Object.entries(gates)) {
+    if (need <= save.knightLevel) open.add(id)
+  }
+  save.openedModules = [...open]
   return save
 }

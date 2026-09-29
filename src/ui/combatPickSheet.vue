@@ -17,6 +17,7 @@ import type { ActIconId } from './actIcons'
 import CombatAttrRow from './combatAttrRow.vue'
 import { enemyPickCopy, type EnemyPickMode } from './enemyCardAction'
 import { pushFloatTip } from './floatTips'
+import { moduleNoticeOn } from '../sim/moduleUnlock'
 import { useGameStore } from './gameStore'
 import { pickSlotNumber } from './pickSlot'
 import { pickWorkerName } from './pickWorkerName'
@@ -76,6 +77,7 @@ const copy = computed(() => enemyPickCopy(props.mode, props.max))
 const sheetTitle = computed(() => props.titleText || copy.value.title)
 const sheetConfirm = computed(() => props.confirmText || copy.value.confirm)
 const runeSlotUnlocked = computed(() => isRuneSlotUnlocked(game.save))
+const runeNotice = computed(() => runeSlotUnlocked.value && moduleNoticeOn(game.save, 'rune'))
 const runeOptions = computed(() => listRunePickOptions(game.save))
 const hint = computed(() => {
   const assist = props.showAssist ? '点邀请才加入 1 名临时助战。' : ''
@@ -114,6 +116,7 @@ function openRunePick(workerId: string, ev?: Event) {
   game.clearWorkerNew(workerId)
   runePickWorkerId.value = workerId
   game.markGuideRuneOpened()
+  game.markModuleSeen('rune')
 }
 
 function onRuneSlotTap(worker: Worker, ev?: Event) {
@@ -202,6 +205,7 @@ function closeAll() {
               :class="{
                 on: runeSlotUnlocked && !!equippedRune(w.id),
                 locked: !runeSlotUnlocked,
+                fresh: runeNotice,
                 'guide-flash': guideFlashRune && runeSlotUnlocked,
               }"
               :disabled="!runeSlotUnlocked || !canPickWorker(w)"
@@ -354,6 +358,7 @@ function closeAll() {
 }
 
 .rune-slot {
+  position: relative;
   flex: 0 0 56px;
   width: 100%;
   min-width: 56px;
@@ -362,6 +367,17 @@ function closeAll() {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
+}
+
+.rune-slot.fresh::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
 }
 
 .rune-slot.on {

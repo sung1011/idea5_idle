@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createSave } from './createSave'
+import { grantOpenedModules, modulesUpToKnight } from './moduleUnlock'
 import {
   combatSupplyBlockReason,
   generateEncounterBoard,
@@ -53,6 +54,7 @@ describe('mainline battlefield / market boards', () => {
     expect(save.encounters.every((enc) => enc.kind === 'enemy')).toBe(true)
     expect(isStarterCopperPawn(save.marketEncounters[0])).toBe(false)
     save.knightLevel = 16
+    grantOpenedModules(save, modulesUpToKnight(save.knightLevel))
     save.marketEncounters = generateEncounterBoard(17, marketSlotCount(save), {
       rng: save,
       mainChapter: save.mainChapter,

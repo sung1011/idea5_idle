@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { isGuideQuestFlash } from '../sim/guideQuest'
-import { isModuleUnlocked, moduleLockedTip } from '../sim/moduleUnlock'
+import { isModuleUnlocked, moduleLockedTip, moduleNoticeOn } from '../sim/moduleUnlock'
 import { pushFloatTip } from './floatTips'
 import { unlockFlashKey } from './moduleUnlockNav'
 import { useGameStore } from './gameStore'
@@ -37,14 +37,18 @@ function onView(id: (typeof PVP_VIEWS)[number]) {
     return
   }
   selectPvpView(id)
+  game.markModuleSeen(viewModule(id))
 }
 
 watch(
-  () => [pvpView.value, game.save.knightLevel, (game.save.openedModules ?? []).join(',')] as const,
+  () => [pvpView.value, game.save.knightLevel, (game.save.openedModules ?? []).join(','), (game.save.seenModules ?? []).join(',')] as const,
   () => {
-    if (!viewLocked(pvpView.value)) return
-    const next = PVP_VIEWS.find((id) => !viewLocked(id))
-    if (next) selectPvpView(next)
+    if (viewLocked(pvpView.value)) {
+      const next = PVP_VIEWS.find((id) => !viewLocked(id))
+      if (next && next !== pvpView.value) selectPvpView(next)
+      return
+    }
+    game.markModuleSeen(viewModule(pvpView.value))
   },
   { immediate: true },
 )
@@ -78,6 +82,7 @@ const help = computed(() => modeHelpOf(helpId()))
         >
           {{ PVP_VIEW_LABELS[id] }}
           <i v-if="viewLocked(id)" class="lock" aria-hidden="true" />
+          <i v-else-if="moduleNoticeOn(game.save, viewModule(id))" class="notice" aria-hidden="true" />
         </button>
       </nav>
       <HelpMark @click="helpOpen = true" />
@@ -143,6 +148,17 @@ const help = computed(() => modeHelpOf(helpId()))
 .sub button.locked {
   filter: grayscale(1);
   opacity: 0.5;
+}
+
+.sub button .notice {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 2px var(--wood-face);
 }
 
 .sub button .lock {

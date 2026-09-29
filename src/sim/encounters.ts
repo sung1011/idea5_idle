@@ -440,8 +440,8 @@ export function mainNeedOutputsOfStation(stationId: StationId, alchemyLevel: unk
 }
 
 /**
- * 主线需求种类池：只跟当前已解锁工位走（同一套骑士门槛表）。
- * 无存档按骑士 1 级（采药与炼金）。
+ * 主线需求种类池：只跟当前已解锁工位走。
+ * 没写入已开放模块时，只有采药和炼金。
  */
 export function mainNeedItemPool(save?: MainNeedPoolSave | null): readonly ItemId[] {
   const alchemyLevel = alchemyStationLevel(save)
@@ -515,6 +515,7 @@ export function applyMainNeedWildcard(itemId: ItemId, pool: readonly ItemId[], r
  */
 export const MAIN_NEED_ITEM_POOL: readonly ItemId[] = mainNeedItemPool({
   knightLevel: STATION_UNLOCK_KNIGHT_MAX,
+  openedModules: ['hunting', 'cooking', 'mining', 'inscription'],
   stations: { alchemy: { stationLevel: 7 } },
 })
 

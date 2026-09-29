@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createSave } from '../sim/createSave'
+import { grantOpenedModules } from '../sim/moduleUnlock'
 import {
   beginItemSourceFlash,
   clearItemSourceFlash,
@@ -66,6 +67,7 @@ describe('beginItemSourceFlash', () => {
   it('flashes unlocked category rows and never writes selectedCategory', () => {
     const save = createSave()
     save.knightLevel = 10
+    grantOpenedModules(save, ['hunting', 'cooking'])
     save.stations.hunting.selectedCategory = 'copper'
     save.stations.cooking.selectedCategory = 'copper'
     save.stations.mining.selectedCategory = 'iron'
@@ -94,6 +96,7 @@ describe('beginItemSourceFlash', () => {
     vi.useFakeTimers()
     const save = createSave()
     save.knightLevel = 10
+    grantOpenedModules(save, ['cooking'])
     save.stations.cooking.selectedCategory = 'mithril'
     beginItemSourceFlash('meal', save)
     expect(itemSourceFlash.value?.categoryIds).toEqual(['copper'])
