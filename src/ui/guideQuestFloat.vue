@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { guideQuestView } from '../sim/guideQuest'
 import { useGameStore } from './gameStore'
 import { pushFloatTip } from './floatTips'
-import { guideCampSheetOpen, openGuideQuestStep } from './guideQuestNav'
+import { guideCampSheetOpen, openGuideQuestTask } from './guideQuestNav'
 
 const game = useGameStore()
 const collapsed = ref(false)
@@ -16,7 +16,7 @@ function jump() {
     pushFloatTip(current.goal.replace(/^下一个目标：/, ''), 'err')
     return
   }
-  openGuideQuestStep(current.step)
+  openGuideQuestTask(current.taskId)
 }
 
 function onBadge() {
@@ -52,7 +52,7 @@ function claim() {
       <i :style="{ width: `${view.fillPct}%` }" />
     </div>
     <div v-if="view.claimable" class="act">
-      <button type="button" @click.stop="claim">领取 金币+20</button>
+      <button type="button" @click.stop="claim">领取 {{ view.rewardLabel }}</button>
     </div>
   </aside>
 </template>

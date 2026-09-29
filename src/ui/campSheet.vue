@@ -125,6 +125,7 @@ function onRowPointerDown(ev: PointerEvent) {
             :key="id"
             type="button"
             :class="{ on: game.save.restFoodId === id }"
+            :disabled="bankQty(game.save, id) <= 0"
             @click="onPickFood(id)"
           >
             <FoodIcon :name="id" />

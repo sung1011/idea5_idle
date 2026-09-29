@@ -795,11 +795,11 @@ export type Save = {
    */
   mainLootClaims: number
   /**
-   * 左下悬浮新手任务当前步。1～4 是工坊开局，5～7 是药剂，其后按酋长等级分段；领完后步号不再显示浮层。
-   * 等级未到时浮层改显示下一个开放目标。旧档或缺低于当前 `guideQuestRev`：已满足的步跳过且不发金。
+   * 左下悬浮主线当前步。开局 7 步之后，等级任务和功能任务组按解锁等级交替。
+   * 领完后步号不再显示浮层。旧档或缺低于当前 `guideQuestRev`：已满足的任务跳过且不发奖。
    */
   guideQuestStep: number
-  /** 引导表版本。6 = 按酋长等级分段。缺或低于当前 REV 按现况重落步号。 */
+  /** 引导表版本。7 = 等级任务与功能组交替。缺或低于当前 REV 按现况重落步号。 */
   guideQuestRev: number
   /** 是否已从药剂槽点用过。hydrate 时若有时效 buff 也算。 */
   guideQuestPotionUsed: boolean
@@ -813,8 +813,14 @@ export type Save = {
   openedModules: string[]
   /** 酋长升级跨过门槛后待弹的「新玩法开放」卡片，按顺序。 */
   moduleUnlockQueue: string[]
-  /** 引导步位图。置位的步跳过且不发金币。旧档迁移时写入。 */
+  /** 旧引导步位图。只在读档时折进 `guideQuestSkipped`，新进度不再往这里写。 */
   guideQuestSkipMask: number
+  /** 已跳过、不发奖的主线任务 id。旧档迁移写入。 */
+  guideQuestSkipped: string[]
+  /** 开放后曾经达成过的任务 id。日切或离岗后仍可领。 */
+  guideQuestMet: string[]
+  /** 不随日切、换板清掉的主线累计。 */
+  guideQuestStats: import('./mainlineStats').GuideQuestStats
   /**
    * 是否已提示过工坊在岗体力导致效率下降。
    * 账号首次在岗效率跌破 100%（残血 / 空血）漂一次；hydrate 缺字段为 false。
@@ -826,8 +832,8 @@ export type Save = {
    */
   fuseDragTipDone: boolean
   /**
-   * 是否已成交过至少一笔主线订单（交易完成或敌人已领奖）。成交后即使探索刷掉该格也仍算完成。
-   * 字段名沿用旧档；旧档 `true` 或板上已完成开局当仍算完成。
+   * 是否已在集市板成交过至少一单。战场领战利品不算。
+   * 字段名沿用旧档。1 级只因战场领奖而写成 true 的，读档时清掉。
    */
   starterCopperPawnDone: boolean
   /** 工匠委托留下的工坊产量加成；到期后不算。 */

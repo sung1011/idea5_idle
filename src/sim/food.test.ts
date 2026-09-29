@@ -73,6 +73,8 @@ describe('rest area shared food', () => {
   it('selects a cooked food and can clear it', () => {
     const save = keepStationsOpen(createSave())
     expect(save.restFoodId).toBeNull()
+    expect(selectRestFood(save, 'roast')).toEqual({ ok: false, reason: '没有这份伙食' })
+    save.bank.roast = 1
     expect(selectRestFood(save, 'roast')).toEqual({ ok: true })
     expect(save.restFoodId).toBe('roast')
     expect(selectRestFood(save, null)).toEqual({ ok: true })

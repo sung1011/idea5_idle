@@ -1,4 +1,5 @@
 import { addToBank } from './bank'
+import { noteBeastChallenge, noteBeastManual } from './mainlineStats'
 import { beastPvpBlockReason } from './beastPvpQuery'
 import { applyDownedReturn, isWorkerInCombat, workerLiveStats } from './combat'
 import { COMBAT_ATTR_IDS, rollCombatWeakness, scaledAttackDamage, workerMatchesWeakness } from './combatAttrs'
@@ -1031,6 +1032,7 @@ export function startBeastFight(save: Save, workerIds: readonly string[]): Actio
   }
   state.stamina -= BEAST_STAMINA_COST
   state.fight = makeFight(save, party, state.auto)
+  noteBeastChallenge(save)
   const names = party.map((worker) => worker.name ?? '苦工').join('、')
   return { ok: true, message: `${names} 上阵，花 ${BEAST_STAMINA_COST} 体力` }
 }
@@ -1043,6 +1045,7 @@ export function beastDodge(save: Save): ActionResult {
   if (state.reacts[phase] || fight.dodgeNext) return { ok: false, reason: '这一阶段已经用过' }
   state.reacts[phase] = 'dodge'
   fight.dodgeNext = true
+  noteBeastManual(save)
   return { ok: true, message: '准备躲开下一次攻击' }
 }
 
@@ -1057,6 +1060,7 @@ export function beastInterrupt(save: Save): ActionResult {
   fight.weakenNext = true
   state.reacts[phase] = 'interrupt'
   fight.gapMs = initialGap(state)
+  noteBeastManual(save)
   return { ok: true, message: '这一下取消了，下一击伤害减少' }
 }
 
@@ -1067,6 +1071,7 @@ export function beastCower(save: Save): ActionResult {
   const phase = Math.min(4, state.phase)
   if (state.reacts[phase]) return { ok: false, reason: '这一阶段已经用过' }
   state.reacts[phase] = 'cower'
+  noteBeastManual(save)
   fight.cowerMs = BEAST_COWER_MS
   return { ok: true, message: '畏缩 10 秒，受到的伤害减半，打出的伤害减少' }
 }

@@ -75,6 +75,7 @@ import {
   type TreasureRefreshPay,
 } from '../sim/treasureMine'
 import { claimGuideQuest, markGuideQuestRuneOpened } from '../sim/guideQuest'
+import { syncGuideQuestMet } from '../sim/mainlineQuest'
 import { dismissModuleUnlock } from '../sim/moduleUnlock'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
 import { PLAYABLE_STATION_IDS, type FoodItemId } from '../sim/tables'
@@ -187,6 +188,7 @@ export const useGameStore = defineStore('game', () => {
     const levels = workerLevelSnapshot(save.value.workers)
     const result = fn(next)
     if (result.ok) {
+      syncGuideQuestMet(next)
       save.value = next
       notifyWorkshopHpEfficiency(next)
       flushKnightXp()

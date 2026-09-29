@@ -366,7 +366,8 @@ describe('save migration', () => {
     persistSave(save, store)
     const loaded = loadSave(store)
     expect(loaded?.guideQuestStep).toBe(4)
-    expect(loaded?.starterCopperPawnDone).toBe(true)
+    expect(loaded?.starterCopperPawnDone).toBe(false)
+    expect(loaded?.guideQuestStats.marketDeals).toBe(0)
   })
 
   it('drops leftover assist workers on persist and hydrate', () => {

@@ -1,4 +1,5 @@
 import { addToBank } from './bank'
+import { noteTreasureGuarded, noteTreasureRaid, noteTreasureScouted } from './mainlineStats'
 import { beijingDayKey } from './herbPvp'
 import { grantKnightXp, knightXpForRank } from './knightLevel'
 import { isModuleUnlocked } from './moduleUnlock'
@@ -833,6 +834,7 @@ export function claimTreasureMine(save: Save, mineId: string, workerIds: readonl
   for (const worker of party) {
     clearWorkerNew(save, worker.id)
     revealMineWeaknesses(mine, worker.combatAttrs)
+    if (mineFullyRevealed(mine)) noteTreasureScouted(save)
   }
   return { ok: true, message: '已占领矿洞' }
 }
@@ -905,6 +907,7 @@ export function scoutTreasureMine(save: Save, mineId: string): ActionResult {
     return { ok: false, reason: sandShortTip(TREASURE_SCOUT_COST) }
   }
   mine.revealedWeaknesses = [...mine.weaknesses]
+  noteTreasureScouted(save)
   return { ok: true, message: sandSpentTip(TREASURE_SCOUT_COST) }
 }
 
@@ -947,6 +950,7 @@ export function startTreasureRaid(
   for (const worker of party) clearWorkerNew(save, worker.id)
   mine.raid = openRaid(save, mine, party, runes, stake)
   for (const worker of party) revealMineWeaknesses(mine, worker.combatAttrs)
+  if (mineFullyRevealed(mine)) noteTreasureScouted(save)
   return { ok: true, message: stakePaidTip(stake) }
 }
 
@@ -993,6 +997,7 @@ export function reinforceTreasureRaid(save: Save, mineId: string, workerId: stri
   raid.attackSlotMax[slot] = vitals.hpMax
   raid.reinforced = true
   revealMineWeaknesses(mine, worker.combatAttrs)
+  if (mineFullyRevealed(mine)) noteTreasureScouted(save)
   return { ok: true, message: jewelSpentTip(TREASURE_REINFORCE_COST) }
 }
 
@@ -1398,6 +1403,7 @@ function stepRaid(save: Save, mine: TreasureMine): void {
 function takeOver(save: Save, mine: TreasureMine, raid: TreasureRaid): void {
   const lead = raid.queue[0]
   noteTreasureDayHaul(save, 1)
+  noteTreasureRaid(save)
   mine.owner = 'player'
   mine.shadows = []
   mine.crewIds = raid.queue.filter((id) => save.workers.some((worker) => worker.id === id))
@@ -1679,6 +1685,7 @@ function buyMineWard(save: Save, mineId: string, kind: 'fortify' | 'trap'): Acti
   const until = save.elapsedS + TREASURE_WARD_S
   if (fortify) mine.fortifyUntilS = until
   else mine.trapUntilS = until
+  noteTreasureGuarded(save)
   return { ok: true, message: jewelSpentTip(cost) }
 }
 

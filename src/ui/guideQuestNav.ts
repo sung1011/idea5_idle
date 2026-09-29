@@ -28,49 +28,109 @@ export function takeGuideRunePickRequest(): boolean {
   return true
 }
 
-export function openGuideQuestStep(step: number, storage?: Storage | null): AppTabId {
-  switch (step) {
-    case 1:
-    case 2:
-      return selectAppTab('workshop', storage)
-    case 3:
+export function openGuideQuestTask(taskId: string, storage?: Storage | null): AppTabId {
+  switch (taskId) {
+    case 'fuse':
+    case 'blueWorker':
+    case 'cyanWorker':
+    case 'purpleWorker':
       requestGuideCampSheet()
       return selectAppTab('workshop', storage)
-    case 4:
+    case 'alchemy':
+    case 'alchemy3':
       openWorkshopStation('alchemy', storage)
       return 'workshop'
-    case 5:
+    case 'combat':
+    case 'firstBlood':
+    case 'explore':
+    case 'chapter2':
+    case 'chapter3':
+    case 'chapter5':
+    case 'chapter8':
+    case 'runeWin':
       selectMainlineTab('battlefield', storage)
       return selectAppTab('encounters', storage)
-    case 6:
-    case 7:
-    case 10:
-      return selectAppTab('workshop', storage)
-    case 8:
-      return selectAppTab('tech', storage)
-    case 9:
+    case 'market':
+    case 'pawn':
+    case 'timed':
+    case 'marketHigh':
+    case 'oreDeal':
       selectMainlineTab('market', storage)
       return selectAppTab('encounters', storage)
-    case 11:
+    case 'dungeon':
+    case 'chest':
+    case 'dungeonBoth':
+    case 'dungeonGold':
       selectMainlineTab('dungeon', storage)
       return selectAppTab('encounters', storage)
-    case 12:
+    case 'tech':
+    case 'techTabs':
+    case 'marketSlot':
+    case 'tech8':
+      return selectAppTab('tech', storage)
+    case 'herbAssign':
+    case 'herb':
+    case 'herbCounter':
+    case 'herbPayout':
       selectPvpView('herb', storage)
       return selectAppTab('pvp', storage)
-    case 13:
+    case 'beast':
+    case 'beastManual':
+    case 'feast':
       selectPvpView('beast', storage)
       return selectAppTab('pvp', storage)
-    case 14:
+    case 'boneSoup':
+    case 'cookStart':
+    case 'cookStew':
+    case 'stockFood':
+      openWorkshopStation('cooking', storage)
+      return 'workshop'
+    case 'huntStart':
+    case 'huntHaul':
+    case 'huntWolf':
+    case 'huntDeer':
+      openWorkshopStation('hunting', storage)
+      return 'workshop'
+    case 'mining':
+    case 'crystal':
+    case 'miningIron':
+    case 'miningMithril':
       openWorkshopStation('mining', storage)
       return 'workshop'
-    case 15:
+    case 'inscribe':
+    case 'runeCraft':
+    case 'inscribe5':
+      openWorkshopStation('inscription', storage)
+      return 'workshop'
+    case 'rune':
       pendingGuideRunePick.value = true
       selectMainlineTab('battlefield', storage)
       return selectAppTab('encounters', storage)
-    case 16:
+    case 'treasure':
+    case 'scout':
+    case 'raid':
+    case 'guard':
+    case 'banner1':
+    case 'banner3':
+    case 'banner5':
       selectPvpView('treasure', storage)
       return selectAppTab('pvp', storage)
     default:
       return selectAppTab('workshop', storage)
   }
+}
+
+export function openGuideQuestStep(step: number, storage?: Storage | null): AppTabId {
+  const ids = [
+    'recruit',
+    'autoHerb',
+    'fuse',
+    'alchemy',
+    'combat',
+    'potionInstall',
+    'potionUse',
+  ]
+  const id = ids[step - 1]
+  if (id) return openGuideQuestTask(id, storage)
+  return selectAppTab('workshop', storage)
 }

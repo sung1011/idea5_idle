@@ -87,6 +87,7 @@ export function hydrateRestFoodId(raw: unknown): FoodItemId | null {
 
 export function selectRestFood(save: Save, itemId: FoodItemId | null): ActionResult {
   if (itemId !== null && !isFoodItemId(itemId)) return { ok: false, reason: '不是烹饪食物' }
+  if (itemId !== null && bankQty(save, itemId) <= 0) return { ok: false, reason: '没有这份伙食' }
   save.restFoodId = itemId
   return { ok: true }
 }

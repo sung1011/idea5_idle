@@ -5,6 +5,7 @@ import { hydrateHerbPvp } from './herbPvp'
 import { hydrateTreasureMines } from './treasureMine'
 import { generateEncounterBoard } from './encounters'
 import { GUIDE_QUEST_REV } from './guideQuest'
+import { blankGuideQuestStats } from './mainlineStats'
 import { battlefieldSlotCount, marketSlotCount } from './tech'
 import { blankPotionBuffs } from './potions'
 import { hydrateStations } from './stationProgress'
@@ -56,6 +57,9 @@ export function createSave(): Save {
     openedModules: [],
     moduleUnlockQueue: [],
     guideQuestSkipMask: 0,
+    guideQuestSkipped: [],
+    guideQuestMet: [],
+    guideQuestStats: blankGuideQuestStats(),
     workshopHpEfficiencyTipShown: false,
     fuseDragTipDone: false,
     starterCopperPawnDone: false,

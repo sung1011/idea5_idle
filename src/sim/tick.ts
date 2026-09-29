@@ -1,4 +1,5 @@
 import { assignRestingToFirstEmpty } from './assign'
+import { syncGuideQuestMet } from './mainlineQuest'
 import { applyRestHeal, stepCombats, type CombatLogSink } from './combat'
 import { stepBeastPvp } from './beastPvp'
 import { stepHerbPvp } from './herbPvp'
@@ -41,6 +42,7 @@ export function applyTick(save: Save, opts: TickOpts = {}): void {
   stepHerbPvp(save, now, { offline: opts.offline === true })
   stepBeastPvp(save, now, { offline: opts.offline === true })
   applyRestHeal(save)
+  syncGuideQuestMet(save)
 }
 
 export function tick(save: Save, opts?: TickOpts): Save {

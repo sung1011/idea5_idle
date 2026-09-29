@@ -1,4 +1,5 @@
 import { addToBank } from './bank'
+import { noteDungeonChest, noteDungeonRun } from './mainlineStats'
 import {
   grantKnightXp,
   KNIGHT_XP_CHEST,
@@ -499,6 +500,7 @@ export function startDungeonCombat(
     party.filter((w) => !w.guest).map((w) => w.id),
   )
   save.dungeon.attemptsUsedById[enc.id] = DUNGEON_ATTEMPTS_PER_DAY
+  noteDungeonRun(save, enc.id)
   enc.dungeonShieldBonus = dungeonShieldBonus(save, enc)
   enc.lootClaimed = false
   enc.dungeonPendingPhase = false
@@ -599,6 +601,7 @@ function grantDungeonChestNow(save: Save, enc: EnemyEncounter): ActionResult {
   const payout = dungeonChestPayout(save, enc)
   const grantedXp = grantDungeonXp(save, enc)
   enc.lootClaimed = true
+  noteDungeonChest(save, payout.tier)
   if (payout.diamonds > 0) save.diamonds += payout.diamonds
   if (payout.gold > 0) save.gold += payout.gold
   const itemBits: string[] = []

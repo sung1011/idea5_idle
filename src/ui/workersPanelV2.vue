@@ -1269,6 +1269,7 @@ onUnmounted(() => {
                 class="potion-pick-main"
                 :class="{ on: game.save.restFoodId === id }"
                 :aria-pressed="game.save.restFoodId === id"
+                :disabled="bankQty(game.save, id) <= 0"
                 @click="onPickRestFood(id)"
               >
                 {{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}

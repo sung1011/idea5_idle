@@ -33,6 +33,7 @@ import {
   normalizeGuideQuestStep,
 } from './guideQuest'
 import { selectRestFood } from './food'
+import { mainlineStepOf } from './mainlineQuest'
 import { installPotionSlot } from './potionSlots'
 import { usePotionSlot } from './potions'
 import { recruitWorker, spawnWorker } from './recruit'
@@ -71,7 +72,9 @@ describe('guideQuest normalize and hydrate', () => {
       phaseStep: 1,
       phaseTotal: 5,
       title: '新手 · 1/5',
+      taskId: 'recruit',
       goal: '抽取苦工 2 次',
+      rewardLabel: '金币 +20',
       progress: 0,
       progressLabel: '进度 0/2',
       claimable: false,
@@ -130,9 +133,9 @@ describe('guideQuest normalize and hydrate', () => {
     veteran.techLevels = { pathOutpost: 1 }
     const { guideQuestStep: _vs, guideQuestRev: _vr, ...vetRaw } = veteran
     hydrateGuideQuestFields(vetRaw as Save, vetRaw)
-    expect((vetRaw as Save).guideQuestStep).toBe(9)
-    expect(guideQuestView(vetRaw as Save)?.waiting).toBe(true)
-    expect(guideQuestView(vetRaw as Save)?.goal).toBe('下一个目标：酋长 6 级开放集市')
+    expect((vetRaw as Save).guideQuestStep).toBe(mainlineStepOf('firstBlood'))
+    expect(guideQuestView(vetRaw as Save)?.waiting).toBe(false)
+    expect(guideQuestView(vetRaw as Save)?.goal).toBe('在战场打赢一个敌人并领到战利品')
     expect((vetRaw as Save).guideQuestRuneOpened).toBe(false)
 
     const fed = createSave()
@@ -148,9 +151,9 @@ describe('guideQuest normalize and hydrate', () => {
     fed.techLevels = { pathOutpost: 1 }
     const { guideQuestStep: _fs, guideQuestRev: _fr, ...fedRaw } = fed
     hydrateGuideQuestFields(fedRaw as Save, fedRaw)
-    expect((fedRaw as Save).guideQuestStep).toBe(9)
+    expect((fedRaw as Save).guideQuestStep).toBe(mainlineStepOf('firstBlood'))
     expect(isGuideQuestVisible(fedRaw as Save)).toBe(true)
-    expect(guideQuestView(fedRaw as Save)?.goal).toBe('下一个目标：酋长 6 级开放集市')
+    expect(guideQuestView(fedRaw as Save)?.goal).toBe('在战场打赢一个敌人并领到战利品')
   })
 
   it('does not auto-complete recruit step when an old rev-2 save only recruited once', () => {
@@ -233,7 +236,7 @@ describe('guideQuest steps and claim', () => {
     const gold0 = save.gold
     expect(claimGuideQuest(save).ok).toBe(false)
     expect(save.guideQuestStep).toBe(1)
-    expect(GUIDE_QUEST_STEPS).toBe(16)
+    expect(GUIDE_QUEST_STEPS).toBeGreaterThan(16)
 
     expect(recruitWorker(save).ok).toBe(true)
     expect(guideQuestProgressAt(save, 1)).toBe(0)
@@ -285,19 +288,11 @@ describe('guideQuest steps and claim', () => {
     expect(guideQuestView(save)?.goal).toBe('点药剂槽产生效果')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(8)
-    expect(guideQuestView(save)?.waiting).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('下一个目标：酋长 11 级开放科技')
-    save.knightLevel = 10
-    expect(guideQuestView(save)?.waiting).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('下一个目标：酋长 11 级开放科技')
-
-    save.knightLevel = 11
-    save.techLevels = { pathOutpost: 1 }
-    expect(guideQuestView(save)?.goal).toBe('点亮一项科技')
-    expect(claimGuideQuest(save).ok).toBe(true)
-    expect(save.guideQuestStep).toBe(9)
-    expect(guideQuestView(save)?.goal).toBe('完成一单集市')
-    expect(save.gold).toBe(gold0 + GUIDE_QUEST_GOLD * 8)
+    expect(guideQuestView(save)?.waiting).toBe(false)
+    expect(guideQuestView(save)?.taskId).toBe('firstBlood')
+    expect(guideQuestView(save)?.goal).toBe('在战场打赢一个敌人并领到战利品')
+    expect(save.gold).toBe(gold0 + GUIDE_QUEST_GOLD * 7)
+    expect(save.knightXp).toBe(0)
   })
 
   it('completes step 2 when the queue head auto-fills herbalism or herbalism has produced', () => {
@@ -322,14 +317,16 @@ describe('guideQuest steps and claim', () => {
 
   it('completes camp food only after a rest food is selected at its step', () => {
     const save = createSave()
-    save.guideQuestStep = 10
+    const foodStep = mainlineStepOf('restFood')
+    save.guideQuestStep = foodStep
     save.knightLevel = 8
     expect(guideQuestView(save)?.goal).toBe('选好营地伙食')
-    expect(guideQuestProgressAt(save, 10)).toBe(0)
+    expect(guideQuestProgressAt(save, foodStep)).toBe(0)
     expect(selectRestFood(save, null).ok).toBe(true)
-    expect(guideQuestProgressAt(save, 10)).toBe(0)
+    expect(guideQuestProgressAt(save, foodStep)).toBe(0)
+    save.bank.roast = 1
     expect(selectRestFood(save, 'roast').ok).toBe(true)
-    expect(guideQuestProgressAt(save, 10)).toBe(1)
+    expect(guideQuestProgressAt(save, foodStep)).toBe(1)
   })
 
   it('completes step 5 only after the pick-sheet 开战 click starts combat', () => {
@@ -424,15 +421,16 @@ describe('guideQuest flash target', () => {
     usePotionSlot(save, 0)
     expect(guideQuestFlashId(save)).toBeNull()
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestFlashId(save)).toBeNull()
+    expect(guideQuestFlashId(save)).toBe('firstBlood')
     save.knightLevel = 18
+    save.guideQuestStep = mainlineStepOf('tech')
     expect(guideQuestFlashId(save)).toBe('tech')
     save.guideQuestStep = GUIDE_QUEST_PHASE3_START
     expect(guideQuestFlashId(save)).toBe('rune')
     markGuideQuestRuneOpened(save)
     expect(guideQuestFlashId(save)).toBeNull()
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestFlashId(save)).toBeNull()
+    expect(guideQuestFlashId(save)).toBe('runeCraft')
   })
 
   it('infers first incomplete step for missing fields', () => {

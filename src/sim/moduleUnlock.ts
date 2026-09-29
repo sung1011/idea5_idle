@@ -158,7 +158,7 @@ export function playedModuleIds(save: Save): ModuleId[] {
   }
   if ((save.unlockedTechIds?.length ?? 0) > 0) push('tech')
   if (Object.values(save.techLevels ?? {}).some((level) => typeof level === 'number' && level > 0)) push('tech')
-  if (save.starterCopperPawnDone) push('market')
+  if ((save.guideQuestStats?.marketDeals ?? 0) > 0) push('market')
   if (save.marketEncounters?.some((enc) => 'completed' in enc && enc.completed)) push('market')
   if (save.restFoodId != null) push('restFood')
   const attempts = save.dungeon?.attemptsUsedById

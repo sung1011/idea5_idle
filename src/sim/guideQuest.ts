@@ -1,12 +1,26 @@
 import { assignedWorkers, restingWorkers } from './assign'
 import { bankQty } from './bank'
 import { canReinforceCombat, isCombatLost, isCombatWon, isFighting } from './combat'
-import { allEncounters, combatSupplyBlockReason, isEncounterDone, isStarterCopperPawn } from './encounters'
-import { grantKnightXp, KNIGHT_XP_GUIDE_STEP } from './knightLevel'
-import { isModuleUnlocked, knightLevelProgress, moduleLabel, type ModuleId } from './moduleUnlock'
+import { combatSupplyBlockReason, isEncounterDone, isStarterCopperPawn } from './encounters'
+import { isModuleUnlocked, knightLevelProgress, moduleLabel, moduleUnlockKnightLevel } from './moduleUnlock'
 import { knightLevelOf } from './stationUnlock'
 import { POTION_ITEM_IDS, QUALITY_MAX, STATION_ORDER } from './tables'
 import type { ActionResult, Encounter, EnemyEncounter, Save, StationId } from './types'
+import {
+  MAINLINE_TASKS,
+  mainlineDone,
+  mainlineMeter,
+  mainlineRewardLabel,
+  mainlineStepOf,
+  mainlineTaskAt,
+  migrateOldGuide,
+  normalizeGuideIdList,
+  payMainlineReward,
+  seedGuideEvidence,
+  syncGuideQuestMet,
+  taskModuleReady,
+  type MainlineTask,
+} from './mainlineQuest'
 
 export const GUIDE_QUEST_PHASE1_STEPS = 5
 export const GUIDE_QUEST_PHASE2_STEPS = 2
@@ -17,11 +31,10 @@ export const GUIDE_QUEST_GOLD = 20
 /** 骑士 1 级即可装槽 / 点用。炼金在第一段，排在开战前面。 */
 export const GUIDE_QUEST_PHASE2_KNIGHT = 1
 /**
- * 6：按解锁分段。旧 REV 按现况重落；已满足的步跳过不发金。
- * 旧步号到 10 视为旧段已领完，只接还没做到的新段。
- * 第一步仍须抽工人 2 次，只抽过 1 次的不跳过。
+ * 7：酋长等级任务和功能任务组交替。旧 REV 按现况重落；已满足的步跳过不发奖。
+ * 旧步号到 10 视为旧段已领完。第一步仍须抽工人 2 次，只抽过 1 次的不跳过。
  */
-export const GUIDE_QUEST_REV = 6
+export const GUIDE_QUEST_REV = 7
 /** 第 3 步营地无人时的浮条文案。 */
 export const GUIDE_FUSE_EMPTY_GOAL = '再抽 1 名苦工，新人会进营地'
 /** 第 3 步营地有人、名单还没打开。 */
@@ -36,76 +49,21 @@ export const GUIDE_FUSE_DRAG_GOAL = '按住苦工，往任意方向拖到同品�
 /** 第一阶段「抽工人」完成所需次数（花名册人数或已生成序号，取较大）。 */
 export const GUIDE_QUEST_RECRUIT_NEED = 2
 
-type GuideStepId =
-  | 'recruit'
-  | 'autoHerb'
-  | 'fuse'
-  | 'combat'
-  | 'alchemy'
-  | 'potionInstall'
-  | 'potionUse'
-  | 'tech'
-  | 'market'
-  | 'restFood'
-  | 'dungeon'
-  | 'herb'
-  | 'beast'
-  | 'mining'
-  | 'rune'
-  | 'treasure'
-
-type GuideStepDef = {
-  id: GuideStepId
-  knight: number
-  module: ModuleId | null
-  segment: 'start' | 'potion' | 'tech' | 'market' | 'camp' | 'herb' | 'beast' | 'mining' | 'rune' | 'treasure'
-  goal: string
-}
-
-const GUIDE_STEPS: readonly GuideStepDef[] = [
-  { id: 'recruit', knight: 1, module: null, segment: 'start', goal: '抽取苦工 2 次' },
-  { id: 'autoHerb', knight: 1, module: null, segment: 'start', goal: '满血队首会自动上采药，不能手拖空岗' },
-  { id: 'fuse', knight: 1, module: null, segment: 'start', goal: '合成两名同品质苦工' },
-  { id: 'alchemy', knight: 1, module: null, segment: 'start', goal: '炼金站有人在岗就会自动炼药，等出第一瓶' },
-  { id: 'combat', knight: 1, module: null, segment: 'start', goal: '在 PVE 弹层中点击开战' },
-  { id: 'potionInstall', knight: 1, module: null, segment: 'potion', goal: '点工坊底部的空药剂槽，装入药剂' },
-  { id: 'potionUse', knight: 1, module: null, segment: 'potion', goal: '点药剂槽产生效果' },
-  { id: 'tech', knight: 11, module: 'tech', segment: 'tech', goal: '点亮一项科技' },
-  { id: 'market', knight: 6, module: 'market', segment: 'market', goal: '完成一单集市' },
-  { id: 'restFood', knight: 8, module: 'restFood', segment: 'camp', goal: '选好营地伙食' },
-  { id: 'dungeon', knight: 8, module: 'dungeon', segment: 'camp', goal: '打一次地牢' },
-  { id: 'herb', knight: 10, module: 'herb', segment: 'herb', goal: '割一块草地' },
-  { id: 'beast', knight: 13, module: 'beast', segment: 'beast', goal: '挑战一次困兽' },
-  { id: 'mining', knight: 16, module: 'mining', segment: 'mining', goal: '采矿站有人在岗' },
-  { id: 'rune', knight: 18, module: 'rune', segment: 'rune', goal: '在选人面板点开符文槽' },
-  { id: 'treasure', knight: 20, module: 'treasure', segment: 'treasure', goal: '开采一次夺宝矿洞' },
-]
-
-const OLD_GUIDE_IDS: readonly GuideStepId[] = [
-  'recruit',
-  'autoHerb',
-  'fuse',
-  'restFood',
-  'combat',
-  'alchemy',
-  'potionInstall',
-  'potionUse',
-  'rune',
-]
-
-export const GUIDE_QUEST_STEPS = GUIDE_STEPS.length
+export const GUIDE_QUEST_STEPS = MAINLINE_TASKS.length
 export const GUIDE_QUEST_DONE_STEP = GUIDE_QUEST_STEPS + 1
 export const GUIDE_QUEST_PHASE2_START = GUIDE_QUEST_PHASE1_STEPS + 1
-export const GUIDE_QUEST_PHASE3_START = GUIDE_STEPS.findIndex((step) => step.id === 'rune') + 1
-export const GUIDE_QUEST_GOALS = GUIDE_STEPS.map((step) => step.goal)
+export const GUIDE_QUEST_PHASE3_START = mainlineStepOf('rune')
+export const GUIDE_QUEST_GOALS = MAINLINE_TASKS.map((step) => step.goal)
 
 export type GuideQuestView = {
   step: number
+  taskId: string
   phase: number
   phaseStep: number
   phaseTotal: number
   title: string
   goal: string
+  rewardLabel: string
   progress: 0 | 1
   progressLabel: string
   claimable: boolean
@@ -140,10 +98,12 @@ export function hasCompletedStarterCopperPawn(encounters: readonly Encounter[]):
 }
 
 export function hasCompletedMainlineOrder(
-  save: Pick<Save, 'encounters' | 'starterCopperPawnDone'> & { marketEncounters?: Encounter[] },
+  save: Pick<Save, 'encounters' | 'starterCopperPawnDone' | 'marketEncounters'> & {
+    guideQuestStats?: Save['guideQuestStats']
+  },
 ): boolean {
-  if (save.starterCopperPawnDone) return true
-  return allEncounters(save).some((enc) => isEncounterDone(enc))
+  if ((save.guideQuestStats?.marketDeals ?? 0) > 0) return true
+  return save.marketEncounters?.some((enc) => isEncounterDone(enc)) ?? false
 }
 
 export function openDealEncounters(encounters: readonly Encounter[]): Encounter[] {
@@ -263,107 +223,21 @@ export function hasRecruitedGuideWorkers(save: Pick<Save, 'workers' | 'nextWorke
   return guideQuestRecruitCount(save) >= GUIDE_QUEST_RECRUIT_NEED
 }
 
-function hasLitTech(save: Save): boolean {
-  if ((save.unlockedTechIds?.length ?? 0) > 0) return true
-  return Object.values(save.techLevels ?? {}).some((level) => typeof level === 'number' && level > 0)
-}
-
-function hasClearedMarket(save: Save): boolean {
-  if (save.starterCopperPawnDone) return true
-  return save.marketEncounters?.some((enc) => 'completed' in enc && enc.completed) ?? false
-}
-
-function hasDungeonRun(save: Save): boolean {
-  const used = save.dungeon?.attemptsUsedById
-  if (!used) return false
-  return Object.values(used).some((n) => typeof n === 'number' && n > 0)
-}
-
-function hasCutHerb(save: Save): boolean {
-  return (save.herbPvp?.playerScore ?? 0) > 0
-}
-
-function hasChallengedBeast(save: Save): boolean {
-  return (save.beastPvp?.playerDamage ?? 0) > 0
-}
-
-function hasMiningCrew(save: Save): boolean {
-  return save.workers.some((worker) => worker.assignment === 'mining')
-}
-
-function hasDugTreasure(save: Save): boolean {
-  return (save.treasureMines?.mines ?? []).some((mine) => (mine.dugOre ?? 0) > 0 || (mine.dugCrystal ?? 0) > 0)
-}
-
-function guideStepDef(step: number): GuideStepDef | null {
-  return GUIDE_STEPS[step - 1] ?? null
-}
-
-function guideStepIndex(id: GuideStepId): number {
-  return GUIDE_STEPS.findIndex((step) => step.id === id) + 1
-}
-
-function skipBit(mask: number, step: number): boolean {
-  if (step < 1 || step > 30) return false
-  return (mask & (1 << (step - 1))) !== 0
-}
-
-function withSkipBit(mask: number, step: number): number {
-  if (step < 1) return mask
-  return mask | (1 << (step - 1))
-}
-
 export function advanceSkippedGuideSteps(save: Save): void {
+  const skipped = new Set(save.guideQuestSkipped ?? [])
   let step = normalizeGuideQuestStep(save.guideQuestStep)
-  const mask = save.guideQuestSkipMask ?? 0
-  while (step < GUIDE_QUEST_DONE_STEP && skipBit(mask, step)) step += 1
+  while (step < GUIDE_QUEST_DONE_STEP) {
+    const row = mainlineTaskAt(step)
+    if (!row || !skipped.has(row.id)) break
+    step += 1
+  }
   save.guideQuestStep = step
 }
 
-function stepReady(save: Save, step: GuideStepDef): boolean {
-  if (!step.module) return true
-  return isModuleUnlocked(save, step.module)
-}
-
 export function guideQuestProgressAt(save: Save, step: number): 0 | 1 {
-  const def = guideStepDef(step)
-  if (!def) return 0
-  switch (def.id) {
-    case 'recruit':
-      return hasRecruitedGuideWorkers(save) ? 1 : 0
-    case 'autoHerb':
-      return hasAssignedHerbalism(save) ? 1 : 0
-    case 'fuse':
-      return hasFusedWorkers(save) ? 1 : 0
-    case 'combat':
-      return hasStartedBattlefieldCombat(save) ? 1 : 0
-    case 'alchemy':
-      return hasProducedAlchemyPotion(save) ? 1 : 0
-    case 'potionInstall':
-      return hasInstalledPotion(save) ? 1 : 0
-    case 'potionUse':
-      return hasUsedPotionFromSlot(save) ? 1 : 0
-    case 'tech':
-      return hasLitTech(save) ? 1 : 0
-    case 'market':
-      return hasClearedMarket(save) ? 1 : 0
-    case 'restFood':
-      return hasSelectedRestFood(save) ? 1 : 0
-    case 'dungeon':
-      return hasDungeonRun(save) ? 1 : 0
-    case 'herb':
-      return hasCutHerb(save) ? 1 : 0
-    case 'beast':
-      return hasChallengedBeast(save) ? 1 : 0
-    case 'mining':
-      return hasMiningCrew(save) ? 1 : 0
-    case 'rune':
-      return hasOpenedRunePick(save) ? 1 : 0
-    case 'treasure':
-      return hasDugTreasure(save) ? 1 : 0
-    default:
-      return 0
-  }
+  const row = mainlineTaskAt(step)
+  if (!row) return 0
+  return mainlineDone(save, row.id) ? 1 : 0
 }
 
 /** 第一未完成步；九步都齐则 10。 */
@@ -382,12 +256,12 @@ export function isGuideQuestVisible(save: Save): boolean {
   return guideQuestView(save) != null
 }
 
-export type GuideQuestFlashId = GuideStepId
+export type GuideQuestFlashId = string
 
 export function guideQuestFlashId(save: Save): GuideQuestFlashId | null {
   const view = guideQuestView(save)
   if (!view || view.claimable || view.waiting) return null
-  return guideStepDef(view.step)?.id ?? null
+  return view.taskId
 }
 
 export function isGuideQuestFlash(save: Save, id: GuideQuestFlashId): boolean {
@@ -427,8 +301,9 @@ export type GuideFuseCue = 'recruit' | 'openCamp' | 'drag'
 
 /** 第 3 步未完成时按营地人数和名单开关决定闪哪里。完成可领后不再闪。 */
 export function guideFuseCue(save: Save, campOpen: boolean): GuideFuseCue | null {
-  if (normalizeGuideQuestStep(save.guideQuestStep) !== 3) return null
-  if (guideQuestProgressAt(save, 3) >= 1) return null
+  const step = normalizeGuideQuestStep(save.guideQuestStep)
+  if (mainlineTaskAt(step)?.id !== 'fuse') return null
+  if (guideQuestProgressAt(save, step) >= 1) return null
   if (restingWorkers(save).length === 0) return 'recruit'
   if (!campOpen) return 'openCamp'
   return 'drag'
@@ -461,60 +336,74 @@ export function guideAlchemyProgressFlash(save: Save, stationId: StationId): boo
   return stationId === 'alchemy' && isGuideQuestFlash(save, 'alchemy')
 }
 
-function guideStepGoal(save: Save, step: number, claimable: boolean, campOpen: boolean): string {
-  const def = guideStepDef(step)
-  if (def?.id === 'fuse' && !claimable) {
+function guideStepGoal(save: Save, row: MainlineTask, claimable: boolean, campOpen: boolean): string {
+  if (row.id === 'fuse' && !claimable) {
     const cue = guideFuseCue(save, campOpen)
     if (cue === 'recruit') return GUIDE_FUSE_EMPTY_GOAL
     if (cue === 'openCamp') return GUIDE_FUSE_OPEN_GOAL
     return GUIDE_FUSE_DRAG_GOAL
   }
-  return def?.goal ?? ''
+  return row.goal
 }
 
-function guidePhaseMeta(step: number): Pick<GuideQuestView, 'phase' | 'phaseStep' | 'phaseTotal' | 'title'> {
-  const def = guideStepDef(step)
-  if (!def || def.segment === 'start') {
-    const phaseStep = step
-    const phaseTotal = GUIDE_QUEST_PHASE1_STEPS
-    const title = def?.id === 'combat' ? `工坊 · ${phaseStep}/${phaseTotal}` : `新手 · ${phaseStep}/${phaseTotal}`
-    return { phase: 1, phaseStep, phaseTotal, title }
+function guidePhaseMeta(row: MainlineTask): Pick<GuideQuestView, 'phase' | 'phaseStep' | 'phaseTotal' | 'title'> {
+  const start = ['recruit', 'autoHerb', 'fuse', 'alchemy', 'combat'].indexOf(row.id)
+  if (start >= 0) {
+    const phaseStep = start + 1
+    return {
+      phase: 1,
+      phaseStep,
+      phaseTotal: GUIDE_QUEST_PHASE1_STEPS,
+      title: row.id === 'combat' ? `工坊 · ${phaseStep}/${GUIDE_QUEST_PHASE1_STEPS}` : `新手 · ${phaseStep}/${GUIDE_QUEST_PHASE1_STEPS}`,
+    }
   }
-  if (def.segment === 'potion') {
-    const phaseStep = step - GUIDE_QUEST_PHASE1_STEPS
-    return { phase: 2, phaseStep, phaseTotal: GUIDE_QUEST_PHASE2_STEPS, title: `进阶 · ${phaseStep}/${GUIDE_QUEST_PHASE2_STEPS}` }
+  if (row.id === 'potionInstall' || row.id === 'potionUse') {
+    const phaseStep = row.id === 'potionInstall' ? 1 : 2
+    return {
+      phase: 2,
+      phaseStep,
+      phaseTotal: GUIDE_QUEST_PHASE2_STEPS,
+      title: `进阶 · ${phaseStep}/${GUIDE_QUEST_PHASE2_STEPS}`,
+    }
   }
-  if (def.segment === 'camp') {
-    const phaseStep = def.id === 'restFood' ? 1 : 2
-    return { phase: 3, phaseStep, phaseTotal: 2, title: `营地 · ${phaseStep}/2` }
+  if (row.tier === 'level') {
+    return { phase: 0, phaseStep: row.gate, phaseTotal: row.gate, title: row.title }
   }
-  const name =
-    def.segment === 'tech'
-      ? '科技'
-      : def.segment === 'market'
-        ? '集市'
-        : def.segment === 'herb'
-          ? '割草'
-          : def.segment === 'beast'
-            ? '困兽'
-            : def.segment === 'mining'
-              ? '采矿'
-              : def.segment === 'rune'
-                ? '符文'
-                : '夺宝'
-  return { phase: 3, phaseStep: 1, phaseTotal: 1, title: `${name} · 1/1` }
+  return { phase: 3, phaseStep: 1, phaseTotal: 1, title: row.title }
 }
 
-function waitingGuideView(save: Save, step: number, def: GuideStepDef): GuideQuestView {
+function waitingLevelView(save: Save, step: number, row: MainlineTask): GuideQuestView {
   const progress = knightLevelProgress(save)
-  const name = def.module ? moduleLabel(def.module) : ''
   return {
     step,
+    taskId: row.id,
     phase: 0,
-    phaseStep: def.knight,
-    phaseTotal: def.knight,
+    phaseStep: row.gate,
+    phaseTotal: row.gate,
+    title: row.title,
+    goal: row.goal,
+    rewardLabel: mainlineRewardLabel(row.reward),
+    progress: 0,
+    progressLabel: `酋长 ${progress.level} 级 · 距下一级 ${progress.percent}%`,
+    claimable: false,
+    fillPct: progress.percent,
+    waiting: true,
+  }
+}
+
+function waitingModuleView(save: Save, step: number, row: MainlineTask): GuideQuestView {
+  const progress = knightLevelProgress(save)
+  const need = row.module ? moduleUnlockKnightLevel(row.module) : row.gate
+  const name = row.module ? moduleLabel(row.module) : ''
+  return {
+    step,
+    taskId: row.id,
+    phase: 0,
+    phaseStep: need,
+    phaseTotal: need,
     title: '下一目标',
-    goal: `下一个目标：酋长 ${def.knight} 级开放${name}`,
+    goal: `下一个目标：酋长 ${need} 级开放${name}`,
+    rewardLabel: mainlineRewardLabel(row.reward),
     progress: 0,
     progressLabel: `酋长 ${progress.level} 级 · 距下一级 ${progress.percent}%`,
     claimable: false,
@@ -526,55 +415,43 @@ function waitingGuideView(save: Save, step: number, def: GuideStepDef): GuideQue
 export function guideQuestView(save: Save, campOpen = false): GuideQuestView | null {
   const step = normalizeGuideQuestStep(save.guideQuestStep)
   if (step >= GUIDE_QUEST_DONE_STEP) return null
-  const def = guideStepDef(step)
-  if (!def) return null
-  if (!stepReady(save, def)) return waitingGuideView(save, step, def)
-  const progress = guideQuestProgressAt(save, step)
-  const claimable = progress >= 1
-  const meta = guidePhaseMeta(step)
-  const recruitHave = Math.min(guideQuestRecruitCount(save), GUIDE_QUEST_RECRUIT_NEED)
-  const denom = def.id === 'recruit' ? GUIDE_QUEST_RECRUIT_NEED : 1
-  const numer = def.id === 'recruit' ? recruitHave : progress
+  const row = mainlineTaskAt(step)
+  if (!row) return null
+  if (row.tier === 'level' && knightLevelOf(save) < row.gate) return waitingLevelView(save, step, row)
+  if (!taskModuleReady(save, row)) return waitingModuleView(save, step, row)
+  const meter = mainlineMeter(save, row.id)
+  const claimable = meter.done
+  const meta = guidePhaseMeta(row)
   return {
     step,
+    taskId: row.id,
     ...meta,
-    goal: guideStepGoal(save, step, claimable, campOpen),
-    progress,
-    progressLabel: claimable ? `进度 ${numer}/${denom} · 可领` : `进度 ${numer}/${denom}`,
+    goal: guideStepGoal(save, row, claimable, campOpen),
+    rewardLabel: mainlineRewardLabel(row.reward),
+    progress: claimable ? 1 : 0,
+    progressLabel: claimable ? `进度 ${meter.numer}/${meter.denom} · 可领` : `进度 ${meter.numer}/${meter.denom}`,
     claimable,
-    fillPct: denom > 0 ? Math.round((numer / denom) * 100) : 0,
+    fillPct: meter.denom > 0 ? Math.round((meter.numer / meter.denom) * 100) : 0,
     waiting: false,
   }
 }
 
 export function claimGuideQuest(save: Save): ActionResult {
+  syncGuideQuestMet(save)
   advanceSkippedGuideSteps(save)
   const step = normalizeGuideQuestStep(save.guideQuestStep)
   if (step >= GUIDE_QUEST_DONE_STEP) return { ok: false, reason: '新手任务已完成' }
-  const def = guideStepDef(step)
-  if (def && !stepReady(save, def)) {
-    return { ok: false, reason: def.module ? `酋长 ${def.knight} 级开放${moduleLabel(def.module)}` : '尚未开放' }
+  const row = mainlineTaskAt(step)
+  if (!row) return { ok: false, reason: '新手任务已完成' }
+  if (row.tier === 'level' && knightLevelOf(save) < row.gate) return { ok: false, reason: row.goal }
+  if (!taskModuleReady(save, row)) {
+    return { ok: false, reason: row.module ? `酋长 ${moduleUnlockKnightLevel(row.module)} 级开放${moduleLabel(row.module)}` : '尚未开放' }
   }
-  if (guideQuestProgressAt(save, step) < 1) return { ok: false, reason: '尚未完成' }
-  save.gold += GUIDE_QUEST_GOLD
+  if (!mainlineDone(save, row.id)) return { ok: false, reason: '尚未完成' }
+  const message = payMainlineReward(save, row.reward)
   save.guideQuestStep = step + 1
-  grantKnightXp(save, KNIGHT_XP_GUIDE_STEP)
   advanceSkippedGuideSteps(save)
-  return { ok: true, message: `金币 +${GUIDE_QUEST_GOLD}` }
-}
-
-function hydratePawnFlag(save: Save, raw: object | undefined, incoming: Save): void {
-  const hadPawn = !!raw && Object.prototype.hasOwnProperty.call(raw, 'starterCopperPawnDone')
-  const board = allEncounters(save)
-  if (board.some((enc) => isEncounterDone(enc)) || hasCompletedStarterCopperPawn(board)) {
-    incoming.starterCopperPawnDone = true
-  } else if (hadPawn) {
-    incoming.starterCopperPawnDone = normalizeStarterCopperPawnDone(incoming.starterCopperPawnDone)
-  } else if (!hasStarterCopperPawn(board) && (save.exploreCount ?? 0) >= 1) {
-    incoming.starterCopperPawnDone = true
-  } else {
-    incoming.starterCopperPawnDone = false
-  }
+  return { ok: true, message }
 }
 
 export function hydrateGuideQuestFields(save: Save, raw?: object): Save {
@@ -584,44 +461,36 @@ export function hydrateGuideQuestFields(save: Save, raw?: object): Save {
     guideQuestRev?: unknown
     guideQuestPotionUsed?: unknown
     guideQuestRuneOpened?: unknown
+    guideQuestSkipped?: unknown
+    guideQuestMet?: unknown
   }
-  hydratePawnFlag(save, raw, incoming)
-
+  incoming.starterCopperPawnDone = incoming.starterCopperPawnDone === true
   incoming.guideQuestPotionUsed =
     normalizeGuideQuestPotionUsed(incoming.guideQuestPotionUsed) || hasUsedPotionFromSlot(save)
   incoming.guideQuestRuneOpened = normalizeGuideQuestRuneOpened(incoming.guideQuestRuneOpened)
+  incoming.guideQuestSkipped = normalizeGuideIdList(incoming.guideQuestSkipped)
+  incoming.guideQuestMet = normalizeGuideIdList(incoming.guideQuestMet)
+  incoming.guideQuestSkipMask =
+    typeof incoming.guideQuestSkipMask === 'number' && Number.isFinite(incoming.guideQuestSkipMask)
+      ? Math.max(0, Math.floor(incoming.guideQuestSkipMask))
+      : 0
+  seedGuideEvidence(save)
 
   const hadRev = !!raw && Object.prototype.hasOwnProperty.call(raw, 'guideQuestRev')
   const hadStep = !!raw && Object.prototype.hasOwnProperty.call(raw, 'guideQuestStep')
   const rev = normalizeGuideQuestRev(incoming.guideQuestRev)
   const rawStep = hadStep ? Math.max(1, Math.floor(Number(incoming.guideQuestStep)) || 1) : 0
-  incoming.guideQuestSkipMask =
-    typeof incoming.guideQuestSkipMask === 'number' && Number.isFinite(incoming.guideQuestSkipMask)
-      ? Math.max(0, Math.floor(incoming.guideQuestSkipMask))
-      : 0
   incoming.guideQuestRev = GUIDE_QUEST_REV
 
   if (hadRev && rev >= GUIDE_QUEST_REV && hadStep) {
     incoming.guideQuestStep = normalizeGuideQuestStep(incoming.guideQuestStep)
     advanceSkippedGuideSteps(save)
+    syncGuideQuestMet(save)
     return save
   }
 
-  let mask = incoming.guideQuestSkipMask
-  if (rawStep >= GUIDE_OLD_DONE_STEP) {
-    for (const id of OLD_GUIDE_IDS) mask = withSkipBit(mask, guideStepIndex(id))
-  } else if (rev >= 5 && rawStep > 1) {
-    for (let i = 1; i < rawStep && i <= OLD_GUIDE_IDS.length; i += 1) {
-      const id = OLD_GUIDE_IDS[i - 1]
-      if (id === 'recruit' && !hasRecruitedGuideWorkers(save)) continue
-      mask = withSkipBit(mask, guideStepIndex(id))
-    }
-  }
-  for (let step = 1; step <= GUIDE_QUEST_STEPS; step += 1) {
-    if (guideQuestProgressAt(save, step) >= 1) mask = withSkipBit(mask, step)
-  }
-  incoming.guideQuestSkipMask = mask
-  incoming.guideQuestStep = 1
+  migrateOldGuide(save, rev, rawStep, incoming.guideQuestSkipMask)
   advanceSkippedGuideSteps(save)
+  syncGuideQuestMet(save)
   return save
 }

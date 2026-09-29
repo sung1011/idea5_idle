@@ -1,4 +1,5 @@
 import { addToBank } from './bank'
+import { noteHerbAssign, noteHerbPayout, noteHerbPrecious } from './mainlineStats'
 import { playerDisplayName } from './playerName'
 import { applyDownedReturn, isWorkerInCombat, workerLiveStats } from './combat'
 import {
@@ -775,6 +776,13 @@ export function hydrateHerbPvp(save: Save, now = save.lastTick || Date.now()): v
   save.herbPvp = raw
 }
 
+export function grantHerbProbes(save: Save, qty: number): void {
+  const gain = Math.floor(qty)
+  if (gain <= 0) return
+  const state = ensureHerbPvp(save)
+  state.probes += gain
+}
+
 function ensureHerbPvp(save: Save, now = Date.now()): HerbPvpState {
   if (!save.herbPvp || save.herbPvp.plots?.length !== HERB_PVP_PLOT_COUNT || save.herbPvp.rivals?.length !== HERB_PVP_RIVAL_COUNT) {
     hydrateHerbPvp(save, now)
@@ -851,6 +859,7 @@ function grantPlayerLoot(save: Save, plot: HerbPlot, offline: boolean): void {
   }
   if (plot.kind === 'precious' && plot.qty > 0) {
     state.playerScore += plot.qty
+    noteHerbPrecious(save, plot.qty)
     if (offline && state.offline) state.offline.score += plot.qty
     note(`珍贵草药 +${plot.qty}`, 'ok', offline)
     return
@@ -1212,7 +1221,10 @@ function rollDay(save: Save, now: number, offline: boolean): void {
   }
   if (key <= state.dayKey) return
   const rank = herbPlayerRank(save)
-  if (state.playerScore > 0) grantKnightXp(save, knightXpForRank(rank, HERB_PVP_RIVAL_COUNT + 1))
+  if (state.playerScore > 0) {
+    grantKnightXp(save, knightXpForRank(rank, HERB_PVP_RIVAL_COUNT + 1))
+    noteHerbPayout(save)
+  }
   const text = herbRewardLine(rank)
   const reward = herbRankReward(rank)
   addVault(save, 'sandGold', reward.sandGold)
@@ -1274,6 +1286,7 @@ export function startHerbWeed(save: Save, plotIndex: number, workerId: string): 
   if (rival) return playerHitsRival(save, plot, worker, rival)
   state.stamina -= cost
   plot.workerId = worker.id
+  noteHerbAssign(save, matches)
   plot.weeder = null
   plot.progressS = 0
   plot.durationS = herbWeedSeconds(matches)

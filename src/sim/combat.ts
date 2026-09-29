@@ -1,4 +1,5 @@
 import { isWorkerInBeastPvp } from './beastPvpQuery'
+import { noteRuneWin } from './mainlineStats'
 import { isWorkerInHerbPvp } from './herbPvpQuery'
 import { isWorkerInTreasureMine, treasureMineBlockReason } from './treasureMineQuery'
 import {
@@ -1028,6 +1029,7 @@ function finishCombat(
 ): void {
   retireFallenFighters(save, enc, combat, at, onLog)
   combat.outcome = outcome
+  if (outcome === 'win') noteRuneWin(save, combat.runeLoadout)
   emitLog(enc, combat, at, text, outcome === 'win' ? 'ok' : 'err', onLog)
   grantRuneBloodXp(save, combat)
   writeBackWorkers(save, combat)

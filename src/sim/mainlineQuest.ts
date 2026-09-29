@@ -1,0 +1,706 @@
+import { addToBank, itemQty } from './bank'
+import { grantHerbProbes, herbWorkerCounters } from './herbPvp'
+import { grantKnightXp } from './knightLevel'
+import { MODULE_IDS, MODULE_UNLOCK_KNIGHT, isModuleUnlocked, moduleLabel, type ModuleId } from './moduleUnlock'
+import { knightLevelOf } from './stationUnlock'
+import { POTION_ITEM_IDS, STATION_ORDER } from './tables'
+import { TECH_TABS } from './tech'
+import { addVault, bannerLevelOf } from './treasureMine'
+import type { ItemId, Save, StationId, TreasureId } from './types'
+import {
+  blankGuideQuestStats,
+  ensureGuideQuestStats,
+  normalizeGuideQuestStats,
+  type GuideQuestStats,
+} from './mainlineStats'
+
+export type MainlineReward = {
+  gold?: number
+  diamonds?: number
+  xp?: number
+  inspiration?: number
+  items?: { id: ItemId; qty: number; label: string }[]
+  vault?: { id: TreasureId; qty: number; label: string }[]
+  probes?: number
+}
+
+export type MainlineTier = 'intro' | 'advanced' | 'long' | 'level'
+
+export type MainlineTask = {
+  id: string
+  goal: string
+  title: string
+  /** 升到这一级才算完成。0 表示不是等级任务。 */
+  gate: number
+  module: ModuleId | null
+  tier: MainlineTier
+  reward: MainlineReward
+}
+
+/** REV 6 的 16 步，只用来把旧位图对回任务 id。 */
+export const REV6_GUIDE_IDS = [
+  'recruit',
+  'autoHerb',
+  'fuse',
+  'alchemy',
+  'combat',
+  'potionInstall',
+  'potionUse',
+  'tech',
+  'market',
+  'restFood',
+  'dungeon',
+  'herb',
+  'beast',
+  'mining',
+  'rune',
+  'treasure',
+] as const
+
+/** 更早的九步引导。步号到 10 视为这段已领过。 */
+export const ANCIENT_GUIDE_IDS = [
+  'recruit',
+  'autoHerb',
+  'fuse',
+  'restFood',
+  'combat',
+  'alchemy',
+  'potionInstall',
+  'potionUse',
+  'rune',
+] as const
+
+const EMPTY_DIAMOND_LEVELS = new Set([2, 4, 7, 12, 15, 19])
+
+function gold(n: number): MainlineReward {
+  return { gold: n }
+}
+
+function gems(n: number, xp = 0): MainlineReward {
+  return xp > 0 ? { diamonds: n, xp } : { diamonds: n }
+}
+
+function goods(items: MainlineReward['items'], xp = 0): MainlineReward {
+  return xp > 0 ? { items, xp } : { items }
+}
+
+function longReward(inspiration = 1, diamonds = 24): MainlineReward {
+  return { diamonds, inspiration, xp: 30 }
+}
+
+function endReward(): MainlineReward {
+  return { diamonds: 40, inspiration: 2, xp: 30 }
+}
+
+function unlockNames(level: number): string[] {
+  return MODULE_IDS.filter((id) => MODULE_UNLOCK_KNIGHT[id] === level).map((id) => moduleLabel(id))
+}
+
+function levelReward(level: number): MainlineReward {
+  if (EMPTY_DIAMOND_LEVELS.has(level)) return { diamonds: 6 }
+  return { gold: 12 }
+}
+
+function levelGoal(level: number): string {
+  const names = unlockNames(level)
+  if (!names.length) return `升到酋长 ${level} 级`
+  return `升到酋长 ${level} 级（开放${names.join('、')}）`
+}
+
+function levelTask(level: number): MainlineTask {
+  return {
+    id: `level${level}`,
+    goal: levelGoal(level),
+    title: `酋长 ${level} 级`,
+    gate: level,
+    module: null,
+    tier: 'level',
+    reward: levelReward(level),
+  }
+}
+
+function task(
+  id: string,
+  goal: string,
+  title: string,
+  tier: MainlineTier,
+  reward: MainlineReward,
+  module: ModuleId | null = null,
+): MainlineTask {
+  return { id, goal, title, gate: 0, module, tier, reward }
+}
+
+function buildSchedule(): MainlineTask[] {
+  const rows: MainlineTask[] = [
+    task('recruit', '抽取苦工 2 次', '新手 · 1/5', 'intro', gold(20)),
+    task('autoHerb', '满血队首会自动上采药，不能手拖空岗', '新手 · 2/5', 'intro', gold(20)),
+    task('fuse', '合成两名同品质苦工', '新手 · 3/5', 'intro', gold(20)),
+    task('alchemy', '炼金站有人在岗就会自动炼药，等出第一瓶', '新手 · 4/5', 'intro', gold(20)),
+    task('combat', '在 PVE 弹层中点击开战', '工坊 · 5/5', 'intro', gold(20)),
+    task('potionInstall', '点工坊底部的空药剂槽，装入药剂', '进阶 · 1/2', 'intro', gold(20)),
+    task('potionUse', '点药剂槽产生效果', '进阶 · 2/2', 'intro', gold(20)),
+    task('firstBlood', '在战场打赢一个敌人并领到战利品', '战场 · 头功', 'intro', gold(30)),
+    task('explore', '探索 1 次', '战场 · 探路', 'intro', gold(16)),
+    levelTask(2),
+    levelTask(3),
+    task('alchemy3', '把炼金站升到 3 级', '工坊 · 药方', 'advanced', goods([{ id: 'salve', qty: 2, label: '巫毒回春剂' }], 10)),
+    task('blueWorker', '名册里有 1 名蓝色苦工', '营地 · 蓝衣', 'advanced', gems(12, 10)),
+    levelTask(4),
+    task('slotsFull', '4 个药剂槽全部装上药剂', '药剂 · 四槽', 'advanced', goods([{ id: 'stim', qty: 1, label: '嗜血药剂' }], 10)),
+    levelTask(5),
+    task('chapter2', '击败本章首领，进入第 2 章', '战场 · 斩将', 'long', longReward()),
+    levelTask(6),
+    task('huntStart', '狩猎站有苦工在岗', '狩猎 · 出发', 'intro', gold(20), 'hunting'),
+    task('market', '完成一单集市', '集市 · 赶集', 'intro', gold(20), 'market'),
+    task('huntHaul', '狩猎站成功出货累计 10 次', '狩猎 · 满载', 'intro', goods([{ id: 'salve', qty: 2, label: '巫毒回春剂' }]), 'hunting'),
+    task('pawn', '在地精当铺典当成交一单', '集市 · 当铺', 'intro', gold(16), 'market'),
+    task('timed', '成交一单限时集市', '集市 · 时辰', 'intro', gems(12), 'market'),
+    levelTask(7),
+    task('huntWolf', '狩猎站升到 5 级，并把猎物换成狼', '狩猎 · 猎狼', 'advanced', gems(12, 10), 'hunting'),
+    levelTask(8),
+    task('cookStart', '烹饪站有苦工在岗', '烹饪 · 起灶', 'intro', gold(20), 'cooking'),
+    task('restFood', '选好营地伙食', '营地 · 开饭', 'intro', gold(20), 'restFood'),
+    task('dungeon', '打一次地牢', '地牢 · 下牢', 'intro', gold(20), 'dungeon'),
+    task('stockFood', '物资里熟食、烤肉、香料炖合计至少 10 份', '烹饪 · 囤粮', 'intro', goods([{ id: 'spice', qty: 10, label: '香料' }]), 'cooking'),
+    task('chest', '领取一次地牢宝箱', '地牢 · 开箱', 'intro', goods([{ id: 'salve', qty: 3, label: '巫毒回春剂' }]), 'dungeon'),
+    task('dungeonBoth', '同一个游戏日里两张地牢单都开过战', '地牢 · 两单', 'intro', goods([{ id: 'meal', qty: 4, label: '熟食' }]), 'dungeon'),
+    levelTask(9),
+    task('marketHigh', '成交一单紫色或橙色集市', '集市 · 主顾', 'advanced', gems(24, 10), 'market'),
+    levelTask(10),
+    task('herbAssign', '派一名苦工去割草', '割草 · 下田', 'intro', gold(20), 'herb'),
+    task('herb', '割到一株珍贵草药', '割草 · 珍草', 'intro', { probes: 1 }, 'herb'),
+    task('herbCounter', '派一名克制该地块弱点的苦工去割', '割草 · 对症', 'intro', gold(20), 'herb'),
+    task('cookStew', '烹饪站升到 5 级，并把营地伙食换成香料炖', '烹饪 · 香料炖', 'advanced', gems(12, 10), 'cooking'),
+    levelTask(11),
+    task('tech', '点亮一项科技', '科技 · 灵窍', 'intro', gold(20), 'tech'),
+    task('techTabs', '生产、战斗、事务三页各点亮至少 1 项', '科技 · 三路', 'intro', { inspiration: 2 }, 'tech'),
+    task('herbPayout', '领到一次割草日结奖励', '割草 · 日结', 'advanced', gems(12, 10), 'herb'),
+    levelTask(12),
+    task('marketSlot', '点亮科技「市集摊位」', '科技 · 摊位', 'advanced', gems(12, 10), 'tech'),
+    task('dungeonGold', '地牢开出一次金箱', '地牢 · 破门', 'long', longReward(), 'dungeon'),
+    task('huntDeer', '狩猎站升到 10 级，并把猎物换成鹿', '狩猎 · 逐鹿', 'long', longReward(), 'hunting'),
+    task('chapter3', '进入第 3 章', '战场 · 三章', 'long', longReward()),
+    levelTask(13),
+    task('beast', '挑战一次困兽', '困兽 · 猎兽', 'intro', gold(20), 'beast'),
+    task('beastManual', '在困兽战里用出打断、闪避或畏缩', '困兽 · 拆招', 'intro', goods([{ id: 'salve', qty: 2, label: '巫毒回春剂' }]), 'beast'),
+    task('boneSoup', '做出一份骨汤，或把营地伙食换成骨汤', '困兽 · 骨汤', 'intro', goods([{ id: 'meat', qty: 10, label: '肉' }]), 'beast'),
+    task('cyanWorker', '名册里有 1 名青色苦工', '营地 · 青衣', 'long', longReward()),
+    levelTask(14),
+    task('tech8', '累计点亮 8 项科技', '科技 · 博学', 'long', { diamonds: 24, inspiration: 2, xp: 30 }, 'tech'),
+    levelTask(15),
+    task('feast', '摆一次酋长宴', '困兽 · 酋长宴', 'long', longReward(), 'beast'),
+    levelTask(16),
+    task('mining', '采矿站有苦工在岗', '采矿 · 开矿', 'intro', gold(20), 'mining'),
+    task('crystal', '物资里荒晶至少 10 个', '采矿 · 荒晶', 'intro', gold(30), 'mining'),
+    task('miningIron', '采矿站升到 5 级，并换成铁矿', '采矿 · 铁矿', 'intro', gems(12), 'mining'),
+    task('veteran', '任一苦工的战斗等级达到 8', '营地 · 老兵', 'long', longReward()),
+    levelTask(17),
+    task('oreDeal', '用矿石成交一单集市', '集市 · 矿石', 'advanced', gems(24, 10), 'market'),
+    levelTask(18),
+    task('inscribe', '铭刻站有苦工在岗', '铭刻 · 刻符', 'intro', gold(20), 'inscription'),
+    task('rune', '在选人面板点开符文槽', '符文 · 1/1', 'intro', gold(20), 'rune'),
+    task('runeCraft', '铭刻站成功刻出 1 枚符文', '铭刻 · 成符', 'intro', goods([{ id: 'wildCrystal', qty: 6, label: '荒晶' }]), 'inscription'),
+    task('runeWin', '带着符文打赢一场战斗', '符文 · 出征', 'intro', goods([{ id: 'runeSharp', qty: 2, label: '锋锐符文' }]), 'rune'),
+    task('stationsOpen', '六个生产站同时都有苦工在岗', '工坊 · 六站', 'long', longReward()),
+    levelTask(19),
+    task('miningMithril', '采矿站升到 10 级，并换成秘银矿', '采矿 · 秘银', 'long', longReward(), 'mining'),
+    task('inscribe5', '铭刻站升到 5 级', '铭刻 · 破障', 'long', longReward(), 'inscription'),
+    task('chapter5', '进入第 5 章', '战场 · 五章', 'long', longReward()),
+    levelTask(20),
+    task('treasure', '夺宝累计收获大于 0', '夺宝 · 开采', 'intro', gold(20), 'treasure'),
+    task('scout', '揭开一座矿洞的全部弱点', '夺宝 · 探洞', 'intro', { vault: [{ id: 'sandGold', qty: 20, label: '砂金' }] }, 'treasure'),
+    task('raid', '从守军手里抢下一座矿洞', '夺宝 · 夺洞', 'intro', { vault: [{ id: 'jewel', qty: 60, label: '珠宝' }] }, 'treasure'),
+    task('guard', '给自己的矿洞加固或布置陷阱', '夺宝 · 设防', 'intro', { vault: [{ id: 'sandGold', qty: 40, label: '砂金' }] }, 'treasure'),
+    task('banner1', '把战旗升到 1 级', '夺宝 · 竖旗', 'long', {
+      diamonds: 24,
+      inspiration: 1,
+      xp: 30,
+      vault: [{ id: 'jade', qty: 30, label: '荣誉徽记' }],
+    }, 'treasure'),
+    levelTask(22),
+    task('banner3', '把战旗升到 3 级', '终局 · 战旗', 'long', endReward(), 'treasure'),
+    task('purpleWorker', '名册里有 1 名紫色苦工', '终局 · 紫衣', 'long', endReward()),
+    levelTask(25),
+    task('chapter8', '进入第 8 章', '终局 · 八章', 'long', endReward()),
+    task('stations10', '六个生产站都升到 10 级', '终局 · 六站', 'long', endReward()),
+    levelTask(28),
+    task('banner5', '把战旗升到 5 级', '终局 · 满旗', 'long', endReward(), 'treasure'),
+  ]
+  return rows
+}
+
+export const MAINLINE_TASKS: readonly MainlineTask[] = buildSchedule()
+
+const TASK_BY_ID = new Map(MAINLINE_TASKS.map((row) => [row.id, row]))
+
+export function mainlineTaskAt(step: number): MainlineTask | null {
+  if (!Number.isFinite(step)) return null
+  return MAINLINE_TASKS[Math.floor(step) - 1] ?? null
+}
+
+export function mainlineStepOf(id: string): number {
+  return MAINLINE_TASKS.findIndex((row) => row.id === id) + 1
+}
+
+export function mainlineTaskById(id: string): MainlineTask | null {
+  return TASK_BY_ID.get(id) ?? null
+}
+
+function statsOf(save: Save): GuideQuestStats {
+  return save.guideQuestStats ?? blankGuideQuestStats()
+}
+
+function metHas(save: Save, id: string): boolean {
+  return (save.guideQuestMet ?? []).includes(id)
+}
+
+function recruited(save: Save): boolean {
+  const roster = save.workers?.length ?? 0
+  const spawned = Math.max(0, Math.floor(save.nextWorkerId ?? 1) - 1)
+  return Math.max(roster, spawned) >= 2
+}
+
+export function guideRecruitCount(save: Save): number {
+  const roster = save.workers?.length ?? 0
+  const spawned = Math.max(0, Math.floor(save.nextWorkerId ?? 1) - 1)
+  return Math.max(roster, spawned)
+}
+
+function onStation(save: Save, id: StationId): boolean {
+  return save.workers?.some((worker) => worker.assignment === id) ?? false
+}
+
+function stationAt(save: Save, id: StationId, level: number, category?: string): boolean {
+  const station = save.stations?.[id]
+  if (!station || (station.stationLevel ?? 1) < level) return false
+  if (category && station.selectedCategory !== category) return false
+  return true
+}
+
+function litTech(save: Save): Set<string> {
+  const ids = new Set<string>()
+  for (const id of save.unlockedTechIds ?? []) ids.add(id)
+  for (const [id, level] of Object.entries(save.techLevels ?? {})) {
+    if (typeof level === 'number' && level > 0) ids.add(id)
+  }
+  return ids
+}
+
+function tabHasTech(save: Save, tabId: 'production' | 'combat' | 'affairs'): boolean {
+  const lit = litTech(save)
+  const tab = TECH_TABS.find((row) => row.id === tabId)
+  if (!tab) return false
+  return tab.rows.some((row) => row.options.some((option) => lit.has(option.id)))
+}
+
+function marketBoardDone(save: Save, pred: (enc: Save['marketEncounters'][number]) => boolean): boolean {
+  return save.marketEncounters?.some((enc) => 'completed' in enc && enc.completed && pred(enc)) ?? false
+}
+
+function haulSum(save: Save): number {
+  const haul = save.treasureMines?.haul
+  if (!haul) return 0
+  let sum = 0
+  for (const qty of Object.values(haul)) {
+    if (typeof qty === 'number' && qty > 0) sum += qty
+  }
+  return sum
+}
+
+function mineFullyOpen(mine: { weaknesses?: readonly string[]; revealedWeaknesses?: readonly string[] }): boolean {
+  const weaknesses = mine.weaknesses ?? []
+  if (!weaknesses.length) return false
+  const revealed = new Set(mine.revealedWeaknesses ?? [])
+  return weaknesses.every((id) => revealed.has(id))
+}
+
+function foodSum(save: Save): number {
+  return itemQty(save, 'meal') + itemQty(save, 'roast') + itemQty(save, 'stew')
+}
+
+function maxQuality(save: Save): number {
+  return save.workers?.reduce((best, worker) => Math.max(best, worker.qualityTier ?? 1), 1) ?? 1
+}
+
+function maxCombatLevel(save: Save): number {
+  return save.workers?.reduce((best, worker) => Math.max(best, worker.level ?? 1), 1) ?? 1
+}
+
+function potionProduced(save: Save): boolean {
+  if ((save.stations?.alchemy?.completed ?? 0) >= 1) return true
+  if (save.potionSlots?.some((id) => id != null)) return true
+  return POTION_ITEM_IDS.some((id) => itemQty(save, id) > 0)
+}
+
+function potionUsed(save: Save): boolean {
+  if (save.guideQuestPotionUsed) return true
+  const buffs = save.potionBuffs
+  if (!buffs) return false
+  return buffs.stimUntil != null || buffs.renewUntil != null || buffs.doubleMist != null || buffs.rushStation != null
+}
+
+function combatStarted(save: Save): boolean {
+  if ((save.departCount ?? 0) >= 1) return true
+  if ((save.mainLootClaims ?? 0) >= 1) return true
+  return save.encounters?.some((enc) => {
+    if (enc.kind !== 'enemy') return false
+    if (enc.lootClaimed || enc.departed) return true
+    return enc.combat != null
+  }) ?? false
+}
+
+function herbCounterLive(save: Save): boolean {
+  const plots = save.herbPvp?.plots ?? []
+  for (const plot of plots) {
+    if (!plot.workerId) continue
+    const worker = save.workers?.find((row) => row.id === plot.workerId)
+    if (worker && herbWorkerCounters(worker.combatAttrs, plot.weakness)) return true
+  }
+  return false
+}
+
+function runeWinLive(save: Save): boolean {
+  const boards = [...(save.encounters ?? []), ...(save.dungeon?.encounters ?? [])]
+  return boards.some((enc) => {
+    if (enc.kind !== 'enemy' || enc.combat?.outcome !== 'win') return false
+    const loadout = enc.combat.runeLoadout
+    return !!loadout && Object.values(loadout).some((id) => typeof id === 'string' && id.length > 0)
+  })
+}
+
+function feastLive(save: Save): boolean {
+  const buff = save.workshopBuff
+  return buff?.kind === 'feast' && typeof buff.endsAt === 'number' && buff.endsAt > Date.now()
+}
+
+function guardLive(save: Save): boolean {
+  const nowS = save.elapsedS ?? 0
+  return (save.treasureMines?.mines ?? []).some((mine) => {
+    const fort = mine.fortifyUntilS
+    const trap = mine.trapUntilS
+    return (typeof fort === 'number' && fort > nowS) || (typeof trap === 'number' && trap > nowS)
+  })
+}
+
+/** 当场还能看出来的完成条件。累计数也算在这里，所以日切后仍然成立。 */
+export function mainlineLive(save: Save, id: string): boolean {
+  const stats = statsOf(save)
+  const taskRow = TASK_BY_ID.get(id)
+  if (taskRow?.tier === 'level') return knightLevelOf(save) >= taskRow.gate
+  switch (id) {
+    case 'recruit':
+      return recruited(save)
+    case 'autoHerb':
+      return onStation(save, 'herbalism') || (save.stations?.herbalism?.completed ?? 0) >= 1
+    case 'fuse':
+      return maxQuality(save) >= 2
+    case 'alchemy':
+      return potionProduced(save)
+    case 'combat':
+      return combatStarted(save)
+    case 'potionInstall':
+      return save.potionSlots?.some((slot) => slot != null) ?? false
+    case 'potionUse':
+      return potionUsed(save)
+    case 'firstBlood':
+      return (save.mainLootClaims ?? 0) >= 1 || (save.mainChapter ?? 1) >= 2
+    case 'explore':
+      return (save.exploreCount ?? 0) >= 1
+    case 'alchemy3':
+      return (save.stations?.alchemy?.stationLevel ?? 1) >= 3
+    case 'blueWorker':
+      return maxQuality(save) >= 3
+    case 'slotsFull':
+      return (save.potionSlots?.length ?? 0) >= 4 && save.potionSlots.every((slot) => slot != null)
+    case 'chapter2':
+      return (save.mainChapter ?? 1) >= 2
+    case 'huntStart':
+      return onStation(save, 'hunting')
+    case 'market':
+      return stats.marketDeals >= 1 || marketBoardDone(save, () => true)
+    case 'huntHaul':
+      return (save.stations?.hunting?.completed ?? 0) >= 10
+    case 'pawn':
+      return stats.marketPawn >= 1 || marketBoardDone(save, (enc) => enc.kind === 'pawn')
+    case 'timed':
+      return stats.marketTimed >= 1 || marketBoardDone(save, (enc) => enc.timedUntil != null)
+    case 'huntWolf':
+      return stationAt(save, 'hunting', 5, 'iron')
+    case 'cookStart':
+      return onStation(save, 'cooking')
+    case 'restFood':
+      return save.restFoodId != null
+    case 'dungeon':
+      return stats.dungeonRuns >= 1 || Object.values(save.dungeon?.attemptsUsedById ?? {}).some((n) => typeof n === 'number' && n > 0)
+    case 'stockFood':
+      return foodSum(save) >= 10
+    case 'chest':
+      return stats.dungeonChests >= 1
+    case 'dungeonBoth':
+      return stats.dungeonBoth
+    case 'marketHigh':
+      return stats.marketHigh >= 1 || marketBoardDone(save, (enc) => enc.quality === 'purple' || enc.quality === 'orange')
+    case 'herbAssign':
+      return stats.herbAssigns >= 1 || (save.herbPvp?.plots?.some((plot) => !!plot.workerId) ?? false)
+    case 'herb':
+      return stats.herbPrecious >= 1 || (save.herbPvp?.playerScore ?? 0) > 0
+    case 'herbCounter':
+      return stats.herbCounter >= 1 || herbCounterLive(save)
+    case 'cookStew':
+      return stationAt(save, 'cooking', 5, 'mithril') && save.restFoodId === 'stew'
+    case 'tech':
+      return litTech(save).size > 0
+    case 'techTabs':
+      return tabHasTech(save, 'production') && tabHasTech(save, 'combat') && tabHasTech(save, 'affairs')
+    case 'herbPayout':
+      return stats.herbPayouts >= 1
+    case 'marketSlot':
+      return litTech(save).has('marketLicense')
+    case 'dungeonGold':
+      return stats.dungeonGoldChests >= 1
+    case 'huntDeer':
+      return stationAt(save, 'hunting', 10, 'mithril')
+    case 'chapter3':
+      return (save.mainChapter ?? 1) >= 3
+    case 'beast':
+      return (
+        stats.beastChallenges >= 1 ||
+        (save.beastPvp?.playerDamage ?? 0) > 0 ||
+        save.beastPvp?.fight != null
+      )
+    case 'beastManual':
+      return (
+        stats.beastManual >= 1 ||
+        Object.values(save.beastPvp?.reacts ?? {}).some((react) => react === 'dodge' || react === 'interrupt' || react === 'cower')
+      )
+    case 'boneSoup':
+      return itemQty(save, 'boneSoup') > 0 || save.restFoodId === 'boneSoup'
+    case 'cyanWorker':
+      return maxQuality(save) >= 4
+    case 'tech8':
+      return litTech(save).size >= 8
+    case 'feast':
+      return stats.feast || feastLive(save)
+    case 'mining':
+      return onStation(save, 'mining')
+    case 'crystal':
+      return itemQty(save, 'wildCrystal') >= 10
+    case 'miningIron':
+      return stationAt(save, 'mining', 5, 'iron')
+    case 'veteran':
+      return maxCombatLevel(save) >= 8
+    case 'oreDeal':
+      return stats.marketOre >= 1
+    case 'inscribe':
+      return onStation(save, 'inscription')
+    case 'rune':
+      return save.guideQuestRuneOpened === true
+    case 'runeCraft':
+      return (save.stations?.inscription?.completed ?? 0) >= 1
+    case 'runeWin':
+      return stats.runeWins >= 1 || runeWinLive(save)
+    case 'stationsOpen':
+      return STATION_ORDER.every((id) => onStation(save, id))
+    case 'miningMithril':
+      return stationAt(save, 'mining', 10, 'mithril')
+    case 'inscribe5':
+      return (save.stations?.inscription?.stationLevel ?? 1) >= 5
+    case 'chapter5':
+      return (save.mainChapter ?? 1) >= 5
+    case 'treasure':
+      return haulSum(save) > 0
+    case 'scout':
+      return stats.treasureScouted >= 1 || (save.treasureMines?.mines ?? []).some((mine) => mineFullyOpen(mine))
+    case 'raid':
+      return stats.treasureRaids >= 1
+    case 'guard':
+      return stats.treasureGuarded >= 1 || guardLive(save)
+    case 'banner1':
+      return bannerLevelOf(save) >= 1
+    case 'banner3':
+      return bannerLevelOf(save) >= 3
+    case 'purpleWorker':
+      return maxQuality(save) >= 5
+    case 'chapter8':
+      return (save.mainChapter ?? 1) >= 8
+    case 'stations10':
+      return STATION_ORDER.every((id) => (save.stations?.[id]?.stationLevel ?? 1) >= 10)
+    case 'banner5':
+      return bannerLevelOf(save) >= 5
+    default:
+      return false
+  }
+}
+
+export function mainlineDone(save: Save, id: string): boolean {
+  return metHas(save, id) || mainlineLive(save, id)
+}
+
+function rawMeter(save: Save, id: string): { numer: number; denom: number } | null {
+  switch (id) {
+    case 'recruit':
+      return { numer: guideRecruitCount(save), denom: 2 }
+    case 'huntHaul':
+      return { numer: save.stations?.hunting?.completed ?? 0, denom: 10 }
+    case 'stockFood':
+      return { numer: foodSum(save), denom: 10 }
+    case 'crystal':
+      return { numer: itemQty(save, 'wildCrystal'), denom: 10 }
+    case 'tech8':
+      return { numer: litTech(save).size, denom: 8 }
+    case 'chapter2':
+      return { numer: save.mainChapter ?? 1, denom: 2 }
+    case 'chapter3':
+      return { numer: save.mainChapter ?? 1, denom: 3 }
+    case 'chapter5':
+      return { numer: save.mainChapter ?? 1, denom: 5 }
+    case 'chapter8':
+      return { numer: save.mainChapter ?? 1, denom: 8 }
+    case 'veteran':
+      return { numer: maxCombatLevel(save), denom: 8 }
+    case 'stationsOpen':
+      return { numer: STATION_ORDER.filter((stationId) => onStation(save, stationId)).length, denom: STATION_ORDER.length }
+    case 'stations10':
+      return {
+        numer: STATION_ORDER.filter((stationId) => (save.stations?.[stationId]?.stationLevel ?? 1) >= 10).length,
+        denom: STATION_ORDER.length,
+      }
+    case 'banner1':
+      return { numer: bannerLevelOf(save), denom: 1 }
+    case 'banner3':
+      return { numer: bannerLevelOf(save), denom: 3 }
+    case 'banner5':
+      return { numer: bannerLevelOf(save), denom: 5 }
+    default:
+      return null
+  }
+}
+
+export function mainlineMeter(save: Save, id: string): { numer: number; denom: number; done: boolean } {
+  const done = mainlineDone(save, id)
+  const raw = rawMeter(save, id)
+  if (!raw) return { numer: done ? 1 : 0, denom: 1, done }
+  const denom = Math.max(1, raw.denom)
+  const numer = done ? denom : Math.max(0, Math.min(denom, raw.numer))
+  return { numer, denom, done }
+}
+
+export function mainlineRewardLabel(reward: MainlineReward): string {
+  const parts: string[] = []
+  if (reward.gold) parts.push(`金币 +${reward.gold}`)
+  if (reward.diamonds) parts.push(`钻石 +${reward.diamonds}`)
+  for (const item of reward.items ?? []) parts.push(`${item.label} ×${item.qty}`)
+  for (const item of reward.vault ?? []) parts.push(`${item.label} ×${item.qty}`)
+  if (reward.probes) parts.push(`侦测 ×${reward.probes}`)
+  if (reward.inspiration) parts.push(`灵感 +${reward.inspiration}`)
+  if (reward.xp) parts.push(`酋长经验 +${reward.xp}`)
+  return parts.join('、') || '完成'
+}
+
+export function payMainlineReward(save: Save, reward: MainlineReward): string {
+  if (reward.gold) save.gold += reward.gold
+  if (reward.diamonds) save.diamonds += reward.diamonds
+  for (const item of reward.items ?? []) addToBank(save, item.id, item.qty)
+  for (const item of reward.vault ?? []) addVault(save, item.id, item.qty)
+  if (reward.probes) grantHerbProbes(save, reward.probes)
+  if (reward.inspiration) save.techPoints = Math.max(0, Math.floor(save.techPoints ?? 0)) + reward.inspiration
+  if (reward.xp) grantKnightXp(save, reward.xp)
+  return mainlineRewardLabel(reward)
+}
+
+/** 条件曾经成立就记下，之后日切或离岗也不收回。不在渲染时写档。 */
+export function syncGuideQuestMet(save: Save): void {
+  const met = new Set(Array.isArray(save.guideQuestMet) ? save.guideQuestMet : [])
+  let changed = !Array.isArray(save.guideQuestMet)
+  for (const row of MAINLINE_TASKS) {
+    if (met.has(row.id)) continue
+    if (!mainlineLive(save, row.id)) continue
+    met.add(row.id)
+    changed = true
+  }
+  if (changed) save.guideQuestMet = [...met]
+}
+
+function skipBit(mask: number, step: number): boolean {
+  if (step < 1 || step > 30) return false
+  return (mask & (1 << (step - 1))) !== 0
+}
+
+/** 旧档：已满足的任务跳过且不发奖，避免高级档卡在 1 级。 */
+export function migrateOldGuide(save: Save, oldRev: number, rawStep: number, mask: number): void {
+  const skipped = new Set<string>()
+  if (rawStep >= 10) {
+    for (const id of ANCIENT_GUIDE_IDS) skipped.add(id)
+  } else if (oldRev >= 5 && rawStep > 1) {
+    for (let i = 0; i < rawStep - 1 && i < ANCIENT_GUIDE_IDS.length; i += 1) {
+      const id = ANCIENT_GUIDE_IDS[i]
+      if (id === 'recruit' && !recruited(save)) continue
+      skipped.add(id)
+    }
+  }
+  for (let step = 1; step <= REV6_GUIDE_IDS.length; step += 1) {
+    if (skipBit(mask, step)) skipped.add(REV6_GUIDE_IDS[step - 1])
+  }
+  for (const row of MAINLINE_TASKS) {
+    if (mainlineLive(save, row.id)) skipped.add(row.id)
+  }
+  save.guideQuestSkipped = [...skipped]
+  save.guideQuestStep = 1
+}
+
+export function normalizeGuideIdList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  const out: string[] = []
+  for (const id of raw) {
+    if (typeof id !== 'string' || !id || out.includes(id)) continue
+    out.push(id)
+  }
+  return out
+}
+
+/**
+ * 集市标记只认集市板。1 级战场领奖留下的旧标记清掉，避免读档提前开放集市。
+ * 酋长已经到 6 级、又带着旧标记的，当成成交过 1 单，避免换板后丢进度。
+ */
+export function reconcileMarketFlag(save: Save): void {
+  const stats = ensureGuideQuestStats(save)
+  const boardDone = save.marketEncounters?.some((enc) => 'completed' in enc && enc.completed) ?? false
+  if (boardDone) {
+    save.starterCopperPawnDone = true
+    if (stats.marketDeals < 1) stats.marketDeals = 1
+    return
+  }
+  if (save.starterCopperPawnDone === true && knightLevelOf(save) >= 6) {
+    if (stats.marketDeals < 1) stats.marketDeals = 1
+    return
+  }
+  save.starterCopperPawnDone = false
+}
+
+/** 把还留在档里的痕迹种进累计数，方便旧档迁移时直接跳过。 */
+export function seedGuideEvidence(save: Save): void {
+  const stats = ensureGuideQuestStats(save)
+  reconcileMarketFlag(save)
+  const attempts = save.dungeon?.attemptsUsedById ?? {}
+  const fought = Object.entries(attempts).filter(([, n]) => typeof n === 'number' && n > 0).map(([id]) => id)
+  if (fought.length > 0 && stats.dungeonRuns < 1) stats.dungeonRuns = fought.length
+  if (fought.includes('dungeonJailer') && fought.includes('dungeonBroker')) stats.dungeonBoth = true
+  for (const enc of save.dungeon?.encounters ?? []) {
+    if (!enc.lootClaimed) continue
+    if (stats.dungeonChests < 1) stats.dungeonChests = 1
+    if (enc.combat?.outcome === 'win' && stats.dungeonGoldChests < 1) stats.dungeonGoldChests = 1
+  }
+  if ((save.herbPvp?.playerScore ?? 0) > 0 && stats.herbPrecious < 1) stats.herbPrecious = 1
+  if (save.herbPvp?.lastRewardText && stats.herbPayouts < 1) stats.herbPayouts = 1
+  if (save.herbPvp?.plots?.some((plot) => plot.workerId) && stats.herbAssigns < 1) stats.herbAssigns = 1
+  if (((save.beastPvp?.playerDamage ?? 0) > 0 || save.beastPvp?.fight != null) && stats.beastChallenges < 1) {
+    stats.beastChallenges = 1
+  }
+  if (feastLive(save)) stats.feast = true
+  save.guideQuestStats = normalizeGuideQuestStats(stats)
+}
+
+export function taskModuleReady(save: Save, row: MainlineTask): boolean {
+  if (!row.module) return true
+  return isModuleUnlocked(save, row.module)
+}
