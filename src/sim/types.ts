@@ -346,7 +346,28 @@ export type EnemyCombat = {
   marchPlan?: CombatMarchPlan
 }
 
-export const WORKER_RACE_IDS = ['orc', 'troll', 'tauren', 'bloodElf'] as const
+export const WORKER_RACE_IDS = [
+  'orc',
+  'troll',
+  'tauren',
+  'bloodElf',
+  'goblin',
+  'forsaken',
+  'pandaren',
+  'nightborne',
+  'highmountainTauren',
+  'magharOrc',
+  'zandalariTroll',
+  'vulpera',
+  'voidElf',
+  'earthen',
+  'dracthyr',
+  'ogre',
+  'centaur',
+  'naga',
+  'murloc',
+  'kobold',
+] as const
 export type WorkerRaceId = (typeof WORKER_RACE_IDS)[number]
 
 export type Worker = {

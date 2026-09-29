@@ -41,7 +41,7 @@ import {
   workerEnterDelayMs,
 } from './workerEnterFlash'
 import { recruitCost } from '../sim/tech'
-import { workerRaceLabel } from '../sim/workerRace'
+import { workerRaceLabel, workerRaceShortLabel } from '../sim/workerRace'
 import type { CategoryId, ClassId, PotionItemId, StationId, Worker } from '../sim/types'
 import ClassIcon from './classIcon.vue'
 import { openWorkshopStation } from './appNav'
@@ -358,6 +358,10 @@ function jobLabel(w: Worker) {
 
 function raceLabel(w: Worker) {
   return workerRaceLabel(w.race)
+}
+
+function raceShortLabel(w: Worker) {
+  return workerRaceShortLabel(w.race)
 }
 
 function classIconOf(w: Worker): ClassId {
@@ -735,7 +739,7 @@ onUnmounted(() => {
                       <b>
                         <i class="qdot" :style="workerQualityDotStyle(w.qualityTier)" />
                         <em :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</em>
-                        <i v-if="raceLabel(w)" class="race-tag">{{ raceLabel(w) }}</i>
+                        <i v-if="raceShortLabel(w)" class="race-tag">{{ raceShortLabel(w) }}</i>
                       </b>
                       <small>Lv{{ w.level }}</small>
                     </span>
@@ -787,7 +791,7 @@ onUnmounted(() => {
                   <i v-if="item.worker.isNew" class="worker-new" aria-label="新苦工">NEW</i>
                 </span>
                 <b class="rest-name" :style="workerQualityNameStyle(item.worker)">{{ workerShortName(item.worker) }}</b>
-                <i v-if="raceLabel(item.worker)" class="race-tag">{{ raceLabel(item.worker) }}</i>
+                <i v-if="raceShortLabel(item.worker)" class="race-tag">{{ raceShortLabel(item.worker) }}</i>
                 <i class="march-tag">{{ item.row.label }}<template v-if="item.row.tone !== 'fight'"> {{ formatRemainClock(item.row.remainS) }}</template></i>
                 <i v-if="item.row.tone !== 'fight'" class="march-bar" aria-hidden="true"><b :style="{ width: `${Math.round(item.row.progress * 100)}%` }" /></i>
               </button>
@@ -860,7 +864,7 @@ onUnmounted(() => {
                 </span>
                 <em v-if="workerEatFlashText(row.id)" class="eat-float">{{ workerEatFlashText(row.id) }}</em>
                 <b class="rest-name" :style="workerQualityNameStyle(row.worker)">{{ workerShortName(row.worker) }}</b>
-                <i v-if="raceLabel(row.worker)" class="race-tag">{{ raceLabel(row.worker) }}</i>
+                <i v-if="raceShortLabel(row.worker)" class="race-tag">{{ raceShortLabel(row.worker) }}</i>
               </button>
               <button
                 v-if="tutorLine(row.id)"
