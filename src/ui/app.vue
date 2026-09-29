@@ -149,7 +149,10 @@ watch(
   <div class="shell">
     <header class="hud" aria-label="资源">
       <button type="button" class="player" aria-label="玩家" @click="profileOpen = true">
-        <PlayerAvatar :id="game.save.playerAvatarId" :frame="bannerFrame" />
+        <span class="chief-face">
+          <PlayerAvatar :id="game.save.playerAvatarId" :frame="bannerFrame" />
+          <span class="lv-badge">{{ hudChipAmount(game.save, 'knight') }}</span>
+        </span>
         <span class="player-name">{{ playerName }}</span>
       </button>
       <div class="resources">
@@ -306,7 +309,7 @@ watch(
   padding: 4px 6px;
   background:
     var(--paper-grain),
-    linear-gradient(180deg, #fffdf6, var(--paper));
+    var(--wood-face);
   background-blend-mode: multiply, normal;
   border-bottom: 3px solid var(--gold);
   box-shadow: 0 2px 0 var(--gold-deep);
@@ -315,13 +318,51 @@ watch(
 .player {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   flex: 0 1 auto;
-  max-width: 96px;
+  max-width: 108px;
   min-width: 0;
-  min-height: 32px;
+  min-height: 36px;
   padding: 1px 6px 1px 2px;
+  border-color: transparent;
   border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.player:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.chief-face {
+  position: relative;
+  display: grid;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+}
+
+.lv-badge {
+  position: absolute;
+  right: -7px;
+  bottom: -2px;
+  z-index: 2;
+  min-width: 24px;
+  height: 14px;
+  padding: 0 3px;
+  border: 2px solid var(--stroke);
+  border-radius: var(--radius-pill);
+  background: var(--accent-face);
+  color: #3a2208;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 10px;
+  letter-spacing: 0;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 1px 0 var(--stroke-deep);
 }
 
 .player-name {
@@ -492,7 +533,7 @@ watch(
   padding: var(--dock-pad-y) 8px calc(var(--dock-pad-y) + env(safe-area-inset-bottom, 0px));
   background:
     var(--paper-grain),
-    linear-gradient(0deg, #fffdf6, var(--paper));
+    var(--wood-face);
   background-blend-mode: multiply, normal;
   border-top: var(--border) solid var(--gold);
   box-shadow: 0 -2px 0 var(--gold-deep);
@@ -513,7 +554,7 @@ watch(
   height: 5px;
   overflow: hidden;
   border-radius: 1px;
-  background: linear-gradient(180deg, #efe0b0, var(--bar-track));
+  background: var(--bar-track-face);
 }
 
 .dock-hp .fill {
@@ -524,7 +565,7 @@ watch(
 }
 
 .dock-hp .fill.full {
-  background: linear-gradient(90deg, #6fc43a, #2d7a1c);
+  background: linear-gradient(90deg, #c6ff6a, #2fbf32);
 }
 
 .dock-hp .fill.low {
@@ -549,6 +590,7 @@ watch(
   min-width: 0;
   min-height: var(--dock-item-min-h);
   padding: 4px 2px;
+  border-radius: 12px;
   font-family: var(--font-display);
   font-size: 11px;
   letter-spacing: 0.02em;
@@ -602,17 +644,19 @@ watch(
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(28, 18, 8, 0.45);
+  background: rgba(8, 28, 14, 0.58);
 }
 
 .unlock-sheet {
   width: min(280px, 100%);
   padding: 16px 16px 14px;
-  border: 2px solid var(--gold);
-  border-radius: 12px;
-  background: linear-gradient(180deg, #fff8e4, #f3dfb0);
-  box-shadow: 0 8px 0 rgba(90, 50, 10, 0.25);
+  border: 3px solid var(--stroke);
+  border-radius: 16px;
+  background: var(--wood-face);
+  background-blend-mode: multiply, normal;
+  box-shadow: 0 4px 0 var(--stroke);
   text-align: center;
+  color: var(--ink);
 }
 
 .unlock-kicker {
@@ -638,19 +682,29 @@ watch(
   width: 100%;
   margin-top: 12px;
   min-height: 36px;
-  border: none;
-  border-radius: 8px;
-  background: linear-gradient(180deg, #ffe27a, #e0a020);
-  color: #4a2c0a;
+  border: 3px solid var(--stroke);
+  border-radius: 12px;
+  background: var(--accent-face);
+  color: #3a2208;
+  box-shadow: 0 3px 0 var(--stroke);
   font-weight: 800;
 }
 
 .dock button.on {
-  color: var(--ink);
-  background: linear-gradient(#ffe27a, #f0b83a);
-  box-shadow: 0 3px 0 var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  color: #14300c;
+  background: var(--tab-on);
+  border-color: #1d5a16;
+  box-shadow: 0 3px 0 #1a4a14, inset 0 1px 0 rgba(255, 255, 255, 0.55);
   opacity: 1;
   filter: none;
+}
+
+.dock button:disabled,
+.dock button.locked {
+  color: #6d665c;
+  background: #cfc6ba;
+  filter: grayscale(0.85);
+  opacity: 0.72;
 }
 
 .dock .ui-ico {

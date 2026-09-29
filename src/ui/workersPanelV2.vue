@@ -1364,6 +1364,9 @@ onUnmounted(() => {
   height: 100%;
   min-height: 0;
   padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .panel.dragging {
@@ -1396,7 +1399,7 @@ onUnmounted(() => {
   padding: 4px 8px;
   border: 2px solid var(--gold-deep);
   border-radius: 8px;
-  background: linear-gradient(#fffef8, #fff3d8);
+  background: var(--wood-face);
   box-shadow: 0 2px 0 var(--shadow);
   color: var(--ink);
   font-size: 12px;
@@ -1495,7 +1498,7 @@ onUnmounted(() => {
 
 .tone-out .march-bar b,
 .tone-win .march-bar b {
-  background: linear-gradient(90deg, #e2a31a, #ffe27a);
+  background: var(--bar-fill-green);
 }
 
 .tone-win {
@@ -1544,7 +1547,7 @@ onUnmounted(() => {
   padding: 4px 4px;
   border: 0;
   border-radius: 8px;
-  background: linear-gradient(#ffe27a, #e2a31a);
+  background: var(--accent-face);
   color: #5a3010;
   box-shadow: 0 2px 0 var(--gold-deep);
   font-weight: 900;
@@ -1574,7 +1577,7 @@ onUnmounted(() => {
   padding: 2px 4px;
   border: 1px solid var(--gold-deep);
   border-radius: 6px;
-  background: #fff9de;
+  background: var(--wood-lite);
   color: var(--ink);
   font-size: 10px;
   font-weight: 800;
@@ -1615,7 +1618,7 @@ onUnmounted(() => {
   min-width: 0;
   border: 2px solid var(--gold);
   border-radius: 8px;
-  background: linear-gradient(145deg, #fff9de, #f3ddaa);
+  background: var(--wood-face);
   box-shadow: 0 2px 0 var(--gold-deep);
 }
 
@@ -1674,7 +1677,7 @@ onUnmounted(() => {
   padding: 2px 0;
   border: 1px solid var(--gold-deep);
   border-radius: 4px;
-  background: linear-gradient(180deg, #fff9de, #f3ddaa);
+  background: var(--wood-face);
   color: var(--ink);
   font-size: 10px;
   font-weight: 800;
@@ -1755,17 +1758,18 @@ onUnmounted(() => {
   justify-content: center;
   gap: 3px;
   padding: 8px 4px 16px;
-  border: 1px solid #6a4a22;
-  border-radius: 14px;
-  background: linear-gradient(180deg, #6e5736 0%, #3a2a18 58%, #24180f 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 228, 170, 0.5), 0 4px 0 #120e0a;
-  color: #ffe7b8;
+  border: 3px solid var(--stroke);
+  border-radius: 18px;
+  background: var(--wood-face);
+  background-blend-mode: multiply, normal;
+  box-shadow: inset 0 1px 0 rgba(255, 248, 230, 0.45), 0 3px 0 var(--stroke);
+  color: #5c3a16;
   transition: transform 0.08s ease, box-shadow 0.08s ease;
 }
 
 .potion-slot:active:not(:has(.potion-help:active)) {
   transform: translateY(3px);
-  box-shadow: inset 0 1px 0 rgba(255, 228, 170, 0.22), 0 1px 0 #120e0a;
+  box-shadow: inset 0 2px 3px rgba(58, 36, 16, 0.18), 0 1px 0 var(--stroke);
 }
 
 .potion-slot.pressed::after {
@@ -1780,17 +1784,17 @@ onUnmounted(() => {
 
 .potion-slot.empty {
   border-style: dashed;
-  border-color: rgba(226, 163, 26, 0.38);
-  background: rgba(255, 244, 220, 0.05);
-  box-shadow: inset 0 1px 0 rgba(255, 228, 170, 0.12), 0 3px 0 #120e0a;
-  color: #b7a48a;
+  border-color: rgba(58, 36, 20, 0.45);
+  background: rgba(90, 52, 24, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 248, 230, 0.2), 0 3px 0 var(--stroke);
+  color: var(--muted);
 }
 
 .potion-slot.dry {
-  background: linear-gradient(180deg, #4a463f 0%, #2c2925 100%);
-  border-color: #3a342c;
-  color: #8d867c;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 3px 0 #120e0a;
+  background: linear-gradient(180deg, #d9d3c8 0%, #b7b0a4 100%);
+  border-color: #6d665c;
+  color: #6d665c;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 3px 0 #6d665c;
 }
 
 .potion-halo {
@@ -1838,8 +1842,8 @@ onUnmounted(() => {
 
 .potion-slot .potion-help {
   right: 3px;
-  background: #6a4a18;
-  color: #fff8ee;
+  background: #5c3a16;
+  color: var(--cream);
 }
 
 .potion-groups {
@@ -1914,7 +1918,7 @@ onUnmounted(() => {
   padding: 8px 10px;
   border: 2px solid var(--gold-deep);
   border-radius: 10px;
-  background: linear-gradient(#fffef8, #fff3d8);
+  background: var(--wood-face);
   box-shadow: 0 4px 0 var(--shadow);
   color: var(--ink);
 }
@@ -1955,7 +1959,7 @@ onUnmounted(() => {
 .potion-slot :deep(.potion-ico) {
   width: 28px;
   height: 28px;
-  color: #ffd98a;
+  color: #5c3a16;
 }
 
 .potion-slot.dry :deep(.potion-ico) {
@@ -1985,8 +1989,9 @@ onUnmounted(() => {
   height: 18px;
   padding: 0 4px;
   border-radius: 99px;
-  background: #3a2a14;
-  color: #ffe7b0;
+  border: 2px solid #1f5c16;
+  background: #3cb82e;
+  color: #14300c;
   font-size: 11px;
   font-weight: 800;
   line-height: 1;
@@ -2058,9 +2063,9 @@ onUnmounted(() => {
   align-items: center;
   gap: 4px;
   padding: 3px;
-  border: 1px solid #d4a84a;
+  border: 2px solid var(--stroke);
   border-radius: 7px;
-  background: rgba(255, 247, 212, 0.45);
+  background: rgba(246, 226, 188, 0.72);
   box-shadow: none;
   touch-action: none;
 }
@@ -2070,7 +2075,7 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 0;
   border-style: dashed;
-  background: rgba(255, 241, 190, 0.35);
+  background: rgba(232, 188, 116, 0.35);
   color: #a77840;
   cursor: default;
   touch-action: manipulation;
@@ -2396,9 +2401,9 @@ onUnmounted(() => {
   align-items: center;
   gap: 0;
   margin-bottom: 4px;
-  border: 1px solid #d4a84a;
+  border: 2px solid var(--stroke);
   border-radius: 7px;
-  background: rgba(255, 247, 212, 0.45);
+  background: rgba(246, 226, 188, 0.72);
   box-shadow: 0 2px 0 rgba(170, 108, 31, 0.28);
 }
 
@@ -2511,7 +2516,7 @@ onUnmounted(() => {
   padding: 6px 10px;
   border: 2px solid var(--gold-deep);
   border-radius: 10px;
-  background: linear-gradient(#fff8dc, #f0c14a);
+  background: var(--accent-face);
   color: var(--ink);
   font-size: 12px;
   font-weight: 900;
@@ -2539,7 +2544,7 @@ onUnmounted(() => {
   align-items: flex-end;
   justify-content: center;
   padding: 16px 12px 0;
-  background: rgba(40, 24, 8, 0.45);
+  background: rgba(8, 28, 14, 0.58);
 }
 
 .sheet {
@@ -2554,7 +2559,7 @@ onUnmounted(() => {
   padding: 16px 16px calc(16px + var(--dock-height));
   border: 3px solid var(--gold-deep);
   border-radius: 16px 16px 12px 12px;
-  background: linear-gradient(180deg, #fffef8, #fff3d8);
+  background: var(--wood-face);
   box-shadow: 0 6px 0 var(--shadow);
 }
 
@@ -2638,7 +2643,7 @@ onUnmounted(() => {
   padding: 6px 10px;
   border: 3px solid var(--gold-deep);
   border-radius: 12px;
-  background: linear-gradient(#fffbeb, var(--btn));
+  background: var(--wood-face);
   box-shadow: 0 3px 0 var(--shadow);
 }
 
@@ -2680,7 +2685,7 @@ onUnmounted(() => {
   min-height: 48px;
   border: 3px solid var(--gold-deep);
   border-radius: 12px;
-  background: linear-gradient(#fffbeb, #fff7d8);
+  background: var(--wood-face);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2695,7 +2700,7 @@ onUnmounted(() => {
 }
 
 .pick-list button.on {
-  background: linear-gradient(#ffe27a, #f0b83a);
+  background: var(--tab-on);
 }
 
 .pick-list button:disabled:not(.on) {
@@ -2823,15 +2828,15 @@ onUnmounted(() => {
 }
 
 .potion-dock {
+  position: relative;
   flex: 0 0 auto;
   margin: 4px 6px 4px;
-  padding: 7px 7px 6px;
-  border: 1px solid #e2a31a;
-  border-radius: 12px;
-  background:
-    radial-gradient(120% 90% at 50% 0%, rgba(226, 163, 26, 0.18), transparent 58%),
-    linear-gradient(180deg, #2c241c, #14110e);
-  box-shadow: inset 0 0 14px rgba(226, 163, 26, 0.22), inset 0 1px 0 rgba(255, 214, 140, 0.22);
+  padding: 8px 8px 6px;
+  border: 3px solid var(--stroke);
+  border-radius: 16px;
+  background: var(--wood-face);
+  background-blend-mode: multiply, normal;
+  box-shadow: 0 3px 0 var(--stroke), inset 0 1px 0 rgba(255, 248, 230, 0.35);
 }
 
 .roster-v2.sheet-rest .col.side,
@@ -2846,7 +2851,7 @@ onUnmounted(() => {
   height: 58%;
   z-index: 6;
   overflow: auto;
-  background: #fff8ee;
+  background: var(--wood-lite);
   border-top: 3px solid var(--gold-deep);
   box-shadow: 0 -6px 0 rgba(90, 48, 16, 0.12);
 }
@@ -2913,7 +2918,7 @@ onUnmounted(() => {
   overflow: hidden;
   border: 2px solid var(--gold);
   border-radius: 10px;
-  background: #fff9de;
+  background: var(--wood-lite);
 }
 
 .band-head,
@@ -2970,7 +2975,7 @@ onUnmounted(() => {
   min-width: 12px;
   overflow: hidden;
   border-radius: 999px;
-  background: #efe0b0;
+  background: var(--bar-track);
 }
 
 .queue-bar i {
@@ -2980,7 +2985,7 @@ onUnmounted(() => {
 }
 
 .queue-bar.hp-full i {
-  background: #3e9a2a;
+  background: #2fbf32;
 }
 
 .queue-bar.hp-low i {
@@ -3026,11 +3031,12 @@ onUnmounted(() => {
   min-width: 44px;
   min-height: 44px;
   padding: 2px;
-  border: 1.5px solid #9a9286;
-  border-radius: 8px;
-  background: #f6f4f0;
-  color: #6d665c;
-  box-shadow: none;
+  border: 2px solid var(--stroke);
+  border-radius: 10px;
+  background: var(--wood-face);
+  background-blend-mode: multiply, normal;
+  color: var(--ink);
+  box-shadow: 0 2px 0 var(--stroke);
 }
 
 .band-food.locked {
@@ -3063,8 +3069,9 @@ onUnmounted(() => {
   height: 14px;
   padding: 0 3px;
   border-radius: 999px;
-  background: var(--danger);
-  color: #fff8f4;
+  border: 1px solid #1f5c16;
+  background: #3cb82e;
+  color: #14300c;
   font-size: 9px;
   font-style: normal;
   font-weight: 900;
@@ -3085,7 +3092,7 @@ onUnmounted(() => {
   padding: 2px 8px;
   border: 0;
   border-radius: 8px;
-  background: linear-gradient(#ffe27a, #e2a31a);
+  background: var(--accent-face);
   color: #5a3010;
   box-shadow: 0 2px 0 var(--gold-deep);
   font-size: 12px;
@@ -3121,7 +3128,7 @@ onUnmounted(() => {
 
 .band-combat.on {
   border-color: var(--gold-deep);
-  background: linear-gradient(#ffe27a, #f0b83a);
+  background: var(--tab-on);
   color: #5a3010;
   box-shadow: 0 2px 0 var(--gold-deep);
 }

@@ -285,12 +285,12 @@ onUnmounted(() => {
   border-radius: 12px;
   background:
     var(--paper-grain),
-    linear-gradient(180deg, #fffef8 0%, #fff3d8 100%);
+    var(--wood-face);
   background-blend-mode: multiply, normal;
   box-shadow:
     0 6px 0 var(--shadow),
     inset 0 1px 0 rgba(255, 255, 255, 0.78),
-    inset 0 0 0 2px #fff8e0;
+    inset 0 0 0 2px rgba(255, 246, 224, 0.45);
 }
 
 .opt {
@@ -305,11 +305,11 @@ onUnmounted(() => {
 }
 
 .opt.active:not(.off) {
-  background: linear-gradient(#fff8d8, #ffe9b0);
+  background: var(--wood-face);
 }
 
 .opt.on {
-  background: linear-gradient(#ffe27a, #f0b83a);
+  background: var(--tab-on);
   box-shadow: inset 0 0 0 2px var(--gold-deep);
 }
 

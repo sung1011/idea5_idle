@@ -262,7 +262,7 @@ function closeAll() {
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: rgba(40, 24, 8, 0.45);
+  background: rgba(8, 28, 14, 0.58);
 }
 
 .sheet {
@@ -357,7 +357,7 @@ function closeAll() {
 }
 
 .rune-slot.on {
-  background: linear-gradient(#ffe27a, #f0b83a);
+  background: var(--tab-on);
 }
 
 .rune-slot.locked,
@@ -392,7 +392,7 @@ function closeAll() {
 }
 
 .rune-item.on {
-  background: linear-gradient(#ffe27a, #f0b83a);
+  background: var(--tab-on);
 }
 
 .pick-slot {
@@ -401,7 +401,7 @@ function closeAll() {
   padding: 1px 6px;
   border: 2px solid var(--gold-deep);
   border-radius: 999px;
-  background: #ffe9a0;
+  background: #f0c46a;
   color: #4a2c0a;
   font-style: normal;
   font-size: 12px;
@@ -459,7 +459,7 @@ function closeAll() {
   padding: 1px 7px;
   border: 2px solid var(--gold-deep);
   border-radius: 999px;
-  background: #ffe9a0;
+  background: #f0c46a;
   color: #6b4218;
   font-size: 12px;
   font-weight: 700;
@@ -492,7 +492,7 @@ function closeAll() {
 .pick-worker.on,
 .pick-worker.on:disabled {
   color: var(--ink);
-  background: linear-gradient(180deg, #ffe9a0, #f0c14a);
+  background: var(--accent-face);
   border-color: var(--gold-deep);
   box-shadow:
     0 3px 0 var(--gold-deep),

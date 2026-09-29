@@ -39,7 +39,7 @@ const { tips } = useStationTips(toRef(props, 'stationId'))
   padding: 4px 10px;
   border: 2px solid var(--gold-deep);
   border-radius: 10px;
-  background: rgba(255, 248, 230, 0.94);
+  background: rgba(246, 226, 188, 0.96);
   color: var(--ink);
   font-size: 13px;
   line-height: 1.4;

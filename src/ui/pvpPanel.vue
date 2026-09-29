@@ -121,7 +121,7 @@ const help = computed(() => modeHelpOf(helpId()))
   padding: 3px;
   border: 2px solid var(--gold);
   border-radius: var(--radius-pill);
-  background: linear-gradient(180deg, #fffef8 0%, #fff3d4 100%);
+  background: var(--wood-face);
 }
 
 .sub button {
@@ -178,7 +178,7 @@ const help = computed(() => modeHelpOf(helpId()))
 
 .sub button.on {
   color: var(--ink);
-  background: linear-gradient(#ffe27a, #f0b83a);
+  background: var(--tab-on);
   box-shadow: 0 2px 6px rgba(212, 160, 23, 0.32);
 }
 

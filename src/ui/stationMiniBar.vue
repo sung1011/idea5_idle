@@ -78,7 +78,7 @@ const halted = computed(() => stalled.value || assigned.value <= 0)
 .bar b {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--workshop-progress-from, #d7a441), var(--workshop-progress-to, #f0c14a));
+  background: var(--bar-fill-green);
 }
 
 .bar.halt b {

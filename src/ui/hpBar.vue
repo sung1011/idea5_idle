@@ -63,16 +63,16 @@ onUnmounted(() => {
   width: 100%;
   height: 22px;
   overflow: hidden;
-  border: 3px solid #b88810;
+  border: 3px solid var(--stroke);
   border-radius: var(--radius-pill);
-  background: linear-gradient(180deg, #efe0b0, var(--bar-track));
+  background: var(--bar-track-face);
   box-shadow: inset 0 1px 2px rgba(106, 66, 24, 0.2);
 }
 
 .hp .fill {
   display: block;
   height: 100%;
-  background: var(--bar-sheen), linear-gradient(90deg, #6fc43a, #2d7a1c);
+  background: var(--bar-sheen), linear-gradient(90deg, #c6ff6a, #2fbf32);
   transition: width 0.3s ease;
 }
 

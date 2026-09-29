@@ -236,7 +236,7 @@ button.chip:active:not(:disabled) {
   padding: 3px;
   border: 2px solid var(--gold);
   border-radius: var(--radius-pill);
-  background: linear-gradient(180deg, #fffef8 0%, #fff3d4 100%);
+  background: var(--wood-face);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
@@ -275,7 +275,7 @@ button.chip:active:not(:disabled) {
 .sub button.on:hover:not(:disabled),
 .sub button.on:active:not(:disabled) {
   color: var(--ink);
-  background: linear-gradient(#ffe27a, #f0b83a);
+  background: var(--tab-on);
   box-shadow: 0 2px 6px rgba(212, 160, 23, 0.32);
   opacity: 1;
   filter: none;
@@ -351,7 +351,7 @@ button.chip:active:not(:disabled) {
 }
 
 .node.ready {
-  background: linear-gradient(#fff3a8, #f0c14a);
+  background: var(--accent-face);
 }
 
 .node.off {
@@ -369,7 +369,7 @@ button.chip:active:not(:disabled) {
   align-items: flex-end;
   justify-content: center;
   padding: 16px 12px 0;
-  background: rgba(40, 24, 8, 0.45);
+  background: rgba(8, 28, 14, 0.58);
 }
 
 .sheet {

@@ -65,9 +65,9 @@ function claim() {
   z-index: 6;
   width: min(210px, calc(100% - 90px));
   overflow: hidden;
-  color: #fff8ee;
-  background: rgba(40, 28, 14, 0.78);
-  border: 1px solid rgba(232, 195, 90, 0.55);
+  color: #fff6e0;
+  background: rgba(18, 48, 24, 0.88);
+  border: 2px solid #e2ae62;
   border-radius: 8px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
   backdrop-filter: blur(4px);
@@ -88,7 +88,7 @@ function claim() {
   width: 28px;
   height: 28px;
   border-radius: 6px;
-  background: linear-gradient(180deg, #f0c14a, #d4a017);
+  background: var(--accent-face);
   color: #4a2c0a;
   font-size: 11px;
   font-weight: 900;
@@ -117,7 +117,7 @@ function claim() {
 
 .prog {
   margin: 3px 0 0;
-  color: #ffe27a;
+  color: #d8ff9a;
   font-size: 11px;
   font-weight: 700;
 }
@@ -137,7 +137,7 @@ function claim() {
 .bar i {
   display: block;
   height: 100%;
-  background: #f0c14a;
+  background: #3cb82e;
 }
 
 .bar.ok i {

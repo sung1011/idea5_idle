@@ -158,7 +158,7 @@ onUnmounted(() => {
   align-items: flex-start;
   justify-content: center;
   padding: 72px 16px 24px;
-  background: rgba(92, 58, 26, 0.28);
+  background: rgba(8, 28, 14, 0.58);
 }
 
 .box {
@@ -224,7 +224,7 @@ header .title,
 
 .sub button.on {
   color: var(--ink);
-  background: linear-gradient(#ffe27a, #f0b83a);
+  background: var(--tab-on);
   box-shadow: 0 3px 0 var(--shadow);
   opacity: 1;
   filter: none;
@@ -265,7 +265,7 @@ header .title,
 }
 
 .refresh {
-  background: linear-gradient(#ffe27a, #f0b83a);
+  background: var(--tab-on);
 }
 
 .notes {

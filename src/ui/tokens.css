@@ -7,28 +7,37 @@
 }
 
 :root {
-  --paper: #fff8ee;
-  --paper-deep: #ffe9c4;
-  --ink: #6a4218;
-  --muted: #9a7048;
-  --gold: #e8c35a;
-  --gold-deep: #d4a017;
-  --copper: #c48a22;
-  --ember: #f0c14a;
-  --moss: #7ad64e;
-  --moss-deep: #3e9a2a;
+  --ink: #3a2410;
+  --cream: #fff6e0;
+  --muted: #6d4a28;
+  --wood-top: #f2d09a;
+  --wood-mid: #e2ae62;
+  --wood-bot: #cf8d40;
+  --wood-lite: #f6e2bc;
+  --stroke: #3a2414;
+  --stroke-deep: #24160e;
+  --accent: #f09a1a;
+  --accent-deep: #c46a10;
+  --paper: #e8bc74;
+  --paper-deep: #cf8d40;
+  --gold: var(--stroke);
+  --gold-deep: var(--stroke-deep);
+  --copper: #8a4510;
+  --ember: #f0a020;
+  --moss: #4ad63a;
+  --moss-deep: #2ea028;
   --danger: #e24a3a;
-  --plate: #fffdf8;
-  --slot: #fff6dc;
-  --seam: #e0b44a;
-  --iron: #fff8ee;
-  --iron-deep: #f8e2b4;
-  --btn: #fff7d8;
-  --btn-on: #efe4c8;
-  --shadow: #d4a017;
-  --bar-track: #f6e6bc;
-  --radius: 12px;
-  --radius-card: 14px;
+  --plate: #e8bc78;
+  --slot: #f6e2bc;
+  --seam: var(--stroke);
+  --iron: #e8bc78;
+  --iron-deep: #c9843e;
+  --btn: #e7c48a;
+  --btn-on: #d9c09a;
+  --shadow: var(--stroke);
+  --bar-track: #6a4a2c;
+  --radius: 14px;
+  --radius-card: 16px;
   --radius-pill: 999px;
   --border: 3px;
   --border-thin: 2px;
@@ -36,12 +45,26 @@
   --font-display: 'KnightTitle', 'Songti SC', 'STSong', 'Noto Serif SC', serif;
   --font-body: 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
   --font-mono: ui-monospace, 'SFMono-Regular', monospace;
-  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .78  0 0 0 0 .62  0 0 0 0 .36  0 0 0 .2 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --wood-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8 .18' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .42  0 0 0 0 .24  0 0 0 0 .1  0 0 0 .28 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --grass-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .12  0 0 0 0 .28  0 0 0 0 .1  0 0 0 .35 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --paper-grain: var(--wood-grain);
+  --wood-face: var(--wood-grain), linear-gradient(180deg, var(--wood-top) 0%, var(--wood-mid) 48%, var(--wood-bot) 100%);
+  --plaque-face: var(--wood-grain), linear-gradient(180deg, #f8e2b4 0%, #e7b15a 100%);
+  --accent-face: linear-gradient(180deg, #ffe08a 0%, #f09a1a 100%);
+  --tab-on: linear-gradient(180deg, #c6f57a 0%, #3cb82e 100%);
+  --bar-track-face: linear-gradient(180deg, #8a6240, var(--bar-track));
+  --ribbon: linear-gradient(180deg, #e85a4c, #b42318);
+  --bone-tl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 13c1.2-.4 2.2-2.2 2-5.2.8.6 2.2.8 3.6.2C8 11 8.2 13 9.6 14.2 6.8 14 4.6 13.6 3 13z' fill='%23f7f1e4' stroke='%233a2414' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --bone-tr: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M13 13c-1.2-.4-2.2-2.2-2-5.2-.8.6-2.2.8-3.6.2C8 11 7.8 13 6.4 14.2 9.2 14 11.4 13.6 13 13z' fill='%23f7f1e4' stroke='%233a2414' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --bone-bl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 3c1.2.4 2.2 2.2 2 5.2.8-.6 2.2-.8 3.6-.2C8 5 8.2 3 9.6 1.8 6.8 2 4.6 2.4 3 3z' fill='%23f7f1e4' stroke='%233a2414' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --bone-br: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M13 3c-1.2.4-2.2 2.2-2 5.2-.8-.6-2.2-.8-3.6-.2C8 5 7.8 3 6.4 1.8 9.2 2 11.4 2.4 13 3z' fill='%23f7f1e4' stroke='%233a2414' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --lock-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='3' y='7' width='10' height='7' rx='1.5' fill='%23f7f1e4' stroke='%233a2414' stroke-width='1.4'/%3E%3Cpath d='M5.2 7V5.2a2.8 2.8 0 0 1 5.6 0V7' fill='none' stroke='%233a2414' stroke-width='1.4'/%3E%3C/svg%3E");
   --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.08) 46%, transparent 54%);
-  --bar-fill-moss: var(--bar-sheen), linear-gradient(90deg, #9ee65a, var(--moss-deep));
-  --bar-fill-gold: var(--bar-sheen), linear-gradient(90deg, #f3d06a, var(--gold-deep));
+  --bar-fill-green: var(--bar-sheen), linear-gradient(90deg, #c6ff6a, #2fbf32);
+  --bar-fill-moss: var(--bar-fill-green);
+  --bar-fill-gold: var(--bar-fill-green);
   --bar-fill-hp: var(--bar-sheen), linear-gradient(90deg, #f0785a, var(--danger));
-  --bar-fill-workshop: var(--bar-sheen), linear-gradient(90deg, var(--workshop-progress-from, #6a8f72), var(--workshop-progress-to, #8fb89a));
+  --bar-fill-workshop: var(--bar-fill-green);
   --bar-fill-workshop-halt: var(--bar-sheen), linear-gradient(90deg, #d4cdc0, #9a8f7c);
   --z-dock: 3;
   --z-hud: 4;
@@ -79,12 +102,12 @@ body,
 
 body {
   background:
-    var(--paper-grain),
-    radial-gradient(ellipse at 50% -8%, #fff1c4 0%, transparent 50%),
-    repeating-linear-gradient(0deg, transparent, transparent 55px, rgba(212, 160, 23, 0.05) 56px),
-    repeating-linear-gradient(90deg, transparent, transparent 55px, rgba(212, 160, 23, 0.04) 56px),
-    var(--paper);
-  background-blend-mode: soft-light, normal, normal, normal, normal;
+    var(--grass-grain),
+    radial-gradient(ellipse at 18% -10%, rgba(150, 200, 80, 0.45), transparent 46%),
+    radial-gradient(ellipse at 90% 110%, rgba(20, 60, 28, 0.55), transparent 42%),
+    repeating-linear-gradient(118deg, rgba(90, 150, 50, 0.16) 0 2px, transparent 2px 8px),
+    linear-gradient(180deg, #347844 0%, #1c522c 42%, #12361e 100%);
+  background-blend-mode: multiply, normal, normal, normal, normal;
   color: var(--ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -99,16 +122,63 @@ h3,
   letter-spacing: 0.08em;
 }
 
+h2.title,
+.tree > .title {
+  position: relative;
+  display: inline-block;
+  width: fit-content;
+  max-width: calc(100% - 8px);
+  margin: 0;
+  padding: 2px 18px;
+  border: var(--border) solid var(--stroke);
+  border-radius: 10px;
+  background: var(--plaque-face);
+  background-blend-mode: multiply, normal;
+  color: var(--ink);
+  box-shadow: 0 3px 0 var(--stroke-deep);
+  line-height: 1.25;
+  vertical-align: middle;
+}
+
+h2.title::before,
+h2.title::after,
+.tree > .title::before,
+.tree > .title::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 16px;
+  transform: translateY(-50%);
+  background: var(--ribbon);
+  pointer-events: none;
+}
+
+h2.title::before,
+.tree > .title::before {
+  left: -8px;
+  clip-path: polygon(0 8%, 100% 0, 100% 100%, 0 92%);
+  border-radius: 2px 0 0 2px;
+}
+
+h2.title::after,
+.tree > .title::after {
+  right: -8px;
+  clip-path: polygon(0 0, 100% 8%, 100% 92%, 0 100%);
+  border-radius: 0 2px 2px 0;
+}
+
 button {
   font: inherit;
   color: var(--ink);
   cursor: pointer;
   padding: 6px 12px;
   min-height: 44px;
-  border: var(--border) solid var(--gold-deep);
+  border: var(--border) solid var(--stroke);
   border-radius: var(--radius);
-  background: linear-gradient(#fffbeb, var(--btn));
-  box-shadow: 0 3px 0 var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  background: var(--wood-face);
+  background-blend-mode: multiply, normal;
+  box-shadow: 0 3px 0 var(--stroke), inset 0 1px 0 rgba(255, 248, 230, 0.45);
   transition:
     transform var(--motion) ease,
     box-shadow var(--motion) ease,
@@ -118,12 +188,12 @@ button {
 }
 
 button:hover:not(:disabled) {
-  filter: brightness(1.03);
+  filter: brightness(1.04);
 }
 
 button:active:not(:disabled) {
   transform: translateY(2px);
-  box-shadow: 0 1px 0 var(--shadow), inset 0 2px 3px rgba(106, 66, 24, 0.12);
+  box-shadow: 0 1px 0 var(--stroke), inset 0 2px 3px rgba(58, 36, 16, 0.18);
 }
 
 button:disabled {
@@ -139,25 +209,65 @@ button.on,
 button.on:disabled {
   color: var(--muted);
   background: var(--btn-on);
-  box-shadow: inset 0 2px 0 #d4c4a0;
+  box-shadow: inset 0 2px 0 #b08958;
   opacity: 0.78;
   filter: grayscale(0.28);
 }
 
 .panel,
 .card,
-.item {
+.item,
+.sheet,
+.box {
   position: relative;
   isolation: isolate;
   background-color: var(--plate);
-  background-image: var(--paper-grain), linear-gradient(180deg, #fffef8 0%, #fff3d8 100%);
+  background-image: var(--wood-face);
   background-blend-mode: multiply, normal;
-  border: var(--border) solid var(--gold);
+  border: var(--border) solid var(--stroke);
   border-radius: var(--radius-card);
   box-shadow:
-    0 3px 0 var(--gold-deep),
-    inset 0 1px 0 rgba(255, 255, 255, 0.78),
-    inset 0 0 0 2px #fff8e0;
+    0 3px 0 var(--stroke-deep),
+    inset 0 1px 0 rgba(255, 248, 230, 0.4);
+  color: var(--ink);
+}
+
+.card::before,
+.item::before,
+.sheet::before,
+.box::before,
+.station::before,
+.bubble::before,
+.potion-dock::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    var(--bone-tl) left 1px top 1px / 13px 13px no-repeat,
+    var(--bone-tr) right 1px top 1px / 13px 13px no-repeat,
+    var(--bone-bl) left 1px bottom 1px / 13px 13px no-repeat,
+    var(--bone-br) right 1px bottom 1px / 13px 13px no-repeat;
+}
+
+.station.locked,
+button.locked {
+  position: relative;
+}
+
+.station.locked::after,
+button.locked:not(:has(.lock))::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 16px;
+  z-index: 5;
+  width: 14px;
+  height: 14px;
+  background: var(--lock-ico) center / contain no-repeat;
+  pointer-events: none;
 }
 
 .item.full {
@@ -234,20 +344,20 @@ button.on:disabled {
 .bar {
   height: 10px;
   overflow: hidden;
-  background: linear-gradient(180deg, #efe0b0, var(--bar-track));
-  border: var(--border-thin) solid var(--gold-deep);
+  background: var(--bar-track-face);
+  border: var(--border-thin) solid var(--stroke);
   border-radius: var(--radius-pill);
-  box-shadow: inset 0 1px 2px rgba(106, 66, 24, 0.16);
+  box-shadow: inset 0 1px 2px rgba(36, 22, 14, 0.35);
 }
 
 .bar i {
   display: block;
   height: 100%;
-  background: var(--bar-fill-moss);
+  background: var(--bar-fill-green);
 }
 
 .bar.live i {
-  background: var(--bar-fill-workshop);
+  background: var(--bar-fill-green);
   transition: none;
 }
 
@@ -260,7 +370,7 @@ button.on:disabled {
 }
 
 .bar.xp i {
-  background: var(--bar-fill-gold);
+  background: var(--bar-fill-green);
   transition: width 0.8s linear;
 }
 
@@ -278,12 +388,14 @@ button.on:disabled {
   gap: 6px;
   min-height: 36px;
   padding: 4px 12px 4px 6px;
-  border: var(--border) solid var(--gold);
+  border: var(--border) solid var(--stroke);
   border-radius: var(--radius-pill);
-  background: linear-gradient(#fffef8, #fff3d4);
-  box-shadow: 0 2px 0 var(--gold-deep), inset 0 1px 0 #fffef6, inset 0 0 0 2px #fff8e0;
+  background: var(--wood-face);
+  background-blend-mode: multiply, normal;
+  box-shadow: 0 2px 0 var(--stroke-deep), inset 0 1px 0 rgba(255, 248, 230, 0.5);
   font-family: var(--font-mono);
   font-weight: 700;
+  color: var(--ink);
 }
 
 .ui-ico {
@@ -317,6 +429,10 @@ button.act.primary {
   width: 100%;
   min-height: 48px;
   font-size: 16px;
+  border-color: var(--stroke);
+  background: var(--accent-face);
+  color: #3a2208;
+  box-shadow: 0 3px 0 var(--stroke);
 }
 
 button.act.primary.combat {
@@ -364,8 +480,8 @@ button.act.minor {
   gap: 4px;
   border: 1.5px solid #9a9286;
   border-radius: 999px;
-  background: #f6f4f0;
-  color: #6d665c;
+  background: var(--wood-lite);
+  color: var(--ink);
   box-shadow: none;
   font-size: 11px;
 }

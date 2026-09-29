@@ -29,29 +29,45 @@ function faceOf(id: string | null | undefined) {
 
 <style scoped>
 .face {
+  position: relative;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
   width: 32px;
   height: 32px;
-  border: 2px solid var(--gold-deep);
+  border: 3px solid #f4ead2;
   border-radius: 50%;
-  overflow: hidden;
+  box-shadow:
+    0 0 0 2px #4a3422,
+    inset 0 0 0 2px rgba(255, 255, 255, 0.7);
+}
+
+.face::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 0, #f7f1e4 0 3px, #4a3422 3.2px 4.2px, transparent 4.6px),
+    radial-gradient(circle at 50% 100%, #f7f1e4 0 3px, #4a3422 3.2px 4.2px, transparent 4.6px),
+    radial-gradient(circle at 0 50%, #f7f1e4 0 3px, #4a3422 3.2px 4.2px, transparent 4.6px),
+    radial-gradient(circle at 100% 50%, #f7f1e4 0 3px, #4a3422 3.2px 4.2px, transparent 4.6px);
 }
 
 .face.frame-copper {
   border-color: #b87333;
-  box-shadow: 0 0 0 1px #6b3a16, 0 0 6px rgba(184, 115, 51, 0.9);
+  box-shadow: 0 0 0 2px #4a3422, 0 0 6px rgba(184, 115, 51, 0.9);
 }
 
 .face.frame-silver {
   border-color: #e4e8ee;
-  box-shadow: 0 0 0 1px #6e7886, 0 0 6px rgba(210, 216, 224, 0.95);
+  box-shadow: 0 0 0 2px #4a3422, 0 0 6px rgba(210, 216, 224, 0.95);
 }
 
 .face.frame-gold {
   border-color: #ffe27a;
-  box-shadow: 0 0 0 1px #a97812, 0 0 8px rgba(232, 195, 90, 0.95);
+  box-shadow: 0 0 0 2px #4a3422, 0 0 8px rgba(232, 195, 90, 0.95);
 }
 
 svg {

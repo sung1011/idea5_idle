@@ -86,7 +86,7 @@ watch(() => props.anchor, () => watchAnchor())
   border-radius: 12px;
   background:
     var(--paper-grain),
-    linear-gradient(#fffef8, #fff3d8);
+    var(--wood-face);
   background-blend-mode: multiply, normal;
   box-shadow: 0 3px 0 var(--gold-deep);
   color: var(--ink);
@@ -111,7 +111,7 @@ watch(() => props.anchor, () => watchAnchor())
   left: -7px;
   border-left: 7px solid transparent;
   border-right: 7px solid transparent;
-  border-bottom: 7px solid #fffef8;
+  border-bottom: 7px solid var(--wood-top);
 }
 
 .x {

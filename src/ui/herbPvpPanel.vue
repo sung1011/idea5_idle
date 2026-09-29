@@ -503,7 +503,7 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
   padding: 6px 8px;
   border: 2px solid #c9842a;
   border-radius: 8px;
-  background: #fff8ee;
+  background: var(--wood-lite);
   color: var(--ink);
   font-size: 12px;
   line-height: 1.4;
@@ -534,7 +534,7 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
 }
 
 .probes button.on {
-  background: linear-gradient(#ffe27a, #f0b83a);
+  background: var(--tab-on);
 }
 
 .map {
@@ -577,7 +577,7 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
   pointer-events: auto;
   border-width: 2px;
   border-radius: 10px;
-  background: #fff8ee;
+  background: var(--wood-lite);
 }
 
 .side {
@@ -595,7 +595,7 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
   height: 36px;
   border: 2px solid #c9842a;
   border-radius: 50%;
-  background: #ffe7c2;
+  background: #f0c48a;
 }
 
 .mug :deep(.face) {
@@ -777,7 +777,7 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
 }
 
 .cell.aim {
-  background: #fff1b8;
+  background: #f3d48a;
   box-shadow: inset 0 0 0 2px #c9842a;
 }
 
@@ -895,13 +895,13 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
 
 @keyframes herb-flash {
   0% {
-    background: #fff7c2;
+    background: #f6e0a4;
     transform: scale(1);
     box-shadow: 0 0 0 0 rgba(255, 196, 40, 0.9);
   }
 
   28% {
-    background: #ffe56a;
+    background: #f0b43a;
     transform: scale(1.22);
     box-shadow: 0 0 0 4px rgba(255, 186, 32, 0.9);
   }
@@ -936,7 +936,7 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
 @keyframes herb-flash-still {
   0%,
   45% {
-    background: #fff7c2;
+    background: #f6e0a4;
   }
 
   100% {

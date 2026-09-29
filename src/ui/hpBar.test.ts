@@ -46,7 +46,7 @@ describe('enemy hp bar skin', () => {
     expect(enemy).toContain('clip-path: polygon')
     expect(enemy).toContain('.hp.enemy.mid .fill')
     expect(enemy).toContain('.hp.enemy.low .fill')
-    expect(hpBarSource).toContain('linear-gradient(90deg, #6fc43a, #2d7a1c)')
+    expect(hpBarSource).toContain('linear-gradient(90deg, #c6ff6a, #2fbf32)')
     expect(hpBarSource).toContain('color: #fff4ea')
     const ally = hpBarSource.slice(hpBarSource.indexOf('.hp {'), hpBarSource.indexOf('.hp.enemy {'))
     expect(ally).not.toContain('#ff8a80')

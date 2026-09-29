@@ -353,7 +353,7 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
   align-items: flex-end;
   justify-content: center;
   padding: 16px 12px 0;
-  background: rgba(40, 24, 8, 0.45);
+  background: rgba(8, 28, 14, 0.58);
 }
 
 .sheet {
@@ -367,7 +367,7 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
   padding: 16px 16px calc(16px + var(--dock-height));
   border: 3px solid var(--gold-deep);
   border-radius: 16px 16px 12px 12px;
-  background: linear-gradient(180deg, #fffef8, #fff3d8);
+  background: var(--wood-face);
   box-shadow: 0 6px 0 var(--shadow);
 }
 
@@ -502,7 +502,7 @@ header {
 .craft-bar b {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--workshop-progress-from, #d7a441), var(--workshop-progress-to, #f0c14a));
+  background: var(--bar-fill-green);
 }
 
 .craft.halt .craft-bar b {

@@ -37,14 +37,14 @@ const valueNow = computed(() => {
   height: 4px;
   overflow: hidden;
   border-radius: 999px;
-  background: #efe0b0;
+  background: var(--bar-track);
   border: 1px solid #a67c2a;
 }
 
 .act i {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #c4841a, #f3d06a);
+  background: var(--bar-fill-green);
 }
 
 .act.enemy {

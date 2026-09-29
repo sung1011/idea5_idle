@@ -85,7 +85,7 @@ watch(
   align-items: flex-start;
   justify-content: center;
   padding: 72px 16px 24px;
-  background: rgba(92, 58, 26, 0.28);
+  background: rgba(8, 28, 14, 0.58);
 }
 
 .box {
@@ -127,7 +127,7 @@ header .title {
   height: 100%;
   width: 0;
   border-radius: inherit;
-  background: linear-gradient(90deg, #c4842a, #f3d48a);
+  background: linear-gradient(90deg, #c6ff6a, #2fbf32);
   transition: width 0.55s linear;
 }
 

@@ -326,7 +326,7 @@ onUnmounted(() => {
   padding: 8px 10px 10px;
   border: 2px solid #8a5a12;
   border-radius: 10px;
-  background: linear-gradient(#fff6c8, #f0c14a);
+  background: var(--accent-face);
   color: #4a2c08;
   font-size: 13px;
   font-weight: 800;

@@ -106,13 +106,13 @@ onBeforeUnmount(() => observer?.disconnect())
   padding: 2px 6px;
   border-left: 3px solid transparent;
   border-radius: 8px;
-  background: rgba(255, 248, 230, 0.7);
+  background: rgba(246, 226, 188, 0.82);
   font-weight: 400;
 }
 
 .rank-row.self {
-  background: #fff1c2;
-  border-left-color: #d7a441;
+  background: #f6d59a;
+  border-left-color: #e07a12;
 }
 
 .rank-pin {

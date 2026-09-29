@@ -847,7 +847,7 @@ function timedLine(enc: Encounter) {
   padding: 3px;
   border: 2px solid var(--gold);
   border-radius: var(--radius-pill);
-  background: linear-gradient(180deg, #fffef8 0%, #fff3d4 100%);
+  background: var(--wood-face);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
@@ -924,7 +924,7 @@ function timedLine(enc: Encounter) {
 .sub button.on:hover:not(:disabled),
 .sub button.on:active:not(:disabled) {
   color: var(--ink);
-  background: linear-gradient(#ffe27a, #f0b83a);
+  background: var(--tab-on);
   box-shadow: 0 2px 6px rgba(212, 160, 23, 0.32);
   opacity: 1;
   filter: none;
@@ -971,7 +971,7 @@ function timedLine(enc: Encounter) {
   overflow: hidden;
   border: 2px solid var(--gold-deep);
   border-radius: var(--radius-pill);
-  background: linear-gradient(180deg, #efe0b0, var(--bar-track));
+  background: var(--bar-track-face);
   box-shadow: inset 0 1px 2px rgba(106, 66, 24, 0.16);
 }
 
@@ -1046,7 +1046,7 @@ function timedLine(enc: Encounter) {
   padding: 1px 6px;
   border: 1px solid var(--gold-deep);
   border-radius: 999px;
-  background: #fff8e8;
+  background: var(--wood-lite);
   box-shadow: none;
   color: var(--ink);
   font-family: inherit;
@@ -1083,7 +1083,7 @@ function timedLine(enc: Encounter) {
   padding: 8px 10px;
   border: 2px solid var(--gold-deep);
   border-radius: 10px;
-  background: linear-gradient(#fffef8, #fff3d8);
+  background: var(--wood-face);
   box-shadow: 0 4px 0 var(--shadow);
   color: var(--ink);
 }
@@ -1212,12 +1212,12 @@ function timedLine(enc: Encounter) {
 
 .card.q-orange .qmark {
   color: #b85a08;
-  background: #ffe7c8;
+  background: #f0c48a;
 }
 
 .card.done {
   background: linear-gradient(#efe6c8, #e4d3a4);
-  box-shadow: 0 3px 0 #c4a24a, inset 0 0 0 2px #fff4d0;
+  box-shadow: 0 3px 0 var(--stroke), inset 0 0 0 2px rgba(255, 246, 224, 0.35);
 }
 
 .card.done.q-green {
@@ -1308,7 +1308,7 @@ ul {
 
 .march-line.marchOut .march-bar b,
 .march-line.marchHomeWin .march-bar b {
-  background: linear-gradient(90deg, #e2a31a, #ffe27a);
+  background: var(--bar-fill-green);
 }
 
 .march-line.marchHomeLose {
@@ -1374,7 +1374,7 @@ ul {
   padding: 1px 7px;
   border: 2px solid var(--gold-deep);
   border-radius: 999px;
-  background: #fff3d4;
+  background: var(--wood-lite);
   color: var(--ink);
   font-size: 12px;
   font-weight: 700;
@@ -1383,7 +1383,7 @@ ul {
 
 .shield.broke {
   border-color: #c0392b;
-  background: #ffe0cc;
+  background: #f0c4a0;
   color: #c0392b;
   animation: stun-pulse 0.85s ease-in-out infinite;
 }

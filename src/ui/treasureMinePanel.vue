@@ -633,7 +633,7 @@ function confirmPick() {
   border: var(--border) solid var(--gold);
   border-radius: var(--radius-card);
   background-color: var(--plate);
-  background-image: var(--paper-grain), linear-gradient(180deg, #fffef8 0%, #fff3d8 100%);
+  background-image: var(--paper-grain), var(--wood-face);
   background-blend-mode: multiply, normal;
   box-shadow: 0 2px 0 var(--gold-deep);
   font-size: 13px;
@@ -789,7 +789,7 @@ function confirmPick() {
   display: grid;
   place-items: center;
   padding: 16px;
-  background: rgba(36, 24, 12, 0.35);
+  background: rgba(8, 28, 14, 0.58);
 }
 
 .bounty-sheet {
@@ -892,7 +892,7 @@ function confirmPick() {
 .dig-bar b {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--workshop-progress-from, #d7a441), var(--workshop-progress-to, #f0c14a));
+  background: var(--bar-fill-green);
 }
 
 .dig span {
@@ -1014,7 +1014,7 @@ function confirmPick() {
 
 .march-line.marchOut .march-bar b,
 .march-line.marchHomeWin .march-bar b {
-  background: linear-gradient(90deg, #e2a31a, #ffe27a);
+  background: var(--bar-fill-green);
 }
 
 .march-line.marchHomeLose {

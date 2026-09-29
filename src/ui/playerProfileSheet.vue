@@ -78,7 +78,7 @@ onUnmounted(() => {
   align-items: flex-start;
   justify-content: center;
   padding: 72px 16px 24px;
-  background: rgba(92, 58, 26, 0.28);
+  background: rgba(8, 28, 14, 0.58);
 }
 
 .box {
@@ -125,7 +125,7 @@ header .title {
   padding: 4px 8px;
   border: 2px solid var(--gold-deep);
   border-radius: 8px;
-  background: #fffdf8;
+  background: var(--wood-lite);
   color: var(--ink);
   font-family: var(--font-mono);
   font-weight: 700;
@@ -150,7 +150,7 @@ header .title {
 }
 
 .avatars button.on {
-  background: linear-gradient(#ffe27a, #f0b83a);
+  background: var(--tab-on);
 }
 
 .confirm {
