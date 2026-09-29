@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { reactive } from 'vue'
 import {
   ASSIST_WORKER_ID,
   createAssistWorker,
@@ -128,6 +129,24 @@ describe('combat assist invite', () => {
     expect(own.xp).toBe(xpBefore + workerLootXp('minion', 1))
     expect(save.workers).toHaveLength(1)
     expect(findCombatPartyWorker(save, ASSIST_WORKER_ID)).toBeUndefined()
+  })
+
+  it('reactive 包装后的存档和助战调用 startCombat 不抛错', () => {
+    const save = reactive(createSave())
+    const own = spawnWorker(save)
+    const assist = reactive(createAssistWorker(save, seqRoll([0, 0, 0, 0, 0])))
+    putEnemy(save, testEnemy())
+    stock(save)
+
+    const result = startCombat(save, 0, [own.id, assist.id], 1_000, undefined, [assist])
+
+    expect(result.ok).toBe(true)
+    const enc = save.encounters[0] as EnemyEncounter
+    expect(enc.combat?.workerIds).toEqual([own.id, assist.id])
+    expect(enc.combat?.phase).toBe('marchOut')
+    expect(enc.combat?.marchPlan?.guests?.map((worker) => worker.id)).toEqual([assist.id])
+    expect(enc.combat?.marchPlan?.guests?.[0]?.race).toBe(assist.race)
+    expect(enc.combat?.marchPlan?.guests?.[0]?.name).toBe(assist.name)
   })
 
   it('lets the guest fight alone without joining the roster', () => {

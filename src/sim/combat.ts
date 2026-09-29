@@ -23,6 +23,7 @@ import {
   woundedTakenMul,
 } from './tech'
 import { combatPhaseOf } from './march'
+import { clonePlain } from './clone'
 import { findCombatPartyWorker, isAssistWorker } from './combatAssist'
 import { drawEnemyTargetRule, pickEnemyTargets, type CombatTarget } from './combatTarget'
 import { jitterWorkerAtkInterval } from './atkInterval'
@@ -730,7 +731,7 @@ export function openCombatMarch(
       stats: opts?.stats,
       shield: opts?.shield,
       timeoutS: opts?.timeoutS,
-      guests: guests.map((worker) => structuredClone(worker)),
+      guests: guests.map((worker) => clonePlain(worker)),
     },
   }
   enc.combat = combat
@@ -799,7 +800,7 @@ export function queueCombatReinforcements(
       startedAt: now,
       runeId: runes?.[worker.id],
       reinforced: true,
-      guest: worker.guest === true || worker.id.startsWith('assist-') ? structuredClone(worker) : undefined,
+      guest: worker.guest === true || worker.id.startsWith('assist-') ? clonePlain(worker) : undefined,
     })
     if (runes?.[worker.id]) {
       if (!combat.runeLoadout) combat.runeLoadout = {}

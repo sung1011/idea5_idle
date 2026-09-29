@@ -89,7 +89,7 @@ import { offerActionBanter, offerWorkshopBanter } from './workshopBanter'
 import { applyWorkerDrag, type WorkerDragSource, type WorkerDropTarget } from './workerDrag'
 
 export const useGameStore = defineStore('game', () => {
-  // 整份 Save 替换，不用深层响应式，避免 structuredClone 撞上 Proxy。
+  // 整份 Save 替换，不用深层响应式。cloneSave 碰到 Proxy 会剥掉后再 structuredClone。
   const save = shallowRef<Save>(createSave())
   const unread = computed(() => hasUnread(save.value))
   const inbox = computed(() => listedMessages(save.value))
