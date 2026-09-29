@@ -282,8 +282,13 @@ watch(guideCampOpenRequest, openRequestedCamp)
 
     <nav class="dock" role="tablist" aria-label="主界面页签">
       <div v-if="showStationHp" class="dock-hp" aria-hidden="true">
-        <i v-for="cell in stationHp" :key="cell.stationId" class="cell">
-          <b class="fill" :class="cell.tone" :style="{ width: `${(cell.fill * 100).toFixed(2)}%` }" />
+        <i v-for="cell in stationHp" :key="cell.stationId" class="cell" :class="{ empty: cell.empty }">
+          <b
+            v-if="!cell.empty"
+            class="fill"
+            :class="cell.tone"
+            :style="{ width: `${(cell.fill * 100).toFixed(2)}%` }"
+          />
         </i>
       </div>
       <div class="dock-tabs">
@@ -859,6 +864,11 @@ watch(guideCampOpenRequest, openRequestedCamp)
   overflow: hidden;
   border-radius: 1px;
   background: var(--bar-track-face);
+}
+
+.dock-hp .cell.empty {
+  background: repeating-linear-gradient(-45deg, #9a9488 0 2px, #d4cfc4 2px 4px);
+  box-shadow: inset 0 0 0 1px #c43a2a;
 }
 
 .dock-hp .fill {

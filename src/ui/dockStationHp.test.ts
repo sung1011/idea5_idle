@@ -26,7 +26,7 @@ describe('dock station hp', () => {
     const cells = dockStationHp(createSave())
     expect(cells.map((cell) => cell.stationId)).toEqual([...STATION_ORDER])
     expect(cells).toHaveLength(6)
-    expect(cells.every((cell) => cell.fill === 0)).toBe(true)
+    expect(cells.every((cell) => cell.fill === 0 && cell.empty)).toBe(true)
   })
 
   it('fills an occupied station from wearHp over hpMax', () => {
@@ -40,12 +40,12 @@ describe('dock station hp', () => {
     )
     const cells = dockStationHp(save)
     const byId = Object.fromEntries(cells.map((cell) => [cell.stationId, cell]))
-    expect(byId.herbalism).toMatchObject({ fill: 1, tone: 'full' })
-    expect(byId.alchemy).toMatchObject({ fill: 0 })
-    expect(byId.cooking).toMatchObject({ fill: 0.5, tone: 'mid' })
-    expect(byId.mining).toMatchObject({ fill: 0.2, tone: 'low' })
-    expect(byId.hunting).toMatchObject({ fill: 0.6, tone: 'mid' })
-    expect(byId.inscription).toMatchObject({ fill: 0 })
+    expect(byId.herbalism).toMatchObject({ fill: 1, tone: 'full', empty: false })
+    expect(byId.alchemy).toMatchObject({ fill: 0, empty: true })
+    expect(byId.cooking).toMatchObject({ fill: 0.5, tone: 'mid', empty: false })
+    expect(byId.mining).toMatchObject({ fill: 0.2, tone: 'low', empty: false })
+    expect(byId.hunting).toMatchObject({ fill: 0.6, tone: 'mid', empty: false })
+    expect(byId.inscription).toMatchObject({ fill: 0, empty: true })
   })
 
   it('keeps a closed station on the same wear fill', () => {
@@ -55,8 +55,8 @@ describe('dock station hp', () => {
     save.workers.push(worker({ id: 'herb', assignment: 'herbalism', hp: 10, hpMax: 20, fatigueDebt: 0 }))
     const cells = dockStationHp(save)
     const byId = Object.fromEntries(cells.map((cell) => [cell.stationId, cell]))
-    expect(byId.herbalism).toMatchObject({ fill: 0.5, tone: 'mid' })
-    expect(byId.alchemy).toMatchObject({ fill: 0, tone: 'low' })
+    expect(byId.herbalism).toMatchObject({ fill: 0.5, tone: 'mid', empty: false })
+    expect(byId.alchemy).toMatchObject({ fill: 0, empty: true })
   })
 
   it('hides the strip on the workshop page and shows it elsewhere', () => {
@@ -84,6 +84,11 @@ describe('dock station hp', () => {
     expect(dock.indexOf('class="camp-fab"')).toBeLessThan(dock.indexOf('v-for="t in dockTail"'))
     expect(app).toContain('pointer-events: none')
     expect(app).toContain('height: 5px')
+    expect(app).toContain('empty: cell.empty')
+    expect(app).toContain('v-if="!cell.empty"')
+    expect(app).toContain('.dock-hp .cell.empty')
+    expect(app).toContain('repeating-linear-gradient')
+    expect(app).toContain('#c43a2a')
     const cellRule = app.slice(app.indexOf('.dock-hp .cell'), app.indexOf('.dock-hp .fill {'))
     expect(cellRule).toContain('flex: 1 1 0')
     expect(cellRule).toContain('min-width: 0')
