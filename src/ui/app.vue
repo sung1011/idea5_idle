@@ -3,7 +3,6 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { playerDisplayName, type PlayerAvatarId } from '../sim/createSave'
 import { bannerFrameOf, bannerLevelOf, treasureAssaultWarning } from '../sim/treasureMine'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
-import { dockStationHp } from './dockStationHp'
 import { startAppUpdateSchedule, updateReady } from './appUpdateState'
 import { useGameStore } from './gameStore'
 import EncounterPanel from './encounterPanel.vue'
@@ -37,7 +36,6 @@ const playerName = computed(() => playerDisplayName(game.save.playerName))
 const bannerFrame = computed(() => bannerFrameOf(bannerLevelOf(game.save)))
 const assaultAlert = computed(() => treasureAssaultWarning(game.save))
 const chips = computed(() => listHudChips(game.save))
-const stationHp = computed(() => dockStationHp(game.save))
 const resourceDetail = computed(() => (resourceOpen.value ? hudChipDetail(game.save, resourceOpen.value) : null))
 
 onMounted(() => {
@@ -128,11 +126,6 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
     </main>
 
     <nav class="dock" role="tablist" aria-label="主界面页签">
-      <div class="dock-hp" aria-hidden="true">
-        <i v-for="cell in stationHp" :key="cell.stationId" class="cell">
-          <b class="fill" :class="cell.tone" :style="{ width: `${(cell.fill * 100).toFixed(2)}%` }" />
-        </i>
-      </div>
       <div class="dock-tabs">
         <button
           v-for="t in APP_TABS"
@@ -174,6 +167,7 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
   max-width: 480px;
   height: 100dvh;
   margin: 0 auto;
+  overflow: hidden;
   padding-top: env(safe-area-inset-top);
 }
 
@@ -183,9 +177,10 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
   z-index: var(--z-hud);
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 52px;
-  padding: 6px 8px;
+  gap: 4px;
+  min-height: 44px;
+  min-width: 0;
+  padding: 4px 6px;
   background:
     var(--paper-grain),
     linear-gradient(180deg, #fffdf6, var(--paper));
@@ -197,11 +192,12 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
 .player {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex: 0 1 auto;
-  max-width: 46%;
-  min-height: 36px;
-  padding: 2px 8px 2px 2px;
+  max-width: 96px;
+  min-width: 0;
+  min-height: 32px;
+  padding: 1px 6px 1px 2px;
   border-radius: 999px;
 }
 
@@ -209,8 +205,8 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 5.5em;
-  font-size: 13px;
+  max-width: 4em;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -218,7 +214,7 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 6px;
+  gap: 3px;
   flex: 1 1 auto;
   min-width: 0;
   overflow-x: auto;
@@ -232,9 +228,11 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
 
 .chip {
   flex: 0 0 auto;
-  min-height: 32px;
-  padding: 2px 8px 2px 4px;
-  font-size: 13px;
+  min-height: 28px;
+  padding: 1px 5px 1px 2px;
+  gap: 2px;
+  border-width: 2px;
+  font-size: 12px;
 }
 
 .resources > .chip:hover:not(:disabled) {
@@ -242,14 +240,14 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
 }
 
 .chip .sprite-res {
-  width: 22px;
-  height: 22px;
+  width: 16px;
+  height: 16px;
 }
 
 .hud-ico,
 .glyph {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   flex: 0 0 auto;
   color: var(--ink);
 }
@@ -265,9 +263,9 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
   position: relative;
   display: grid;
   place-items: center;
-  width: 44px;
-  min-width: 44px;
-  min-height: 44px;
+  width: 36px;
+  min-width: 36px;
+  min-height: 36px;
   padding: 0;
 }
 
@@ -327,36 +325,6 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
   background-blend-mode: multiply, normal;
   border-top: var(--border) solid var(--gold);
   box-shadow: 0 -2px 0 var(--gold-deep);
-}
-
-.dock-hp {
-  display: flex;
-  gap: 3px;
-  height: 5px;
-  pointer-events: none;
-}
-
-.dock-hp .cell {
-  flex: 1 1 0;
-  min-width: 0;
-  height: 5px;
-  overflow: hidden;
-  border-radius: 1px;
-  background: linear-gradient(180deg, #efe0b0, var(--bar-track));
-}
-
-.dock-hp .fill {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, #e0b020, #a8700c);
-}
-
-.dock-hp .fill.full {
-  background: linear-gradient(90deg, #6fc43a, #2d7a1c);
-}
-
-.dock-hp .fill.low {
-  background: linear-gradient(90deg, #d04a38, #a02820);
 }
 
 .dock-tabs {

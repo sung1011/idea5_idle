@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { bankQty } from '../sim/bank'
 import { formatMarchClock } from '../sim/encounters'
 import { isWorkerInCombat, workerLiveStats } from '../sim/combat'
@@ -60,12 +60,13 @@ import { hpBarFill, hpBarTone } from './hpBar'
 import { workerWearHp } from '../sim/workshopHp'
 import {
   canGoToAssignedWorkshop,
+  rosterSlotCounts,
   workerAssignChoices,
   workerDutyLabel,
   workerShortName,
   workshopStationBoards,
 } from './workerGroups'
-import { REST_HEAD_BADGE, restQueueRows, restZoneTitle } from './restQueue'
+import { REST_BLOCK_BADGE, REST_HEAD_BADGE, restQueueRows, restZoneTitle } from './restQueue'
 import { formatAtkSpeed } from './formatAtkSpeed'
 import PotionIcon from './potionIcon.vue'
 import UiIcon from './uiIcon.vue'
@@ -147,6 +148,7 @@ const pickId = ref<string | null>(null)
 const pickPotionIndex = ref<number | null>(null)
 
 const boards = computed(() => workshopStationBoards(game.save))
+const rosterCounts = computed(() => rosterSlotCounts(game.save))
 const fightingRoster = computed(() =>
   combatZoneRows(game.save, frameNow.value)
     .map((row) => {
@@ -156,7 +158,75 @@ const fightingRoster = computed(() =>
     .filter((item): item is { worker: Worker; row: CombatZoneRow } => !!item),
 )
 const restRows = computed(() => restQueueRows(game.save))
+const restHeadLine = computed(() => {
+  const head = restRows.value[0]
+  if (!head) return '无人'
+  const name = workerShortName(head.worker)
+  if (head.badge === REST_BLOCK_BADGE) return `堵队 · ${name}`
+  return `队首 · ${name}`
+})
+const restOpen = ref(false)
+const combatOpen = ref(false)
+const guideDismissed = ref(false)
+const statusBandEl = ref<HTMLElement | null>(null)
+const combatFits = ref(true)
+let bandObserver: ResizeObserver | null = null
+watch(guideFlashFuse, (on) => {
+  if (on) guideDismissed.value = false
+})
+const shownRest = computed(() => restOpen.value || (!guideDismissed.value && guideFlashFuse.value))
+const shownCombat = computed(() => combatOpen.value && fightingRoster.value.length > 0)
+watch(
+  () => fightingRoster.value.length,
+  (n) => {
+    if (!n) combatOpen.value = false
+  },
+)
+function toggleRest() {
+  if (shownRest.value) {
+    restOpen.value = false
+    if (guideFlashFuse.value) guideDismissed.value = true
+    return
+  }
+  combatOpen.value = false
+  guideDismissed.value = false
+  restOpen.value = true
+}
+function toggleCombat() {
+  if (shownCombat.value) {
+    combatOpen.value = false
+    return
+  }
+  restOpen.value = false
+  if (guideFlashFuse.value) guideDismissed.value = true
+  combatOpen.value = true
+}
+function measureCombatFit() {
+  const band = statusBandEl.value
+  if (!band || fightingRoster.value.length === 0 || band.clientWidth <= 0) {
+    if (fightingRoster.value.length === 0) combatFits.value = true
+    return
+  }
+  const measure = band.querySelector<HTMLElement>('[data-combat-measure]')
+  const chipW = measure?.offsetWidth ?? 0
+  let fixed = 0
+  for (const child of Array.from(band.children) as HTMLElement[]) {
+    if (child.hasAttribute('data-combat-measure') || child.hasAttribute('data-combat-toggle')) continue
+    if (child.classList.contains('band-head')) continue
+    fixed += child.offsetWidth
+  }
+  const headMin = 52
+  const gaps = 4 * 5
+  combatFits.value = fixed + headMin + chipW + gaps <= band.clientWidth + 1
+}
+function queueMeasureCombatFit() {
+  void nextTick(measureCombatFit)
+}
 const recruitPrice = computed(() => recruitCost(game.save))
+watch(
+  () => `${fightingRoster.value.length}|${restRows.value.length}|${restFoodLabel.value}|${recruitPrice.value}|${restHeadLine.value}`,
+  () => queueMeasureCombatFit(),
+)
 const canRecruit = computed(() => game.save.diamonds >= recruitPrice.value)
 const selected = computed(() => {
   const id = selectedId.value
@@ -239,6 +309,18 @@ function onDocPotionHelp(ev: PointerEvent) {
   if (!(el instanceof Element)) return
   if (!(el.closest('[data-potion-help]') || el.closest('[data-potion-bubble]'))) closePotionHelp()
   if (!(el.closest('[data-food-help]') || el.closest('[data-food-bubble]'))) closeFoodHelp()
+  if (
+    el.closest('[data-rest-pop]') ||
+    el.closest('[data-rest-toggle]') ||
+    el.closest('[data-combat-pop]') ||
+    el.closest('[data-combat-toggle]')
+  ) {
+    return
+  }
+  if (!shownRest.value && !shownCombat.value) return
+  restOpen.value = false
+  combatOpen.value = false
+  if (guideFlashFuse.value) guideDismissed.value = true
 }
 
 const potionHelpBubble = computed(() => {
@@ -324,6 +406,15 @@ function openStationDetail(stationId: StationId) {
     return
   }
   showStationDetail(stationId)
+}
+
+function onStationCardClick(ev: MouseEvent, stationId: StationId) {
+  const target = ev.target
+  if (target instanceof Element) {
+    const slot = target.closest('.slot')
+    if (slot && !slot.classList.contains('empty')) return
+  }
+  openStationDetail(stationId)
 }
 
 function closeStationDetail() {
@@ -536,6 +627,11 @@ onMounted(() => {
   greetWorkshopBanter(game.save)
   considerWorkerTutor(game.save, Date.now())
   tutorTimer = window.setInterval(() => considerWorkerTutor(game.save, Date.now()), 1000)
+  if (statusBandEl.value) {
+    bandObserver = new ResizeObserver(() => measureCombatFit())
+    bandObserver.observe(statusBandEl.value)
+  }
+  queueMeasureCombatFit()
 })
 onUnmounted(() => {
   unbindDrag()
@@ -543,12 +639,20 @@ onUnmounted(() => {
   dismissWorkshopBanter()
   window.clearInterval(tutorTimer)
   hideWorkerTutor()
+  bandObserver?.disconnect()
   document.removeEventListener('pointerdown', onDocPotionHelp, true)
 })
 </script>
 
 <template>
-  <section class="panel roster-v2" :class="{ dragging: drag?.active }">
+  <section
+    class="panel roster-v2"
+    :class="{
+      dragging: drag?.active,
+      'sheet-rest': shownRest && !shownCombat,
+      'sheet-combat': shownCombat,
+    }"
+  >
     <div class="board">
       <section class="col workshop" aria-label="在工坊">
         <p v-if="showFuseDragTip" class="fuse-drag-tip" role="status">{{ FUSE_DRAG_TIP }}</p>
@@ -559,10 +663,12 @@ onUnmounted(() => {
             class="station"
             :class="{
               locked: stationLocked(board.stationId),
+              closed: game.save.stations[board.stationId].closed,
               'guide-flash':
                 isItemSourceStationFlash(board.stationId) ||
                 (guideFlashAutoHerb && board.stationId === 'herbalism'),
             }"
+            @click="onStationCardClick($event, board.stationId)"
           >
             <StationTips :station-id="board.stationId" />
             <div class="station-rail">
@@ -652,44 +758,16 @@ onUnmounted(() => {
               </div>
             </div>
           </article>
-          <div class="potion-row" aria-label="药剂技能槽">
-            <button
-              v-for="(itemId, i) in potionSlots"
-              :key="`potion-${i}`"
-              type="button"
-              class="potion-slot"
-              :class="{
-                empty: !itemId,
-                dry: !!itemId && potionSlotQty(itemId) <= 0,
-                'guide-flash': (!itemId && guideFlashPotionInstall) || (!!itemId && guideFlashPotionUse),
-              }"
-              :aria-label="itemId ? `${potionSlotLabel(itemId)} · 点击使用` : `装入药剂槽 ${i + 1}`"
-              @click="onPotionSlot(i)"
-            >
-              <template v-if="itemId">
-                <PotionIcon :name="itemId" />
-                <span class="potion-name">{{ ITEM_DEF[itemId].label }}</span>
-                <span class="potion-qty">×{{ potionSlotQty(itemId) }}</span>
-                <span
-                  class="potion-help"
-                  data-potion-help
-                  role="button"
-                  :aria-pressed="isPotionHelpOpen(potionHelp, 'slot', itemId, i)"
-                  :aria-label="`查看 ${ITEM_DEF[itemId].label} 效果`"
-                  @click.stop="onPotionHelp($event, 'slot', itemId, i)"
-                >i</span>
-              </template>
-              <template v-else>
-                <span class="potion-vacant" aria-hidden="true"></span>
-              </template>
-            </button>
-          </div>
-          <p v-if="potionBuffLine" class="potion-buffs">{{ potionBuffLine }}</p>
         </div>
       </section>
-      <div class="col side">
-        <section class="zone combat" :class="{ empty: !fightingRoster.length }" aria-label="战斗区">
+      <div
+        class="col side"
+        :data-rest-pop="(shownRest && !shownCombat) || undefined"
+        :data-combat-pop="shownCombat || undefined"
+      >
+        <section class="zone combat" :class="{ empty: !fightingRoster.length }" aria-label="战斗区" data-combat-pop>
           <header class="zone-head">战斗区 · {{ fightingRoster.length }}</header>
+          <p v-if="!fightingRoster.length" class="empty-combat">无人出战</p>
           <div v-if="fightingRoster.length" class="zone-list">
             <div
               v-for="item in fightingRoster"
@@ -730,27 +808,19 @@ onUnmounted(() => {
           :class="[restDropClass(), { 'guide-flash': guideFlashFuse }]"
           aria-label="休息区"
           data-drop="rest"
+          data-rest-pop
         >
           <header class="zone-head">{{ restZoneTitle(restRows.length) }}</header>
           <button
+            v-if="fightingRoster.length && !combatFits"
             type="button"
-            class="recruit-bar"
-            :class="{ off: !canRecruit, 'guide-flash': guideFlashRecruit }"
-            :disabled="!canRecruit"
-            :aria-label="`抽苦工 · ${recruitPrice} 钻`"
-            @click="game.recruit()"
+            class="rest-combat-entry"
+            data-combat-toggle
+            :aria-pressed="shownCombat"
+            aria-label="展开战斗区"
+            @click.stop="toggleCombat"
           >
-            <span class="recruit-bar-lab">抽苦工</span>
-            <span class="recruit-bar-cost">{{ recruitPrice }} 钻</span>
-          </button>
-          <button
-            type="button"
-            class="rest-food"
-            :class="{ dry: restFoodDry, 'guide-flash': guideFlashRestFood }"
-            :aria-label="`休息区伙食 · ${restFoodLabel}`"
-            @click="restFoodOpen = true"
-          >
-            {{ restFoodLabel }}
+            战斗 {{ fightingRoster.length }}
           </button>
           <div v-if="restRows.length" class="zone-list rest-list">
             <div
@@ -817,6 +887,89 @@ onUnmounted(() => {
         </section>
       </div>
     </div>
+    <div class="potion-dock">
+      <div class="potion-row" aria-label="药剂技能槽">
+        <button
+          v-for="(itemId, i) in potionSlots"
+          :key="`potion-${i}`"
+          type="button"
+          class="potion-slot"
+          :class="{
+            empty: !itemId,
+            dry: !!itemId && potionSlotQty(itemId) <= 0,
+            'guide-flash': (!itemId && guideFlashPotionInstall) || (!!itemId && guideFlashPotionUse),
+          }"
+          :aria-label="itemId ? `${potionSlotLabel(itemId)} · 点击使用` : `装入药剂槽 ${i + 1}`"
+          @click="onPotionSlot(i)"
+        >
+          <template v-if="itemId">
+            <PotionIcon :name="itemId" />
+            <span class="potion-name">{{ ITEM_DEF[itemId].label }}</span>
+            <span class="potion-qty">×{{ potionSlotQty(itemId) }}</span>
+            <span
+              class="potion-help"
+              data-potion-help
+              role="button"
+              :aria-pressed="isPotionHelpOpen(potionHelp, 'slot', itemId, i)"
+              :aria-label="`查看 ${ITEM_DEF[itemId].label} 效果`"
+              @click.stop="onPotionHelp($event, 'slot', itemId, i)"
+            >i</span>
+          </template>
+          <template v-else>
+            <span class="potion-vacant" aria-hidden="true"></span>
+          </template>
+        </button>
+      </div>
+      <p v-if="potionBuffLine" class="potion-buffs">{{ potionBuffLine }}</p>
+    </div>
+    <section ref="statusBandEl" class="status-band" aria-label="工坊状态">
+      <b>在岗 {{ rosterCounts.filled }}/{{ rosterCounts.stations }}</b>
+      <span class="band-head">{{ restHeadLine }}</span>
+      <button
+        type="button"
+        class="band-rest"
+        data-rest-toggle
+        :class="{ on: shownRest && !shownCombat }"
+        :aria-pressed="shownRest && !shownCombat"
+        aria-label="展开休息区"
+        @click="toggleRest"
+      >
+        休息 {{ restRows.length }}
+      </button>
+      <button
+        type="button"
+        class="band-food"
+        :class="{ dry: restFoodDry, 'guide-flash': guideFlashRestFood }"
+        :aria-label="`休息区伙食 · ${restFoodLabel}`"
+        @click="restFoodOpen = true"
+      >
+        {{ restFoodLabel }}
+      </button>
+      <button
+        type="button"
+        class="band-recruit"
+        :class="{ off: !canRecruit, 'guide-flash': guideFlashRecruit }"
+        :disabled="!canRecruit"
+        :aria-label="`抽苦工 · ${recruitPrice} 钻`"
+        @click="game.recruit()"
+      >
+        <span>抽苦工</span>
+        <small>· {{ recruitPrice }} 钻</small>
+      </button>
+      <button
+        v-if="fightingRoster.length && combatFits"
+        type="button"
+        class="band-combat"
+        data-combat-toggle
+        :class="{ on: shownCombat }"
+        :aria-pressed="shownCombat"
+        aria-label="展开战斗区"
+        @click="toggleCombat"
+      >
+        战斗 {{ fightingRoster.length }}
+      </button>
+      <span v-if="fightingRoster.length" class="band-combat band-combat-measure" data-combat-measure aria-hidden="true">战斗 {{ fightingRoster.length }}</span>
+    </section>
     <Teleport to="body">
       <div v-if="drag?.active" class="drag-ghost" :style="{ left: `${drag.x}px`, top: `${drag.y}px` }">
         {{ drag.name }}
@@ -2361,5 +2514,282 @@ onUnmounted(() => {
   .banter {
     animation: none;
   }
+}
+
+.roster-v2 .workshop {
+  border-right: 0;
+}
+
+.roster-v2 .board {
+  position: relative;
+}
+
+.roster-v2 .col.side {
+  display: none;
+}
+
+.roster-v2 .station-list {
+  grid-template-rows: repeat(6, minmax(36px, 1fr));
+}
+
+.roster-v2 .station {
+  cursor: pointer;
+}
+
+.roster-v2:not(.sheet-ops) .station-detail,
+.roster-v2:not(.sheet-ops) .station-craft-row :deep(.ui-select.station-craft-pick) {
+  display: none;
+}
+
+.roster-v2:not(.sheet-ops) .station-rail {
+  flex: 0 0 auto;
+  flex-direction: row;
+  width: auto;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 0 4px 4px;
+}
+
+.roster-v2:not(.sheet-ops) .station-name {
+  flex-direction: row;
+  gap: 2px;
+  padding: 4px 6px;
+}
+
+.roster-v2:not(.sheet-ops) .station-name b {
+  letter-spacing: 0;
+  writing-mode: horizontal-tb;
+}
+
+.roster-v2:not(.sheet-ops) .station-craft-row :deep(.station-progress .bar) {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+.roster-v2:not(.sheet-ops) .station-craft-row :deep(.station-progress .eff) {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-self: end;
+  font-size: 11px;
+}
+
+.station.closed .station-name b::after {
+  content: '封';
+  margin-left: 4px;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: #8a3a2a;
+  color: #fff4d8;
+  font-size: 10px;
+  line-height: 1.3;
+  letter-spacing: 0;
+  writing-mode: horizontal-tb;
+}
+
+.roster-v2 .slot.empty {
+  opacity: 0.55;
+}
+
+.potion-dock {
+  flex: 0 0 auto;
+  margin: 6px 2px 0;
+}
+
+.potion-dock .potion-row {
+  min-height: 62px;
+}
+
+.roster-v2.sheet-rest .col.side,
+.roster-v2.sheet-combat .col.side {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: 58%;
+  z-index: 6;
+  overflow: auto;
+  background: #fff8ee;
+  border-top: 3px solid var(--gold-deep);
+  box-shadow: 0 -6px 0 rgba(90, 48, 16, 0.12);
+}
+
+.roster-v2.sheet-combat .zone.rest,
+.roster-v2.sheet-rest .zone.combat {
+  display: none;
+}
+
+.roster-v2.sheet-rest .zone-head,
+.roster-v2.sheet-combat .zone-head {
+  padding: 8px 10px 4px;
+  font-size: 13px;
+  text-align: left;
+}
+
+.roster-v2.sheet-rest .rest-name,
+.roster-v2.sheet-combat .rest-name {
+  font-size: 14px;
+  line-height: 18px;
+}
+
+.roster-v2.sheet-rest .rest-face,
+.roster-v2.sheet-combat .rest-face {
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 32px 6px 8px;
+}
+
+.roster-v2.sheet-rest .avatar,
+.roster-v2.sheet-combat .avatar {
+  width: 32px;
+  height: 32px;
+}
+
+.roster-v2.sheet-rest .avatar :deep(.class-ico),
+.roster-v2.sheet-combat .avatar :deep(.class-ico) {
+  width: 18px;
+  height: 18px;
+}
+
+.roster-v2.sheet-rest .rest-go,
+.roster-v2.sheet-combat .rest-go {
+  width: 28px;
+  font-size: 18px;
+}
+
+.roster-v2.sheet-rest .rest-order,
+.roster-v2.sheet-combat .rest-order {
+  font-size: 13px;
+}
+
+.roster-v2.sheet-rest .rest-badge,
+.roster-v2.sheet-combat .rest-badge {
+  font-size: 10px;
+}
+
+.empty-combat {
+  margin: 10px 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.status-band {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 4px;
+  border: 2px solid var(--gold);
+  border-radius: 10px;
+  background: #fff9de;
+}
+
+.status-band b {
+  flex: 0 0 auto;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.band-head {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: #7a4a22;
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.band-food,
+.band-recruit {
+  flex: 0 0 auto;
+  min-height: 32px;
+}
+
+.band-food {
+  max-width: 6.2em;
+  padding: 2px 6px;
+  overflow: hidden;
+  border: 1.5px solid #9a9286;
+  border-radius: 8px;
+  background: #f6f4f0;
+  color: #6d665c;
+  box-shadow: none;
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.band-food.dry {
+  opacity: 0.55;
+}
+
+.band-recruit {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: linear-gradient(#ffe27a, #e2a31a);
+  color: #5a3010;
+  box-shadow: 0 2px 0 var(--gold-deep);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.band-recruit small {
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.band-recruit.off,
+.band-recruit:disabled {
+  opacity: 0.45;
+  filter: grayscale(0.28);
+  box-shadow: none;
+}
+
+.band-rest,
+.band-combat,
+.rest-combat-entry {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 2px 6px;
+  border: 1.5px solid #9a9286;
+  border-radius: 8px;
+  background: #f6f4f0;
+  color: #6d665c;
+  box-shadow: none;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.band-rest.on,
+.band-combat.on {
+  border-color: var(--gold-deep);
+  background: linear-gradient(#ffe27a, #f0b83a);
+  color: #5a3010;
+  box-shadow: 0 2px 0 var(--gold-deep);
+}
+
+.rest-combat-entry {
+  margin: 2px 8px 4px;
+  font-size: 13px;
+}
+
+.band-combat-measure {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
 }
 </style>
