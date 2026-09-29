@@ -29,7 +29,12 @@ import {
 import { foodHelpCopy, nextFoodHelp, REST_FOOD_HELP_ROWS, REST_FOOD_HELP_TITLE } from './foodHelp'
 import ModeHelpSheet from './modeHelpSheet.vue'
 import type { ItemId } from '../sim/types'
-import { isGuideQuestFlash } from '../sim/guideQuest'
+import {
+  guideAlchemyCardFlash,
+  guideFuseCue,
+  guideFuseFlashStations,
+  isGuideQuestFlash,
+} from '../sim/guideQuest'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { pushFloatTip } from './floatTips'
 import { isWorkerEatFlashing, workerEatFlashText } from './workerEatFlash'
@@ -48,6 +53,7 @@ import { openWorkshopStation } from './appNav'
 import { stationCraftPickOptions, stationCraftPickReadonly } from './stationCraftLabel'
 import StationDetailSheet from './stationDetailSheet.vue'
 import StationMiniBar from './stationMiniBar.vue'
+import { guideCampOpenRequest, guideCampSheetOpen, takeGuideCampOpenRequest } from './guideQuestNav'
 import { showStationDetail, openStationDetailId } from './stationDetailNav'
 import { isItemSourceStationFlash } from './itemSource'
 import StationTips from './stationTips.vue'
@@ -92,7 +98,6 @@ const game = useGameStore()
 const showFuseDragTip = computed(() => shouldShowFuseDragTip(game.save))
 const guideFlashRecruit = computed(() => isGuideQuestFlash(game.save, 'recruit'))
 const guideFlashAutoHerb = computed(() => isGuideQuestFlash(game.save, 'autoHerb'))
-const guideFlashFuse = computed(() => isGuideQuestFlash(game.save, 'fuse'))
 const guideFlashRestFood = computed(() => isGuideQuestFlash(game.save, 'restFood'))
 const guideFlashPotionInstall = computed(() => isGuideQuestFlash(game.save, 'potionInstall'))
 const guideFlashPotionUse = computed(() => isGuideQuestFlash(game.save, 'potionUse'))
@@ -161,30 +166,39 @@ const restRows = computed(() => restQueueRows(game.save))
 const queueHead = computed(() => workshopQueueHead(game.save))
 const restOpen = ref(false)
 const combatOpen = ref(false)
-const guideDismissed = ref(false)
 const statusBandEl = ref<HTMLElement | null>(null)
 const combatFits = ref(true)
 let bandObserver: ResizeObserver | null = null
-watch(guideFlashFuse, (on) => {
-  if (on) guideDismissed.value = false
-})
-const shownRest = computed(() => restOpen.value || (!guideDismissed.value && guideFlashFuse.value))
+const shownRest = computed(() => restOpen.value)
 const shownCombat = computed(() => combatOpen.value && fightingRoster.value.length > 0)
+const campSheetShown = computed(() => shownRest.value && !shownCombat.value)
+const fuseCue = computed(() => guideFuseCue(game.save, campSheetShown.value))
+const fuseStations = computed(() => guideFuseFlashStations(game.save, campSheetShown.value))
+const alchemyCardFlash = computed(() => guideAlchemyCardFlash(game.save, 'alchemy', openStationDetailId.value))
 watch(
   () => fightingRoster.value.length,
   (n) => {
     if (!n) combatOpen.value = false
   },
 )
+function openCampSheet() {
+  combatOpen.value = false
+  restOpen.value = true
+}
+function syncGuideCampRequest() {
+  if (!takeGuideCampOpenRequest()) return
+  openCampSheet()
+}
+watch(guideCampOpenRequest, syncGuideCampRequest)
+watch(campSheetShown, (open) => {
+  guideCampSheetOpen.value = open
+}, { immediate: true })
 function toggleRest() {
-  if (shownRest.value) {
+  if (campSheetShown.value) {
     restOpen.value = false
-    if (guideFlashFuse.value) guideDismissed.value = true
     return
   }
-  combatOpen.value = false
-  guideDismissed.value = false
-  restOpen.value = true
+  openCampSheet()
 }
 function toggleCombat() {
   if (shownCombat.value) {
@@ -192,7 +206,6 @@ function toggleCombat() {
     return
   }
   restOpen.value = false
-  if (guideFlashFuse.value) guideDismissed.value = true
   combatOpen.value = true
 }
 function measureCombatFit() {
@@ -314,7 +327,6 @@ function onDocPotionHelp(ev: PointerEvent) {
   if (!shownRest.value && !shownCombat.value) return
   restOpen.value = false
   combatOpen.value = false
-  if (guideFlashFuse.value) guideDismissed.value = true
 }
 
 const potionHelpBubble = computed(() => {
@@ -620,11 +632,15 @@ function stationAvatarStyle(worker: Worker) {
 }
 
 let tutorTimer = 0
+function refreshTutor() {
+  considerWorkerTutor(game.save, Date.now(), Math.random, campSheetShown.value)
+}
 onMounted(() => {
+  syncGuideCampRequest()
   document.addEventListener('pointerdown', onDocPotionHelp, true)
   greetWorkshopBanter(game.save)
-  considerWorkerTutor(game.save, Date.now())
-  tutorTimer = window.setInterval(() => considerWorkerTutor(game.save, Date.now()), 1000)
+  refreshTutor()
+  tutorTimer = window.setInterval(refreshTutor, 1000)
   if (statusBandEl.value) {
     bandObserver = new ResizeObserver(() => measureCombatFit())
     bandObserver.observe(statusBandEl.value)
@@ -632,6 +648,7 @@ onMounted(() => {
   queueMeasureCombatFit()
 })
 onUnmounted(() => {
+  guideCampSheetOpen.value = false
   unbindDrag()
   setWorkerDragActive(false)
   dismissWorkshopBanter()
@@ -664,7 +681,9 @@ onUnmounted(() => {
               closed: game.save.stations[board.stationId].closed,
               'guide-flash':
                 isItemSourceStationFlash(board.stationId) ||
-                (guideFlashAutoHerb && board.stationId === 'herbalism'),
+                (guideFlashAutoHerb && board.stationId === 'herbalism') ||
+                (alchemyCardFlash && board.stationId === 'alchemy') ||
+                fuseStations.includes(board.stationId),
             }"
             @click="onStationCardClick($event, board.stationId)"
           >
@@ -803,7 +822,7 @@ onUnmounted(() => {
         </section>
         <section
           class="zone rest"
-          :class="[restDropClass(), { 'guide-flash': guideFlashFuse }]"
+          :class="[restDropClass(), { 'guide-flash': fuseCue === 'drag' }]"
           aria-label="营地"
           data-drop="rest"
           data-rest-pop
@@ -924,10 +943,20 @@ onUnmounted(() => {
       <div
         v-if="queueHead.kind === 'worker'"
         class="queue-head band-head"
-        :class="{ 'guide-flash': guideFlashAutoHerb }"
+        :class="{ 'guide-flash': guideFlashAutoHerb, 'has-tutor': !campSheetShown && tutorLine(queueHead.id) }"
         role="status"
         :aria-label="`${queueHead.title} 血量 ${queueHead.hpLabel}`"
       >
+        <button
+          v-if="!campSheetShown && tutorLine(queueHead.id)"
+          type="button"
+          class="tutor-tip"
+          :aria-label="`关掉教程：${tutorLine(queueHead.id)}`"
+          @pointerdown.stop
+          @click.stop="onDismissTutor"
+        >
+          {{ tutorLine(queueHead.id) }}
+        </button>
         <span class="queue-avatar" :style="workerQualityTileStyle(queueHead.worker)">
           <ClassIcon :name="classIconOf(queueHead.worker)" />
         </span>
@@ -946,6 +975,7 @@ onUnmounted(() => {
         type="button"
         class="band-tile band-rest"
         data-rest-toggle
+        :class="{ 'guide-flash': fuseCue === 'openCamp' }"
         :aria-pressed="shownRest && !shownCombat"
         aria-label="展开营地"
         @click="toggleRest"
@@ -976,7 +1006,7 @@ onUnmounted(() => {
       <button
         type="button"
         class="band-recruit"
-        :class="{ off: !canRecruit, 'guide-flash': guideFlashRecruit }"
+        :class="{ off: !canRecruit, 'guide-flash': guideFlashRecruit || fuseCue === 'recruit' }"
         :disabled="!canRecruit"
         :aria-label="`抽苦工 · ${recruitPrice} 钻`"
         @click="game.recruit()"
@@ -2729,9 +2759,14 @@ onUnmounted(() => {
 }
 
 .queue-head {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.status-band:has(.queue-head.has-tutor) {
+  overflow: visible;
 }
 
 .queue-avatar {

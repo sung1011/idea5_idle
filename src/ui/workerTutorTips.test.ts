@@ -16,6 +16,7 @@ import {
   dismissWorkerTutor,
   isWorkerTutorActive,
   resetWorkerTutorForTests,
+  workerTutorCandidateIds,
   workerTutorText,
 } from './workerTutorTips'
 
@@ -62,7 +63,8 @@ describe('worker tutor tips', () => {
     expect(text).toContain('堵住后面')
     expect(text).toContain('满血才能上岗')
     expect(text).toContain('封闭后不再自动进人')
-    expect(text).toContain('回休息排到队尾')
+    expect(text).toContain('回营地的苦工排到队尾，不会堵在队首')
+    expect(text).not.toContain('回休息')
     expect(text).toContain('不能手动上下岗')
     expect(text).toContain('等队首自动上')
     expect(text).not.toContain('点空岗')
@@ -127,7 +129,7 @@ describe('worker tutor tips', () => {
   it('prefers a resting worker and skips combat, banter, and drag', () => {
     const save = earlySave()
     save.workers.push(worker({ id: 'duty', assignment: 'herbalism' }))
-    expect(considerWorkerTutor(save, 0, () => 0.99)?.workerId).toBe('rest-a')
+    expect(considerWorkerTutor(save, 0, () => 0.99, true)?.workerId).toBe('rest-a')
 
     resetWorkerTutorForTests()
     const stationed = createSave()
@@ -187,5 +189,17 @@ describe('worker tutor tips', () => {
     expect(workersPanelSource.slice(restAt, styleAt)).toContain('class="tutor-tip"')
     expect(workersPanelSource).toContain('considerWorkerTutor')
     expect(workersPanelSource).toContain('dismissWorkerTutor')
+    expect(workersPanelSource).toContain('!campSheetShown && tutorLine(queueHead.id)')
+  })
+
+  it('when the camp list is closed, hangs on the queue head or an on-duty worker', () => {
+    const save = earlySave()
+    save.workers.push(worker({ id: 'rest-b' }))
+    save.workers.push(worker({ id: 'duty', assignment: 'herbalism' }))
+    const closed = workerTutorCandidateIds(save, false)
+    expect(closed).toContain('rest-a')
+    expect(closed).toContain('duty')
+    expect(closed).not.toContain('rest-b')
+    expect(workerTutorCandidateIds(save, true)).toEqual(['rest-a', 'rest-b'])
   })
 })

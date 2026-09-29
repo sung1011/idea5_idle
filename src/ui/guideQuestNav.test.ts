@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { appTab, workshopTab } from './appNav'
 import { APP_TAB_KEY } from './appTabs'
-import { openGuideQuestStep, pendingGuideRunePick } from './guideQuestNav'
+import { guideCampOpenRequest, openGuideQuestStep, pendingGuideRunePick } from './guideQuestNav'
 import { MAINLINE_TAB_KEY, mainlineTab } from './mainlineTabs'
 import { WORKSHOP_TAB_KEY } from './workshopTabs'
 
@@ -36,9 +36,13 @@ describe('guideQuestNav', () => {
     expect(appTab.value).toBe('workshop')
     expect(store.getItem(APP_TAB_KEY)).toBe('workshop')
 
+    const campBefore = guideCampOpenRequest.value
     expect(openGuideQuestStep(2, store)).toBe('workshop')
+    expect(guideCampOpenRequest.value).toBe(campBefore)
     expect(openGuideQuestStep(3, store)).toBe('workshop')
+    expect(guideCampOpenRequest.value).toBe(campBefore + 1)
     expect(openGuideQuestStep(4, store)).toBe('workshop')
+    expect(guideCampOpenRequest.value).toBe(campBefore + 1)
 
     expect(openGuideQuestStep(5, store)).toBe('encounters')
     expect(mainlineTab.value).toBe('battlefield')

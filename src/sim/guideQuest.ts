@@ -1,9 +1,10 @@
+import { assignedWorkers, restingWorkers } from './assign'
 import { bankQty } from './bank'
 import { canReinforceCombat, isCombatLost, isCombatWon, isFighting } from './combat'
 import { allEncounters, combatSupplyBlockReason, isEncounterDone, isStarterCopperPawn } from './encounters'
 import { isStationUnlocked, knightLevelOf } from './stationUnlock'
-import { POTION_ITEM_IDS } from './tables'
-import type { ActionResult, Encounter, EnemyEncounter, Save } from './types'
+import { POTION_ITEM_IDS, QUALITY_MAX, STATION_ORDER } from './tables'
+import type { ActionResult, Encounter, EnemyEncounter, Save, StationId } from './types'
 
 export const GUIDE_QUEST_PHASE1_STEPS = 5
 export const GUIDE_QUEST_PHASE2_STEPS = 3
@@ -16,8 +17,17 @@ export const GUIDE_QUEST_PHASE2_START = GUIDE_QUEST_PHASE1_STEPS + 1
 export const GUIDE_QUEST_PHASE3_START = GUIDE_QUEST_PHASE1_STEPS + GUIDE_QUEST_PHASE2_STEPS + 1
 /** 骑士 1 级即开第二阶段（炼金 / 装槽 / 点用），与炼金开站门槛一致。 */
 export const GUIDE_QUEST_PHASE2_KNIGHT = 1
-/** 第一步须抽工人 2 次。缺字段或旧档按现况重落步号。 */
+/**
+ * 第一步须抽工人 2 次。缺字段或旧档按现况重落步号。
+ * 仍是 5：完成条件没变，已领过的存档保持步号，不因文案和闪边重算而再领一次。
+ */
 export const GUIDE_QUEST_REV = 5
+/** 第 3 步营地无人时的浮条文案。 */
+export const GUIDE_FUSE_EMPTY_GOAL = '再抽 1 名苦工，新人会进营地'
+/** 第 3 步营地有人、名单还没打开。 */
+export const GUIDE_FUSE_OPEN_GOAL = '点营地，打开名单'
+/** 第 3 步营地名单已打开。 */
+export const GUIDE_FUSE_DRAG_GOAL = '把营地苦工拖到同品质的人身上合成（营地里两人互拖也行）'
 /** 第一阶段「抽工人」完成所需次数（花名册人数或已生成序号，取较大）。 */
 export const GUIDE_QUEST_RECRUIT_NEED = 2
 
@@ -27,8 +37,8 @@ export const GUIDE_QUEST_GOALS = [
   '合成两名同品质苦工',
   '选好营地伙食',
   '在 PVE 弹层中点击开战',
-  '在炼金站炼成药剂',
-  '把药剂装进技能槽',
+  '炼金站有人在岗就会自动炼药，等出第一瓶',
+  '点状态条上方的空药剂槽，装入药剂',
   '点药剂槽产生效果',
   '在选人面板点开符文槽',
 ] as const
@@ -308,7 +318,62 @@ export function isGuideQuestRuneFlash(save: Save, enc: Encounter): boolean {
   return !!target && target.id === enc.id
 }
 
-export function guideQuestView(save: Save): GuideQuestView | null {
+export type GuideFuseCue = 'recruit' | 'openCamp' | 'drag'
+
+/** 第 3 步未完成时按营地人数和名单开关决定闪哪里。完成可领后不再闪。 */
+export function guideFuseCue(save: Save, campOpen: boolean): GuideFuseCue | null {
+  if (normalizeGuideQuestStep(save.guideQuestStep) !== 3) return null
+  if (guideQuestProgressAt(save, 3) >= 1) return null
+  if (restingWorkers(save).length === 0) return 'recruit'
+  if (!campOpen) return 'openCamp'
+  return 'drag'
+}
+
+/** 名单打开后，闪和营地里某人同品质、且还能再合的在岗站。 */
+export function guideFuseFlashStations(save: Save, campOpen: boolean): StationId[] {
+  if (guideFuseCue(save, campOpen) !== 'drag') return []
+  const tiers = new Set(
+    restingWorkers(save)
+      .map((worker) => worker.qualityTier)
+      .filter((tier) => tier < QUALITY_MAX),
+  )
+  if (!tiers.size) return []
+  const stations: StationId[] = []
+  for (const stationId of STATION_ORDER) {
+    const worker = assignedWorkers(save, stationId)[0]
+    if (worker && tiers.has(worker.qualityTier)) stations.push(stationId)
+  }
+  return stations
+}
+
+/** 炼金步：详情没开时闪炼金站卡。 */
+export function guideAlchemyCardFlash(save: Save, stationId: StationId, openDetail: StationId | null): boolean {
+  return stationId === 'alchemy' && isGuideQuestFlash(save, 'alchemy') && openDetail !== 'alchemy'
+}
+
+/** 炼金详情打开后，闪里面的制造进度。 */
+export function guideAlchemyProgressFlash(save: Save, stationId: StationId): boolean {
+  return stationId === 'alchemy' && isGuideQuestFlash(save, 'alchemy')
+}
+
+function guideStepGoal(save: Save, step: number, claimable: boolean, campOpen: boolean): string {
+  if (step === 3 && !claimable) {
+    const cue = guideFuseCue(save, campOpen)
+    if (cue === 'recruit') return GUIDE_FUSE_EMPTY_GOAL
+    if (cue === 'openCamp') return GUIDE_FUSE_OPEN_GOAL
+    return GUIDE_FUSE_DRAG_GOAL
+  }
+  return GUIDE_QUEST_GOALS[step - 1] ?? ''
+}
+
+function guidePhaseTitle(phase: 1 | 2 | 3, phaseStep: number, phaseTotal: number): string {
+  if (phase === 2) return `进阶 · ${phaseStep}/${phaseTotal}`
+  if (phase === 3) return `符文 · ${phaseStep}/${phaseTotal}`
+  if (phaseStep === phaseTotal) return `工坊 · ${phaseStep}/${phaseTotal}`
+  return `新手 · ${phaseStep}/${phaseTotal}`
+}
+
+export function guideQuestView(save: Save, campOpen = false): GuideQuestView | null {
   const step = normalizeGuideQuestStep(save.guideQuestStep)
   if (step >= GUIDE_QUEST_DONE_STEP) return null
   if (step >= GUIDE_QUEST_PHASE3_START) {
@@ -328,15 +393,14 @@ export function guideQuestView(save: Save): GuideQuestView | null {
   const recruitHave = Math.min(guideQuestRecruitCount(save), GUIDE_QUEST_RECRUIT_NEED)
   const denom = step === 1 ? GUIDE_QUEST_RECRUIT_NEED : 1
   const numer = step === 1 ? recruitHave : progress
-  const title =
-    phase === 1 ? `工坊 · ${phaseStep}/${phaseTotal}` : phase === 2 ? `进阶 · ${phaseStep}/${phaseTotal}` : `符文 · ${phaseStep}/${phaseTotal}`
+  const title = guidePhaseTitle(phase, phaseStep, phaseTotal)
   return {
     step,
     phase,
     phaseStep,
     phaseTotal,
     title,
-    goal: GUIDE_QUEST_GOALS[step - 1] ?? '',
+    goal: guideStepGoal(save, step, claimable, campOpen),
     progress,
     progressLabel: claimable ? `进度 ${numer}/${denom} · 可领` : `进度 ${numer}/${denom}`,
     claimable,

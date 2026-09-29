@@ -19,15 +19,15 @@ export const WORKER_TUTOR_LIFE_MS = 5000
 export const WORKER_TUTOR_GAP_MS = 7000
 
 /**
- * 与现规则一致：营地互合，或休息工人拖到站上同品质；不能拖空槽上岗。
- * 队首上工、满血、封闭、回休息进队尾、不能手动上下岗。
+ * 与现规则一致：营地互合，或营地苦工拖到站上同品质；不能拖空槽上岗。
+ * 队首上工、满血、封闭、回营地排到队尾、不能手动上下岗。
  */
 export const WORKER_TUTOR_LINES = [
   '拖同品质可以合成更强的：营地互合，或拖到站上同品质的人，别拖空槽',
   '营地按队首上工，队首太弱会堵住后面',
   '满血才能上岗',
   '站可以封闭，封闭后不再自动进人',
-  '回休息排到队尾，不会堵在队首',
+  '回营地的苦工排到队尾，不会堵在队首',
   '不能手动上下岗，等队首自动上',
 ] as const
 
@@ -84,12 +84,7 @@ export function pickWorkerTutorLine(roll: number, previous = ''): string {
   return lines[pickIndex(lines.length, roll)] ?? WORKER_TUTOR_LINES[0]
 }
 
-/** 优先营地。跳过战斗、夺宝，以及已经挂着工坊闲话的人。不挂空槽。 */
-export function workerTutorCandidateIds(save: Save): string[] {
-  const resting = restingWorkers(save)
-    .map((worker) => worker.id)
-    .filter((id) => !workshopBanterText(id))
-  if (resting.length) return resting
+function onDutyTutorIds(save: Save): string[] {
   return save.workers
     .filter(
       (worker) =>
@@ -100,6 +95,21 @@ export function workerTutorCandidateIds(save: Save): string[] {
         !workshopBanterText(worker.id),
     )
     .map((worker) => worker.id)
+}
+
+/**
+ * 营地名单打开时优先挂营地里的苦工。
+ * 名单收起时只挂状态条上的队首，以及在岗苦工；藏在名单里的其他人不上气泡。
+ * 跳过已经挂着工坊闲话的人。不挂空槽。
+ */
+export function workerTutorCandidateIds(save: Save, campOpen = false): string[] {
+  const resting = restingWorkers(save)
+    .map((worker) => worker.id)
+    .filter((id) => !workshopBanterText(id))
+  if (campOpen && resting.length) return resting
+  const duty = onDutyTutorIds(save)
+  if (!campOpen && resting.length) return [resting[0], ...duty]
+  return duty
 }
 
 function expire(now: number) {
@@ -115,6 +125,7 @@ export function considerWorkerTutor(
   save: Save,
   now: number,
   rng: TutorRng = Math.random,
+  campOpen = false,
 ): WorkerTutorBubble | null {
   expire(now)
   if (!isWorkerTutorActive(save)) {
@@ -124,7 +135,7 @@ export function considerWorkerTutor(
   if (isWorkerDragActive()) return state.bubble
   if (state.bubble) return state.bubble
   if (now < state.readyAt) return null
-  const ids = workerTutorCandidateIds(save)
+  const ids = workerTutorCandidateIds(save, campOpen)
   if (!ids.length) return null
   const workerId = ids[pickIndex(ids.length, unitRoll(rng))] ?? ids[0]
   const text = pickWorkerTutorLine(unitRoll(rng), state.lastText)

@@ -2,11 +2,11 @@
 import { computed, ref } from 'vue'
 import { guideQuestView } from '../sim/guideQuest'
 import { useGameStore } from './gameStore'
-import { openGuideQuestStep } from './guideQuestNav'
+import { guideCampSheetOpen, openGuideQuestStep } from './guideQuestNav'
 
 const game = useGameStore()
 const collapsed = ref(false)
-const view = computed(() => guideQuestView(game.save))
+const view = computed(() => guideQuestView(game.save, guideCampSheetOpen.value))
 
 function jump() {
   const step = view.value?.step

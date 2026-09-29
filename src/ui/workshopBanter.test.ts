@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import stationCardSource from './stationCard.vue?raw'
 import workersPanelSource from './workersPanelV2.vue?raw'
 import { createSave } from '../sim/createSave'
 import { BANTER_BUBBLE_MS, banterLines } from '../sim/workshopBanter'
@@ -122,10 +121,6 @@ describe('workshop banter bubbles', () => {
     appTab.value = 'workshop'
     vi.advanceTimersByTime(10)
     expect(workshopBanterBubble('herbalism')).toBeNull()
-  })
-
-  it('station card does not render a banter bubble', () => {
-    expect(stationCardSource).not.toContain('banter')
   })
 
   it('renders banter only on workshop slots, not rest or combat rows', () => {

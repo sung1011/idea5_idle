@@ -7,10 +7,17 @@ import {
   GUIDE_QUEST_GOLD,
   GUIDE_QUEST_PHASE2_START,
   GUIDE_QUEST_PHASE3_START,
+  GUIDE_FUSE_DRAG_GOAL,
+  GUIDE_FUSE_EMPTY_GOAL,
+  GUIDE_FUSE_OPEN_GOAL,
   GUIDE_QUEST_REV,
   GUIDE_QUEST_STEPS,
   claimGuideQuest,
   firstIncompleteGuideQuestStep,
+  guideAlchemyCardFlash,
+  guideAlchemyProgressFlash,
+  guideFuseCue,
+  guideFuseFlashStations,
   guideQuestFlashId,
   guideQuestProgressAt,
   guideQuestView,
@@ -62,7 +69,7 @@ describe('guideQuest normalize and hydrate', () => {
       phase: 1,
       phaseStep: 1,
       phaseTotal: 5,
-      title: '工坊 · 1/5',
+      title: '新手 · 1/5',
       goal: '抽取苦工 2 次',
       progress: 0,
       progressLabel: '进度 0/2',
@@ -84,7 +91,7 @@ describe('guideQuest normalize and hydrate', () => {
     expect(isGuideQuestVisible(save)).toBe(true)
     const view = guideQuestView(save)
     expect(view?.title).toBe('进阶 · 1/3')
-    expect(view?.goal).toBe('在炼金站炼成药剂')
+    expect(view?.goal).toBe('炼金站有人在岗就会自动炼药，等出第一瓶')
     expect(guideQuestFlashId(save)).toBe('alchemy')
   })
 
@@ -254,6 +261,7 @@ describe('guideQuest steps and claim', () => {
     expect(selectRestFood(save, 'meal').ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(5)
+    expect(guideQuestView(save)?.title).toBe('工坊 · 5/5')
 
     expect(guideQuestView(save)?.goal).toBe('在 PVE 弹层中点击开战')
     markCombatStarted(save)
@@ -267,7 +275,7 @@ describe('guideQuest steps and claim', () => {
 
     save.bank.salve = 2
     expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('把药剂装进技能槽')
+    expect(guideQuestView(save)?.goal).toBe('点状态条上方的空药剂槽，装入药剂')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(8)
 
@@ -435,5 +443,61 @@ describe('guideQuest flash target', () => {
     spawnWorker(save)
     save.workers[0].assignment = 'herbalism'
     expect(firstIncompleteGuideQuestStep(save)).toBe(3)
+  })
+})
+
+describe('guide fuse and alchemy cues', () => {
+  it('flashes recruit while step 3 has an empty camp', () => {
+    const save = createSave()
+    save.guideQuestStep = 3
+    spawnWorker(save)
+    spawnWorker(save)
+    save.workers[0].assignment = 'herbalism'
+    save.workers[1].assignment = 'alchemy'
+    expect(guideFuseCue(save, false)).toBe('recruit')
+    expect(guideFuseCue(save, true)).toBe('recruit')
+    expect(guideQuestView(save)?.goal).toBe(GUIDE_FUSE_EMPTY_GOAL)
+    expect(guideFuseFlashStations(save, true)).toEqual([])
+  })
+
+  it('flashes the camp button until the list opens, then the list and matching stations', () => {
+    const save = createSave()
+    save.guideQuestStep = 3
+    spawnWorker(save)
+    spawnWorker(save)
+    spawnWorker(save)
+    save.workers[0].assignment = 'herbalism'
+    save.workers[1].assignment = 'cooking'
+    expect(guideFuseCue(save, false)).toBe('openCamp')
+    expect(guideQuestView(save, false)?.goal).toBe(GUIDE_FUSE_OPEN_GOAL)
+    expect(guideFuseFlashStations(save, false)).toEqual([])
+    expect(guideFuseCue(save, true)).toBe('drag')
+    expect(guideQuestView(save, true)?.goal).toBe(GUIDE_FUSE_DRAG_GOAL)
+    expect(guideFuseFlashStations(save, true)).toEqual(['herbalism', 'cooking'])
+  })
+
+  it('flashes the alchemy card until its detail opens, then the progress', () => {
+    const save = createSave()
+    save.guideQuestStep = 6
+    expect(guideAlchemyCardFlash(save, 'alchemy', null)).toBe(true)
+    expect(guideAlchemyCardFlash(save, 'herbalism', null)).toBe(false)
+    expect(guideAlchemyProgressFlash(save, 'alchemy')).toBe(true)
+    expect(guideAlchemyCardFlash(save, 'alchemy', 'alchemy')).toBe(false)
+    expect(guideAlchemyProgressFlash(save, 'herbalism')).toBe(false)
+    save.stations.alchemy.completed = 1
+    expect(guideAlchemyCardFlash(save, 'alchemy', null)).toBe(false)
+    expect(guideAlchemyProgressFlash(save, 'alchemy')).toBe(false)
+  })
+
+  it('does not repay a step that was already claimed', () => {
+    const save = createSave()
+    save.guideQuestStep = 6
+    save.guideQuestRev = GUIDE_QUEST_REV
+    save.gold = 40
+    hydrateGuideQuestFields(save, save)
+    expect(save.guideQuestStep).toBe(6)
+    expect(save.gold).toBe(40)
+    expect(claimGuideQuest(save).ok).toBe(false)
+    expect(save.gold).toBe(40)
   })
 })
