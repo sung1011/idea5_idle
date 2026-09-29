@@ -6,6 +6,7 @@ import { bannerFrameOf, bannerLevelOf, treasureAssaultWarning } from '../sim/tre
 import { appTabLockedTip, isAppTabUnlocked, isModuleId, isModuleUnlocked, moduleBlurb, moduleLabel } from '../sim/moduleUnlock'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
 import { dockStationHp, showDockStationHp } from './dockStationHp'
+import { startAddToHomeWatch } from './addToHomeState'
 import { dismissUpdateBubble, refreshToNewVersion, startAppUpdateSchedule, updateBubble, updateReady } from './appUpdateState'
 import AppUpdateBubble from './appUpdateBubble.vue'
 import { useGameStore } from './gameStore'
@@ -37,6 +38,7 @@ import { openUnlockedModule, unlockFlashKey } from './moduleUnlockNav'
 
 const game = useGameStore()
 let stopAppUpdate: (() => void) | null = null
+let stopAddToHome: (() => void) | null = null
 const tab = appTab
 const mailOpen = ref(false)
 const settingsOpen = ref(false)
@@ -77,12 +79,15 @@ const resourceDetail = computed(() => (resourceOpen.value ? hudChipDetail(game.s
 onMounted(() => {
   game.startClock()
   stopAppUpdate = startAppUpdateSchedule()
+  stopAddToHome = startAddToHomeWatch()
 })
 
 onUnmounted(() => {
   game.stopClock()
   stopAppUpdate?.()
   stopAppUpdate = null
+  stopAddToHome?.()
+  stopAddToHome = null
 })
 
 function placeXpPop() {

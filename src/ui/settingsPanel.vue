@@ -1,7 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { APP_VERSION } from '../generated/appVersion'
 import { formatClock, gameDay, timeOfDayS } from '../sim/tables'
+import {
+  ADD_TO_HOME_EXTERNAL_TIP,
+  ADD_TO_HOME_EXTERNAL_TITLE,
+  ADD_TO_HOME_IOS_STEPS,
+  ADD_TO_HOME_IOS_TITLE,
+  ADD_TO_HOME_LABEL,
+  ADD_TO_HOME_WAIT_TIP,
+  ADD_TO_HOME_WAIT_TITLE,
+} from './addToHome'
+import { addToHomeChoiceNow, requestAddToHome } from './addToHomeState'
 import { checkForAppUpdate, refreshToNewVersion, updateChecking, updateReady } from './appUpdateState'
 import { formatBeijingDateTime } from './appVersion'
 import { useGameStore } from './gameStore'
@@ -22,6 +32,13 @@ const game = useGameStore()
 const page = ref<PageId>('stats')
 const prefs = ref<Prefs>(loadPrefs())
 const banterOn = ref(loadWorkshopBanter())
+const installGuide = ref<'ios' | 'external' | 'wait' | null>(null)
+
+const installGuideTitle = computed(() => {
+  if (installGuide.value === 'ios') return ADD_TO_HOME_IOS_TITLE
+  if (installGuide.value === 'external') return ADD_TO_HOME_EXTERNAL_TITLE
+  return ADD_TO_HOME_WAIT_TITLE
+})
 
 const day = computed(() => gameDay(game.save.elapsedS))
 const clock = computed(() => formatClock(game.save.elapsedS))
@@ -44,8 +61,22 @@ function setBanter(on: boolean) {
 }
 
 function onKey(ev: KeyboardEvent) {
-  if (ev.key === 'Escape') emit('close')
+  if (ev.key !== 'Escape') return
+  if (installGuide.value) {
+    installGuide.value = null
+    return
+  }
+  emit('close')
 }
+
+async function onAddToHome() {
+  const result = await requestAddToHome()
+  if (result === 'ios' || result === 'external' || result === 'wait') installGuide.value = result
+}
+
+watch(addToHomeChoiceNow, (choice) => {
+  if (choice === 'hidden') installGuide.value = null
+})
 
 onMounted(() => {
   window.addEventListener('keydown', onKey)
@@ -78,6 +109,37 @@ onUnmounted(() => {
           <i v-if="p.id === 'version' && updateReady" class="dot" />
         </button>
       </nav>
+
+      <button v-if="addToHomeChoiceNow !== 'hidden'" type="button" class="install" @click="onAddToHome">
+        {{ ADD_TO_HOME_LABEL }}
+      </button>
+      <div v-if="installGuide" class="guide" role="dialog" aria-labelledby="install-title">
+        <h3 id="install-title" class="guide-title">{{ installGuideTitle }}</h3>
+        <div v-if="installGuide === 'ios'" class="ios-art" aria-hidden="true">
+          <div class="ios-row">
+            <svg class="glyph" viewBox="0 0 24 24">
+              <path d="M12 3v10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              <path d="M8 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M6 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            <span>分享</span>
+          </div>
+          <span class="ios-then">然后</span>
+          <div class="ios-row">
+            <svg class="glyph" viewBox="0 0 24 24">
+              <rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="2" />
+              <path d="M12 8v8M8 12h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            <span>添加到主屏幕</span>
+          </div>
+        </div>
+        <ol v-if="installGuide === 'ios'" class="steps">
+          <li v-for="step in ADD_TO_HOME_IOS_STEPS" :key="step">{{ step }}</li>
+        </ol>
+        <p v-else-if="installGuide === 'external'" class="hint">{{ ADD_TO_HOME_EXTERNAL_TIP }}</p>
+        <p v-else class="hint">{{ ADD_TO_HOME_WAIT_TIP }}</p>
+        <button type="button" @click="installGuide = null">知道了</button>
+      </div>
 
       <div v-if="page === 'stats'" class="body">
         <ul class="stats">
@@ -266,6 +328,67 @@ header .title,
 
 .refresh {
   background: var(--tab-on);
+}
+
+.install {
+  align-self: stretch;
+}
+
+.guide {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: var(--border) solid var(--stroke);
+  border-radius: var(--radius);
+  background: var(--slot);
+}
+
+.guide-title {
+  margin: 0;
+  font-size: 16px;
+}
+
+.ios-art {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: var(--border-thin) solid var(--stroke);
+  border-radius: 18px;
+  background: var(--cream);
+}
+
+.ios-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: var(--wood-lite);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.glyph {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+
+.ios-then {
+  align-self: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding-left: 1.2em;
 }
 
 .notes {
