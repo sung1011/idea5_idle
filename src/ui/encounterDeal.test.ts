@@ -178,6 +178,36 @@ describe('encounterDeal', () => {
     expect(formatConsumeToken({ kind: 'diamonds', qty: 3 })).toBe('钻石 ×3')
   })
 
+  it('drops enemy consume after battle starts and keeps the gain line', () => {
+    const fight = {
+      startedAt: 1,
+      timeoutAt: 2,
+      workerIds: ['w1'],
+      workers: [{ id: 'w1', label: '甲', hp: 8, hpMax: 8, atk: 2, spd: 5, nextActAt: 1 }],
+      enemy: { id: 'e', label: '敌', hp: 8, hpMax: 8, atk: 2, spd: 5, nextActAt: 1 },
+      logs: [],
+      outcome: null,
+    }
+    const gain = '获得：金币 ×8（战斗后领）'
+    expect(formatEncounterDealLines(enemy({ departed: true, combat: fight }))).toEqual({
+      consume: '',
+      gain,
+    })
+    expect(encounterDeal(enemy({ departed: true, combat: fight })).consume).toEqual([])
+    expect(formatEncounterDealLines(enemy({ departed: true, combat: null, dungeon: true }))).toEqual({
+      consume: '',
+      gain,
+    })
+    expect(formatEncounterDealLines(enemy({ departed: false, combat: fight }))).toEqual({
+      consume: '',
+      gain,
+    })
+    expect(formatEncounterDealLines(enemy({ submitted: true }))).toEqual({
+      consume: '消耗：熟食 ×2 / 0',
+      gain,
+    })
+  })
+
   it('shows anyPotion have as the highest potion stock', () => {
     const save = createSave()
     save.bank.stim = 1

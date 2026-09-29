@@ -49,8 +49,12 @@ export function encounterDeal(enc: Encounter, save?: Save, now = Date.now()): En
   switch (enc.kind) {
     case 'enemy': {
       const loot = enemyLootReward(enc, save)
+      // 补给在开战时已扣。开战后的订单卡和战斗中不再列消耗；选单、接单仍显示。
+      const started = enc.departed || enc.combat != null
       return {
-        consume: tokensFromNeedMap(save ? combatSupplyNeeds(save, enc) : enc.needs),
+        consume: started
+          ? []
+          : tokensFromNeedMap(save ? combatSupplyNeeds(save, enc) : enc.needs),
         gain: [currencyToken(loot, '战斗后领')].filter((token): token is DealToken => token != null),
       }
     }
