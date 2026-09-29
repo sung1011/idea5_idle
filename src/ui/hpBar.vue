@@ -63,17 +63,15 @@ onUnmounted(() => {
   width: 100%;
   height: 22px;
   overflow: hidden;
-  padding: 4px 10px;
-  border: none;
-  border-radius: 0;
-  background: var(--tex-progress) center / 100% 100% no-repeat;
-  box-shadow: none;
+  border: 3px solid var(--stroke);
+  border-radius: var(--radius-pill);
+  background: var(--bar-track-face);
+  box-shadow: inset 0 1px 2px rgba(106, 66, 24, 0.2);
 }
 
 .hp .fill {
   display: block;
   height: 100%;
-  border-radius: 99px;
   background: var(--bar-sheen), linear-gradient(90deg, #c6ff6a, #2fbf32);
   transition: width 0.3s ease;
 }
@@ -87,7 +85,6 @@ onUnmounted(() => {
 }
 
 .hp.enemy {
-  padding: 0;
   border-radius: 2px;
   border: 2px solid #1c1622;
   background: #2a222e;

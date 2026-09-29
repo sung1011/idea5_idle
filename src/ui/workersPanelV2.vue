@@ -1411,9 +1411,8 @@ onUnmounted(() => {
   height: 100%;
   min-height: 0;
   padding: 0;
-  background: transparent !important;
-  border: none !important;
-  border-image: none !important;
+  background: transparent;
+  border: none;
   box-shadow: none;
 }
 
@@ -1806,19 +1805,18 @@ onUnmounted(() => {
   justify-content: center;
   gap: 3px;
   padding: 8px 4px 16px;
-  border: none;
-  border-radius: 0;
-  border-image: none;
-  background: var(--tex-potion) center / 100% 100% no-repeat;
-  box-shadow: none;
-  color: #3a2410;
-  text-shadow: 0 1px 0 rgba(255, 248, 230, 0.55);
-  transition: transform 0.08s ease, filter 0.08s ease;
+  border: 3px solid var(--stroke);
+  border-radius: 18px;
+  background: var(--wood-face);
+  background-blend-mode: multiply, normal;
+  box-shadow: inset 0 1px 0 rgba(255, 248, 230, 0.45), 0 3px 0 var(--stroke);
+  color: #5c3a16;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
 }
 
 .potion-slot:active:not(:has(.potion-help:active)) {
   transform: translateY(3px);
-  box-shadow: none;
+  box-shadow: inset 0 2px 3px rgba(58, 36, 16, 0.18), 0 1px 0 var(--stroke);
 }
 
 .potion-slot.pressed::after {
@@ -1832,16 +1830,18 @@ onUnmounted(() => {
 }
 
 .potion-slot.empty {
-  border-style: none;
-  filter: saturate(0.7);
-  opacity: 0.72;
+  border-style: dashed;
+  border-color: rgba(58, 36, 20, 0.45);
+  background: rgba(90, 52, 24, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 248, 230, 0.2), 0 3px 0 var(--stroke);
   color: var(--muted);
 }
 
 .potion-slot.dry {
-  filter: grayscale(1);
+  background: linear-gradient(180deg, #d9d3c8 0%, #b7b0a4 100%);
+  border-color: #6d665c;
   color: #6d665c;
-  box-shadow: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 3px 0 #6d665c;
 }
 
 .potion-halo {
@@ -2737,9 +2737,8 @@ onUnmounted(() => {
   font-weight: 800;
   min-height: 48px;
   border: 3px solid var(--gold-deep);
-  border-radius: 0;
-  border-image: var(--tex-btn-wood) 28 24 34 24 fill / 7px 10px 9px 10px / 0 stretch;
-  background: transparent;
+  border-radius: 12px;
+  background: var(--wood-face);
   display: flex;
   flex-direction: column;
   align-items: center;

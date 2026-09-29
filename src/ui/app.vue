@@ -307,9 +307,12 @@ watch(
   min-height: 44px;
   min-width: 0;
   padding: 4px 6px;
-  background: linear-gradient(180deg, rgba(8, 24, 12, 0.42), rgba(8, 24, 12, 0.12));
-  border-bottom: none;
-  box-shadow: none;
+  background:
+    var(--paper-grain),
+    var(--wood-face);
+  background-blend-mode: multiply, normal;
+  border-bottom: 3px solid var(--gold);
+  box-shadow: 0 2px 0 var(--gold-deep);
 }
 
 .player {
@@ -321,12 +324,10 @@ watch(
   min-width: 0;
   min-height: 36px;
   padding: 1px 6px 1px 2px;
-  border: none;
-  border-image: none;
+  border-color: transparent;
   border-radius: 999px;
   background: transparent;
   box-shadow: none;
-  text-shadow: 0 1px 0 rgba(255, 248, 230, 0.7);
 }
 
 .player:active:not(:disabled) {
@@ -371,8 +372,6 @@ watch(
   max-width: 4em;
   font-size: 12px;
   font-weight: 700;
-  color: #fff6e0;
-  text-shadow: 0 1px 2px rgba(12, 24, 8, 0.9);
 }
 
 .resources {
@@ -532,9 +531,12 @@ watch(
   min-width: 0;
   max-width: 100%;
   padding: var(--dock-pad-y) 8px calc(var(--dock-pad-y) + env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(0deg, rgba(8, 24, 12, 0.5), rgba(8, 24, 12, 0.08));
-  border-top: none;
-  box-shadow: none;
+  background:
+    var(--paper-grain),
+    var(--wood-face);
+  background-blend-mode: multiply, normal;
+  border-top: var(--border) solid var(--gold);
+  box-shadow: 0 -2px 0 var(--gold-deep);
 }
 
 .dock-hp {
@@ -588,12 +590,7 @@ watch(
   min-width: 0;
   min-height: var(--dock-item-min-h);
   padding: 4px 2px;
-  border-radius: 0;
-  border-image: var(--tex-tab) 22 fill / 8px 12px 8px 12px / 0 stretch;
-  background: transparent;
-  box-shadow: none;
-  color: #3a2410;
-  text-shadow: 0 1px 0 rgba(255, 248, 230, 0.7);
+  border-radius: 12px;
   font-family: var(--font-display);
   font-size: 11px;
   letter-spacing: 0.02em;
@@ -653,13 +650,11 @@ watch(
 .unlock-sheet {
   width: min(280px, 100%);
   padding: 16px 16px 14px;
-  border-style: solid;
-  border-width: 14px;
-  border-color: transparent;
-  border-radius: 0;
-  border-image: var(--tex-panel) 40 fill / 14px / 0 stretch;
-  background: transparent;
-  box-shadow: none;
+  border: 3px solid var(--stroke);
+  border-radius: 16px;
+  background: var(--wood-face);
+  background-blend-mode: multiply, normal;
+  box-shadow: 0 4px 0 var(--stroke);
   text-align: center;
   color: var(--ink);
 }
@@ -687,19 +682,19 @@ watch(
   width: 100%;
   margin-top: 12px;
   min-height: 36px;
-  border-radius: 0;
-  border-image: var(--tex-btn-primary) 28 24 34 24 fill / 7px 10px 9px 10px / 0 stretch;
-  background: transparent;
+  border: 3px solid var(--stroke);
+  border-radius: 12px;
+  background: var(--accent-face);
   color: #3a2208;
-  box-shadow: none;
+  box-shadow: 0 3px 0 var(--stroke);
   font-weight: 800;
 }
 
 .dock button.on {
   color: #14300c;
-  background: transparent;
-  border-image: var(--tex-tab-on) 22 fill / 8px 12px 8px 12px / 0 stretch;
-  box-shadow: none;
+  background: var(--tab-on);
+  border-color: #1d5a16;
+  box-shadow: 0 3px 0 #1a4a14, inset 0 1px 0 rgba(255, 255, 255, 0.55);
   opacity: 1;
   filter: none;
 }

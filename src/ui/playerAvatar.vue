@@ -35,30 +35,39 @@ function faceOf(id: string | null | undefined) {
   flex: 0 0 auto;
   width: 32px;
   height: 32px;
-  border: none;
+  border: 3px solid #f4ead2;
   border-radius: 50%;
-  box-shadow: none;
+  box-shadow:
+    0 0 0 2px #4a3422,
+    inset 0 0 0 2px rgba(255, 255, 255, 0.7);
 }
 
-.face::before {
+.face::after {
   content: '';
   position: absolute;
-  inset: -8px -7px;
-  z-index: 2;
+  inset: -5px;
+  border-radius: 50%;
   pointer-events: none;
-  background: var(--tex-avatar) center / contain no-repeat;
+  background:
+    radial-gradient(circle at 50% 0, #f7f1e4 0 3px, #4a3422 3.2px 4.2px, transparent 4.6px),
+    radial-gradient(circle at 50% 100%, #f7f1e4 0 3px, #4a3422 3.2px 4.2px, transparent 4.6px),
+    radial-gradient(circle at 0 50%, #f7f1e4 0 3px, #4a3422 3.2px 4.2px, transparent 4.6px),
+    radial-gradient(circle at 100% 50%, #f7f1e4 0 3px, #4a3422 3.2px 4.2px, transparent 4.6px);
 }
 
 .face.frame-copper {
-  box-shadow: 0 0 0 2px #b87333, 0 0 6px rgba(184, 115, 51, 0.9);
+  border-color: #b87333;
+  box-shadow: 0 0 0 2px #4a3422, 0 0 6px rgba(184, 115, 51, 0.9);
 }
 
 .face.frame-silver {
-  box-shadow: 0 0 0 2px #e4e8ee, 0 0 6px rgba(210, 216, 224, 0.95);
+  border-color: #e4e8ee;
+  box-shadow: 0 0 0 2px #4a3422, 0 0 6px rgba(210, 216, 224, 0.95);
 }
 
 .face.frame-gold {
-  box-shadow: 0 0 0 2px #ffe27a, 0 0 8px rgba(232, 195, 90, 0.95);
+  border-color: #ffe27a;
+  box-shadow: 0 0 0 2px #4a3422, 0 0 8px rgba(232, 195, 90, 0.95);
 }
 
 svg {

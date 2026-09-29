@@ -71,6 +71,7 @@
   --z-sheet: 30;
   --z-select: 35;
   --z-tips: 40;
+  --workshop-rail-row-min: 44px;
   --workshop-rail-row-gap: 4px;
   --workshop-rail-row-count: 7;
   --dock-pad-y: 6px;
@@ -78,18 +79,6 @@
   --dock-height: calc(
     var(--border) + var(--dock-pad-y) + var(--dock-item-min-h) + var(--dock-pad-y) + env(safe-area-inset-bottom, 0px)
   );
-  --tex-grass: url('../assets/horde/bgGrass.webp');
-  --tex-panel: url('../assets/horde/panel.webp');
-  --tex-title: url('../assets/horde/title.webp');
-  --tex-btn-primary: url('../assets/horde/btnPrimary.webp');
-  --tex-btn-wood: url('../assets/horde/btnWood.webp');
-  --tex-btn-danger: url('../assets/horde/btnDanger.webp');
-  --tex-avatar: url('../assets/horde/avatarFrame.webp');
-  --tex-potion: url('../assets/horde/potionSlot.webp');
-  --tex-tab: url('../assets/horde/tab.webp');
-  --tex-tab-on: url('../assets/horde/tabActive.webp');
-  --tex-progress: url('../assets/horde/progressFrame.webp');
-  --workshop-rail-row-min: 56px;
 }
 
 *,
@@ -112,13 +101,13 @@ body,
 }
 
 body {
-  background-color: #14361e;
-  background-image:
-    linear-gradient(180deg, rgba(6, 20, 10, 0.22), rgba(6, 18, 8, 0.4)),
-    var(--tex-grass);
-  background-size: cover, cover;
-  background-position: center, center;
-  background-repeat: no-repeat;
+  background:
+    var(--grass-grain),
+    radial-gradient(ellipse at 18% -10%, rgba(150, 200, 80, 0.45), transparent 46%),
+    radial-gradient(ellipse at 90% 110%, rgba(20, 60, 28, 0.55), transparent 42%),
+    repeating-linear-gradient(118deg, rgba(90, 150, 50, 0.16) 0 2px, transparent 2px 8px),
+    linear-gradient(180deg, #347844 0%, #1c522c 42%, #12361e 100%);
+  background-blend-mode: multiply, normal, normal, normal, normal;
   color: var(--ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -136,36 +125,60 @@ h3,
 h2.title,
 .tree > .title {
   position: relative;
-  display: block;
+  display: inline-block;
   width: fit-content;
-  max-width: 100%;
+  max-width: calc(100% - 8px);
   margin: 0;
-  padding: 4px 8px;
-  border-style: solid;
-  border-width: 8px 32px;
-  border-color: transparent;
-  border-radius: 0;
-  border-image: var(--tex-title) 28 120 28 120 fill / 8px 32px / 0 stretch;
-  background: transparent;
+  padding: 2px 18px;
+  border: var(--border) solid var(--stroke);
+  border-radius: 10px;
+  background: var(--plaque-face);
+  background-blend-mode: multiply, normal;
   color: var(--ink);
-  box-shadow: none;
+  box-shadow: 0 3px 0 var(--stroke-deep);
   line-height: 1.25;
-  text-shadow: 0 1px 0 rgba(255, 248, 230, 0.55);
   vertical-align: middle;
+}
+
+h2.title::before,
+h2.title::after,
+.tree > .title::before,
+.tree > .title::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 16px;
+  transform: translateY(-50%);
+  background: var(--ribbon);
+  pointer-events: none;
+}
+
+h2.title::before,
+.tree > .title::before {
+  left: -8px;
+  clip-path: polygon(0 8%, 100% 0, 100% 100%, 0 92%);
+  border-radius: 2px 0 0 2px;
+}
+
+h2.title::after,
+.tree > .title::after {
+  right: -8px;
+  clip-path: polygon(0 0, 100% 8%, 100% 92%, 0 100%);
+  border-radius: 0 2px 2px 0;
 }
 
 button {
   font: inherit;
   color: var(--ink);
   cursor: pointer;
-  padding: 4px 12px;
+  padding: 6px 12px;
   min-height: 44px;
-  border: 8px solid transparent;
-  border-radius: 0;
-  border-image: var(--tex-btn-wood) 28 24 34 24 fill / 7px 10px 9px 10px / 0 stretch;
-  background: transparent;
-  box-shadow: none;
-  text-shadow: 0 1px 0 rgba(255, 248, 230, 0.45);
+  border: var(--border) solid var(--stroke);
+  border-radius: var(--radius);
+  background: var(--wood-face);
+  background-blend-mode: multiply, normal;
+  box-shadow: 0 3px 0 var(--stroke), inset 0 1px 0 rgba(255, 248, 230, 0.45);
   transition:
     transform var(--motion) ease,
     box-shadow var(--motion) ease,
@@ -180,7 +193,7 @@ button:hover:not(:disabled) {
 
 button:active:not(:disabled) {
   transform: translateY(2px);
-  box-shadow: none;
+  box-shadow: 0 1px 0 var(--stroke), inset 0 2px 3px rgba(58, 36, 16, 0.18);
 }
 
 button:disabled {
@@ -188,8 +201,8 @@ button:disabled {
   color: var(--muted);
   background: var(--btn-on);
   box-shadow: none;
-  opacity: 0.72;
-  filter: grayscale(1);
+  opacity: 0.62;
+  filter: grayscale(0.2);
 }
 
 button.on,
@@ -205,24 +218,38 @@ button.on:disabled {
 .card,
 .item,
 .sheet,
-.box,
-.station,
-.potion-dock {
+.box {
   position: relative;
   isolation: isolate;
-  background: transparent !important;
-  border-style: solid !important;
-  border-width: 14px !important;
-  border-color: transparent !important;
-  border-radius: 0;
-  border-image: var(--tex-panel) 40 fill / 14px / 0 stretch !important;
-  box-shadow: none;
+  background-color: var(--plate);
+  background-image: var(--wood-face);
+  background-blend-mode: multiply, normal;
+  border: var(--border) solid var(--stroke);
+  border-radius: var(--radius-card);
+  box-shadow:
+    0 3px 0 var(--stroke-deep),
+    inset 0 1px 0 rgba(255, 248, 230, 0.4);
   color: var(--ink);
 }
 
-.station {
-  border-width: 8px !important;
-  border-image-width: 8px !important;
+.card::before,
+.item::before,
+.sheet::before,
+.box::before,
+.station::before,
+.bubble::before,
+.potion-dock::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    var(--bone-tl) left 1px top 1px / 13px 13px no-repeat,
+    var(--bone-tr) right 1px top 1px / 13px 13px no-repeat,
+    var(--bone-bl) left 1px bottom 1px / 13px 13px no-repeat,
+    var(--bone-br) right 1px bottom 1px / 13px 13px no-repeat;
 }
 
 .station.locked,
@@ -315,19 +342,17 @@ button.locked:not(:has(.lock))::after {
 }
 
 .bar {
-  height: 16px;
+  height: 10px;
   overflow: hidden;
-  padding: 3px 10px;
-  background: var(--tex-progress) center / 100% 100% no-repeat;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
+  background: var(--bar-track-face);
+  border: var(--border-thin) solid var(--stroke);
+  border-radius: var(--radius-pill);
+  box-shadow: inset 0 1px 2px rgba(36, 22, 14, 0.35);
 }
 
 .bar i {
   display: block;
   height: 100%;
-  border-radius: 99px;
   background: var(--bar-fill-green);
 }
 
@@ -405,41 +430,32 @@ button.act.primary {
   min-height: 48px;
   font-size: 16px;
   border-color: var(--stroke);
-  border-image: var(--tex-btn-primary) 28 24 34 24 fill / 7px 10px 9px 10px / 0 stretch;
-  background: transparent;
+  background: var(--accent-face);
   color: #3a2208;
-  box-shadow: none;
+  box-shadow: 0 3px 0 var(--stroke);
 }
 
 button.act.primary.combat {
   border-color: #8d241c;
-  border-image: var(--tex-btn-danger) 28 24 34 24 fill / 7px 10px 9px 10px / 0 stretch;
-  background: transparent;
+  background: linear-gradient(#e85a4c, #c43228);
   color: #fff8f4;
-  box-shadow: 0 3px 0 #c43228;
-  text-shadow: 0 1px 0 rgba(90, 16, 8, 0.45);
+  box-shadow: 0 3px 0 #7a1c16;
 }
 
 button.act.primary.gain {
-  border-width: 3px;
   border-color: #246b22;
-  border-image: none;
   background: linear-gradient(#6fbe4a, #3d8a34);
   color: #f4fff0;
   box-shadow: 0 3px 0 #1f5c1c;
-  text-shadow: none;
 }
 
 button.act.primary.produce {
   min-height: 46px;
   font-size: 15px;
-  border-width: 3px;
   border-color: #8a5a10;
-  border-image: none;
   background: linear-gradient(#f0b43a, #d4891a);
   color: #3a2410;
   box-shadow: 0 3px 0 #8a5410;
-  text-shadow: none;
 }
 
 button.act.primary.combat:disabled,
@@ -451,10 +467,9 @@ button.act.primary.produce.is-short {
   color: var(--muted);
   background: var(--btn-on);
   border-color: #c8bba4;
-  border-image: none;
   box-shadow: none;
   opacity: 0.62;
-  filter: grayscale(1);
+  filter: grayscale(0.2);
 }
 
 button.act.minor {

@@ -1057,8 +1057,6 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
   left: 0;
   z-index: 2;
   height: 4px;
-  padding: 0;
-  border: none;
   background: var(--moss);
 }
 

@@ -129,9 +129,7 @@ function claim() {
 .bar {
   height: 3px;
   margin: 0 10px 8px;
-  padding: 0;
   overflow: hidden;
-  border: none;
   border-radius: 99px;
   background: rgba(255, 255, 255, 0.15);
 }
