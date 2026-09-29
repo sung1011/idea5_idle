@@ -48,9 +48,9 @@ describe('appNav', () => {
   it('keeps the dock order 工坊 | PVE | PVP | 科技 and falls back to PVE', () => {
     expect(APP_TABS.map((tab) => tab.id)).toEqual(['workshop', 'encounters', 'pvp', 'tech'])
     expect(APP_TABS.map((tab) => tab.label)).toEqual(['工坊', 'PVE', 'PVP', '科技'])
-    expect(DEFAULT_APP_TAB).toBe('encounters')
-    expect(selectAppTab('nope', memory())).toBe('encounters')
-    expect(appTab.value).toBe('encounters')
+    expect(DEFAULT_APP_TAB).toBe('workshop')
+    expect(selectAppTab('nope', memory())).toBe('workshop')
+    expect(appTab.value).toBe('workshop')
   })
 
   it('persists the last dock tab and a workshop station', () => {
@@ -65,8 +65,8 @@ describe('appNav', () => {
     expect(workshopTab.value).toBe('cooking')
     expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('cooking')
     expect(selectAppTab('nope', store)).toBe(DEFAULT_APP_TAB)
-    expect(appTab.value).toBe('encounters')
-    expect(store.getItem(APP_TAB_KEY)).toBe('encounters')
+    expect(appTab.value).toBe('workshop')
+    expect(store.getItem(APP_TAB_KEY)).toBe('workshop')
   })
 
   it('opens a station on the workshop dock', () => {

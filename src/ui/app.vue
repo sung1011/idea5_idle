@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { playerDisplayName, type PlayerAvatarId } from '../sim/createSave'
 import { bannerFrameOf, bannerLevelOf, treasureAssaultWarning } from '../sim/treasureMine'
+import { appTabLockedTip, isAppTabUnlocked, isModuleId, isModuleUnlocked, moduleBlurb, moduleLabel } from '../sim/moduleUnlock'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
 import { dockStationHp, showDockStationHp } from './dockStationHp'
 import { dismissUpdateBubble, refreshToNewVersion, startAppUpdateSchedule, updateBubble, updateReady } from './appUpdateState'
@@ -26,6 +27,8 @@ import HudResourceSheet from './hudResourceSheet.vue'
 import PlayerAvatar from './playerAvatar.vue'
 import PlayerProfileSheet from './playerProfileSheet.vue'
 import UiIcon from './uiIcon.vue'
+import { pushFloatTip } from './floatTips'
+import { openUnlockedModule, unlockFlashKey } from './moduleUnlockNav'
 
 const game = useGameStore()
 let stopAppUpdate: (() => void) | null = null
@@ -37,7 +40,13 @@ const resourceOpen = ref<HudChipId | null>(null)
 const profileOpen = ref(false)
 const playerName = computed(() => playerDisplayName(game.save.playerName))
 const bannerFrame = computed(() => bannerFrameOf(bannerLevelOf(game.save)))
-const assaultAlert = computed(() => treasureAssaultWarning(game.save))
+const assaultAlert = computed(
+  () => isModuleUnlocked(game.save, 'treasure') && treasureAssaultWarning(game.save),
+)
+const unlockNotice = computed(() => {
+  const id = game.save.moduleUnlockQueue?.[0]
+  return isModuleId(id) ? id : null
+})
 const chips = computed(() => listHudChips(game.save))
 const stationHp = computed(() => dockStationHp(game.save))
 const showStationHp = computed(() => showDockStationHp(tab.value))
@@ -58,6 +67,32 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
   game.setPlayerProfile(payload.name, payload.avatarId)
   profileOpen.value = false
 }
+
+function tabLocked(id: (typeof APP_TABS)[number]['id']) {
+  return !isAppTabUnlocked(game.save, id)
+}
+
+function onDock(id: (typeof APP_TABS)[number]['id']) {
+  if (tabLocked(id)) {
+    if (id === 'tech' || id === 'pvp') pushFloatTip(appTabLockedTip(game.save, id), 'err')
+    return
+  }
+  selectAppTab(id)
+}
+
+function onUnlockGo() {
+  const id = unlockNotice.value
+  game.dismissModuleUnlock()
+  if (id) openUnlockedModule(id)
+}
+
+watch(
+  () => [tab.value, game.save.knightLevel, (game.save.openedModules ?? []).join(',')] as const,
+  () => {
+    if (!isAppTabUnlocked(game.save, tab.value)) selectAppTab('workshop')
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -144,12 +179,17 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
           type="button"
           role="tab"
           :aria-selected="tab === t.id"
-          :class="{ on: tab === t.id }"
-          @click="selectAppTab(t.id)"
+          :class="{
+            on: tab === t.id,
+            locked: tabLocked(t.id),
+            'unlock-pulse': unlockFlashKey === `tab:${t.id}`,
+          }"
+          @click="onDock(t.id)"
         >
           <UiIcon :name="t.id" />
           <span>{{ t.label }}</span>
-          <i v-if="t.id === 'pvp' && assaultAlert" class="dot" />
+          <i v-if="tabLocked(t.id)" class="lock" aria-hidden="true" />
+          <i v-if="t.id === 'pvp' && assaultAlert && !tabLocked(t.id)" class="dot" />
         </button>
       </div>
     </nav>
@@ -163,6 +203,14 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
       @refresh="refreshToNewVersion"
     />
     <GuideQuestFloat />
+    <div v-if="unlockNotice" class="unlock-card" role="dialog" aria-label="新玩法开放">
+      <div class="unlock-sheet">
+        <p class="unlock-kicker">新玩法开放</p>
+        <h3>{{ moduleLabel(unlockNotice) }}</h3>
+        <p class="unlock-blurb">{{ moduleBlurb(unlockNotice) }}</p>
+        <button type="button" class="unlock-go" @click="onUnlockGo">前往</button>
+      </div>
+    </div>
     <MessagePanel v-if="mailOpen" @close="mailOpen = false" />
     <SettingsPanel v-if="settingsOpen" @close="settingsOpen = false" />
     <HudResourceSheet v-if="resourceDetail" :detail="resourceDetail" @close="resourceOpen = null" />
@@ -403,6 +451,97 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
   font-family: var(--font-display);
   font-size: 11px;
   letter-spacing: 0.02em;
+}
+
+.dock button.locked {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.dock button .lock {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+}
+
+.dock button .lock::before {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: -5px;
+  width: 4px;
+  height: 4px;
+  border: 1.5px solid currentColor;
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+}
+
+.dock button.unlock-pulse {
+  animation: unlock-pulse 0.45s ease-in-out 3;
+}
+
+@keyframes unlock-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(240, 184, 58, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(240, 184, 58, 0.55);
+  }
+}
+
+.unlock-card {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(28, 18, 8, 0.45);
+}
+
+.unlock-sheet {
+  width: min(280px, 100%);
+  padding: 16px 16px 14px;
+  border: 2px solid var(--gold);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fff8e4, #f3dfb0);
+  box-shadow: 0 8px 0 rgba(90, 50, 10, 0.25);
+  text-align: center;
+}
+
+.unlock-kicker {
+  margin: 0;
+  color: #8a5a12;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.unlock-sheet h3 {
+  margin: 6px 0 0;
+  font-size: 22px;
+}
+
+.unlock-blurb {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.unlock-go {
+  width: 100%;
+  margin-top: 12px;
+  min-height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffe27a, #e0a020);
+  color: #4a2c0a;
+  font-weight: 800;
 }
 
 .dock button.on {

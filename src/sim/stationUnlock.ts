@@ -6,10 +6,10 @@ import type { Save, StationId } from './types'
 export const STATION_UNLOCK_KNIGHT = {
   herbalism: 1,
   alchemy: 1,
-  hunting: 5,
-  cooking: 6,
-  mining: 9,
-  inscription: 10,
+  hunting: 6,
+  cooking: 8,
+  mining: 16,
+  inscription: 18,
 } as const satisfies Record<StationId, number>
 
 export const STATION_UNLOCK_KNIGHT_MAX = Math.max(
@@ -24,8 +24,12 @@ export function knightLevelOf(save: Pick<Save, 'knightLevel'>): number {
   return normalizeKnightLevel(save.knightLevel)
 }
 
-export function isStationUnlocked(save: Pick<Save, 'knightLevel'>, stationId: StationId): boolean {
-  return knightLevelOf(save) >= stationUnlockKnightLevel(stationId)
+export function isStationUnlocked(
+  save: Pick<Save, 'knightLevel'> & { openedModules?: readonly string[] | null },
+  stationId: StationId,
+): boolean {
+  if (knightLevelOf(save) >= stationUnlockKnightLevel(stationId)) return true
+  return save.openedModules?.includes(stationId) === true
 }
 
 export function stationLockedTip(stationId: StationId): string {
@@ -60,6 +64,14 @@ export function workshopGroupLockedTip(
 
 export function unlockedStationIds(save: Pick<Save, 'knightLevel'>): StationId[] {
   return PLAYABLE_STATION_IDS.filter((id) => isStationUnlocked(save, id))
+}
+
+/** 测试：等级不够也允许派到后开的站，不改骑士等级。 */
+export function keepStationsOpen(save: Save): Save {
+  const ids = ['hunting', 'cooking', 'mining', 'inscription', 'treasure']
+  const next = new Set([...(save.openedModules ?? []), ...ids])
+  save.openedModules = [...next]
+  return save
 }
 
 /** 测试 / GM：按满级门槛开放六站，不改站等级与库存。 */

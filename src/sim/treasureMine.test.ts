@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { keepStationsOpen } from './stationUnlock'
 import { createSave } from './createSave'
 import { PLAYER_AVATAR_IDS } from './playerAvatarIds'
 import { spawnWorker } from './recruit'
@@ -167,7 +168,7 @@ function armRaid(save: Save, mine: TreasureMine): void {
 
 describe('treasure mines', () => {
   it('fills at most 4 holes and replaces expired or empty ones', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(save.treasureMines.mines).toHaveLength(TREASURE_MINE_CAP)
     expect(save.treasureMines.mines.every((mine) => mine.reserve === TREASURE_RESERVE_MAX)).toBe(true)
     expect(save.treasureMines.mines.every((mine) => mine.expiresAtS - mine.bornAtS === TREASURE_LIFE_S)).toBe(true)
@@ -198,7 +199,7 @@ describe('treasure mines', () => {
     expect(shadowCrewCount(0.9)).toBe(3)
     expect(shadowCrewCount(0.999)).toBe(3)
 
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const kept = save.treasureMines.mines[0]
     const before = kept.shadows.map((shadow) => shadow.id)
     const beforeOwner = kept.owner
@@ -227,7 +228,7 @@ describe('treasure mines', () => {
     expect(stableMineAvatarId('mine-1')).toBe(stableMineAvatarId('mine-1'))
     expect(PLAYER_AVATAR_IDS).toContain(stableMineAvatarId('mine-9'))
 
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const seen = new Set<string>()
     for (let i = 0; i < 80; i += 1) {
       const victim = save.treasureMines.mines[save.treasureMines.mines.length - 1]
@@ -242,7 +243,7 @@ describe('treasure mines', () => {
     }
     expect(seen.size).toBeGreaterThan(1)
 
-    const kept = createSave()
+    const kept = keepStationsOpen(createSave())
     const hole = kept.treasureMines.mines[0]
     const standing = hole.ownerAvatarId
     delete (hole as { ownerAvatarId?: string }).ownerAvatarId
@@ -266,7 +267,7 @@ describe('treasure mines', () => {
     expect(SNAPSHOT_PLAYER_NAMES).toContain(reused)
     expect(banned.some((title) => reused.includes(title))).toBe(false)
 
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const standing = ensureGarrison(save.treasureMines.mines[0])
     standing.shadows[0].name = '影矿卫'
     const standingIds = standing.shadows.map((shadow) => shadow.id)
@@ -291,7 +292,7 @@ describe('treasure mines', () => {
   })
 
   it('sends the raid queue home with their own hp when a hole expires', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const lead = spawnWorker(save)
     const bench = spawnWorker(save)
     const mine = ensureGarrison(save.treasureMines.mines[0])
@@ -308,7 +309,7 @@ describe('treasure mines', () => {
   })
 
   it('hydrates an old save into a full local pool', () => {
-    const raw: Partial<Save> = { ...createSave() }
+    const raw: Partial<Save> = { ...keepStationsOpen(createSave()) }
     delete raw.treasureMines
     const loaded = hydrateLoadedSave(raw)
     expect(loaded?.treasureMines.mines).toHaveLength(4)
@@ -319,7 +320,7 @@ describe('treasure mines', () => {
     expect(mineDigIntervalS(1)).toBe(5)
     expect(mineDigIntervalS(6)).toBe(4)
     expect(mineDigIntervalS(11)).toBe(3)
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     worker.level = 1
     worker.combatAttrs = []
@@ -348,7 +349,7 @@ describe('treasure mines', () => {
   })
 
   it('sends a dead raider home before the queue finishes', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const first = spawnWorker(save)
     const second = spawnWorker(save)
     const mine = ensureGarrison(save.treasureMines.mines[0])
@@ -376,7 +377,7 @@ describe('treasure mines', () => {
   })
 
   it('lets the two shadows still digging share one shipment while one fights', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     const mine = ensureGarrison(save.treasureMines.mines[0])
     while (mine.shadows.length < 3) {
@@ -407,7 +408,7 @@ describe('treasure mines', () => {
   })
 
   it('lets surviving raiders take over the same hole and keep mining without runes', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const lead = spawnWorker(save)
     const fallen = spawnWorker(save)
     const mine = ensureGarrison(save.treasureMines.mines[0])
@@ -462,7 +463,7 @@ describe('treasure mines', () => {
     expect(mineDigIntervalS(1, true)).toBe(4)
     expect(workerMatchesMineWeakness(['fire'], ['fire'])).toBe(true)
     expect(workerMatchesMineWeakness(['sword'], ['fire'])).toBe(false)
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const hit = spawnWorker(save)
     const miss = spawnWorker(save)
     hit.level = 1
@@ -489,7 +490,7 @@ describe('treasure mines', () => {
   })
 
   it('hides new weaknesses behind question marks until mining or a raid reveals a match', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     for (const hole of save.treasureMines.mines) {
       expect(hole.revealedWeaknesses).toEqual([])
       const slots = mineWeaknessSlots(hole)
@@ -539,7 +540,7 @@ describe('treasure mines', () => {
   })
 
   it('locks only the raiding hole and refuses reinforce until that fight ends', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const lead = spawnWorker(save)
     const extra = spawnWorker(save)
     const other = spawnWorker(save)
@@ -601,7 +602,7 @@ describe('treasure mines', () => {
   })
 
   it('snapshots raid slots at the start and backfills an old raid from whoever is left', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const lead = spawnWorker(save)
     const mine = ensureGarrison(save.treasureMines.mines[0])
     mine.shadows = mine.shadows.slice(0, 1)
@@ -619,7 +620,7 @@ describe('treasure mines', () => {
   })
 
   it('spends diamonds to replace idle holes, including empty ones, and keeps raids', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.diamonds = 25
     save.treasureMines.vault.sandGold = 4
     const miner = spawnWorker(save)
@@ -662,7 +663,7 @@ describe('treasure mines', () => {
     expect(save.diamonds).toBe(TREASURE_REFRESH_COST - 1)
     expect(save.treasureMines.mines.map((mine) => mine.id)).toEqual(ids)
 
-    const locked = createSave()
+    const locked = keepStationsOpen(createSave())
     locked.diamonds = 40
     const before = locked.diamonds
     const holeIds = locked.treasureMines.mines.map((mine) => mine.id)
@@ -675,7 +676,7 @@ describe('treasure mines', () => {
     expect(locked.diamonds).toBe(before)
     expect(locked.treasureMines.mines.map((mine) => mine.id)).toEqual(holeIds)
 
-    const busy = createSave()
+    const busy = keepStationsOpen(createSave())
     busy.diamonds = 40
     const beforeBusy = busy.diamonds
     const busyIds = busy.treasureMines.mines.map((mine) => mine.id)
@@ -704,7 +705,7 @@ describe('treasure mines', () => {
   })
 
   it('abandons a claimed hole without resetting reserve or the timer, then allows a new claim', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     const extra = spawnWorker(save)
     const mine = save.treasureMines.mines[0]
@@ -746,7 +747,7 @@ describe('treasure mines', () => {
   })
 
   it('maps an illegal owner to shadow when a garrison remains, otherwise to empty', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const withShadows = ensureGarrison(save.treasureMines.mines[0])
     ;(withShadows as { owner: string }).owner = 'npc'
     const bare = save.treasureMines.mines[1]
@@ -765,7 +766,7 @@ describe('treasure mines', () => {
     expect(treasureKindOfRoll(2 / 3)).toBe('jade')
     expect(treasureKindOfRoll(0.999)).toBe('jade')
 
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const standing = save.treasureMines.mines[0]
     const expected = treasureKindFromId(standing.id)
     markLegacy(standing, 'sandGold')
@@ -795,7 +796,7 @@ describe('treasure mines', () => {
     expect(rollTreasureDrop('jade', 0.4)).toBe('jade')
     expect(treasureDropTip('sandGold', 1)).toBe('获得 砂金 ×1')
 
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     worker.level = 1
     worker.combatAttrs = []
@@ -840,7 +841,7 @@ describe('treasure mines', () => {
   })
 
   it('fills one shared bar from every digger and tips a single vault item', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const slow = spawnWorker(save)
     const fast = spawnWorker(save)
     slow.level = 1
@@ -904,7 +905,7 @@ describe('treasure mines', () => {
 
   it('ships one item per cycle, so three miners finish sooner than one', () => {
     function claim(count: number) {
-      const save = createSave()
+      const save = keepStationsOpen(createSave())
       const ids: string[] = []
       for (let i = 0; i < count; i += 1) {
         const worker = spawnWorker(save)
@@ -944,7 +945,7 @@ describe('treasure mines', () => {
   })
 
   it('reads shadow dig progress for whoever stepDig is still mining', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const mine = ensureGarrison(save.treasureMines.mines[0])
     const lead = { ...mine.shadows[0], id: `${mine.id}-lead`, level: 1, name: '甲' }
     const slow = { ...mine.shadows[0], id: `${mine.id}-slow`, level: 1, name: '乙' }
@@ -990,7 +991,7 @@ describe('treasure mines', () => {
   })
 
   it('keeps revealed weaknesses until the hole is gone', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const digger = spawnWorker(save)
     const extra = spawnWorker(save)
     digger.combatAttrs = ['fire']
@@ -1069,7 +1070,7 @@ describe('treasure sand fees', () => {
     expect(raidStakeCost(2)).toBe(80)
     expect(raidStakeCost(3)).toBe(120)
 
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const mine = save.treasureMines.mines[0]
     setGuards(mine, 3)
     const blocked = spawnWorker(save)
@@ -1109,7 +1110,7 @@ describe('treasure sand fees', () => {
     expect(reloaded.treasureMines.vault.sandGold).toBe(80)
     expect(takeTreasureVaultNotices().map((notice) => notice.text)).toEqual([stakeRefundTip(80)])
 
-    const lost = createSave()
+    const lost = keepStationsOpen(createSave())
     const fight = lost.treasureMines.mines[1]
     setGuards(fight, 1, 99999, 99999, 1)
     const loser = spawnWorker(lost)
@@ -1124,7 +1125,7 @@ describe('treasure sand fees', () => {
   })
 
   it('refunds when the hole vanishes before a result, and old raids without a stake stay unpaid', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const mine = save.treasureMines.mines[0]
     setGuards(mine, 1)
     const worker = spawnWorker(save)
@@ -1141,7 +1142,7 @@ describe('treasure sand fees', () => {
     expect(save.treasureMines.vault.sandGold).toBe(40)
     expect(takeTreasureVaultNotices().map((notice) => notice.text)).toEqual([stakeRefundTip(40)])
 
-    const legacy = createSave()
+    const legacy = keepStationsOpen(createSave())
     const old = legacy.treasureMines.mines[0]
     setGuards(old, 1, 1, 1, 99)
     const raider = spawnWorker(legacy)
@@ -1169,7 +1170,7 @@ describe('treasure sand fees', () => {
   })
 
   it('settles a reloaded fight the same way after offline catch-up', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const mine = save.treasureMines.mines[0]
     setGuards(mine, 1, 1, 1, 99)
     const winner = spawnWorker(save)
@@ -1190,7 +1191,7 @@ describe('treasure sand fees', () => {
     expect(settled.save.treasureMines.vault.sandGold).toBeGreaterThanOrEqual(40)
     expect(takeTreasureVaultNotices().map((notice) => notice.text)).toContain(stakeRefundTip(40))
 
-    const lost = createSave()
+    const lost = keepStationsOpen(createSave())
     const fight = lost.treasureMines.mines[1]
     setGuards(fight, 1, 99999, 99999, 1)
     const loser = spawnWorker(lost)
@@ -1206,7 +1207,7 @@ describe('treasure sand fees', () => {
   })
 
   it('lets an empty hole be claimed for free', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const mine = save.treasureMines.mines[0]
     setGuards(mine, 0)
     const worker = spawnWorker(save)
@@ -1219,7 +1220,7 @@ describe('treasure sand fees', () => {
   })
 
   it('charges scout once and reveals every weakness until the hole is already open', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const mine = save.treasureMines.mines[0]
     mine.weaknesses = ['fire', 'ice', 'sword']
     mine.revealedWeaknesses = []
@@ -1259,7 +1260,7 @@ describe('treasure sand fees', () => {
   })
 
   it('refreshes with sand or diamonds and keeps fights and our mining', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.diamonds = 30
     save.treasureMines.vault.sandGold = TREASURE_REFRESH_SAND_COST
     const owned = save.treasureMines.mines[0]
@@ -1310,7 +1311,7 @@ describe('treasure sand fees', () => {
 
 describe('treasure jewel leftovers', () => {
   it('keeps bought runes and an old raid reinforce flag without spending jewels again', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const mine = ensureGarrison(save.treasureMines.mines[0])
     const lead = spawnWorker(save)
     const extra = spawnWorker(save)
@@ -1347,7 +1348,7 @@ describe('treasure jewel leftovers', () => {
 describe('treasure jade banner', () => {
   it('spends jade to upgrade, blocks a short pile, and blocks a full banner', () => {
     expect([...TREASURE_BANNER_COSTS]).toEqual([150, 300, 600, 1000, 1600])
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(bannerLevelOf(save)).toBe(0)
     for (let level = 0; level < TREASURE_BANNER_MAX; level += 1) {
       const cost = TREASURE_BANNER_COSTS[level]
@@ -1373,7 +1374,7 @@ describe('treasure jade banner', () => {
   })
 
   it('marks the banner ready only when jade covers the next level', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(bannerUpgradeReady(save)).toBe(false)
     save.treasureMines.vault.jade = 149
     expect(bannerUpgradeReady(save)).toBe(false)
@@ -1393,7 +1394,7 @@ describe('treasure jade banner', () => {
     expect(bannerReserveMax(0)).toBe(TREASURE_RESERVE_MAX)
     expect(bannerReserveMax(1)).toBe(1100)
     expect(bannerReserveMax(5)).toBe(1500)
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const standing = ensureGarrison(save.treasureMines.mines[0])
     const oldReserve = standing.reserve
     const oldMax = standing.reserveMax
@@ -1424,7 +1425,7 @@ describe('treasure jade banner', () => {
   })
 
   it('opens mining slots to 3, 4, then 5, while raids stay at 3', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(treasureCrewCap(save)).toBe(3)
     save.treasureMines.bannerLevel = 1
     expect(treasureCrewCap(save)).toBe(3)
@@ -1474,14 +1475,14 @@ describe('treasure jade banner', () => {
   })
 
   it('keeps a missing banner at 0 and round-trips level with the richer holes', () => {
-    const blank = createSave()
+    const blank = keepStationsOpen(createSave())
     delete (blank.treasureMines as { bannerLevel?: number }).bannerLevel
     const legacy = hydrateLoadedSave(JSON.parse(JSON.stringify(blank)))
     expect(legacy?.treasureMines.bannerLevel).toBe(0)
     expect(legacy ? treasureCrewCap(legacy) : -1).toBe(3)
     expect(legacy?.treasureMines.mines.every((mine) => mine.reserveMax === TREASURE_RESERVE_MAX)).toBe(true)
 
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const standing = save.treasureMines.mines[0]
     const standingMax = standing.reserveMax
     save.treasureMines.bannerLevel = 2
@@ -1544,7 +1545,7 @@ describe('treasure assault', () => {
     expect(assaultCrewCount(2 / 3 - 1e-9)).toBe(2)
     expect(assaultCrewCount(2 / 3)).toBe(3)
 
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const miner = spawnWorker(save)
     const mine = claimFirstEmpty(save, [miner.id])
     for (let i = 0; i < TREASURE_ASSAULT_INTERVAL_S - 1; i += 1) stepOnline(save)
@@ -1582,7 +1583,7 @@ describe('treasure assault', () => {
   })
 
   it('rolls one to three attackers in equal thirds', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const miner = spawnWorker(save)
     const mine = claimFirstEmpty(save, [miner.id])
     mine.assaultChargeS = TREASURE_ASSAULT_INTERVAL_S - 1
@@ -1592,7 +1593,7 @@ describe('treasure assault', () => {
   })
 
   it('does not assault while offline and restarts the clock on return', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const miner = spawnWorker(save)
     const mine = claimFirstEmpty(save, [miner.id])
     mine.assaultChargeS = TREASURE_ASSAULT_INTERVAL_S - 1
@@ -1623,7 +1624,7 @@ describe('treasure assault', () => {
   })
 
   it('opens the fight when the warning ends, with us defending on top', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.playerName = '旅人甲'
     const miner = spawnWorker(save)
     const mine = claimFirstEmpty(save, [miner.id])
@@ -1665,7 +1666,7 @@ describe('treasure assault', () => {
   })
 
   it('loots sand when the hole is held and lets survivors keep digging', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const miner = spawnWorker(save)
     const mine = claimFirstEmpty(save, [miner.id])
     const wardUntil = save.elapsedS + TREASURE_WARD_S
@@ -1697,7 +1698,7 @@ describe('treasure assault', () => {
   })
 
   it('gives the hole to the remaining shadows and sends our workers to the rest tail', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const miner = spawnWorker(save)
     const mine = claimFirstEmpty(save, [miner.id])
     const bystander = spawnWorker(save)
@@ -1753,7 +1754,7 @@ describe('treasure assault', () => {
   })
 
   it('does not spend jewels when fortify or trap cannot be bought', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const miner = spawnWorker(save)
     const mine = claimFirstEmpty(save, [miner.id])
     save.treasureMines.vault.jewel = TREASURE_FORTIFY_COST - 1
@@ -1771,7 +1772,7 @@ describe('treasure assault', () => {
   })
 
   it('fortifies defenders by 1.5 for every assault inside 30 minutes, including reinforcements', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const miner = spawnWorker(save)
     const extra = spawnWorker(save)
     const mine = claimFirstEmpty(save, [miner.id])
@@ -1825,7 +1826,7 @@ describe('treasure assault', () => {
     expect(trapOpeningHp(10, 10)).toBe(8)
     expect(trapOpeningHp(3, 3)).toBe(2)
     expect(trapOpeningHp(1, 1)).toBe(1)
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const miner = spawnWorker(save)
     const mine = claimFirstEmpty(save, [miner.id])
     save.treasureMines.vault.jewel = TREASURE_TRAP_COST + TREASURE_FORTIFY_COST
@@ -1845,7 +1846,7 @@ describe('treasure assault', () => {
   })
 
   it('resets a ward to a fresh 30 minutes instead of adding time', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const miner = spawnWorker(save)
     const mine = claimFirstEmpty(save, [miner.id])
     save.treasureMines.vault.jewel = TREASURE_TRAP_COST * 2
@@ -1864,7 +1865,7 @@ describe('treasure assault', () => {
   })
 
   it('clears both wards on withdraw, capture, and when the hole is replaced', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const miner = spawnWorker(save)
     const mine = claimFirstEmpty(save, [miner.id])
     save.treasureMines.vault.jewel = TREASURE_FORTIFY_COST + TREASURE_TRAP_COST
@@ -1885,7 +1886,7 @@ describe('treasure assault', () => {
   })
 
   it('leaves scouting and raids on other holes unchanged', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const miner = spawnWorker(save)
     const raider = spawnWorker(save)
     const mine = claimFirstEmpty(save, [miner.id])
@@ -1907,7 +1908,7 @@ describe('treasure assault', () => {
   })
 
   it('round-trips the warning, fortify, and incoming fight, and old saves do not arrive already under attack', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const miner = spawnWorker(save)
     const mine = claimFirstEmpty(save, [miner.id])
     mine.assaultChargeS = 42
@@ -1988,7 +1989,7 @@ function seedForCrystalSand(): number {
   throw new Error('没有合适的矿洞骰')
 }
 
-function prepareDigger(save = createSave()) {
+function prepareDigger(save = keepStationsOpen(createSave())) {
   const worker = spawnWorker(save)
   worker.level = 1
   worker.combatAttrs = []
@@ -2033,7 +2034,7 @@ describe('treasure ore veins and bounty', () => {
     expect(bountyButtonLabel(null)).toBe('悬赏')
     expect(bountyButtonLabel('iron')).toBe('悬赏·铁矿')
 
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.treasureMines.mines = []
     refreshTreasureMines(save, [0, 0, 0.5, 0, 0.85, 0, 0.1, 0])
     expect(save.treasureMines.mines.map((mine) => mine.vein)).toEqual(['copper', 'iron', 'mithril', 'copper'])
@@ -2074,7 +2075,7 @@ describe('treasure ore veins and bounty', () => {
   })
 
   it('lets shadows burn reserve without paying anyone', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const mine = ensureGarrison(save.treasureMines.mines[0])
     mine.vein = 'iron'
     mine.kind = null
@@ -2096,7 +2097,7 @@ describe('treasure ore veins and bounty', () => {
   })
 
   it('spends jewels for one bounty, keeps it through a reload, and refuses a second', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.treasureMines.vault.jewel = TREASURE_BOUNTY_COST.copper - 1
     expect(postTreasureBounty(save, 'copper')).toEqual({
       ok: false,
@@ -2126,7 +2127,7 @@ describe('treasure ore veins and bounty', () => {
   })
 
   it('makes the next spawned hole a bounty hole, including a paid refresh', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.knightLevel = 4
     save.treasureMines.bannerLevel = 2
     save.treasureMines.bounty = 'mithril'
@@ -2166,7 +2167,7 @@ describe('treasure ore veins and bounty', () => {
     expect(born.dugOre).toBe(2)
     expect(born.dugCrystal).toBe(1)
 
-    const crystal = createSave()
+    const crystal = keepStationsOpen(createSave())
     crystal.treasureMines.mines = []
     crystal.treasureMines.bounty = 'wildCrystal'
     refreshTreasureMines(crystal, [0.5, 0.1, 0.2, 0.3, 0.4])
@@ -2194,7 +2195,7 @@ describe('treasure ore veins and bounty', () => {
     expect(bankQty(crystal, 'wildCrystal')).toBe(2)
     expect(bankQty(crystal, 'ore')).toBe(1)
 
-    const board = createSave()
+    const board = keepStationsOpen(createSave())
     board.diamonds = 30
     board.treasureMines.vault.jewel = TREASURE_BOUNTY_COST.copper
     expect(postTreasureBounty(board, 'copper').ok).toBe(true)
@@ -2222,7 +2223,7 @@ describe('treasure ore veins and bounty', () => {
   })
 
   it('reads an old hole kind and finishes it on the old drop table', () => {
-    const raw = JSON.parse(JSON.stringify(createSave())) as Save
+    const raw = JSON.parse(JSON.stringify(keepStationsOpen(createSave()))) as Save
     const hole = raw.treasureMines.mines[0]
     hole.kind = 'jewel'
     delete (hole as { vein?: unknown }).vein

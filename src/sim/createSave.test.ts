@@ -94,10 +94,8 @@ describe('createSave six stations', () => {
     expect(save.encounters).toHaveLength(2)
     expect(save.encounters.every((enc) => enc.kind === 'enemy')).toBe(true)
     expect(save.marketEncounters).toHaveLength(2)
-    expect(save.marketEncounters[0].kind).toBe('pawn')
-    if (save.marketEncounters[0].kind === 'pawn') {
-      expect(save.marketEncounters[0].pawnWants).toEqual({ ore: 2 })
-    }
+    expect(save.marketEncounters.every((enc) => enc.kind !== 'enemy')).toBe(true)
+    expect(save.marketEncounters.some((enc) => enc.kind === 'pawn' && enc.label === '地精铜矿当')).toBe(false)
     expect(save.mainChapter).toBe(1)
     expect(save.mainLootClaims).toBe(0)
     expect(save.guideQuestStep).toBe(1)

@@ -1,4 +1,5 @@
 import { addToBank } from './bank'
+import { isModuleUnlocked } from './moduleUnlock'
 import { hashString, isCombatAttrId, matchingWeaknesses, pickEnemyWeaknesses, workerMatchesWeakness } from './combatAttrs'
 import { PLAYER_AVATAR_DEFAULT, PLAYER_AVATAR_IDS, type PlayerAvatarId } from './playerAvatarIds'
 import { ITEM_DEF } from './tables'
@@ -1026,6 +1027,7 @@ export function stepTreasureMines(save: Save, onDrop?: TreasureDropSink, opts?: 
 
 /** 在线才走。预警和战斗中不计时、不重判。 */
 function stepAssault(save: Save, mine: TreasureMine, rolls?: number[]): void {
+  if (!isModuleUnlocked(save, 'treasure')) return
   if (mine.owner !== 'player' || mine.crewIds.length === 0) return
   if (mine.raid) return
   if (mine.assaultWarnAtS != null) {

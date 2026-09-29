@@ -1,4 +1,5 @@
 import { syncKnightLevel } from './knightLevel'
+import { queueModuleUnlocks } from './moduleUnlock'
 import { stationXpMul } from './tech'
 import { pushMessage } from './messages'
 import {
@@ -253,6 +254,7 @@ export function grantStationLevel(save: Save, stationId: StationId): number {
         title: '酋长升级',
         body: `酋长等级升到 ${knight.to}，灵感 +${knight.gained}`,
       })
+      queueModuleUnlocks(save, knight.from, knight.to)
     }
     station.progressNotice = bits.join('，')
   }
@@ -288,6 +290,7 @@ export function grantStationXp(save: Save, stationId: StationId, xp: number): vo
       title: '酋长升级',
       body: `酋长等级升到 ${knight.to}，灵感 +${knight.gained}`,
     })
+    queueModuleUnlocks(save, knight.from, knight.to)
   }
   station.progressNotice = bits.join('，')
 }

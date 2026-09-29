@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { keepStationsOpen } from './stationUnlock'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { beginEnemyCombat } from './combat'
@@ -42,7 +43,7 @@ import type { EnemyEncounter, Save } from './types'
 import { hydrateLoadedSave } from '../ui/saveGame'
 
 function roster(n = 1): Save {
-  const save = createSave()
+  const save = keepStationsOpen(createSave())
   save.diamonds = 15 * n
   for (let i = 0; i < n; i++) expect(recruitWorker(save).ok).toBe(true)
   return save
@@ -86,7 +87,7 @@ describe('alchemy batch roll', () => {
       expect(range.min).toBeGreaterThan(0)
     }
     setRollOverride(() => 0)
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(alchemyStationLevel(save)).toBe(1)
     expect(rollAlchemyPotionBatch(save)).toEqual({
       itemId: 'salve',
@@ -114,7 +115,7 @@ describe('alchemy batch roll', () => {
     expect(unlockedPotionIds(undefined)).toEqual(['salve'])
     expect(unlockedPotionIds(Number.NaN)).toEqual(['salve'])
 
-    const missing = createSave()
+    const missing = keepStationsOpen(createSave())
     delete (missing.stations.alchemy as { stationLevel?: number }).stationLevel
     expect(alchemyStationLevel(missing)).toBe(1)
     expect(alchemyStationLevel(null)).toBe(1)
@@ -127,7 +128,7 @@ describe('alchemy batch roll', () => {
   })
 
   it('rolls only salve at level 1 and evenly inside a wider pool', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.stations.alchemy.stationLevel = 1
     for (const roll of [0, 0.5, 0.99]) {
       setRollOverride(() => roll)
@@ -415,7 +416,7 @@ describe('potion slot on-duty targeting', () => {
 describe('hydrate potions', () => {
   it('moves old generic potion stock and encounter needs to salve, and drops enrage fields', () => {
     const raw = {
-      ...createSave(),
+      ...keepStationsOpen(createSave()),
       bank: { potion: 5, herb: 2 },
       encounters: [
         {
@@ -434,9 +435,9 @@ describe('hydrate potions', () => {
         },
       ],
       stations: {
-        ...createSave().stations,
+        ...keepStationsOpen(createSave()).stations,
         mining: {
-          ...createSave().stations.mining,
+          ...keepStationsOpen(createSave()).stations.mining,
           enrageUntil: 99,
           enrageReadyAt: 199,
         },
@@ -453,7 +454,7 @@ describe('hydrate potions', () => {
 
   it('maps leftover potion consume on the market board to salve', () => {
     const save = hydrateLoadedSave({
-      ...createSave(),
+      ...keepStationsOpen(createSave()),
       marketEncounters: [
         {
           kind: 'passerby',
@@ -472,7 +473,7 @@ describe('hydrate potions', () => {
 
   it('clears leftover warDrum slots and drops leftover warDrum stock', () => {
     const save = hydrateLoadedSave({
-      ...createSave(),
+      ...keepStationsOpen(createSave()),
       bank: { salve: 2, warDrum: 3 },
       potionSlots: ['warDrum', 'salve', null, null],
       potionBuffs: { warDrumUntil: 999 },
@@ -483,7 +484,7 @@ describe('hydrate potions', () => {
   })
 
   it('keeps timed buffs that still have sim time left', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.elapsedS = 40
     save.potionBuffs.stimUntil = 80
     hydratePotionState(save, {
@@ -498,7 +499,7 @@ describe('hydrate potions', () => {
 
   it('maps focusDraft and wardElixir stock, slots, and orders onto the new potions', () => {
     const save = hydrateLoadedSave({
-      ...createSave(),
+      ...keepStationsOpen(createSave()),
       bank: { focusDraft: 4, wardElixir: 2, doubleMist: 1, salve: 3 },
       potionSlots: ['focusDraft', 'wardElixir', null, null],
       potionBuffs: { stimUntil: 80, wardUntil: 200, focusUntil: 90, focusConsumed: ['herbalism'] },

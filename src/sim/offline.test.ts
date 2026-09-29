@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { keepStationsOpen } from './stationUnlock'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
@@ -19,7 +20,7 @@ afterEach(() => {
 })
 
 function roster(n: number): Save {
-  const save = createSave()
+  const save = keepStationsOpen(createSave())
   save.diamonds = 15 * n
   for (let i = 0; i < n; i++) {
     const result = recruitWorker(save)
@@ -123,7 +124,7 @@ describe('settleOffline', () => {
   })
 
   it('returns an empty summary when already caught up', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const now = save.lastTick
     const result = settleOffline(save, now)
     expect(result.summary.seconds).toBe(0)
@@ -145,9 +146,9 @@ describe('settleOffline', () => {
   })
 
   it('includes gold change in summary lines when gold moved', () => {
-    const before = createSave()
+    const before = keepStationsOpen(createSave())
     before.gold = 20
-    const after = createSave()
+    const after = keepStationsOpen(createSave())
     after.gold = 32
     const summary = buildOfflineSummary(before, after, 90, false)
     expect(summary.goldDelta).toBe(12)

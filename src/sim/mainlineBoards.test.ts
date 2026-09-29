@@ -36,6 +36,15 @@ describe('mainline battlefield / market boards', () => {
     expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MIN)
     expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MIN)
     expect(save.encounters.every((enc) => enc.kind === 'enemy')).toBe(true)
+    expect(isStarterCopperPawn(save.marketEncounters[0])).toBe(false)
+    save.knightLevel = 16
+    save.marketEncounters = generateEncounterBoard(17, marketSlotCount(save), {
+      rng: save,
+      mainChapter: save.mainChapter,
+      board: 'market',
+      starterCopperPawn: true,
+      save,
+    })
     expect(isStarterCopperPawn(save.marketEncounters[0])).toBe(true)
     expect(save.marketEncounters[0]).toMatchObject(makeStarterCopperPawn(17, 0))
   })

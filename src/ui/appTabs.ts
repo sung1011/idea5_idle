@@ -8,7 +8,7 @@ export const APP_TABS = [
 export type AppTabId = (typeof APP_TABS)[number]['id']
 
 export const APP_TAB_KEY = 'idea5IdleAppTab'
-export const DEFAULT_APP_TAB: AppTabId = 'encounters'
+export const DEFAULT_APP_TAB: AppTabId = 'workshop'
 const LEGACY_APP_TAB: Record<string, AppTabId> = { workers: 'workshop', workersV2: 'workshop' }
 
 function storageOf(storage?: Storage | null): Storage | null {

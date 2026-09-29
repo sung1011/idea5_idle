@@ -204,7 +204,7 @@ describe('workshop full hp gate', () => {
     const idle = spawnWorker(save)
     save.stations.herbalism.closed = true
     save.stations.alchemy.closed = true
-    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '酋长 5 级开放狩猎' })
+    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '酋长 6 级开放狩猎' })
     expect(assignWorker(save, idle.id, 'herbalism')).toEqual({ ok: true })
     expect(withdrawWorker(save, 'herbalism')).toEqual({ ok: true })
     save.stations.herbalism.closed = false

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { keepStationsOpen } from './stationUnlock'
 import { assignWorker, withdrawWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
@@ -17,7 +18,7 @@ function eatNoticesFor(workerId: string) {
 }
 
 function roster(n: number): Save {
-  const save = createSave()
+  const save = keepStationsOpen(createSave())
   save.diamonds = 15 * n
   for (let i = 0; i < n; i++) expect(recruitWorker(save).ok).toBe(true)
   return save
@@ -70,7 +71,7 @@ describe('cooking recipes', () => {
 
 describe('rest area shared food', () => {
   it('selects a cooked food and can clear it', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(save.restFoodId).toBeNull()
     expect(selectRestFood(save, 'roast')).toEqual({ ok: true })
     expect(save.restFoodId).toBe('roast')

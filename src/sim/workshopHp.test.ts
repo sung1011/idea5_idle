@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { keepStationsOpen } from './stationUnlock'
 import { assignWorker } from './assign'
 import { applyRestHeal, REST_HEAL_EVERY_S } from './combat'
 import { createSave } from './createSave'
@@ -36,7 +37,7 @@ afterEach(() => {
 })
 
 function roster(n: number): Save {
-  const save = createSave()
+  const save = keepStationsOpen(createSave())
   save.diamonds = 15 * n
   for (let i = 0; i < n; i++) expect(recruitWorker(save).ok).toBe(true)
   return save
@@ -154,7 +155,7 @@ describe('workshop HP formulas', () => {
   })
 
   it('uses the worse assigned HP mul on a station card', () => {
-    expect(stationHpWorkMul(createSave(), 'mining')).toBe(1)
+    expect(stationHpWorkMul(keepStationsOpen(createSave()), 'mining')).toBe(1)
     const save = roster(2)
     assignWorker(save, save.workers[0].id, 'mining')
     expect(assignWorker(save, save.workers[1].id, 'mining').ok).toBe(false)

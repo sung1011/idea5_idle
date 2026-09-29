@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { keepStationsOpen } from './stationUnlock'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
@@ -17,7 +18,7 @@ import { ticks } from './tick'
 import type { Save } from './types'
 
 function roster(n: number): Save {
-  const save = createSave()
+  const save = keepStationsOpen(createSave())
   save.diamonds = 15 * n
   for (let i = 0; i < n; i++) {
     expect(recruitWorker(save).ok).toBe(true)
@@ -70,7 +71,7 @@ describe('station XP / level', () => {
   })
 
   it('reaches Lv5 after 50 copper-cycle XP', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     grantStationXp(save, 'mining', xpToReachLevel(5))
     expect(save.stations.mining.stationLevel).toBe(5)
     expect(save.stations.mining.stationXp).toBe(0)
@@ -78,7 +79,7 @@ describe('station XP / level', () => {
   })
 
   it('unlocks the second mining category at Lv5', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(save.stations.mining.unlockedCategories).toEqual(['copper'])
     unlockTo(save, 'mining', 5)
     expect(save.stations.mining.stationLevel).toBe(5)
@@ -87,7 +88,7 @@ describe('station XP / level', () => {
   })
 
   it('unlocks the third mining category at Lv10', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     unlockTo(save, 'mining', 10)
     expect(save.stations.mining.unlockedCategories).toEqual(['copper', 'iron', 'mithril'])
     expect(save.stations.mining.progressNotice).toContain('秘银矿')
@@ -96,7 +97,7 @@ describe('station XP / level', () => {
 
 describe('selectStationCategory', () => {
   it('rejects a locked category and keeps the current one', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const result = selectStationCategory(save, 'mining', 'iron')
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.reason).toContain('Lv5')
@@ -104,7 +105,7 @@ describe('selectStationCategory', () => {
   })
 
   it('selects an unlocked category', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     unlockTo(save, 'mining', 5)
     const result = selectStationCategory(save, 'mining', 'iron')
     expect(result.ok).toBe(true)
@@ -114,7 +115,7 @@ describe('selectStationCategory', () => {
 
 describe('categoryPickOptions', () => {
   it('lists unlocked plus only the next locked category', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const lv1 = categoryPickOptions(save, 'mining')
     expect(lv1.map((c) => c.id)).toEqual(['copper', 'iron'])
     expect(lv1.find((c) => c.id === 'copper')?.unlocked).toBe(true)
@@ -134,14 +135,14 @@ describe('categoryPickOptions', () => {
   })
 
   it('hides the picker list for single-category stations', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(categoryPickOptions(save, 'herbalism')).toEqual([
       { id: 'default', label: '草', unlocked: true, unlockLevel: 1 },
     ])
   })
 
   it('lists cooking recipes: roast unlocked at start, stew locked until Lv5', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const lv1 = categoryPickOptions(save, 'cooking')
     expect(lv1.map((c) => c.label)).toEqual(['烤鱼', '烤肉', '香料炖'])
     expect(lv1.filter((c) => c.unlocked).map((c) => c.id)).toEqual(['copper', 'iron'])
@@ -155,7 +156,7 @@ describe('categoryPickOptions', () => {
   })
 
   it('lists hunting prey like mining categories', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(categoryPickOptions(save, 'hunting').map((c) => c.label)).toEqual(['野猪', '狼'])
     unlockTo(save, 'hunting', 5)
     expect(categoryPickOptions(save, 'hunting').filter((c) => c.unlocked).map((c) => c.id)).toEqual([

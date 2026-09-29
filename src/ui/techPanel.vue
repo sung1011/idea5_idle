@@ -19,6 +19,7 @@ import { useGameStore } from './gameStore'
 import { hudChipAmount, hudChipDetail } from './hudResource'
 import HudResourceSheet from './hudResourceSheet.vue'
 import { selectTechTab, techTab } from './techTabs'
+import { isGuideQuestFlash } from '../sim/guideQuest'
 
 const game = useGameStore()
 const selected = ref<TechNodeDef | null>(null)
@@ -54,8 +55,9 @@ function progress(id: TechId) {
 }
 
 function nodeClass(node: TechNodeDef) {
-  if (maxed(node.id)) return 'on'
-  if (isRowOpen(game.save, node.tab, node.row)) return 'ready'
+  const flash = isGuideQuestFlash(game.save, 'tech') && isRowOpen(game.save, node.tab, node.row) && !maxed(node.id)
+  if (maxed(node.id)) return flash ? 'on guide-flash' : 'on'
+  if (isRowOpen(game.save, node.tab, node.row)) return flash ? 'ready guide-flash' : 'ready'
   return 'off'
 }
 

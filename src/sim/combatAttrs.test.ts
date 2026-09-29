@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { keepStationsOpen } from './stationUnlock'
 import {
   COMBAT_ATTR_IDS,
   COMBAT_ATTR_LABEL,
@@ -73,18 +74,18 @@ describe('distinct attr roll', () => {
     const white = hydrateWorker({ id: 'w-white', qualityTier: 1 })
     expect(white.combatAttrs).toEqual([])
 
-    const green = spawnWorkerWith(createSave(), 2, 'miner')
+    const green = spawnWorkerWith(keepStationsOpen(createSave()), 2, 'miner')
     expect(green.combatAttrs).toHaveLength(1)
     expect(uniqueCombatAttrs(green.combatAttrs)).toEqual(green.combatAttrs)
 
-    const purple = spawnWorkerWith(createSave(), 5, 'cook')
+    const purple = spawnWorkerWith(keepStationsOpen(createSave()), 5, 'cook')
     expect(purple.combatAttrs).toHaveLength(2)
     expect(new Set(purple.combatAttrs).size).toBe(2)
     expect(purple.combatAttrs.every((id) => COMBAT_ATTR_IDS.includes(id))).toBe(true)
   })
 
   it('keeps existing attrs on fuse / quality up and only rolls newly unlocked empty slots', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const a = spawnWorkerWith(save, 4, 'hunter', ['fire'])
     const b = spawnWorkerWith(save, 4, 'hunter', ['ice'])
     expect(a.combatAttrs).toEqual(['fire'])
@@ -150,7 +151,7 @@ describe('reveal and later start', () => {
   })
 
   it('keeps revealedWeaknesses when restarting the same order', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     worker.combatAttrs = ['fire']
     const enc = testEnemy({
@@ -183,7 +184,7 @@ describe('reveal and later start', () => {
   })
 
   it('keeps panel weakness slots aligned with combat before fight, after start, and on later start', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorkerWith(save, 2, 'hunter', ['fire'])
     const enc = testEnemy({
       id: 'hillBrigand-orange-11-0',
@@ -249,7 +250,7 @@ describe('damage multiplier per acting worker', () => {
     expect(resolveWorkerAttack(enc, ['fire'], 10)).toMatchObject({ mul: 1.2, damage: 12 })
     expect(resolveWorkerAttack(enc, ['fire', 'ice'], 10)).toMatchObject({ mul: 1.5, damage: 15 })
 
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const a = spawnWorkerWith(save, 2, 'miner', ['fire'])
     const b = spawnWorkerWith(save, 2, 'miner', ['ice'])
     a.name = '甲'
@@ -294,7 +295,7 @@ describe('weakness crit float copy', () => {
   })
 
   it('writes a two-hit strike log as 枪 火 暴击 ×1.5 without changing the mul', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorkerWith(save, 5, 'artisan', ['polearm', 'fire'])
     worker.name = '甲'
     const enc = testEnemy({ weaknesses: ['polearm', 'fire'] })

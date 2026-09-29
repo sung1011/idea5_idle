@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { keepStationsOpen } from './stationUnlock'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
@@ -14,7 +15,7 @@ afterEach(() => {
 })
 
 function roster(n: number): Save {
-  const save = createSave()
+  const save = keepStationsOpen(createSave())
   save.diamonds = 15 * n
   for (let i = 0; i < n; i++) {
     const result = recruitWorker(save)

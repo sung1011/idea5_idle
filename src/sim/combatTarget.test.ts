@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { keepStationsOpen } from './stationUnlock'
 import { beginEnemyCombat } from './combat'
 import {
   applyEnemyTargetRule,
@@ -50,7 +51,7 @@ function testEnemy(overrides: Partial<EnemyEncounter> = {}): EnemyEncounter {
 }
 
 function partySave(): { save: Save; front: ReturnType<typeof spawnWorkerWith>; shop: ReturnType<typeof spawnWorkerWith>; rest: ReturnType<typeof spawnWorkerWith> } {
-  const save = createSave()
+  const save = keepStationsOpen(createSave())
   const front = spawnWorkerWith(save, 1, 'laborer')
   const shop = spawnWorkerWith(save, 1, 'miner')
   const rest = spawnWorkerWith(save, 1, 'wanderer')
@@ -91,7 +92,7 @@ describe('enemy target rule tables', () => {
     const orangeElite = enemyTargetRuleWeights('elite', 'orange')
     expect(elite.all).toBeUndefined()
     expect(orangeElite.all).toBe(1)
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const pinned = testEnemy({ targetRuleId: 'highestHp', enemyRank: 'boss' })
     expect(drawEnemyTargetRule(save, pinned)).toBe('highestHp')
     const rolls: EnemyEncounter['quality'][] = []

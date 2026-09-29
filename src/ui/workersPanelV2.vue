@@ -35,6 +35,7 @@ import {
   guideFuseFlashStations,
   isGuideQuestFlash,
 } from '../sim/guideQuest'
+import { isModuleUnlocked, moduleLockedTip } from '../sim/moduleUnlock'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { pushFloatTip } from './floatTips'
 import { potionEffectRemainRatio, potionEmptyAcquireTip, potionQtyRestocked } from './potionHotbar'
@@ -144,6 +145,16 @@ const foodHelpBubble = computed(() => {
   if (!id) return null
   return foodHelpCopy(id, bankQty(game.save, id))
 })
+
+const foodLocked = computed(() => !isModuleUnlocked(game.save, 'restFood'))
+
+function onFoodBand() {
+  if (foodLocked.value) {
+    pushFloatTip(moduleLockedTip('restFood'), 'err')
+    return
+  }
+  restFoodOpen.value = true
+}
 
 function onPickRestFood(itemId: FoodItemId | null) {
   closeFoodHelp()
@@ -750,6 +761,7 @@ onUnmounted(() => {
                 isItemSourceStationFlash(board.stationId) ||
                 (guideFlashAutoHerb && board.stationId === 'herbalism') ||
                 (alchemyCardFlash && board.stationId === 'alchemy') ||
+                (isGuideQuestFlash(game.save, 'mining') && board.stationId === 'mining') ||
                 fuseStations.includes(board.stationId),
             }"
             @click="onStationCardClick($event, board.stationId)"
@@ -1036,9 +1048,9 @@ onUnmounted(() => {
       <button
         type="button"
         class="band-tile band-food"
-        :class="{ low: foodBand.low, 'guide-flash': guideFlashRestFood }"
-        :aria-label="`营地伙食 · ${restFoodLabel}`"
-        @click="restFoodOpen = true"
+        :class="{ low: foodBand.low, 'guide-flash': guideFlashRestFood, locked: foodLocked }"
+        :aria-label="foodLocked ? '营地伙食未开放' : `营地伙食 · ${restFoodLabel}`"
+        @click="onFoodBand"
       >
         <FoodIcon v-if="foodBand.itemId" :name="foodBand.itemId" />
         <svg v-else class="tile-ico" viewBox="0 0 16 16" aria-hidden="true">
@@ -3019,6 +3031,11 @@ onUnmounted(() => {
   background: #f6f4f0;
   color: #6d665c;
   box-shadow: none;
+}
+
+.band-food.locked {
+  filter: grayscale(1);
+  opacity: 0.55;
 }
 
 .band-tile .cap {

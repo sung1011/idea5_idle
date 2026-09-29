@@ -26,33 +26,31 @@ describe('stationUnlock by knight level', () => {
     expect(isStationUnlocked(save, 'alchemy')).toBe(true)
     expect(isStationUnlocked(save, 'hunting')).toBe(false)
     expect(isStationUnlocked(save, 'inscription')).toBe(false)
-    expect(stationLockedTip('hunting')).toBe('酋长 5 级开放狩猎')
+    expect(stationLockedTip('hunting')).toBe('酋长 6 级开放狩猎')
     expect(stationUnlockKnightLevel('alchemy')).toBe(1)
-    expect(stationUnlockKnightLevel('inscription')).toBe(10)
+    expect(stationUnlockKnightLevel('inscription')).toBe(18)
     expect(STATION_UNLOCK_KNIGHT).toEqual({
       herbalism: 1,
       alchemy: 1,
-      hunting: 5,
-      cooking: 6,
-      mining: 9,
-      inscription: 10,
+      hunting: 6,
+      cooking: 8,
+      mining: 16,
+      inscription: 18,
     })
-    expect(STATION_UNLOCK_KNIGHT_MAX).toBe(10)
+    expect(STATION_UNLOCK_KNIGHT_MAX).toBe(18)
   })
 
   it('unlocks later stations as knight level rises', () => {
     const save = createSave()
     save.knightLevel = 2
     expect(unlockedStationIds(save)).toEqual(['herbalism', 'alchemy'])
-    save.knightLevel = 5
-    expect(unlockedStationIds(save)).toEqual(['herbalism', 'alchemy', 'hunting'])
     save.knightLevel = 6
-    expect(unlockedStationIds(save)).toEqual(['herbalism', 'alchemy', 'hunting', 'cooking'])
+    expect(unlockedStationIds(save)).toEqual(['herbalism', 'alchemy', 'hunting'])
     save.knightLevel = 8
     expect(unlockedStationIds(save)).toEqual(['herbalism', 'alchemy', 'hunting', 'cooking'])
-    save.knightLevel = 9
+    save.knightLevel = 16
     expect(unlockedStationIds(save)).toEqual(['herbalism', 'alchemy', 'hunting', 'cooking', 'mining'])
-    save.knightLevel = 10
+    save.knightLevel = 18
     expect(unlockedStationIds(save)).toEqual([...PLAYABLE_STATION_IDS])
     unlockPlayableStations(save)
     expect(knightLevelOf(save)).toBe(STATION_UNLOCK_KNIGHT_MAX)
@@ -62,12 +60,12 @@ describe('stationUnlock by knight level', () => {
   it('tips the next locked station in a workshop group', () => {
     const save = createSave()
     expect(nextLockedStation(save, ['hunting', 'cooking'])).toBe('hunting')
-    expect(workshopGroupLockedTip(save, ['hunting', 'cooking'])).toBe('酋长 5 级开放狩猎')
-    expect(workshopGroupLockedTip(save, ['mining', 'inscription'])).toBe('酋长 9 级开放采矿')
-    save.knightLevel = 9
-    expect(workshopGroupLockedTip(save, ['mining', 'inscription'])).toBe('酋长 10 级开放铭刻')
-    save.knightLevel = 5
-    expect(workshopGroupLockedTip(save, ['hunting', 'cooking'])).toBe('酋长 6 级开放烹饪')
+    expect(workshopGroupLockedTip(save, ['hunting', 'cooking'])).toBe('酋长 6 级开放狩猎')
+    expect(workshopGroupLockedTip(save, ['mining', 'inscription'])).toBe('酋长 16 级开放采矿')
+    save.knightLevel = 16
+    expect(workshopGroupLockedTip(save, ['mining', 'inscription'])).toBe('酋长 18 级开放铭刻')
+    save.knightLevel = 6
+    expect(workshopGroupLockedTip(save, ['hunting', 'cooking'])).toBe('酋长 8 级开放烹饪')
     expect(workshopGroupLockedTip(save, ['herbalism', 'alchemy'])).toBeNull()
   })
 
@@ -77,27 +75,31 @@ describe('stationUnlock by knight level', () => {
     spawnWorker(save)
     expect(assignIdleWorker(save, 'mining')).toEqual({
       ok: false,
-      reason: '酋长 9 级开放采矿',
+      reason: '酋长 16 级开放采矿',
     })
     expect(save.workers[0].assignment).toBeNull()
-    expect(assignIdleWorker(save, 'hunting')).toEqual({ ok: false, reason: '酋长 5 级开放狩猎' })
+    expect(assignIdleWorker(save, 'hunting')).toEqual({ ok: false, reason: '酋长 6 级开放狩猎' })
     expect(assignIdleWorker(save, 'alchemy').ok).toBe(true)
     expect(save.workers[0].assignment).toBe('alchemy')
 
     expect(assignIdleWorker(save, 'herbalism').ok).toBe(true)
     expect(save.workers[1].assignment).toBe('herbalism')
-    expect(assignWorker(save, save.workers[1].id, 'mining').ok).toBe(true)
+    expect(assignWorker(save, save.workers[1].id, 'mining')).toEqual({
+      ok: false,
+      reason: '酋长 16 级开放采矿',
+    })
+    expect(save.workers[1].assignment).toBe('herbalism')
     expect(assignWorker(save, save.workers[1].id, null).ok).toBe(true)
   })
 
   it('hydrates old saves by current knight level without stripping bank', () => {
     const raw = createSave()
-    raw.stations.herbalism.stationLevel = 5
-    raw.knightLevel = 5
+    raw.stations.herbalism.stationLevel = 6
+    raw.knightLevel = 6
     raw.bank = { ore: 12, stim: 3 }
     raw.workers = []
     const loaded = hydrateLoadedSave(raw)
-    expect(loaded?.knightLevel).toBe(5)
+    expect(loaded?.knightLevel).toBe(6)
     expect(loaded?.bank.ore).toBe(12)
     expect(loaded?.bank.stim).toBe(3)
     expect(isStationUnlocked(loaded!, 'hunting')).toBe(true)

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { keepStationsOpen } from './stationUnlock'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
@@ -61,7 +62,7 @@ describe('worker quality table', () => {
 
 describe('recruitWorker', () => {
   it('spends diamonds not gold, and rejects when diamonds are short', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const gold0 = save.gold
     const diamonds0 = save.diamonds
     expect(diamonds0).toBe(START_DIAMONDS)
@@ -78,7 +79,7 @@ describe('recruitWorker', () => {
   })
 
   it('marks the new recruit isNew, and clears it on assign or clearWorkerNew', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(recruitWorker(save).ok).toBe(true)
     const worker = save.workers[0]
     expect(worker.isNew).toBe(true)
@@ -99,7 +100,7 @@ describe('recruitWorker', () => {
 
 describe('spawn / hydrate quality', () => {
   it('recruits at the lowest tier', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     expect(worker.qualityTier).toBe(QUALITY_MIN)
     expect(worker.classId).toBe('laborer')
@@ -161,7 +162,7 @@ describe('spawn / hydrate quality', () => {
 
 describe('fuseWorkers', () => {
   it('consumes two same-tier workers and yields one higher tier', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const a = spawnWorker(save)
     const b = spawnWorker(save)
     expect(assignWorker(save, a.id, 'mining').ok).toBe(true)
@@ -179,7 +180,7 @@ describe('fuseWorkers', () => {
   })
 
   it('can roll a class neither parent had', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const a = spawnWorker(save)
     const b = spawnWorker(save)
     a.classId = 'laborer'
@@ -193,7 +194,7 @@ describe('fuseWorkers', () => {
   })
 
   it('returns leftover food to the bank; new worker stays assigned', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const a = spawnWorker(save)
     const b = spawnWorker(save)
     save.bank.meal = 2
@@ -208,7 +209,7 @@ describe('fuseWorkers', () => {
   })
 
   it('rejects missing, same, mixed-tier, and max-tier pairs', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const a = spawnWorker(save)
     const b = spawnWorker(save)
     expect(fuseWorkers(save, a.id, a.id)).toEqual({ ok: false, reason: '不能合成同一个人' })

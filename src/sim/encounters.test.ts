@@ -54,6 +54,7 @@ import {
   exploreCost,
   generateEncounterBoard,
   isExploreProtected,
+  isStarterCopperPawn,
   hydrateEncounterFields,
   makeStarterCopperPawn,
   STARTER_PAWN_ITEM_ID,
@@ -253,12 +254,20 @@ function needSnapshot(save: Save, map: EncounterNeedMap): Record<ItemId, number>
 }
 
 describe('encounter board', () => {
-  it('new save starts with a green copper pawn wanting ore ×2', () => {
+  it('new save skips the copper pawn until mining is open', () => {
     expect(ITEM_DEF[STARTER_PAWN_ITEM_ID].label).toBe('铜矿')
     const save = createSave()
     expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MIN)
     expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MIN)
-    const enc = save.marketEncounters[0]
+    expect(isStarterCopperPawn(save.marketEncounters[0])).toBe(false)
+    const open = createSave()
+    open.knightLevel = 16
+    const board = generateEncounterBoard(17, MARKET_SLOT_MIN, {
+      starterCopperPawn: true,
+      board: 'market',
+      save: open,
+    })
+    const enc = board[0]
     expect(enc.kind).toBe('pawn')
     if (enc.kind !== 'pawn') return
     expect(enc.label).toBe(STARTER_PAWN_LABEL)
@@ -271,8 +280,12 @@ describe('encounter board', () => {
     expect(isExploreProtected(enc)).toBe(false)
   })
 
-  it('puts the starter copper pawn on slot 0 and fills the rest', () => {
-    const board = generateEncounterBoard(3, 3, { starterCopperPawn: true })
+  it('puts the starter copper pawn on slot 0 only after mining opens', () => {
+    const locked = generateEncounterBoard(3, 3, { starterCopperPawn: true, board: 'market' })
+    expect(isStarterCopperPawn(locked[0])).toBe(false)
+    const open = createSave()
+    open.knightLevel = 16
+    const board = generateEncounterBoard(3, 3, { starterCopperPawn: true, board: 'market', save: open })
     expect(board).toHaveLength(3)
     expect(board[0]).toEqual(makeStarterCopperPawn(3, 0))
     expect(board[0].kind).toBe('pawn')
@@ -475,7 +488,8 @@ describe('unlock-gated main need pool', () => {
       'brinkSalve',
       ANY_POTION_ITEM_ID,
     ])
-    expect(mainNeedItemPool({ knightLevel: 5 })).toEqual([
+    expect(mainNeedItemPool({ knightLevel: 5 })).toEqual(['herb', 'spice', 'salve', ANY_POTION_ITEM_ID])
+    expect(mainNeedItemPool({ knightLevel: 6 })).toEqual([
       'herb',
       'spice',
       'salve',
@@ -487,22 +501,21 @@ describe('unlock-gated main need pool', () => {
       'eye',
       'junk',
     ])
-    expect(mainNeedItemPool({ knightLevel: 5 })).not.toContain('meal')
-    expect(mainNeedItemPool({ knightLevel: 6 })).toContain('meal')
-    expect(mainNeedItemPool({ knightLevel: 6 })).toContain('roast')
-    expect(mainNeedItemPool({ knightLevel: 6 })).toContain('stew')
-    expect(mainNeedItemPool({ knightLevel: 6 })).not.toContain('ore')
+    expect(mainNeedItemPool({ knightLevel: 6 })).not.toContain('meal')
     expect(mainNeedItemPool({ knightLevel: 8 })).toContain('meal')
+    expect(mainNeedItemPool({ knightLevel: 8 })).toContain('roast')
+    expect(mainNeedItemPool({ knightLevel: 8 })).toContain('stew')
     expect(mainNeedItemPool({ knightLevel: 8 })).not.toContain('ore')
-    expect(mainNeedItemPool({ knightLevel: 9 })).toContain('ore')
-    expect(mainNeedItemPool({ knightLevel: 9 })).toContain('ironOre')
-    expect(mainNeedItemPool({ knightLevel: 9 })).toContain('mithrilOre')
-    expect(mainNeedItemPool({ knightLevel: 9 })).not.toContain('runeSharp')
-    expect(mainNeedItemPool({ knightLevel: 10 })).toContain('runeSharp')
-    expect(mainNeedItemPool({ knightLevel: 10 })).toContain(ANY_RUNE_ITEM_ID)
+    expect(mainNeedItemPool({ knightLevel: 15 })).not.toContain('ore')
+    expect(mainNeedItemPool({ knightLevel: 16 })).toContain('ore')
+    expect(mainNeedItemPool({ knightLevel: 16 })).toContain('ironOre')
+    expect(mainNeedItemPool({ knightLevel: 16 })).toContain('mithrilOre')
+    expect(mainNeedItemPool({ knightLevel: 16 })).not.toContain('runeSharp')
+    expect(mainNeedItemPool({ knightLevel: 18 })).toContain('runeSharp')
+    expect(mainNeedItemPool({ knightLevel: 18 })).toContain(ANY_RUNE_ITEM_ID)
     expect(mainNeedItemPool()).toEqual(['herb', 'spice', 'salve', ANY_POTION_ITEM_ID])
     expect(MAIN_NEED_ITEM_POOL).toEqual(
-      mainNeedItemPool({ knightLevel: 10, stations: { alchemy: { stationLevel: 7 } } }),
+      mainNeedItemPool({ knightLevel: 18, stations: { alchemy: { stationLevel: 7 } } }),
     )
     expect(MAIN_NEED_ITEM_POOL).toEqual(
       expect.arrayContaining([...unlockedPotionIds(7), ANY_POTION_ITEM_ID]),
@@ -543,7 +556,7 @@ describe('unlock-gated main need pool', () => {
     })
     expect(isPotionItemId(potionResolved) || potionResolved === ANY_POTION_ITEM_ID).toBe(true)
     const runeResolved = resolveUnlockedMainNeedItem('tool', 'green', 1, false, undefined, 0, {
-      knightLevel: 10,
+      knightLevel: 18,
     })
     expect(isRuneItemId(runeResolved) || runeResolved === ANY_RUNE_ITEM_ID).toBe(true)
     expect(
@@ -557,7 +570,7 @@ describe('unlock-gated main need pool', () => {
     })
     expect(mainNeedItemPool({ knightLevel: 1 })).toContain(lockedReroll)
     expect(lockedReroll).not.toBe('doubleMist')
-    expect(resolveUnlockedMainNeedItem('meal', 'green', 1, false, undefined, 0, { knightLevel: 6 })).toBe('meal')
+    expect(resolveUnlockedMainNeedItem('meal', 'green', 1, false, undefined, 0, { knightLevel: 8 })).toBe('meal')
     const mealFallback = resolveUnlockedMainNeedItem('meal', 'green', 1, false, undefined, 3, { knightLevel: 1 })
     expect(mealFallback).not.toBe('meal')
     expect(mainNeedItemPool({ knightLevel: 1 })).toContain(mealFallback)
@@ -567,10 +580,7 @@ describe('unlock-gated main need pool', () => {
     const save = createSave()
     expect(save.knightLevel).toBe(1)
     expect(save.mainChapter).toBe(1)
-    expect(save.marketEncounters[0].kind).toBe('pawn')
-    if (save.marketEncounters[0].kind === 'pawn') {
-      expect(save.marketEncounters[0].pawnWants).toEqual({ ore: 2 })
-    }
+    expect(isStarterCopperPawn(save.marketEncounters[0])).toBe(false)
     for (const enc of save.encounters) {
       expect(enc.kind).toBe('enemy')
       if (enc.kind !== 'enemy') continue
@@ -594,7 +604,7 @@ describe('unlock-gated main need pool', () => {
     }
 
     const openSave = createSave()
-    openSave.knightLevel = 10
+    openSave.knightLevel = 18
     let sawTool = false
     let sawPotion = false
     for (let seed = 0; seed < 60; seed++) {
@@ -663,7 +673,7 @@ describe('main need wildcards', () => {
       knightLevel: 2,
       stations: { alchemy: { stationLevel: 7 } },
     })
-    const fullPool = mainNeedItemPool({ knightLevel: 10 })
+    const fullPool = mainNeedItemPool({ knightLevel: 18 })
     expect(applyMainNeedWildcard('salve', alchemyPool, 0)).toBe(ANY_POTION_ITEM_ID)
     expect(applyMainNeedWildcard('salve', alchemyPool, 0.4)).toBe('salve')
     expect(applyMainNeedWildcard('runeSharp', fullPool, 0)).toBe(ANY_RUNE_ITEM_ID)
@@ -676,8 +686,8 @@ describe('main need wildcards', () => {
   it('includes potion wildcards at knight 1 and rune wildcards only after inscription', () => {
     expect(isAllowedMainNeedKind(ANY_POTION_ITEM_ID, mainNeedItemPool({ knightLevel: 1 }))).toBe(true)
     expect(isAllowedMainNeedKind(ANY_POTION_ITEM_ID, mainNeedItemPool({ knightLevel: 2 }))).toBe(true)
-    expect(isAllowedMainNeedKind(ANY_RUNE_ITEM_ID, mainNeedItemPool({ knightLevel: 9 }))).toBe(false)
-    expect(isAllowedMainNeedKind(ANY_RUNE_ITEM_ID, mainNeedItemPool({ knightLevel: 10 }))).toBe(true)
+    expect(isAllowedMainNeedKind(ANY_RUNE_ITEM_ID, mainNeedItemPool({ knightLevel: 17 }))).toBe(false)
+    expect(isAllowedMainNeedKind(ANY_RUNE_ITEM_ID, mainNeedItemPool({ knightLevel: 18 }))).toBe(true)
     expect(itemProducerStation(ANY_POTION_ITEM_ID)).toBe('alchemy')
     expect(itemProducerStation(ANY_RUNE_ITEM_ID)).toBe('inscription')
   })
@@ -1225,9 +1235,12 @@ describe('hydrateEncounterFields', () => {
     expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MIN)
     expect(save.encounters.every((enc) => enc.kind === 'enemy')).toBe(true)
     expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MIN)
-    expect(save.marketEncounters[0].kind).toBe('pawn')
-    if (save.marketEncounters[0].kind !== 'pawn') return
-    expect(save.marketEncounters[0].pawnWants).toEqual({ ore: 2 })
+    expect(isStarterCopperPawn(save.marketEncounters[0])).toBe(false)
+    save.knightLevel = 16
+    save.encounters = []
+    save.marketEncounters = []
+    hydrateEncounterFields(save)
+    expect(isStarterCopperPawn(save.marketEncounters[0])).toBe(true)
     expect(save.marketEncounters[0].label).toBe('地精铜矿当')
   })
 
@@ -1572,6 +1585,7 @@ describe('artisan and bulk buy', () => {
   it('speeds the workshop while the artisan buff is active', () => {
     const save = createSave()
     expect(recruitWorker(save).ok).toBe(true)
+    save.openedModules = ['mining']
     assignWorker(save, save.workers[0].id, 'mining')
     const plain = currentSpeed(save, 'mining')
     save.workshopBuff = { mul: 1.15, endsAt: Date.now() + 60_000 }

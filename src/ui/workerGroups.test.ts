@@ -299,7 +299,7 @@ describe('assign resting to first empty slot', () => {
     beginEnemyCombat(enc, [fighter], 1_000)
     expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '没有可派的苦工' })
 
-    const full = createSave()
+    const full = unlockPlayableStations(createSave())
     for (const stationId of DISPATCH_STATION_IDS) {
       const a = spawnWorkerWith(full, 1, 'laborer')
       const b = spawnWorkerWith(full, 1, 'artisan')
@@ -338,7 +338,7 @@ describe('assign resting to first empty slot', () => {
 
     const next = spawnWorkerWith(save, 3, 'hunter')
     expect(firstEmptyDispatchStation(save)).toBeNull()
-    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '酋长 5 级开放狩猎' })
+    expect(assignRestingToFirstEmpty(save)).toEqual({ ok: false, reason: '酋长 6 级开放狩猎' })
     expect(next.assignment).toBeNull()
 
     unlockPlayableStations(save)

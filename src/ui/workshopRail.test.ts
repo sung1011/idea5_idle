@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { keepStationsOpen } from '../sim/stationUnlock'
 import { assignWorker } from '../sim/assign'
 import { createSave } from '../sim/createSave'
 import { spawnWorkerWith } from '../sim/recruit'
@@ -18,7 +19,7 @@ import {
 
 describe('workshopRail', () => {
   it('emits one quality-table color per assigned worker', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(railWorkerDotColors(save, 'mining')).toEqual([])
 
     const green = spawnWorkerWith(save, 2, 'laborer')
@@ -33,7 +34,7 @@ describe('workshopRail', () => {
   })
 
   it('uses the same visual progress as the station card', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorkerWith(save, 1, 'laborer')
     assignWorker(save, worker.id, 'mining')
     save.stations.mining.progress = 0.2
@@ -45,7 +46,7 @@ describe('workshopRail', () => {
   })
 
   it('freezes the fill when the station is stalled or frozen', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorkerWith(save, 1, 'laborer')
     assignWorker(save, worker.id, 'inscription')
     save.stations.inscription.progress = 0.4
@@ -57,7 +58,7 @@ describe('workshopRail', () => {
   })
 
   it('maps a group into one slot per station', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const potion = WORKSHOP_GROUPS[0]
     expect(potion.stations).toEqual(['herbalism', 'alchemy'])
     expect(railGroupSlotDots(save, potion.stations)).toEqual([null, null])
@@ -77,7 +78,7 @@ describe('workshopRail', () => {
   })
 
   it('marks assigned workers idle when the cycle cannot advance', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorkerWith(save, 3, 'laborer')
     assignWorker(save, worker.id, 'inscription')
     expect(railStationIdle(save, 'inscription')).toBe(false)
@@ -93,7 +94,7 @@ describe('workshopRail', () => {
   })
 
   it('treats gather freeze as idle, matching currentSpeed=0', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const hunter = spawnWorkerWith(save, 4, 'laborer')
     assignWorker(save, hunter.id, 'hunting')
     save.stations.hunting.gatherPauseUntil = save.elapsedS + 8

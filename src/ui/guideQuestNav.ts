@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { openWorkshopStation, selectAppTab, type AppTabId } from './appNav'
 import { selectMainlineTab } from './mainlineTabs'
+import { selectPvpView } from './pvpTabs'
 
 export const pendingGuideRunePick = ref(false)
 /** 工坊营地名单是否正打开。引导浮条据此切换第 3 步文案。 */
@@ -36,20 +37,40 @@ export function openGuideQuestStep(step: number, storage?: Storage | null): AppT
       requestGuideCampSheet()
       return selectAppTab('workshop', storage)
     case 4:
-    case 7:
-    case 8:
-      return selectAppTab('workshop', storage)
-    case 5:
       selectMainlineTab('battlefield', storage)
       return selectAppTab('encounters', storage)
-    case 6:
+    case 5:
       openWorkshopStation('alchemy', storage)
       return 'workshop'
+    case 6:
+    case 7:
+    case 10:
+      return selectAppTab('workshop', storage)
+    case 8:
+      return selectAppTab('tech', storage)
     case 9:
+      selectMainlineTab('market', storage)
+      return selectAppTab('encounters', storage)
+    case 11:
+      selectMainlineTab('dungeon', storage)
+      return selectAppTab('encounters', storage)
+    case 12:
+      selectPvpView('herb', storage)
+      return selectAppTab('pvp', storage)
+    case 13:
+      selectPvpView('beast', storage)
+      return selectAppTab('pvp', storage)
+    case 14:
+      openWorkshopStation('mining', storage)
+      return 'workshop'
+    case 15:
       pendingGuideRunePick.value = true
       selectMainlineTab('battlefield', storage)
       return selectAppTab('encounters', storage)
+    case 16:
+      selectPvpView('treasure', storage)
+      return selectAppTab('pvp', storage)
     default:
-      return selectAppTab('encounters', storage)
+      return selectAppTab('workshop', storage)
   }
 }

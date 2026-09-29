@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { keepStationsOpen } from './stationUnlock'
 import {
   CLASS_COMBAT_MOD,
   BREAK_TIP,
@@ -174,7 +175,7 @@ describe('combat stats tables', () => {
 
 describe('start combat party', () => {
   it('only lists full-HP resting workers and rejects stationed, fighting, or not-full', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const a = spawnWorker(save)
     const b = spawnWorkerWith(save, 1, 'artisan')
     const c = spawnWorkerWith(save, 1, 'wanderer')
@@ -208,7 +209,7 @@ describe('start combat party', () => {
   })
 
   it('does not start or take goods when supplies are short', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     putEnemy(save, testEnemy({ needs: { meal: 3 } }))
     save.bank.meal = 1
@@ -228,7 +229,7 @@ describe('start combat party', () => {
 
 describe('combat timeline', () => {
   it('lets two workers hit one enemy on the clock and writes wounds back on win', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const a = spawnWorkerWith(save, 1, 'laborer')
     const b = spawnWorkerWith(save, 1, 'wanderer')
     const enc = testEnemy()
@@ -254,7 +255,7 @@ describe('combat timeline', () => {
     if (enc.combat) enc.combat.enemy.hp = 1
     stepEnemyCombat(save, enc, now + 35_000)
     expect(isCombatWon(enc)).toBe(true)
-    expect(save.gold).toBe(createSave().gold)
+    expect(save.gold).toBe(keepStationsOpen(createSave()).gold)
     expect(a.hp).toBe(enc.combat?.workers.find((w) => w.id === a.id)?.hp)
     expect(b.hp).toBe(enc.combat?.workers.find((w) => w.id === b.id)?.hp)
     expect(a.assignment).toBeNull()
@@ -262,7 +263,7 @@ describe('combat timeline', () => {
   })
 
   it('makes the enemy hit the worker with the lowest current hp ratio', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const a = spawnWorkerWith(save, 1, 'laborer')
     const b = spawnWorkerWith(save, 1, 'laborer')
     a.name = '甲'
@@ -291,7 +292,7 @@ describe('combat timeline', () => {
   })
 
   it('writes enemy hits back to save.workers hp while the fight is still going', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorkerWith(save, 1, 'laborer')
     const enc = testEnemy({ targetRuleId: 'lowestHp' })
     putEnemy(save, enc)
@@ -313,7 +314,7 @@ describe('combat timeline', () => {
   })
 
   it('times out as a loss, writes wounds, and a later start is a fresh full-HP fight', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.gold = 10
     const worker = spawnWorker(save)
     const enc = testEnemy({
@@ -359,7 +360,7 @@ describe('combat timeline', () => {
   })
 
   it('resolves the same timeline through applyTick / offline catch-up', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorkerWith(save, 8, 'knight')
     const enc = testEnemy({ quality: 'green' })
     putEnemy(save, enc)
@@ -378,7 +379,7 @@ describe('combat timeline', () => {
   })
 
   it('emits live combat logs to onLog and still stores the same text', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const a = spawnWorkerWith(save, 1, 'laborer')
     a.name = '甲'
     const enc = testEnemy()
@@ -399,7 +400,7 @@ describe('combat timeline', () => {
     expect(enc.combat?.logs.some((row) => row.text === '战斗胜利')).toBe(true)
 
     const live: string[] = []
-    const fighting = createSave()
+    const fighting = keepStationsOpen(createSave())
     const fighter = spawnWorkerWith(fighting, 1, 'laborer')
     const liveEnc = testEnemy({ id: 'live-enemy' })
     putEnemy(fighting, liveEnc)
@@ -433,7 +434,7 @@ describe('combat duration targets', () => {
     attrs: readonly CombatAttrId[],
     now = 1_000_000,
   ): { combat: EnemyCombat; elapsedS: number } {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     putEnemy(save, enc)
     const party = midArtisans(save, attrs)
     enc.targetRuleId = 'lowestHp'
@@ -504,7 +505,7 @@ describe('combat duration targets', () => {
 
 describe('enemy opening strike', () => {
   it('hits once as soon as combat starts, then waits the interval', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorkerWith(save, 1, 'laborer')
     const enc = testEnemy({ targetRuleId: 'lowestHp' })
     putEnemy(save, enc)
@@ -528,7 +529,7 @@ describe('enemy opening strike', () => {
   })
 
   it('starts a later fight at full enemy hp and does not double the opening hit', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorkerWith(save, 1, 'laborer')
     const enc = testEnemy({ needs: { meal: 1 }, targetRuleId: 'lowestHp' })
     putEnemy(save, enc)
@@ -557,7 +558,7 @@ describe('enemy opening strike', () => {
 
 describe('fresh start after a loss', () => {
   it('starts the first fight at full enemy hp', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     const enc = testEnemy()
     putEnemy(save, enc)
@@ -567,7 +568,7 @@ describe('fresh start after a loss', () => {
   })
 
   it('resets leftover enemy hp when starting again after a loss', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     const enc = testEnemy({ needs: { meal: 1 } })
     putEnemy(save, enc)
@@ -594,7 +595,7 @@ describe('fresh start after a loss', () => {
   })
 
   it('still starts at full enemy hp if a loss left hp<=0', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     const enc = testEnemy()
     putEnemy(save, enc)
@@ -610,7 +611,7 @@ describe('fresh start after a loss', () => {
 
 describe('rest heal', () => {
   it('heals only resting workers who are not fighting, every 10s by hpMax ratio', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const rest = spawnWorker(save)
     const busy = spawnWorkerWith(save, 1, 'artisan')
     const fight = spawnWorkerWith(save, 1, 'wanderer')
@@ -643,7 +644,7 @@ describe('rest heal', () => {
   })
 
   it('does not change on-duty hp or fatigue until the worker is withdrawn to rest', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const duty = spawnWorker(save)
     const fight = spawnWorkerWith(save, 1, 'wanderer')
     assignWorker(save, duty.id, 'mining')
@@ -675,7 +676,7 @@ describe('rest heal', () => {
   })
 
   it('pays down rest fatigue so effective HP can return to full', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     worker.hp = worker.hpMax
     worker.fatigueDebt = 0.4
@@ -690,7 +691,7 @@ describe('rest heal', () => {
 
 describe('enemy hits workshop crew', () => {
   it('damages stationed workers, skips rest, and leaves residual hp on duty', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const front = spawnWorkerWith(save, 1, 'laborer')
     const shop = spawnWorkerWith(save, 1, 'miner')
     const rest = spawnWorkerWith(save, 1, 'wanderer')
@@ -725,7 +726,7 @@ describe('enemy hits workshop crew', () => {
   })
 
   it('sends a workshop worker at 0 HP back to rest with bandage and food, without a march', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const front = spawnWorkerWith(save, 1, 'laborer')
     const shop = spawnWorkerWith(save, 1, 'miner')
     assignWorker(save, shop.id, 'mining')
@@ -756,7 +757,7 @@ describe('enemy hits workshop crew', () => {
   })
 
   it('holds the enemy bar at 0 with no workshop hits until a reinforcement lands', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const front = spawnWorkerWith(save, 1, 'laborer')
     const shop = spawnWorkerWith(save, 1, 'miner')
     const bench = spawnWorkerWith(save, 1, 'wanderer')
@@ -803,7 +804,7 @@ describe('enemy hits workshop crew', () => {
   })
 
   it('does not eat rest food when a workshop hit leaves residual HP', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const front = spawnWorkerWith(save, 1, 'laborer')
     const shop = spawnWorkerWith(save, 1, 'miner')
     assignWorker(save, shop.id, 'mining')
@@ -827,7 +828,7 @@ describe('enemy hits workshop crew', () => {
 
 describe('combat food heal', () => {
   it('eats one rest food when a wounded fighter gets home, not at the moment of victory', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     save.bank.meal = 1
     save.restFoodId = 'meal'
@@ -855,7 +856,7 @@ describe('combat food heal', () => {
 
 describe('death leave and reinforce', () => {
   it('sends a downed fighter back to rest and keeps the fight going', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const front = spawnWorkerWith(save, 1, 'laborer')
     const bench = spawnWorkerWith(save, 1, 'wanderer')
     front.name = '出战甲'
@@ -902,7 +903,7 @@ describe('death leave and reinforce', () => {
   })
 
   it('restores 10% HP when camp bandage is unlocked and a fighter drops', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.techLevels = { rematchSupply: 1 }
     save.unlockedTechIds = ['rematchSupply']
     const front = spawnWorkerWith(save, 1, 'laborer')
@@ -932,7 +933,7 @@ describe('death leave and reinforce', () => {
   })
 
   it('lets a healed worker reinforce the same ongoing fight', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const a = spawnWorkerWith(save, 1, 'laborer')
     const b = spawnWorkerWith(save, 1, 'wanderer')
     a.name = '甲'
@@ -974,7 +975,7 @@ describe('death leave and reinforce', () => {
   })
 
   it('strips leftover 0-hp shells from the order roster on hydrate', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const downed = spawnWorkerWith(save, 1, 'laborer')
     const alive = spawnWorkerWith(save, 1, 'wanderer')
     downed.name = '倒下'
@@ -1005,7 +1006,7 @@ describe('death leave and reinforce', () => {
   })
 
   it('blocks reinforce when the field is already full', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const party = [
       spawnWorkerWith(save, 1, 'laborer'),
       spawnWorkerWith(save, 1, 'artisan'),
@@ -1025,7 +1026,7 @@ describe('death leave and reinforce', () => {
 
 describe('lose reinforce does not cost supplies', () => {
   it('restarts the same order after a loss without taking supplies', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     const enc = testEnemy({ id: 'same-order', needs: { meal: 2 }, revealedWeaknesses: ['fire'] })
     putEnemy(save, enc)
@@ -1055,7 +1056,7 @@ describe('lose reinforce does not cost supplies', () => {
   })
 
   it('restarts after a loss even when supplies are already gone', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     const enc = testEnemy({ needs: { meal: 2 } })
     putEnemy(save, enc)
@@ -1073,7 +1074,7 @@ describe('lose reinforce does not cost supplies', () => {
   })
 
   it('refuses lose-reinforce while the fight is still going', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     const extra = spawnWorker(save)
     const enc = testEnemy({ needs: { meal: 1 } })
@@ -1106,7 +1107,7 @@ describe('weakness break shields', () => {
     expect(enemyStunMs('elite')).toBe(4_000)
     expect(enemyStunMs('boss')).toBe(5_000)
 
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     const minion = testEnemy({ enemyRank: 'minion' })
     const elite = testEnemy({ id: 'elite-enemy', enemyRank: 'elite', quality: 'purple' })
@@ -1126,7 +1127,7 @@ describe('weakness break shields', () => {
   })
 
   it('deducts one shield per unique matched attr in that strike', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorkerWith(save, 5, 'artisan', ['fire', 'ice', 'fire'])
     const enc = testEnemy({ weaknesses: ['fire', 'ice'], revealedWeaknesses: ['fire', 'ice'] })
     putEnemy(save, enc)
@@ -1144,7 +1145,7 @@ describe('weakness break shields', () => {
   })
 
   it('reveals an unrevealed match then deducts on the same strike', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorkerWith(save, 5, 'artisan', ['dark'])
     const enc = testEnemy({
       weaknesses: ['fire', 'dark'],
@@ -1166,7 +1167,7 @@ describe('weakness break shields', () => {
   })
 
   it('does not deduct shield on a miss', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorkerWith(save, 5, 'artisan', ['bow'])
     worker.combatAttrs = ['bow']
     const enc = testEnemy({ weaknesses: ['fire', 'ice'], revealedWeaknesses: ['fire'] })
@@ -1193,7 +1194,7 @@ describe('weakness break shields', () => {
       { rank: 'boss', quality: 'orange' },
     ]
     for (const { rank, quality } of cases) {
-      const save = createSave()
+      const save = keepStationsOpen(createSave())
       const worker = spawnWorkerWith(save, 5, 'artisan', ['fire'])
       worker.name = '甲'
       const enc = testEnemy({
@@ -1225,7 +1226,7 @@ describe('weakness break shields', () => {
   })
 
   it('does not deduct while stunned and resets shield after stun ends', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorkerWith(save, 5, 'artisan', ['fire'])
     const enc = testEnemy({ weaknesses: ['fire'], revealedWeaknesses: ['fire'] })
     putEnemy(save, enc)
@@ -1269,7 +1270,7 @@ describe('weakness break shields', () => {
   })
 
   it('fills missing shield fields on an old mid-fight save', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     const enc = testEnemy()
     putEnemy(save, enc)
@@ -1289,7 +1290,7 @@ describe('weakness break shields', () => {
 
 describe('worker interval jitter and battlefield affixes', () => {
   it('writes the jittered interval onto the fighter used by combat', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorkerWith(save, 1, 'laborer')
     const enc = testEnemy()
     putEnemy(save, enc)
@@ -1299,7 +1300,7 @@ describe('worker interval jitter and battlefield affixes', () => {
   })
 
   it('applies a battlefield affix to opening enemy stats and shield', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorkerWith(save, 1, 'laborer')
     const enc = testEnemy({ affixId: 'thickHide' })
     putEnemy(save, enc)

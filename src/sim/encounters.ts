@@ -46,7 +46,7 @@ import {
   type CurrencyPayout,
 } from './currencyReward'
 import { normalizeRngState, roll01 } from './rng'
-import { STATION_UNLOCK_KNIGHT_MAX, unlockedStationIds } from './stationUnlock'
+import { isStationUnlocked, STATION_UNLOCK_KNIGHT_MAX, unlockedStationIds } from './stationUnlock'
 import {
   ANY_POTION_ITEM_ID,
   ANY_RUNE_ITEM_ID,
@@ -413,6 +413,7 @@ const LEGACY_ORDER_DEFS: ReadonlyArray<{
 /** 主线需求池可读的存档切片。炼金等级缺字段时按 1。 */
 export type MainNeedPoolSave = {
   knightLevel?: number
+  openedModules?: readonly string[]
   stations?: { alchemy?: { stationLevel?: unknown } }
 }
 
@@ -435,7 +436,10 @@ export function mainNeedOutputsOfStation(stationId: StationId, alchemyLevel: unk
 export function mainNeedItemPool(save?: MainNeedPoolSave | null): readonly ItemId[] {
   const alchemyLevel = alchemyStationLevel(save)
   const pool: ItemId[] = []
-  const knightSave = save?.knightLevel != null ? { knightLevel: save.knightLevel } : { knightLevel: 1 }
+  const knightSave = {
+    knightLevel: save?.knightLevel ?? 1,
+    openedModules: save?.openedModules,
+  }
   for (const stationId of unlockedStationIds(knightSave)) {
     for (const id of mainNeedOutputsOfStation(stationId, alchemyLevel)) {
       if (!pool.includes(id)) pool.push(id)
@@ -1138,7 +1142,10 @@ export type EncounterSpawnOpts = {
   /** 有则推进这份 rng；无则用 seed+1 开一份局部骰。 */
   rng?: { rngState: number }
   mainChapter?: number
-  /** 新档 / 空板：第 0 格固定铜矿当铺，其余格走 filler。探索刷新不走此开关。 */
+  /**
+   * 新档 / 空板：采矿已开时第 0 格固定铜矿当铺。
+   * 采矿未开（含没传存档）不刷这张，第 0 格走普通集市单。
+   */
   starterCopperPawn?: boolean
   /** 生成弱点初始暴露时读科技。 */
   save?: Save
@@ -1424,6 +1431,13 @@ function pickKindForBoard(
   return forceBoss ? 'enemy' : pickEncounterKind(rng)
 }
 
+/** 采矿未开不放地精铜矿当。没带存档时按未开处理。 */
+function wantsStarterCopperPawn(opts: EncounterSpawnOpts): boolean {
+  if (!opts.starterCopperPawn || opts.board === 'battlefield') return false
+  if (!opts.save || !isStationUnlocked(opts.save, 'mining')) return false
+  return true
+}
+
 export function encounterFiller(seed: number, opts: EncounterSpawnOpts = {}): (slot: number) => Encounter {
   const safe = Number.isFinite(seed) && seed >= 0 ? Math.floor(seed) : 0
   const claims = normalizeMainLootClaims(opts.mainLootClaims)
@@ -1437,7 +1451,7 @@ export function encounterFiller(seed: number, opts: EncounterSpawnOpts = {}): (s
     const kind = pickKindForBoard(rng, board, forceBoss)
     if (forceBoss) reserved = true
     const enc = makeEncounter(safe, slot, quality, kind, forceBoss, chapter, rng, opts.save)
-    if (board === 'market' && !(opts.starterCopperPawn && slot === 0)) {
+    if (board === 'market' && !(wantsStarterCopperPawn(opts) && slot === 0)) {
       attachTimedMarketOrder(enc, opts.now ?? Date.now(), chapter, false, opts.save)
     }
     return enc
@@ -1459,7 +1473,7 @@ export function generateEncounterBoard(
   const n = boardSlotClamp(slotCount, opts.board)
   const fill = encounterFiller(seed, opts)
   const board = Array.from({ length: n }, (_, slot) => fill(slot))
-  if (opts.starterCopperPawn && opts.board !== 'battlefield' && n >= 1) {
+  if (wantsStarterCopperPawn(opts) && n >= 1) {
     const safe = Number.isFinite(seed) && seed >= 0 ? Math.floor(seed) : 0
     board[0] = makeStarterCopperPawn(safe, 0)
   }

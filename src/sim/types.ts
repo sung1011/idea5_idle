@@ -788,16 +788,26 @@ export type Save = {
    */
   mainLootClaims: number
   /**
-   * 左下悬浮新手任务当前步。1～4 标题「新手 · n/5」，第 5 步开战仍是「工坊 · 5/5」；6～8 第二阶段（骑士 ≥1）；9 第三阶段（铭刻已开且战场有可点开战/增援）；10 表示九步都已领取，浮层不渲染。
-   * 旧档或缺低于当前 `guideQuestRev`：按现况落到第一未完成新步。
+   * 左下悬浮新手任务当前步。1～4 是工坊开局，5～7 是药剂，其后按酋长等级分段；领完后步号不再显示浮层。
+   * 等级未到时浮层改显示下一个开放目标。旧档或缺低于当前 `guideQuestRev`：已满足的步跳过且不发金。
    */
   guideQuestStep: number
-  /** 引导表版本。5 = 工坊五步（队首自动上采药、选营地伙食）。缺或低于当前 REV 按现况重落步号。 */
+  /** 引导表版本。6 = 按酋长等级分段。缺或低于当前 REV 按现况重落步号。 */
   guideQuestRev: number
   /** 是否已从药剂槽点用过。hydrate 时若有时效 buff 也算。 */
   guideQuestPotionUsed: boolean
   /** 是否已在选人面板点开过符文槽。hydrate 缺字段为 false。 */
   guideQuestRuneOpened: boolean
+  /**
+   * 已玩过、等级不够也保持开放的模块。
+   * 站 id 与模块 id 相同的（狩猎 / 烹饪 / 采矿 / 铭刻）也写在这里。
+   * 缺字段 hydrate 按酋长等级和游玩痕迹补。
+   */
+  openedModules: string[]
+  /** 酋长升级跨过门槛后待弹的「新玩法开放」卡片，按顺序。 */
+  moduleUnlockQueue: string[]
+  /** 引导步位图。置位的步跳过且不发金币。旧档迁移时写入。 */
+  guideQuestSkipMask: number
   /**
    * 是否已提示过工坊在岗体力导致效率下降。
    * 账号首次在岗效率跌破 100%（残血 / 空血）漂一次；hydrate 缺字段为 false。

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { keepStationsOpen } from './stationUnlock'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
@@ -54,7 +55,7 @@ describe('unlockedPlusNextPreview', () => {
 })
 
 function roster(n: number): Save {
-  const save = createSave()
+  const save = keepStationsOpen(createSave())
   save.diamonds = 15 * n
   for (let i = 0; i < n; i++) expect(recruitWorker(save).ok).toBe(true)
   return save
@@ -122,7 +123,7 @@ describe('legacy tool hydrate', () => {
       { itemId: 'tool', matchStationId: 'mining' },
       { itemId: 'miningTool01', matchStationId: 'inscription' },
     ])
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.forgedTools = kept
     expect(convertFromRunes(save)).toBe(2)
     expect(save.forgedTools).toEqual([])

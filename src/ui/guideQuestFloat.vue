@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { guideQuestView } from '../sim/guideQuest'
 import { useGameStore } from './gameStore'
+import { pushFloatTip } from './floatTips'
 import { guideCampSheetOpen, openGuideQuestStep } from './guideQuestNav'
 
 const game = useGameStore()
@@ -9,9 +10,13 @@ const collapsed = ref(false)
 const view = computed(() => guideQuestView(game.save, guideCampSheetOpen.value))
 
 function jump() {
-  const step = view.value?.step
-  if (!step) return
-  openGuideQuestStep(step)
+  const current = view.value
+  if (!current) return
+  if (current.waiting) {
+    pushFloatTip(current.goal.replace(/^下一个目标：/, ''), 'err')
+    return
+  }
+  openGuideQuestStep(current.step)
 }
 
 function onBadge() {

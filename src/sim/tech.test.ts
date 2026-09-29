@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { keepStationsOpen } from './stationUnlock'
 import { assignWorker } from './assign'
 import { createAssistWorker } from './combatAssist'
 import {
@@ -320,7 +321,7 @@ describe('hydrate tech fields', () => {
       'bargainBell',
     ])
 
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     delete (save as { techPoints?: number }).techPoints
     delete (save as { unlockedTechIds?: Save['unlockedTechIds'] }).unlockedTechIds
     delete (save as { techLevels?: Save['techLevels'] }).techLevels
@@ -331,7 +332,7 @@ describe('hydrate tech fields', () => {
   })
 
   it('reads inspiration as a techPoints alias and keeps points when mapping old ids', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     delete (save as { techPoints?: number }).techPoints
     const aliased = save as Save & { inspiration: number }
     aliased.inspiration = 7.6
@@ -369,7 +370,7 @@ describe('hydrate tech fields', () => {
 
 describe('inspiration grant', () => {
   it('does not add inspiration when any station finishes a cycle', () => {
-    const mine = createSave()
+    const mine = keepStationsOpen(createSave())
     spawnWorker(mine)
     assignWorker(mine, mine.workers[0].id, 'mining')
     const mined = ticks(mine, 20)
@@ -377,7 +378,7 @@ describe('inspiration grant', () => {
     expect(mined.techPoints).toBe(20)
 
     setRollOverride(() => 0.99)
-    const forge = createSave()
+    const forge = keepStationsOpen(createSave())
     spawnWorker(forge)
     assignWorker(forge, forge.workers[0].id, 'inscription')
     forge.bank.wildCrystal = 2
@@ -388,7 +389,7 @@ describe('inspiration grant', () => {
 
   it('does not grant inspiration on an inscription soft-fail cycle', () => {
     setRollOverride(() => 0)
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     spawnWorker(save)
     assignWorker(save, save.workers[0].id, 'inscription')
     save.bank.wildCrystal = 2
@@ -400,7 +401,7 @@ describe('inspiration grant', () => {
 
 describe('research unlock', () => {
   it('lets a row light in any order and spends shared inspiration', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(nextTech(save)?.id).toBe('slagRecycle')
     save.techPoints = 6
     expect(researchTech(save, 'veinSelect')).toEqual({ ok: true, message: '已点亮「矿脉精选」' })
@@ -413,7 +414,7 @@ describe('research unlock', () => {
   })
 
   it('opens the next row after buying any one option and still allows leftover buys', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(isRowOpen(save, 'production', 1)).toBe(true)
     expect(isRowOpen(save, 'production', 2)).toBe(false)
     expect(isRowOpen(save, 'affairs', 1)).toBe(true)
@@ -431,7 +432,7 @@ describe('research unlock', () => {
   })
 
   it('keeps tabs independent and combat placeholders buyable', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.techPoints = 3
     expect(researchTech(save, 'dummyDrill')).toEqual({ ok: true, message: '已点亮「木桩加训」' })
     expect(isRowOpen(save, 'combat', 2)).toBe(true)
@@ -441,7 +442,7 @@ describe('research unlock', () => {
   })
 
   it('fails when inspiration is not enough', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.techPoints = 0
     expect(researchNextTech(save)).toEqual({ ok: false, reason: '灵感不足' })
     expect(save.unlockedTechIds).toEqual([])
@@ -449,7 +450,7 @@ describe('research unlock', () => {
   })
 
   it('rejects a later affairs row before the previous row has a purchase', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.techPoints = 99
     expect(researchTech(save, 'marketLicense')).toEqual({ ok: false, reason: '未解锁' })
     expect(save.unlockedTechIds).toEqual([])
@@ -462,7 +463,7 @@ describe('research unlock', () => {
   })
 
   it('lets leftover options on a hydrated row be bought later', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.unlockedTechIds = ['workshopRules']
     save.techPoints = 20
     expect(isRowOpen(save, 'production', 2)).toBe(true)
@@ -473,7 +474,7 @@ describe('research unlock', () => {
   })
 
   it('fails when the tree is already full', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.techPoints = 999
     maxAllTechs(save)
     expect(researchNextTech(save)).toEqual({ ok: false, reason: '科技树已满' })
@@ -483,7 +484,7 @@ describe('research unlock', () => {
 
 describe('tech multi-level', () => {
   it('clamps implemented nodes to one level and spends the row cost once', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.unlockedTechIds = ['slagRecycle', 'workshopRules', 'artisanArchive']
     hydrateTechFields(save)
     save.techPoints = 20
@@ -502,7 +503,7 @@ describe('tech multi-level', () => {
   })
 
   it('blocks a node after it reaches maxLevel', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.unlockedTechIds = ['slagRecycle', 'workshopRules', 'artisanArchive']
     hydrateTechFields(save)
     save.techPoints = 99
@@ -519,7 +520,7 @@ describe('tech multi-level', () => {
   })
 
   it('opens the next row after any node on the current row reaches level 1', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(isRowOpen(save, 'production', 2)).toBe(false)
     expect(isRowOpen(save, 'combat', 2)).toBe(false)
     expect(buy(save, 'slagRecycle')).toEqual({ ok: true, message: '已点亮「渣滓回炉」' })
@@ -533,7 +534,7 @@ describe('tech multi-level', () => {
   })
 
   it('hydrates old unlockedTechIds as level=1 without exceeding maxLevel', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.unlockedTechIds = ['workshopLog', 'workshopRules', 'pathOutpost', 'workshopCrest', 'skipMe']
     delete (save as { techLevels?: Save['techLevels'] }).techLevels
     hydrateTechFields(save)
@@ -552,7 +553,7 @@ describe('tech multi-level', () => {
 
 describe('battlefieldSlotCount and marketSlotCount', () => {
   it('grows each board independently and caps at 4', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(battlefieldSlotCount(save)).toBe(BATTLEFIELD_SLOT_MIN)
     expect(marketSlotCount(save)).toBe(MARKET_SLOT_MIN)
     expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MIN)
@@ -590,7 +591,7 @@ describe('battlefieldSlotCount and marketSlotCount', () => {
 
 describe('tech effects stay no-op where intended', () => {
   it('does not change recruit / one-worker cooking speed / merge', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     maxAllTechs(save)
     applyTechEffects(save)
     expect(techEffectValue(save, 'noop')).toBe(0)
@@ -604,7 +605,7 @@ describe('tech effects stay no-op where intended', () => {
     spawnWorker(save)
     assignWorker(save, save.workers[0].id, 'cooking')
     const withTech = currentSpeed(save, 'cooking')
-    const bare = createSave()
+    const bare = keepStationsOpen(createSave())
     spawnWorker(bare)
     assignWorker(bare, bare.workers[0].id, 'cooking')
     expect(withTech).toBeGreaterThan(currentSpeed(bare, 'cooking'))
@@ -612,7 +613,7 @@ describe('tech effects stay no-op where intended', () => {
 
     expect(recruitWorker(save).ok).toBe(true)
 
-    const merge = createSave()
+    const merge = keepStationsOpen(createSave())
     const a = spawnWorker(merge)
     const b = spawnWorker(merge)
     expect(fuseWorkers(merge, a.id, b.id)).toEqual({ ok: false, reason: '只能合并同一工坊的两人' })
@@ -622,7 +623,7 @@ describe('tech effects stay no-op where intended', () => {
 
 describe('solo staff and retired conflict', () => {
   it('multiplies a single on-duty worker by 1.5 and never applies conflict', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(stationConflictMul(save, 'mining')).toBe(1)
     expect(stationConflictHint(save, 'mining')).toBeNull()
     expect(soloStaffMul(save, 'mining')).toBe(1)
@@ -637,7 +638,7 @@ describe('solo staff and retired conflict', () => {
 
 describe('resetAllTech', () => {
   it('refunds every level × row cost, clears progress, and restores default slots/conflict', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.gold = 4321
     save.diamonds = 11
     save.bank.wood = 77
@@ -706,7 +707,7 @@ describe('resetAllTech', () => {
   })
 
   it('is a no-spend no-op on an empty tree besides succeeding', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.techPoints = 9
     expect(resetAllTech(save)).toEqual({ ok: true, message: '已重置科技' })
     expect(save.techPoints).toBe(9)
@@ -755,7 +756,7 @@ function testEnemy(overrides: Partial<EnemyEncounter> = {}): EnemyEncounter {
 
 describe('tech effect multipliers', () => {
   it('reads planned production / combat / affairs bases after unlock', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(techEffectValue(save, SLAG_COPPER_EFFECT)).toBe(0)
     expect(stationXpMul(save)).toBe(1)
     expect(miningOutputMul(save)).toBe(1)
@@ -826,7 +827,7 @@ describe('tech effect multipliers', () => {
   })
 
   it('wires slag / xp / mining / tool / forge into stations', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     unlock(save, 'slagRecycle')
     unlock(save, 'recipeImprint')
     unlock(save, 'veinSelect')
@@ -834,7 +835,7 @@ describe('tech effect multipliers', () => {
     unlock(save, 'forgeHeat')
 
     expect(slagCopperCostSet(save, [{ itemId: 'ore', qty: 1 }])).toEqual([{ itemId: 'slag', qty: 2 }])
-    const bareForge = createSave()
+    const bareForge = keepStationsOpen(createSave())
     expect(stationCycleS(save, 'inscription')).toBeCloseTo(stationCycleS(bareForge, 'inscription') * 0.9)
     expect(stationCycleS(save, 'cooking')).toBe(stationCycleS(bareForge, 'cooking'))
 
@@ -848,7 +849,7 @@ describe('tech effect multipliers', () => {
     expect(stationToolSpeedMul(save, 'mining')).toBe(1)
 
     setRollOverride(() => 0)
-    const mined = createSave()
+    const mined = keepStationsOpen(createSave())
     unlock(mined, 'veinSelect')
     spawnWorker(mined)
     assignWorker(mined, mined.workers[0].id, 'mining')
@@ -857,7 +858,7 @@ describe('tech effect multipliers', () => {
   })
 
   it('wires worker combat muls, weakness, reveal, rematch-supply cut still 0 and assist floor', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     unlock(save, 'dummyDrill')
     unlock(save, 'bracerTighten')
     unlock(save, 'weaknessNotes')
@@ -912,7 +913,7 @@ describe('tech effect multipliers', () => {
   })
 
   it('wires pawn / loot gold and explore cost', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const pawn = testPawn()
     const enemy = testEnemy({ lootGold: 20 })
     expect(pawnRewardGold(pawn)).toBe(20)
@@ -931,7 +932,7 @@ describe('tech effect multipliers', () => {
 
 describe('wired placeholder techs', () => {
   it('speeds a staffed pair with 轮值章程 and shortens cycles with 工坊规章', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     spawnWorker(save)
     spawnWorker(save)
     assignWorker(save, save.workers[0].id, 'mining')
@@ -962,7 +963,7 @@ describe('wired placeholder techs', () => {
   })
 
   it('adds mining wild-crystal dual-drop, alchemy extra bottle, and hunting hazard cut', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(miningDualDropBonus(save)).toBe(0)
     expect(alchemyBatchBonus(save)).toBe(0)
     expect(huntingHazardMul(save)).toBe(1)
@@ -985,7 +986,7 @@ describe('wired placeholder techs', () => {
   })
 
   it('stacks night lamp then long-night lamp to 12h offline', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(offlineCapHours(save)).toBe(8)
     unlock(save, 'nightLamp')
     expect(offlineCapHours(save)).toBe(10)
@@ -995,7 +996,7 @@ describe('wired placeholder techs', () => {
   })
 
   it('wires first-strike cut, rune ATK, wounded guard and break echo', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(firstStrikeCutS(save)).toBe(0)
     expect(runeAtkMul(save)).toBe(1)
     expect(woundedTakenMul(save)).toBe(1)
@@ -1024,7 +1025,7 @@ describe('wired placeholder techs', () => {
     const combat = beginEnemyCombat(enc, [worker], now, 1, undefined, save)
     expect(combat.workers[0].nextActAt).toBe(now + combat.workers[0].spd * 1000 - 500)
 
-    const wounded = createSave()
+    const wounded = keepStationsOpen(createSave())
     unlock(wounded, 'combatArmor')
     const tank = spawnWorkerWith(wounded, 1, 'laborer')
     const liveHp = workerCombatStats(1, 'laborer', 1, wounded).hp
@@ -1037,7 +1038,7 @@ describe('wired placeholder techs', () => {
     const expected = Math.max(1, Math.round(fight.enemy.atk * 0.8))
     expect(fight.workers[0].hp).toBe(startHp - expected)
 
-    const echo = createSave()
+    const echo = keepStationsOpen(createSave())
     unlock(echo, 'combatLegend')
     const striker = spawnWorkerWith(echo, 5, 'artisan', ['fire'])
     const echoEnc = testEnemy({
@@ -1063,7 +1064,7 @@ describe('wired placeholder techs', () => {
   })
 
   it('rewires caravan permit to timed duration and drops it from market slots', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(MARKET_SLOT_TECH_IDS).toEqual(['marketLicense', 'farWatch'])
     expect(marketSlotCount(save)).toBe(MARKET_SLOT_MIN)
     unlock(save, 'caravanPermit')
@@ -1074,7 +1075,7 @@ describe('wired placeholder techs', () => {
   })
 
   it('raises timed-order chance, stacks explore cut, trade gold, recruit cost and diamond orders', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(timedOrderChanceBonus(save)).toBe(0)
     expect(exploreCostMul(save)).toBe(1)
     expect(tradeGoldMul(save)).toBe(1)
@@ -1107,7 +1108,7 @@ describe('wired placeholder techs', () => {
   })
 
   it('heals downed workers returning to rest with camp bandage', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(campBandageHealAmount(save, 20)).toBe(0)
     expect(campBandageHeal(10)).toBe(1)
     expect(campBandageHeal(11)).toBe(2)
@@ -1137,7 +1138,7 @@ describe('wired placeholder techs', () => {
   })
 
   it('refunds one wild crystal on inscription soft-fail scrap roll', () => {
-    const miss = createSave()
+    const miss = keepStationsOpen(createSave())
     expect(runeScrapChance(miss)).toBe(0)
     setRollOverride(() => 0)
     spawnWorker(miss)
@@ -1147,7 +1148,7 @@ describe('wired placeholder techs', () => {
     expect(miss.bank.wildCrystal).toBe(1)
     expect(miss.stations.inscription.craftNotice).toBe('软失败，荒晶损耗')
 
-    const refund = createSave()
+    const refund = keepStationsOpen(createSave())
     unlock(refund, 's09DraftA')
     expect(techEffectValue(refund, RUNE_SCRAP_EFFECT)).toBe(0.5)
     expect(runeScrapChance(refund)).toBeCloseTo(0.5)
@@ -1158,7 +1159,7 @@ describe('wired placeholder techs', () => {
     expect(refund.bank.wildCrystal).toBe(2)
     expect(refund.stations.inscription.craftNotice).toBe('软失败，退回 1 荒晶')
 
-    const keep = createSave()
+    const keep = keepStationsOpen(createSave())
     unlock(keep, 's09DraftA')
     spawnWorker(keep)
     assignWorker(keep, keep.workers[0].id, 'inscription')
@@ -1172,7 +1173,7 @@ describe('wired placeholder techs', () => {
   })
 
   it('boosts only the first hit of reinforced fighters', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(reinforceFirstMul(save)).toBe(1)
     unlock(save, 'combatCourt')
     expect(techEffectValue(save, REINFORCE_FIRST_EFFECT)).toBe(0.2)
@@ -1222,7 +1223,7 @@ describe('wired placeholder techs', () => {
   })
 
   it('shortens all-station cycle by knight level steps with a soft cap', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     expect(knightCycleMul(save)).toBe(1)
     unlock(save, 'knightCrest')
     expect(techEffectValue(save, KNIGHT_CYCLE_EFFECT)).toBe(0.01)
@@ -1239,7 +1240,7 @@ describe('wired placeholder techs', () => {
     save.knightLevel = 100
     expect(knightCycleMul(save)).toBeCloseTo(1 - KNIGHT_CYCLE_CAP)
 
-    const bare = createSave()
+    const bare = keepStationsOpen(createSave())
     save.knightLevel = 5
     expect(stationCycleS(save, 'cooking')).toBeCloseTo(stationCycleS(bare, 'cooking') * 0.99)
     expect(stationCycleS(save, 'mining')).toBeCloseTo(stationCycleS(bare, 'mining') * 0.99)

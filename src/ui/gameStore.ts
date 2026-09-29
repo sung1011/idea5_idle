@@ -73,6 +73,7 @@ import {
   type TreasureRefreshPay,
 } from '../sim/treasureMine'
 import { claimGuideQuest, markGuideQuestRuneOpened } from '../sim/guideQuest'
+import { dismissModuleUnlock } from '../sim/moduleUnlock'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
 import { PLAYABLE_STATION_IDS, type FoodItemId } from '../sim/tables'
 import { tick } from '../sim/tick'
@@ -323,6 +324,11 @@ export const useGameStore = defineStore('game', () => {
       apply((s) => selectStationCategory(s, stationId, categoryId)),
     explore: () => apply(exploreBoard),
     claimGuideQuest: () => apply(claimGuideQuest),
+    dismissModuleUnlock: () =>
+      apply((save) => {
+        dismissModuleUnlock(save)
+        return { ok: true }
+      }),
     markGuideRuneOpened: () => {
       if (save.value.guideQuestRuneOpened) return
       apply((s) => {

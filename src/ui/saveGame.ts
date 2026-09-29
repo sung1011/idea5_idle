@@ -15,6 +15,7 @@ import {
   sanitizeAllStationTools,
 } from '../sim/tools'
 import { hydrateGuideQuestFields } from '../sim/guideQuest'
+import { hydrateModuleUnlocks } from '../sim/moduleUnlock'
 import { hydratePotionSlots } from '../sim/potionSlots'
 import { hydratePotionState } from '../sim/potions'
 import { hydrateTechFields } from '../sim/tech'
@@ -116,6 +117,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
   hydrateTreasureMines(withGuide)
   hydrateHerbPvp(withGuide, withGuide.lastTick || Date.now())
   hydrateBeastPvp(withGuide, withGuide.lastTick || Date.now())
+  hydrateModuleUnlocks(withGuide)
   return withGuide
 }
 

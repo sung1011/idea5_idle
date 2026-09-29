@@ -52,6 +52,9 @@ export function assignWorker(save: Save, workerId: string, stationId: StationId 
   if (stationId !== null && (isDeprecatedStationId(stationId) || !isStationId(stationId))) {
     return { ok: false, reason: '没有这个站点' }
   }
+  if (stationId !== null && !isStationUnlocked(save, stationId)) {
+    return { ok: false, reason: stationLockedTip(stationId) }
+  }
   if (stationId !== null && worker.assignment !== stationId) {
     if (!isFullWorkshopHp(worker)) return { ok: false, reason: '满血才能上岗' }
     const n = assignedWorkers(save, stationId).length

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { keepStationsOpen } from './stationUnlock'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { canAffordCosts, missingCostLabels, needHaveQty, resolveNeedPayItem, takeCosts } from './costs'
@@ -15,7 +16,7 @@ afterEach(() => {
 })
 
 function roster(n: number): Save {
-  const save = createSave()
+  const save = keepStationsOpen(createSave())
   save.diamonds = 15 * n
   for (let i = 0; i < n; i++) {
     expect(recruitWorker(save).ok).toBe(true)
@@ -25,21 +26,21 @@ function roster(n: number): Save {
 
 describe('takeCosts', () => {
   it('consumes one kind, qty 1', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.bank.ore = 3
     expect(takeCosts(save, [{ itemId: 'ore', qty: 1 }]).ok).toBe(true)
     expect(bankQty(save, 'ore')).toBe(2)
   })
 
   it('consumes n of the same item', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.bank.ore = 5
     expect(takeCosts(save, [{ itemId: 'ore', qty: 3 }]).ok).toBe(true)
     expect(bankQty(save, 'ore')).toBe(2)
   })
 
   it('consumes multiple items at once', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.bank.ore = 4
     save.bank.wood = 3
     expect(
@@ -53,7 +54,7 @@ describe('takeCosts', () => {
   })
 
   it('does not deduct anything when any cost is missing', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.bank.ore = 5
     save.bank.wood = 0
     const result = takeCosts(save, [
@@ -67,7 +68,7 @@ describe('takeCosts', () => {
   })
 
   it('does not deduct when n of the same item is short', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.bank.ore = 2
     expect(takeCosts(save, [{ itemId: 'ore', qty: 3 }]).ok).toBe(false)
     expect(bankQty(save, 'ore')).toBe(2)
@@ -76,7 +77,7 @@ describe('takeCosts', () => {
   })
 
   it('deducts the merged total when the same item appears twice', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.bank.ore = 5
     expect(
       takeCosts(save, [
@@ -88,7 +89,7 @@ describe('takeCosts', () => {
   })
 
   it('pays anyPotion / anyRune with the unlocked SKU that has the most stock', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.bank.stim = 2
     save.bank.salve = 5
     save.bank.renewSoup = 5

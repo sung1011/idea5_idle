@@ -31,6 +31,7 @@ import {
   workshopBuffRemainS,
 } from '../sim/encounters'
 import { timedOrderLine } from '../sim/marketTimed'
+import { isModuleUnlocked, moduleLockedTip, type ModuleId } from '../sim/moduleUnlock'
 import ModeHelpSheet from './modeHelpSheet.vue'
 import { modeHelpIdForMainline, modeHelpOf } from './modeHelp'
 import {
@@ -68,6 +69,7 @@ import { enemyCardButton, enemyPickCopy, type EnemyPickMode } from './enemyCardA
 import FightingMark from './fightingMark.vue'
 import ActChargeBar from './actChargeBar.vue'
 import { pushFloatTip } from './floatTips'
+import { unlockFlashKey } from './moduleUnlockNav'
 import { encounterCardKindTitle } from './encounterKindTitle'
 import { useGameStore } from './gameStore'
 import {
@@ -210,11 +212,35 @@ const pickCandidates = computed(() =>
   pickCombatCandidates(restCombatCandidates(game.save), assistWorker.value),
 )
 
+function tabModule(id: MainlineTabId): ModuleId | null {
+  if (id === 'market') return 'market'
+  if (id === 'dungeon') return 'dungeon'
+  return null
+}
+
+function tabLocked(id: MainlineTabId) {
+  const moduleId = tabModule(id)
+  return moduleId != null && !isModuleUnlocked(game.save, moduleId)
+}
+
 function selectTab(id: MainlineTabId) {
+  const moduleId = tabModule(id)
+  if (moduleId && !isModuleUnlocked(game.save, moduleId)) {
+    pushFloatTip(moduleLockedTip(moduleId), 'err')
+    return
+  }
   selectMainlineTab(id)
   closePick()
   closeAffixHelp()
 }
+
+watch(
+  () => [currentTab.value, game.save.knightLevel, (game.save.openedModules ?? []).join(',')] as const,
+  () => {
+    if (tabLocked(currentTab.value)) selectMainlineTab('battlefield')
+  },
+  { immediate: true },
+)
 
 function onExplore() {
   game.explore()
@@ -436,10 +462,19 @@ function timedLine(enc: Encounter) {
           type="button"
           role="tab"
           :aria-selected="currentTab === id"
-          :class="{ on: currentTab === id, 'guide-flash': guideFlashCombat && id === 'battlefield' }"
+          :class="{
+            on: currentTab === id,
+            locked: tabLocked(id),
+            'guide-flash':
+              (guideFlashCombat && id === 'battlefield') ||
+              (isGuideQuestFlash(game.save, 'market') && id === 'market') ||
+              (isGuideQuestFlash(game.save, 'dungeon') && id === 'dungeon'),
+            'unlock-pulse': unlockFlashKey === `pve:${id}`,
+          }"
           @click="selectTab(id)"
         >
           {{ MAINLINE_TAB_LABELS[id] }}
+          <i v-if="tabLocked(id)" class="lock" aria-hidden="true" />
         </button>
       </nav>
       <nav class="sub density" role="tablist" aria-label="PVE详略">
@@ -830,6 +865,44 @@ function timedLine(enc: Encounter) {
   letter-spacing: 0.08em;
   opacity: 1;
   filter: none;
+  position: relative;
+}
+
+.sub button.locked {
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+
+.sub button .lock {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  width: 7px;
+  height: 6px;
+  border: 1.5px solid currentColor;
+  border-radius: 1px;
+}
+
+.sub button .lock::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -5px;
+  width: 5px;
+  height: 4px;
+  border: 1.5px solid currentColor;
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+}
+
+.sub button.unlock-pulse {
+  animation: unlock-pulse 0.45s ease-in-out 3;
+}
+
+@keyframes unlock-pulse {
+  50% {
+    box-shadow: 0 0 0 4px rgba(240, 184, 58, 0.65);
+  }
 }
 
 .sub button:hover:not(:disabled) {

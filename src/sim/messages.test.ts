@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { keepStationsOpen } from './stationUnlock'
 import { assignWorker } from './assign'
 import { createSave } from './createSave'
 import { hasUnread, listedMessages, markAllRead, MESSAGE_CAP, pushMessage, unreadCount } from './messages'
@@ -7,7 +8,7 @@ import { recruitWorker } from './recruit'
 
 describe('messages', () => {
   it('creates an unread offline-earnings message after settle with output', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.diamonds = 15
     expect(recruitWorker(save).ok).toBe(true)
     assignWorker(save, save.workers[0].id, 'mining')
@@ -25,7 +26,7 @@ describe('messages', () => {
   })
 
   it('clears the unread flag after markAllRead', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     save.diamonds = 15
     expect(recruitWorker(save).ok).toBe(true)
     assignWorker(save, save.workers[0].id, 'mining')
@@ -39,7 +40,7 @@ describe('messages', () => {
   })
 
   it('lists newest messages first', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     pushMessage(save, { title: '旧', body: 'a', createdAt: 100 })
     pushMessage(save, { title: '新', body: 'b', createdAt: 300 })
     pushMessage(save, { title: '中', body: 'c', createdAt: 200 })
@@ -48,7 +49,7 @@ describe('messages', () => {
   })
 
   it('drops the oldest when over the cap', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     for (let i = 0; i < MESSAGE_CAP + 3; i++) {
       pushMessage(save, { title: `n${i}`, body: 'x', createdAt: i + 1 })
     }
@@ -58,7 +59,7 @@ describe('messages', () => {
   })
 
   it('does not write a message when already caught up', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const result = settleOffline(save, save.lastTick)
     expect(result.save.messages).toEqual([])
     expect(hasUnread(result.save)).toBe(false)

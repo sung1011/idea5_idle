@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { keepStationsOpen } from './stationUnlock'
 import { assignWorker } from './assign'
 import {
   applyWorkerLevelHpRatio,
@@ -107,7 +108,7 @@ describe('worker level hydrate / spawn', () => {
   })
 
   it('spawns and recruits at Lv1 with 0 xp', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     expect(worker.level).toBe(1)
     expect(worker.xp).toBe(0)
@@ -159,7 +160,7 @@ describe('worker xp tables', () => {
 
 describe('claim loot grants combat xp', () => {
   it('gives xp to every surviving roster member on the combat list and can level up', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const a = spawnWorker(save)
     const b = spawnWorkerWith(save, 1, 'wanderer')
     a.hp = 0
@@ -186,7 +187,7 @@ describe('claim loot grants combat xp', () => {
   })
 
   it('does not grant xp on lose, while fighting, or before claiming a win', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     save.bank.meal = 4
     const lost = testEnemy({
@@ -206,7 +207,7 @@ describe('claim loot grants combat xp', () => {
     expect(worker.level).toBe(1)
     expect(worker.xp).toBe(0)
 
-    const fighting = createSave()
+    const fighting = keepStationsOpen(createSave())
     const fighter = spawnWorker(fighting)
     fighting.bank.meal = 4
     putEnemy(fighting, testEnemy())
@@ -214,7 +215,7 @@ describe('claim loot grants combat xp', () => {
     expect(claimLoot(fighting, 0, 2_000).ok).toBe(false)
     expect(fighter.xp).toBe(0)
 
-    const won = createSave()
+    const won = keepStationsOpen(createSave())
     const ready = spawnWorker(won)
     const enc = winSnap(ready.id)
     putEnemy(won, enc)
@@ -238,7 +239,7 @@ describe('worker level combat stats', () => {
     expect(lv10.atk).toBeGreaterThan(lv1.atk)
     expect(lv10.spd).toBeLessThan(lv1.spd)
 
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     const before = workerLiveStats(worker)
     worker.hp = Math.round(before.hp / 2)
@@ -262,7 +263,7 @@ describe('workshop cycle grants on-duty xp', () => {
   afterEach(() => setRollOverride(null))
 
   it('gives each on-duty worker a share on success and skips rest, other stations, and assists', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const dutyA = spawnWorker(save)
     const dutyB = spawnWorker(save)
     const resting = spawnWorker(save)
@@ -293,7 +294,7 @@ describe('workshop cycle grants on-duty xp', () => {
 
   it('does not grant xp on hazard, soft fail, or a frozen gather with no output', () => {
     setRollOverride(() => 0)
-    const hazard = createSave()
+    const hazard = keepStationsOpen(createSave())
     const hunter = spawnWorker(hazard)
     expect(assignWorker(hazard, hunter.id, 'hunting').ok).toBe(true)
     expect(completeCycle(hazard, 'hunting')).toBe(true)
@@ -302,7 +303,7 @@ describe('workshop cycle grants on-duty xp', () => {
     expect(hunter.xp).toBe(0)
     expect(hunter.level).toBe(1)
 
-    const fail = createSave()
+    const fail = keepStationsOpen(createSave())
     fail.bank.wildCrystal = 4
     const smith = spawnWorker(fail)
     expect(assignWorker(fail, smith.id, 'inscription').ok).toBe(true)
@@ -312,7 +313,7 @@ describe('workshop cycle grants on-duty xp', () => {
     expect(fail.stations.inscription.stationXp).toBe(softFailXp(stationXp))
     expect(smith.xp).toBe(0)
 
-    const frozen = createSave()
+    const frozen = keepStationsOpen(createSave())
     const miner = spawnWorker(frozen)
     expect(assignWorker(frozen, miner.id, 'mining').ok).toBe(true)
     const node = {
@@ -330,7 +331,7 @@ describe('workshop cycle grants on-duty xp', () => {
   })
 
   it('levels an on-duty worker through the combat xp path and keeps the hp ratio', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     expect(assignWorker(save, worker.id, 'herbalism').ok).toBe(true)
     worker.xp = workerXpToNext(1) - 1
@@ -347,7 +348,7 @@ describe('workshop cycle grants on-duty xp', () => {
 
 describe('fuse sums total xp', () => {
   it('sets the new worker from the sum of both parents total xp', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const a = spawnWorker(save)
     const b = spawnWorker(save)
     a.level = 4
@@ -371,7 +372,7 @@ describe('fuse sums total xp', () => {
   })
 
   it('cascades overflow xp into extra levels along the worker curve', () => {
-    const save = createSave()
+    const save = keepStationsOpen(createSave())
     const a = spawnWorker(save)
     const b = spawnWorker(save)
     a.level = 1
