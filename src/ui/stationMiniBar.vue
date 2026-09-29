@@ -28,8 +28,9 @@ const visual = useVisualProgress(() => ({
   stalled: stalled.value,
   assigned: assigned.value,
   lastTick: game.save.lastTick,
+  wrap: true,
 }))
-const pct = computed(() => Math.min(100, visual.value * 100))
+const pct = computed(() => Math.min(100, Math.max(0, visual.value * 100)))
 const eff = computed(() => stationHpEfficiencyLabel(stationHpWorkMul(game.save, props.stationId)))
 const tone = computed(() => stationProgressStyle(props.stationId))
 const halted = computed(() => stalled.value || assigned.value <= 0)
@@ -43,19 +44,14 @@ const halted = computed(() => stalled.value || assigned.value <= 0)
       :style="halted ? undefined : tone"
       role="progressbar"
       aria-label="制造进度"
-      :aria-valuenow="Math.round(pct)"
+      :aria-valuenow="Math.round(Math.min(100, Math.max(0, pct)))"
       aria-valuemin="0"
       aria-valuemax="100"
-    ><b :style="{ width: pct.toFixed(2) + '%' }" /></i>
-    <em v-if="layout === 'sheet'">{{ Math.round(pct) }}%</em>
-    <em v-if="assigned > 0 || layout !== 'sheet'" class="eff">
-      <template v-if="layout !== 'sheet'">
-        <span class="eff-reserve" aria-hidden="true">{{ STATION_HP_EFFICIENCY_RESERVE }}</span>
-        <span class="eff-value">{{ eff }}</span>
-      </template>
-      <template v-else>{{ eff }}</template>
+    ><b :style="{ width: Math.min(100, Math.max(0, pct)).toFixed(2) + '%' }" /></i>
+    <em class="eff">
+      <span class="eff-reserve" aria-hidden="true">{{ STATION_HP_EFFICIENCY_RESERVE }}</span>
+      <span class="eff-value">{{ eff }}</span>
     </em>
-    <em v-else>空岗</em>
   </span>
 </template>
 
@@ -77,16 +73,6 @@ const halted = computed(() => stalled.value || assigned.value <= 0)
   border-radius: 99px;
   background: rgba(90, 58, 20, 0.18);
   overflow: hidden;
-}
-
-.mini.sheet {
-  width: 100%;
-}
-
-.mini.sheet .bar {
-  flex: 1 1 0;
-  min-width: 6em;
-  height: 10px;
 }
 
 .bar b {
@@ -125,7 +111,4 @@ em {
   visibility: hidden;
 }
 
-.sheet em {
-  font-size: 12px;
-}
 </style>

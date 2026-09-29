@@ -88,7 +88,7 @@ describe('station craft label', () => {
     const sharedBar = miniSource.match(/\.bar\s*\{[^}]*\}/)
     expect(sharedBar?.[0]).toContain('height: 7px')
     expect(sharedBar?.[0]).not.toContain('border-width: 1px')
-    expect(miniSource).toMatch(/\.mini\.sheet \.bar\s*\{[^}]*height:\s*10px/)
+    expect(detailSource).toMatch(/\.craft-bar\s*\{[^}]*height:\s*22px/)
     expect(detailSource).toContain("bits.join('～')")
     expect(detailSource).not.toContain('stationCraftLabel')
     expect(detailSource).not.toContain('stationCraftPickOptions')

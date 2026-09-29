@@ -67,6 +67,7 @@ export function railVisualInput(save: Save, stationId: StationId): Omit<VisualPr
     stalled: railProgressHalted(save, stationId),
     assigned: assignedCount(save, stationId),
     lastTick: save.lastTick,
+    wrap: true,
   }
 }
 

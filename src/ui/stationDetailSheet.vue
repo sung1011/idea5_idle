@@ -2,13 +2,14 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { assignedWorkers, currentSpeed, stationBottleneckText, stationConsumeGroups, stationCycleS } from '../sim/query'
 import { gatherStatusText, isGatherFrozen } from '../sim/gather'
+import { formatRemainClock } from '../sim/march'
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
 import { isEmptyHp, isWoundedHp, stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
 import { findCategory, ITEM_DEF, STATION_DEF, xpToNextLevel } from '../sim/tables'
 import type { CategoryId, StationId, Worker } from '../sim/types'
 import ActButton from './actButton.vue'
 import ConsumeJumpItem from './consumeJumpItem.vue'
-import StationMiniBar from './stationMiniBar.vue'
+import WorkerAvatar from './workerAvatar.vue'
 import { formatConsumeToken } from './encounterDeal'
 import { breakthroughChoices } from '../sim/beastCraft'
 import { itemQty } from '../sim/bank'
@@ -23,6 +24,8 @@ import UiSelect from './uiSelect.vue'
 import type { UiSelectOption } from './uiSelect'
 import { qualityOf, workerQualityNameStyle } from './workerQuality'
 import { workerShortName } from './workerGroups'
+import { stationProgressStyle } from './workshopTabs'
+import { craftHaltText, craftProgressView, useFrameNow } from './visualProgress'
 
 const props = defineProps<{
   stationId: StationId
@@ -94,12 +97,28 @@ const categorySelectOptions = computed<UiSelectOption[]>(() => {
   }
   return rows
 })
-const dutyLine = computed(() => {
-  const worker = duty.value
-  if (!worker) return '空岗'
-  const quality = qualityOf(worker).label
-  return `${workerShortName(worker)} · ${quality} · Lv${worker.level}`
+const frameNow = useFrameNow()
+const tone = computed(() => stationProgressStyle(props.stationId))
+const craft = computed(() =>
+  craftProgressView({
+    progress: station.value.progress,
+    speed: speed.value,
+    assigned: crew.value.length,
+    paused: !!station.value.stallReason || frozen.value,
+    closed: station.value.closed,
+    lastTick: game.save.lastTick,
+    now: frameNow.value,
+  }),
+)
+const craftSide = computed(() => {
+  if (!craft.value.halted) return `剩 ${formatRemainClock(Math.ceil(craft.value.remainS))}`
+  if (craft.value.halt === 'paused') return stallLine.value || (frozen.value ? gatherLine.value : null) || '暂停'
+  return craftHaltText(craft.value.halt) ?? '暂停'
 })
+
+function dutyText(worker: Worker) {
+  return `${workerShortName(worker)} · ${qualityOf(worker).label} · Lv${worker.level}`
+}
 
 function consumeText(row: { itemId: (typeof consumeGroups.value)[number][number]['itemId']; need: number; have: number }) {
   return formatConsumeToken({ kind: 'item', itemId: row.itemId, qty: row.need }, row.have)
@@ -193,7 +212,20 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
         <dl class="fields">
           <div>
             <dt>在岗</dt>
-            <dd :style="duty ? workerQualityNameStyle(duty) : undefined">{{ dutyLine }}</dd>
+            <dd>
+              <ul v-if="crew.length" class="duty-list">
+                <li v-for="worker in crew" :key="worker.id">
+                  <WorkerAvatar
+                    size="md"
+                    :race="worker.race"
+                    :quality="worker.qualityTier"
+                    :worker-id="worker.id"
+                  />
+                  <span :style="workerQualityNameStyle(worker)">{{ dutyText(worker) }}</span>
+                </li>
+              </ul>
+              <template v-else>空岗</template>
+            </dd>
           </div>
           <div>
             <dt>效率 / 体力</dt>
@@ -201,7 +233,23 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
           </div>
           <div class="progress" :class="{ 'guide-flash': alchemyProgressFlash }">
             <dt>制造进度</dt>
-            <dd><StationMiniBar :station-id="stationId" layout="sheet" /></dd>
+            <dd>
+              <div class="craft" :class="{ halt: craft.halted }" :style="craft.halted ? undefined : tone">
+                <i
+                  class="craft-bar"
+                  role="progressbar"
+                  aria-label="制造进度"
+                  :aria-valuenow="craft.percent"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  :aria-valuetext="craftSide"
+                >
+                  <b :style="{ width: craft.fillPct.toFixed(2) + '%' }" />
+                  <em>{{ craft.percent }}%</em>
+                </i>
+                <span class="craft-side">{{ craftSide }}</span>
+              </div>
+            </dd>
           </div>
           <div>
             <dt>周期 / 速度</dt>
@@ -412,6 +460,78 @@ header {
 
 .fields > div.progress dd {
   min-width: 0;
+}
+
+.duty-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.duty-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.duty-list span {
+  min-width: 0;
+}
+
+.craft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.craft-bar {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 6em;
+  height: 22px;
+  border-radius: 99px;
+  background: rgba(90, 58, 20, 0.18);
+  overflow: hidden;
+}
+
+.craft-bar b {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--workshop-progress-from, #d7a441), var(--workshop-progress-to, #f0c14a));
+}
+
+.craft.halt .craft-bar b {
+  background: linear-gradient(90deg, #d4cdc0, #9a8f7c);
+}
+
+.craft-bar em {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 800;
+  color: #3a2410;
+  pointer-events: none;
+}
+
+.craft-side {
+  flex: 0 1 auto;
+  max-width: 46%;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.craft.halt .craft-side {
+  color: #6b5c4a;
 }
 
 dt {

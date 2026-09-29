@@ -2563,23 +2563,39 @@ onUnmounted(() => {
 }
 
 .roster-v2:not(.sheet-ops) .station-rail {
-  flex: 0 0 auto;
-  flex-direction: row;
-  width: auto;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 0 4px 4px;
+  flex: 0 0 64px;
+  width: 64px;
+  align-self: stretch;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
 }
 
 .roster-v2:not(.sheet-ops) .station-name {
-  flex-direction: row;
+  flex: 1 1 auto;
+  align-self: stretch;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 2px;
-  padding: 4px 6px;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 4px 2px;
+  border-radius: 6px 0 0 6px;
+}
+
+.roster-v2:not(.sheet-ops) .station-name :deep(.ui-ico) {
+  width: 28px;
+  height: 28px;
 }
 
 .roster-v2:not(.sheet-ops) .station-name b {
   letter-spacing: 0;
   writing-mode: horizontal-tb;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .roster-v2:not(.sheet-ops) .station-craft-row :deep(.station-progress .bar) {
