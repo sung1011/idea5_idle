@@ -88,3 +88,47 @@ export function workerQualityFrameStyle(tier: unknown): { background: string; bo
     borderColor: q.color,
   }
 }
+
+/** 营地格子专用，比档表色更饱和，木底上能分开。 */
+const CAMP_RING_COLOR: Record<WorkerQualityId, string> = {
+  white: '#e4d2a4',
+  green: '#18c41c',
+  blue: '#2a6dff',
+  cyan: '#00c6c6',
+  purple: '#b026ff',
+  orange: '#ff7a00',
+  pink: '#ff4d94',
+  red: '#ff3030',
+  gold: '#ffc400',
+  rainbow: '#ff3d9a',
+}
+
+const CAMP_RING_OUTLINE = '0 0 0 1px #3a2208'
+
+/** 紫档及以上才带外发光。 */
+export function campAvatarRingGlows(tier: unknown): boolean {
+  return workerQualityDef(hydrateQualityTier(tier)).tier >= 5
+}
+
+/** 圆框厚度约直径的 9%，48px 头像是 4px。 */
+export function campAvatarRingPx(diameterPx: number): number {
+  const diameter = Math.max(1, diameterPx)
+  return Math.max(1, Math.round(diameter * 0.09))
+}
+
+/** 只给营地格子用。外圈深色细描边，高品质再加淡淡发光。 */
+export function campAvatarRingStyle(
+  tier: unknown,
+  diameterPx: number,
+): { background: string; borderColor: string; borderWidth: number; boxShadow: string } {
+  const q = workerQualityDef(hydrateQualityTier(tier))
+  const face = TILE_FACE[q.id]
+  const color = CAMP_RING_COLOR[q.id]
+  const glow = campAvatarRingGlows(tier) ? `, 0 0 6px ${color}` : ''
+  return {
+    background: face.background,
+    borderColor: color,
+    borderWidth: campAvatarRingPx(diameterPx),
+    boxShadow: `${CAMP_RING_OUTLINE}${glow}`,
+  }
+}

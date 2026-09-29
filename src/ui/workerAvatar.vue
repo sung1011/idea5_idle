@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { workerQualityFrameStyle } from './workerQuality'
+import { campAvatarRingStyle, workerQualityFrameStyle } from './workerQuality'
 import {
   workerAvatarBorderPx,
   workerAvatarPx,
@@ -16,6 +16,7 @@ const props = withDefaults(
     quality?: unknown
     size?: WorkerAvatarSize
     showNew?: boolean
+    ring?: 'camp'
   }>(),
   {
     size: 'sm',
@@ -25,8 +26,16 @@ const props = withDefaults(
 )
 
 const px = computed(() => workerAvatarPx(props.size))
-const borderPx = computed(() => workerAvatarBorderPx(props.size))
-const frame = computed(() => workerQualityFrameStyle(props.quality))
+const frame = computed(() => {
+  if (props.ring === 'camp') return campAvatarRingStyle(props.quality, px.value)
+  const plain = workerQualityFrameStyle(props.quality)
+  return {
+    background: plain.background,
+    borderColor: plain.borderColor,
+    borderWidth: workerAvatarBorderPx(props.size),
+    boxShadow: 'none',
+  }
+})
 const src = computed(() => workerRaceAvatarUrl(workerAvatarRace(props.race, props.workerId)))
 </script>
 
@@ -37,7 +46,8 @@ const src = computed(() => workerRaceAvatarUrl(workerAvatarRace(props.race, prop
       :style="{
         background: frame.background,
         borderColor: frame.borderColor,
-        borderWidth: `${borderPx}px`,
+        borderWidth: `${frame.borderWidth}px`,
+        boxShadow: frame.boxShadow,
       }"
     >
       <img v-if="src" :src="src" alt="" draggable="false" />

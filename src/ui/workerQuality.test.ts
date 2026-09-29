@@ -12,6 +12,9 @@ import {
   workerQualityNameStyle,
   workerQualityTileStyle,
   workerQualityToneClass,
+  campAvatarRingGlows,
+  campAvatarRingPx,
+  campAvatarRingStyle,
 } from './workerQuality'
 
 function workerAt(tier: QualityTier) {
@@ -62,5 +65,23 @@ describe('workerQuality', () => {
       color: '#b85a08',
     })
     expect(workerQualityTileStyle(workerAt(10)).background).toContain('135deg')
+  })
+
+  it('thickens only the camp ring and glows from purple up', () => {
+    expect(campAvatarRingPx(48)).toBe(4)
+    expect(campAvatarRingPx(48) / 48).toBeGreaterThanOrEqual(0.08)
+    expect(campAvatarRingPx(48) / 48).toBeLessThanOrEqual(0.1)
+    const green = campAvatarRingStyle(2, 48)
+    expect(green.borderWidth).toBe(4)
+    expect(green.borderColor).not.toBe(WORKER_QUALITY_TABLE[2].color)
+    expect(green.boxShadow).toBe('0 0 0 1px #3a2208')
+    expect(campAvatarRingGlows(1)).toBe(false)
+    expect(campAvatarRingGlows(4)).toBe(false)
+    expect(campAvatarRingGlows(5)).toBe(true)
+    const purple = campAvatarRingStyle(5, 48)
+    expect(purple.boxShadow).toContain('0 0 0 1px #3a2208')
+    expect(purple.boxShadow).toContain(purple.borderColor)
+    expect(campAvatarRingStyle(6, 48).boxShadow).toContain('0 0 6px')
+    expect(campAvatarRingStyle(10, 48).borderColor).not.toBe(WORKER_QUALITY_TABLE[10].color)
   })
 })

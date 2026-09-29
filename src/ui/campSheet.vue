@@ -314,6 +314,7 @@ onUnmounted(() => {
                 @click.stop="openDetail(row.worker)"
               >i</button>
               <WorkerAvatar
+                ring="camp"
                 size="lg"
                 :show-new="!!row.worker.isNew"
                 :race="row.worker.race"
