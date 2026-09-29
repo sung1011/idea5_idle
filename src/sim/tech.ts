@@ -1,3 +1,4 @@
+import { syncAllWorkerHpMax } from './combat'
 import { resizeEncounterBoard } from './encounters'
 import { hydrateKnightXp } from './knightLevel'
 import { roll01 } from './rng'
@@ -1109,6 +1110,7 @@ export function researchTech(save: Save, techId: string): ActionResult {
   if (isSlotEffect(node.effectId)) {
     resizeEncounterBoard(save)
   }
+  syncAllWorkerHpMax(save)
   return { ok: true, message: `已点亮「${node.name}」` }
 }
 
@@ -1134,6 +1136,7 @@ export function resetAllTech(save: Save): ActionResult {
   save.techLevels = {}
   save.unlockedTechIds = []
   resizeEncounterBoard(save)
+  syncAllWorkerHpMax(save)
   return {
     ok: true,
     message: refund > 0 ? `已重置科技，返还灵感 ${refund}` : '已重置科技',

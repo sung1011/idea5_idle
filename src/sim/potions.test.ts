@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { keepStationsOpen } from './stationUnlock'
-import { assignWorker } from './assign'
+import { assignWorker, withdrawWorker } from './assign'
 import { bankQty } from './bank'
-import { beginEnemyCombat } from './combat'
+import { applyRestHeal, beginEnemyCombat, REST_HEAL_EVERY_S, workerLiveStats } from './combat'
 import { createAssistWorker } from './combatAssist'
 import { createSave } from './createSave'
 import {
@@ -38,7 +38,10 @@ import { currentSpeed } from './query'
 import { recruitWorker } from './recruit'
 import { setRollOverride } from './rng'
 import { completeCycle } from './stations'
+import { researchTech } from './tech'
 import { ticks } from './tick'
+import { hpBarTone } from '../ui/hpBar'
+import { isFullWorkshopHp, workerWearHp } from './workshopHp'
 import type { EnemyEncounter, Save } from './types'
 import { hydrateLoadedSave } from '../ui/saveGame'
 
@@ -338,8 +341,9 @@ describe('seven potion effects', () => {
     save.bank.clearMind = 2
     expect(installPotionSlot(save, 0, 'clearMind').ok).toBe(true)
     expect(usePotionSlot(save, 0).ok).toBe(true)
-    expect(worst.fatigueDebt).toBe(2.4)
-    expect(worst.hp).toBe(1 + Math.ceil(worst.hpMax * CLEAR_MIND_PRIMARY_RATIO))
+    const primary = Math.ceil(worst.hpMax * CLEAR_MIND_PRIMARY_RATIO)
+    expect(worst.fatigueDebt).toBe(0)
+    expect(worst.hp).toBeCloseTo(1 + primary - 2.4)
     expect(CLEAR_MIND_PRIMARY_RATIO).toBe(0.3)
     expect(second.hp).toBe(Math.min(second.hpMax, secondBefore + Math.ceil(second.hpMax * CLEAR_MIND_SECONDARY_RATIO)))
     expect(lighter.hp).toBe(lighterBefore)
@@ -369,6 +373,129 @@ describe('seven potion effects', () => {
     expect(wounded.hp).toBe(1 + Math.ceil(wounded.hpMax * CLEAR_MIND_PRIMARY_RATIO))
     expect(healthy.hp).toBe(healthy.hpMax)
     expect(bankQty(save, 'clearMind')).toBe(0)
+  })
+
+  it('clears fatigue debt when a heal reaches hpMax so wear and detail bars match', () => {
+    const save = roster(1)
+    const worker = save.workers[0]
+    assignWorker(save, worker.id, 'herbalism')
+    worker.hp = worker.hpMax - 1
+    worker.fatigueDebt = 0.6
+    save.bank.salve = 1
+    expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
+    expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(worker.hp).toBe(worker.hpMax)
+    expect(worker.fatigueDebt).toBe(0)
+    expect(workerWearHp(worker)).toBe(worker.hp)
+    expect(hpBarTone(worker.hp, worker.hpMax)).toBe('full')
+    expect(hpBarTone(workerWearHp(worker), worker.hpMax)).toBe('full')
+  })
+
+  it('does not consume salve or brinkSalve when every on-duty worker is already full', () => {
+    const save = roster(2)
+    const full = save.workers[0]
+    const wounded = save.workers[1]
+    assignWorker(save, full.id, 'herbalism')
+    assignWorker(save, wounded.id, 'mining')
+    full.hp = full.hpMax
+    full.fatigueDebt = 0
+    wounded.hp = wounded.hpMax
+    wounded.fatigueDebt = 0
+    save.bank.salve = 2
+    save.bank.brinkSalve = 1
+    expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
+    expect(installPotionSlot(save, 1, 'brinkSalve').ok).toBe(true)
+    expect(usePotionSlot(save, 0)).toEqual({ ok: false, reason: POTION_FULL_HP_TIP })
+    expect(usePotionSlot(save, 1)).toEqual({ ok: false, reason: POTION_FULL_HP_TIP })
+    expect(bankQty(save, 'salve')).toBe(2)
+    expect(bankQty(save, 'brinkSalve')).toBe(1)
+    expect(save.guideQuestPotionUsed).toBeFalsy()
+
+    wounded.hp = Math.max(1, wounded.hpMax - 2)
+    expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(bankQty(save, 'salve')).toBe(1)
+    expect(wounded.hp).toBeGreaterThan(wounded.hpMax - 2)
+    expect(full.hp).toBe(full.hpMax)
+  })
+
+  it('after bracer tighten, rest, salve, and assign share one hpMax', () => {
+    const save = roster(2)
+    const full = save.workers[0]
+    const half = save.workers[1]
+    const fullBare = full.hpMax
+    const halfBare = half.hpMax
+    const halfHp = Math.round(halfBare / 2)
+    half.hp = halfHp
+    save.techPoints = 99
+    expect(researchTech(save, 'bracerTighten').ok).toBe(true)
+
+    expect(full.hpMax).toBe(workerLiveStats(full, save).hp)
+    expect(full.hpMax).toBeGreaterThan(fullBare)
+    expect(full.hp).toBe(full.hpMax)
+    expect(full.hp).toBeLessThanOrEqual(full.hpMax)
+    expect(isFullWorkshopHp(full)).toBe(true)
+    expect(assignWorker(save, full.id, 'herbalism').ok).toBe(true)
+
+    expect(half.hpMax).toBe(workerLiveStats(half, save).hp)
+    expect(half.hp).toBe(Math.round((halfHp / halfBare) * half.hpMax))
+    expect(half.hp).toBeLessThanOrEqual(half.hpMax)
+    expect(isFullWorkshopHp(half)).toBe(false)
+    expect(assignWorker(save, half.id, 'mining')).toEqual({ ok: false, reason: '满血才能上岗' })
+
+    full.hp = full.hpMax - 1
+    full.fatigueDebt = 0.4
+    save.bank.salve = 1
+    expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
+    expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(full.hp).toBe(full.hpMax)
+    expect(full.fatigueDebt).toBe(0)
+    expect(full.hp).toBeLessThanOrEqual(full.hpMax)
+    expect(workerWearHp(full)).toBe(full.hp)
+    expect(hpBarTone(workerWearHp(full), full.hpMax)).toBe('full')
+
+    expect(withdrawWorker(save, 'herbalism').ok).toBe(true)
+    full.hp = 1
+    full.fatigueDebt = 0.5
+    save.elapsedS = REST_HEAL_EVERY_S
+    for (let i = 0; i < full.hpMax + 5; i++) {
+      applyRestHeal(save)
+      expect(full.hp).toBeLessThanOrEqual(full.hpMax)
+      expect(full.hpMax).toBe(workerLiveStats(full, save).hp)
+      save.elapsedS += REST_HEAL_EVERY_S
+    }
+    expect(full.hp).toBe(full.hpMax)
+    expect(full.fatigueDebt).toBe(0)
+    expect(isFullWorkshopHp(full)).toBe(true)
+    expect(assignWorker(save, full.id, 'herbalism').ok).toBe(true)
+
+    expect(withdrawWorker(save, 'herbalism').ok).toBe(true)
+    const enc = testEnemy()
+    save.encounters[0] = enc
+    const combat = beginEnemyCombat(enc, [full], 1_000, 1, undefined, save)
+    expect(combat.workers[0]?.hpMax).toBe(full.hpMax)
+    expect(combat.workers[0]?.hpMax).toBe(workerLiveStats(full, save).hp)
+    expect(combat.workers[0]?.hp).toBeLessThanOrEqual(combat.workers[0]!.hpMax)
+    expect(full.hp).toBeLessThanOrEqual(full.hpMax)
+    expect(combat.workers[0]?.hp).toBe(full.hp)
+  })
+
+  it('loads a pre-tech full worker onto the tech hp cap', () => {
+    const save = roster(1)
+    const worker = save.workers[0]
+    const bare = worker.hpMax
+    worker.hp = bare
+    const loaded = hydrateLoadedSave({
+      ...save,
+      techLevels: { bracerTighten: 1 },
+      unlockedTechIds: ['bracerTighten'],
+    })
+    expect(loaded).not.toBeNull()
+    const next = loaded!.workers[0]!
+    expect(next.hpMax).toBe(workerLiveStats(next, loaded!).hp)
+    expect(next.hpMax).toBeGreaterThan(bare)
+    expect(next.hp).toBe(next.hpMax)
+    expect(next.hp).toBeLessThanOrEqual(next.hpMax)
+    expect(isFullWorkshopHp(next)).toBe(true)
   })
 })
 

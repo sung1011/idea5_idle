@@ -560,7 +560,7 @@ function grantDungeonXp(save: Save, enc: EnemyEncounter): boolean {
   for (const id of enc.combat.workerIds) {
     const worker = findCombatPartyWorker(save, id)
     if (!worker) continue
-    grantWorkerCombatXp(worker, amount)
+    grantWorkerCombatXp(worker, amount, save)
     granted = true
   }
   return granted

@@ -25,6 +25,7 @@ import {
   stationHpEfficiencyLabel,
   stationHpWorkMul,
   takeWorkshopHpEfficiencyTip,
+  isFullWorkshopHp,
   workerWearHp,
   WORKSHOP_EMPTY_WORK_MUL,
   WORKSHOP_HP_EFFICIENCY_TIP,
@@ -336,6 +337,24 @@ describe('6h equivalent production', () => {
     expect(worker.hp).toBeGreaterThanOrEqual(2)
     expect(worker.hp).toBeLessThan(worker.hpMax)
     expect(FATIGUE_DEBT_RATIO).toBe(0.0015)
+  })
+})
+
+describe('workshop full hp', () => {
+  it('is full at or above hpMax only when fatigue debt is zero', () => {
+    const save = roster(1)
+    const worker = save.workers[0]
+    worker.fatigueDebt = 0
+    worker.hp = worker.hpMax
+    expect(isFullWorkshopHp(worker)).toBe(true)
+    worker.hp = worker.hpMax + 3
+    expect(isFullWorkshopHp(worker)).toBe(true)
+    worker.hp = worker.hpMax
+    worker.fatigueDebt = 0.2
+    expect(isFullWorkshopHp(worker)).toBe(false)
+    worker.fatigueDebt = 0
+    worker.hp = worker.hpMax - 1
+    expect(isFullWorkshopHp(worker)).toBe(false)
   })
 })
 

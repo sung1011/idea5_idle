@@ -7,6 +7,7 @@ import { hydrateStations } from '../sim/stationProgress'
 import { clampStationAssignments } from '../sim/assign'
 import { isAssistWorker } from '../sim/combatAssist'
 import { hydrateRestFoodId, migrateWorkerFoodSlots } from '../sim/food'
+import { syncAllWorkerHpMax } from '../sim/combat'
 import { hydrateWorkers } from '../sim/recruit'
 import {
   hydrateForgedTools,
@@ -71,10 +72,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
     ...rest,
     bank: { ...hydrateBank(items), ...hydrateBank(bank) },
     restFoodId: hydrateRestFoodId((parsed as { restFoodId?: unknown }).restFoodId),
-    workers: hydrateWorkers(
-      parsed.workers,
-      (parsed as { workerQualityRev?: unknown }).workerQualityRev,
-    ),
+    workers: [],
     workerQualityRev: WORKER_QUALITY_REV,
     stations: hydrateStations(parsed.stations),
     diamonds: normalizeDiamonds((parsed as { diamonds?: unknown }).diamonds),
@@ -92,6 +90,11 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
     forgedTools: hydrateForgedTools((parsed as { forgedTools?: unknown }).forgedTools),
     potionSlots: hydratePotionSlots((parsed as { potionSlots?: unknown }).potionSlots),
   }
+  merged.workers = hydrateWorkers(
+    parsed.workers,
+    (parsed as { workerQualityRev?: unknown }).workerQualityRev,
+    merged,
+  )
   migrateWorkerFoodSlots(merged)
   migrateWorkerToolsToStations(merged, parsed.workers)
   returnLegacyStationToolSlots(merged, parsed.stations)
@@ -108,6 +111,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
     delete (merged as { knightXp?: number }).knightXp
   }
   hydrateTechFields(merged as Save & { inspiration?: unknown })
+  syncAllWorkerHpMax(merged)
   if (!Array.isArray(parsed.encounters)) merged.encounters = []
   if (!Array.isArray((parsed as { marketEncounters?: unknown }).marketEncounters)) {
     merged.marketEncounters = []

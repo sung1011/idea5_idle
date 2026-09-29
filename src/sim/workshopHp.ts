@@ -51,9 +51,9 @@ export function workerWearHp(worker: Worker): number {
   return Math.max(0, worker.hp - workerFatigueDebt(worker))
 }
 
-/** 工坊上岗满血：整数 HP 满，且没有未入账劳损。与界面 wear 一致。 */
+/** 工坊上岗满血：hp 不低于唯一上限，且没有未入账劳损。科技把上限抬高后，已顶到新上限的人不再被 `===` 挡在岗外。 */
 export function isFullWorkshopHp(worker: Worker): boolean {
-  return worker.hp === worker.hpMax && workerFatigueDebt(worker) === 0
+  return worker.hp >= worker.hpMax && workerFatigueDebt(worker) === 0
 }
 
 /**
@@ -199,7 +199,7 @@ function addDebt(worker: Worker, amount: number): void {
   worker.fatigueDebt = workerFatigueDebt(worker) + amount
   const drop = Math.floor(worker.fatigueDebt)
   if (drop < 1) return
-  worker.hp = Math.max(0, worker.hp - drop)
+  worker.hp = Math.min(worker.hpMax, Math.max(0, worker.hp - drop))
   worker.fatigueDebt -= drop
 }
 

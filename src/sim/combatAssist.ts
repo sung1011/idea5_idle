@@ -76,7 +76,7 @@ export function createAssistWorker(save: Save, roll: AssistRoll = Math.random): 
       xp: 0,
       combatAttrs: [],
       guest: true,
-    }),
+    }, undefined, save),
     roll,
   )
 }

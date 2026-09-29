@@ -25,6 +25,7 @@ import {
   STIM_SPEED_MUL,
 } from './tables'
 import { alchemyBatchBonus } from './tech'
+import { isFullWorkshopHp, workerFatigueDebt } from './workshopHp'
 import type {
   ActionResult,
   EncounterNeedMap,
@@ -192,13 +193,30 @@ function livingDutyWorkers(save: Save): Worker[] {
   return potionDutyWorkers(save).filter((worker) => worker.hp > 0)
 }
 
+/** 和营地休息一样：治疗量先抵劳损债，剩下的再加血。加到上限且债清完时 hp 钉在 hpMax、债归零。 */
 function applyHeal(save: Save, worker: Worker, amount: number): number {
   if (!(amount > 0)) return 0
-  const next = Math.min(worker.hpMax, worker.hp + amount)
-  const healed = next - worker.hp
-  worker.hp = next
+  const max = Math.max(1, Math.floor(worker.hpMax))
+  const before = worker.hp
+  const debt = workerFatigueDebt(worker)
+  let points = amount
+  if (debt > 0) {
+    const cut = Math.min(debt, points)
+    worker.fatigueDebt = debt - cut
+    points -= cut
+  }
+  if (points > 0) worker.hp = Math.min(max, worker.hp + points)
+  if (worker.hp >= max && workerFatigueDebt(worker) <= 0) {
+    worker.hp = max
+    worker.fatigueDebt = 0
+  }
+  if (worker.hp > max) worker.hp = max
+  if (worker.hp < 0) worker.hp = 0
+  const healed = worker.hp - before
   if (healed > 0) syncCombatHp(save, worker)
-  return healed
+  if (healed > 0) return healed
+  const debtPaid = debt - workerFatigueDebt(worker)
+  return debtPaid > 0 ? debtPaid : 0
 }
 
 function hpRatio(worker: Worker): number {
@@ -206,23 +224,26 @@ function hpRatio(worker: Worker): number {
   return worker.hp / hpMax
 }
 
-/** 满血不选。按 HP/hpMax 升序，平局按 id，最多 2 人。 */
+/** 未满血（含劳损债）才选。按 HP/hpMax 升序，平局按 id，最多 2 人。 */
 function clearMindTargets(save: Save): Worker[] {
   return potionDutyWorkers(save)
-    .filter((worker) => worker.hp < worker.hpMax)
+    .filter((worker) => !isFullWorkshopHp(worker))
     .sort((a, b) => hpRatio(a) - hpRatio(b) || a.id.localeCompare(b.id))
     .slice(0, 2)
+}
+
+function dutyAllFull(save: Save): boolean {
+  const crew = potionDutyWorkers(save)
+  return crew.length > 0 && crew.every((worker) => isFullWorkshopHp(worker))
 }
 
 function applyBrink(save: Save, worker: Worker): number {
   const hpMax = Math.max(1, Math.floor(worker.hpMax))
   if (worker.hp / hpMax <= BRINK_LOW_RATIO) {
     const floorHp = Math.min(hpMax, Math.ceil(hpMax * BRINK_LOW_TARGET_RATIO))
-    if (worker.hp >= floorHp) return 0
-    const healed = floorHp - worker.hp
-    worker.hp = floorHp
-    syncCombatHp(save, worker)
-    return healed
+    if (worker.hp >= floorHp && workerFatigueDebt(worker) <= 0) return 0
+    const need = Math.max(0, floorHp - worker.hp) + workerFatigueDebt(worker)
+    return applyHeal(save, worker, need)
   }
   return applyHeal(save, worker, Math.ceil(hpMax * BRINK_HEAL_RATIO))
 }
@@ -292,6 +313,9 @@ export function usePotionSlot(save: Save, index: number, _now = Date.now()): Act
   if (bankQty(save, itemId) < 1) return { ok: false, reason: `${ITEM_DEF[itemId].label}见底` }
   if (!potionDutyWorkers(save).length) return { ok: false, reason: POTION_NO_DUTY_TIP }
   if (itemId === 'clearMind' && clearMindTargets(save).length === 0) {
+    return { ok: false, reason: POTION_FULL_HP_TIP }
+  }
+  if ((itemId === 'salve' || itemId === 'brinkSalve') && dutyAllFull(save)) {
     return { ok: false, reason: POTION_FULL_HP_TIP }
   }
   if ((itemId === 'doubleMist' || itemId === 'rushPowder') && dutyStations(save).length === 0) {

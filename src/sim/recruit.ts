@@ -137,10 +137,12 @@ function hydrateDutyGuard(raw: unknown): number | null {
   return Math.floor(raw)
 }
 
-export function hydrateWorker(raw: unknown, index = 0): Worker {
+export function hydrateWorker(raw: unknown, index = 0, save?: Save): Worker {
   const src = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
   const id = typeof src.id === 'string' && src.id ? src.id : `w-${index + 1}`
   const progress = normalizeWorkerProgress(src.level, src.xp)
+  const storedHpMax =
+    typeof src.hpMax === 'number' && Number.isFinite(src.hpMax) && src.hpMax > 0 ? Math.floor(src.hpMax) : 1
   return hydrateWorkerCombatAttrs(
     fillWorkerHp({
       id,
@@ -153,13 +155,13 @@ export function hydrateWorker(raw: unknown, index = 0): Worker {
       fatigueDebt: hydrateFatigueDebt(src.fatigueDebt),
       isNew: src.isNew === true,
       hp: 0,
-      hpMax: 1,
+      hpMax: storedHpMax,
       level: progress.level,
       xp: progress.xp,
       combatAttrs: uniqueCombatAttrs(src.combatAttrs),
       foodBuff: hydrateRestFoodBuff(src.foodBuff),
       dutyGuardUntil: hydrateDutyGuard(src.dutyGuardUntil),
-    }, src.hp),
+    }, src.hp, save),
     src.combatAttrs,
   )
 }
@@ -169,9 +171,9 @@ export function hydrateWorker(raw: unknown, index = 0): Worker {
  * 工人身上的旧 toolSlot 不在这里落地，由 hydrate 一律回物资。
  * `qualityRev` 缺或小于当前色表版本时，按旧灰表迁一次 `qualityTier`。
  */
-export function hydrateWorkers(raw: unknown, qualityRev?: unknown): Worker[] {
+export function hydrateWorkers(raw: unknown, qualityRev?: unknown, save?: Save): Worker[] {
   if (!Array.isArray(raw)) return []
-  const workers = raw.map((row, index) => hydrateWorker(row, index)).filter((w) => !isAssistWorker(w))
+  const workers = raw.map((row, index) => hydrateWorker(row, index, save)).filter((w) => !isAssistWorker(w))
   if (needsGrayQualityMigration(qualityRev)) {
     for (const worker of workers) {
       worker.qualityTier = migrateQualityTierFromGrayTable(worker.qualityTier)
@@ -212,7 +214,7 @@ export function spawnWorkerWith(
       level: WORKER_LEVEL_MIN,
       xp: 0,
       combatAttrs: uniqueCombatAttrs(combatAttrs),
-    }),
+    }, undefined, save),
   )
   save.nextWorkerId += 1
   save.workers.push(worker)

@@ -273,15 +273,59 @@ export function enemyCombatStats(
   }
 }
 
-export function fillWorkerHp(worker: Worker, rawHp?: unknown): Worker {
-  const stats = workerLiveStats(worker)
-  worker.hpMax = stats.hp
-  if (typeof rawHp === 'number' && Number.isFinite(rawHp)) {
-    worker.hp = clampInt(rawHp, 0, worker.hpMax)
-  } else {
-    worker.hp = worker.hpMax
+/** 唯一生命上限：品质、职业、等级，再乘科技（护腕束紧等）。有存档才计入科技。 */
+export function workerHpCap(worker: Worker, save?: Save): number {
+  return Math.max(1, workerLiveStats(worker, save).hp)
+}
+
+/** 按旧上限比例把当前血留到新上限，比例封顶 1，hp 夹进 [0, hpMax]。 */
+export function applyWorkerHpCap(worker: Worker, nextMax: number, oldHp = worker.hp, oldHpMax = worker.hpMax): void {
+  const max = Math.max(1, Math.floor(nextMax))
+  const base = oldHpMax > 0 ? oldHpMax : max
+  const ratio = Math.min(1, Math.max(0, oldHp) / base)
+  worker.hpMax = max
+  worker.hp = clampInt(Math.round(ratio * max), 0, max)
+}
+
+export function fillWorkerHp(worker: Worker, rawHp?: unknown, save?: Save): Worker {
+  const cap = workerHpCap(worker, save)
+  const storedMax = worker.hpMax
+  const hasRaw = typeof rawHp === 'number' && Number.isFinite(rawHp)
+  if (hasRaw && storedMax > 1 && storedMax !== cap) {
+    applyWorkerHpCap(worker, cap, rawHp, storedMax)
+    return worker
   }
+  worker.hpMax = cap
+  worker.hp = hasRaw ? clampInt(rawHp as number, 0, cap) : cap
   return worker
+}
+
+function rescaleBoardFighters(save: Save, workerId: string, nextMax: number): void {
+  const boards = [...(save.encounters ?? [])]
+  for (const enc of save.dungeon?.encounters ?? []) boards.push(enc)
+  for (const enc of boards) {
+    if (enc.kind !== 'enemy' || !enc.combat) continue
+    const fighter = enc.combat.workers.find((row) => row.id === workerId)
+    if (!fighter || fighter.hpMax === nextMax) continue
+    const oldMax = Math.max(1, fighter.hpMax)
+    const ratio = Math.min(1, Math.max(0, fighter.hp) / oldMax)
+    fighter.hpMax = nextMax
+    fighter.hp = clampInt(Math.round(ratio * nextMax), 0, nextMax)
+  }
+}
+
+/** 科技改变生命上限后，全体苦工按当前血量比例重算 hpMax，并把场上 fighter 收到同一上限。 */
+export function syncAllWorkerHpMax(save: Save): void {
+  for (const worker of save.workers) {
+    const next = workerHpCap(worker, save)
+    if (next !== worker.hpMax) {
+      applyWorkerHpCap(worker, next)
+      rescaleBoardFighters(save, worker.id, worker.hpMax)
+      continue
+    }
+    if (worker.hp > worker.hpMax) worker.hp = worker.hpMax
+    if (worker.hp < 0) worker.hp = 0
+  }
 }
 
 export function isEnemyCombat(value: unknown): value is EnemyCombat {
@@ -532,8 +576,8 @@ function fighterFromWorker(
   reinforced = false,
 ): CombatFighter {
   const stats = workerLiveStats(worker, save, runeId)
-  const hpMax = Math.max(1, stats.hp)
-  const hp = worker.hpMax > 0 ? Math.round((worker.hp / worker.hpMax) * hpMax) : hpMax
+  const hpMax = Math.max(1, Math.floor(worker.hpMax))
+  const hp = clampInt(Math.round(worker.hp), 0, hpMax)
   const fighter = makeFighter(
     worker.id,
     worker.name ?? worker.id,
@@ -969,7 +1013,7 @@ function grantRuneBloodXp(save: Save, combat: EnemyCombat): void {
     if (bonus <= 0) continue
     const worker = save.workers.find((row) => row.id === workerId)
     if (!worker || isAssistWorker(worker)) continue
-    grantWorkerCombatXp(worker, bonus)
+    grantWorkerCombatXp(worker, bonus, save)
   }
 }
 
@@ -1089,7 +1133,7 @@ function strikeWorkshop(
   const rage = affixRage * dungeonBossWorkshopMul(enc)
   const woundedMul = isWoundedHp(worker) ? woundedTakenMul(save) : 1
   const hit = Math.max(1, Math.round((attacker.atk + dungeonJaggedBonus(save, enc)) * rage * woundedMul))
-  worker.hp = Math.max(0, worker.hp - hit)
+  worker.hp = Math.min(worker.hpMax, Math.max(0, worker.hp - hit))
   emitLog(
     enc,
     combat,
@@ -1332,8 +1376,8 @@ export function applyRestHeal(save: Save): void {
     if (worker.assignment !== null) continue
     if (busy.has(worker.id)) continue
     if (isWorkerInHerbPvp(save, worker.id) || isWorkerInBeastPvp(save, worker.id)) continue
-    const max = workerLiveStats(worker, save).hp
-    const heal = restHealAmount(worker.hpMax)
+    const max = Math.max(1, worker.hpMax)
+    const heal = restHealAmount(max)
     const debt = workerFatigueDebt(worker)
     if (debt > 0) {
       const cut = Math.min(debt, heal)
@@ -1347,6 +1391,8 @@ export function applyRestHeal(save: Save): void {
       worker.hp = max
       worker.fatigueDebt = 0
     }
+    if (worker.hp > max) worker.hp = max
+    if (worker.hp < 0) worker.hp = 0
   }
 }
 
@@ -1354,12 +1400,9 @@ export function writeBackCombatWorkers(save: Save, combat: EnemyCombat): void {
   writeBackWorkers(save, combat)
 }
 
-/** 升级时重算 hpMax，当前 hp 按升级前比例留到新上限。 */
-export function applyWorkerLevelHpRatio(worker: Worker, oldHp: number, oldHpMax: number): void {
-  const stats = workerLiveStats(worker)
-  const ratio = oldHpMax > 0 ? Math.max(0, oldHp) / oldHpMax : 1
-  worker.hpMax = stats.hp
-  worker.hp = clampInt(Math.round(ratio * worker.hpMax), 0, worker.hpMax)
+/** 升级时重算 hpMax（含科技），当前 hp 按升级前比例留到新上限。 */
+export function applyWorkerLevelHpRatio(worker: Worker, oldHp: number, oldHpMax: number, save?: Save): void {
+  applyWorkerHpCap(worker, workerHpCap(worker, save), oldHp, oldHpMax)
 }
 
 /**
@@ -1369,13 +1412,14 @@ export function applyWorkerLevelHpRatio(worker: Worker, oldHp: number, oldHpMax:
 export function grantWorkerCombatXp(
   worker: Worker,
   amount: number,
+  save?: Save,
 ): { xpGranted: number; levelsGained: number } {
   const before = Math.max(1, Math.floor(worker.level || 1))
   const oldHp = worker.hp
   const oldHpMax = worker.hpMax
   const xpGranted = addWorkerXp(worker, amount)
   const levelsGained = Math.max(0, worker.level - before)
-  if (levelsGained > 0) applyWorkerLevelHpRatio(worker, oldHp, oldHpMax)
+  if (levelsGained > 0) applyWorkerLevelHpRatio(worker, oldHp, oldHpMax, save)
   return { xpGranted, levelsGained }
 }
 

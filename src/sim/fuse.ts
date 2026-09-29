@@ -53,7 +53,7 @@ function fusePairAt(save: Save, a: Worker, b: Worker, stayAt: StationId | null):
   worker.name = givenName
   worker.level = progress.level
   worker.xp = progress.xp
-  fillWorkerHp(worker)
+  fillWorkerHp(worker, undefined, save)
   if (stayAt) worker.assignment = stayAt
   if (leftFrom !== stayAt) clearEmptyStation(save, leftFrom)
   if (rightFrom !== stayAt) clearEmptyStation(save, rightFrom)

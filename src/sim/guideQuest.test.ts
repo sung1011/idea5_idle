@@ -278,6 +278,8 @@ describe('guideQuest steps and claim', () => {
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(7)
 
+    const duty = save.workers.find((worker) => worker.assignment != null)
+    if (duty) duty.hp = Math.max(1, duty.hpMax - 1)
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(save.guideQuestPotionUsed).toBe(true)
     expect(guideQuestView(save)?.goal).toBe('点药剂槽产生效果')
@@ -417,6 +419,8 @@ describe('guideQuest flash target', () => {
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('potionUse')
 
+    const onDuty = save.workers.find((worker) => worker.assignment != null)
+    if (onDuty) onDuty.hp = Math.max(1, onDuty.hpMax - 1)
     usePotionSlot(save, 0)
     expect(guideQuestFlashId(save)).toBeNull()
     expect(claimGuideQuest(save).ok).toBe(true)

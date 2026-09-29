@@ -123,7 +123,7 @@ function grantOnDutyWorkerXp(save: Save, stationId: StationId, xpPerCycle: numbe
   const amount = extra > 0 ? scaleArtisanStationXp(base, 1 + extra) : base
   for (const worker of save.workers) {
     if (worker.assignment !== stationId || isAssistWorker(worker)) continue
-    grantWorkerCombatXp(worker, amount)
+    grantWorkerCombatXp(worker, amount, save)
   }
 }
 
