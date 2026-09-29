@@ -1,5 +1,5 @@
 import { resizeEncounterBoard } from './encounters'
-import { syncKnightLevel } from './knightLevel'
+import { hydrateKnightXp } from './knightLevel'
 import { roll01 } from './rng'
 import { OFFLINE_CAP_S, PLAYABLE_CHAINS, RECRUIT_COST } from './tables'
 import type { ActionResult, Save, StationId, TechId } from './types'
@@ -729,7 +729,7 @@ export function hydrateTechFields(save: Save & { inspiration?: unknown; techLeve
   const unlocked = hydrateUnlockedTechIds(save.unlockedTechIds)
   save.techLevels = hydrateTechLevels(save.techLevels, unlocked)
   save.unlockedTechIds = syncUnlockedFromLevels(save.techLevels)
-  syncKnightLevel(save)
+  hydrateKnightXp(save)
 }
 
 export function techLevel(save: Save, id: TechId): number {

@@ -4,6 +4,7 @@ import { applyDownedReturn, isWorkerInCombat, workerLiveStats } from './combat'
 import { COMBAT_ATTR_IDS, rollCombatWeakness, scaledAttackDamage, workerMatchesWeakness } from './combatAttrs'
 import { offerRestFood } from './food'
 import { beijingDayKey, beijingDayRemainS, formatHerbDuration } from './herbPvp'
+import { grantKnightXp, knightXpForRank } from './knightLevel'
 import { isWorkerInHerbPvp } from './herbPvpQuery'
 import { pushMessage } from './messages'
 import { playerDisplayName } from './playerName'
@@ -761,6 +762,7 @@ function rollDay(save: Save, now: number, quiet: boolean): void {
   if (state.fight) finishBeastFightAuto(save, quiet)
   const rank = beastPlayerRank(save)
   const dealt = state.playerDamage > 0
+  if (dealt) grantKnightXp(save, knightXpForRank(rank, BEAST_RIVAL_COUNT + 1))
   const rows = beastRankReward(rank, dealt)
   grantRows(save, rows)
   const text = dealt ? `第 ${rank} 名：${beastRewardText(rows)}` : '今天没有出手'

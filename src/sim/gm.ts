@@ -1,7 +1,6 @@
 import { createSave } from './createSave'
 import { HERB_PVP_STAMINA_MAX } from './herbPvp'
 import { GUIDE_QUEST_DONE_STEP, GUIDE_QUEST_REV } from './guideQuest'
-import { syncKnightLevel } from './knightLevel'
 import { spawnWorker, spawnWorkerWith } from './recruit'
 import { roll01 } from './rng'
 import { syncUnlockedCategories } from './stationProgress'
@@ -93,10 +92,6 @@ export function gmMaxStations(save: Save, level = GM_MAX_STATION_LEVEL): ActionR
     station.stationXp = 0
     syncUnlockedCategories(station, id)
     station.progressNotice = `${STATION_DEF[id].label}升到 Lv${target}`
-  }
-  const knight = syncKnightLevel(save)
-  if (knight.gained > 0) {
-    return { ok: true, message: `站点全满级 Lv${target}，酋长 Lv${knight.to}，灵感 +${knight.gained}` }
   }
   return { ok: true, message: `站点全满级 Lv${target}` }
 }

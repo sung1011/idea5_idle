@@ -37,7 +37,9 @@ import {
   craftHunterSkewer,
 } from '../sim/beastCraft'
 import { startHerbWeed, takeHerbPvpNotices, useHerbProbe } from '../sim/herbPvp'
+import { takeKnightXpFloats } from '../sim/knightLevel'
 import { settleOffline } from '../sim/offline'
+import { showKnightXpPop } from './knightXpToast'
 import { clearPotionSlot, installPotionSlot } from '../sim/potionSlots'
 import { potionSlotItem, usePotionSlot } from '../sim/potions'
 import { selectRestFood, takeRestEatNotices } from '../sim/food'
@@ -133,6 +135,7 @@ export const useGameStore = defineStore('game', () => {
     flushBeastNotices()
     offerWorkshopBanter(save.value, produced)
     notifyWorkshopHpEfficiency(save.value)
+    flushKnightXp()
     persist()
   }
 
@@ -146,6 +149,11 @@ export const useGameStore = defineStore('game', () => {
 
   function flushHerbNotices() {
     for (const notice of takeHerbPvpNotices()) pushFloatTip(notice.text, notice.kind)
+  }
+
+  function flushKnightXp() {
+    const gained = takeKnightXpFloats().reduce((sum, amount) => sum + amount, 0)
+    if (gained > 0) showKnightXpPop(gained)
   }
 
   function assignmentSnapshot(): Map<string, StationId | null> {
@@ -181,11 +189,13 @@ export const useGameStore = defineStore('game', () => {
     if (result.ok) {
       save.value = next
       notifyWorkshopHpEfficiency(next)
+      flushKnightXp()
       persist()
       if (result.message) pushFloatTip(result.message, 'ok')
       announceWorkerLevelUps(levels, next.workers)
       flushRestEats(true)
     } else {
+      takeKnightXpFloats()
       flushRestEats(false)
       pushFloatTip(result.reason, 'err')
     }
@@ -198,6 +208,7 @@ export const useGameStore = defineStore('game', () => {
     notifyWorkshopHpEfficiency(save.value)
     flushRestEats(false)
     flushVaultNotices()
+    flushKnightXp()
     persist()
     return result
   }

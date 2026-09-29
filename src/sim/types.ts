@@ -655,6 +655,13 @@ export type TreasureMineState = {
    * 旧档缺字段当空。
    */
   haul: Partial<Record<TreasureHaulId, number>>
+  /**
+   * 北京时间日期。当天带出的宝物记在 `dayHaul`，0 点按名次发酋长经验。
+   * 旧档缺字段当天开始计，不补昨天。
+   */
+  dayKey: string
+  /** 今天带出的宝库件数（含守洞缴获）。0 表示今天没参与，日结不发经验。 */
+  dayHaul: number
 }
 
 export type HerbPlotKind = 'barren' | 'common' | 'precious' | 'probe'
@@ -844,12 +851,13 @@ export type Save = {
    */
   workerQualityRev: number
   /**
-   * 骑士等级快照。由各可玩工坊 `stationLevel` 换算：
-   * `knightLevel = 1 + sum(stationLevel - 1)`，等价 `sum(level) - (站数 - 1)`。
-   * 每升 1 级发 1 灵感；只在当前等级高于已有快照时补发，防重复。
-   * 旧档缺字段按公式写入快照，不把缺字段当成 1 去灌差额。
+   * 酋长等级。由 `knightXp` 按升级表决定，不再等于站等级之和。
+   * 每升 1 级发 1 灵感。
+   * 旧档没有 `knightXp` 时保留这份等级；缺等级才按旧公式 `1 + sum(stationLevel - 1)` 定一次。经验从该级 0 起，不补发灵感，等级不回落。
    */
   knightLevel: number
+  /** 当前级内的酋长经验。升到下一级后扣掉门槛。旧档缺字段为 0。 */
+  knightXp: number
   /** 账号级灵感。新档 START_TECH_POINTS；骑士等级每升 1 级 +1。旧档缺字段 / 别名 `inspiration` hydrate 为点数，不无故重置成新档初始值。 */
   techPoints: number
   /**

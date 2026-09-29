@@ -24,6 +24,8 @@ import {
   type HudChipId,
 } from './hudResource'
 import HudResourceSheet from './hudResourceSheet.vue'
+import KnightLevelSheet from './knightLevelSheet.vue'
+import { knightXpPop, knightXpPopToken } from './knightXpToast'
 import PlayerAvatar from './playerAvatar.vue'
 import PlayerProfileSheet from './playerProfileSheet.vue'
 import UiIcon from './uiIcon.vue'
@@ -37,6 +39,13 @@ const mailOpen = ref(false)
 const settingsOpen = ref(false)
 const settingsBtn = ref<HTMLButtonElement | null>(null)
 const resourceOpen = ref<HudChipId | null>(null)
+const knightOpen = ref(false)
+const knightBtn = ref<HTMLButtonElement | null>(null)
+const xpText = ref(0)
+const xpStyle = ref<{ left: string; top: string }>({ left: '0px', top: '0px' })
+const knightJump = ref(false)
+let xpTimer = 0
+let jumpTimer = 0
 const profileOpen = ref(false)
 const playerName = computed(() => playerDisplayName(game.save.playerName))
 const bannerFrame = computed(() => bannerFrameOf(bannerLevelOf(game.save)))
@@ -63,6 +72,25 @@ onUnmounted(() => {
   stopAppUpdate = null
 })
 
+function setKnightBtn(el: unknown) {
+  knightBtn.value = el instanceof HTMLButtonElement ? el : null
+}
+
+function placeXpPop() {
+  const el = knightBtn.value
+  if (!el) return
+  const rect = el.getBoundingClientRect()
+  xpStyle.value = { left: `${rect.right + 6}px`, top: `${rect.top + rect.height / 2}px` }
+}
+
+function onChip(id: HudChipId) {
+  if (id === 'knight') {
+    knightOpen.value = true
+    return
+  }
+  resourceOpen.value = id
+}
+
 function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
   game.setPlayerProfile(payload.name, payload.avatarId)
   profileOpen.value = false
@@ -86,6 +114,28 @@ function onUnlockGo() {
   if (id) openUnlockedModule(id)
 }
 
+watch(knightXpPopToken, () => {
+  if (knightXpPop.value <= 0) return
+  xpText.value = knightXpPop.value
+  placeXpPop()
+  window.clearTimeout(xpTimer)
+  xpTimer = window.setTimeout(() => {
+    xpText.value = 0
+  }, 1100)
+})
+
+watch(
+  () => game.save.knightLevel,
+  (next, prev) => {
+    if (prev == null || next === prev) return
+    knightJump.value = true
+    window.clearTimeout(jumpTimer)
+    jumpTimer = window.setTimeout(() => {
+      knightJump.value = false
+    }, 480)
+  },
+)
+
 watch(
   () => [tab.value, game.save.knightLevel, (game.save.openedModules ?? []).join(',')] as const,
   () => {
@@ -108,8 +158,10 @@ watch(
           :key="chip.id"
           type="button"
           class="chip"
+          :class="{ 'knight-jump': chip.id === 'knight' && knightJump }"
+          :ref="chip.id === 'knight' ? setKnightBtn : undefined"
           :aria-label="hudChipAriaLabel(game.save, chip)"
-          @click="resourceOpen = chip.id"
+          @click="onChip(chip.id)"
         >
           <i v-if="chip.id === 'gold'" class="sprite sprite-res gold" aria-hidden="true" />
           <i v-else-if="chip.id === 'diamonds'" class="sprite sprite-res diamonds" aria-hidden="true" />
@@ -121,9 +173,12 @@ watch(
             />
           </svg>
           <span v-if="chip.kind === 'item'">{{ chip.name }} {{ hudChipAmount(game.save, chip.id) }}</span>
-          <span v-else>{{ hudChipAmount(game.save, chip.id) }}</span>
+          <span v-else :class="{ 'level-jump': chip.id === 'knight' && knightJump }">{{
+            hudChipAmount(game.save, chip.id)
+          }}</span>
         </button>
       </div>
+      <i v-if="xpText" class="xp-pop" :style="xpStyle">+{{ xpText }} 经验</i>
       <div class="hud-actions">
         <button
           type="button"
@@ -213,6 +268,7 @@ watch(
     </div>
     <MessagePanel v-if="mailOpen" @close="mailOpen = false" />
     <SettingsPanel v-if="settingsOpen" @close="settingsOpen = false" />
+    <KnightLevelSheet v-if="knightOpen" @close="knightOpen = false" />
     <HudResourceSheet v-if="resourceDetail" :detail="resourceDetail" @close="resourceOpen = null" />
     <PlayerProfileSheet
       v-if="profileOpen"
@@ -300,6 +356,51 @@ watch(
   gap: 2px;
   border-width: 2px;
   font-size: 12px;
+}
+
+.level-jump {
+  display: inline-block;
+  animation: knight-level-jump 0.42s ease;
+}
+
+.xp-pop {
+  position: fixed;
+  z-index: calc(var(--z-hud) + 2);
+  margin: 0;
+  font-style: normal;
+  font-weight: 800;
+  font-size: 13px;
+  color: #8a4b12;
+  text-shadow: 0 1px 0 #fff8e8;
+  pointer-events: none;
+  animation: knight-xp-pop 1.05s ease-out forwards;
+}
+
+@keyframes knight-level-jump {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.28);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes knight-xp-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
 }
 
 .resources > .chip:hover:not(:disabled) {
@@ -497,7 +598,7 @@ watch(
 .unlock-card {
   position: absolute;
   inset: 0;
-  z-index: 30;
+  z-index: calc(var(--z-sheet) + 2);
   display: grid;
   place-items: center;
   padding: 24px;

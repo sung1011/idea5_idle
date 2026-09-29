@@ -1,4 +1,6 @@
 import { addToBank } from './bank'
+import { beijingDayKey } from './herbPvp'
+import { grantKnightXp, knightXpForRank } from './knightLevel'
 import { isModuleUnlocked } from './moduleUnlock'
 import { hashString, isCombatAttrId, matchingWeaknesses, pickEnemyWeaknesses, workerMatchesWeakness } from './combatAttrs'
 import { PLAYER_AVATAR_DEFAULT, PLAYER_AVATAR_IDS, type PlayerAvatarId } from './playerAvatarIds'
@@ -534,8 +536,31 @@ function namesOnBoard(save: Save): Set<string> {
   return taken
 }
 
+/** 当天用来排名的假玩家带出量。玩家件数更高才排到前面，同分玩家在前。 */
+export const TREASURE_DAY_RIVAL_HAULS = [1, 3, 6, 12, 20, 35, 55, 80, 120] as const
+export const TREASURE_DAY_BOARD = TREASURE_DAY_RIVAL_HAULS.length + 1
+
+export function treasureDayRank(haul: number): number {
+  const score = Math.max(0, Math.floor(haul))
+  let rank = 1
+  for (const rival of TREASURE_DAY_RIVAL_HAULS) {
+    if (rival > score) rank += 1
+  }
+  return rank
+}
+
 export function blankTreasureMines(): TreasureMineState {
-  return { nextId: 1, roll: 1, vault: {}, mines: [], bannerLevel: 0, bounty: null, haul: {} }
+  return {
+    nextId: 1,
+    roll: 1,
+    vault: {},
+    mines: [],
+    bannerLevel: 0,
+    bounty: null,
+    haul: {},
+    dayKey: '',
+    dayHaul: 0,
+  }
 }
 
 /** 等级微调：1～5 级 5 秒，之后每 5 级快 1 秒，最快 3 秒。命中矿弱点再快 1 秒。 */
@@ -571,7 +596,32 @@ export function ensureTreasureMines(save: Save): TreasureMineState {
   save.treasureMines.bannerLevel = keptBannerLevel(save.treasureMines.bannerLevel)
   save.treasureMines.bounty = isBountyTarget(save.treasureMines.bounty) ? save.treasureMines.bounty : null
   save.treasureMines.haul = keptHaul(save.treasureMines.haul)
+  const dayKey = save.treasureMines.dayKey
+  save.treasureMines.dayKey = typeof dayKey === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dayKey) ? dayKey : ''
+  const haul = save.treasureMines.dayHaul
+  save.treasureMines.dayHaul = typeof haul === 'number' && Number.isFinite(haul) && haul > 0 ? Math.floor(haul) : 0
   return save.treasureMines
+}
+
+function noteTreasureDayHaul(save: Save, qty: number): void {
+  const gain = Math.floor(qty)
+  if (gain <= 0) return
+  const state = ensureTreasureMines(save)
+  state.dayHaul += gain
+}
+
+function rollTreasureDay(save: Save, now: number): void {
+  if (!Number.isFinite(now)) return
+  const state = ensureTreasureMines(save)
+  const key = beijingDayKey(now)
+  if (!state.dayKey) {
+    state.dayKey = key
+    return
+  }
+  if (key <= state.dayKey) return
+  if (state.dayHaul > 0) grantKnightXp(save, knightXpForRank(treasureDayRank(state.dayHaul), TREASURE_DAY_BOARD))
+  state.dayHaul = 0
+  state.dayKey = key
 }
 
 function keptCount(raw: unknown): number {
@@ -776,6 +826,7 @@ export function claimTreasureMine(save: Save, mineId: string, workerIds: readonl
   mine.shadows = []
   mine.raid = null
   mine.crewIds = party.map((worker) => worker.id)
+  noteTreasureDayHaul(save, 1)
   mine.digCharge = {}
   clearAssault(mine)
   clearMineWards(mine)
@@ -1011,11 +1062,14 @@ function armRaidFight(save: Save, mine: TreasureMine, raid: TreasureRaid, atS: n
 export type TreasureStepOpts = {
   /** 离线追赶不判定来袭。 */
   offline?: boolean
+  /** 墙钟。缺省用当前时间，用来做 0 点日结。 */
+  now?: number
   /** 测例注入的 0～1 骰。来袭按命中、人数、每人名字、头像的顺序取走。 */
   rolls?: number[]
 }
 
 export function stepTreasureMines(save: Save, onDrop?: TreasureDropSink, opts?: TreasureStepOpts): void {
+  rollTreasureDay(save, opts?.now ?? Date.now())
   const state = ensureTreasureMines(save)
   for (const mine of state.mines) {
     if (!opts?.offline) stepAssault(save, mine, opts?.rolls)
@@ -1152,6 +1206,7 @@ function resolveIncomingHold(save: Save, mine: TreasureMine, raid: TreasureRaid)
   mine.digCharge = {}
   clearAssault(mine)
   addVault(save, 'sandGold', TREASURE_ASSAULT_LOOT)
+  noteTreasureDayHaul(save, TREASURE_ASSAULT_LOOT)
   noteVault(mine.id, assaultLootTip(), 'ok')
   for (const row of downed) {
     if (row.reason === 'down') applyDownedReturn(save, row.id, row.hp, save.lastTick || 0)
@@ -1342,6 +1397,7 @@ function stepRaid(save: Save, mine: TreasureMine): void {
 
 function takeOver(save: Save, mine: TreasureMine, raid: TreasureRaid): void {
   const lead = raid.queue[0]
+  noteTreasureDayHaul(save, 1)
   mine.owner = 'player'
   mine.shadows = []
   mine.crewIds = raid.queue.filter((id) => save.workers.some((worker) => worker.id === id))
@@ -1419,6 +1475,7 @@ function giveHaul(
 
 function giveVault(save: Save, mine: TreasureMine, item: TreasureId, qty: number, onDrop?: TreasureDropSink): void {
   addVault(save, item, qty)
+  noteTreasureDayHaul(save, qty)
   onDrop?.({ mineId: mine.id, item, qty })
 }
 

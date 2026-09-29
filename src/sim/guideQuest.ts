@@ -2,6 +2,7 @@ import { assignedWorkers, restingWorkers } from './assign'
 import { bankQty } from './bank'
 import { canReinforceCombat, isCombatLost, isCombatWon, isFighting } from './combat'
 import { allEncounters, combatSupplyBlockReason, isEncounterDone, isStarterCopperPawn } from './encounters'
+import { grantKnightXp, KNIGHT_XP_GUIDE_STEP } from './knightLevel'
 import { isModuleUnlocked, knightLevelProgress, moduleLabel, type ModuleId } from './moduleUnlock'
 import { knightLevelOf } from './stationUnlock'
 import { POTION_ITEM_IDS, QUALITY_MAX, STATION_ORDER } from './tables'
@@ -552,6 +553,7 @@ export function claimGuideQuest(save: Save): ActionResult {
   if (guideQuestProgressAt(save, step) < 1) return { ok: false, reason: '尚未完成' }
   save.gold += GUIDE_QUEST_GOLD
   save.guideQuestStep = step + 1
+  grantKnightXp(save, KNIGHT_XP_GUIDE_STEP)
   advanceSkippedGuideSteps(save)
   return { ok: true, message: `金币 +${GUIDE_QUEST_GOLD}` }
 }

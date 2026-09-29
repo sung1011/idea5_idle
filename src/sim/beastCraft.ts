@@ -1,6 +1,7 @@
 import { addToBank, itemQty, takeFromBank } from './bank'
 import { applyWorkshopBuff } from './encounters'
 import { isStationUnlocked, unlockedStationIds } from './stationUnlock'
+import { grantKnightXp, KNIGHT_XP_BEAST_CORE } from './knightLevel'
 import { grantStationLevel } from './stationProgress'
 import { ITEM_DEF, STATION_DEF } from './tables'
 import type { ActionResult, ItemId, Save, StationId } from './types'
@@ -71,7 +72,9 @@ export function breakthroughStation(save: Save, stationId: StationId): ActionRes
   if (itemQty(save, 'beastCore') < 1) return { ok: false, reason: '困兽之核见底' }
   const took = takeFromBank(save, 'beastCore', 1)
   if (!took.ok) return took
+  const before = save.stations[stationId].stationLevel
   const level = grantStationLevel(save, stationId)
+  if (level > before) grantKnightXp(save, KNIGHT_XP_BEAST_CORE)
   return { ok: true, message: `${STATION_DEF[stationId].label}升到 Lv${level}` }
 }
 

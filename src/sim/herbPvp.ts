@@ -14,6 +14,7 @@ import {
 import { offerRestFood } from './food'
 import { beastPvpBlockReason } from './beastPvpQuery'
 import { isWorkerInHerbPvp } from './herbPvpQuery'
+import { grantKnightXp, knightXpForRank } from './knightLevel'
 import { pushMessage } from './messages'
 import { pickMineAvatarId, pickSnapshotPlayerName, addVault } from './treasureMine'
 import { treasureMineBlockReason } from './treasureMineQuery'
@@ -1211,6 +1212,7 @@ function rollDay(save: Save, now: number, offline: boolean): void {
   }
   if (key <= state.dayKey) return
   const rank = herbPlayerRank(save)
+  if (state.playerScore > 0) grantKnightXp(save, knightXpForRank(rank, HERB_PVP_RIVAL_COUNT + 1))
   const text = herbRewardLine(rank)
   const reward = herbRankReward(rank)
   addVault(save, 'sandGold', reward.sandGold)

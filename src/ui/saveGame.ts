@@ -104,6 +104,9 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
   if (!Object.prototype.hasOwnProperty.call(parsed, 'knightLevel')) {
     delete (merged as { knightLevel?: number }).knightLevel
   }
+  if (!Object.prototype.hasOwnProperty.call(parsed, 'knightXp')) {
+    delete (merged as { knightXp?: number }).knightXp
+  }
   hydrateTechFields(merged as Save & { inspiration?: unknown })
   if (!Array.isArray(parsed.encounters)) merged.encounters = []
   if (!Array.isArray((parsed as { marketEncounters?: unknown }).marketEncounters)) {

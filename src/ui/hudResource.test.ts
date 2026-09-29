@@ -65,7 +65,7 @@ describe('hud resource chips', () => {
     const knight = hudChipDetail(save, 'knight')
     expect(knight.name).toBe('酋长等级')
     expect(knight.amount).toBe('Lv1')
-    expect(knight.source).toMatch(/站等级/)
+    expect(knight.source).toMatch(/酋长经验/)
     expect(knight.usage).toMatch(/灵感/)
   })
 

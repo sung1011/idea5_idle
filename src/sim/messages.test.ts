@@ -15,11 +15,10 @@ describe('messages', () => {
     save.lastTick = 0
     const result = settleOffline(save, 80_000)
     expect(hasUnread(result.save)).toBe(true)
-    expect(unreadCount(result.save)).toBe(2)
+    expect(unreadCount(result.save)).toBe(1)
     const offline = listedMessages(result.save).find((m) => m.title === '离线收益')
-    const knight = listedMessages(result.save).find((m) => m.title === '酋长升级')
     expect(offline?.read).toBe(false)
-    expect(knight?.read).toBe(false)
+    expect(listedMessages(result.save).some((m) => m.title === '酋长升级')).toBe(false)
     const first = offline!
     expect(first.body).toContain('离线 1 分钟 20 秒')
     expect(first.body).toContain('铜矿 +6')

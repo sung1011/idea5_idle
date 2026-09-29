@@ -37,7 +37,7 @@ export function applyTick(save: Save, opts: TickOpts = {}): void {
   for (const id of STATION_IDS) stepStation(save, id, now, opts.onGain)
   assignRestingToFirstEmpty(save)
   stepCombats(save, now, opts.onCombatLog)
-  stepTreasureMines(save, opts.onTreasureDrop, { offline: opts.offline === true })
+  stepTreasureMines(save, opts.onTreasureDrop, { offline: opts.offline === true, now })
   stepHerbPvp(save, now, { offline: opts.offline === true })
   stepBeastPvp(save, now, { offline: opts.offline === true })
   applyRestHeal(save)

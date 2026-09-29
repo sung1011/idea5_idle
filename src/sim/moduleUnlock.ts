@@ -1,6 +1,7 @@
 import { offerRestFood } from './food'
+import { bindKnightUnlockQueue, xpToNextKnightLevel } from './knightLevel'
 import { knightLevelOf, stationUnlockKnightLevel } from './stationUnlock'
-import { isStationId, PLAYABLE_STATION_IDS, xpToNextLevel } from './tables'
+import { isStationId, PLAYABLE_STATION_IDS } from './tables'
 import type { Save, StationId } from './types'
 
 /** 跟酋长等级走的玩法。1 级的工坊、抽人、营地、合成、药剂和战场不进这张表。 */
@@ -218,16 +219,31 @@ export function recallCrewFromLockedStations(save: Save): number {
   return n
 }
 
-/** 离下一级酋长最近的那座站的经验比例。升任意一站 1 级，酋长就 +1。 */
+/** 下一个还没到的解锁门槛。同一级的名字拼在一起。满级后没有下一项。 */
+export function nextModuleUnlock(level: number): { knight: number; label: string } | null {
+  const current = Math.max(1, Math.floor(level))
+  let best = Number.POSITIVE_INFINITY
+  const names: string[] = []
+  for (const id of MODULE_IDS) {
+    const need = MODULE_UNLOCK_KNIGHT[id]
+    if (need <= current) continue
+    if (need < best) {
+      best = need
+      names.length = 0
+    }
+    if (need === best) names.push(MODULE_LABEL[id])
+  }
+  if (!names.length || !Number.isFinite(best)) return null
+  return { knight: best, label: `酋长 ${best} 级开放${names.join('、')}` }
+}
+
+/** 当前酋长经验占下一级门槛的比例。 */
 export function knightLevelProgress(save: Save): { level: number; ratio: number; percent: number } {
   const level = knightLevelOf(save)
-  let ratio = 0
-  for (const id of PLAYABLE_STATION_IDS) {
-    const station = save.stations[id]
-    const need = xpToNextLevel(station?.stationLevel ?? 1)
-    if (need <= 0) continue
-    const xp = station?.stationXp ?? 0
-    ratio = Math.max(ratio, Math.min(1, xp / need))
-  }
+  const need = xpToNextKnightLevel(level)
+  const xp = typeof save.knightXp === 'number' && Number.isFinite(save.knightXp) ? Math.max(0, save.knightXp) : 0
+  const ratio = need <= 0 ? 0 : Math.min(1, xp / need)
   return { level, ratio, percent: Math.round(ratio * 100) }
 }
+
+bindKnightUnlockQueue(queueModuleUnlocks)

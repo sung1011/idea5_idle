@@ -6,7 +6,6 @@ import { hydrateTreasureMines } from './treasureMine'
 import { generateEncounterBoard } from './encounters'
 import { GUIDE_QUEST_REV } from './guideQuest'
 import { battlefieldSlotCount, marketSlotCount } from './tech'
-import { computeKnightLevel } from './knightLevel'
 import { blankPotionBuffs } from './potions'
 import { hydrateStations } from './stationProgress'
 import { blankPotionSlots } from './potionSlots'
@@ -70,20 +69,30 @@ export function createSave(): Save {
     rngState: 1,
     forgedTools: [],
     workerQualityRev: WORKER_QUALITY_REV,
-    /** 新档：骑士 1 级，灵感 START_TECH_POINTS。六站开局都是 Lv1，公式见 computeKnightLevel。 */
+    /** 新档：酋长 1 级、经验 0，灵感 START_TECH_POINTS。等级只跟酋长经验走。 */
     knightLevel: 1,
+    knightXp: 0,
     techPoints: START_TECH_POINTS,
     unlockedTechIds: [],
     techLevels: {},
     potionSlots: blankPotionSlots(),
     potionBuffs: blankPotionBuffs(),
     dungeon: blankDungeonState(undefined, 1),
-    treasureMines: { nextId: 1, roll: 1, vault: {}, mines: [], bannerLevel: 0, bounty: null, haul: {} },
+    treasureMines: {
+      nextId: 1,
+      roll: 1,
+      vault: {},
+      mines: [],
+      bannerLevel: 0,
+      bounty: null,
+      haul: {},
+      dayKey: '',
+      dayHaul: 0,
+    },
     herbPvp: undefined as unknown as HerbPvpState,
     beastPvp: undefined as unknown as BeastPvpState,
   }
   save.dungeon = blankDungeonState(save, 1)
-  save.knightLevel = computeKnightLevel(save)
   save.encounters = generateEncounterBoard(0, battlefieldSlotCount(save), {
     rng: save,
     mainChapter: save.mainChapter,

@@ -67,11 +67,19 @@ import {
   stationRelatedItems,
   type IoRule,
 } from './tables'
+import {
+  grantKnightXp,
+  KNIGHT_XP_CHAPTER_BOSS_EXTRA,
+  KNIGHT_XP_ENEMY,
+  KNIGHT_XP_MARKET,
+  KNIGHT_XP_MARKET_TIMED,
+} from './knightLevel'
 import { alchemyStationLevel, pickMainNeedPotion } from './potions'
 import {
   TIMED_ORDER_EXPIRED_TIP,
   attachTimedMarketOrder,
   expireTimedMarketOrders,
+  isTimedMarketOrder,
   isTimedOrderExpired,
   removeMarketEncounter,
   scaleCurrencyPayout,
@@ -2047,6 +2055,7 @@ export function claimLoot(save: Save, index: number, now = Date.now()): ActionRe
   const grantedXp = grantCombatLootXp(save, enc)
   enc.lootClaimed = true
   save.starterCopperPawnDone = true
+  grantKnightXp(save, KNIGHT_XP_ENEMY + (isChapterBoss(enc) ? KNIGHT_XP_CHAPTER_BOSS_EXTRA : 0))
   applyCurrencyPayout(save, payout)
   save.mainLootClaims = normalizeMainLootClaims(save.mainLootClaims) + 1
   if (isChapterBoss(enc)) {
@@ -2143,6 +2152,10 @@ export function canBulkBuy(save: Save, index: number): boolean {
   return bulkBuyBlockReason(save, index) === null
 }
 
+function grantMarketKnightXp(save: Save, enc: Encounter): void {
+  grantKnightXp(save, isTimedMarketOrder(enc) ? KNIGHT_XP_MARKET_TIMED : KNIGHT_XP_MARKET)
+}
+
 function rejectExpiredTimed(save: Save, enc: Encounter | undefined, now: number): ActionResult | null {
   if (!enc || !isTimedOrderExpired(enc, now)) return null
   removeMarketEncounter(save, enc.id)
@@ -2162,6 +2175,7 @@ export function barterMerchant(save: Save, index: number, now = Date.now()): Act
   if (!added.ok) return added
   enc.completed = true
   save.starterCopperPawnDone = true
+  grantMarketKnightXp(save, enc)
   return { ok: true, message: '以物易物成交' }
 }
 
@@ -2177,6 +2191,7 @@ export function buyMerchant(save: Save, index: number, now = Date.now()): Action
   if (!added.ok) return added
   enc.completed = true
   save.starterCopperPawnDone = true
+  grantMarketKnightXp(save, enc)
   return { ok: true, message: '金币购买成交' }
 }
 
@@ -2193,6 +2208,7 @@ export function pawnMerchant(save: Save, index: number, now = Date.now()): Actio
   applyCurrencyPayout(save, payout)
   enc.completed = true
   save.starterCopperPawnDone = true
+  grantMarketKnightXp(save, enc)
   const gain = currencyGainText(payout)
   return { ok: true, message: gain ? `以物换钱成交。${gain}` : '以物换钱成交' }
 }
@@ -2240,6 +2256,7 @@ export function submitArtisan(save: Save, index: number, now = Date.now()): Acti
   applyCurrencyPayout(save, payout)
   enc.completed = true
   save.starterCopperPawnDone = true
+  grantMarketKnightXp(save, enc)
   const pct = Math.round((enc.buffMul - 1) * 100)
   const gain = currencyGainText(payout)
   const buff = `工坊产量 +${pct}% · ${formatMarchClock(enc.buffDurationS)}`
@@ -2262,6 +2279,7 @@ export function sellBulk(save: Save, index: number, now = Date.now()): ActionRes
   applyCurrencyPayout(save, payout)
   enc.completed = true
   save.starterCopperPawnDone = true
+  grantMarketKnightXp(save, enc)
   const gain = currencyGainText(payout)
   return { ok: true, message: gain ? `收购成交。${gain}` : '收购成交' }
 }

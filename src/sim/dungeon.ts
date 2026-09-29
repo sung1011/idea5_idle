@@ -1,5 +1,11 @@
 import { addToBank } from './bank'
 import {
+  grantKnightXp,
+  KNIGHT_XP_CHEST,
+  KNIGHT_XP_CHEST_GOLD,
+  KNIGHT_XP_CHEST_SILVER,
+} from './knightLevel'
+import {
   canReinforceCombat,
   combatPartyBlockReason,
   combatStatus,
@@ -541,6 +547,12 @@ export function claimDungeonChestBlockReason(save: Save, encounterId?: string): 
   return dungeonChestBlockReason(enc)
 }
 
+function dungeonChestKnightXp(tier: DungeonChestTier): number {
+  if (tier === 'gold') return KNIGHT_XP_CHEST + KNIGHT_XP_CHEST_GOLD
+  if (tier === 'silver') return KNIGHT_XP_CHEST + KNIGHT_XP_CHEST_SILVER
+  return KNIGHT_XP_CHEST
+}
+
 function grantDungeonXp(save: Save, enc: EnemyEncounter): boolean {
   if (!isCombatWon(enc) || !enc.combat) return false
   const amount = workerLootXp('boss', save.mainChapter)
@@ -598,6 +610,7 @@ function grantDungeonChestNow(save: Save, enc: EnemyEncounter): ActionResult {
   const payBits: string[] = []
   if (payout.diamonds > 0) payBits.push(`钻石 ×${payout.diamonds}`)
   if (payout.gold > 0) payBits.push(`金币 ×${payout.gold}`)
+  grantKnightXp(save, dungeonChestKnightXp(payout.tier))
   const xpNote = grantedXp ? '。苦工获得经验' : ''
   const itemNote = itemBits.length ? `、${itemBits.join('、')}` : ''
   return { ok: true, message: `${enc.label}宝箱（${payout.tier}）：${payBits.join('、')}${itemNote}${xpNote}` }

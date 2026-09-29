@@ -270,8 +270,9 @@ describe('save migration', () => {
         mining: { ...createSave().stations.mining, stationLevel: 3 },
       },
     })
-    expect(backfill?.knightLevel).toBe(3)
-    expect(backfill?.techPoints).toBe(6)
+    expect(backfill?.knightLevel).toBe(1)
+    expect(backfill?.knightXp).toBe(0)
+    expect(backfill?.techPoints).toBe(4)
 
     const legacyPlayed = {
       ...createSave(),

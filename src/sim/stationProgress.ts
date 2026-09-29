@@ -1,7 +1,5 @@
-import { syncKnightLevel } from './knightLevel'
-import { queueModuleUnlocks } from './moduleUnlock'
+import { grantKnightXp, KNIGHT_XP_STATION_LEVEL } from './knightLevel'
 import { stationXpMul } from './tech'
-import { pushMessage } from './messages'
 import {
   asMiningCategoryId,
   defaultCategory,
@@ -240,21 +238,12 @@ export function grantStationLevel(save: Save, stationId: StationId): number {
     unlockedNow.push(...syncUnlockedCategories(station, stationId))
   }
   if (leveled) {
-    const knight = syncKnightLevel(save)
+    grantKnightXp(save, KNIGHT_XP_STATION_LEVEL)
     const label = STATION_DEF[stationId].label
     const bits = [`${label}升到 Lv${station.stationLevel}`]
     if (unlockedNow.length) {
       const names = unlockedNow.map((id) => findCategory(stationId, id)?.label ?? id)
       bits.push(`解锁${names.join('、')}`)
-    }
-    if (knight.gained > 0) {
-      bits.push(`酋长升到 Lv${knight.to}`)
-      bits.push(`灵感 +${knight.gained}`)
-      pushMessage(save, {
-        title: '酋长升级',
-        body: `酋长等级升到 ${knight.to}，灵感 +${knight.gained}`,
-      })
-      queueModuleUnlocks(save, knight.from, knight.to)
     }
     station.progressNotice = bits.join('，')
   }
@@ -268,29 +257,20 @@ export function grantStationXp(save: Save, stationId: StationId, xp: number): vo
   const station = save.stations[stationId]
   station.stationXp += granted
   const unlockedNow: CategoryId[] = []
-  let leveled = false
+  let levelsGained = 0
   while (station.stationXp >= xpToNextLevel(station.stationLevel)) {
     station.stationXp -= xpToNextLevel(station.stationLevel)
     station.stationLevel += 1
-    leveled = true
+    levelsGained += 1
     unlockedNow.push(...syncUnlockedCategories(station, stationId))
   }
-  if (!leveled) return
-  const knight = syncKnightLevel(save)
+  if (levelsGained <= 0) return
+  grantKnightXp(save, KNIGHT_XP_STATION_LEVEL * levelsGained)
   const label = STATION_DEF[stationId].label
   const bits = [`${label}升到 Lv${station.stationLevel}`]
   if (unlockedNow.length) {
     const names = unlockedNow.map((id) => findCategory(stationId, id)?.label ?? id)
     bits.push(`解锁${names.join('、')}`)
-  }
-  if (knight.gained > 0) {
-    bits.push(`酋长升到 Lv${knight.to}`)
-    bits.push(`灵感 +${knight.gained}`)
-    pushMessage(save, {
-      title: '酋长升级',
-      body: `酋长等级升到 ${knight.to}，灵感 +${knight.gained}`,
-    })
-    queueModuleUnlocks(save, knight.from, knight.to)
   }
   station.progressNotice = bits.join('，')
 }
