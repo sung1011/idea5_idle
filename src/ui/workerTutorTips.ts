@@ -1,5 +1,4 @@
 import { reactive } from 'vue'
-import { restingWorkers } from '../sim/assign'
 import { isWorkerInCombat } from '../sim/combat'
 import { isGuideQuestDone } from '../sim/guideQuest'
 import { knightLevelOf } from '../sim/stationUnlock'
@@ -84,32 +83,29 @@ export function pickWorkerTutorLine(roll: number, previous = ''): string {
   return lines[pickIndex(lines.length, roll)] ?? WORKER_TUTOR_LINES[0]
 }
 
+/** 人还在六个生产站上，且不在战斗、夺宝。营地休息和排队不算。 */
+function isStationTutorSpeaker(save: Save, workerId: string): boolean {
+  const worker = save.workers.find((row) => row.id === workerId)
+  if (!worker?.assignment) return false
+  return (
+    (PLAYABLE_STATION_IDS as readonly string[]).includes(worker.assignment) &&
+    !isWorkerInCombat(save, worker.id) &&
+    !isWorkerInTreasureMine(save, worker.id)
+  )
+}
+
 function onDutyTutorIds(save: Save): string[] {
   return save.workers
-    .filter(
-      (worker) =>
-        worker.assignment != null &&
-        (PLAYABLE_STATION_IDS as readonly string[]).includes(worker.assignment) &&
-        !isWorkerInCombat(save, worker.id) &&
-        !isWorkerInTreasureMine(save, worker.id) &&
-        !workshopBanterText(worker.id),
-    )
+    .filter((worker) => isStationTutorSpeaker(save, worker.id) && !workshopBanterText(worker.id))
     .map((worker) => worker.id)
 }
 
 /**
- * 营地名单打开时优先挂营地里的苦工。
- * 名单收起时只挂状态条上的队首，以及在岗苦工；藏在名单里的其他人不上气泡。
- * 跳过已经挂着工坊闲话的人。不挂空槽。
+ * 只挂六个生产站上、未战斗、未夺宝、且没在说工坊闲话的人。
+ * 营地休息、排队队首和战斗区不说。不挂空槽。
  */
-export function workerTutorCandidateIds(save: Save, campOpen = false): string[] {
-  const resting = restingWorkers(save)
-    .map((worker) => worker.id)
-    .filter((id) => !workshopBanterText(id))
-  if (campOpen && resting.length) return resting
-  const duty = onDutyTutorIds(save)
-  if (!campOpen && resting.length) return [resting[0], ...duty]
-  return duty
+export function workerTutorCandidateIds(save: Save): string[] {
+  return onDutyTutorIds(save)
 }
 
 function expire(now: number) {
@@ -118,24 +114,25 @@ function expire(now: number) {
 }
 
 /**
- * 前期才出。同屏最多 1 条。拖拽中、还在停留、或冷却未到，都不新开。
+ * 前期才出。同屏最多 1 条，只挂在岗苦工。拖拽中、还在停留、或冷却未到，都不新开。
+ * 说话的人离开工位（回营地、进战斗或夺宝）则收起，不改到休息或队首上。
  * 过了前期门槛则清掉，之后不再刷。
  */
 export function considerWorkerTutor(
   save: Save,
   now: number,
   rng: TutorRng = Math.random,
-  campOpen = false,
 ): WorkerTutorBubble | null {
   expire(now)
   if (!isWorkerTutorActive(save)) {
     state.bubble = null
     return null
   }
+  if (state.bubble && !isStationTutorSpeaker(save, state.bubble.workerId)) state.bubble = null
   if (isWorkerDragActive()) return state.bubble
   if (state.bubble) return state.bubble
   if (now < state.readyAt) return null
-  const ids = workerTutorCandidateIds(save, campOpen)
+  const ids = workerTutorCandidateIds(save)
   if (!ids.length) return null
   const workerId = ids[pickIndex(ids.length, unitRoll(rng))] ?? ids[0]
   const text = pickWorkerTutorLine(unitRoll(rng), state.lastText)

@@ -44,6 +44,12 @@ function earlySave(): Save {
   return save
 }
 
+function dutySave(): Save {
+  const save = earlySave()
+  save.workers.push(worker({ id: 'duty', assignment: 'herbalism' }))
+  return save
+}
+
 describe('worker tutor tips', () => {
   let prevApp: AppTabId = DEFAULT_APP_TAB
 
@@ -72,64 +78,81 @@ describe('worker tutor tips', () => {
     expect(text).not.toContain('拖进空槽上岗')
   })
 
-  it('shows one tutorial line in the early game', () => {
-    const save = earlySave()
+  it('shows one tutorial line on an on-duty worker, never a resting one', () => {
+    const save = dutySave()
     expect(isWorkerTutorActive(save)).toBe(true)
     const bubble = considerWorkerTutor(save, 0, () => 0)
-    expect(bubble?.workerId).toBe('rest-a')
+    expect(bubble?.workerId).toBe('duty')
     expect(WORKER_TUTOR_LINES).toContain(bubble?.text)
-    expect(workerTutorText('rest-a')).toBe(bubble?.text)
+    expect(workerTutorText('duty')).toBe(bubble?.text)
+    expect(workerTutorText('rest-a')).toBe('')
     expect(considerWorkerTutor(save, 1000, () => 0)?.id).toBe(bubble?.id)
+    resetWorkerTutorForTests()
+    expect(considerWorkerTutor(earlySave(), 0, () => 0)).toBeNull()
   })
 
   it('stops after knight level reaches hunting or the guide is fully claimed', () => {
-    const knight = earlySave()
+    const knight = dutySave()
     knight.knightLevel = WORKER_TUTOR_KNIGHT_MAX - 1
     expect(isWorkerTutorActive(knight)).toBe(true)
+    expect(considerWorkerTutor(knight, 0, () => 0)?.workerId).toBe('duty')
+    resetWorkerTutorForTests()
     knight.knightLevel = WORKER_TUTOR_KNIGHT_MAX
     expect(isWorkerTutorActive(knight)).toBe(false)
     expect(considerWorkerTutor(knight, 0, () => 0)).toBeNull()
-    expect(workerTutorText('rest-a')).toBe('')
+    expect(workerTutorText('duty')).toBe('')
 
-    const guided = earlySave()
+    const guided = dutySave()
     guided.guideQuestStep = GUIDE_QUEST_DONE_STEP
     expect(isWorkerTutorActive(guided)).toBe(false)
     expect(considerWorkerTutor(guided, 0, () => 0)).toBeNull()
   })
 
   it('clears a showing bubble once the early-game gate closes', () => {
-    const save = earlySave()
+    const save = dutySave()
     considerWorkerTutor(save, 0, () => 0)
-    expect(workerTutorText('rest-a')).not.toBe('')
+    expect(workerTutorText('duty')).not.toBe('')
     save.knightLevel = WORKER_TUTOR_KNIGHT_MAX
     expect(considerWorkerTutor(save, 1000, () => 0)).toBeNull()
+    expect(workerTutorText('duty')).toBe('')
+  })
+
+  it('drops the line when the speaker leaves the station', () => {
+    const save = dutySave()
+    considerWorkerTutor(save, 0, () => 0)
+    expect(workerTutorText('duty')).not.toBe('')
+    const duty = save.workers.find((row) => row.id === 'duty')
+    expect(duty).toBeTruthy()
+    duty!.assignment = null
+    expect(considerWorkerTutor(save, 1000, () => 0)).toBeNull()
+    expect(workerTutorText('duty')).toBe('')
     expect(workerTutorText('rest-a')).toBe('')
   })
 
   it('waits out the life and the gap before the next line, and does not repeat the last one', () => {
-    const save = earlySave()
+    const save = dutySave()
     const first = considerWorkerTutor(save, 0, () => 0)
     expect(first?.text).toBe(WORKER_TUTOR_LINES[0])
     expect(considerWorkerTutor(save, WORKER_TUTOR_LIFE_MS, () => 0)).toBeNull()
-    expect(workerTutorText('rest-a')).toBe('')
+    expect(workerTutorText('duty')).toBe('')
     const second = considerWorkerTutor(save, WORKER_TUTOR_LIFE_MS + WORKER_TUTOR_GAP_MS, () => 0)
     expect(second?.text).toBe(WORKER_TUTOR_LINES[1])
     expect(second?.text).not.toBe(first?.text)
   })
 
   it('click dismiss starts the gap immediately', () => {
-    const save = earlySave()
+    const save = dutySave()
     considerWorkerTutor(save, 0, () => 0)
     dismissWorkerTutor(1000)
-    expect(workerTutorText('rest-a')).toBe('')
+    expect(workerTutorText('duty')).toBe('')
     expect(considerWorkerTutor(save, 1000 + WORKER_TUTOR_GAP_MS - 1, () => 0)).toBeNull()
-    expect(considerWorkerTutor(save, 1000 + WORKER_TUTOR_GAP_MS, () => 0)?.workerId).toBe('rest-a')
+    expect(considerWorkerTutor(save, 1000 + WORKER_TUTOR_GAP_MS, () => 0)?.workerId).toBe('duty')
   })
 
-  it('prefers a resting worker and skips combat, banter, and drag', () => {
-    const save = earlySave()
-    save.workers.push(worker({ id: 'duty', assignment: 'herbalism' }))
-    expect(considerWorkerTutor(save, 0, () => 0.99, true)?.workerId).toBe('rest-a')
+  it('skips camp, combat, banter, and drag', () => {
+    const save = dutySave()
+    expect(considerWorkerTutor(save, 0, () => 0.99)?.workerId).toBe('duty')
+    expect(workerTutorText('rest-a')).toBe('')
 
     resetWorkerTutorForTests()
     const stationed = createSave()
@@ -137,8 +160,9 @@ describe('worker tutor tips', () => {
     expect(considerWorkerTutor(stationed, 0, () => 0)?.workerId).toBe('duty')
 
     resetWorkerTutorForTests()
-    const fighting = earlySave()
-    fighting.workers[0]!.assignment = null
+    const fighting = dutySave()
+    const fighter = fighting.workers.find((row) => row.id === 'duty')
+    expect(fighter).toBeTruthy()
     fighting.encounters.push({
       id: 'enc-tutor',
       label: '狼',
@@ -154,8 +178,8 @@ describe('worker tutor tips', () => {
       combat: {
         startedAt: 0,
         timeoutAt: 900,
-        workerIds: ['rest-a'],
-        workers: [{ id: 'rest-a', label: '甲', hp: 8, hpMax: 10, atk: 1, spd: 2, nextActAt: 0 }],
+        workerIds: ['duty'],
+        workers: [{ id: 'duty', label: '甲', hp: 8, hpMax: 10, atk: 1, spd: 2, nextActAt: 0 }],
         enemy: { id: 'wolf', label: '狼', hp: 10, hpMax: 10, atk: 1, spd: 2, nextActAt: 0 },
         logs: [],
         outcome: null,
@@ -166,40 +190,37 @@ describe('worker tutor tips', () => {
     resetWorkerTutorForTests()
     prevApp = appTab.value
     appTab.value = 'workshop'
-    const talking = earlySave()
-    talking.workers.push(worker({ id: 'quiet', assignment: null }))
+    const talking = dutySave()
+    talking.workers.push(worker({ id: 'quiet', assignment: 'cooking' }))
     playWorkshopBanter({
       stationId: 'herbalism',
       kind: 'solo',
-      beats: [{ workerId: 'rest-a', stationId: 'herbalism', text: '闲话占着', delayMs: 0 }],
+      beats: [{ workerId: 'duty', stationId: 'herbalism', text: '闲话占着', delayMs: 0 }],
     })
     expect(considerWorkerTutor(talking, 0, () => 0)?.workerId).toBe('quiet')
+    expect(workerTutorText('rest-a')).toBe('')
 
     resetWorkerTutorForTests()
     setWorkerDragActive(true)
-    expect(considerWorkerTutor(earlySave(), 0, () => 0)).toBeNull()
+    expect(considerWorkerTutor(dutySave(), 0, () => 0)).toBeNull()
   })
 
-  it('hangs the tip on rest and station rows, not the combat zone', () => {
+  it('hangs the tip on station slots only, not camp, queue, or combat', () => {
     const combatAt = workersPanelSource.indexOf('aria-label="战斗区"')
-    const restAt = workersPanelSource.indexOf('aria-label="营地"')
     const styleAt = workersPanelSource.indexOf('<style')
     expect(workersPanelSource.slice(0, combatAt)).toContain('class="tutor-tip"')
-    expect(workersPanelSource.slice(combatAt, restAt)).not.toContain('tutor-tip')
-    expect(workersPanelSource.slice(restAt, styleAt)).toContain('class="tutor-tip"')
+    expect(workersPanelSource.slice(combatAt, styleAt)).not.toContain('tutor-tip')
     expect(workersPanelSource).toContain('considerWorkerTutor')
     expect(workersPanelSource).toContain('dismissWorkerTutor')
-    expect(workersPanelSource).toContain('!campSheetShown && tutorLine(queueHead.id)')
+    expect(workersPanelSource).not.toContain('tutorLine(row.id)')
+    expect(workersPanelSource).not.toContain('tutorLine(queueHead.id)')
   })
 
-  it('when the camp list is closed, hangs on the queue head or an on-duty worker', () => {
+  it('never offers camp or queue workers, even when the camp list is open', () => {
     const save = earlySave()
     save.workers.push(worker({ id: 'rest-b' }))
     save.workers.push(worker({ id: 'duty', assignment: 'herbalism' }))
-    const closed = workerTutorCandidateIds(save, false)
-    expect(closed).toContain('rest-a')
-    expect(closed).toContain('duty')
-    expect(closed).not.toContain('rest-b')
-    expect(workerTutorCandidateIds(save, true)).toEqual(['rest-a', 'rest-b'])
+    save.workers.push(worker({ id: 'cook', assignment: 'cooking' }))
+    expect(workerTutorCandidateIds(save)).toEqual(['duty', 'cook'])
   })
 })

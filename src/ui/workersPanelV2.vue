@@ -756,7 +756,7 @@ function stationAvatarStyle(worker: Worker) {
 
 let tutorTimer = 0
 function refreshTutor() {
-  considerWorkerTutor(game.save, Date.now(), Math.random, campSheetShown.value)
+  considerWorkerTutor(game.save, Date.now())
 }
 onMounted(() => {
   syncGuideCampRequest()
@@ -981,7 +981,6 @@ onUnmounted(() => {
                 {
                   'level-flash': isWorkerLevelFlashing(row.id),
                   'eat-flash': isWorkerEatFlashing(row.id),
-                  'has-tutor': tutorLine(row.id),
                   'queue-ready': row.badge === REST_HEAD_BADGE,
                   'queue-blocked': row.badge === '堵队',
                   'queue-dim': row.dim,
@@ -1014,16 +1013,6 @@ onUnmounted(() => {
                 <i v-if="raceShortLabel(row.worker)" class="race-tag">{{ raceShortLabel(row.worker) }}</i>
               </button>
               <button
-                v-if="tutorLine(row.id)"
-                type="button"
-                class="tutor-tip"
-                :aria-label="`关掉教程：${tutorLine(row.id)}`"
-                @pointerdown.stop
-                @click.stop="onDismissTutor"
-              >
-                {{ tutorLine(row.id) }}
-              </button>
-              <button
                 type="button"
                 class="rest-go"
                 :aria-label="`${workerShortName(row.worker)} 详情`"
@@ -1042,20 +1031,10 @@ onUnmounted(() => {
       <div
         v-if="queueHead.kind === 'worker'"
         class="queue-head band-head"
-        :class="{ 'guide-flash': guideFlashAutoHerb, 'has-tutor': !campSheetShown && tutorLine(queueHead.id) }"
+        :class="{ 'guide-flash': guideFlashAutoHerb }"
         role="status"
         :aria-label="`${queueHead.title} 血量 ${queueHead.hpLabel}`"
       >
-        <button
-          v-if="!campSheetShown && tutorLine(queueHead.id)"
-          type="button"
-          class="tutor-tip"
-          :aria-label="`关掉教程：${tutorLine(queueHead.id)}`"
-          @pointerdown.stop
-          @click.stop="onDismissTutor"
-        >
-          {{ tutorLine(queueHead.id) }}
-        </button>
         <WorkerAvatar
           class="queue-avatar"
           size="md"
@@ -2376,9 +2355,10 @@ onUnmounted(() => {
 .tutor-tip {
   position: absolute;
   z-index: 2;
-  left: 28px;
-  bottom: calc(100% - 8px);
-  max-width: 168px;
+  left: 56px;
+  right: 4px;
+  top: 4px;
+  max-width: none;
   margin: 0;
   padding: 2px 5px;
   border: 1px solid var(--gold-deep);
@@ -2398,23 +2378,6 @@ onUnmounted(() => {
 .slot.has-tutor {
   overflow: visible;
   z-index: 2;
-}
-
-.station .slot .tutor-tip {
-  left: 56px;
-  right: 4px;
-  bottom: auto;
-  top: 4px;
-  max-width: none;
-}
-
-.rest-row.has-tutor {
-  overflow: visible;
-  z-index: 2;
-}
-
-.rest-list:has(> .rest-row.has-tutor) {
-  padding-top: 36px;
 }
 
 .rest-name {
@@ -2986,10 +2949,6 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.status-band:has(.queue-head.has-tutor) {
-  overflow: visible;
 }
 
 .queue-avatar {
