@@ -60,14 +60,15 @@ import { hpBarFill, hpBarTone } from './hpBar'
 import { workerWearHp } from '../sim/workshopHp'
 import {
   canGoToAssignedWorkshop,
-  rosterSlotCounts,
   workerAssignChoices,
   workerDutyLabel,
   workerShortName,
   workshopStationBoards,
 } from './workerGroups'
 import { REST_BLOCK_BADGE, REST_HEAD_BADGE, restQueueRows, restZoneTitle } from './restQueue'
+import { restFoodBand, workshopQueueHead } from './workshopQueueHead'
 import { formatAtkSpeed } from './formatAtkSpeed'
+import FoodIcon from './foodIcon.vue'
 import PotionIcon from './potionIcon.vue'
 import UiIcon from './uiIcon.vue'
 import UiSelect from './uiSelect.vue'
@@ -102,9 +103,9 @@ const restFoodLabel = computed(() => {
   if (!id) return '未选伙食'
   return `${ITEM_DEF[id].label} ×${bankQty(game.save, id)}`
 })
-const restFoodDry = computed(() => {
+const foodBand = computed(() => {
   const id = game.save.restFoodId
-  return !!id && bankQty(game.save, id) <= 0
+  return restFoodBand(id, id ? bankQty(game.save, id) : 0)
 })
 const foodHelp = ref<FoodItemId | null>(null)
 const foodHelpPos = ref({ left: 8, top: 8 })
@@ -148,7 +149,6 @@ const pickId = ref<string | null>(null)
 const pickPotionIndex = ref<number | null>(null)
 
 const boards = computed(() => workshopStationBoards(game.save))
-const rosterCounts = computed(() => rosterSlotCounts(game.save))
 const fightingRoster = computed(() =>
   combatZoneRows(game.save, frameNow.value)
     .map((row) => {
@@ -158,13 +158,7 @@ const fightingRoster = computed(() =>
     .filter((item): item is { worker: Worker; row: CombatZoneRow } => !!item),
 )
 const restRows = computed(() => restQueueRows(game.save))
-const restHeadLine = computed(() => {
-  const head = restRows.value[0]
-  if (!head) return '无人'
-  const name = workerShortName(head.worker)
-  if (head.badge === REST_BLOCK_BADGE) return `堵队 · ${name}`
-  return `队首 · ${name}`
-})
+const queueHead = computed(() => workshopQueueHead(game.save))
 const restOpen = ref(false)
 const combatOpen = ref(false)
 const guideDismissed = ref(false)
@@ -215,8 +209,8 @@ function measureCombatFit() {
     if (child.classList.contains('band-head')) continue
     fixed += child.offsetWidth
   }
-  const headMin = 52
-  const gaps = 4 * 5
+  const headMin = 88
+  const gaps = 4 * 4
   combatFits.value = fixed + headMin + chipW + gaps <= band.clientWidth + 1
 }
 function queueMeasureCombatFit() {
@@ -224,7 +218,7 @@ function queueMeasureCombatFit() {
 }
 const recruitPrice = computed(() => recruitCost(game.save))
 watch(
-  () => `${fightingRoster.value.length}|${restRows.value.length}|${restFoodLabel.value}|${recruitPrice.value}|${restHeadLine.value}`,
+  () => `${fightingRoster.value.length}|${restRows.value.length}|${restFoodLabel.value}|${recruitPrice.value}|${queueHead.value.kind === 'worker' ? queueHead.value.id : ''}`,
   () => queueMeasureCombatFit(),
 )
 const canRecruit = computed(() => game.save.diamonds >= recruitPrice.value)
@@ -927,27 +921,57 @@ onUnmounted(() => {
       <p v-if="potionBuffLine" class="potion-buffs">{{ potionBuffLine }}</p>
     </div>
     <section ref="statusBandEl" class="status-band" aria-label="工坊状态">
-      <b>在岗 {{ rosterCounts.filled }}/{{ rosterCounts.stations }}</b>
-      <span class="band-head">{{ restHeadLine }}</span>
+      <div
+        v-if="queueHead.kind === 'worker'"
+        class="queue-head band-head"
+        :class="{ 'guide-flash': guideFlashAutoHerb }"
+        role="status"
+        :aria-label="`${queueHead.title} 血量 ${queueHead.hpLabel}`"
+      >
+        <span class="queue-avatar" :style="workerQualityTileStyle(queueHead.worker)">
+          <ClassIcon :name="classIconOf(queueHead.worker)" />
+        </span>
+        <span class="queue-copy">
+          <b class="queue-name">{{ queueHead.title }}</b>
+          <span class="queue-hp">
+            <span class="queue-bar" :class="hpToneClass(queueHead.worker)">
+              <i :style="hpFillStyle(queueHead.worker)" />
+            </span>
+            <em class="queue-hp-num">{{ queueHead.hpLabel }}</em>
+          </span>
+        </span>
+      </div>
+      <p v-else class="queue-empty band-head">队列空</p>
       <button
         type="button"
-        class="band-rest"
+        class="band-tile band-rest"
         data-rest-toggle
-        :class="{ on: shownRest && !shownCombat }"
         :aria-pressed="shownRest && !shownCombat"
         aria-label="展开休息区"
         @click="toggleRest"
       >
-        休息 {{ restRows.length }}
+        <svg class="tile-ico" viewBox="0 0 16 16" aria-hidden="true">
+          <path fill="currentColor" d="M2 11.2H14V13.2H2Z" />
+          <path fill="currentColor" d="M3 8.2H7.2V11.2H3Z" />
+          <path fill="currentColor" d="M7 6.4H13.2V11.2H7Z" />
+          <path fill="currentColor" d="M8.2 4.2H10.4V6.4H8.2Z" />
+        </svg>
+        <span class="cap">休息 {{ restRows.length }}</span>
+        <i v-if="restRows.length" class="tile-badge">{{ restRows.length }}</i>
       </button>
       <button
         type="button"
-        class="band-food"
-        :class="{ dry: restFoodDry, 'guide-flash': guideFlashRestFood }"
+        class="band-tile band-food"
+        :class="{ low: foodBand.low, 'guide-flash': guideFlashRestFood }"
         :aria-label="`休息区伙食 · ${restFoodLabel}`"
         @click="restFoodOpen = true"
       >
-        {{ restFoodLabel }}
+        <FoodIcon v-if="foodBand.itemId" :name="foodBand.itemId" />
+        <svg v-else class="tile-ico" viewBox="0 0 16 16" aria-hidden="true">
+          <path fill="currentColor" d="M1.6 8.2H14.4V9.6H1.6Z" />
+          <path fill="currentColor" d="M3.4 9.4H12.6V12.6H3.4Z" />
+        </svg>
+        <span class="cap">{{ foodBand.caption }}</span>
       </button>
       <button
         type="button"
@@ -2685,61 +2709,179 @@ onUnmounted(() => {
   position: relative;
   flex: 0 0 auto;
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 4px;
+  min-width: 0;
   margin-top: 6px;
   padding: 4px;
+  overflow: hidden;
   border: 2px solid var(--gold);
   border-radius: 10px;
   background: #fff9de;
 }
 
-.status-band b {
+.band-head,
+.queue-head,
+.queue-empty {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.queue-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.queue-avatar {
   flex: 0 0 auto;
-  font-size: 13px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+
+.queue-avatar :deep(.class-ico) {
+  width: 16px;
+  height: 16px;
+}
+
+.queue-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.queue-name {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: #5a3a10;
+  font-size: 12px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.band-head {
-  flex: 1 1 auto;
+.queue-hp {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   min-width: 0;
+}
+
+.queue-bar {
+  flex: 1 1 auto;
+  height: 4px;
+  min-width: 12px;
   overflow: hidden;
+  border-radius: 999px;
+  background: #efe0b0;
+}
+
+.queue-bar i {
+  display: block;
+  height: 100%;
+  background: #e2a31a;
+}
+
+.queue-bar.hp-full i {
+  background: #3e9a2a;
+}
+
+.queue-bar.hp-low i {
+  background: #e24a3a;
+}
+
+.queue-hp-num {
+  flex: 0 0 auto;
   color: #7a4a22;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.queue-empty {
+  margin: 0;
+  overflow: hidden;
+  color: #9a9286;
   font-size: 12px;
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.band-food,
-.band-recruit {
+.band-tile {
+  position: relative;
   flex: 0 0 auto;
-  min-height: 32px;
-}
-
-.band-food {
-  max-width: 6.2em;
-  padding: 2px 6px;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 2px;
   border: 1.5px solid #9a9286;
   border-radius: 8px;
   background: #f6f4f0;
   color: #6d665c;
   box-shadow: none;
-  font-size: 12px;
+}
+
+.band-tile .cap {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 10px;
   font-weight: 800;
+  line-height: 1.1;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.band-food.dry {
-  opacity: 0.55;
+.band-tile .tile-ico,
+.band-tile :deep(.food-ico) {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.tile-badge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff8f4;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 14px;
+  text-align: center;
+}
+
+.band-food.low .cap {
+  color: #b42318;
 }
 
 .band-recruit {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 2px;
+  min-height: 32px;
   padding: 2px 8px;
   border: 0;
   border-radius: 8px;
@@ -2762,7 +2904,6 @@ onUnmounted(() => {
   box-shadow: none;
 }
 
-.band-rest,
 .band-combat,
 .rest-combat-entry {
   flex: 0 0 auto;
@@ -2778,7 +2919,6 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.band-rest.on,
 .band-combat.on {
   border-color: var(--gold-deep);
   background: linear-gradient(#ffe27a, #f0b83a);
