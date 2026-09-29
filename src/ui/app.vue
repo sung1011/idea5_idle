@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { playerDisplayName, type PlayerAvatarId } from '../sim/createSave'
 import { bannerFrameOf, bannerLevelOf, treasureAssaultWarning } from '../sim/treasureMine'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
+import { dockStationHp, showDockStationHp } from './dockStationHp'
 import { dismissUpdateBubble, refreshToNewVersion, startAppUpdateSchedule, updateBubble, updateReady } from './appUpdateState'
 import AppUpdateBubble from './appUpdateBubble.vue'
 import { useGameStore } from './gameStore'
@@ -38,6 +39,8 @@ const playerName = computed(() => playerDisplayName(game.save.playerName))
 const bannerFrame = computed(() => bannerFrameOf(bannerLevelOf(game.save)))
 const assaultAlert = computed(() => treasureAssaultWarning(game.save))
 const chips = computed(() => listHudChips(game.save))
+const stationHp = computed(() => dockStationHp(game.save))
+const showStationHp = computed(() => showDockStationHp(tab.value))
 const resourceDetail = computed(() => (resourceOpen.value ? hudChipDetail(game.save, resourceOpen.value) : null))
 
 onMounted(() => {
@@ -129,6 +132,11 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
     </main>
 
     <nav class="dock" role="tablist" aria-label="主界面页签">
+      <div v-if="showStationHp" class="dock-hp" aria-hidden="true">
+        <i v-for="cell in stationHp" :key="cell.stationId" class="cell">
+          <b class="fill" :class="cell.tone" :style="{ width: `${(cell.fill * 100).toFixed(2)}%` }" />
+        </i>
+      </div>
       <div class="dock-tabs">
         <button
           v-for="t in APP_TABS"
@@ -329,6 +337,9 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
   flex-direction: column;
   gap: 4px;
   flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   padding: var(--dock-pad-y) 8px calc(var(--dock-pad-y) + env(safe-area-inset-bottom, 0px));
   background:
     var(--paper-grain),
@@ -338,9 +349,44 @@ function confirmProfile(payload: { name: string; avatarId: PlayerAvatarId }) {
   box-shadow: 0 -2px 0 var(--gold-deep);
 }
 
+.dock-hp {
+  display: flex;
+  gap: 3px;
+  height: 5px;
+  width: 100%;
+  min-width: 0;
+  pointer-events: none;
+}
+
+.dock-hp .cell {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #efe0b0, var(--bar-track));
+}
+
+.dock-hp .fill {
+  display: block;
+  height: 100%;
+  max-width: 100%;
+  background: linear-gradient(90deg, #e0b020, #a8700c);
+}
+
+.dock-hp .fill.full {
+  background: linear-gradient(90deg, #6fc43a, #2d7a1c);
+}
+
+.dock-hp .fill.low {
+  background: linear-gradient(90deg, #d04a38, #a02820);
+}
+
 .dock-tabs {
   display: flex;
   gap: 4px;
+  width: 100%;
+  min-width: 0;
 }
 
 .dock button {

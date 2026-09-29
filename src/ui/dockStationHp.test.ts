@@ -3,7 +3,7 @@ import { createSave } from '../sim/createSave'
 import { STATION_ORDER } from '../sim/tables'
 import type { Worker } from '../sim/types'
 import app from './app.vue?raw'
-import { dockStationHp } from './dockStationHp'
+import { dockStationHp, showDockStationHp } from './dockStationHp'
 
 function worker(patch: Partial<Worker> & Pick<Worker, 'id'>): Worker {
   return {
@@ -48,11 +48,45 @@ describe('dock station hp', () => {
     expect(byId.inscription).toMatchObject({ fill: 0 })
   })
 
-  it('does not repeat station wear on the dock', () => {
+  it('keeps a closed station on the same wear fill', () => {
+    const save = createSave()
+    save.stations.herbalism.closed = true
+    save.stations.alchemy.closed = true
+    save.workers.push(worker({ id: 'herb', assignment: 'herbalism', hp: 10, hpMax: 20, fatigueDebt: 0 }))
+    const cells = dockStationHp(save)
+    const byId = Object.fromEntries(cells.map((cell) => [cell.stationId, cell]))
+    expect(byId.herbalism).toMatchObject({ fill: 0.5, tone: 'mid' })
+    expect(byId.alchemy).toMatchObject({ fill: 0, tone: 'low' })
+  })
+
+  it('hides the strip on the workshop page and shows it elsewhere', () => {
+    expect(showDockStationHp('workshop')).toBe(false)
+    expect(showDockStationHp('encounters')).toBe(true)
+    expect(showDockStationHp('pvp')).toBe(true)
+    expect(showDockStationHp('tech')).toBe(true)
+  })
+
+  it('keeps the strip inside the dock, above the tabs, without station labels', () => {
     const dock = app.slice(app.indexOf('<nav class="dock"'), app.indexOf('</nav>'))
-    expect(dock).not.toContain('dock-hp')
-    expect(dock).not.toContain('stationHp')
-    expect(app).not.toContain('dockStationHp')
-    expect(dock).toContain('v-for="t in APP_TABS"')
+    const strip = dock.slice(0, dock.indexOf('class="dock-tabs"'))
+    expect(strip).toContain('class="dock-hp"')
+    expect(strip).toContain('v-if="showStationHp"')
+    expect(strip).toContain('stationHp')
+    expect(app).toContain('dockStationHp(game.save)')
+    expect(app).toContain('showDockStationHp(tab.value)')
+    expect(strip).toContain('aria-hidden="true"')
+    expect(strip).not.toContain('<button')
+    expect(strip).not.toContain('@click')
+    expect(strip).not.toContain('采药')
+    expect(strip).not.toContain('炼金')
+    expect(dock.indexOf('class="dock-hp"')).toBeLessThan(dock.indexOf('v-for="t in APP_TABS"'))
+    expect(app).toContain('pointer-events: none')
+    expect(app).toContain('height: 5px')
+    const cellRule = app.slice(app.indexOf('.dock-hp .cell'), app.indexOf('.dock-hp .fill {'))
+    expect(cellRule).toContain('flex: 1 1 0')
+    expect(cellRule).toContain('min-width: 0')
+    const tabsRule = app.slice(app.indexOf('.dock-tabs {'), app.indexOf('.dock button {'))
+    expect(tabsRule).toContain('min-width: 0')
+    expect(tabsRule).toContain('width: 100%')
   })
 })

@@ -2,6 +2,7 @@ import { assignedWorkers } from '../sim/assign'
 import { STATION_ORDER } from '../sim/tables'
 import type { Save, StationId } from '../sim/types'
 import { workerWearHp } from '../sim/workshopHp'
+import type { AppTabId } from './appTabs'
 import { hpBarFill, hpBarTone, type HpBarTone } from './hpBar'
 
 export type DockStationHpCell = {
@@ -11,7 +12,12 @@ export type DockStationHpCell = {
   tone: HpBarTone
 }
 
-/** 底栏上沿六格。顺序固定 STATION_ORDER，只读在岗第一人。 */
+/** 工坊页站卡已有血色，底栏收起。战场、夺宝、割草、困兽和其它页显示。 */
+export function showDockStationHp(tab: AppTabId): boolean {
+  return tab !== 'workshop'
+}
+
+/** 底栏上沿六格。顺序固定 STATION_ORDER，只读在岗第一人。封闭不改这条：有人仍按 wearHp，无人仍是空条。 */
 export function dockStationHp(save: Save): DockStationHpCell[] {
   return STATION_ORDER.map((stationId) => {
     const worker = assignedWorkers(save, stationId)[0]
