@@ -61,7 +61,7 @@
 | `potionSlots` | 营地弹框 4 个药剂装配槽，只记种类。点已装槽扣物资 1 瓶立刻生效，无 CD；只打营地苦工，在岗 / 战斗中 / 助战不吃这口；营地没人漂「营地没有苦工可用药」且不扣瓶。回血药在营地全员满血时不扣瓶。槽内自上而下是图标、名称、数量，空槽是淡灰空位。右上角「i」看效果，气泡里有药剂才显示「卸下」；库存 0 仍留装配。装配列表名称前有同款单色图标。hydrate 缺字段为空槽；旧档通用 `potion` 记成 `salve`，`focusDraft` 记成 `doubleMist`，`wardElixir` 记成 `rushPowder`，`warDrum` 槽清空。 |
 | `potion`（苦工） | 挂在人身上：嗜血 `stimUntil`、狂兽油 `beastOilUntil`、续命 `renewUntil` / `renewNextAt` 按 `elapsedS`；赶工粉 `rush`、双份雾 `doubleMist` 为 2 或 3，用掉即清。没有账号级 `potionBuffs`。 |
 | `workshopHpEfficiencyTipShown` | 账号是否已提示过工坊在岗体力导致效率下降。首次在岗效率跌破 100% 漂一次；缺字段 hydrate 为 false。 |
-| `fuseDragTipDone` | 是否已成功合成过至少一次。营地里仍有同档可合、且尚未合过时显示短气泡「营地同品质可合，在营地里拖到同品质的人身上」；合过一次后不再显示。缺字段 hydrate 为 false。 |
+| `fuseDragTipDone` | 是否已成功合成过至少一次。工坊上方不再显示「营地同品质可合」提示。缺字段 hydrate 为 false。 |
 
 ### 2.2 Worker
 

@@ -16,10 +16,8 @@ import {
   canDragWorker,
   canDropWorker,
   dropTargetFromDataset,
-  FUSE_DRAG_TIP,
   MANUAL_DUTY_REASON,
   isWorkerDragThreshold,
-  shouldShowFuseDragTip,
   shouldStartWorkerDrag,
   slotOccupantId,
   workerDragEdgeDelta,
@@ -259,13 +257,13 @@ describe('worker drag assign', () => {
 })
 
 describe('fuse drag tip', () => {
-  it('shows only while a drag-fuse pair exists and hides after the first merge', () => {
-    expect(FUSE_DRAG_TIP).toBe('营地同品质可合，在营地里拖到同品质的人身上')
+  it('does not keep a workshop banner, and the first camp merge still records', () => {
+    expect(panelSource).not.toContain('营地同品质可合')
+    expect(panelSource).not.toContain('fuse-drag-tip')
     const resting = unlockPlayableStations(createSave())
-    const left = spawnWorkerWith(resting, 1, 'laborer')
-    const right = spawnWorkerWith(resting, 1, 'artisan')
+    spawnWorkerWith(resting, 1, 'laborer')
+    spawnWorkerWith(resting, 1, 'artisan')
     expect(canDragFuseAny(resting)).toBe(true)
-    expect(shouldShowFuseDragTip(resting)).toBe(true)
 
     const mixed = unlockPlayableStations(createSave())
     const idle = spawnWorkerWith(mixed, 1, 'laborer')
@@ -273,16 +271,13 @@ describe('fuse drag tip', () => {
     const busy = spawnWorkerWith(mixed, 2, 'miner')
     assignWorker(mixed, busy.id, 'mining')
     expect(canDragFuseAny(mixed)).toBe(true)
-    expect(shouldShowFuseDragTip(mixed)).toBe(true)
 
     const fused = applyWorkerDrag(mixed, { kind: 'rest', workerId: idle.id }, { kind: 'restWorker', workerId: mate.id })
     expect(fused.ok).toBe(true)
     expect(mixed.fuseDragTipDone).toBe(true)
-    expect(shouldShowFuseDragTip(mixed)).toBe(false)
 
     const again = spawnWorkerWith(mixed, 2, 'cook')
     expect(canDragFuseAny(mixed)).toBe(true)
-    expect(shouldShowFuseDragTip(mixed)).toBe(false)
     expect(again.qualityTier).toBe(2)
   })
 
@@ -325,7 +320,6 @@ describe('fuse drag tip', () => {
     const maxA = spawnWorkerWith(save, QUALITY_MAX, 'knight')
     const maxB = spawnWorkerWith(save, QUALITY_MAX, 'steward')
     expect(canDragFuseAny(save)).toBe(false)
-    expect(shouldShowFuseDragTip(save)).toBe(false)
     expect(maxA.assignment).toBeNull()
     expect(maxB.assignment).toBeNull()
   })

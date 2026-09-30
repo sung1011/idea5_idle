@@ -98,8 +98,6 @@ export function sameDragEndpoint(source: WorkerDragSource, target: WorkerDropTar
   )
 }
 
-export const FUSE_DRAG_TIP = '营地同品质可合，在营地里拖到同品质的人身上'
-
 /** 休息拖进空槽、或把在岗拖回休息。营地合成不走这里。 */
 export const MANUAL_DUTY_REASON = '不能手动上下岗'
 
@@ -121,11 +119,6 @@ export function canDragFuseAny(save: Save): boolean {
     }
   }
   return false
-}
-
-/** 未成功合成过、且当前能拖合时才出工人页短气泡。 */
-export function shouldShowFuseDragTip(save: Save): boolean {
-  return save.fuseDragTipDone !== true && canDragFuseAny(save)
 }
 
 export function canDropWorker(save: Save, source: WorkerDragSource, target: WorkerDropTarget): boolean {

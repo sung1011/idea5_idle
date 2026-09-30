@@ -870,7 +870,7 @@ export type Save = {
    */
   workshopHpEfficiencyTipShown: boolean
   /**
-   * 是否已成功合成过至少一次。工人页拖拽合成提示只在未合过且当前可拖合时显示。
+   * 是否已成功合成过至少一次。工坊上方不再显示合成提示。
    * hydrate 缺字段为 false。
    */
   fuseDragTipDone: boolean
