@@ -123,6 +123,7 @@ export function openGuideQuestTask(taskId: string, storage?: Storage | null): Ap
     case 'restFood':
     case 'potionInstall':
     case 'potionUse':
+    case 'slotsFull':
       requestGuideCampSheet()
       return selectAppTab('workshop', storage)
     case 'veteran':

@@ -35,6 +35,7 @@ import {
   guideAlchemyCardFlash,
   guideFuseCue,
   guideFuseFlashStations,
+  guidePotionSlotFlash,
   guideQuestFlashId,
   guideQuestProgressAt,
   guideQuestView,
@@ -50,7 +51,7 @@ import {
 } from './guideQuest'
 import { selectRestFood } from './food'
 import { isModuleUnlocked, levelGateUnlockNote } from './moduleUnlock'
-import { mainlineStepOf, mainlineTaskById } from './mainlineQuest'
+import { mainlineDone, mainlineStepOf, mainlineTaskById } from './mainlineQuest'
 import { installPotionSlot } from './potionSlots'
 import { usePotionSlot } from './potions'
 import { recruitWorker, spawnWorker } from './recruit'
@@ -118,6 +119,27 @@ describe('guideQuest normalize and hydrate', () => {
     expect(view?.goal).toBe(GUIDE_POTION_INSTALL_CLOSED_GOAL)
     expect(guideQuestView(save, true)?.goal).toBe(GUIDE_POTION_INSTALL_OPEN_GOAL)
     expect(guideQuestFlashId(save)).toBe('potionInstall')
+    expect(guidePotionSlotFlash(save, false)).toBe(true)
+    expect(guidePotionSlotFlash(save, true)).toBe(false)
+  })
+
+  it('opens the slotsFull guide on empty potion slots and stays claimable only when all four are filled', () => {
+    const save = createSave()
+    save.guideQuestStep = mainlineStepOf('slotsFull')
+    expect(guideQuestView(save)?.goal).toBe('4 个药剂槽全部装上药剂')
+    expect(guideQuestFlashId(save)).toBe('slotsFull')
+    expect(mainlineDone(save, 'slotsFull')).toBe(false)
+    expect(guidePotionSlotFlash(save, false)).toBe(true)
+    expect(guidePotionSlotFlash(save, true)).toBe(false)
+    save.potionSlots = ['salve', 'stim', 'brinkSalve', null]
+    expect(guidePotionSlotFlash(save, false)).toBe(true)
+    expect(guidePotionSlotFlash(save, true)).toBe(false)
+    expect(mainlineDone(save, 'slotsFull')).toBe(false)
+    save.potionSlots = ['salve', 'stim', 'brinkSalve', 'clearMind']
+    expect(mainlineDone(save, 'slotsFull')).toBe(true)
+    expect(guideQuestView(save)?.claimable).toBe(true)
+    expect(guideQuestFlashId(save)).toBeNull()
+    expect(guidePotionSlotFlash(save, false)).toBe(false)
   })
 
   it('keeps a stored step and does not skip tasks that are already satisfied', () => {

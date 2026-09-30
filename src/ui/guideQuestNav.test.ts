@@ -86,6 +86,9 @@ describe('guideQuestNav', () => {
     const camp = guideCampOpenRequest.value
     expect(openGuideQuestTask('restFood', store)).toBe('workshop')
     expect(guideCampOpenRequest.value).toBe(camp + 1)
+    expect(openGuideQuestTask('slotsFull', store)).toBe('workshop')
+    expect(appTab.value).toBe('workshop')
+    expect(guideCampOpenRequest.value).toBe(camp + 2)
     expect(openGuideQuestTask('veteran', store)).toBe('encounters')
     expect(mainlineTab.value).toBe('battlefield')
 

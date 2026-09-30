@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { bankQty } from '../sim/bank'
-import { guideNeedsCampForPotion, isGuideQuestFlash } from '../sim/guideQuest'
+import { guidePotionSlotFlash } from '../sim/guideQuest'
 import { potionInstallGroups } from '../sim/potionSlots'
 import { ITEM_DEF, isPotionItemId } from '../sim/tables'
 import type { ItemId, PotionItemId } from '../sim/types'
@@ -23,10 +23,6 @@ const frameNow = useFrameNow()
 const pickIndex = ref<number | null>(null)
 const potionSlots = computed(() => game.save.potionSlots)
 const pickGroups = computed(() => potionInstallGroups(game.save))
-const guideFlashInstall = computed(() => isGuideQuestFlash(game.save, 'potionInstall'))
-const guideFlashUse = computed(
-  () => isGuideQuestFlash(game.save, 'potionUse') && !guideNeedsCampForPotion(game.save),
-)
 
 function slotQty(id: PotionItemId | null) {
   return id ? bankQty(game.save, id) : 0
@@ -196,7 +192,7 @@ onUnmounted(() => {
           dry: !!itemId && slotQty(itemId) <= 0,
           pressed: pressed.includes(i),
           restock: restock.includes(i),
-          'guide-flash': (!itemId && guideFlashInstall) || (!!itemId && guideFlashUse),
+          'guide-flash': guidePotionSlotFlash(game.save, !!itemId),
         }"
         :aria-label="itemId ? `${slotLabel(itemId)} · 点击使用` : `装入药剂槽 ${i + 1}`"
         @pointerdown="onPointerDown(i, $event)"
