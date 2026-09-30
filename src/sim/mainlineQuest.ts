@@ -44,229 +44,9 @@ export type MainlineTask = {
   reward: MainlineReward
 }
 
-/** REV 6 的 16 步，只用来把旧位图对回任务 id。 */
-export const REV6_GUIDE_IDS = [
-  'recruit',
-  'autoHerb',
-  'fuse',
-  'alchemy',
-  'combat',
-  'potionInstall',
-  'potionUse',
-  'tech',
-  'market',
-  'restFood',
-  'dungeon',
-  'herb',
-  'beast',
-  'mining',
-  'rune',
-  'treasure',
-] as const
-
-/** 更早的九步引导。步号到 10 视为这段已领过。 */
-export const ANCIENT_GUIDE_IDS = [
-  'recruit',
-  'autoHerb',
-  'fuse',
-  'restFood',
-  'combat',
-  'alchemy',
-  'potionInstall',
-  'potionUse',
-  'rune',
-] as const
-
-/**
- * REV 7 的任务顺序。同级功能是穿插的。
- * 升到 REV 8 时按这个顺序认「已经领过的前缀」，再落到新的固定序列上。
- */
-const REV7_GUIDE_IDS = [
-  'recruit',
-  'autoHerb',
-  'fuse',
-  'alchemy',
-  'combat',
-  'potionInstall',
-  'potionUse',
-  'firstBlood',
-  'explore',
-  'level2',
-  'level3',
-  'alchemy3',
-  'blueWorker',
-  'level4',
-  'slotsFull',
-  'level5',
-  'chapter2',
-  'level6',
-  'huntStart',
-  'market',
-  'huntHaul',
-  'pawn',
-  'timed',
-  'level7',
-  'huntWolf',
-  'level8',
-  'cookStart',
-  'restFood',
-  'dungeon',
-  'stockFood',
-  'chest',
-  'dungeonBoth',
-  'level9',
-  'marketHigh',
-  'level10',
-  'herbAssign',
-  'herb',
-  'herbCounter',
-  'cookStew',
-  'level11',
-  'tech',
-  'techTabs',
-  'herbPayout',
-  'level12',
-  'marketSlot',
-  'dungeonGold',
-  'huntDeer',
-  'chapter3',
-  'level13',
-  'beast',
-  'beastManual',
-  'boneSoup',
-  'cyanWorker',
-  'level14',
-  'tech8',
-  'level15',
-  'feast',
-  'level16',
-  'mining',
-  'crystal',
-  'miningIron',
-  'veteran',
-  'level17',
-  'oreDeal',
-  'level18',
-  'inscribe',
-  'rune',
-  'runeCraft',
-  'runeWin',
-  'stationsOpen',
-  'level19',
-  'miningMithril',
-  'inscribe5',
-  'chapter5',
-  'level20',
-  'treasure',
-  'scout',
-  'raid',
-  'guard',
-  'banner1',
-  'level22',
-  'banner3',
-  'purpleWorker',
-  'level25',
-  'chapter8',
-  'stations10',
-  'level28',
-  'banner5',
-] as const
-
-/** 跳过位图能记到的步数。一个 JS 数字只有 31 个正位，90 步拆成 3 个字。 */
-export const GUIDE_SKIP_CAP = 90
+/** 跳过位图能记到的步数。一个 JS 数字只有 31 个正位，当前清单拆成 3 个字。 */
+export const GUIDE_SKIP_CAP = 93
 const SKIP_WORD_BITS = 31
-
-/** REV 8 的 88 步顺序。升到 REV 9 时用来认已经领过的前缀。 */
-const REV8_GUIDE_IDS = [
-  'recruit',
-  'autoHerb',
-  'fuse',
-  'alchemy',
-  'combat',
-  'potionInstall',
-  'potionUse',
-  'firstBlood',
-  'explore',
-  'level2',
-  'level3',
-  'alchemy3',
-  'blueWorker',
-  'level4',
-  'slotsFull',
-  'level5',
-  'chapter2',
-  'level6',
-  'huntStart',
-  'huntHaul',
-  'market',
-  'pawn',
-  'timed',
-  'level7',
-  'huntWolf',
-  'level8',
-  'cookStart',
-  'restFood',
-  'stockFood',
-  'dungeon',
-  'chest',
-  'dungeonBoth',
-  'level9',
-  'marketHigh',
-  'level10',
-  'herbAssign',
-  'herb',
-  'herbCounter',
-  'cookStew',
-  'level11',
-  'tech',
-  'techTabs',
-  'herbPayout',
-  'level12',
-  'marketSlot',
-  'dungeonGold',
-  'huntDeer',
-  'chapter3',
-  'level13',
-  'beast',
-  'beastManual',
-  'boneSoup',
-  'cyanWorker',
-  'level14',
-  'tech8',
-  'level15',
-  'feast',
-  'level16',
-  'mining',
-  'crystal',
-  'miningIron',
-  'veteran',
-  'level17',
-  'oreDeal',
-  'level18',
-  'inscribe',
-  'runeCraft',
-  'rune',
-  'runeWin',
-  'stationsOpen',
-  'level19',
-  'miningMithril',
-  'inscribe5',
-  'chapter5',
-  'level20',
-  'treasure',
-  'scout',
-  'raid',
-  'guard',
-  'banner1',
-  'level22',
-  'banner3',
-  'purpleWorker',
-  'level25',
-  'chapter8',
-  'stations10',
-  'level28',
-  'banner5',
-] as const
 
 
 function gold(n: number): MainlineReward {
@@ -329,15 +109,17 @@ function task(
 
 /**
  * 唯一的主线顺序。下标就是步号，运行时不重排。
- * 顺序以确认过的 90 步清单为准，运行时不重排。
+ * 顺序以确认过的清单为准，中间插入了派工、排队和挂自动。运行时不重排。
  */
 function buildSchedule(): MainlineTask[] {
   const rows: MainlineTask[] = [
     task('recruit', '抽取苦工 2 次', '招兵', 'intro', kept()),
-    task('autoHerb', '采药站有人在岗，或采药站出过货', '上岗', 'intro', kept()),
+    task('autoHerb', '点采药站，把营地队首派上去干一轮', '派工', 'intro', kept()),
+    task('herbQueue', '采药站还在干时再点一次，排上下一轮', '排队', 'intro', kept()),
     task('fuse', '名册里有 2 档及以上苦工', '合伙', 'intro', kept()),
     task('combat', '在 PVE 选人弹层点过开战', '出征', 'intro', kept()),
     levelTask(2),
+    task('autoLine', '在站卡右上角打开一条自动线', '挂自动', 'intro', kept()),
     task('alchemy', '炼金站出过货，或手里、槽里有药', '熬药', 'intro', kept()),
     task('potionInstall', '任一药剂槽装了药', '装药', 'intro', kept()),
     task('potionUse', '点用过药剂槽', '用药', 'intro', kept()),
@@ -590,6 +372,10 @@ export function mainlineLive(save: Save, id: string): boolean {
       return recruited(save)
     case 'autoHerb':
       return onStation(save, 'herbalism') || (save.stations?.herbalism?.completed ?? 0) >= 1
+    case 'herbQueue':
+      return (save.stations?.herbalism?.manualRounds ?? 0) >= 2
+    case 'autoLine':
+      return Object.values(save.stations ?? {}).some((station) => station?.auto === true)
     case 'fuse':
       return maxQuality(save) >= 2
     case 'alchemy':
@@ -821,7 +607,7 @@ export function blankSkipMask(): number[] {
   return [0, 0, 0]
 }
 
-/** 旧档一个数字只覆盖低 31 位。新档是 3 个字，第 90 步落在第 3 个字。 */
+/** 当前档是 3 个字。单个数字只当作第 1 个字。 */
 export function normalizeSkipMask(raw: unknown): number[] {
   const words = blankSkipMask()
   if (typeof raw === 'number' && Number.isFinite(raw)) {
@@ -860,42 +646,6 @@ function writeSkipMask(skipped: ReadonlySet<string>): number[] {
   return mask
 }
 
-/**
- * 旧档从第 1 条往后走：已经领过，或当前条件成立，就连续跳过且不发奖。
- * 停在第一条两边都不成立的任务上。后面即使已经做成，也不提前跳过，轮到时还能领。
- */
-export function migrateOldGuide(save: Save, oldRev: number, rawStep: number, mask: unknown): void {
-  const claimed = new Set<string>()
-  const bits = normalizeSkipMask(mask)
-  if (oldRev === 8 && rawStep > 1) {
-    for (let i = 0; i < rawStep - 1 && i < REV8_GUIDE_IDS.length; i += 1) claimed.add(REV8_GUIDE_IDS[i])
-  } else if (oldRev === 7 && rawStep > 1) {
-    for (let i = 0; i < rawStep - 1 && i < REV7_GUIDE_IDS.length; i += 1) claimed.add(REV7_GUIDE_IDS[i])
-  } else if (rawStep >= 10) {
-    for (const id of ANCIENT_GUIDE_IDS) claimed.add(id)
-  } else if (oldRev >= 5 && rawStep > 1) {
-    for (let i = 0; i < rawStep - 1 && i < ANCIENT_GUIDE_IDS.length; i += 1) {
-      const id = ANCIENT_GUIDE_IDS[i]
-      if (id === 'recruit' && !recruited(save)) continue
-      claimed.add(id)
-    }
-  }
-  for (let step = 1; step <= REV6_GUIDE_IDS.length; step += 1) {
-    if (skipMaskHas(bits, step)) claimed.add(REV6_GUIDE_IDS[step - 1])
-  }
-  const skipped = new Set(claimed)
-  for (const row of MAINLINE_TASKS) {
-    if (skipped.has(row.id) || mainlineLive(save, row.id)) {
-      skipped.add(row.id)
-      continue
-    }
-    break
-  }
-  save.guideQuestSkipped = [...skipped]
-  save.guideQuestSkipMask = writeSkipMask(skipped)
-  save.guideQuestStep = 1
-}
-
 export function normalizeGuideIdList(raw: unknown): string[] {
   if (!Array.isArray(raw)) return []
   const out: string[] = []
@@ -904,48 +654,6 @@ export function normalizeGuideIdList(raw: unknown): string[] {
     out.push(id)
   }
   return out
-}
-
-/**
- * 集市标记只认集市板。1 级悬赏领奖留下的旧标记清掉，避免读档提前开放集市。
- * 酋长已经到 6 级、又带着旧标记的，当成成交过 1 单，避免换板后丢进度。
- */
-export function reconcileMarketFlag(save: Save): void {
-  const stats = ensureGuideQuestStats(save)
-  const boardDone = save.marketEncounters?.some((enc) => 'completed' in enc && enc.completed) ?? false
-  if (boardDone) {
-    save.starterCopperPawnDone = true
-    if (stats.marketDeals < 1) stats.marketDeals = 1
-    return
-  }
-  if (save.starterCopperPawnDone === true && knightLevelOf(save) >= 6) {
-    if (stats.marketDeals < 1) stats.marketDeals = 1
-    return
-  }
-  save.starterCopperPawnDone = false
-}
-
-/** 把还留在档里的痕迹种进累计数，方便旧档迁移时直接跳过。 */
-export function seedGuideEvidence(save: Save): void {
-  const stats = ensureGuideQuestStats(save)
-  reconcileMarketFlag(save)
-  const attempts = save.dungeon?.attemptsUsedById ?? {}
-  const fought = Object.entries(attempts).filter(([, n]) => typeof n === 'number' && n > 0).map(([id]) => id)
-  if (fought.length > 0 && stats.dungeonRuns < 1) stats.dungeonRuns = fought.length
-  if (fought.includes('dungeonJailer') && fought.includes('dungeonBroker')) stats.dungeonBoth = true
-  for (const enc of save.dungeon?.encounters ?? []) {
-    if (!enc.lootClaimed) continue
-    if (stats.dungeonChests < 1) stats.dungeonChests = 1
-    if (enc.combat?.outcome === 'win' && stats.dungeonGoldChests < 1) stats.dungeonGoldChests = 1
-  }
-  if ((save.herbPvp?.playerScore ?? 0) > 0 && stats.herbPrecious < 1) stats.herbPrecious = 1
-  if (save.herbPvp?.lastRewardText && stats.herbPayouts < 1) stats.herbPayouts = 1
-  if (save.herbPvp?.plots?.some((plot) => plot.workerId) && stats.herbAssigns < 1) stats.herbAssigns = 1
-  if (((save.beastPvp?.playerDamage ?? 0) > 0 || save.beastPvp?.fight != null) && stats.beastChallenges < 1) {
-    stats.beastChallenges = 1
-  }
-  if (feastLive(save)) stats.feast = true
-  save.guideQuestStats = normalizeGuideQuestStats(stats)
 }
 
 export function taskModuleReady(save: Save, row: MainlineTask): boolean {

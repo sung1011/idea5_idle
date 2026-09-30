@@ -168,7 +168,7 @@ describe('station crew dots and assign choices', () => {
     const rest = spawnWorkerWith(save, 1, 'laborer')
     const choices = workerAssignChoices(save, rest)
     expect(choices.find((c) => c.stationId === 'herbalism')?.locked).toBe(false)
-    expect(choices.find((c) => c.stationId === 'alchemy')?.locked).toBe(false)
+    expect(choices.find((c) => c.stationId === 'alchemy')?.locked).toBe(true)
     expect(choices.find((c) => c.stationId === 'mining')?.locked).toBe(true)
     expect(canAssignWorkerTo(save, rest, 'herbalism')).toBe(true)
     expect(canAssignWorkerTo(save, rest, 'mining')).toBe(false)
@@ -275,7 +275,7 @@ describe('assign resting to first empty slot', () => {
 
   it('rejects when nobody is resting or every slot is full', () => {
     const empty = createSave()
-    expect(firstEmptyDispatchStation(empty)).toBe('herbalism')
+    expect(firstEmptyDispatchStation(empty)).toBeNull()
     expect(canDispatchRestingWorker(empty)).toBe(false)
     expect(assignRestingToFirstEmpty(empty)).toEqual({ ok: false, reason: '没有可派的苦工' })
 
@@ -317,6 +317,9 @@ describe('assign resting to first empty slot', () => {
     const save = createSave()
     const first = spawnWorkerWith(save, 1, 'laborer')
     const second = spawnWorkerWith(save, 1, 'artisan')
+    save.openedModules = ['alchemy']
+    save.stations.herbalism.auto = true
+    save.stations.alchemy.auto = true
     expect(restingWorkers(save).map((w) => w.id)).toEqual([first.id, second.id])
     expect(canDispatchRestingWorker(save)).toBe(true)
     expect(assignRestingToFirstEmpty(save)).toEqual({ ok: true })
@@ -331,6 +334,9 @@ describe('assign resting to first empty slot', () => {
     const save = createSave()
     const herbA = spawnWorkerWith(save, 1, 'laborer')
     assignWorker(save, herbA.id, 'herbalism')
+    save.openedModules = ['alchemy']
+    save.stations.alchemy.auto = true
+    save.stations.hunting.auto = true
     const idle = spawnWorkerWith(save, 2, 'miner')
     expect(firstEmptyDispatchStation(save)).toBe('alchemy')
     expect(assignRestingToFirstEmpty(save)).toEqual({ ok: true })

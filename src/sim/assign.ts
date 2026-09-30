@@ -62,9 +62,13 @@ export function assignWorker(save: Save, workerId: string, stationId: StationId 
   }
   const prev = worker.assignment
   worker.assignment = stationId
+  if (stationId && !save.stations[stationId].auto && save.stations[stationId].manualRounds <= 0) {
+    save.stations[stationId].manualRounds = 1
+  }
   if (prev && prev !== stationId && isStationId(prev) && assignedWorkers(save, prev).length <= 0) {
     save.stations[prev].progress = 0
     save.stations[prev].stallReason = null
+    save.stations[prev].manualRounds = 0
   }
   if (stationId === null && prev) offerRestFood(save, worker.id)
   return { ok: true }
@@ -86,6 +90,7 @@ export function restingWorkers(save: Save): Worker[] {
 export function firstEmptyDispatchStation(save: Save): StationId | null {
   for (const stationId of STATION_ORDER) {
     if (!isStationUnlocked(save, stationId)) continue
+    if (!save.stations[stationId].auto) continue
     if (save.stations[stationId].closed) continue
     if (assignedWorkers(save, stationId).length < STATION_WORKER_CAP) return stationId
   }

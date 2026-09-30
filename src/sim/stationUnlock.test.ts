@@ -21,17 +21,17 @@ describe('stationUnlock by knight level', () => {
   it('opens herbalism and alchemy at knight 1', () => {
     const save = createSave()
     expect(save.knightLevel).toBe(1)
-    expect(unlockedStationIds(save)).toEqual(['herbalism', 'alchemy'])
+    expect(unlockedStationIds(save)).toEqual(['herbalism'])
     expect(isStationUnlocked(save, 'herbalism')).toBe(true)
-    expect(isStationUnlocked(save, 'alchemy')).toBe(true)
+    expect(isStationUnlocked(save, 'alchemy')).toBe(false)
     expect(isStationUnlocked(save, 'hunting')).toBe(false)
     expect(isStationUnlocked(save, 'inscription')).toBe(false)
     expect(stationLockedTip('hunting')).toBe('完成主线「升到酋长 6 级（开放狩猎、集市）」后开启')
-    expect(stationUnlockKnightLevel('alchemy')).toBe(1)
+    expect(stationUnlockKnightLevel('alchemy')).toBe(2)
     expect(stationUnlockKnightLevel('inscription')).toBe(18)
     expect(STATION_UNLOCK_KNIGHT).toEqual({
       herbalism: 1,
-      alchemy: 1,
+      alchemy: 2,
       hunting: 6,
       cooking: 8,
       mining: 16,
@@ -43,7 +43,7 @@ describe('stationUnlock by knight level', () => {
   it('keeps later stations locked until the mainline grant, then opens them with the helper', () => {
     const save = createSave()
     save.knightLevel = 18
-    expect(unlockedStationIds(save)).toEqual(['herbalism', 'alchemy'])
+    expect(unlockedStationIds(save)).toEqual(['herbalism'])
     unlockPlayableStations(save, 6)
     expect(unlockedStationIds(save)).toEqual(['herbalism', 'alchemy', 'hunting'])
     unlockPlayableStations(save, 8)
@@ -81,20 +81,20 @@ describe('stationUnlock by knight level', () => {
       ok: false,
       reason: '完成主线「升到酋长 6 级（开放狩猎、集市）」后开启',
     })
-    expect(assignIdleWorker(save, 'alchemy').ok).toBe(true)
-    expect(save.workers[0].assignment).toBe('alchemy')
+    expect(assignIdleWorker(save, 'alchemy').ok).toBe(false)
+    expect(save.workers[0].assignment).toBeNull()
 
     expect(assignIdleWorker(save, 'herbalism').ok).toBe(true)
-    expect(save.workers[1].assignment).toBe('herbalism')
-    expect(assignWorker(save, save.workers[1].id, 'mining')).toEqual({
+    expect(save.workers[0].assignment).toBe('herbalism')
+    expect(assignWorker(save, save.workers[0].id, 'mining')).toEqual({
       ok: false,
       reason: '完成主线「升到酋长 16 级（开放采矿）」后开启',
     })
-    expect(save.workers[1].assignment).toBe('herbalism')
-    expect(assignWorker(save, save.workers[1].id, null).ok).toBe(true)
+    expect(save.workers[0].assignment).toBe('herbalism')
+    expect(assignWorker(save, save.workers[0].id, null).ok).toBe(true)
   })
 
-  it('hydrates old saves by current knight level without stripping bank', () => {
+  it('keeps bank and does not open stations from knight level alone', () => {
     const raw = createSave()
     raw.stations.herbalism.stationLevel = 6
     raw.knightLevel = 6
@@ -105,9 +105,8 @@ describe('stationUnlock by knight level', () => {
     expect(loaded?.knightLevel).toBe(6)
     expect(loaded?.bank.ore).toBe(12)
     expect(loaded?.bank.stim).toBe(3)
-    expect(isStationUnlocked(loaded!, 'hunting')).toBe(true)
+    expect(isStationUnlocked(loaded!, 'alchemy')).toBe(false)
+    expect(isStationUnlocked(loaded!, 'hunting')).toBe(false)
     expect(isStationUnlocked(loaded!, 'cooking')).toBe(false)
-    expect(isStationUnlocked(loaded!, 'mining')).toBe(false)
-    expect(isStationUnlocked(loaded!, 'inscription')).toBe(false)
   })
 })

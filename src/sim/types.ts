@@ -457,8 +457,12 @@ export type StationState = {
   craftNotice?: string | null
   /** 站内连招 / 毒雾 / 挫败。旧档缺字段 hydrate 为零。 */
   fatigueCombo: StationFatigueCombo
-  /** 封闭：营地自动填岗跳过。已在岗的人继续干。旧档缺省 false。 */
+  /** 封闭：只挡自动填岗。已在岗的人继续干。 */
   closed: boolean
+  /** 自动线。名额见 `autoLineQuota`。 */
+  auto: boolean
+  /** 手动站剩余轮数，含正在干的这一轮。最多 5。 */
+  manualRounds: number
 }
 
 /** 站内劳损连招。不跨站。 */
@@ -764,7 +768,7 @@ export type HerbPvpState = {
 export type Save = {
   /** 探索 / 黑心商人购买扣金；当铺典当 / 收购 / 部分敌人与商场订单加金。 */
   gold: number
-  /** 抽工人消耗。新档 100；旧档缺字段 hydrate 补 100，已有字段（含已花到 0）不重灌。悬赏 / 商场部分订单掉落。 */
+  /** 抽工人消耗。新档见起始钻石。悬赏 / 商场部分订单掉落。 */
   diamonds: number
   /** 我方玩家显示名。新档与缺字段 / 空串为「见习勇者」；已有非空自定义名 hydrate 保留。 */
   playerName: string
@@ -781,6 +785,8 @@ export type Save = {
   stations: Record<StationId, StationState>
   lastTick: number
   elapsedS: number
+  /** 存档版本。对不上就整档丢弃，重新开一局。 */
+  saveVersion: number
   nextWorkerId: number
   /** 悬赏单板，只放敌人。格数由 `battlefieldSlotCount` 决定：初始 2、封顶 4。 */
   encounters: Encounter[]
@@ -795,11 +801,11 @@ export type Save = {
    */
   mainLootClaims: number
   /**
-   * 左下悬浮主线当前步。任何时候只有这一条，顺序是确认过的 90 步。
-   * 领完后步号不再显示浮层。旧档或缺低于当前 `guideQuestRev`：从第 1 条连续跳过已满足的任务。
+   * 左下悬浮主线当前步。任何时候只有这一条，顺序写死。
+   * 领完后步号不再显示浮层。版本不对的存档整档丢弃，不再按旧步号跳过。
    */
   guideQuestStep: number
-  /** 引导表版本。9 = 90 步确认清单。缺或低于当前 REV 按现况重落步号。 */
+  /** 引导表版本。9 = 当前确认清单。读档只盖成当前 REV，不按旧 REV 重落步号。 */
   guideQuestRev: number
   /** 是否已从药剂槽点用过。hydrate 时若有时效 buff 也算。 */
   guideQuestPotionUsed: boolean
@@ -807,25 +813,22 @@ export type Save = {
   guideQuestRuneOpened: boolean
   /**
    * 已经开放的模块。主线「升到酋长 N 级」领奖或被跳过后写入。
-   * 站 id 与模块 id 相同的（狩猎 / 烹饪 / 采矿 / 铭刻）也写在这里。
-   * 玩过的痕迹、以及缺 `mainlineUnlockRev` 的旧档按当时酋长等级补一次。
+   * 站 id 与模块 id 相同的（炼金 / 狩猎 / 烹饪 / 采矿 / 铭刻）也写在这里。
    */
   openedModules: string[]
   /** 玩家点进过的新入口。有了就不再显示红点。 */
   seenModules: string[]
   /**
    * 1 = 功能由主线领奖开启。
-   * 旧档缺字段时按当时酋长等级把已开放模块补进 `openedModules`，并视为已经看过。
    */
   mainlineUnlockRev: number
   /** 旧档待弹的「新玩法开放」卡片。读档时清空，不再弹出。 */
   moduleUnlockQueue: string[]
   /**
-   * 跳过位图，容量 90 步。旧档是一个数字（只含低 31 位）；
-   * 新档是 3 个 31 位字。读档时折进 `guideQuestSkipped`。
+   * 跳过位图，容量见 `GUIDE_SKIP_CAP`。当前档是 3 个 31 位字。
    */
   guideQuestSkipMask: number | number[]
-  /** 已跳过、不发奖的主线任务 id。旧档迁移写入。 */
+  /** 已跳过、不发奖的主线任务 id。 */
   guideQuestSkipped: string[]
   /** 开放后曾经达成过的任务 id。日切或离岗后仍可领。 */
   guideQuestMet: string[]
@@ -874,7 +877,7 @@ export type Save = {
   knightLevel: number
   /** 当前级内的酋长经验。升到下一级后扣掉门槛。旧档缺字段为 0。 */
   knightXp: number
-  /** 账号级灵感。新档 START_TECH_POINTS；骑士等级每升 1 级 +1。旧档缺字段 / 别名 `inspiration` hydrate 为点数，不无故重置成新档初始值。 */
+  /** 账号级灵感。新档 START_TECH_POINTS；骑士等级每升 1 级 +1。读档只保留已有数字。 */
   techPoints: number
   /**
    * 已点亮的科技 id（`techLevels[id] >= 1`）。三页签各自成串，买任意 1 个开上一层，同行可补买。

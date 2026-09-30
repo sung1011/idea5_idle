@@ -3,6 +3,7 @@ import { potionEffectValue, potionEffects } from './alchemy'
 import { assignWorker } from './assign'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
+import { grantOpenedModules } from './moduleUnlock'
 import { loadFood } from './food'
 import { collectHints, currentSpeed, stationBottleneckText } from './query'
 import { recruitWorker } from './recruit'
@@ -14,6 +15,7 @@ import type { ItemId, PotionItemId, Save } from './types'
 
 function roster(n: number): Save {
   const save = createSave()
+  grantOpenedModules(save, ['alchemy'])
   save.diamonds = 15 * n
   for (let i = 0; i < n; i++) expect(recruitWorker(save).ok).toBe(true)
   return save

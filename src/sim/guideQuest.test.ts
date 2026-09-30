@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assignRestingToFirstEmpty } from './assign'
+import { dispatchManualRound, toggleStationAuto } from './workshopDispatch'
 import { fighterRecommendLabel } from './combatAttrs'
 import { createSave } from './createSave'
 import { fuseRestWorkers } from './fuse'
@@ -7,8 +7,6 @@ import {
   GUIDE_QUEST_DONE_STEP,
   GUIDE_QUEST_GOLD,
   GUIDE_QUEST_PHASE3_START,
-  GUIDE_AUTO_HERB_CLOSED_GOAL,
-  GUIDE_AUTO_HERB_OPEN_GOAL,
   GUIDE_FUSE_DRAG_GOAL,
   GUIDE_FUSE_EMPTY_GOAL,
   GUIDE_FUSE_OPEN_GOAL,
@@ -106,100 +104,27 @@ describe('guideQuest normalize and hydrate', () => {
     expect(guideQuestFlashId(save)).toBe('potionInstall')
   })
 
-  it('migrates an old 5-step save onto the first incomplete new step', () => {
-    const once = createSave()
-    spawnWorker(once)
-    once.stations.mining.completed = 2
-    const { guideQuestStep: _onceStep, guideQuestRev: _onceRev, starterCopperPawnDone: _pawn, ...onceRaw } =
-      once
-    hydrateGuideQuestFields(onceRaw as Save, onceRaw)
-    expect((onceRaw as Save).guideQuestStep).toBe(1)
-    expect((onceRaw as Save).guideQuestRev).toBe(GUIDE_QUEST_REV)
-    expect(guideQuestProgressAt(onceRaw as Save, 1)).toBe(0)
-
-    const mid = createSave()
-    spawnWorker(mid)
-    spawnWorker(mid)
-    mid.stations.mining.completed = 2
-    const { guideQuestStep: _step, guideQuestRev: _rev, ...omitted } = mid
-    hydrateGuideQuestFields(omitted as Save, omitted)
-    expect((omitted as Save).guideQuestStep).toBe(2)
-    expect((omitted as Save).guideQuestRev).toBe(GUIDE_QUEST_REV)
-
-    const veteran = createSave()
-    spawnWorker(veteran)
-    veteran.workers[0].assignment = 'herbalism'
-    spawnWorker(veteran)
-    veteran.workers[1].qualityTier = 2
-    markCombatStarted(veteran)
-    veteran.stations.alchemy.completed = 1
-    veteran.potionSlots[0] = 'salve'
-    veteran.guideQuestPotionUsed = true
-    veteran.techLevels = { pathOutpost: 1 }
-    const { guideQuestStep: _vs, guideQuestRev: _vr, ...vetRaw } = veteran
-    hydrateGuideQuestFields(vetRaw as Save, vetRaw)
-    expect((vetRaw as Save).guideQuestStep).toBe(mainlineStepOf('level2'))
-    expect(guideQuestView(vetRaw as Save)?.waiting).toBe(true)
-    expect(guideQuestView(vetRaw as Save)?.goal).toBe('升到酋长 2 级')
-    expect((vetRaw as Save).guideQuestRuneOpened).toBe(false)
-
-    const fed = createSave()
-    spawnWorker(fed)
-    fed.workers[0].assignment = 'herbalism'
-    spawnWorker(fed)
-    fed.workers[1].qualityTier = 2
-    fed.restFoodId = 'meal'
-    markCombatStarted(fed)
-    fed.stations.alchemy.completed = 1
-    fed.potionSlots[0] = 'salve'
-    fed.guideQuestPotionUsed = true
-    fed.techLevels = { pathOutpost: 1 }
-    const { guideQuestStep: _fs, guideQuestRev: _fr, ...fedRaw } = fed
-    hydrateGuideQuestFields(fedRaw as Save, fedRaw)
-    expect((fedRaw as Save).guideQuestStep).toBe(mainlineStepOf('level2'))
-    expect(isGuideQuestVisible(fedRaw as Save)).toBe(true)
-    expect(guideQuestView(fedRaw as Save)?.goal).toBe('升到酋长 2 级')
-  })
-
-  it('does not auto-complete recruit step when an old rev-2 save only recruited once', () => {
-    const save = createSave()
-    spawnWorker(save)
-    save.guideQuestStep = 2
-    save.guideQuestRev = 2
-    hydrateGuideQuestFields(save, save)
-    expect(save.guideQuestStep).toBe(1)
-    expect(save.guideQuestRev).toBe(GUIDE_QUEST_REV)
-    expect(guideQuestProgressAt(save, 1)).toBe(0)
-    expect(guideQuestView(save)?.progressLabel).toBe('进度 1/2')
-    expect(guideQuestView(save)?.claimable).toBe(false)
-    expect(claimGuideQuest(save).ok).toBe(false)
-  })
-
-  it('replays a lower rev onto the first incomplete step of the nine-step table', () => {
+  it('keeps a stored step and does not skip tasks that are already satisfied', () => {
     const save = createSave()
     spawnWorker(save)
     spawnWorker(save)
     save.workers[0].assignment = 'herbalism'
-    save.workers[1].qualityTier = 2
-    save.guideQuestStep = 4
+    save.guideQuestStep = 1
+    save.guideQuestRev = 2
+    hydrateGuideQuestFields(save, save)
+    expect(save.guideQuestStep).toBe(1)
+    expect(save.guideQuestRev).toBe(GUIDE_QUEST_REV)
+    expect(guideQuestView(save)?.taskId).toBe('recruit')
+    expect(guideQuestView(save)?.claimable).toBe(true)
+  })
+
+  it('stamps the guide rev without moving a stored step', () => {
+    const save = createSave()
+    save.guideQuestStep = 8
     save.guideQuestRev = 4
     hydrateGuideQuestFields(save, save)
     expect(save.guideQuestRev).toBe(GUIDE_QUEST_REV)
-    expect(save.guideQuestStep).toBe(4)
-    expect(guideQuestView(save)?.goal).toBe('在 PVE 选人弹层点过开战')
-    expect(guideQuestFlashId(save)).toBe('combat')
-
-    const ahead = createSave()
-    spawnWorker(ahead)
-    spawnWorker(ahead)
-    ahead.workers[0].assignment = 'herbalism'
-    ahead.workers[1].qualityTier = 2
-    ahead.restFoodId = 'meal'
-    ahead.guideQuestStep = 8
-    ahead.guideQuestRev = 4
-    hydrateGuideQuestFields(ahead, ahead)
-    expect(ahead.guideQuestStep).toBe(4)
-    expect(guideQuestView(ahead)?.goal).toBe('在 PVE 选人弹层点过开战')
+    expect(save.guideQuestStep).toBe(8)
   })
 
   it('keeps a current-rev step number', () => {
@@ -255,25 +180,32 @@ describe('guideQuest steps and claim', () => {
     expect(save.gold).toBe(gold0 + GUIDE_QUEST_GOLD)
     expect(save.diamonds).toBe(START_DIAMONDS - RECRUIT_COST * 2)
 
-    expect(guideQuestView(save)?.goal).toBe(GUIDE_AUTO_HERB_CLOSED_GOAL)
-    expect(guideQuestView(save, true)?.goal).toBe(GUIDE_AUTO_HERB_OPEN_GOAL)
-    expect(assignRestingToFirstEmpty(save).ok).toBe(true)
+    expect(guideQuestView(save)?.goal).toBe('点采药站，把营地队首派上去干一轮')
+    expect(guideQuestView(save, true)?.goal).toBe('点采药站，把营地队首派上去干一轮')
+    expect(dispatchManualRound(save, 'herbalism').ok).toBe(true)
     expect(save.workers.some((worker) => worker.assignment === 'herbalism')).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(save.guideQuestStep).toBe(3)
+    expect(save.guideQuestStep).toBe(mainlineStepOf('herbQueue'))
+    expect(dispatchManualRound(save, 'herbalism').ok).toBe(true)
+    expect(save.stations.herbalism.manualRounds).toBeGreaterThanOrEqual(2)
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(save.guideQuestStep).toBe(mainlineStepOf('fuse'))
 
     spawnWorker(save)
     spawnWorker(save)
     expect(fuseRestWorkers(save, save.workers[1].id, save.workers[2].id).ok).toBe(true)
     expect(guideQuestView(save)?.goal).toBe('名册里有 2 档及以上苦工')
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(save.guideQuestStep).toBe(4)
+    expect(save.guideQuestStep).toBe(mainlineStepOf('combat'))
     expect(guideQuestView(save)?.title).toBe('出征')
     expect(guideQuestView(save)?.goal).toBe('在 PVE 选人弹层点过开战')
     markCombatStarted(save)
     expect(hasStartedBattlefieldCombat(save)).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('level2'))
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(save.guideQuestStep).toBe(mainlineStepOf('autoLine'))
+    expect(toggleStationAuto(save, 'herbalism').ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('alchemy'))
     expect(guideQuestView(save)?.title).toBe('熬药')
@@ -301,20 +233,21 @@ describe('guideQuest steps and claim', () => {
     expect(guideQuestView(save)?.waiting).toBe(false)
     expect(guideQuestView(save)?.taskId).toBe('firstBlood')
     expect(guideQuestView(save)?.goal).toBe('在悬赏打赢一个敌人并领到战利品')
-    expect(save.gold).toBe(gold0 + GUIDE_QUEST_GOLD * 9)
+    expect(save.gold).toBe(gold0 + GUIDE_QUEST_GOLD * 11)
   })
 
-  it('completes step 2 when the queue head auto-fills herbalism or herbalism has produced', () => {
+  it('completes step 2 when a click dispatches herbalism or herbalism has produced', () => {
     const blocked = createSave()
     blocked.guideQuestStep = 2
     expect(guideQuestProgressAt(blocked, 2)).toBe(0)
     expect(recruitWorker(blocked).ok).toBe(true)
     expect(recruitWorker(blocked).ok).toBe(true)
     blocked.workers[0].hp = 1
-    expect(assignRestingToFirstEmpty(blocked).ok).toBe(false)
+    expect(dispatchManualRound(blocked, 'herbalism').ok).toBe(false)
     expect(guideQuestProgressAt(blocked, 2)).toBe(0)
     blocked.workers[0].hp = blocked.workers[0].hpMax
-    expect(assignRestingToFirstEmpty(blocked).ok).toBe(true)
+    blocked.workers[0].fatigueDebt = 0
+    expect(dispatchManualRound(blocked, 'herbalism').ok).toBe(true)
     expect(blocked.workers[0].assignment).toBe('herbalism')
     expect(guideQuestProgressAt(blocked, 2)).toBe(1)
 
@@ -407,7 +340,10 @@ describe('guideQuest flash target', () => {
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('autoHerb')
 
-    expect(assignRestingToFirstEmpty(save).ok).toBe(true)
+    expect(dispatchManualRound(save, 'herbalism').ok).toBe(true)
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBe('herbQueue')
+    expect(dispatchManualRound(save, 'herbalism').ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('fuse')
 
@@ -420,6 +356,9 @@ describe('guideQuest flash target', () => {
 
     markCombatStarted(save)
     expect(claimGuideQuest(save).ok).toBe(true)
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBe('autoLine')
+    expect(toggleStationAuto(save, 'herbalism').ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('alchemy')
 
@@ -471,15 +410,13 @@ describe('guide fuse and alchemy cues', () => {
     expect(guideQuestView(save, true)?.goal).toBe(GUIDE_RECRUIT_OPEN_GOAL)
     expect(GUIDE_RECRUIT_CLOSED_GOAL).toContain('底部营地')
     expect(GUIDE_RECRUIT_OPEN_GOAL).toContain('营地弹框')
-    expect(GUIDE_AUTO_HERB_CLOSED_GOAL).toContain('底部营地')
-    expect(GUIDE_AUTO_HERB_OPEN_GOAL).toContain('队首')
     expect(GUIDE_FUSE_EMPTY_GOAL).toContain('底部营地')
     expect(GUIDE_FUSE_DRAG_GOAL).toContain('营地弹框')
   })
 
   it('flashes recruit while step 3 has an empty camp', () => {
     const save = createSave()
-    save.guideQuestStep = 3
+    save.guideQuestStep = mainlineStepOf('fuse')
     spawnWorker(save)
     spawnWorker(save)
     save.workers[0].assignment = 'herbalism'
@@ -492,7 +429,7 @@ describe('guide fuse and alchemy cues', () => {
 
   it('flashes the camp button until the list opens, then the list and matching stations', () => {
     const save = createSave()
-    save.guideQuestStep = 3
+    save.guideQuestStep = mainlineStepOf('fuse')
     spawnWorker(save)
     spawnWorker(save)
     spawnWorker(save)

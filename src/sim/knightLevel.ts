@@ -141,22 +141,13 @@ export function grantKnightXp(save: Save, amount: number): KnightXpGrant {
   return { amount: gain, from, to: level, xp, gained, inspiration }
 }
 
-/**
- * 老档没有 `knightXp`：留下已有等级；没有等级快照时按旧站等级公式定一次。
- * 经验从该级 0 开始。不补发灵感，等级不回落。
- * 已经带经验的档只校正数字，不按站等级重算。
- */
+/** 只校正已有的等级和经验。缺了按新档 1 级、经验 0，不再用站等级之和回推。 */
 export function hydrateKnightXp(save: Save): void {
   const hasXp = typeof save.knightXp === 'number' && Number.isFinite(save.knightXp)
   const recorded =
     typeof save.knightLevel === 'number' && Number.isFinite(save.knightLevel) && save.knightLevel >= 1
       ? Math.floor(save.knightLevel)
-      : null
-  if (!hasXp) {
-    save.knightLevel = recorded ?? computeKnightLevel(save)
-    save.knightXp = 0
-    return
-  }
-  save.knightXp = normalizeKnightXp(save.knightXp)
-  save.knightLevel = recorded ?? computeKnightLevel(save)
+      : 1
+  save.knightXp = hasXp ? normalizeKnightXp(save.knightXp) : 0
+  save.knightLevel = recorded
 }

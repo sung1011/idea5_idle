@@ -12,6 +12,7 @@ import { grantStationXp, selectedCategoryDef } from './stationProgress'
 import { isRuneItemId, ITEM_DEF, RUNE_DEF } from './tables'
 import { consumeDoubleMist, consumeRushCycle, mistQty } from './potions'
 import { cycleOutputBonus } from './tools'
+import { applyManualQualityOutput, finishManualRound } from './workshopDispatch'
 import type { Save, StationId } from './types'
 import { ARTISAN_ARCHIVE_XP_EFFECT, techEffectValue } from './tech'
 import { scaleArtisanStationXp, workerStationCycleXp } from './workerLevel'
@@ -135,6 +136,7 @@ function emitCycleGain(
   now: number,
   fatigue: FatigueKind,
 ): void {
+  applyManualQualityOutput(save, stationId, lots)
   const gold = grantCycleCraftGold(save, lots)
   const station = save.stations[stationId]
   applyWorkshopFatigue(save, stationId, now, fatigue)
@@ -156,6 +158,11 @@ export function stepStation(save: Save, stationId: StationId, now = Date.now(), 
     if (stationId === 'alchemy') decayAlchemyFog(save)
     return
   }
+  if (!station.auto && station.manualRounds <= 0) {
+    station.progress = 0
+    station.stallReason = null
+    return
+  }
   if (isGatherFrozen(save, stationId)) {
     station.stallReason = null
     if (stationId === 'alchemy') decayAlchemyFog(save)
@@ -170,6 +177,17 @@ export function stepStation(save: Save, stationId: StationId, now = Date.now(), 
   station.stallReason = null
   const speed = currentSpeed(save, stationId, now)
   station.progress += speed
+
+  if (!station.auto) {
+    if (station.progress + CYCLE_EPS < 1) return
+    if (!canConsume(save, stationId)) {
+      station.stallReason = 'emptyInput'
+      return
+    }
+    if (!completeCycle(save, stationId, now, onGain)) return
+    finishManualRound(save, stationId)
+    return
+  }
 
   while (station.progress + CYCLE_EPS >= 1) {
     if (assignedCount(save, stationId) <= 0) {

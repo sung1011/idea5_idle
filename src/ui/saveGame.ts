@@ -1,5 +1,5 @@
 import { hydrateBank } from '../sim/bank'
-import { createSave, normalizeDiamonds, playerAvatarId, playerDisplayName } from '../sim/createSave'
+import { createSave, normalizeDiamonds, playerAvatarId, playerDisplayName, SAVE_VERSION } from '../sim/createSave'
 import { hydrateEncounterFields } from '../sim/encounters'
 import { hydrateMessages } from '../sim/messages'
 import { normalizeRngState } from '../sim/rng'
@@ -58,9 +58,11 @@ function looksLikeSave(value: unknown): value is LegacySave {
   )
 }
 
-/** 旧档 bank / items 收数量；capacity 丢掉。 */
+/** 版本对得上才整理字段。旧版本整档丢弃。 */
 export function hydrateLoadedSave(parsed: unknown): Save | null {
   if (!looksLikeSave(parsed)) return null
+  const version = (parsed as { saveVersion?: unknown }).saveVersion
+  if (typeof version !== 'number' || !Number.isFinite(version) || Math.floor(version) !== SAVE_VERSION) return null
   const blank = createSave()
   const { capacity: _ignoredCapacity, items, bank, ...rest } = parsed
   const mail = hydrateMessages(
@@ -100,23 +102,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
   returnLegacyStationToolSlots(merged, parsed.stations)
   sanitizeAllStationTools(merged)
   clampStationAssignments(merged)
-  // createSave 新档默认灵感 START_TECH_POINTS；旧档缺字段时先拿掉，交给 hydrate 读点数 / 别名，避免无故变成新档初始值。
-  if (!Object.prototype.hasOwnProperty.call(parsed, 'techPoints')) {
-    delete (merged as { techPoints?: number }).techPoints
-  }
-  if (!Object.prototype.hasOwnProperty.call(parsed, 'knightLevel')) {
-    delete (merged as { knightLevel?: number }).knightLevel
-  }
-  if (!Object.prototype.hasOwnProperty.call(parsed, 'knightXp')) {
-    delete (merged as { knightXp?: number }).knightXp
-  }
-  if (!Object.prototype.hasOwnProperty.call(parsed, 'mainlineUnlockRev')) {
-    merged.mainlineUnlockRev = 0
-  }
-  if (!Array.isArray((parsed as { seenModules?: unknown }).seenModules)) {
-    merged.seenModules = []
-  }
-  hydrateTechFields(merged as Save & { inspiration?: unknown })
+  hydrateTechFields(merged)
   syncAllWorkerHpMax(merged)
   if (!Array.isArray(parsed.encounters)) merged.encounters = []
   if (!Array.isArray((parsed as { marketEncounters?: unknown }).marketEncounters)) {

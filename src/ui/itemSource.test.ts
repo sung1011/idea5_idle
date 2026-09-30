@@ -67,7 +67,7 @@ describe('beginItemSourceFlash', () => {
   it('flashes unlocked category rows and never writes selectedCategory', () => {
     const save = createSave()
     save.knightLevel = 10
-    grantOpenedModules(save, ['hunting', 'cooking'])
+    grantOpenedModules(save, ['hunting', 'cooking', 'alchemy'])
     save.stations.hunting.selectedCategory = 'copper'
     save.stations.cooking.selectedCategory = 'copper'
     save.stations.mining.selectedCategory = 'iron'

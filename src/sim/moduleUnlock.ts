@@ -1,5 +1,5 @@
 import { normalizeKnightLevel, xpToNextKnightLevel } from './knightLevel'
-import { isStationId, PLAYABLE_STATION_IDS } from './tables'
+import { isStationId } from './tables'
 import type { Save, StationId } from './types'
 
 function knightLevelOf(save: Pick<Save, 'knightLevel'>): number {
@@ -15,6 +15,7 @@ export function bindRecallRestFood(fn: (save: Save, workerId: string) => void): 
 
 /** 跟主线等级任务走的玩法。1 级的工坊、抽人、营地、合成、药剂和悬赏不进这张表。 */
 export const MODULE_IDS = [
+  'alchemy',
   'tech',
   'hunting',
   'market',
@@ -32,6 +33,7 @@ export const MODULE_IDS = [
 export type ModuleId = (typeof MODULE_IDS)[number]
 
 export const MODULE_UNLOCK_KNIGHT: Record<ModuleId, number> = {
+  alchemy: 2,
   tech: 11,
   hunting: 6,
   market: 6,
@@ -47,6 +49,7 @@ export const MODULE_UNLOCK_KNIGHT: Record<ModuleId, number> = {
 }
 
 const MODULE_LABEL: Record<ModuleId, string> = {
+  alchemy: '炼金',
   tech: '科技',
   hunting: '狩猎',
   market: '集市',
@@ -62,7 +65,8 @@ const MODULE_LABEL: Record<ModuleId, string> = {
 }
 
 const MODULE_BLURB: Record<ModuleId, string> = {
-  tech: '可以点亮一项科技，给工坊加一点助力。',
+  alchemy: '炼金站开了，可以熬药，也能挂上第一条自动线。',
+  tech: '可以点亮一项科技，给工坊加一点助力。自动线名额变成 2。',
   hunting: '狩猎站开了，可以派人去打肉。',
   market: '集市开了，可以交一单换赏金。',
   cooking: '烹饪站开了，可以给营地做饭。',
@@ -77,6 +81,7 @@ const MODULE_BLURB: Record<ModuleId, string> = {
 }
 
 const STATION_MODULE: Partial<Record<StationId, ModuleId>> = {
+  alchemy: 'alchemy',
   hunting: 'hunting',
   cooking: 'cooking',
   mining: 'mining',
@@ -85,6 +90,7 @@ const STATION_MODULE: Partial<Record<StationId, ModuleId>> = {
 
 /** 跟主线「升到酋长 N 级」同一句里的开放名单。 */
 export const MODULE_GATE_NAMES: Partial<Record<number, string>> = {
+  2: '炼金',
   6: '狩猎、集市',
   8: '烹饪、伙食、地牢',
   10: '割草',
@@ -210,74 +216,11 @@ export function markModuleSeen(save: Save, id: ModuleId): boolean {
   return true
 }
 
-function stationEvidence(save: Save, stationId: StationId): boolean {
-  if (save.workers?.some((worker) => worker.assignment === stationId)) return true
-  const station = save.stations?.[stationId]
-  if (!station) return false
-  if ((station.completed ?? 0) >= 1) return true
-  return (station.stationLevel ?? 1) > 1
-}
-
-/** 老档已经玩过的模块。等级不够也保持开放。 */
-export function playedModuleIds(save: Save): ModuleId[] {
-  const ids: ModuleId[] = []
-  const push = (id: ModuleId) => {
-    if (!ids.includes(id)) ids.push(id)
-  }
-  if ((save.unlockedTechIds?.length ?? 0) > 0) push('tech')
-  if (Object.values(save.techLevels ?? {}).some((level) => typeof level === 'number' && level > 0)) push('tech')
-  if ((save.guideQuestStats?.marketDeals ?? 0) > 0) push('market')
-  if (save.marketEncounters?.some((enc) => 'completed' in enc && enc.completed)) push('market')
-  if (save.restFoodId != null) push('restFood')
-  const attempts = save.dungeon?.attemptsUsedById
-  if (attempts && Object.values(attempts).some((n) => typeof n === 'number' && n > 0)) push('dungeon')
-  const herb = save.herbPvp
-  if (herb && (herb.playerScore > 0 || !!herb.lastRewardText || (herb.offline?.score ?? 0) > 0)) push('herb')
-  const beast = save.beastPvp
-  if (
-    beast &&
-    (beast.playerDamage > 0 || !!beast.lastRewardText || (beast.offline?.damage ?? 0) > 0 || beast.fight != null)
-  ) {
-    push('beast')
-  }
-  const mines = save.treasureMines?.mines ?? []
-  if (
-    mines.some(
-      (mine) =>
-        mine.owner === 'player' ||
-        (mine.dugOre ?? 0) > 0 ||
-        (mine.dugCrystal ?? 0) > 0 ||
-        (mine.crewIds?.length ?? 0) > 0,
-    )
-  ) {
-    push('treasure')
-  }
-  if (save.guideQuestRuneOpened) push('rune')
-  for (const stationId of PLAYABLE_STATION_IDS) {
-    if (!stationEvidence(save, stationId)) continue
-    const moduleId = STATION_MODULE[stationId]
-    if (moduleId) push(moduleId)
-    if (stationId === 'inscription') push('rune')
-  }
-  return ids
-}
-
 export function hydrateModuleUnlocks(save: Save): void {
   const prior = Array.isArray(save.openedModules) ? save.openedModules.filter(isModuleId) : []
-  const played = playedModuleIds(save)
-  const set = new Set<ModuleId>([...prior, ...played])
-  const migrating = (save.mainlineUnlockRev ?? 0) < 1
-  if (migrating) {
-    for (const id of modulesUpToKnight(knightLevelOf(save))) set.add(id)
-    save.mainlineUnlockRev = 1
-  }
-  save.openedModules = [...set]
-  const seen = new Set<ModuleId>(Array.isArray(save.seenModules) ? save.seenModules.filter(isModuleId) : [])
-  for (const id of played) seen.add(id)
-  if (migrating) {
-    for (const id of set) seen.add(id)
-  }
-  save.seenModules = [...seen]
+  save.openedModules = [...new Set(prior)]
+  const seen = Array.isArray(save.seenModules) ? save.seenModules.filter(isModuleId) : []
+  save.seenModules = [...new Set(seen)]
   save.moduleUnlockQueue = []
   recallCrewFromLockedStations(save)
 }

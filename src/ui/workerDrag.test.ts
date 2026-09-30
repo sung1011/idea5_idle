@@ -284,6 +284,7 @@ describe('fuse drag tip', () => {
 
   it('still auto-fills the rest head and keeps both fuse drags', () => {
     const save = unlockPlayableStations(createSave())
+    save.stations.herbalism.auto = true
     const head = spawnWorkerWith(save, 1, 'laborer')
     const mate = spawnWorkerWith(save, 1, 'artisan')
     expect(assignRestingToFirstEmpty(save)).toEqual({ ok: true })

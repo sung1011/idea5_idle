@@ -82,7 +82,7 @@ const campCue = computed(() => guideFuseCue(game.save, guideCampSheetOpen.value)
 const campButtonFlash = computed(() => {
   if (campCue.value === 'openCamp') return true
   if (campSheetOpen.value) return false
-  return isGuideQuestFlash(game.save, 'recruit') || isGuideQuestFlash(game.save, 'autoHerb') || campCue.value === 'recruit'
+  return isGuideQuestFlash(game.save, 'recruit') || campCue.value === 'recruit'
 })
 const resourceDetail = computed(() => (resourceOpen.value ? hudChipDetail(game.save, resourceOpen.value) : null))
 

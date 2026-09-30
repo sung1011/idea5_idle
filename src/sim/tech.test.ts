@@ -331,14 +331,14 @@ describe('hydrate tech fields', () => {
     expect(save.techLevels).toEqual({})
   })
 
-  it('reads inspiration as a techPoints alias and keeps points when mapping old ids', () => {
+  it('does not read an inspiration alias and keeps mapped tech ids', () => {
     const save = keepStationsOpen(createSave())
     delete (save as { techPoints?: number }).techPoints
     const aliased = save as Save & { inspiration: number }
     aliased.inspiration = 7.6
     aliased.unlockedTechIds = ['pathOutpost', 'workshopRules']
     hydrateTechFields(aliased)
-    expect(aliased.techPoints).toBe(7)
+    expect(aliased.techPoints).toBe(0)
     expect(aliased.unlockedTechIds).toEqual(['workshopRules', 'pathOutpost'])
     expect(aliased.techLevels).toEqual({ workshopRules: 1, pathOutpost: 1 })
     expect(techLevel(aliased, 'workshopRules')).toBe(1)

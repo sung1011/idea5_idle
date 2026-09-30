@@ -13,12 +13,10 @@ import {
   mainlineRewardLabel,
   mainlineStepOf,
   mainlineTaskAt,
-  migrateOldGuide,
   normalizeGuideIdList,
   normalizeSkipMask,
   grantPassedLevelModules,
   payMainlineReward,
-  seedGuideEvidence,
   syncGuideQuestMet,
   taskModuleReady,
   type MainlineTask,
@@ -27,25 +25,20 @@ import {
 export const GUIDE_QUEST_PHASE1_STEPS = 5
 export const GUIDE_QUEST_PHASE2_STEPS = 2
 export const GUIDE_QUEST_PHASE3_STEPS = 1
-/** 旧九步引导领完后的步号。REV 6 起只用来认老档。 */
+/** 早期引导领完招兵到用药之前的参考步号。不再用来迁移旧档。 */
 export const GUIDE_OLD_DONE_STEP = 10
 export const GUIDE_QUEST_GOLD = 20
-/** 骑士 1 级即可装槽 / 点用。主线在升到 2 级之后才引导炼金，开战排在炼金前面。 */
+/** 骑士 1 级即可装槽 / 点用。主线在升到 2 级、挂上自动线之后才引导炼金。 */
 export const GUIDE_QUEST_PHASE2_KNIGHT = 1
 /**
- * 9：确认过的 90 步清单。升到 N 级的任务领奖后才开启该级功能。
- * 旧 REV 从第 1 条连续跳过已满足的任务，停在第一条未满足的上，跳过的不发奖。
- * 跳过位图记到 90 步。旧步号到 10 视为旧段已领完。第一步仍须抽工人 2 次。
+ * 9：确认过的清单，另插入派工、排队和挂自动。升到 N 级的任务领奖后才开启该级功能。
+ * 存档版本对不上整档丢弃，读档不再按旧 REV 跳过已满足的任务。第一步仍须抽工人 2 次。
  */
 export const GUIDE_QUEST_REV = 9
 /** 第 1 步还没打开营地。 */
 export const GUIDE_RECRUIT_CLOSED_GOAL = '点底部营地，抽取苦工 2 次'
 /** 第 1 步营地弹框已打开。 */
 export const GUIDE_RECRUIT_OPEN_GOAL = '在营地弹框里抽取苦工 2 次'
-/** 第 2 步还没打开营地。 */
-export const GUIDE_AUTO_HERB_CLOSED_GOAL = '点底部营地，队首满血会自动上采药站'
-/** 第 2 步营地弹框已打开。 */
-export const GUIDE_AUTO_HERB_OPEN_GOAL = '看营地弹框里的队首，满血就会上采药站'
 /** 第 3 步营地无人时的浮条文案。 */
 export const GUIDE_FUSE_EMPTY_GOAL = '点底部营地，再抽 1 名苦工，新人会进营地'
 /** 第 3 步营地有人、名单还没打开。 */
@@ -178,7 +171,7 @@ export function isGuideQuestPhase2Open(save: Pick<Save, 'knightLevel'>): boolean
   return knightLevelOf(save) >= GUIDE_QUEST_PHASE2_KNIGHT
 }
 
-/** 符文槽按铭刻门槛或老档已玩过才开。 */
+/** 符文槽按铭刻模块是否已由主线打开。 */
 export function isGuideQuestPhase3Open(save: Pick<Save, 'knightLevel' | 'openedModules'>): boolean {
   return isModuleUnlocked(save, 'rune')
 }
@@ -352,7 +345,6 @@ export function guideAlchemyProgressFlash(save: Save, stationId: StationId): boo
 
 function guideStepGoal(save: Save, row: MainlineTask, claimable: boolean, campOpen: boolean): string {
   if (!claimable && row.id === 'recruit') return campOpen ? GUIDE_RECRUIT_OPEN_GOAL : GUIDE_RECRUIT_CLOSED_GOAL
-  if (!claimable && row.id === 'autoHerb') return campOpen ? GUIDE_AUTO_HERB_OPEN_GOAL : GUIDE_AUTO_HERB_CLOSED_GOAL
   if (row.id === 'fuse' && !claimable) {
     const cue = guideFuseCue(save, campOpen)
     if (cue === 'recruit') return GUIDE_FUSE_EMPTY_GOAL
@@ -363,7 +355,7 @@ function guideStepGoal(save: Save, row: MainlineTask, claimable: boolean, campOp
 }
 
 function guidePhaseMeta(row: MainlineTask): Pick<GuideQuestView, 'phase' | 'phaseStep' | 'phaseTotal' | 'title'> {
-  const start = ['recruit', 'autoHerb', 'fuse', 'combat', 'alchemy'].indexOf(row.id)
+  const start = ['recruit', 'autoHerb', 'herbQueue', 'fuse', 'combat'].indexOf(row.id)
   if (start >= 0) {
     const phaseStep = start + 1
     return {
@@ -484,28 +476,13 @@ export function hydrateGuideQuestFields(save: Save, raw?: object): Save {
     guideQuestMet?: unknown
   }
   incoming.starterCopperPawnDone = incoming.starterCopperPawnDone === true
-  incoming.guideQuestPotionUsed =
-    normalizeGuideQuestPotionUsed(incoming.guideQuestPotionUsed) || hasUsedPotionFromSlot(save)
+  incoming.guideQuestPotionUsed = normalizeGuideQuestPotionUsed(incoming.guideQuestPotionUsed)
   incoming.guideQuestRuneOpened = normalizeGuideQuestRuneOpened(incoming.guideQuestRuneOpened)
   incoming.guideQuestSkipped = normalizeGuideIdList(incoming.guideQuestSkipped)
   incoming.guideQuestMet = normalizeGuideIdList(incoming.guideQuestMet)
   incoming.guideQuestSkipMask = normalizeSkipMask(incoming.guideQuestSkipMask)
-  seedGuideEvidence(save)
-
-  const hadRev = !!raw && Object.prototype.hasOwnProperty.call(raw, 'guideQuestRev')
-  const hadStep = !!raw && Object.prototype.hasOwnProperty.call(raw, 'guideQuestStep')
-  const rev = normalizeGuideQuestRev(incoming.guideQuestRev)
-  const rawStep = hadStep ? Math.max(1, Math.floor(Number(incoming.guideQuestStep)) || 1) : 0
   incoming.guideQuestRev = GUIDE_QUEST_REV
-
-  if (hadRev && rev >= GUIDE_QUEST_REV && hadStep) {
-    incoming.guideQuestStep = normalizeGuideQuestStep(incoming.guideQuestStep)
-    advanceSkippedGuideSteps(save)
-    syncGuideQuestMet(save)
-    return save
-  }
-
-  migrateOldGuide(save, rev, rawStep, incoming.guideQuestSkipMask)
+  incoming.guideQuestStep = normalizeGuideQuestStep(incoming.guideQuestStep)
   advanceSkippedGuideSteps(save)
   syncGuideQuestMet(save)
   return save

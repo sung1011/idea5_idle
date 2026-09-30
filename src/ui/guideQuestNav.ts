@@ -1,5 +1,6 @@
 import { ref } from 'vue'
-import { appTab, openWorkshopStation, selectAppTab, type AppTabId } from './appNav'
+import { appTab, openWorkshopStation, selectAppTab, selectWorkshopStation, type AppTabId } from './appNav'
+import { showStationDetail } from './stationDetailNav'
 import { selectMainlineTab } from './mainlineTabs'
 import { selectPvpView } from './pvpTabs'
 
@@ -31,8 +32,15 @@ export function takeGuideRunePickRequest(): boolean {
 export function openGuideQuestTask(taskId: string, storage?: Storage | null): AppTabId {
   switch (taskId) {
     case 'recruit':
-    case 'autoHerb':
       requestGuideCampSheet()
+      return selectAppTab('workshop', storage)
+    case 'autoHerb':
+    case 'herbQueue':
+      selectWorkshopStation('herbalism', storage)
+      showStationDetail(null)
+      return selectAppTab('workshop', storage)
+    case 'autoLine':
+      showStationDetail(null)
       return selectAppTab('workshop', storage)
     case 'fuse':
     case 'blueWorker':
@@ -137,9 +145,11 @@ export function openGuideQuestStep(step: number, storage?: Storage | null): AppT
   const ids = [
     'recruit',
     'autoHerb',
+    'herbQueue',
     'fuse',
     'combat',
     'level2',
+    'autoLine',
     'alchemy',
     'potionInstall',
     'potionUse',

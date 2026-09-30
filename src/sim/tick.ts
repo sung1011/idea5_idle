@@ -1,4 +1,5 @@
 import { assignRestingToFirstEmpty } from './assign'
+import { pullWaitingManualRounds } from './workshopDispatch'
 import { syncGuideQuestMet } from './mainlineQuest'
 import { applyRestHeal, stepCombats, type CombatLogSink } from './combat'
 import { stepBeastPvp } from './beastPvp'
@@ -36,6 +37,7 @@ export function applyTick(save: Save, opts: TickOpts = {}): void {
   applyPotionTicks(save)
   refreshFoodSlots(save, now)
   for (const id of STATION_IDS) stepStation(save, id, now, opts.onGain)
+  pullWaitingManualRounds(save)
   assignRestingToFirstEmpty(save)
   stepCombats(save, now, opts.onCombatLog)
   stepTreasureMines(save, opts.onTreasureDrop, { offline: opts.offline === true, now })

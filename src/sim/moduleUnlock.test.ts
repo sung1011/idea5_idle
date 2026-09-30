@@ -48,18 +48,18 @@ describe('module unlock by knight level', () => {
     save.knightLevel = 1
     save.herbPvp.playerScore = 12
     hydrateModuleUnlocks(save)
-    expect(save.openedModules).toContain('herb')
-    expect(isModuleUnlocked(save, 'herb')).toBe(true)
+    expect(save.openedModules).not.toContain('herb')
+    expect(isModuleUnlocked(save, 'herb')).toBe(false)
     expect(isModuleUnlocked(save, 'beast')).toBe(false)
   })
 
-  it('keeps a staffed station open and recalls a worker on a still-locked station', () => {
+  it('recalls a worker left on a station the mainline has not opened', () => {
     const staffed = createSave()
     spawnWorker(staffed)
     staffed.workers[0].assignment = 'mining'
     hydrateModuleUnlocks(staffed)
-    expect(isStationUnlocked(staffed, 'mining')).toBe(true)
-    expect(staffed.workers[0].assignment).toBe('mining')
+    expect(isStationUnlocked(staffed, 'mining')).toBe(false)
+    expect(staffed.workers[0].assignment).toBeNull()
 
     const locked = createSave()
     spawnWorker(locked)
@@ -89,7 +89,7 @@ describe('module unlock by knight level', () => {
     expect(isModuleUnlocked(save, 'tech')).toBe(false)
   })
 
-  it('hydrates an old played save without locking what they already used', () => {
+  it('does not open modules from played traces or knight level alone', () => {
     const raw = createSave()
     raw.knightLevel = 3
     raw.techLevels = { pathOutpost: 1 }
@@ -98,11 +98,9 @@ describe('module unlock by knight level', () => {
     raw.workers = []
     raw.moduleUnlockQueue = ['treasure']
     const loaded = hydrateLoadedSave(raw)
-    expect(isModuleUnlocked(loaded!, 'tech')).toBe(true)
-    expect(isModuleUnlocked(loaded!, 'dungeon')).toBe(true)
-    expect(isModuleUnlocked(loaded!, 'beast')).toBe(true)
-    expect(isModuleUnlocked(loaded!, 'treasure')).toBe(false)
-    expect(moduleNoticeOn(loaded!, 'tech')).toBe(false)
+    expect(isModuleUnlocked(loaded!, 'tech')).toBe(false)
+    expect(isModuleUnlocked(loaded!, 'dungeon')).toBe(false)
+    expect(isModuleUnlocked(loaded!, 'beast')).toBe(false)
     expect(loaded?.moduleUnlockQueue).toEqual([])
 
     const veteran = createSave()
@@ -110,11 +108,9 @@ describe('module unlock by knight level', () => {
     delete (veteran as { mainlineUnlockRev?: number }).mainlineUnlockRev
     veteran.moduleUnlockQueue = ['mining']
     const kept = hydrateLoadedSave(veteran)
-    expect(isModuleUnlocked(kept!, 'mining')).toBe(true)
+    expect(isModuleUnlocked(kept!, 'mining')).toBe(false)
     expect(isModuleUnlocked(kept!, 'inscription')).toBe(false)
-    expect(moduleNoticeOn(kept!, 'mining')).toBe(false)
     expect(kept?.moduleUnlockQueue).toEqual([])
-    expect(kept?.mainlineUnlockRev).toBe(1)
   })
 })
 

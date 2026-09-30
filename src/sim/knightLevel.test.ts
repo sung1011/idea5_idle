@@ -90,7 +90,7 @@ describe('knight xp curve', () => {
   })
 
   it('names the next unlock at the coming threshold', () => {
-    expect(nextModuleUnlock(1)?.label).toBe('完成主线「升到酋长 6 级（开放狩猎、集市）」后开启')
+    expect(nextModuleUnlock(1)?.label).toBe('完成主线「升到酋长 2 级（开放炼金）」后开启')
     expect(nextModuleUnlock(7)?.label).toBe('完成主线「升到酋长 8 级（开放烹饪、伙食、地牢）」后开启')
     expect(nextModuleUnlock(10)?.label).toBe('完成主线「升到酋长 11 级（开放科技）」后开启')
     expect(nextModuleUnlock(20)).toBeNull()
@@ -272,7 +272,7 @@ describe('hydrate knight xp', () => {
     expect(save.techPoints).toBe(START_TECH_POINTS)
   })
 
-  it('uses the old station sum once when both level and xp are missing', () => {
+  it('does not rebuild a missing level from station levels', () => {
     const save = createSave()
     delete (save as { knightLevel?: number }).knightLevel
     delete (save as { knightXp?: number }).knightXp
@@ -280,7 +280,7 @@ describe('hydrate knight xp', () => {
     save.stations.hunting.stationLevel = 2
     save.techPoints = 9
     hydrateTechFields(save as Save)
-    expect(save.knightLevel).toBe(6)
+    expect(save.knightLevel).toBe(1)
     expect(save.knightXp).toBe(0)
     expect(save.techPoints).toBe(9)
   })

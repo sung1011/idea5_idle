@@ -3,10 +3,10 @@ import { isModuleId, isModuleUnlocked, levelGateTitle } from './moduleUnlock'
 import { PLAYABLE_STATION_IDS, STATION_DEF } from './tables'
 import type { Save, StationId } from './types'
 
-/** 骑士等级门槛：到该级才开放对应站。新档骑士 1 级开采药与炼金。 */
+/** 骑士等级门槛。1 级只开采药；炼金等站还要主线领奖写入 openedModules。 */
 export const STATION_UNLOCK_KNIGHT = {
   herbalism: 1,
-  alchemy: 1,
+  alchemy: 2,
   hunting: 6,
   cooking: 8,
   mining: 16,
@@ -76,7 +76,7 @@ export function unlockedStationIds(save: Parameters<typeof isStationUnlocked>[0]
 
 /** 测试：等级不够也允许派到后开的站，不改骑士等级。 */
 export function keepStationsOpen(save: Save): Save {
-  const ids = ['hunting', 'cooking', 'mining', 'inscription', 'treasure']
+  const ids = ['alchemy', 'hunting', 'cooking', 'mining', 'inscription', 'treasure']
   const next = new Set([...(save.openedModules ?? []), ...ids])
   save.openedModules = [...next]
   return save
@@ -92,6 +92,7 @@ export function unlockPlayableStations(save: Save, knightLevel = STATION_UNLOCK_
     restFood: 8,
     dungeon: 8,
     herb: 10,
+    alchemy: 2,
     tech: 11,
     beast: 13,
     mining: 16,

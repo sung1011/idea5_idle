@@ -71,6 +71,7 @@ describe('mining node recover', () => {
     const save = roster(1)
     unlockTo(save, 'mining', 5)
     assignWorker(save, save.workers[0].id, 'mining')
+    save.stations.mining.auto = true
     save.workers[0].hpMax = 10_000
     save.workers[0].hp = 10_000
     const depleted = ticks(save, 267)
@@ -117,6 +118,7 @@ describe('herbalism settlement', () => {
     setRollOverride(() => 0.85)
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'herbalism')
+    save.stations.herbalism.auto = true
     const next = ticks(save, 27)
     expect(next.stations.herbalism.completed).toBe(2)
     expect(next.stations.herbalism.miningNode).toBeUndefined()
@@ -147,6 +149,7 @@ describe('hunting settlement', () => {
     const save = roster(1)
     save.bank.meal = 1
     assignWorker(save, save.workers[0].id, 'hunting')
+    save.stations.hunting.auto = true
     const next = ticks(save, 16)
     expect(bankQty(next, 'meat')).toBe(0)
     expect(bankQty(next, 'fish')).toBe(0)

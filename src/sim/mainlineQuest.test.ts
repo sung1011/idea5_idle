@@ -36,13 +36,15 @@ function pawn(): PawnEncounter {
 }
 
 describe('mainline schedule', () => {
-  it('follows the confirmed 90-step list in order', () => {
+  it('follows the confirmed list in order', () => {
     expect(ids()).toEqual([
       'recruit',
       'autoHerb',
+      'herbQueue',
       'fuse',
       'combat',
       'level2',
+      'autoLine',
       'alchemy',
       'potionInstall',
       'potionUse',
@@ -242,42 +244,24 @@ describe('mainline sticky completion and rewards', () => {
   })
 })
 
-describe('mainline old saves and market flag', () => {
-  it('skips tasks a high-level save already satisfied instead of sticking on recruit', () => {
-    const save = createSave()
-    save.knightLevel = 20
-    save.guideQuestRev = 6
-    save.guideQuestStep = 16
-    spawnWorker(save)
-    spawnWorker(save)
-    save.workers[0].assignment = 'herbalism'
-    save.workers[1].qualityTier = 2
-    save.stations.alchemy.completed = 1
-    save.departCount = 1
-    save.potionSlots[0] = 'salve'
-    save.guideQuestPotionUsed = true
-    save.mainLootClaims = 1
-    save.exploreCount = 1
-    save.techLevels = { pathOutpost: 1 }
-    const gold = save.gold
-    hydrateGuideQuestFields(save, save)
-    expect(save.guideQuestRev).toBe(9)
-    expect(save.gold).toBe(gold)
-    expect(guideQuestView(save)?.taskId).not.toBe('recruit')
-    expect(guideQuestView(save)?.goal).not.toBe('抽取苦工 2 次')
-    expect(save.guideQuestStep).toBeGreaterThan(mainlineStepOf('explore'))
-  })
-
-  it('stops an old save at the first unmet task and leaves a later satisfied task to claim', () => {
+describe('mainline hydrate', () => {
+  it('does not skip tasks a high-level save already satisfied', () => {
     const save = createSave()
     save.knightLevel = 20
     save.guideQuestRev = 6
     save.guideQuestStep = 1
-    save.techLevels = { pathOutpost: 1 }
+    spawnWorker(save)
+    spawnWorker(save)
+    save.workers[0].assignment = 'herbalism'
+    save.stations.alchemy.completed = 1
+    save.departCount = 1
+    const gold = save.gold
     hydrateGuideQuestFields(save, save)
+    expect(save.guideQuestRev).toBe(9)
+    expect(save.gold).toBe(gold)
+    expect(save.guideQuestStep).toBe(1)
     expect(guideQuestView(save)?.taskId).toBe('recruit')
     expect(save.guideQuestSkipped).not.toContain('tech')
-    expect(save.guideQuestSkipped).not.toContain('level20')
   })
 
   it('counts a market board deal, a treasure haul, a raid win, and a rune fight', () => {
@@ -314,29 +298,25 @@ describe('mainline old saves and market flag', () => {
   it('stores a skip bit for step 90', () => {
     const mask = blankSkipMask()
     skipMaskSet(mask, GUIDE_SKIP_CAP)
-    expect(skipMaskHas(mask, 90)).toBe(true)
+    expect(skipMaskHas(mask, GUIDE_SKIP_CAP)).toBe(true)
     expect(skipMaskHas(mask, 31)).toBe(false)
     expect(mask[2]).toBeGreaterThan(0)
   })
 
-  it('does not open the market at knight 1 just because battlefield loot set the old flag', () => {
+  it('does not open the market or invent a deal from the old pawn flag', () => {
     const raw = createSave()
-    raw.knightLevel = 1
+    raw.knightLevel = 6
     raw.starterCopperPawnDone = true
     raw.guideQuestRev = 6
     const loaded = hydrateLoadedSave(raw as unknown as Save)
-    expect(loaded?.starterCopperPawnDone).toBe(false)
+    expect(loaded?.starterCopperPawnDone).toBe(true)
     expect(loaded?.guideQuestStats.marketDeals).toBe(0)
     expect(isModuleUnlocked(loaded!, 'market')).toBe(false)
   })
 
-  it('keeps one market deal for an old level-6 flag so a refreshed board still counts', () => {
-    const save = createSave()
-    save.knightLevel = 6
-    save.starterCopperPawnDone = true
-    save.guideQuestRev = 6
-    hydrateGuideQuestFields(save, save)
-    expect(save.guideQuestStats.marketDeals).toBe(1)
-    expect(save.starterCopperPawnDone).toBe(true)
+  it('drops a save whose version is missing', () => {
+    const raw = createSave()
+    delete (raw as { saveVersion?: number }).saveVersion
+    expect(hydrateLoadedSave(raw)).toBeNull()
   })
 })

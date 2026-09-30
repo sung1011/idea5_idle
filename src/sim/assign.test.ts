@@ -10,6 +10,7 @@ import {
 } from './assign'
 import { beginEnemyCombat } from './combat'
 import { createSave } from './createSave'
+import { grantOpenedModules } from './moduleUnlock'
 import {
   canFuseRestWorkers,
   canFuseStationWorkers,
@@ -176,6 +177,7 @@ describe('workshop full hp gate', () => {
     const save = createSave()
     const worker = spawnWorker(save)
     expect(assignWorker(save, worker.id, 'herbalism')).toEqual({ ok: true })
+    grantOpenedModules(save, ['alchemy'])
     worker.hp = worker.hpMax - 1
     expect(assignWorker(save, worker.id, 'alchemy')).toEqual({ ok: false, reason: '满血才能上岗' })
     expect(worker.assignment).toBe('herbalism')
@@ -202,6 +204,9 @@ describe('workshop full hp gate', () => {
 
     const save = createSave()
     const idle = spawnWorker(save)
+    grantOpenedModules(save, ['alchemy'])
+    save.stations.herbalism.auto = true
+    save.stations.alchemy.auto = true
     save.stations.herbalism.closed = true
     save.stations.alchemy.closed = true
     expect(assignRestingToFirstEmpty(save)).toEqual({
@@ -219,6 +224,9 @@ describe('workshop full hp gate', () => {
     const open = createSave()
     const first = spawnWorker(open)
     const second = spawnWorker(open)
+    grantOpenedModules(open, ['alchemy'])
+    open.stations.herbalism.auto = true
+    open.stations.alchemy.auto = true
     open.stations.herbalism.closed = true
     const filled = ticks(open, 1)
     expect(filled.workers.find((worker) => worker.id === first.id)?.assignment).toBe('alchemy')

@@ -723,10 +723,9 @@ function materializeTechLevels(save: Save): Partial<Record<TechId, number>> {
   return levels
 }
 
-export function hydrateTechFields(save: Save & { inspiration?: unknown; techLevels?: unknown }): void {
-  const hasPoints =
-    typeof save.techPoints === 'number' && Number.isFinite(save.techPoints) && save.techPoints > 0
-  save.techPoints = normalizeTechPoints(hasPoints ? save.techPoints : save.inspiration)
+export function hydrateTechFields(save: Save & { techLevels?: unknown }): void {
+  const raw = save.techPoints
+  save.techPoints = typeof raw === 'number' && Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0
   const unlocked = hydrateUnlockedTechIds(save.unlockedTechIds)
   save.techLevels = hydrateTechLevels(save.techLevels, unlocked)
   save.unlockedTechIds = syncUnlockedFromLevels(save.techLevels)

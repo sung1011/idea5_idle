@@ -307,6 +307,7 @@ describe('visible workshop drain', () => {
       const save = roster(1)
       const worker = save.workers[0]
       assignWorker(save, worker.id, stationId)
+      save.stations[stationId].auto = true
       const startHp = worker.hp
       expect(startHp).toBe(worker.hpMax)
 

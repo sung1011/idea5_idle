@@ -48,7 +48,6 @@ const rows = computed(() => restQueueRows(game.save))
 const dispatchCount = computed(() => campDockCount(game.save))
 const fuseCue = computed(() => guideFuseCue(game.save, true))
 const guideFlashRecruit = computed(() => isGuideQuestFlash(game.save, 'recruit'))
-const guideFlashAutoHerb = computed(() => isGuideQuestFlash(game.save, 'autoHerb'))
 const guideFlashRestFood = computed(() => isGuideQuestFlash(game.save, 'restFood'))
 const foodLocked = computed(() => !isModuleUnlocked(game.save, 'restFood'))
 const recruitPrice = computed(() => recruitCost(game.save))
@@ -298,7 +297,6 @@ onUnmounted(() => {
                   'queue-ready': row.badge === REST_HEAD_BADGE,
                   'level-flash': isWorkerLevelFlashing(row.id),
                   'eat-flash': isWorkerEatFlashing(row.id),
-                  'guide-flash': guideFlashAutoHerb && row.order === 1,
                 },
               ]"
               data-drop="rest-worker"

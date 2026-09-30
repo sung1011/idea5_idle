@@ -87,7 +87,7 @@ describe('save migration', () => {
     expect(save?.workers[0].qualityTier).toBe(1)
     expect(save?.workers[0].hp).toBe(save?.workers[0].hpMax)
     expect(save?.workers[1].qualityTier).toBe(1)
-    expect(save?.workers[1].assignment).toBe('inscription')
+    expect(save?.workers[1].assignment).toBeNull()
     expect(save?.workers[1].foodSlot).toBeNull()
     expect(save?.bank.meal).toBe(2)
     expect(save?.restFoodId).toBeNull()
@@ -164,7 +164,7 @@ describe('save migration', () => {
     expect(save?.bank.ironTool).toBeUndefined()
     expect((save?.bank.wildCrystal ?? 0) >= 5).toBe(true)
     expect((save?.bank.runeSharp ?? 0) >= 1).toBe(true)
-    expect(save?.workers.map((w) => w.assignment)).toEqual(['mining', null, null])
+    expect(save?.workers.map((w) => w.assignment)).toEqual([null, null, null])
     expect(save?.workers.every((w) => !('toolSlot' in w) || (w as { toolSlot?: unknown }).toolSlot == null)).toBe(true)
   })
 
@@ -219,7 +219,7 @@ describe('save migration', () => {
     delete (old as { knightLevel?: number }).knightLevel
     delete (old as { unlockedTechIds?: string[] }).unlockedTechIds
     const hydrated = hydrateLoadedSave(old)
-    expect(hydrated?.techPoints).toBe(0)
+    expect(hydrated?.techPoints).toBe(START_TECH_POINTS)
     expect(hydrated?.knightLevel).toBe(1)
     expect(hydrated?.unlockedTechIds).toEqual([])
     expect(hydrated?.techLevels).toEqual({})
@@ -237,7 +237,7 @@ describe('save migration', () => {
       inspiration: 4.2,
       unlockedTechIds: ['workshopLog', 'apprenticeNotes', 'slagRecycle'],
     })
-    expect(aliased?.techPoints).toBe(4)
+    expect(aliased?.techPoints).toBe(0)
     expect(aliased?.knightLevel).toBe(1)
     expect(aliased?.unlockedTechIds).toEqual(['slagRecycle'])
     expect(aliased?.techLevels).toEqual({ slagRecycle: 1 })
@@ -284,7 +284,7 @@ describe('save migration', () => {
     }
     delete (legacyPlayed as { knightLevel?: number }).knightLevel
     const legacy = hydrateLoadedSave(legacyPlayed)
-    expect(legacy?.knightLevel).toBe(5)
+    expect(legacy?.knightLevel).toBe(1)
     expect(legacy?.techPoints).toBe(9)
 
     const oldOnePoint = hydrateLoadedSave({
@@ -366,7 +366,7 @@ describe('save migration', () => {
     persistSave(save, store)
     const loaded = loadSave(store)
     expect(loaded?.guideQuestStep).toBe(4)
-    expect(loaded?.starterCopperPawnDone).toBe(false)
+    expect(loaded?.starterCopperPawnDone).toBe(true)
     expect(loaded?.guideQuestStats.marketDeals).toBe(0)
   })
 

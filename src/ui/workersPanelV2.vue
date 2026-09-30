@@ -73,7 +73,10 @@ import {
 
 const game = useGameStore()
 const showFuseDragTip = computed(() => shouldShowFuseDragTip(game.save))
-const guideFlashAutoHerb = computed(() => isGuideQuestFlash(game.save, 'autoHerb'))
+const guideFlashHerbStation = computed(
+  () => isGuideQuestFlash(game.save, 'autoHerb') || isGuideQuestFlash(game.save, 'herbQueue'),
+)
+const guideFlashAuto = computed(() => isGuideQuestFlash(game.save, 'autoLine'))
 const guideFlashPotionInstall = computed(() => isGuideQuestFlash(game.save, 'potionInstall'))
 const guideFlashPotionUse = computed(() => isGuideQuestFlash(game.save, 'potionUse'))
 const frameNow = useFrameNow()
@@ -294,7 +297,13 @@ function openSheet(w: Worker) {
 }
 
 function stationModule(stationId: StationId): ModuleId | null {
-  if (stationId === 'hunting' || stationId === 'cooking' || stationId === 'mining' || stationId === 'inscription') {
+  if (
+    stationId === 'alchemy' ||
+    stationId === 'hunting' ||
+    stationId === 'cooking' ||
+    stationId === 'mining' ||
+    stationId === 'inscription'
+  ) {
     return stationId
   }
   return null
@@ -315,13 +324,67 @@ function openStationDetail(stationId: StationId) {
   showStationDetail(stationId)
 }
 
+const dispatchFly = ref<{ worker: Worker; x: number; y: number; moving: boolean } | null>(null)
+const holdProgress = ref<Partial<Record<StationId, boolean>>>({})
+let dispatchFlyTimer = 0
+
+function showDispatchCue(stationId: StationId) {
+  const station = game.save.stations[stationId]
+  if (stationLocked(stationId) || station.auto || station.manualRounds > 0) return false
+  return !game.save.workers.some((worker) => worker.assignment === stationId)
+}
+
+function startDispatchFly(stationId: StationId, worker: Worker) {
+  const from = document.querySelector('.camp-fab')?.getBoundingClientRect()
+  const card = document.querySelector(`[data-station-card="${stationId}"]`)
+  const to = card?.querySelector('.slot')?.getBoundingClientRect() ?? card?.getBoundingClientRect()
+  if (!from || !to) return
+  holdProgress.value = { ...holdProgress.value, [stationId]: true }
+  dispatchFly.value = {
+    worker,
+    x: from.left + from.width / 2,
+    y: from.top + from.height / 2,
+    moving: false,
+  }
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (!dispatchFly.value) return
+      dispatchFly.value = {
+        ...dispatchFly.value,
+        x: to.left + to.width / 2,
+        y: to.top + to.height / 2,
+        moving: true,
+      }
+    })
+  })
+  window.clearTimeout(dispatchFlyTimer)
+  dispatchFlyTimer = window.setTimeout(() => {
+    dispatchFly.value = null
+    const next = { ...holdProgress.value }
+    delete next[stationId]
+    holdProgress.value = next
+  }, 450)
+}
+
+function dispatchStation(stationId: StationId) {
+  const result = game.dispatchManualRound(stationId)
+  if (!result.ok) return
+  const worker = game.save.workers.find((row) => row.assignment === stationId)
+  if (worker) startDispatchFly(stationId, worker)
+}
+
+function onToggleAuto(stationId: StationId) {
+  game.toggleStationAuto(stationId)
+}
+
 function onStationCardClick(ev: MouseEvent, stationId: StationId) {
   const target = ev.target
   if (target instanceof Element) {
+    if (target.closest('.ui-select, .station-name, .auto-toggle, .station-detail')) return
     const slot = target.closest('.slot')
     if (slot && !slot.classList.contains('empty')) return
   }
-  openStationDetail(stationId)
+  dispatchStation(stationId)
 }
 
 function closeStationDetail() {
@@ -550,6 +613,7 @@ onUnmounted(() => {
   window.clearInterval(tutorTimer)
   hideWorkerTutor()
   document.removeEventListener('pointerdown', onDocPotionHelp, true)
+  window.clearTimeout(dispatchFlyTimer)
   for (const timer of potionPressTimers.values()) clearTimeout(timer)
   potionPressTimers.clear()
 })
@@ -571,22 +635,35 @@ onUnmounted(() => {
             v-for="board in boards"
             :key="board.stationId"
             class="station"
+            :data-station-card="board.stationId"
             :class="{
               locked: stationLocked(board.stationId),
               closed: game.save.stations[board.stationId].closed,
+              auto: game.save.stations[board.stationId].auto,
               'guide-flash':
                 isItemSourceStationFlash(board.stationId) ||
-                (guideFlashAutoHerb && board.stationId === 'herbalism') ||
+                (guideFlashHerbStation && board.stationId === 'herbalism') ||
                 (alchemyCardFlash && board.stationId === 'alchemy') ||
                 (isGuideQuestFlash(game.save, 'mining') && board.stationId === 'mining') ||
                 fuseStations.includes(board.stationId),
             }"
             @click="onStationCardClick($event, board.stationId)"
           >
+            <button
+              type="button"
+              class="auto-toggle"
+              :class="{ on: game.save.stations[board.stationId].auto, 'guide-flash': guideFlashAuto }"
+              :aria-pressed="game.save.stations[board.stationId].auto"
+              aria-label="自动"
+              @click.stop="onToggleAuto(board.stationId)"
+            >
+              自动
+            </button>
+            <b v-if="game.save.stations[board.stationId].manualRounds > 0" class="round-badge">×{{ game.save.stations[board.stationId].manualRounds }}</b>
             <i v-if="stationNotice(board.stationId)" class="notice" aria-hidden="true" />
             <StationTips :station-id="board.stationId" />
             <div class="station-rail">
-              <div class="station-name">
+              <div class="station-name" @click.stop="openStationDetail(board.stationId)">
                 <UiIcon :name="board.stationId" />
                 <b>{{ board.label }}</b>
               </div>
@@ -657,7 +734,8 @@ onUnmounted(() => {
                     </span>
                   </template>
                   <template v-else>
-                    <span class="empty-lab">空</span>
+                    <span v-if="showDispatchCue(board.stationId)" class="empty-lab">点击派工</span>
+                    <span v-else class="empty-lab">空</span>
                   </template>
                 </button>
               </div>
@@ -670,7 +748,11 @@ onUnmounted(() => {
                   :aria-label="`${board.label}产出`"
                   @update:model-value="onCraftCategory(board.stationId, $event)"
                 />
-                <StationMiniBar class="station-progress" :station-id="board.stationId" />
+                <StationMiniBar
+                  class="station-progress"
+                  :class="{ hold: holdProgress[board.stationId] }"
+                  :station-id="board.stationId"
+                />
               </div>
             </div>
           </article>
@@ -776,6 +858,19 @@ onUnmounted(() => {
     <Teleport to="body">
       <div v-if="drag?.active" class="drag-ghost" :style="{ left: `${drag.x}px`, top: `${drag.y}px` }">
         {{ drag.name }}
+      </div>
+      <div
+        v-if="dispatchFly"
+        class="dispatch-fly"
+        :class="{ moving: dispatchFly.moving }"
+        :style="{ left: `${dispatchFly.x}px`, top: `${dispatchFly.y}px` }"
+      >
+        <WorkerAvatar
+          size="lg"
+          :race="dispatchFly.worker.race"
+          :quality="dispatchFly.worker.qualityTier"
+          :worker-id="dispatchFly.worker.id"
+        />
       </div>
     </Teleport>
   </section>
@@ -1126,6 +1221,62 @@ onUnmounted(() => {
   box-shadow: 0 2px 0 var(--gold-deep);
 }
 
+.station.auto {
+  border-color: #3dcc4a;
+  box-shadow: 0 0 0 1px #146b28, 0 2px 0 #0e5a1e;
+}
+
+.auto-toggle {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  z-index: 3;
+  min-width: 34px;
+  min-height: 18px;
+  padding: 0 4px;
+  border: 1px solid #6a4a28;
+  border-radius: 4px;
+  background: #4a321c;
+  color: #efe2c4;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+}
+
+.auto-toggle.on {
+  border-color: #146b28;
+  background: #1f8a32;
+  color: #f4ffe8;
+}
+
+.round-badge {
+  position: absolute;
+  top: 24px;
+  right: 4px;
+  z-index: 3;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: #6a3218;
+  color: #fff4d8;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.station-progress.hold {
+  visibility: hidden;
+}
+
+.dispatch-fly {
+  position: fixed;
+  z-index: 80;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.dispatch-fly.moving {
+  transition: left 450ms ease, top 450ms ease;
+}
+
 .station.locked {
   filter: grayscale(0.85);
   opacity: 0.48;
@@ -1133,8 +1284,8 @@ onUnmounted(() => {
 
 .station .notice {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: 6px;
+  right: 42px;
   width: 8px;
   height: 8px;
   border-radius: 50%;

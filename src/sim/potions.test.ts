@@ -201,6 +201,7 @@ describe('seven potion effects', () => {
   it('stim speeds on-duty stations for 3 minutes of sim time', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'herbalism')
+    save.stations.herbalism.auto = true
     const bare = currentSpeed(save, 'herbalism')
     save.bank.stim = 1
     expect(installPotionSlot(save, 0, 'stim').ok).toBe(true)

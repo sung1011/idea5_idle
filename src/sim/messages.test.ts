@@ -12,6 +12,7 @@ describe('messages', () => {
     save.diamonds = 15
     expect(recruitWorker(save).ok).toBe(true)
     assignWorker(save, save.workers[0].id, 'mining')
+    save.stations.mining.auto = true
     save.lastTick = 0
     const result = settleOffline(save, 80_000)
     expect(hasUnread(result.save)).toBe(true)
@@ -29,6 +30,7 @@ describe('messages', () => {
     save.diamonds = 15
     expect(recruitWorker(save).ok).toBe(true)
     assignWorker(save, save.workers[0].id, 'mining')
+    save.stations.mining.auto = true
     save.lastTick = 0
     const result = settleOffline(save, 20_000)
     expect(hasUnread(result.save)).toBe(true)

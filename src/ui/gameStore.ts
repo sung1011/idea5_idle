@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, shallowRef } from 'vue'
 import { assignWorker, toggleStationClosed, withdrawWorker } from '../sim/assign'
+import { dispatchManualRound, toggleStationAuto } from '../sim/workshopDispatch'
 import { cloneSave } from '../sim/clone'
 import { applyPlayerProfile, createSave } from '../sim/createSave'
 import {
@@ -297,6 +298,8 @@ export const useGameStore = defineStore('game', () => {
     },
     withdraw: (stationId: StationId) => apply((s) => withdrawWorker(s, stationId)),
     toggleStationClosed: (stationId: StationId) => apply((s) => toggleStationClosed(s, stationId)),
+    dispatchManualRound: (stationId: StationId) => apply((s) => dispatchManualRound(s, stationId)),
+    toggleStationAuto: (stationId: StationId) => apply((s) => toggleStationAuto(s, stationId)),
     assign: (workerId: string, stationId: StationId | null) => {
       const before = assignmentSnapshot()
       const result = apply((s) => assignWorker(s, workerId, stationId))

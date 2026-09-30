@@ -57,6 +57,7 @@ describe('settleOffline', () => {
   it('replays applyTick for offline seconds and summarizes mining', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'mining')
+    save.stations.mining.auto = true
     save.lastTick = 0
     const result = settleOffline(save, 80_000)
     expect(result.summary.seconds).toBe(80)
@@ -78,6 +79,7 @@ describe('settleOffline', () => {
     const save = roster(1)
     save.bank.wildCrystal = 6
     assignWorker(save, save.workers[0].id, 'inscription')
+    save.stations.inscription.auto = true
     save.lastTick = 0
     const result = settleOffline(save, 100_000)
     expect(result.summary.seconds).toBe(100)
@@ -93,6 +95,7 @@ describe('settleOffline', () => {
   it('summarizes herbalism into the bank', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'herbalism')
+    save.stations.herbalism.auto = true
     save.lastTick = 0
     const result = settleOffline(save, 80_000)
     expect(result.save.stations.herbalism.completed).toBe(6)
@@ -104,6 +107,8 @@ describe('settleOffline', () => {
   it('marks the 8h cap in the summary', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'mining')
+    save.stations.mining.auto = true
+    save.stations.herbalism.auto = true
     const now = 10_000_000
     save.lastTick = now - (OFFLINE_CAP_S + 120) * 1000
     const result = settleOffline(save, now)
@@ -136,6 +141,7 @@ describe('settleOffline', () => {
   it('omits gold line when gold does not change', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'mining')
+    save.stations.mining.auto = true
     save.lastTick = 0
     save.gold = 40
     const result = settleOffline(save, 10_000)

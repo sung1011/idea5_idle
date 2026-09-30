@@ -165,6 +165,8 @@ export function blankStation(stationId: StationId): StationState {
     craftNotice: null,
     fatigueCombo: blankFatigueCombo(),
     closed: false,
+    auto: false,
+    manualRounds: 0,
     ...(stationId === 'mining'
       ? (() => {
           const bundle = hydrateMiningNodes(undefined, first.id)
@@ -202,6 +204,11 @@ export function hydrateStationState(stationId: StationId, incoming?: Partial<Sta
     craftNotice: typeof incoming.craftNotice === 'string' ? incoming.craftNotice : null,
     fatigueCombo: hydrateFatigueCombo(incoming.fatigueCombo),
     closed: incoming.closed === true,
+    auto: incoming.auto === true,
+    manualRounds:
+      typeof incoming.manualRounds === 'number' && Number.isFinite(incoming.manualRounds)
+        ? Math.max(0, Math.min(5, Math.floor(incoming.manualRounds)))
+        : 0,
     ...(stationId === 'mining'
       ? hydrateMiningNodes(incoming, incoming.selectedCategory ?? blank.selectedCategory)
       : {}),

@@ -36,6 +36,7 @@ describe('mining → bank', () => {
   it('one miner deposits ore after one cycle', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'mining')
+    save.stations.mining.auto = true
     const next = ticks(save, 20)
     expect(bankQty(next, 'ore')).toBe(1)
     expect(next.stations.mining.completed).toBe(1)
