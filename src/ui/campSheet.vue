@@ -21,6 +21,7 @@ import {
   setCampQueueSliding,
 } from './campQueueSlide'
 import { closeCampSheet } from './campDockNav'
+import { CAMP_HELP_ROWS, CAMP_HELP_TITLE } from './campHelp'
 import { foodHelpCopy, nextFoodHelp, REST_FOOD_HELP_ROWS, REST_FOOD_HELP_TITLE } from './foodHelp'
 import FoodIcon from './foodIcon.vue'
 import { pushFloatTip } from './floatTips'
@@ -57,6 +58,7 @@ const foodOpen = ref(false)
 const foodHelp = ref<FoodItemId | null>(null)
 const foodHelpPos = ref({ left: 8, top: 8 })
 const foodRuleOpen = ref(false)
+const campHelpOpen = ref(false)
 const detailId = ref<string | null>(null)
 const rows = computed(() => restQueueRows(game.save))
 const heldTailIds = ref<string[]>([])
@@ -485,6 +487,7 @@ onUnmounted(() => {
   <Teleport to="body">
     <div class="camp-mask" :class="{ passing: drag?.active }" @click.self="closeCampSheet">
       <section class="camp-sheet" :class="{ 'guide-flash': fuseCue === 'drag' }" role="dialog" aria-modal="true" aria-label="营地" data-drop="rest">
+        <button type="button" class="camp-help" aria-label="营地说明" @click="campHelpOpen = true">？</button>
         <button type="button" class="close" aria-label="关闭" @click="closeCampSheet">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M7 7l10 10M17 7L7 17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" />
@@ -657,6 +660,10 @@ onUnmounted(() => {
   </Teleport>
 
   <Teleport to="body">
+    <ModeHelpSheet v-if="campHelpOpen" :title="CAMP_HELP_TITLE" :rows="CAMP_HELP_ROWS" @close="campHelpOpen = false" />
+  </Teleport>
+
+  <Teleport to="body">
     <ModeHelpSheet v-if="foodRuleOpen" :title="REST_FOOD_HELP_TITLE" :rows="REST_FOOD_HELP_ROWS" @close="foodRuleOpen = false" />
   </Teleport>
 
@@ -715,6 +722,27 @@ onUnmounted(() => {
   color: var(--ink);
 }
 
+.camp-help {
+  position: absolute;
+  top: 8px;
+  right: 48px;
+  z-index: 3;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid #6b3a16;
+  background: linear-gradient(#fff4d4, #e7c27a);
+  color: #5a3a10;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 3px 0 #8a5a24;
+}
+
 .close {
   position: absolute;
   top: 8px;
@@ -746,7 +774,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 2px 40px 8px;
+  padding: 2px 88px 8px;
 }
 
 h2 {
