@@ -38,38 +38,38 @@ export const GUIDE_QUEST_PHASE2_KNIGHT = 1
  */
 export const GUIDE_QUEST_REV = 9
 /** 第 1 步还没打开营地。 */
-export const GUIDE_RECRUIT_CLOSED_GOAL = '点底部营地，抽取苦工 2 次'
-/** 第 1 步营地弹框已打开。 */
-export const GUIDE_RECRUIT_OPEN_GOAL = '在营地弹框里抽取苦工 2 次'
+export const GUIDE_RECRUIT_CLOSED_GOAL = '点营地，抽取苦工 2 次'
+/** 第 1 步营地已打开。 */
+export const GUIDE_RECRUIT_OPEN_GOAL = '在营地里抽取苦工 2 次'
 /** 合伙步营地无人。 */
-export const GUIDE_FUSE_EMPTY_GOAL = '点底部营地，再抽 1 名苦工，新人会进营地'
+export const GUIDE_FUSE_EMPTY_GOAL = '再抽 1 名苦工，新人会进营地'
 /** 合伙步已有两名同品质在营地，名单还没打开。 */
-export const GUIDE_FUSE_OPEN_GOAL = '点底部营地，打开名单'
+export const GUIDE_FUSE_OPEN_GOAL = '点营地，打开名单'
 /** 开战步卡面弱点行说明。 */
 export const GUIDE_WEAKNESS_CARD_TIP =
   '敌人有弱点，派属性对得上的苦工出战，伤害更高，还会削敌人的盾；盾打空会破防，敌人暂停出手。'
 /** 开战步选人面板，对准带「推荐」的苦工。 */
 export const GUIDE_WEAKNESS_PICK_TIP = '这名苦工的属性正好打中弱点'
 /** 合伙步名单已打开，两名同品质都在营地。 */
-export const GUIDE_FUSE_DRAG_GOAL = '在营地弹框里按住苦工，往任意方向拖到同品质的人身上合成'
-/** 合伙步营地凑不齐两名同品质。等人回来，或再抽一名。 */
-export const GUIDE_FUSE_WAIT_GOAL = '等在岗的苦工回到营地，或再抽 1 名。两人都在营地后，拖到同品质的人身上合成'
+export const GUIDE_FUSE_DRAG_GOAL = '在营地按住苦工，拖到同品质的人身上合成'
+/** 合伙步有人还在干活，凑不齐两名同品质。 */
+export const GUIDE_FUSE_WAIT_GOAL = '等苦工回到营地，或再抽 1 名，再拖到同品质的人身上合成'
 /** 出征步草还不够首单时，先回到采药站连点。 */
 export const GUIDE_COMBAT_HERB_GOAL = '草不够开战。继续点采药站排队，攒够 2 株草'
 /** 熬药步还没有原料。 */
 export const GUIDE_ALCHEMY_NEED_HERB_GOAL = '先点采药站出草，再点炼金站派工'
-/** 采药已经挂上自动，等出草再点炼金。 */
+/** 采药已在出草，等出草再点炼金。 */
 export const GUIDE_ALCHEMY_WAIT_HERB_GOAL = '等采药站出草，再点炼金站派工'
 /** 有原料时点炼金站派一轮。 */
 export const GUIDE_ALCHEMY_CLICK_GOAL = '点炼金站，把队首派上去熬一轮药'
-/** 装药步营地弹框还没打开。 */
-export const GUIDE_POTION_INSTALL_CLOSED_GOAL = '点底部营地，打开名单后再点药剂槽装药'
-/** 装药步营地弹框已打开。 */
-export const GUIDE_POTION_INSTALL_OPEN_GOAL = '在营地弹框里点空药剂槽，装上一种药'
-/** 用药步营地弹框还没打开。 */
-export const GUIDE_POTION_USE_CLOSED_GOAL = '点底部营地，打开名单后再点药剂槽用药'
-/** 用药步营地弹框已打开。 */
-export const GUIDE_POTION_USE_OPEN_GOAL = '在营地弹框里点已装的药剂槽用药'
+/** 装药步营地还没打开。 */
+export const GUIDE_POTION_INSTALL_CLOSED_GOAL = '点营地，再点药剂槽装药'
+/** 装药步营地已打开。 */
+export const GUIDE_POTION_INSTALL_OPEN_GOAL = '在营地点空药剂槽，装上一种药'
+/** 用药步营地还没打开。 */
+export const GUIDE_POTION_USE_CLOSED_GOAL = '点营地，再点药剂槽用药'
+/** 用药步营地已打开。 */
+export const GUIDE_POTION_USE_OPEN_GOAL = '在营地点已装的药剂槽用药'
 /** 用药步营地没人。 */
 export const GUIDE_POTION_NEED_CAMP_GOAL = '等苦工回到营地，再点药剂槽用药'
 /** 第一阶段「抽工人」完成所需次数（花名册人数或已生成序号，取较大）。 */

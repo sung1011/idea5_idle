@@ -13,6 +13,8 @@ import {
   GUIDE_QUEST_PHASE3_START,
   GUIDE_ALCHEMY_CLICK_GOAL,
   GUIDE_ALCHEMY_NEED_HERB_GOAL,
+  GUIDE_ALCHEMY_WAIT_HERB_GOAL,
+  GUIDE_POTION_NEED_CAMP_GOAL,
   GUIDE_COMBAT_HERB_GOAL,
   GUIDE_FUSE_DRAG_GOAL,
   GUIDE_FUSE_EMPTY_GOAL,
@@ -209,13 +211,13 @@ describe('guideQuest steps and claim', () => {
     spawnWorker(save)
     spawnWorker(save)
     expect(fuseRestWorkers(save, save.workers[1].id, save.workers[2].id).ok).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('在营地把两名同品质苦工合成，名册出现 2 档')
+    expect(guideQuestView(save)?.goal).toBe('在营地把两名同品质苦工合成，升到 2 档')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('combat'))
     expect(guideQuestView(save)?.title).toBe('出征')
     expect(guideQuestView(save)?.goal).toBe(GUIDE_COMBAT_HERB_GOAL)
     save.bank.herb = 2
-    expect(guideQuestView(save)?.goal).toBe('在 PVE 选人弹层点过开战')
+    expect(guideQuestView(save)?.goal).toBe('点战场，选人后开战')
     markCombatStarted(save)
     expect(hasStartedBattlefieldCombat(save)).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
@@ -227,6 +229,10 @@ describe('guideQuest steps and claim', () => {
     save.bank.herb = 0
     expect(save.stations.herbalism.auto).toBe(false)
     expect(guideQuestView(save)?.goal).toBe(GUIDE_ALCHEMY_NEED_HERB_GOAL)
+    save.stations.herbalism.auto = true
+    expect(guideQuestView(save)?.goal).toBe(GUIDE_ALCHEMY_WAIT_HERB_GOAL)
+    expect(GUIDE_ALCHEMY_WAIT_HERB_GOAL).toBe('等采药站出草，再点炼金站派工')
+    save.stations.herbalism.auto = false
     save.bank.herb = 1
     save.stations.alchemy.completed = 1
     expect(claimGuideQuest(save).ok).toBe(true)
@@ -239,6 +245,14 @@ describe('guideQuest steps and claim', () => {
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('potionUse'))
     expect(guideQuestView(save)?.goal).toBe(GUIDE_POTION_USE_CLOSED_GOAL)
+    expect(guideQuestView(save, true)?.goal).toBe('在营地点已装的药剂槽用药')
+    const parked = save.workers.map((worker) => worker.assignment)
+    for (const worker of save.workers) worker.assignment = 'herbalism'
+    expect(guideQuestView(save)?.goal).toBe(GUIDE_POTION_NEED_CAMP_GOAL)
+    expect(GUIDE_POTION_NEED_CAMP_GOAL).toBe('等苦工回到营地，再点药剂槽用药')
+    save.workers.forEach((worker, index) => {
+      worker.assignment = parked[index]
+    })
 
     const resting = save.workers.find((worker) => worker.assignment == null)
     expect(resting).toBeTruthy()
@@ -302,7 +316,7 @@ describe('guideQuest steps and claim', () => {
     save.guideQuestStep = mainlineStepOf('combat')
     expect(guideQuestView(save)?.goal).toBe(GUIDE_COMBAT_HERB_GOAL)
     save.bank.herb = 2
-    expect(guideQuestView(save)?.goal).toBe('在 PVE 选人弹层点过开战')
+    expect(guideQuestView(save)?.goal).toBe('点战场，选人后开战')
     expect(guideQuestProgressAt(save, save.guideQuestStep)).toBe(0)
     expect(hasStartedBattlefieldCombat(save)).toBe(false)
 
@@ -442,10 +456,12 @@ describe('guide fuse and alchemy cues', () => {
     const save = createSave()
     expect(guideQuestView(save, false)?.goal).toBe(GUIDE_RECRUIT_CLOSED_GOAL)
     expect(guideQuestView(save, true)?.goal).toBe(GUIDE_RECRUIT_OPEN_GOAL)
-    expect(GUIDE_RECRUIT_CLOSED_GOAL).toContain('底部营地')
-    expect(GUIDE_RECRUIT_OPEN_GOAL).toContain('营地弹框')
-    expect(GUIDE_FUSE_EMPTY_GOAL).toContain('底部营地')
-    expect(GUIDE_FUSE_DRAG_GOAL).toContain('营地弹框')
+    expect(GUIDE_RECRUIT_CLOSED_GOAL).toBe('点营地，抽取苦工 2 次')
+    expect(GUIDE_RECRUIT_OPEN_GOAL).toBe('在营地里抽取苦工 2 次')
+    expect(GUIDE_FUSE_EMPTY_GOAL).toBe('再抽 1 名苦工，新人会进营地')
+    expect(GUIDE_FUSE_OPEN_GOAL).toBe('点营地，打开名单')
+    expect(GUIDE_FUSE_DRAG_GOAL).toBe('在营地按住苦工，拖到同品质的人身上合成')
+    expect(GUIDE_FUSE_WAIT_GOAL).toBe('等苦工回到营地，或再抽 1 名，再拖到同品质的人身上合成')
   })
 
   it('flashes recruit while step 3 has an empty camp', () => {
@@ -479,7 +495,7 @@ describe('guide fuse and alchemy cues', () => {
     expect(guideQuestView(save, false)?.goal).toBe(GUIDE_FUSE_OPEN_GOAL)
     expect(guideFuseCue(save, true)).toBe('drag')
     expect(guideQuestView(save, true)?.goal).toBe(GUIDE_FUSE_DRAG_GOAL)
-    expect(GUIDE_FUSE_DRAG_GOAL).toContain('任意方向')
+    expect(GUIDE_FUSE_DRAG_GOAL).toBe('在营地按住苦工，拖到同品质的人身上合成')
     expect(guideFuseFlashStations(save, false)).toEqual([])
     expect(guideFuseFlashStations(save, true)).toEqual([])
   })
@@ -591,7 +607,7 @@ describe('early guide on a fresh save', () => {
       save = pumpHerbs(save, 2)
     }
     expect(bankQty(save, 'herb')).toBeGreaterThanOrEqual(2)
-    expect(guideQuestView(save)?.goal).toBe('在 PVE 选人弹层点过开战')
+    expect(guideQuestView(save)?.goal).toBe('点战场，选人后开战')
     const fighter = restingWorkers(save)[0] ?? save.workers.find((worker) => worker.assignment == null)
     expect(fighter).toBeTruthy()
     expect(startCombat(save, 0, [fighter!.id]).ok).toBe(true)
