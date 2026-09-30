@@ -29,6 +29,7 @@ import { hpBarFill } from './hpBar'
 import ModeHelpSheet from './modeHelpSheet.vue'
 import { REST_HEAD_BADGE, restQueueRows } from './restQueue'
 import { restFoodBand } from './workshopQueueHead'
+import { FUSE_JACKPOT_LINE, isFuseJackpotFlashing } from './fuseJackpotFlash'
 import { isWorkerEatFlashing, workerEatFlashText } from './workerEatFlash'
 import { isWorkerLevelFlashing } from './workerLevelFlash'
 import PotionDock from './potionDock.vue'
@@ -553,6 +554,7 @@ onUnmounted(() => {
                   'queue-enter': enteringIds.includes(row.id),
                   'level-flash': isWorkerLevelFlashing(row.id),
                   'eat-flash': isWorkerEatFlashing(row.id),
+                  'jackpot-flash': isFuseJackpotFlashing(row.id),
                 },
               ]"
               data-drop="rest-worker"
@@ -567,7 +569,7 @@ onUnmounted(() => {
                 @pointerdown.stop
                 @click.stop="openDetail(row.worker)"
               >i</button>
-              <span class="face">
+              <span class="face" :class="{ jackpot: isFuseJackpotFlashing(row.id) }">
                 <WorkerAvatar
                   ring="camp"
                   size="lg"
@@ -576,6 +578,7 @@ onUnmounted(() => {
                   :quality="row.worker.qualityTier"
                   :worker-id="row.worker.id"
                 />
+                <em v-if="isFuseJackpotFlashing(row.id)" class="jackpot-line">{{ FUSE_JACKPOT_LINE }}</em>
                 <i v-if="row.orderMark" class="order" :class="{ muted: row.orderMuted }">{{ row.orderMark }}</i>
                 <span
                   v-if="workerPotionIconIds(row.worker, game.save.elapsedS).length"
@@ -828,6 +831,11 @@ h2 {
   animation: eat-glow 0.7s ease-out;
 }
 
+.row.jackpot-flash {
+  overflow: visible;
+  z-index: 4;
+}
+
 .badge {
   position: absolute;
   top: 3px;
@@ -848,6 +856,50 @@ h2 {
   position: relative;
   display: inline-flex;
   line-height: 0;
+}
+
+.face.jackpot::before,
+.face.jackpot::after {
+  content: '';
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  border-radius: 50%;
+  animation: jackpot-spark 0.9s ease-out forwards;
+}
+
+.face.jackpot::before {
+  inset: -4px;
+  box-shadow:
+    0 0 0 2px rgba(255, 236, 140, 0.95),
+    0 0 10px 3px rgba(255, 196, 64, 0.85);
+}
+
+.face.jackpot::after {
+  inset: -10px;
+  background:
+    radial-gradient(circle at 18% 8%, #fff8c8 0 2px, transparent 3px),
+    radial-gradient(circle at 88% 16%, #ffe27a 0 2.5px, transparent 3.5px),
+    radial-gradient(circle at 8% 78%, #fff 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 92% 82%, #ffd56a 0 2px, transparent 3px);
+}
+
+.jackpot-line {
+  position: absolute;
+  left: 50%;
+  top: -16px;
+  z-index: 5;
+  color: #8a3e08;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow:
+    0 1px 0 #fff6d0,
+    0 0 6px #ffe27a;
+  pointer-events: none;
+  animation: jackpot-line 0.9s ease-out forwards;
 }
 
 .order {
@@ -1197,6 +1249,36 @@ h2 {
   margin: 4px 0 0;
 }
 
+@keyframes jackpot-spark {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  28% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes jackpot-line {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  22% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px);
+  }
+}
+
 @keyframes eat-glow {
   0% {
     box-shadow: 0 0 0 0 rgba(120, 210, 90, 0);
@@ -1229,6 +1311,10 @@ h2 {
 @media (prefers-reduced-motion: reduce) {
   .row.eat-flash,
   .eat-float,
+  .row.jackpot-flash,
+  .face.jackpot::before,
+  .face.jackpot::after,
+  .jackpot-line,
   .row.queue-slide,
   .row.queue-enter {
     animation: none;

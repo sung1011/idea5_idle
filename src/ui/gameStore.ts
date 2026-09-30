@@ -86,6 +86,7 @@ import { takeWorkshopHpEfficiencyTip } from '../sim/workshopHp'
 import type { ActionResult, BountyTarget, CategoryId, ItemId, PotionItemId, Save, StationId, Worker } from '../sim/types'
 import { pushCombatLogTip } from './encounterTips'
 import { pushFloatTip } from './floatTips'
+import { announceFuseJackpot } from './fuseJackpotFlash'
 import { announceWorkerEats } from './workerEatFlash'
 import { announceWorkerLevelUps, workerLevelSnapshot } from './workerLevelFlash'
 import { clearSave, loadSave, persistSave } from './saveGame'
@@ -186,6 +187,7 @@ export const useGameStore = defineStore('game', () => {
   }
 
   function apply(fn: (s: Save) => ActionResult): ActionResult {
+    const beforeIds = new Set(save.value.workers.map((worker) => worker.id))
     const next = cloneSave(save.value)
     const levels = workerLevelSnapshot(save.value.workers)
     const result = fn(next)
@@ -196,6 +198,10 @@ export const useGameStore = defineStore('game', () => {
       flushKnightXp()
       persist()
       if (result.message) pushFloatTip(result.message, 'ok')
+      if (result.fuseJackpot) {
+        const created = next.workers.find((worker) => !beforeIds.has(worker.id))
+        if (created) announceFuseJackpot(created.id)
+      }
       announceWorkerLevelUps(levels, next.workers)
       flushRestEats(true)
     } else {

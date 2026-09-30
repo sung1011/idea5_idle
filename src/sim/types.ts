@@ -162,7 +162,9 @@ export type WorkerQualityId =
 
 export type StallReason = 'emptyInput'
 
-export type ActionResult = { ok: true; message?: string } | { ok: false; reason: string }
+export type ActionResult =
+  | { ok: true; message?: string; fuseJackpot?: boolean }
+  | { ok: false; reason: string }
 
 export type EffectSource = 'tool' | 'food'
 export type EffectId = string

@@ -10,6 +10,45 @@ import { CLASS_LABEL, classPoolForQuality, pickClassFromPool, QUALITY_MAX, worke
 import { rollWorkerName, rollWorkerRace } from './workerRace'
 import type { ActionResult, QualityTier, Save, Worker } from './types'
 
+/**
+ * 同阶合成大成功：保底先升一阶，再按原料档掷一次，中了结果再高一阶。
+ * 品质 1～10 为白、绿、蓝、青、紫、橙、粉、红、金、彩。十档对不齐四段，按下表：
+ * - 最低两档 白、绿（1、2）→ 12%
+ * - 中间 蓝、青、紫、橙（3～6）→ 8%
+ * - 接近满品 粉、红（7、8）→ 3%（再跳落到金或彩）
+ * - 金（9）保底已是彩，无法再高 → 不掷
+ * - 彩（10）满品，合成本身会被拒绝
+ */
+export const FUSE_JACKPOT_RATE_LOW = 0.12
+export const FUSE_JACKPOT_RATE_MID = 0.08
+export const FUSE_JACKPOT_RATE_HIGH = 0.03
+
+export const FUSE_JACKPOT_RATE_BY_TIER: Record<QualityTier, number | null> = {
+  1: FUSE_JACKPOT_RATE_LOW,
+  2: FUSE_JACKPOT_RATE_LOW,
+  3: FUSE_JACKPOT_RATE_MID,
+  4: FUSE_JACKPOT_RATE_MID,
+  5: FUSE_JACKPOT_RATE_MID,
+  6: FUSE_JACKPOT_RATE_MID,
+  7: FUSE_JACKPOT_RATE_HIGH,
+  8: FUSE_JACKPOT_RATE_HIGH,
+  9: null,
+  10: null,
+}
+
+/** 原料档的大成功概率。保底升一阶后已到顶则 null，调用方不再掷。 */
+export function fuseJackpotRate(sourceTier: QualityTier): number | null {
+  if (sourceTier + 1 >= QUALITY_MAX) return null
+  return FUSE_JACKPOT_RATE_BY_TIER[sourceTier]
+}
+
+function rolledFuseTier(save: Save, sourceTier: QualityTier): { tier: QualityTier; jackpot: boolean } {
+  const next = (sourceTier + 1) as QualityTier
+  const rate = fuseJackpotRate(sourceTier)
+  if (rate == null || roll01(save) >= rate) return { tier: next, jackpot: false }
+  return { tier: (next + 1) as QualityTier, jackpot: true }
+}
+
 /** 站上、在岗拖到营地、拖到工位，一律用这句拒绝。 */
 export const CAMP_FUSE_ONLY_REASON = '只能在营地合成'
 
@@ -22,7 +61,8 @@ function fusePairAt(save: Save, a: Worker, b: Worker): ActionResult {
   clearWorkerNew(save, b.id)
   stripSlots(save, a)
   stripSlots(save, b)
-  const nextTier = (a.qualityTier + 1) as QualityTier
+  const rolled = rolledFuseTier(save, a.qualityTier)
+  const nextTier = rolled.tier
   const pool = classPoolForQuality(nextTier)
   const classId = pickClassFromPool(pool, roll01(save))
   const race = rollWorkerRace(save)
@@ -43,7 +83,11 @@ function fusePairAt(save: Save, a: Worker, b: Worker): ActionResult {
   const quality = workerQualityDef(nextTier)
   const job = worker.classId ? CLASS_LABEL[worker.classId] : '未标'
   save.fuseDragTipDone = true
-  return { ok: true, message: `合成出${worker.name ?? worker.id}（${quality.label}·${job}）` }
+  return {
+    ok: true,
+    message: `合成出${worker.name ?? worker.id}（${quality.label}·${job}）`,
+    ...(rolled.jackpot ? { fuseJackpot: true } : {}),
+  }
 }
 
 export function hydrateFuseDragTip(save: Save): void {
@@ -69,7 +113,7 @@ function fieldBlock(save: Save, a: Worker, b: Worker): ActionResult | null {
   return null
 }
 
-/** 两人都在营地、同档、未满档。消耗两人，产出 1 个高一档新人，排到营地队尾。 */
+/** 两人都在营地、同档、未满档。消耗两人，产出 1 个至少高一档的新人，排到营地队尾。大成功再高一档。 */
 export function fuseWorkers(save: Save, workerIdA: string, workerIdB: string): ActionResult {
   if (!workerIdA || !workerIdB) return { ok: false, reason: '请选两个同品质苦工' }
   if (workerIdA === workerIdB) return { ok: false, reason: '不能合成同一个人' }
