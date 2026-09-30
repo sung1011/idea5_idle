@@ -74,6 +74,8 @@ import ActChargeBar from './actChargeBar.vue'
 import { pushFloatTip } from './floatTips'
 import { unlockFlashKey } from './moduleUnlockNav'
 import { encounterCardKindTitle } from './encounterKindTitle'
+import { guideExploreCue } from './guideExploreCue'
+import { appTab } from './appNav'
 import { useGameStore } from './gameStore'
 import {
   MAINLINE_DENSITY_IDS,
@@ -95,6 +97,9 @@ import WorkerAvatar from './workerAvatar.vue'
 const game = useGameStore()
 const guideFlashCombat = computed(() => isGuideQuestFlash(game.save, 'combat'))
 const guideFlashRune = computed(() => isGuideQuestFlash(game.save, 'rune'))
+const exploreCue = computed(() =>
+  guideExploreCue(isGuideQuestFlash(game.save, 'explore'), appTab.value === 'encounters', mainlineTab.value),
+)
 function marchCaption(enc: Encounter) {
   if (enc.kind !== 'enemy') return null
   return encounterMarchCaption(enc, actNow.value)
@@ -482,6 +487,7 @@ function timedLine(enc: Encounter) {
             locked: tabLocked(id),
             'guide-flash':
               (guideFlashCombat && id === 'battlefield') ||
+              (exploreCue === 'board' && id === 'battlefield') ||
               (isGuideQuestFlash(game.save, 'market') && id === 'market') ||
               (isGuideQuestFlash(game.save, 'dungeon') && id === 'dungeon'),
             'unlock-pulse': unlockFlashKey === `pve:${id}`,
@@ -513,6 +519,7 @@ function timedLine(enc: Encounter) {
         <p class="chapter">{{ chapterTitle }}</p>
         <ActButton
           v-if="!isDungeonTab"
+          :class="{ 'guide-flash': exploreCue === 'explore' }"
           :icon="BATTLEFIELD_ACTS.explore.icon"
           :kind="BATTLEFIELD_ACTS.explore.kind"
           :cost="`${cost} 金`"

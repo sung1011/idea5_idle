@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { campDockCount, campDockTone } from '../sim/campDock'
 import { playerDisplayName, type PlayerAvatarId } from '../sim/createSave'
-import { guideFuseCue, isGuideQuestFlash } from '../sim/guideQuest'
+import { guideFuseCue, guideQuestFlashId, isGuideQuestFlash } from '../sim/guideQuest'
 import { xpToNextKnightLevel } from '../sim/knightLevel'
 import { bannerFrameOf, bannerLevelOf, treasureAssaultWarning } from '../sim/treasureMine'
 import { appTabLockedTip, isAppTabUnlocked, isModuleUnlocked, moduleNoticeOn } from '../sim/moduleUnlock'
@@ -10,7 +10,9 @@ import { mainlineStepOf } from '../sim/mainlineQuest'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
 import CampSheet from './campSheet.vue'
 import { campSheetOpen, toggleCampSheet } from './campDockNav'
+import { guideExploreCue } from './guideExploreCue'
 import { guideCampOpenRequest, guideCampSheetOpen, takeGuideCampOpenRequest } from './guideQuestNav'
+import { mainlineTab } from './mainlineTabs'
 import { dockStationHp, showDockStationHp } from './dockStationHp'
 import { shouldShowAddToHomeBubble, type AddToHomeGuide } from './addToHome'
 import { addToHomeChoiceNow, addToHomeDismissedNow, markAddToHomeDismissed, requestAddToHome, startAddToHomeWatch } from './addToHomeState'
@@ -99,6 +101,35 @@ const campButtonFlash = computed(() => {
   if (isGuideQuestFlash(game.save, 'potionInstall') || isGuideQuestFlash(game.save, 'potionUse')) return true
   return isGuideQuestFlash(game.save, 'recruit') || campCue.value === 'recruit'
 })
+const exploreCue = computed(() =>
+  guideExploreCue(isGuideQuestFlash(game.save, 'explore'), tab.value === 'encounters', mainlineTab.value),
+)
+const guideActive = computed(() => guideQuestFlashId(game.save) != null)
+const dockGuideRaised = ref(false)
+const fingerOn = ref(false)
+const fingerLeft = ref('0px')
+const fingerTop = ref('0px')
+let guideTimer = 0
+
+function syncGuideChrome() {
+  if (!guideActive.value) {
+    dockGuideRaised.value = false
+    fingerOn.value = false
+    return
+  }
+  const nodes = document.querySelectorAll<HTMLElement>('.guide-flash')
+  for (const node of nodes) {
+    const rect = node.getBoundingClientRect()
+    if (rect.width < 1 || rect.height < 1) continue
+    dockGuideRaised.value = node.closest('.dock') != null
+    fingerLeft.value = `${Math.round(rect.left + rect.width * 0.62)}px`
+    fingerTop.value = `${Math.round(rect.top + rect.height * 0.42)}px`
+    fingerOn.value = true
+    return
+  }
+  dockGuideRaised.value = false
+  fingerOn.value = false
+}
 const resourceDetail = computed(() => (resourceOpen.value ? hudChipDetail(game.save, resourceOpen.value) : null))
 
 function openRequestedCamp() {
@@ -111,6 +142,9 @@ onMounted(() => {
   stopAppUpdate = startAppUpdateSchedule()
   stopAddToHome = startAddToHomeWatch()
   openRequestedCamp()
+  syncGuideChrome()
+  window.addEventListener('resize', syncGuideChrome)
+  guideTimer = window.setInterval(syncGuideChrome, 200)
 })
 
 onUnmounted(() => {
@@ -119,6 +153,12 @@ onUnmounted(() => {
   stopAppUpdate = null
   stopAddToHome?.()
   stopAddToHome = null
+  window.removeEventListener('resize', syncGuideChrome)
+  window.clearInterval(guideTimer)
+})
+
+watch([guideActive, tab, exploreCue, campButtonFlash], () => {
+  void nextTick(syncGuideChrome)
 })
 
 function placeXpPop() {
@@ -318,7 +358,7 @@ watch(addToHomeChoiceNow, (choice) => {
       <TechPanel v-else />
     </main>
 
-    <nav class="dock" role="tablist" aria-label="主界面页签">
+    <nav class="dock" :class="{ 'guide-raised': dockGuideRaised }" role="tablist" aria-label="主界面页签">
       <div v-if="showStationHp" class="dock-hp" aria-hidden="true">
         <i v-for="cell in stationHp" :key="cell.stationId" class="cell" :class="{ empty: cell.empty }">
           <b
@@ -339,6 +379,7 @@ watch(addToHomeChoiceNow, (choice) => {
           :class="{
             on: tab === t.id,
             locked: tabLocked(t.id),
+            'guide-flash': exploreCue === 'dock' && t.id === 'encounters',
           }"
           @click="onDock(t.id)"
         >
@@ -411,6 +452,8 @@ watch(addToHomeChoiceNow, (choice) => {
       @confirm="confirmProfile"
     />
     <FloatTips />
+    <div v-if="guideActive" class="guide-mask" aria-hidden="true" />
+    <div v-if="fingerOn" class="guide-finger" :style="{ left: fingerLeft, top: fingerTop }" aria-hidden="true">👆</div>
   </div>
 </template>
 
@@ -897,6 +940,10 @@ watch(addToHomeChoiceNow, (choice) => {
   background-blend-mode: multiply, normal;
   border-top: var(--border) solid var(--gold);
   box-shadow: 0 -2px 0 var(--gold-deep);
+}
+
+.dock.guide-raised {
+  z-index: calc(var(--z-guide-dim) + 2);
 }
 
 .dock-hp {
