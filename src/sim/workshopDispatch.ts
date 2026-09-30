@@ -1,6 +1,6 @@
 import { assignedWorkers, assignWorker, restingWorkers } from './assign'
 import { addToBank } from './bank'
-import { offerRestFood } from './food'
+import { offerRestFood, sendWorkerToRestTail } from './food'
 import { isModuleUnlocked } from './moduleUnlock'
 import { isStationUnlocked, stationLockedTip } from './stationUnlock'
 import { STATION_ORDER } from './tables'
@@ -18,9 +18,9 @@ export const AUTO_QUEUE_TIP = '最多排 5 轮'
 export const ROUND_BADGE_TIP =
   '点站点大面板，把营地队首派上去工作一轮。还在工作时再点，排进下一轮，最多 5 轮。一轮工作完，苦工回到营地队尾。有排队时 ×N 是后续轮次，不含正在做的这一轮；没排队时这个数字是站里的人数。点它只看说明，不会排队。'
 /** ×N 说明气泡里的按钮。 */
-export const CLEAR_MANUAL_QUEUE_LABEL = '不排队'
+export const CLEAR_MANUAL_QUEUE_LABEL = '清空'
 /** 按钮旁的说明。 */
-export const CLEAR_MANUAL_QUEUE_NOTE = '清空后不再排队，当前这轮照常做完。'
+export const CLEAR_MANUAL_QUEUE_NOTE = '在岗苦工立刻回营地队尾，后续排队取消，自动线关闭，进度停下。'
 
 /**
  * 自动线名额。
@@ -135,14 +135,28 @@ export function stationRoundBadgeAria(save: Save, stationId: StationId): string 
   return `站内 ${assignedWorkers(save, stationId).length} 人，查看排队说明`
 }
 
-/** 清掉后续排队。有人正在做就只留这一轮，进度和人都不动。自动开关不动。 */
+/** 还有排队、在岗的人、自动线或进度，才能清空。 */
+export function canClearStationWork(save: Save, stationId: StationId): boolean {
+  const station = save.stations[stationId]
+  if (station.auto || station.manualRounds > 0 || station.progress > 0) return true
+  return assignedWorkers(save, stationId).length > 0
+}
+
+/** 后续排队清 0，在岗苦工立刻回营地队尾，关掉自动线，进度归零。 */
 export function clearManualQueue(save: Save, stationId: StationId): ActionResult {
   if (!isStationUnlocked(save, stationId)) return { ok: false, reason: stationLockedTip(stationId) }
+  if (!canClearStationWork(save, stationId)) return { ok: false, reason: '没有可清空的工作' }
   const station = save.stations[stationId]
-  if (station.auto) return { ok: false, reason: '这条线在自动生产' }
-  if (manualQueueLeft(save, stationId) <= 0) return { ok: false, reason: '没有后续排队' }
-  const working = assignedWorkers(save, stationId).length > 0
-  station.manualRounds = working ? 1 : 0
+  const crew = assignedWorkers(save, stationId).slice()
+  station.auto = false
+  station.manualRounds = 0
+  station.progress = 0
+  station.stallReason = null
+  for (const worker of crew) {
+    worker.assignment = null
+    offerRestFood(save, worker.id)
+    sendWorkerToRestTail(save, worker.id)
+  }
   return { ok: true }
 }
 

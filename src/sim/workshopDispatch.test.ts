@@ -15,6 +15,7 @@ import {
   ROUND_BADGE_TIP,
   applyManualQualityOutput,
   autoLineQuota,
+  canClearStationWork,
   clearManualQueue,
   dispatchManualRound,
   manualQueueLeft,
@@ -144,9 +145,11 @@ describe('workshop manual dispatch and auto lines', () => {
     expect(produced.workers.find((worker) => worker.id === hand.id)?.assignment).toBe('herbalism')
   })
 
-  it('clears later rounds and lets the current worker finish', () => {
-    expect(CLEAR_MANUAL_QUEUE_LABEL).toBe('不排队')
-    expect(CLEAR_MANUAL_QUEUE_NOTE).toBe('清空后不再排队，当前这轮照常做完。')
+  it('clears the queue, sends the worker to the camp tail, and stops progress', () => {
+    expect(CLEAR_MANUAL_QUEUE_LABEL).toBe('清空')
+    expect(CLEAR_MANUAL_QUEUE_NOTE).toContain('回营地队尾')
+    expect(CLEAR_MANUAL_QUEUE_NOTE).toContain('自动线关闭')
+    expect(CLEAR_MANUAL_QUEUE_NOTE).not.toContain('照常做完')
     const save = createSave()
     const first = fullWorker(save)
     const second = fullWorker(save)
@@ -154,23 +157,25 @@ describe('workshop manual dispatch and auto lines', () => {
     save.stations.herbalism.manualRounds = 4
     save.stations.herbalism.progress = 0.4
     expect(manualQueueLeft(save, 'herbalism')).toBe(3)
+    expect(canClearStationWork(save, 'herbalism')).toBe(true)
 
     expect(clearManualQueue(save, 'herbalism').ok).toBe(true)
-    expect(save.stations.herbalism.manualRounds).toBe(1)
-    expect(save.stations.herbalism.progress).toBe(0.4)
+    expect(save.stations.herbalism.manualRounds).toBe(0)
+    expect(save.stations.herbalism.progress).toBe(0)
     expect(save.stations.herbalism.auto).toBe(false)
-    expect(first.assignment).toBe('herbalism')
+    expect(first.assignment).toBeNull()
     expect(second.assignment).toBeNull()
+    expect(restingWorkers(save).map((worker) => worker.id)).toEqual([second.id, first.id])
     expect(manualQueueLeft(save, 'herbalism')).toBe(0)
+    expect(stationRoundBadge(save, 'herbalism')).toBe('0')
+    expect(canClearStationWork(save, 'herbalism')).toBe(false)
     expect(clearManualQueue(save, 'herbalism').ok).toBe(false)
 
-    save.stations.herbalism.progress = 0.99
     const done = ticks(save, 40)
-    expect(done.stations.herbalism.completed).toBeGreaterThanOrEqual(1)
+    expect(done.stations.herbalism.completed ?? 0).toBe(0)
+    expect(done.stations.herbalism.progress).toBe(0)
     expect(done.stations.herbalism.manualRounds).toBe(0)
-    expect(done.stations.herbalism.auto).toBe(false)
     expect(done.workers.find((worker) => worker.id === first.id)?.assignment).toBeNull()
-    expect(done.workers.find((worker) => worker.id === second.id)?.assignment).toBeNull()
   })
 
   it('labels a queued station with later rounds and an idle station with headcount', () => {
@@ -188,8 +193,8 @@ describe('workshop manual dispatch and auto lines', () => {
     expect(stationRoundBadgeAria(save, 'herbalism')).toBe('后续排队 2 轮，查看排队说明')
 
     expect(clearManualQueue(save, 'herbalism').ok).toBe(true)
-    expect(stationRoundBadge(save, 'herbalism')).toBe('1')
-    expect(stationRoundBadgeAria(save, 'herbalism')).toBe('站内 1 人，查看排队说明')
+    expect(stationRoundBadge(save, 'herbalism')).toBe('0')
+    expect(stationRoundBadgeAria(save, 'herbalism')).toBe('站内 0 人，查看排队说明')
 
     const waiting = createSave()
     fullWorker(waiting)
@@ -204,27 +209,39 @@ describe('workshop manual dispatch and auto lines', () => {
     expect(stationRoundBadge(save, 'mining')).toBe('0')
   })
 
-  it('drops a waiting queue and leaves an auto line alone', () => {
+  it('drops a waiting queue and also shuts an auto line', () => {
     const save = createSave()
     const waiting = fullWorker(save)
     save.stations.herbalism.manualRounds = 3
+    save.stations.herbalism.progress = 0.2
     expect(manualQueueLeft(save, 'herbalism')).toBe(3)
     expect(clearManualQueue(save, 'herbalism').ok).toBe(true)
     expect(save.stations.herbalism.manualRounds).toBe(0)
+    expect(save.stations.herbalism.progress).toBe(0)
     expect(waiting.assignment).toBeNull()
     pullWaitingManualRounds(save)
     expect(waiting.assignment).toBeNull()
 
     grantOpenedModules(save, ['alchemy'])
+    const camper = fullWorker(save)
     const hand = fullWorker(save)
     expect(toggleStationAuto(save, 'alchemy').ok).toBe(true)
     hand.assignment = 'alchemy'
+    save.stations.alchemy.progress = 0.55
     expect(save.stations.alchemy.auto).toBe(true)
+    expect(stationRoundBadge(save, 'alchemy')).toBe('1')
+    expect(clearManualQueue(save, 'alchemy').ok).toBe(true)
+    expect(save.stations.alchemy.auto).toBe(false)
     expect(save.stations.alchemy.manualRounds).toBe(0)
-    expect(clearManualQueue(save, 'alchemy').ok).toBe(false)
-    expect(save.stations.alchemy.auto).toBe(true)
-    expect(save.stations.alchemy.manualRounds).toBe(0)
-    expect(hand.assignment).toBe('alchemy')
+    expect(save.stations.alchemy.progress).toBe(0)
+    expect(hand.assignment).toBeNull()
+    expect(stationRoundBadge(save, 'alchemy')).toBe('0')
+    expect(restingWorkers(save).at(-1)?.id).toBe(hand.id)
+    expect(restingWorkers(save).some((worker) => worker.id === camper.id)).toBe(true)
+    const done = ticks(save, 40)
+    expect(done.stations.alchemy.completed ?? 0).toBe(0)
+    expect(done.stations.alchemy.auto).toBe(false)
+    expect(done.workers.find((worker) => worker.id === hand.id)?.assignment).toBeNull()
   })
 
   it('refuses a click on an auto line', () => {

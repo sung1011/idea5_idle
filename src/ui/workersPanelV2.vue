@@ -7,7 +7,7 @@ import {
   CLEAR_MANUAL_QUEUE_LABEL,
   CLEAR_MANUAL_QUEUE_NOTE,
   ROUND_BADGE_TIP,
-  manualQueueLeft,
+  canClearStationWork,
   stationRoundBadge,
   stationRoundBadgeAria,
 } from '../sim/workshopDispatch'
@@ -216,15 +216,15 @@ function closeRoundHelp() {
   roundHelpStation.value = null
 }
 
-const roundQueueLeft = computed(() => {
+const roundClearable = computed(() => {
   const stationId = roundHelpStation.value
-  if (!stationId) return 0
-  return manualQueueLeft(game.save, stationId)
+  if (!stationId) return false
+  return canClearStationWork(game.save, stationId)
 })
 
 function onClearManualQueue() {
   const stationId = roundHelpStation.value
-  if (!stationId || manualQueueLeft(game.save, stationId) <= 0) return
+  if (!stationId || !canClearStationWork(game.save, stationId)) return
   const result = game.clearManualQueue(stationId)
   if (result.ok) closeRoundHelp()
 }
@@ -763,7 +763,7 @@ onUnmounted(() => {
         type="button"
         class="round-clear"
         data-round-clear
-        :disabled="roundQueueLeft === 0"
+        :disabled="!roundClearable"
         @pointerdown.stop
         @click.stop="onClearManualQueue"
       >{{ CLEAR_MANUAL_QUEUE_LABEL }}</button>
