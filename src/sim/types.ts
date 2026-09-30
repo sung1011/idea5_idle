@@ -893,8 +893,13 @@ export type Save = {
   starterCopperPawnDone: boolean
   /** 工匠委托留下的工坊产量加成；到期后不算。 */
   workshopBuff: WorkshopBuff | null
-  /** 成功探索次数，驱动探索费用与下一板种子。 */
+  /** 成功探索次数，驱动下一板种子。费用看章节和 `exploreAttemptsInChapter`。 */
   exploreCount: number
+  /**
+   * 本章已成功探索次数。费用在章节底数上按这个加，进下一章清零。
+   * 旧档缺字段时 hydrate 用 `exploreCount`，避免第 1 章已爬过的阶梯被抹掉。
+   */
+  exploreAttemptsInChapter: number
   departCount: number
   lastDepartAt: number | null
   /** 消息箱。离线收益等写入这里，不再强弹顶栏。 */

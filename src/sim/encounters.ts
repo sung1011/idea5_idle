@@ -147,8 +147,19 @@ export function encountersOf(save: Save, board: EncounterBoardId): Encounter[] {
   return board === 'market' ? save.marketEncounters ?? [] : save.encounters ?? []
 }
 
-/** 探索费用。随探索次数略涨，超出表长后钉在末档。 */
-export const EXPLORE_COST_TABLE: readonly number[] = [8, 10, 12, 14, 16]
+/** 第 1 章第一次探索。之后每章 +`EXPLORE_COST_PER_CHAPTER`。 */
+export const EXPLORE_COST_CHAPTER_BASE = 8
+/** 章节之间的加价。第 1 章 8、第 2 章 12、第 3 章 16，依此类推。 */
+export const EXPLORE_COST_PER_CHAPTER = 4
+/** 同章内每成功探索一次加的金币，最多加 `EXPLORE_COST_ATTEMPT_CAP` 次。 */
+export const EXPLORE_COST_ATTEMPT_STEP = 2
+export const EXPLORE_COST_ATTEMPT_CAP = 4
+
+/** 第 1 章同章阶梯：8、10、12、14、16。其它章以 exploreCost 为准。 */
+export const EXPLORE_COST_TABLE: readonly number[] = Array.from(
+  { length: EXPLORE_COST_ATTEMPT_CAP + 1 },
+  (_, attempts) => EXPLORE_COST_CHAPTER_BASE + attempts * EXPLORE_COST_ATTEMPT_STEP,
+)
 
 export const ENCOUNTER_KIND_LABEL: Record<EncounterKind, string> = {
   enemy: '敌人',
@@ -1069,10 +1080,28 @@ export function boardSignature(encounters: readonly Encounter[]): string {
   return encounters.map((enc) => enc.id).join('|')
 }
 
+/** 旧档没有同章次数时，沿用累计探索次数，第 1 章已爬过的阶梯还在。 */
+export function normalizeExploreAttemptsInChapter(value: unknown, exploreCount: number): number {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) return Math.floor(value)
+  return Number.isFinite(exploreCount) && exploreCount > 0 ? Math.floor(exploreCount) : 0
+}
+
+export function exploreAttemptsInChapter(save: Save): number {
+  const raw = save.exploreAttemptsInChapter
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) return Math.floor(raw)
+  return 0
+}
+
+/** 折扣前的探索费：章节底数 + 同章次数加成。 */
+export function exploreCostBeforeDiscount(chapter: number, attempts: number): number {
+  const ch = normalizeMainChapter(chapter)
+  const steps = Math.max(0, Math.min(EXPLORE_COST_ATTEMPT_CAP, Math.floor(Number.isFinite(attempts) ? attempts : 0)))
+  return EXPLORE_COST_CHAPTER_BASE + (ch - 1) * EXPLORE_COST_PER_CHAPTER + steps * EXPLORE_COST_ATTEMPT_STEP
+}
+
 export function exploreCost(save: Save): number {
-  const count = Number.isFinite(save.exploreCount) && save.exploreCount > 0 ? Math.floor(save.exploreCount) : 0
-  const index = Math.min(count, EXPLORE_COST_TABLE.length - 1)
-  return Math.max(1, Math.round(EXPLORE_COST_TABLE[index] * exploreCostMul(save)))
+  const base = exploreCostBeforeDiscount(save.mainChapter, exploreAttemptsInChapter(save))
+  return Math.max(1, Math.round(base * exploreCostMul(save)))
 }
 
 export function exploreBlockReason(save: Save): string | null {
@@ -2116,6 +2145,7 @@ export function canClaimLoot(save: Save, index: number, now = Date.now()): boole
 export function advanceMainChapter(save: Save, _now = Date.now()): void {
   save.mainChapter = normalizeMainChapter(save.mainChapter) + 1
   save.mainLootClaims = 0
+  save.exploreAttemptsInChapter = 0
 }
 
 function grantCombatLootXp(save: Save, enc: EnemyEncounter): boolean {
@@ -2408,6 +2438,7 @@ export function exploreBoard(save: Save, now = Date.now()): ActionResult {
   const cost = exploreCost(save)
   save.gold -= cost
   save.exploreCount += 1
+  save.exploreAttemptsInChapter = exploreAttemptsInChapter(save) + 1
   if (!Array.isArray(save.marketEncounters)) save.marketEncounters = []
   expireTimedMarketOrders(save, now)
   resizeOneBoard(save, 'battlefield', now, false)
@@ -2721,6 +2752,7 @@ export function hydrateEncounterFields(save: Save): Save {
   const raw = save as LegacyOrderSave
   raw.exploreCount =
     Number.isFinite(raw.exploreCount) && raw.exploreCount > 0 ? Math.floor(raw.exploreCount) : 0
+  raw.exploreAttemptsInChapter = normalizeExploreAttemptsInChapter(raw.exploreAttemptsInChapter, raw.exploreCount)
   raw.departCount =
     Number.isFinite(raw.departCount) && raw.departCount > 0 ? Math.floor(raw.departCount) : 0
   raw.lastDepartAt =

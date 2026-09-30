@@ -73,6 +73,7 @@ export function createSave(): Save {
     starterCopperPawnDone: false,
     workshopBuff: null,
     exploreCount: 0,
+    exploreAttemptsInChapter: 0,
     departCount: 0,
     lastDepartAt: null,
     messages: [],

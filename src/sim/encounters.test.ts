@@ -8,6 +8,8 @@ import {
   BULK_BUY_DEFS,
   ENCOUNTER_SLOT_COUNT,
   EXPLORE_COST_TABLE,
+  advanceMainChapter,
+  exploreCostBeforeDiscount,
   PAWN_DEFS,
   PASSERBY_DEFS,
   CHAPTER_BOSS_MIN_QUALITY,
@@ -703,6 +705,50 @@ describe('main need wildcards', () => {
   })
 })
 
+describe('explore cost by chapter', () => {
+  it('adds 4 gold per chapter and 2 per attempt in the same chapter', () => {
+    expect(EXPLORE_COST_TABLE).toEqual([8, 10, 12, 14, 16])
+    expect(exploreCostBeforeDiscount(1, 0)).toBe(8)
+    expect(exploreCostBeforeDiscount(1, 4)).toBe(16)
+    expect(exploreCostBeforeDiscount(1, 9)).toBe(16)
+    expect(exploreCostBeforeDiscount(2, 0)).toBe(12)
+    expect(exploreCostBeforeDiscount(3, 0)).toBe(16)
+    expect(exploreCostBeforeDiscount(4, 0)).toBe(20)
+    expect(exploreCostBeforeDiscount(10, 0)).toBe(44)
+
+    const save = createSave()
+    save.mainChapter = 3
+    save.exploreAttemptsInChapter = 2
+    expect(exploreCost(save)).toBe(20)
+    save.unlockedTechIds = ['rushOrder', 's05DraftC']
+    expect(exploreCost(save)).toBe(14)
+  })
+
+  it('clears the in-chapter step when the chapter advances', () => {
+    const save = createSave()
+    save.gold = 200
+    expect(exploreBoard(save).ok).toBe(true)
+    expect(exploreBoard(save).ok).toBe(true)
+    expect(save.exploreAttemptsInChapter).toBe(2)
+    expect(exploreCost(save)).toBe(12)
+    advanceMainChapter(save)
+    expect(save.mainChapter).toBe(2)
+    expect(save.exploreAttemptsInChapter).toBe(0)
+    expect(exploreCost(save)).toBe(12)
+    expect(save.exploreCount).toBe(2)
+  })
+
+  it('keeps a climbed ladder when an old save has no attempt field', () => {
+    const save = createSave()
+    save.mainChapter = 5
+    save.exploreCount = 10
+    delete (save as { exploreAttemptsInChapter?: number }).exploreAttemptsInChapter
+    hydrateEncounterFields(save)
+    expect(save.exploreAttemptsInChapter).toBe(10)
+    expect(exploreCost(save)).toBe(32)
+  })
+})
+
 describe('exploreBoard', () => {
   it('deducts gold and replaces refreshable slots on the current board', () => {
     const save = createSave()
@@ -717,6 +763,8 @@ describe('exploreBoard', () => {
     if (result.ok) expect(result.message).toContain('探索完成')
     expect(save.gold).toBe(beforeGold - beforeCost)
     expect(save.exploreCount).toBe(1)
+    expect(save.exploreAttemptsInChapter).toBe(1)
+    expect(exploreCost(save)).toBe(10)
     expect(save.encounters).toHaveLength(BATTLEFIELD_SLOT_MIN)
     expect(save.marketEncounters).toHaveLength(MARKET_SLOT_MIN)
     expect(boardSignature([...save.encounters, ...save.marketEncounters])).not.toBe(beforeSig)
