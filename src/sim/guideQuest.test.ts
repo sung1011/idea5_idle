@@ -33,7 +33,6 @@ import {
   ensureGuidePotionCampTarget,
   firstIncompleteGuideQuestStep,
   guideAlchemyCardFlash,
-  guideAlchemyProgressFlash,
   guideFuseCue,
   guideFuseFlashStations,
   guideQuestFlashId,
@@ -539,20 +538,16 @@ describe('guide fuse and alchemy cues', () => {
     expect(fighterRecommendLabel(green?.combatAttrs ?? [], enc)).toBe('推荐')
   })
 
-  it('flashes the alchemy card until its detail opens, then the progress', () => {
+  it('flashes the alchemy station card and not the detail', () => {
     const save = createSave()
     save.guideQuestStep = mainlineStepOf('alchemy')
-    expect(guideAlchemyCardFlash(save, 'alchemy', null)).toBe(false)
+    expect(guideAlchemyCardFlash(save, 'alchemy')).toBe(false)
     expect(guideDispatchStation(save)).toBe('herbalism')
     save.bank.herb = 1
-    expect(guideAlchemyCardFlash(save, 'alchemy', null)).toBe(true)
-    expect(guideAlchemyCardFlash(save, 'herbalism', null)).toBe(false)
-    expect(guideAlchemyProgressFlash(save, 'alchemy')).toBe(true)
-    expect(guideAlchemyCardFlash(save, 'alchemy', 'alchemy')).toBe(false)
-    expect(guideAlchemyProgressFlash(save, 'herbalism')).toBe(false)
+    expect(guideAlchemyCardFlash(save, 'alchemy')).toBe(true)
+    expect(guideAlchemyCardFlash(save, 'herbalism')).toBe(false)
     save.stations.alchemy.completed = 1
-    expect(guideAlchemyCardFlash(save, 'alchemy', null)).toBe(false)
-    expect(guideAlchemyProgressFlash(save, 'alchemy')).toBe(false)
+    expect(guideAlchemyCardFlash(save, 'alchemy')).toBe(false)
   })
 
   it('does not repay a step that was already claimed', () => {

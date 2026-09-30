@@ -52,6 +52,9 @@ export function openGuideQuestTask(taskId: string, storage?: Storage | null): Ap
       openWorkshopStation('herbalism', storage)
       return 'workshop'
     case 'alchemy':
+      selectWorkshopStation('alchemy', storage)
+      showStationDetail(null)
+      return selectAppTab('workshop', storage)
     case 'alchemy3':
       openWorkshopStation('alchemy', storage)
       return 'workshop'

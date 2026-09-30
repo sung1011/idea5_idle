@@ -15,7 +15,6 @@ import { formatConsumeToken } from './encounterDeal'
 import { breakthroughChoices } from '../sim/beastCraft'
 import { itemQty } from '../sim/bank'
 import { useGameStore } from './gameStore'
-import { guideAlchemyProgressFlash } from '../sim/guideQuest'
 import { itemSourceFlashCategories, isItemSourceStationFlash } from './itemSource'
 import { pushFloatTip } from './floatTips'
 import { MANUAL_DUTY_REASON } from './workerDrag'
@@ -84,7 +83,6 @@ const pickCaption = computed(() => {
 const pickOptions = computed(() => categoryPickOptions(game.save, props.stationId))
 const sourceFlashCats = computed(() => itemSourceFlashCategories(props.stationId))
 const sourceFlashStation = computed(() => isItemSourceStationFlash(props.stationId))
-const alchemyProgressFlash = computed(() => guideAlchemyProgressFlash(game.save, props.stationId))
 const showCategoryPick = computed(() => pickOptions.value.length > 1 || sourceFlashCats.value.length > 0)
 const categorySelectOptions = computed<UiSelectOption[]>(() => {
   const rows: UiSelectOption[] = pickOptions.value.map((c) => ({
@@ -248,7 +246,7 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
               <p class="wear-meta">强度{{ wear.strength }} · {{ wear.remainText }}</p>
             </dd>
           </div>
-          <div class="progress" :class="{ 'guide-flash': alchemyProgressFlash }">
+          <div class="progress">
             <dt>制造进度</dt>
             <dd>
               <div class="craft" :class="{ halt: craft.halted }" :style="craft.halted ? undefined : tone">

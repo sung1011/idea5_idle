@@ -75,7 +75,7 @@ const fightingRoster = computed(() =>
 )
 const combatOpen = ref(false)
 const shownCombat = computed(() => combatOpen.value && fightingRoster.value.length > 0)
-const alchemyCardFlash = computed(() => guideAlchemyCardFlash(game.save, 'alchemy', openStationDetailId.value))
+const alchemyCardFlash = computed(() => guideAlchemyCardFlash(game.save, 'alchemy'))
 const rosterFaceSize = computed(() => (shownCombat.value ? 'md' : 'sm'))
 watch(
   () => fightingRoster.value.length,

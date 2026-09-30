@@ -414,14 +414,9 @@ export function guideFuseFlashStations(_save: Save, _campOpen: boolean): Station
   return []
 }
 
-/** 炼金步：详情没开时闪炼金站卡。 */
-export function guideAlchemyCardFlash(save: Save, stationId: StationId, openDetail: StationId | null): boolean {
-  return stationId === 'alchemy' && isGuideQuestFlash(save, 'alchemy') && !guideAlchemyNeedsHerbs(save) && openDetail !== 'alchemy'
-}
-
-/** 炼金详情打开后，闪里面的制造进度。 */
-export function guideAlchemyProgressFlash(save: Save, stationId: StationId): boolean {
-  return stationId === 'alchemy' && isGuideQuestFlash(save, 'alchemy')
+/** 炼金步：有原料时闪炼金站卡。详情打开也不改圈详情。 */
+export function guideAlchemyCardFlash(save: Save, stationId: StationId): boolean {
+  return stationId === 'alchemy' && isGuideQuestFlash(save, 'alchemy') && !guideAlchemyNeedsHerbs(save)
 }
 
 function guideStepGoal(save: Save, row: MainlineTask, claimable: boolean, campOpen: boolean): string {

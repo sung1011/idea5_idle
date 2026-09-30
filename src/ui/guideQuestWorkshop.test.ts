@@ -23,15 +23,16 @@ describe('workshop guide wiring', () => {
     expect(appSource).toContain('v-if="campSheetOpen"')
   })
 
-  it('flashes the alchemy station card, and the detail progress after it opens', () => {
+  it('flashes the alchemy station card and does not flash the detail progress', () => {
     expect(panelSource).toContain("alchemyCardFlash && board.stationId === 'alchemy'")
+    expect(panelSource).toContain('guideAlchemyCardFlash(game.save, \'alchemy\')')
     expect(panelSource).toContain('data-round-auto')
     expect(panelSource).toContain('data-round-badge')
     expect(panelSource).not.toContain('class="auto-toggle"')
     expect(panelSource).toContain('guideFlashAuto && !roundHelpStation')
     expect(panelSource).toContain("'guide-flash': guideFlashAuto")
-    expect(detailSource).toContain('guideAlchemyProgressFlash')
-    expect(detailSource).toContain("'guide-flash': alchemyProgressFlash")
+    expect(detailSource).not.toContain('guideAlchemyProgressFlash')
+    expect(detailSource).not.toContain('alchemyProgressFlash')
   })
 
   it('reads whether the camp list is open when drawing the guide line', () => {

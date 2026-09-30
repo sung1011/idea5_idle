@@ -3,6 +3,7 @@ import { appTab, workshopTab } from './appNav'
 import { APP_TAB_KEY } from './appTabs'
 import { guideCampOpenRequest, openGuideQuestStep, openGuideQuestTask, pendingGuideRunePick } from './guideQuestNav'
 import { MAINLINE_TAB_KEY, mainlineTab } from './mainlineTabs'
+import { openStationDetailId, showStationDetail } from './stationDetailNav'
 import { WORKSHOP_TAB_KEY } from './workshopTabs'
 
 function memory(): Storage {
@@ -53,9 +54,11 @@ describe('guideQuestNav', () => {
     expect(guideCampOpenRequest.value).toBe(campBefore + 2)
 
     expect(openGuideQuestStep(6, store)).toBe('workshop')
+    showStationDetail('alchemy')
     expect(openGuideQuestStep(7, store)).toBe('workshop')
     expect(workshopTab.value).toBe('alchemy')
     expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('alchemy')
+    expect(openStationDetailId.value).toBeNull()
     const campBeforePotion = guideCampOpenRequest.value
     expect(openGuideQuestStep(8, store)).toBe('workshop')
     expect(guideCampOpenRequest.value).toBe(campBeforePotion + 1)
@@ -85,5 +88,9 @@ describe('guideQuestNav', () => {
     expect(guideCampOpenRequest.value).toBe(camp + 1)
     expect(openGuideQuestTask('veteran', store)).toBe('encounters')
     expect(mainlineTab.value).toBe('battlefield')
+
+    expect(openGuideQuestTask('alchemy3', store)).toBe('workshop')
+    expect(workshopTab.value).toBe('alchemy')
+    expect(openStationDetailId.value).toBe('alchemy')
   })
 })
