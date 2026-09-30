@@ -180,7 +180,6 @@ export function blankStation(stationId: StationId): StationState {
     wearWindow: -1,
     wearCredited: 0,
     wearScareHit: false,
-    closed: false,
     auto: false,
     manualRounds: 0,
     ...(stationId === 'mining'
@@ -229,7 +228,6 @@ export function hydrateStationState(stationId: StationId, incoming?: Partial<Sta
         ? Math.min(1, Math.max(0, incoming.wearCredited))
         : 0,
     wearScareHit: incoming.wearScareHit === true,
-    closed: incoming.closed === true,
     auto: incoming.auto === true,
     manualRounds:
       typeof incoming.manualRounds === 'number' && Number.isFinite(incoming.manualRounds)

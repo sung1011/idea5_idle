@@ -71,14 +71,13 @@ function pullManualHead(save: Save, stationId: StationId): boolean {
   return assignWorker(save, head.id, stationId).ok
 }
 
-/** 空着的手动排队，以及开着自动、未封闭的站，按站序各拉一次当时的营地队首。 */
+/** 空着的手动排队，以及开着自动的站，按站序各拉一次当时的营地队首。 */
 export function pullWaitingManualRounds(save: Save): void {
   for (const stationId of STATION_ORDER) {
     const station = save.stations[stationId]
     if (!isStationUnlocked(save, stationId)) continue
     if (assignedWorkers(save, stationId).length > 0) continue
     if (station.auto) {
-      if (station.closed) continue
       pullManualHead(save, stationId)
       continue
     }
@@ -89,7 +88,7 @@ export function pullWaitingManualRounds(save: Save): void {
 
 /**
  * 一轮做完：人回营地队尾。
- * 手动后面还有轮次，或自动线仍开着且未封闭，就再拉当时的满血队首。
+ * 手动后面还有轮次，或自动线仍开着，就再拉当时的满血队首。
  */
 export function finishManualRound(save: Save, stationId: StationId): void {
   const station = save.stations[stationId]
@@ -101,7 +100,7 @@ export function finishManualRound(save: Save, stationId: StationId): void {
     offerRestFood(save, worker.id)
   }
   if (station.auto) {
-    if (!station.closed && isStationUnlocked(save, stationId)) pullManualHead(save, stationId)
+    if (isStationUnlocked(save, stationId)) pullManualHead(save, stationId)
     return
   }
   if (station.manualRounds > 0) pullManualHead(save, stationId)

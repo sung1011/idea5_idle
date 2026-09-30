@@ -305,14 +305,6 @@ describe('workshop manual dispatch and auto lines', () => {
     const skipped = ticks(wounded, 3)
     expect(skipped.workers[0]?.assignment).toBeNull()
     expect(skipped.stations.herbalism.auto).toBe(true)
-
-    const sealed = createSave()
-    grantOpenedModules(sealed, ['alchemy'])
-    const camper = fullWorker(sealed)
-    expect(toggleStationAuto(sealed, 'herbalism').ok).toBe(true)
-    sealed.stations.herbalism.closed = true
-    const held = ticks(sealed, 2)
-    expect(held.workers.find((worker) => worker.id === camper.id)?.assignment).toBeNull()
   })
 
   it('finishes the current auto round as one manual round when switched off', () => {

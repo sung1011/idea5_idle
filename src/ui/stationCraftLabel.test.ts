@@ -97,7 +97,7 @@ describe('station craft label', () => {
   it('puts the workshop progress bar and efficiency on one row with a fixed efficiency width', () => {
     const row = workersPanelSource.slice(
       workersPanelSource.indexOf('.roster-v2:not(.sheet-ops) .station-craft-row :deep(.station-progress .bar)'),
-      workersPanelSource.indexOf('.station.closed .station-name b::after'),
+      workersPanelSource.indexOf('.roster-v2 .slot.empty'),
     )
     const barRule = row.match(/\.station-progress \.bar\)\s*\{[^}]*\}/)
     const effRule = row.match(/\.station-progress \.eff\)\s*\{[^}]*\}/)
@@ -118,7 +118,7 @@ describe('station craft label', () => {
     expect(miniSource).toContain('class="eff-value"')
     expect(miniSource).toContain('tabular-nums')
     expect(miniSource).toMatch(/\.eff-reserve,[\s\S]*?\.eff-value\s*\{[^}]*grid-area:\s*1 \/ 1/)
-    expect(workersPanelSource).toContain("content: '封'")
+    expect(workersPanelSource).not.toContain("content: '封'")
     expect(workersPanelSource).toMatch(/\.station\s*\{[^}]*min-width:\s*0/)
     expect(workersPanelSource).toMatch(/\.station-craft-row\s*\{[^}]*min-width:\s*0/)
   })

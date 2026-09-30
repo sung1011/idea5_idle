@@ -64,7 +64,6 @@ describe('craftProgressView', () => {
     speed: 0.2,
     assigned: 1,
     paused: false,
-    closed: false,
     lastTick: 1000,
     now: 1000,
   }
@@ -112,26 +111,17 @@ describe('craftProgressView', () => {
     expect(junk.ratio).toBe(0)
   })
 
-  it('holds and names an empty post, a sealed empty post, and a pause', () => {
+  it('holds and names an empty post and a pause', () => {
     const empty = craftProgressView({ ...running, assigned: 0, now: 4000 })
     expect(empty.halted).toBe(true)
     expect(empty.halt).toBe('empty')
     expect(empty.ratio).toBeCloseTo(0.4)
     expect(craftHaltText(empty.halt)).toBe('无苦工在岗')
 
-    const sealed = craftProgressView({ ...running, assigned: 0, closed: true, progress: 0, now: 4000 })
-    expect(sealed.halt).toBe('closed')
-    expect(sealed.ratio).toBe(0)
-    expect(craftHaltText(sealed.halt)).toBe('已封闭')
-
     const paused = craftProgressView({ ...running, paused: true, now: 4000 })
     expect(paused.halt).toBe('paused')
     expect(paused.ratio).toBeCloseTo(0.4)
     expect(craftHaltText(paused.halt, '草见底：采药空转')).toBe('草见底：采药空转')
     expect(craftHaltText(paused.halt, '  ')).toBe('暂停')
-
-    const busySealed = craftProgressView({ ...running, closed: true, now: 3000 })
-    expect(busySealed.halted).toBe(false)
-    expect(busySealed.ratio).toBeCloseTo(0.8)
   })
 })

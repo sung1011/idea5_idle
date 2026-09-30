@@ -69,7 +69,7 @@ function panelGrowsUp(panel: HTMLElement): boolean {
 function skipDialog(dialog: HTMLElement): boolean {
   return Boolean(
     dialog.getAttribute('role') === 'alertdialog' ||
-      dialog.closest('.ask-mask, .seal-ask-layer, .guide-mask, .guide-finger'),
+      dialog.closest('.ask-mask, .guide-mask, .guide-finger'),
   )
 }
 
@@ -78,7 +78,7 @@ function topButtons(panel: HTMLElement, appliedPad: number, growsUp: boolean): B
   const panelTop = panel.getBoundingClientRect().top + shift
   const boxes: Box[] = []
   for (const node of panel.querySelectorAll<HTMLElement>('button')) {
-    if (node.closest('[role="alertdialog"], .ask-mask, .seal-ask-layer, .guide-mask, .guide-finger')) continue
+    if (node.closest('[role="alertdialog"], .ask-mask, .guide-mask, .guide-finger')) continue
     const rect = node.getBoundingClientRect()
     if (rect.width <= 0 || rect.height <= 0) continue
     if (rect.top + shift > panelTop + TOP_BAND) continue

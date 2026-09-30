@@ -48,17 +48,6 @@ describe('dock station hp', () => {
     expect(byId.inscription).toMatchObject({ fill: 0, empty: true })
   })
 
-  it('keeps a closed station on the same wear fill', () => {
-    const save = createSave()
-    save.stations.herbalism.closed = true
-    save.stations.alchemy.closed = true
-    save.workers.push(worker({ id: 'herb', assignment: 'herbalism', hp: 10, hpMax: 20, fatigueDebt: 0 }))
-    const cells = dockStationHp(save)
-    const byId = Object.fromEntries(cells.map((cell) => [cell.stationId, cell]))
-    expect(byId.herbalism).toMatchObject({ fill: 0.5, tone: 'mid', empty: false })
-    expect(byId.alchemy).toMatchObject({ fill: 0, empty: true })
-  })
-
   it('hides the strip on the workshop page and shows it elsewhere', () => {
     expect(showDockStationHp('workshop')).toBe(false)
     expect(showDockStationHp('encounters')).toBe(true)

@@ -542,7 +542,6 @@ onUnmounted(() => {
             :data-station-card="board.stationId"
             :class="{
               locked: stationLocked(board.stationId),
-              closed: game.save.stations[board.stationId].closed,
               auto: game.save.stations[board.stationId].auto,
               'guide-flash':
                 isItemSourceStationFlash(board.stationId) ||
@@ -2038,19 +2037,6 @@ onUnmounted(() => {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.station.closed .station-name b::after {
-  content: '封';
-  margin-left: 4px;
-  padding: 0 3px;
-  border-radius: 3px;
-  background: #8a3a2a;
-  color: #fff4d8;
-  font-size: 10px;
-  line-height: 1.3;
-  letter-spacing: 0;
-  writing-mode: horizontal-tb;
 }
 
 .roster-v2 .slot.empty {

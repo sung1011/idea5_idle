@@ -14,7 +14,7 @@ export type VisualProgressInput = {
   wrap?: boolean
 }
 
-export type CraftProgressHalt = 'closed' | 'empty' | 'paused'
+export type CraftProgressHalt = 'empty' | 'paused'
 
 export type CraftProgressInput = {
   progress: number
@@ -23,8 +23,6 @@ export type CraftProgressInput = {
   assigned: number
   /** 缺料、采集冻结，或速度为 0：sim 不加 progress。 */
   paused: boolean
-  /** 封闭。没人时停住；已有苦工在岗则继续按真实进度走。 */
-  closed: boolean
   lastTick: number
   now: number
 }
@@ -83,7 +81,6 @@ export function visualStationProgress(input: VisualProgressInput): number {
 }
 
 export function craftHaltText(halt: CraftProgressHalt | null, detail?: string | null): string | null {
-  if (halt === 'closed') return '已封闭'
   if (halt === 'empty') return '无苦工在岗'
   if (halt === 'paused') {
     const text = typeof detail === 'string' ? detail.trim() : ''
@@ -98,7 +95,7 @@ export function craftProgressView(input: CraftProgressInput): CraftProgressView 
   const speed = finiteOr(input.speed)
   const noCrew = assigned <= 0
   const paused = input.paused === true || (!noCrew && speed <= 0)
-  const halt: CraftProgressHalt | null = noCrew ? (input.closed ? 'closed' : 'empty') : paused ? 'paused' : null
+  const halt: CraftProgressHalt | null = noCrew ? 'empty' : paused ? 'paused' : null
   const ratio = visualStationProgress({
     progress: input.progress,
     speed,

@@ -19,7 +19,7 @@ export function showDockStationHp(tab: AppTabId): boolean {
   return tab !== 'workshop'
 }
 
-/** 底栏上沿六格。顺序固定 STATION_ORDER，只读在岗第一人。封闭不改这条：有人仍按 wearHp，无人标成空岗。 */
+/** 底栏上沿六格。顺序固定 STATION_ORDER，只读在岗第一人。有人按 wearHp，无人标成空岗。 */
 export function dockStationHp(save: Save): DockStationHpCell[] {
   return STATION_ORDER.map((stationId) => {
     const worker = assignedWorkers(save, stationId)[0]

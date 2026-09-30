@@ -86,12 +86,11 @@ export function restingWorkers(save: Save): Worker[] {
   )
 }
 
-/** 已解锁、未封闭、空岗。按 STATION_ORDER，满员与封闭都跳过。 */
+/** 已解锁、开着自动、空岗。按 STATION_ORDER，满员跳过。 */
 export function firstEmptyDispatchStation(save: Save): StationId | null {
   for (const stationId of STATION_ORDER) {
     if (!isStationUnlocked(save, stationId)) continue
     if (!save.stations[stationId].auto) continue
-    if (save.stations[stationId].closed) continue
     if (assignedWorkers(save, stationId).length < STATION_WORKER_CAP) return stationId
   }
   return null
@@ -114,13 +113,6 @@ export function assignRestingToFirstEmpty(save: Save): ActionResult {
     return { ok: false, reason: '工位已满' }
   }
   return assignWorker(save, idle.id, stationId)
-}
-
-/** 封闭只挡自动填岗。再按一次开放。不要求满血。 */
-export function toggleStationClosed(save: Save, stationId: StationId): ActionResult {
-  if (isDeprecatedStationId(stationId) || !isStationId(stationId)) return { ok: false, reason: '没有这个站点' }
-  save.stations[stationId].closed = !save.stations[stationId].closed
-  return { ok: true }
 }
 
 /** 队首派到指定站。工坊空岗不再点这个；进人走 `assignRestingToFirstEmpty`。 */

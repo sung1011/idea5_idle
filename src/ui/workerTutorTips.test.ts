@@ -69,7 +69,7 @@ describe('worker tutor tips', () => {
     expect(text).toContain('队首')
     expect(text).toContain('堵住后面')
     expect(text).toContain('满血才能上岗')
-    expect(text).toContain('封闭后不再自动进人')
+    expect(text).not.toContain('封闭')
     expect(text).toContain('回营地的苦工排到队尾，不会堵在队首')
     expect(text).not.toContain('回休息')
     expect(text).toContain('点站卡派工')

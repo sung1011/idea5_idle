@@ -5,7 +5,6 @@ import {
   assignWorker,
   clampStationAssignments,
   restingWorkers,
-  toggleStationClosed,
   withdrawWorker,
 } from './assign'
 import { beginEnemyCombat } from './combat'
@@ -164,7 +163,7 @@ describe('rest merge', () => {
 })
 
 describe('workshop full hp gate', () => {
-  it('rejects wounded or indebted workers and still allows withdraw and the closed toggle', () => {
+  it('rejects wounded or indebted workers and still allows withdraw', () => {
     const save = createSave()
     const worker = spawnWorker(save)
     expect(assignWorker(save, worker.id, 'herbalism')).toEqual({ ok: true })
@@ -176,13 +175,9 @@ describe('workshop full hp gate', () => {
     worker.hp = worker.hpMax
     worker.fatigueDebt = 0.2
     expect(assignWorker(save, worker.id, 'herbalism')).toEqual({ ok: false, reason: '满血才能上岗' })
-    expect(toggleStationClosed(save, 'alchemy')).toEqual({ ok: true })
-    expect(save.stations.alchemy.closed).toBe(true)
-    expect(toggleStationClosed(save, 'alchemy')).toEqual({ ok: true })
-    expect(save.stations.alchemy.closed).toBe(false)
   })
 
-  it('blocks the queue on a wounded head and skips closed stations until they reopen', () => {
+  it('blocks the queue on a wounded head and fills the first auto station', () => {
     const blocked = createSave()
     const head = spawnWorker(blocked)
     const next = spawnWorker(blocked)
@@ -198,32 +193,20 @@ describe('workshop full hp gate', () => {
     grantOpenedModules(save, ['alchemy'])
     save.stations.herbalism.auto = true
     save.stations.alchemy.auto = true
-    save.stations.herbalism.closed = true
-    save.stations.alchemy.closed = true
-    expect(assignRestingToFirstEmpty(save)).toEqual({
-      ok: false,
-      reason: '完成主线「升到酋长 6 级（开放狩猎、集市）」后开启',
-    })
-    expect(assignWorker(save, idle.id, 'herbalism')).toEqual({ ok: true })
-    expect(withdrawWorker(save, 'herbalism')).toEqual({ ok: true })
-    save.stations.herbalism.closed = false
     expect(assignRestingToFirstEmpty(save)).toEqual({ ok: true })
     expect(idle.assignment).toBe('herbalism')
   })
 
-  it('auto-fills one full rest head per tick and does not pass a wounded head', () => {
+  it('fills every open auto station in one tick and does not pass a wounded head', () => {
     const open = createSave()
     const first = spawnWorker(open)
     const second = spawnWorker(open)
     grantOpenedModules(open, ['alchemy'])
     open.stations.herbalism.auto = true
     open.stations.alchemy.auto = true
-    open.stations.herbalism.closed = true
     const filled = ticks(open, 1)
-    expect(filled.workers.find((worker) => worker.id === first.id)?.assignment).toBe('alchemy')
-    expect(filled.workers.find((worker) => worker.id === second.id)?.assignment).toBeNull()
-    const still = ticks(filled, 1)
-    expect(still.workers.find((worker) => worker.id === second.id)?.assignment).toBeNull()
+    expect(filled.workers.find((worker) => worker.id === first.id)?.assignment).toBe('herbalism')
+    expect(filled.workers.find((worker) => worker.id === second.id)?.assignment).toBe('alchemy')
 
     const wounded = createSave()
     const head = spawnWorker(wounded)

@@ -472,8 +472,6 @@ export type StationState = {
   wearCredited: number
   /** 本轮随机惊吓是否已经触发。一轮最多一次。 */
   wearScareHit: boolean
-  /** 封闭：只挡自动拉人。正在做的这一轮会做完。 */
-  closed: boolean
   /** 自动线：无限排队。一轮做完回营地队尾，再拉满血队首。名额见 `autoLineQuota`。 */
   auto: boolean
   /** 手动站剩余轮数，含正在干的这一轮。最多 5。 */

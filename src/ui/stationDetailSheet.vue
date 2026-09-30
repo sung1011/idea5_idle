@@ -17,7 +17,6 @@ import { itemQty } from '../sim/bank'
 import { useGameStore } from './gameStore'
 import { itemSourceFlashCategories, isItemSourceStationFlash } from './itemSource'
 import { pushFloatTip } from './floatTips'
-import { MANUAL_DUTY_REASON } from './workerDrag'
 import HelpMark from './helpMark.vue'
 import ModeHelpSheet from './modeHelpSheet.vue'
 import { stationHelpCopy } from './stationHelp'
@@ -40,7 +39,6 @@ const emit = defineEmits<{
 
 const game = useGameStore()
 const helpOpen = ref(false)
-const sealAsk = ref(false)
 const coreOpen = ref(false)
 const beastCook = computed(() => props.stationId === 'cooking')
 const beastAlchemy = computed(() => props.stationId === 'alchemy')
@@ -107,7 +105,6 @@ const craft = computed(() =>
     speed: speed.value,
     assigned: crew.value.length,
     paused: !!station.value.stallReason || frozen.value,
-    closed: station.value.closed,
     lastTick: game.save.lastTick,
     now: frameNow.value,
   }),
@@ -132,15 +129,6 @@ function onPick(value: string) {
   game.selectCategory(props.stationId, value as CategoryId)
 }
 
-function onWithdraw() {
-  if (!duty.value) return
-  pushFloatTip(MANUAL_DUTY_REASON)
-}
-
-function onSwap() {
-  pushFloatTip(MANUAL_DUTY_REASON)
-}
-
 function onWorker() {
   const worker = duty.value
   if (!worker) {
@@ -150,29 +138,9 @@ function onWorker() {
   emit('openWorker', worker)
 }
 
-function onAskSeal() {
-  sealAsk.value = true
-}
-
-function onCancelSeal() {
-  sealAsk.value = false
-}
-
-function onConfirmSeal() {
-  const result = game.toggleStationClosed(props.stationId)
-  sealAsk.value = false
-  if (!result.ok && result.reason) pushFloatTip(result.reason)
-}
-
-function onOpenStation() {
-  const result = game.toggleStationClosed(props.stationId)
-  if (!result.ok && result.reason) pushFloatTip(result.reason)
-}
-
 function onHelpKey(ev: KeyboardEvent) {
   if (ev.key === 'Escape') {
-    if (sealAsk.value) sealAsk.value = false
-    else if (helpOpen.value) helpOpen.value = false
+    if (helpOpen.value) helpOpen.value = false
     else emit('close')
   }
 }
@@ -312,13 +280,7 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
           <ActButton icon="crate" kind="primary" tone="produce" cost="困兽之核 ×1" :disabled="itemQty(game.save, 'beastCore') < 1" @click="coreOpen = true">困兽之核突破</ActButton>
         </section>
         <div class="actions">
-          <button type="button" :disabled="!duty" @click="onWithdraw">撤出</button>
-          <button type="button" @click="onSwap">换人</button>
           <button type="button" @click="onWorker">苦工详情</button>
-        </div>
-        <div class="seal">
-          <ActButton v-if="station.closed" icon="check" kind="minor" @click="onOpenStation">开启</ActButton>
-          <ActButton v-else-if="!sealAsk" icon="close" kind="danger" @click="onAskSeal">封闭</ActButton>
         </div>
       </section>
     </div>
@@ -341,13 +303,6 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
       </section>
     </div>
     <ModeHelpSheet v-if="helpOpen" :title="help.title" :rows="help.rows" @close="helpOpen = false" />
-    <div v-if="sealAsk" class="seal-ask-layer">
-      <p class="seal-ask" role="alertdialog" :aria-label="`确认封闭${def.label}`">
-        封闭后不再自动拉人。正在做的这一轮会做完，做完回营地。
-        <button type="button" @click="onCancelSeal">取消</button>
-        <button type="button" @click="onConfirmSeal">确定封闭</button>
-      </p>
-    </div>
   </Teleport>
 </template>
 
@@ -609,42 +564,5 @@ dd {
 
 .actions button {
   flex: 1 1 0;
-}
-
-.seal {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: auto;
-}
-
-.seal-ask-layer {
-  position: fixed;
-  z-index: var(--z-confirm);
-  left: 50%;
-  bottom: calc(var(--dock-height) + 16px);
-  width: min(448px, calc(100% - 24px));
-  transform: translateX(-50%);
-}
-
-.seal-ask {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  width: 100%;
-  margin: 0;
-  padding: 12px;
-  border: 3px solid var(--gold-deep);
-  border-radius: 12px;
-  background: var(--wood-face);
-  box-shadow: 0 6px 0 var(--shadow);
-  color: #b42318;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.seal-ask button {
-  min-height: 28px;
 }
 </style>
