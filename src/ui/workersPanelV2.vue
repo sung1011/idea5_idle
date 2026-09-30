@@ -22,7 +22,7 @@ import {
   type PotionHelpKey,
 } from './potionHelp'
 import type { ItemId } from '../sim/types'
-import { guideAlchemyCardFlash, guideDispatchStation, guideFuseFlashStations, guideNeedsDutyForPotion, isGuideQuestFlash } from '../sim/guideQuest'
+import { guideAlchemyCardFlash, guideDispatchStation, guideNeedsDutyForPotion, isGuideQuestFlash } from '../sim/guideQuest'
 import { ROUND_BADGE_TIP } from '../sim/workshopDispatch'
 import { moduleNoticeOn, type ModuleId } from '../sim/moduleUnlock'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
@@ -98,7 +98,6 @@ const fightingRoster = computed(() =>
 )
 const combatOpen = ref(false)
 const shownCombat = computed(() => combatOpen.value && fightingRoster.value.length > 0)
-const fuseStations = computed(() => guideFuseFlashStations(game.save, campSheetOpen.value))
 const alchemyCardFlash = computed(() => guideAlchemyCardFlash(game.save, 'alchemy', openStationDetailId.value))
 const rosterFaceSize = computed(() => (shownCombat.value ? 'md' : 'sm'))
 watch(
@@ -715,8 +714,7 @@ onUnmounted(() => {
                 (guideFlashHerbStation && board.stationId === 'herbalism') ||
                 guideDispatchTarget === board.stationId ||
                 (alchemyCardFlash && board.stationId === 'alchemy') ||
-                (isGuideQuestFlash(game.save, 'mining') && board.stationId === 'mining') ||
-                fuseStations.includes(board.stationId),
+                (isGuideQuestFlash(game.save, 'mining') && board.stationId === 'mining'),
             }"
             @pointerdown="onStationPointerDown($event, board.stationId)"
             @click="onStationCardClick($event, board.stationId)"

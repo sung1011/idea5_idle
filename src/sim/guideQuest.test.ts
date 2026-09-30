@@ -17,6 +17,7 @@ import {
   GUIDE_FUSE_DRAG_GOAL,
   GUIDE_FUSE_EMPTY_GOAL,
   GUIDE_FUSE_OPEN_GOAL,
+  GUIDE_FUSE_WAIT_GOAL,
   GUIDE_RECRUIT_CLOSED_GOAL,
   GUIDE_RECRUIT_OPEN_GOAL,
   guideClaimNotice,
@@ -203,7 +204,7 @@ describe('guideQuest steps and claim', () => {
     spawnWorker(save)
     spawnWorker(save)
     expect(fuseRestWorkers(save, save.workers[1].id, save.workers[2].id).ok).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('名册里有 2 档及以上苦工')
+    expect(guideQuestView(save)?.goal).toBe('在营地把两名同品质苦工合成，名册出现 2 档')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('combat'))
     expect(guideQuestView(save)?.title).toBe('出征')
@@ -446,21 +447,50 @@ describe('guide fuse and alchemy cues', () => {
     expect(guideFuseFlashStations(save, true)).toEqual([])
   })
 
-  it('flashes the camp button until the list opens, then the list and matching stations', () => {
+  it('waits while only one camp worker can pair, and never flashes stations', () => {
     const save = createSave()
     save.guideQuestStep = mainlineStepOf('fuse')
     spawnWorker(save)
     spawnWorker(save)
-    spawnWorker(save)
     save.workers[0].assignment = 'herbalism'
-    save.workers[1].assignment = 'cooking'
+    expect(guideFuseCue(save, false)).toBe('wait')
+    expect(guideFuseCue(save, true)).toBe('wait')
+    expect(guideQuestView(save, false)?.goal).toBe(GUIDE_FUSE_WAIT_GOAL)
+    expect(guideQuestView(save, true)?.goal).toBe(GUIDE_FUSE_WAIT_GOAL)
+    expect(GUIDE_FUSE_WAIT_GOAL).toContain('回到营地')
+    expect(guideFuseFlashStations(save, true)).toEqual([])
+
+    spawnWorker(save)
     expect(guideFuseCue(save, false)).toBe('openCamp')
     expect(guideQuestView(save, false)?.goal).toBe(GUIDE_FUSE_OPEN_GOAL)
-    expect(guideFuseFlashStations(save, false)).toEqual([])
     expect(guideFuseCue(save, true)).toBe('drag')
     expect(guideQuestView(save, true)?.goal).toBe(GUIDE_FUSE_DRAG_GOAL)
     expect(GUIDE_FUSE_DRAG_GOAL).toContain('任意方向')
-    expect(guideFuseFlashStations(save, true)).toEqual(['herbalism', 'cooking'])
+    expect(guideFuseFlashStations(save, false)).toEqual([])
+    expect(guideFuseFlashStations(save, true)).toEqual([])
+  })
+
+  it('unblocks camp fuse after the station worker returns, without recruiting again', () => {
+    let save = createSave()
+    expect(recruitWorker(save).ok).toBe(true)
+    expect(recruitWorker(save).ok).toBe(true)
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(dispatchManualRound(save, 'herbalism').ok).toBe(true)
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(dispatchManualRound(save, 'herbalism').ok).toBe(true)
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestView(save)?.taskId).toBe('fuse')
+    expect(guideFuseCue(save, true)).toBe('wait')
+    expect(guideFuseFlashStations(save, true)).toEqual([])
+    for (let i = 0; i < 80 && restingWorkers(save).length < 2; i++) save = ticks(save, 8)
+    expect(restingWorkers(save).length).toBeGreaterThanOrEqual(2)
+    expect(guideFuseCue(save, false)).toBe('openCamp')
+    expect(guideFuseCue(save, true)).toBe('drag')
+    expect(guideFuseFlashStations(save, true)).toEqual([])
+    const resting = restingWorkers(save)
+    expect(fuseRestWorkers(save, resting[0].id, resting[1].id).ok).toBe(true)
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestView(save)?.taskId).toBe('combat')
   })
 
   it('aligns the first fused worker with the starter enemy so the pick sheet marks 推荐', () => {
@@ -529,6 +559,9 @@ describe('early guide on a fresh save', () => {
     expect(save.stations.herbalism.manualRounds).toBeGreaterThanOrEqual(2)
     expect(claimGuideQuest(save).ok).toBe(true)
 
+    expect(guideFuseCue(save, true)).toBe('wait')
+    expect(guideQuestView(save, true)?.goal).toBe(GUIDE_FUSE_WAIT_GOAL)
+    expect(guideFuseFlashStations(save, true)).toEqual([])
     expect(recruitWorker(save).ok).toBe(true)
     const resting = restingWorkers(save)
     expect(resting.length).toBeGreaterThanOrEqual(2)

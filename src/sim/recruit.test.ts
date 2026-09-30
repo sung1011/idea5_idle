@@ -165,8 +165,6 @@ describe('fuseWorkers', () => {
     const save = keepStationsOpen(createSave())
     const a = spawnWorker(save)
     const b = spawnWorker(save)
-    expect(assignWorker(save, a.id, 'mining').ok).toBe(true)
-    b.assignment = 'mining'
     const result = fuseWorkers(save, a.id, b.id)
     expect(result.ok).toBe(true)
     expect(save.workers).toHaveLength(1)
@@ -185,22 +183,18 @@ describe('fuseWorkers', () => {
     const b = spawnWorker(save)
     a.classId = 'laborer'
     b.classId = 'laborer'
-    expect(assignWorker(save, a.id, 'cooking').ok).toBe(true)
-    b.assignment = 'cooking'
     setRollOverride(() => 0.99)
     expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
     expect(save.workers[0].classId).toBe('miner')
     expect(save.workers[0].classId).not.toBe('laborer')
   })
 
-  it('returns leftover food to the bank; new worker stays assigned', () => {
+  it('returns leftover food to the bank; new worker stays in camp', () => {
     const save = keepStationsOpen(createSave())
     const a = spawnWorker(save)
     const b = spawnWorker(save)
     save.bank.meal = 2
     expect(loadFood(save, a.id, 'meal', 2).ok).toBe(true)
-    expect(assignWorker(save, a.id, 'mining').ok).toBe(true)
-    b.assignment = 'mining'
     expect(bankQty(save, 'meal')).toBe(0)
 
     expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
@@ -216,8 +210,6 @@ describe('fuseWorkers', () => {
     expect(fuseWorkers(save, a.id, 'w-missing')).toEqual({ ok: false, reason: '没有这个苦工' })
     expect(fuseWorkers(save, '', b.id)).toEqual({ ok: false, reason: '请选两个同品质苦工' })
 
-    expect(assignWorker(save, a.id, 'herbalism').ok).toBe(true)
-    b.assignment = 'herbalism'
     b.qualityTier = 2
     expect(fuseWorkers(save, a.id, b.id)).toEqual({ ok: false, reason: '品质不同，不能合成' })
     expect(save.workers).toHaveLength(2)

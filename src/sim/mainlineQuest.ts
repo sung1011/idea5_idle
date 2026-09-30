@@ -116,7 +116,7 @@ function buildSchedule(): MainlineTask[] {
     task('recruit', '抽取苦工 2 次', '招兵', 'intro', kept()),
     task('autoHerb', '点采药站，把营地队首派上去干一轮', '派工', 'intro', kept()),
     task('herbQueue', '采药站还在干时再点一次，排上下一轮（最多 5 轮）', '排队', 'intro', kept()),
-    task('fuse', '名册里有 2 档及以上苦工', '合伙', 'intro', kept()),
+    task('fuse', '在营地把两名同品质苦工合成，名册出现 2 档', '合伙', 'intro', kept()),
     task('combat', '在 PVE 选人弹层点过开战', '出征', 'intro', kept()),
     levelTask(2),
     task('autoLine', '在站卡右上角打开一条自动线', '挂自动', 'intro', kept()),

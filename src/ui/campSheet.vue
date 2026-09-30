@@ -279,7 +279,7 @@ onUnmounted(() => {
         </button>
         <header class="head">
           <h2>营地 · 可派 {{ dispatchCount }}</h2>
-          <p class="fuse-hint">拖动同品质苦工可合成</p>
+          <p class="fuse-hint">在营地里拖到同品质的人身上</p>
         </header>
         <div class="board">
           <div v-if="rows.length" ref="restListEl" class="list">
@@ -346,7 +346,7 @@ onUnmounted(() => {
           <button
             type="button"
             class="recruit"
-            :class="{ off: !canRecruit, 'guide-flash': guideFlashRecruit || fuseCue === 'recruit' }"
+            :class="{ off: !canRecruit, 'guide-flash': guideFlashRecruit || fuseCue === 'recruit' || fuseCue === 'wait' }"
             :disabled="!canRecruit"
             :aria-label="`抽苦工 · ${recruitPrice} 钻`"
             @click="game.recruit()"

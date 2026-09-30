@@ -1,5 +1,4 @@
 import { isWorkerInCombat } from './combat'
-import { canFuseStationWorkers } from './fuse'
 import { isGatherFrozen } from './gather'
 import { PLAYABLE_STATION_IDS, STATION_IDS } from './tables'
 import type { Save, StationId, Worker } from './types'
@@ -231,7 +230,7 @@ function flagsOf(save: Save, stationId: StationId, crew: Worker[]): BanterWeight
     stalled: stationIdle(save, stationId),
     wounded: crew.some((worker) => isWoundedHp(worker)),
     emptyHp: crew.some((worker) => isEmptyHp(worker)),
-    canFuse: canFuseStationWorkers(save, stationId),
+    canFuse: false,
     isNew: crew.some((worker) => worker.isNew),
   }
 }

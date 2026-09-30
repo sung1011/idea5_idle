@@ -44,7 +44,6 @@ import { showKnightXpPop } from './knightXpToast'
 import { clearPotionSlot, installPotionSlot } from '../sim/potionSlots'
 import { potionSlotItem, usePotionSlot } from '../sim/potions'
 import { selectRestFood, takeRestEatNotices } from '../sim/food'
-import { fuseStationWorkers, fuseWorkerWithStation } from '../sim/fuse'
 import { recruitWorker, clearWorkerNew } from '../sim/recruit'
 import { selectStationCategory } from '../sim/stationProgress'
 import type { RunePickMap } from '../sim/runes'
@@ -283,18 +282,6 @@ export const useGameStore = defineStore('game', () => {
         clearWorkerNew(s, workerId)
         return { ok: true }
       })
-    },
-    fuseStation: (stationId: StationId) => {
-      const beforeIds = new Set(save.value.workers.map((worker) => worker.id))
-      const result = apply((s) => fuseStationWorkers(s, stationId))
-      if (result.ok) offerFused(beforeIds)
-      return result
-    },
-    fuseWorker: (workerId: string, stationId: StationId) => {
-      const beforeIds = new Set(save.value.workers.map((worker) => worker.id))
-      const result = apply((s) => fuseWorkerWithStation(s, workerId, stationId))
-      if (result.ok) offerFused(beforeIds)
-      return result
     },
     withdraw: (stationId: StationId) => apply((s) => withdrawWorker(s, stationId)),
     toggleStationClosed: (stationId: StationId) => apply((s) => toggleStationClosed(s, stationId)),

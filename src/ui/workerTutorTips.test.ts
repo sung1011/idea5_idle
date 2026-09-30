@@ -62,8 +62,9 @@ describe('worker tutor tips', () => {
 
   it('keeps the lines aligned with fuse and queue-head rules', () => {
     const text = WORKER_TUTOR_LINES.join('\n')
-    expect(text).toContain('营地互合')
-    expect(text).toContain('拖到站上同品质')
+    expect(text).toContain('在营地里')
+    expect(text).toContain('别拖到站上')
+    expect(text).not.toContain('拖到站上同品质')
     expect(text).toContain('别拖空槽')
     expect(text).toContain('队首')
     expect(text).toContain('堵住后面')

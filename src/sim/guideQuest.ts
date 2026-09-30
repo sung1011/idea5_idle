@@ -1,10 +1,10 @@
-import { assignedWorkers, restingWorkers } from './assign'
+import { restingWorkers } from './assign'
 import { bankQty } from './bank'
 import { canReinforceCombat, isCombatLost, isCombatWon, isFighting } from './combat'
 import { combatSupplyBlockReason, isEncounterDone, isStarterCopperPawn, STARTER_GUIDE_HERB_QTY } from './encounters'
 import { isModuleUnlocked, knightLevelProgress, levelGateUnlockNote, moduleLabel, moduleLockedTip, moduleUnlockKnightLevel, SECOND_AUTO_LINE_TIP } from './moduleUnlock'
 import { knightLevelOf } from './stationUnlock'
-import { POTION_ITEM_IDS, QUALITY_MAX, STATION_ORDER } from './tables'
+import { POTION_ITEM_IDS, QUALITY_MAX } from './tables'
 import type { ActionResult, Encounter, EnemyEncounter, Save, StationId } from './types'
 import {
   MAINLINE_TASKS,
@@ -39,17 +39,19 @@ export const GUIDE_QUEST_REV = 9
 export const GUIDE_RECRUIT_CLOSED_GOAL = '点底部营地，抽取苦工 2 次'
 /** 第 1 步营地弹框已打开。 */
 export const GUIDE_RECRUIT_OPEN_GOAL = '在营地弹框里抽取苦工 2 次'
-/** 第 3 步营地无人时的浮条文案。 */
+/** 合伙步营地无人。 */
 export const GUIDE_FUSE_EMPTY_GOAL = '点底部营地，再抽 1 名苦工，新人会进营地'
-/** 第 3 步营地有人、名单还没打开。 */
+/** 合伙步已有两名同品质在营地，名单还没打开。 */
 export const GUIDE_FUSE_OPEN_GOAL = '点底部营地，打开名单'
 /** 开战步卡面弱点行说明。 */
 export const GUIDE_WEAKNESS_CARD_TIP =
   '敌人有弱点，派属性对得上的苦工出战，伤害更高，还会削敌人的盾；盾打空会破防，敌人暂停出手。'
 /** 开战步选人面板，对准带「推荐」的苦工。 */
 export const GUIDE_WEAKNESS_PICK_TIP = '这名苦工的属性正好打中弱点'
-/** 第 3 步营地名单已打开。 */
+/** 合伙步名单已打开，两名同品质都在营地。 */
 export const GUIDE_FUSE_DRAG_GOAL = '在营地弹框里按住苦工，往任意方向拖到同品质的人身上合成'
+/** 合伙步营地凑不齐两名同品质。等人回来，或再抽一名。 */
+export const GUIDE_FUSE_WAIT_GOAL = '等在岗的苦工回到营地，或再抽 1 名。两人都在营地后，拖到同品质的人身上合成'
 /** 出征步草还不够首单时，先回到采药站连点。 */
 export const GUIDE_COMBAT_HERB_GOAL = '草不够开战。继续点采药站排队，攒够 2 株草'
 /** 熬药步还没有原料。 */
@@ -363,33 +365,33 @@ export function isGuideQuestRuneFlash(save: Save, enc: Encounter): boolean {
   return !!target && target.id === enc.id
 }
 
-export type GuideFuseCue = 'recruit' | 'openCamp' | 'drag'
+export type GuideFuseCue = 'recruit' | 'openCamp' | 'wait' | 'drag'
 
-/** 第 3 步未完成时按营地人数和名单开关决定闪哪里。完成可领后不再闪。 */
+function campHasFusePair(save: Save): boolean {
+  const counts = new Map<number, number>()
+  for (const worker of restingWorkers(save)) {
+    if (worker.qualityTier >= QUALITY_MAX) continue
+    counts.set(worker.qualityTier, (counts.get(worker.qualityTier) ?? 0) + 1)
+  }
+  for (const count of counts.values()) {
+    if (count >= 2) return true
+  }
+  return false
+}
+
+/** 合伙步未完成时：凑齐两名同品质才让拖；否则等人回营地或再抽。站卡不闪。 */
 export function guideFuseCue(save: Save, campOpen: boolean): GuideFuseCue | null {
   const step = normalizeGuideQuestStep(save.guideQuestStep)
   if (mainlineTaskAt(step)?.id !== 'fuse') return null
   if (guideQuestProgressAt(save, step) >= 1) return null
+  if (campHasFusePair(save)) return campOpen ? 'drag' : 'openCamp'
   if (restingWorkers(save).length === 0) return 'recruit'
-  if (!campOpen) return 'openCamp'
-  return 'drag'
+  return 'wait'
 }
 
-/** 名单打开后，闪和营地里某人同品质、且还能再合的在岗站。 */
-export function guideFuseFlashStations(save: Save, campOpen: boolean): StationId[] {
-  if (guideFuseCue(save, campOpen) !== 'drag') return []
-  const tiers = new Set(
-    restingWorkers(save)
-      .map((worker) => worker.qualityTier)
-      .filter((tier) => tier < QUALITY_MAX),
-  )
-  if (!tiers.size) return []
-  const stations: StationId[] = []
-  for (const stationId of STATION_ORDER) {
-    const worker = assignedWorkers(save, stationId)[0]
-    if (worker && tiers.has(worker.qualityTier)) stations.push(stationId)
-  }
-  return stations
+/** 合成只在营地里进行，站卡不再当作合成目标。 */
+export function guideFuseFlashStations(_save: Save, _campOpen: boolean): StationId[] {
+  return []
 }
 
 /** 炼金步：详情没开时闪炼金站卡。 */
@@ -408,6 +410,7 @@ function guideStepGoal(save: Save, row: MainlineTask, claimable: boolean, campOp
     const cue = guideFuseCue(save, campOpen)
     if (cue === 'recruit') return GUIDE_FUSE_EMPTY_GOAL
     if (cue === 'openCamp') return GUIDE_FUSE_OPEN_GOAL
+    if (cue === 'wait') return GUIDE_FUSE_WAIT_GOAL
     return GUIDE_FUSE_DRAG_GOAL
   }
   if (!claimable && row.id === 'combat' && guideCombatNeedsHerbs(save)) return GUIDE_COMBAT_HERB_GOAL

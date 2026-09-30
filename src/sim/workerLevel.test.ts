@@ -358,8 +358,6 @@ describe('fuse sums total xp', () => {
     const sumTotal = workerTotalXp(4, 6) + workerTotalXp(2, 10)
     const expected = workerFromTotalXp(sumTotal)
     expect(sumTotal).toBeGreaterThan(Math.floor(sumTotal / 2))
-    expect(assignWorker(save, a.id, 'mining').ok).toBe(true)
-    b.assignment = 'mining'
     expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
     const next = save.workers[0]
     expect(next.qualityTier).toBe(2)
@@ -382,8 +380,6 @@ describe('fuse sums total xp', () => {
     const expected = workerFromTotalXp(25)
     expect(expected.level).toBe(2)
     expect(expected.xp).toBe(25 - workerXpToNext(1))
-    expect(assignWorker(save, a.id, 'herbalism').ok).toBe(true)
-    b.assignment = 'herbalism'
     expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
     const next = save.workers[0]
     expect(next.qualityTier).toBe(2)

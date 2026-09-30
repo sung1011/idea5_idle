@@ -30,7 +30,6 @@ import { beginEnemyCombat, stepEnemyCombat } from './combat'
 import { createSave } from './createSave'
 import { startCombat } from './encounters'
 import { fuseWorkers } from './fuse'
-import { assignWorker } from './assign'
 import { hydrateWorker, spawnWorker, spawnWorkerWith } from './recruit'
 import type { EnemyEncounter, QualityTier } from './types'
 
@@ -89,8 +88,6 @@ describe('distinct attr roll', () => {
     const a = spawnWorkerWith(save, 4, 'hunter', ['fire'])
     const b = spawnWorkerWith(save, 4, 'hunter', ['ice'])
     expect(a.combatAttrs).toEqual(['fire'])
-    expect(assignWorker(save, a.id, 'hunting').ok).toBe(true)
-    b.assignment = 'hunting'
     expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
     const next = save.workers[0]
     expect(next.qualityTier).toBe(5)

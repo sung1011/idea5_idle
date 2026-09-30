@@ -11,16 +11,7 @@ import {
 import { beginEnemyCombat } from './combat'
 import { createSave } from './createSave'
 import { grantOpenedModules } from './moduleUnlock'
-import {
-  canFuseRestWorkers,
-  canFuseStationWorkers,
-  canFuseWorkerWithStation,
-  fuseRestWorkers,
-  fuseStationWorkers,
-  fuseWorkerWithStation,
-  fuseWorkers,
-  stationMergeLabel,
-} from './fuse'
+import { CAMP_FUSE_ONLY_REASON, canFuseRestWorkers, fuseRestWorkers, fuseWorkers } from './fuse'
 import { spawnWorker } from './recruit'
 import { unlockPlayableStations } from './stationUnlock'
 import { QUALITY_MAX, STATION_WORKER_CAP } from './tables'
@@ -116,59 +107,37 @@ describe('rest merge', () => {
     expect(save.workers[0].assignment).toBeNull()
   })
 
-  it('labels the station merge button as 合成', () => {
-    const save = roster(2)
-    expect(stationMergeLabel(save, 'mining')).toBe('合成')
-    assignWorker(save, save.workers[0].id, 'mining')
-    assignWorker(save, save.workers[1].id, 'mining')
-    expect(stationMergeLabel(save, 'mining')).toBe('合成')
-  })
-
-  it('fails when the station does not have two workers', () => {
+  it('refuses a pair when either worker is on duty', () => {
     const save = roster(2)
     assignWorker(save, save.workers[0].id, 'mining')
-    expect(fuseStationWorkers(save, 'mining')).toEqual({ ok: false, reason: '该站需要 2 人才可合并' })
-    expect(save.workers).toHaveLength(2)
-  })
-
-  it('fails when the two workers are at different stations', () => {
-    const save = roster(2)
-    assignWorker(save, save.workers[0].id, 'mining')
+    expect(canFuseRestWorkers(save, save.workers[0].id, save.workers[1].id)).toBe(false)
+    expect(fuseWorkers(save, save.workers[0].id, save.workers[1].id)).toEqual({
+      ok: false,
+      reason: CAMP_FUSE_ONLY_REASON,
+    })
+    expect(fuseRestWorkers(save, save.workers[0].id, save.workers[1].id)).toEqual({
+      ok: false,
+      reason: CAMP_FUSE_ONLY_REASON,
+    })
     assignWorker(save, save.workers[1].id, 'inscription')
     expect(fuseWorkers(save, save.workers[0].id, save.workers[1].id)).toEqual({
       ok: false,
-      reason: '只能合并同一工坊的两人',
+      reason: CAMP_FUSE_ONLY_REASON,
     })
-    expect(fuseStationWorkers(save, 'mining')).toEqual({ ok: false, reason: '该站需要 2 人才可合并' })
     expect(save.workers).toHaveLength(2)
+    expect(save.workers[0].assignment).toBe('mining')
+    expect(save.workers[1].assignment).toBe('inscription')
   })
 
-  it('fuses in rest and does not fuse across stations or onto a filled post', () => {
+  it('fuses only when both workers are in camp', () => {
     const save = roster(2)
     const [a, b] = save.workers
     expect(canFuseRestWorkers(save, a.id, b.id)).toBe(true)
-    expect(canFuseStationWorkers(save, 'mining')).toBe(false)
-    expect(canFuseWorkerWithStation(save, a.id, 'mining')).toBe(false)
     assignWorker(save, b.id, 'mining')
-    expect(canFuseRestWorkers(save, a.id, b.id)).toBe(true)
-    const fused = fuseRestWorkers(save, a.id, b.id)
-    expect(fused.ok).toBe(true)
-    expect(save.workers).toHaveLength(1)
-    expect(save.workers[0].qualityTier).toBe(2)
-    expect(save.workers[0].assignment).toBeNull()
-  })
-
-  it('does not assign when the target station crew cannot fuse', () => {
-    const save = roster(2)
-    const [a, b] = save.workers
-    b.qualityTier = 3
-    assignWorker(save, b.id, 'inscription')
-    expect(fuseWorkerWithStation(save, a.id, 'inscription')).toEqual({
-      ok: false,
-      reason: '品质不同，不能合成',
-    })
-    expect(a.assignment).toBeNull()
+    expect(canFuseRestWorkers(save, a.id, b.id)).toBe(false)
+    expect(fuseRestWorkers(save, a.id, b.id)).toEqual({ ok: false, reason: CAMP_FUSE_ONLY_REASON })
     expect(save.workers).toHaveLength(2)
+    expect(b.assignment).toBe('mining')
   })
 })
 

@@ -1,6 +1,6 @@
 import { assignedWorkers, assignWorker } from '../sim/assign'
 import { isWorkerInCombat } from '../sim/combat'
-import { canFuseRestWorkers, canFuseWorkerOntoOccupant, fuseRestWorkers, fuseWorkerOntoOccupant } from '../sim/fuse'
+import { CAMP_FUSE_ONLY_REASON, canFuseRestWorkers, fuseRestWorkers } from '../sim/fuse'
 import { clearWorkerNew, findWorker } from '../sim/recruit'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { isStationId, STATION_WORKER_CAP } from '../sim/tables'
@@ -98,9 +98,9 @@ export function sameDragEndpoint(source: WorkerDragSource, target: WorkerDropTar
   )
 }
 
-export const FUSE_DRAG_TIP = '营地同品质可合；拖到站上同品质也可合'
+export const FUSE_DRAG_TIP = '营地同品质可合，在营地里拖到同品质的人身上'
 
-/** 休息拖进空槽、或把在岗拖回休息。合成两条路不走这里。 */
+/** 休息拖进空槽、或把在岗拖回休息。营地合成不走这里。 */
 export const MANUAL_DUTY_REASON = '不能手动上下岗'
 
 function manualDutyDragReason(save: Save, source: WorkerDragSource, target: WorkerDropTarget): string | null {
@@ -112,16 +112,12 @@ function manualDutyDragReason(save: Save, source: WorkerDragSource, target: Work
   return null
 }
 
-/** 营地同档，或有人可拖到站上同档工人。满档与战斗中不算。 */
+/** 营地里有两名同档可合。满档、在岗与战斗中不算。 */
 export function canDragFuseAny(save: Save): boolean {
   const draggable = save.workers.filter((worker) => canDragWorker(save, worker.id))
   for (let i = 0; i < draggable.length; i += 1) {
     for (let j = i + 1; j < draggable.length; j += 1) {
-      const left = draggable[i]
-      const right = draggable[j]
-      if (canFuseRestWorkers(save, left.id, right.id)) return true
-      if (right.assignment && canFuseWorkerOntoOccupant(save, left.id, right.id, right.assignment)) return true
-      if (left.assignment && canFuseWorkerOntoOccupant(save, right.id, left.id, left.assignment)) return true
+      if (canFuseRestWorkers(save, draggable[i].id, draggable[j].id)) return true
     }
   }
   return false
@@ -142,7 +138,7 @@ export function canDropWorker(save: Save, source: WorkerDragSource, target: Work
   if (target.kind === 'rest') return false
 
   const occupantId = slotOccupantId(save, target.stationId, target.slotIndex)
-  if (occupantId) return canFuseWorkerOntoOccupant(save, source.workerId, occupantId, target.stationId)
+  if (occupantId) return false
   if (!isStationUnlocked(save, target.stationId)) return false
   if (worker.assignment === target.stationId) return false
   return assignedWorkers(save, target.stationId).length < STATION_WORKER_CAP
@@ -156,13 +152,14 @@ export function applyWorkerDrag(save: Save, source: WorkerDragSource, target: Wo
   if (isWorkerInCombat(save, worker.id)) return { ok: false, reason: '正在战斗' }
   const manual = manualDutyDragReason(save, source, target)
   if (manual) return { ok: false, reason: manual }
+  if (target.kind === 'slot') {
+    const blockedId = slotOccupantId(save, target.stationId, target.slotIndex)
+    if (blockedId && blockedId !== source.workerId) return { ok: false, reason: CAMP_FUSE_ONLY_REASON }
+  }
   if (!canDropWorker(save, source, target)) {
     if (target.kind === 'restWorker') return fuseRestWorkers(save, source.workerId, target.workerId)
     if (target.kind === 'slot') {
       const blockedId = slotOccupantId(save, target.stationId, target.slotIndex)
-      if (blockedId && blockedId !== source.workerId) {
-        return fuseWorkerOntoOccupant(save, source.workerId, blockedId, target.stationId)
-      }
       if (!isStationUnlocked(save, target.stationId) && !blockedId) {
         return { ok: false, reason: stationLockedTip(target.stationId) }
       }
@@ -180,11 +177,6 @@ export function applyWorkerDrag(save: Save, source: WorkerDragSource, target: Wo
   if (target.kind === 'restWorker') {
     clearWorkerNew(save, target.workerId)
     return fuseRestWorkers(save, source.workerId, target.workerId)
-  }
-  const occupantId = slotOccupantId(save, target.stationId, target.slotIndex)
-  if (occupantId && occupantId !== source.workerId) {
-    clearWorkerNew(save, occupantId)
-    return fuseWorkerOntoOccupant(save, source.workerId, occupantId, target.stationId)
   }
   return assignWorker(save, source.workerId, target.stationId)
 }

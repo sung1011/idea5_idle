@@ -616,8 +616,9 @@ describe('tech effects stay no-op where intended', () => {
     const merge = keepStationsOpen(createSave())
     const a = spawnWorker(merge)
     const b = spawnWorker(merge)
-    expect(fuseWorkers(merge, a.id, b.id)).toEqual({ ok: false, reason: '只能合并同一工坊的两人' })
-    expect(merge.workers).toHaveLength(2)
+    expect(fuseWorkers(merge, a.id, b.id).ok).toBe(true)
+    expect(merge.workers).toHaveLength(1)
+    expect(merge.workers[0].assignment).toBeNull()
   })
 })
 

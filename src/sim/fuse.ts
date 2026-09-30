@@ -1,43 +1,27 @@
-import { assignedWorkers, assignWorker } from './assign'
-import { starterGuideFuseAttr } from './encounters'
 import { isWorkerInBeastPvp } from './beastPvpQuery'
 import { isWorkerInHerbPvp } from './herbPvpQuery'
 import { fillWorkerHp } from './combat'
+import { starterGuideFuseAttr } from './encounters'
 import { unloadFood } from './food'
 import { clearWorkerNew, findWorker, spawnWorkerWith } from './recruit'
 import { workerFromTotalXp, workerTotalXp } from './workerLevel'
 import { roll01 } from './rng'
-import {
-  CLASS_LABEL,
-  classPoolForQuality,
-  isStationId,
-  pickClassFromPool,
-  QUALITY_MAX,
-  STATION_WORKER_CAP,
-  workerQualityDef,
-} from './tables'
-import { fuseStayAssigned } from './tech'
+import { CLASS_LABEL, classPoolForQuality, pickClassFromPool, QUALITY_MAX, workerQualityDef } from './tables'
 import { rollWorkerName, rollWorkerRace } from './workerRace'
-import type { ActionResult, QualityTier, Save, StationId, Worker } from './types'
+import type { ActionResult, QualityTier, Save, Worker } from './types'
+
+/** 站上、在岗拖到营地、拖到工位，一律用这句拒绝。 */
+export const CAMP_FUSE_ONLY_REASON = '只能在营地合成'
 
 function stripSlots(save: Save, worker: Worker): void {
   if (worker.foodSlot) unloadFood(save, worker.id)
 }
 
-function clearEmptyStation(save: Save, stationId: StationId | null): void {
-  if (!stationId || !isStationId(stationId)) return
-  if (assignedWorkers(save, stationId).length > 0) return
-  save.stations[stationId].progress = 0
-  save.stations[stationId].stallReason = null
-}
-
-function fusePairAt(save: Save, a: Worker, b: Worker, stayAt: StationId | null): ActionResult {
+function fusePairAt(save: Save, a: Worker, b: Worker): ActionResult {
   clearWorkerNew(save, a.id)
   clearWorkerNew(save, b.id)
   stripSlots(save, a)
   stripSlots(save, b)
-  const leftFrom = a.assignment
-  const rightFrom = b.assignment
   const nextTier = (a.qualityTier + 1) as QualityTier
   const pool = classPoolForQuality(nextTier)
   const classId = pickClassFromPool(pool, roll01(save))
@@ -54,9 +38,7 @@ function fusePairAt(save: Save, a: Worker, b: Worker, stayAt: StationId | null):
   worker.level = progress.level
   worker.xp = progress.xp
   fillWorkerHp(worker, undefined, save)
-  if (stayAt) worker.assignment = stayAt
-  if (leftFrom !== stayAt) clearEmptyStation(save, leftFrom)
-  if (rightFrom !== stayAt) clearEmptyStation(save, rightFrom)
+  worker.assignment = null
   const quality = workerQualityDef(nextTier)
   const job = worker.classId ? CLASS_LABEL[worker.classId] : '未标'
   save.fuseDragTipDone = true
@@ -75,7 +57,18 @@ function fusePairReady(a: Worker | undefined, b: Worker | undefined): ActionResu
   return null
 }
 
-/** 同站同档两人合成：消耗两人，产出 1 个高一档新人（留在原站、空槽）。满档 / 不同档 / 不同站失败。 */
+function campOnly(a: Worker, b: Worker): ActionResult | null {
+  if (a.assignment != null || b.assignment != null) return { ok: false, reason: CAMP_FUSE_ONLY_REASON }
+  return null
+}
+
+function fieldBlock(save: Save, a: Worker, b: Worker): ActionResult | null {
+  if (isWorkerInHerbPvp(save, a.id) || isWorkerInHerbPvp(save, b.id)) return { ok: false, reason: '正在割草' }
+  if (isWorkerInBeastPvp(save, a.id) || isWorkerInBeastPvp(save, b.id)) return { ok: false, reason: '正在困兽' }
+  return null
+}
+
+/** 两人都在营地、同档、未满档。消耗两人，产出 1 个高一档新人，留在营地。 */
 export function fuseWorkers(save: Save, workerIdA: string, workerIdB: string): ActionResult {
   if (!workerIdA || !workerIdB) return { ok: false, reason: '请选两个同品质苦工' }
   if (workerIdA === workerIdB) return { ok: false, reason: '不能合成同一个人' }
@@ -83,121 +76,24 @@ export function fuseWorkers(save: Save, workerIdA: string, workerIdB: string): A
   const b = findWorker(save, workerIdB)
   const ready = fusePairReady(a, b)
   if (ready || !a || !b) return ready ?? { ok: false, reason: '没有这个苦工' }
-  if (!a.assignment || a.assignment !== b.assignment) {
-    return { ok: false, reason: '只能合并同一工坊的两人' }
-  }
-  const stayAt = fuseStayAssigned(save) ? a.assignment : null
-  return fusePairAt(save, a, b, stayAt)
+  const camp = campOnly(a, b)
+  if (camp) return camp
+  const field = fieldBlock(save, a, b)
+  if (field) return field
+  return fusePairAt(save, a, b)
 }
 
-/** 至少一人在休息、同档、未满档。在岗拖到营地同档人也可以合。两人都在岗不算。 */
+/** 两人都在营地、同档、未满档，且不在割草或困兽。 */
 export function canFuseRestWorkers(save: Save, workerIdA: string, workerIdB: string): boolean {
   if (!workerIdA || !workerIdB || workerIdA === workerIdB) return false
   const a = findWorker(save, workerIdA)
   const b = findWorker(save, workerIdB)
   if (!a || !b) return false
-  if (isWorkerInHerbPvp(save, a.id) || isWorkerInHerbPvp(save, b.id)) return false
-  if (isWorkerInBeastPvp(save, a.id) || isWorkerInBeastPvp(save, b.id)) return false
-  if (a.assignment != null && b.assignment != null) return false
+  if (campOnly(a, b) || fieldBlock(save, a, b)) return false
   return fusePairReady(a, b) == null
 }
 
-/** 营地同档合成，或在岗拖到营地同档人。新人回休息，不留在工位。 */
+/** 营地同档合成。新人留在营地。有人在岗则拒绝。 */
 export function fuseRestWorkers(save: Save, workerIdA: string, workerIdB: string): ActionResult {
-  if (!workerIdA || !workerIdB) return { ok: false, reason: '请选两个同品质苦工' }
-  const a = findWorker(save, workerIdA)
-  const b = findWorker(save, workerIdB)
-  const ready = fusePairReady(a, b)
-  if (ready || !a || !b) return ready ?? { ok: false, reason: '没有这个苦工' }
-  if (isWorkerInHerbPvp(save, a.id) || isWorkerInHerbPvp(save, b.id)) return { ok: false, reason: '正在割草' }
-  if (isWorkerInBeastPvp(save, a.id) || isWorkerInBeastPvp(save, b.id)) return { ok: false, reason: '正在困兽' }
-  if (a.assignment != null && b.assignment != null) return { ok: false, reason: '只能在营地合成' }
-  return fusePairAt(save, a, b, null)
-}
-
-/** 拖到站上已有的人：同档可合，新人留在该站。 */
-export function canFuseWorkerOntoOccupant(
-  save: Save,
-  sourceId: string,
-  occupantId: string,
-  stationId: StationId | null,
-): boolean {
-  if (!stationId || !isStationId(stationId) || !sourceId || !occupantId || sourceId === occupantId) return false
-  const source = findWorker(save, sourceId)
-  const occupant = findWorker(save, occupantId)
-  if (fusePairReady(source, occupant) || !occupant) return false
-  return occupant.assignment === stationId
-}
-
-export function fuseWorkerOntoOccupant(
-  save: Save,
-  sourceId: string,
-  occupantId: string,
-  stationId: StationId,
-): ActionResult {
-  if (!isStationId(stationId)) return { ok: false, reason: '没有这个站点' }
-  if (!sourceId || !occupantId) return { ok: false, reason: '请选两个同品质苦工' }
-  const source = findWorker(save, sourceId)
-  const occupant = findWorker(save, occupantId)
-  const ready = fusePairReady(source, occupant)
-  if (ready || !source || !occupant) return ready ?? { ok: false, reason: '没有这个苦工' }
-  if (occupant.assignment !== stationId) return { ok: false, reason: '只能合并同一工坊的两人' }
-  return fusePairAt(save, source, occupant, stationId)
-}
-
-/** 该站两人同档且未满档，与 fuseStationWorkers 成功条件一致。 */
-export function canFuseStationWorkers(save: Save, stationId: StationId): boolean {
-  if (!isStationId(stationId)) return false
-  const pair = assignedWorkers(save, stationId)
-  if (pair.length < 2) return false
-  const a = pair[0]
-  const b = pair[1]
-  return a.qualityTier === b.qualityTier && a.qualityTier < QUALITY_MAX
-}
-
-/**
- * 派驻弹层：当前工人与目标站已有工人（或同站另一人）同档且可合成。
- * 人已在该站则按站上两人判定；否则目标站须有空位、且已有同档工人。
- */
-export function canFuseWorkerWithStation(
-  save: Save,
-  workerId: string,
-  stationId: StationId | null,
-): boolean {
-  if (!stationId || !isStationId(stationId)) return false
-  const worker = findWorker(save, workerId)
-  if (!worker || worker.qualityTier >= QUALITY_MAX) return false
-  const crew = assignedWorkers(save, stationId)
-  const others = crew.filter((w) => w.id !== worker.id)
-  if (!others.some((w) => w.qualityTier === worker.qualityTier)) return false
-  if (worker.assignment === stationId) return crew.length >= 2
-  return crew.length < STATION_WORKER_CAP
-}
-
-/** 工坊站卡入口：该站正好 2 人才能合。品质规则走 fuseWorkers。 */
-export function fuseStationWorkers(save: Save, stationId: StationId): ActionResult {
-  if (!isStationId(stationId)) return { ok: false, reason: '没有这个站点' }
-  const pair = assignedWorkers(save, stationId)
-  if (pair.length < 2) return { ok: false, reason: '该站需要 2 人才可合并' }
-  return fuseWorkers(save, pair[0].id, pair[1].id)
-}
-
-/** 派驻弹层入口：人未在目标站则先派驻，再走 fuseStationWorkers。不可合成时不派驻。 */
-export function fuseWorkerWithStation(save: Save, workerId: string, stationId: StationId): ActionResult {
-  const worker = findWorker(save, workerId)
-  if (!worker) return { ok: false, reason: '没有这个苦工' }
-  if (!canFuseWorkerWithStation(save, workerId, stationId)) {
-    if (worker.assignment === stationId) return fuseStationWorkers(save, stationId)
-    if (!isStationId(stationId)) return { ok: false, reason: '没有这个站点' }
-    return { ok: false, reason: '品质不同，不能合成' }
-  }
-  if (worker.assignment !== stationId) {
-    const assigned = assignWorker(save, workerId, stationId)
-    if (!assigned.ok) return assigned
-  }
-  return fuseStationWorkers(save, stationId)
-}
-
-export function stationMergeLabel(_save: Save, _stationId: StationId): string {
-  return '合成'
+  return fuseWorkers(save, workerIdA, workerIdB)
 }

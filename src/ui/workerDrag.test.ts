@@ -79,7 +79,7 @@ describe('worker drag assign', () => {
     const extra = spawnWorkerWith(save, 1, 'wanderer')
     expect(applyWorkerDrag(save, { kind: 'rest', workerId: extra.id }, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toEqual({
       ok: false,
-      reason: '品质不同，不能合成',
+      reason: '只能在营地合成',
     })
     expect(extra.assignment).toBeNull()
     expect(a.assignment).toBe('mining')
@@ -104,18 +104,20 @@ describe('worker drag assign', () => {
     expect(cook.assignment).toBe('inscription')
   })
 
-  it('fuses onto an occupied station of the same tier and keeps the result there', () => {
+  it('refuses fusing a resting worker onto an occupied station', () => {
     const save = unlockPlayableStations(createSave())
     const idle = spawnWorkerWith(save, 1, 'laborer')
     const busy = spawnWorkerWith(save, 1, 'artisan')
     assignWorker(save, busy.id, 'mining')
     const restToMate = { kind: 'rest' as const, workerId: idle.id }
-    expect(canDropWorker(save, restToMate, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toBe(true)
-    const fused = applyWorkerDrag(save, restToMate, { kind: 'slot', stationId: 'mining', slotIndex: 0 })
-    expect(fused.ok).toBe(true)
-    expect(save.workers).toHaveLength(1)
-    expect(save.workers[0].qualityTier).toBe(2)
-    expect(save.workers[0].assignment).toBe('mining')
+    expect(canDropWorker(save, restToMate, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toBe(false)
+    expect(applyWorkerDrag(save, restToMate, { kind: 'slot', stationId: 'mining', slotIndex: 0 })).toEqual({
+      ok: false,
+      reason: '只能在营地合成',
+    })
+    expect(save.workers).toHaveLength(2)
+    expect(idle.assignment).toBeNull()
+    expect(busy.assignment).toBe('mining')
   })
 
   it('fuses two resting workers of the same tier and leaves the result in rest', () => {
@@ -137,30 +139,32 @@ describe('worker drag assign', () => {
     expect(duty.assignment).toBe('mining')
   })
 
-  it('fuses an on-duty worker onto another station mate and onto a resting mate', () => {
+  it('refuses fusing an on-duty worker onto another station or a resting mate', () => {
     const save = unlockPlayableStations(createSave())
     const miner = spawnWorkerWith(save, 1, 'miner')
     const cook = spawnWorkerWith(save, 1, 'cook')
     assignWorker(save, miner.id, 'mining')
     assignWorker(save, cook.id, 'cooking')
     const fromMine = { kind: 'slot' as const, workerId: miner.id, stationId: 'mining' as const, slotIndex: 0 }
-    expect(canDropWorker(save, fromMine, { kind: 'slot', stationId: 'cooking', slotIndex: 0 })).toBe(true)
-    const across = applyWorkerDrag(save, fromMine, { kind: 'slot', stationId: 'cooking', slotIndex: 0 })
-    expect(across.ok).toBe(true)
-    expect(save.workers).toHaveLength(1)
-    expect(save.workers[0].qualityTier).toBe(2)
-    expect(save.workers[0].assignment).toBe('cooking')
+    expect(canDropWorker(save, fromMine, { kind: 'slot', stationId: 'cooking', slotIndex: 0 })).toBe(false)
+    expect(applyWorkerDrag(save, fromMine, { kind: 'slot', stationId: 'cooking', slotIndex: 0 })).toEqual({
+      ok: false,
+      reason: '只能在营地合成',
+    })
+    expect(save.workers).toHaveLength(2)
+    expect(miner.assignment).toBe('mining')
+    expect(cook.assignment).toBe('cooking')
 
     const duty = spawnWorkerWith(save, 3, 'hunter')
     const resting = spawnWorkerWith(save, 3, 'artisan')
-    assignWorker(save, duty.id, 'mining')
-    const fromDuty = { kind: 'slot' as const, workerId: duty.id, stationId: 'mining' as const, slotIndex: 0 }
+    assignWorker(save, duty.id, 'herbalism')
+    const fromDuty = { kind: 'slot' as const, workerId: duty.id, stationId: 'herbalism' as const, slotIndex: 0 }
     expect(canDropWorker(save, fromDuty, { kind: 'restWorker', workerId: resting.id })).toBe(false)
     expect(applyWorkerDrag(save, fromDuty, { kind: 'restWorker', workerId: resting.id })).toEqual({
       ok: false,
       reason: MANUAL_DUTY_REASON,
     })
-    expect(duty.assignment).toBe('mining')
+    expect(duty.assignment).toBe('herbalism')
     expect(resting.assignment).toBeNull()
   })
 
@@ -256,7 +260,7 @@ describe('worker drag assign', () => {
 
 describe('fuse drag tip', () => {
   it('shows only while a drag-fuse pair exists and hides after the first merge', () => {
-    expect(FUSE_DRAG_TIP).toBe('营地同品质可合；拖到站上同品质也可合')
+    expect(FUSE_DRAG_TIP).toBe('营地同品质可合，在营地里拖到同品质的人身上')
     const resting = unlockPlayableStations(createSave())
     const left = spawnWorkerWith(resting, 1, 'laborer')
     const right = spawnWorkerWith(resting, 1, 'artisan')
@@ -282,7 +286,7 @@ describe('fuse drag tip', () => {
     expect(again.qualityTier).toBe(2)
   })
 
-  it('still auto-fills the rest head and keeps both fuse drags', () => {
+  it('still auto-fills the rest head and only fuses inside camp', () => {
     const save = unlockPlayableStations(createSave())
     save.stations.herbalism.auto = true
     const head = spawnWorkerWith(save, 1, 'laborer')
@@ -293,11 +297,13 @@ describe('fuse drag tip', () => {
       false,
     )
 
-    const fused = applyWorkerDrag(save, { kind: 'rest', workerId: mate.id }, { kind: 'slot', stationId: 'herbalism', slotIndex: 0 })
-    expect(fused.ok).toBe(true)
-    expect(save.workers).toHaveLength(1)
-    expect(save.workers[0].assignment).toBe('herbalism')
-    expect(save.workers[0].qualityTier).toBe(2)
+    expect(applyWorkerDrag(save, { kind: 'rest', workerId: mate.id }, { kind: 'slot', stationId: 'herbalism', slotIndex: 0 })).toEqual({
+      ok: false,
+      reason: '只能在营地合成',
+    })
+    expect(head.assignment).toBe('herbalism')
+    expect(mate.assignment).toBeNull()
+    expect(save.workers).toHaveLength(2)
 
     const left = spawnWorkerWith(save, 2, 'cook')
     const right = spawnWorkerWith(save, 2, 'miner')

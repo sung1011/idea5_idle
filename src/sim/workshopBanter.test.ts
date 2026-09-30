@@ -264,7 +264,7 @@ describe('workshop banter trigger', () => {
     expect(banterLines('idle', 'herbalism')).toContain(event?.beats[0].text)
   })
 
-  it('pulls a fuse wish when the station can merge, and leaves isNew set', () => {
+  it('does not pull a fuse wish just because two workers share a station', () => {
     const save = createSave()
     const newbie = put(save, worker({ id: 'a', assignment: 'inscription', isNew: true }))
     put(save, worker({ id: 'b', assignment: 'inscription', isNew: true }))
@@ -272,7 +272,7 @@ describe('workshop banter trigger', () => {
     const before = snapshot(save)
     const event = run(save, memory, 6, ['inscription'], rolls([0, 0, 0.9, 0, 0.3, 0, 0]))
     expect(event?.kind).toBe('solo')
-    expect(event?.beats[0].text).toBe('隔壁绿的骨架不错拼一下')
+    expect(banterLines('fuseWish', 'inscription')).not.toContain(event?.beats[0].text)
     expect(newbie.isNew).toBe(true)
     expect(save.workers[1].isNew).toBe(true)
     expect(snapshot(save)).toBe(before)

@@ -8,7 +8,6 @@ import {
 
 export { assignRestingToFirstEmpty, firstEmptyDispatchStation, restingWorkers }
 import { fightingWorkerIds, isWorkerInCombat } from '../sim/combat'
-import { canFuseWorkerWithStation } from '../sim/fuse'
 import { isStationUnlocked } from '../sim/stationUnlock'
 import { QUALITY_TIERS, STATION_DEF, STATION_ORDER, STATION_WORKER_CAP, WORKER_QUALITY_TABLE } from '../sim/tables'
 import type { ActionResult, QualityTier, Save, StationId, Worker, WorkerQualityId } from '../sim/types'
@@ -194,7 +193,7 @@ export function workerAssignChoices(save: Save, worker: Worker): WorkerAssignCho
       current: worker.assignment === stationId,
       disabled: !canAssignWorkerTo(save, worker, stationId),
       locked,
-      canFuse: !locked && canFuseWorkerWithStation(save, worker.id, stationId),
+      canFuse: false,
     }
   })
 }
