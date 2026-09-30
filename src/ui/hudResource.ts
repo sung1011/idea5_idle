@@ -52,11 +52,11 @@ const CORE_COPY: Record<HudResourceId, { name: string; source: string; usage: st
   diamonds: {
     name: '钻石',
     source: '新档没有钻石。主线进阶任务、悬赏与集市部分订单掉落。',
-    usage: '抽苦工。新档前 2 次免费，之后按费用扣钻。',
+    usage: '抽苦工。新档前 3 次免费，之后按费用扣钻。',
   },
   workers: {
     name: '苦工',
-    source: '新档前 2 次免费抽取，之后花钻石；同档两人可合成升一档。',
+    source: '新档前 3 次免费抽取，之后花钻石；同档两人可合成升一档。',
     usage: '派驻工坊生产，或出战主线敌人。',
   },
   inspiration: {

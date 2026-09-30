@@ -193,7 +193,7 @@ describe('guideQuest steps and claim', () => {
     expect(save.guideQuestStep).toBe(2)
     expect(save.gold).toBe(gold0 + GUIDE_QUEST_GOLD)
     expect(save.diamonds).toBe(START_DIAMONDS)
-    expect(save.freeRecruitLeft).toBe(0)
+    expect(save.freeRecruitLeft).toBe(1)
 
     expect(guideQuestView(save)?.goal).toBe('点采药站，把营地队首派上去干一轮')
     expect(guideQuestView(save, true)?.goal).toBe('点采药站，把营地队首派上去干一轮')
@@ -576,8 +576,7 @@ describe('early guide on a fresh save', () => {
     expect(guideFuseCue(save, true)).toBe('wait')
     expect(guideQuestView(save, true)?.goal).toBe(GUIDE_FUSE_WAIT_GOAL)
     expect(guideFuseFlashStations(save, true)).toEqual([])
-    expect(save.freeRecruitLeft).toBe(0)
-    expect(recruitWorker(save)).toEqual({ ok: false, reason: '钻石不足' })
+    expect(save.freeRecruitLeft).toBe(1)
     let waited = 0
     while (restingWorkers(save).length < 2 && waited < 40) {
       save = ticks(save, 20)

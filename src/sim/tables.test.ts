@@ -208,7 +208,7 @@ describe('production phase-1 tables', () => {
   it('keeps P0 economy constants: diamonds, recruit, copper recover, rune crystal', () => {
     expect(START_GOLD).toBe(0)
     expect(START_DIAMONDS).toBe(0)
-    expect(FREE_RECRUIT_COUNT).toBe(2)
+    expect(FREE_RECRUIT_COUNT).toBe(3)
     expect(RECRUIT_COST).toBe(12)
     expect(MINING_NODE_DEF.copper.recoverS).toBe(50)
     expect(MINING_NODE_DEF.iron.recoverS).toBe(90)
