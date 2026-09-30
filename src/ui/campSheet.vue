@@ -13,6 +13,7 @@ import { appTab } from './appNav'
 import { CAMP_STATION_DRAG_TIP, campDragStationTip } from './campDragTip'
 import {
   CAMP_QUEUE_SLIDE_MS,
+  campFuseTailHold,
   campQueueHeadShift,
   isCampQueueSliding,
   setCampQueueSliding,
@@ -55,6 +56,12 @@ const foodHelpPos = ref({ left: 8, top: 8 })
 const foodRuleOpen = ref(false)
 const detailId = ref<string | null>(null)
 const rows = computed(() => restQueueRows(game.save))
+const heldFuseId = ref<string | null>(null)
+const shownRows = computed(() => {
+  const id = heldFuseId.value
+  if (!id) return rows.value
+  return rows.value.filter((row) => row.id !== id)
+})
 const dispatchCount = computed(() => campDockCount(game.save))
 const fuseCue = computed(() => guideFuseCue(game.save, true))
 const guideFlashRecruit = computed(() => isGuideQuestFlash(game.save, 'recruit'))
@@ -167,7 +174,16 @@ function stopQueueSlide() {
       el.style.transform = ''
     }
   }
+  heldFuseId.value = null
   setCampQueueSliding(false)
+}
+
+function sameQueueIds(left: readonly string[], right: readonly string[]): boolean {
+  if (left.length !== right.length) return false
+  for (let i = 0; i < left.length; i += 1) {
+    if (left[i] !== right[i]) return false
+  }
+  return true
 }
 
 async function playCampQueueSlide(fromRects: Map<string, DOMRect>) {
@@ -177,6 +193,7 @@ async function playCampQueueSlide(fromRects: Map<string, DOMRect>) {
   const list = restListEl.value
   if (!list) {
     setCampQueueSliding(false)
+    heldFuseId.value = null
     return
   }
   const moves: HTMLElement[] = []
@@ -195,6 +212,7 @@ async function playCampQueueSlide(fromRects: Map<string, DOMRect>) {
   if (gen !== slideGen) return
   if (moves.length === 0) {
     setCampQueueSliding(false)
+    heldFuseId.value = null
     return
   }
   slidingIds.value = moves.map((el) => el.dataset.worker ?? '').filter((id) => id.length > 0)
@@ -216,6 +234,19 @@ async function playCampQueueSlide(fromRects: Map<string, DOMRect>) {
 watch(
   () => rows.value.map((row) => row.id),
   (after, before) => {
+    if (!before || sameQueueIds(before, after)) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
+      heldFuseId.value = null
+      return
+    }
+    heldFuseId.value = campFuseTailHold(before, after)
+  },
+  { flush: 'pre' },
+)
+
+watch(
+  () => shownRows.value.map((row) => row.id),
+  (after, before) => {
     if (!before || !campQueueHeadShift(before, after)) return
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return
     const list = restListEl.value
@@ -227,7 +258,10 @@ watch(
       if (!el) continue
       fromRects.set(id, el.getBoundingClientRect())
     }
-    if (fromRects.size === 0) return
+    if (fromRects.size === 0) {
+      heldFuseId.value = null
+      return
+    }
     window.clearTimeout(slideTimer)
     slideTimer = 0
     setCampQueueSliding(true)
@@ -432,7 +466,7 @@ onUnmounted(() => {
         <div class="board">
           <div v-if="rows.length" ref="restListEl" class="list">
             <div
-              v-for="row in rows"
+              v-for="row in shownRows"
               :key="row.id"
               class="row"
               :class="[

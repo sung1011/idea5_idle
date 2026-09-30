@@ -46,3 +46,24 @@ export function campQueueHeadShift(
   if (shifts.length === 0) return null
   return shifts
 }
+
+/**
+ * 合成带走了队首，且去掉新人后后面至少还有 2 人要前移。
+ * 返回队尾那名新人的 id，界面先播前移，再把这个人放出来。
+ * 队首还在、新人不是队尾、或前移播不出来时返回 null。
+ */
+export function campFuseTailHold(beforeIds: readonly string[], afterIds: readonly string[]): string | null {
+  if (beforeIds.length < 4 || afterIds.length < 3) return null
+  const newbornId = afterIds[afterIds.length - 1]
+  if (!newbornId || beforeIds.includes(newbornId)) return null
+  const shifted = afterIds.slice(0, -1)
+  const removed = beforeIds.filter((id) => !shifted.includes(id))
+  if (removed.length !== 2 || !removed.includes(beforeIds[0] ?? '')) return null
+  const stayed = beforeIds.filter((id) => !removed.includes(id))
+  if (stayed.length !== shifted.length) return null
+  for (let i = 0; i < stayed.length; i += 1) {
+    if (stayed[i] !== shifted[i]) return null
+  }
+  if (!campQueueHeadShift(beforeIds, shifted)) return null
+  return newbornId
+}

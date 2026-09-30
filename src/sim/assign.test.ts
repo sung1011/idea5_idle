@@ -129,6 +129,28 @@ describe('rest merge', () => {
     expect(save.workers[1].assignment).toBe('inscription')
   })
 
+  it('parks the new worker at the camp tail after the consumed pair leaves', () => {
+    const save = roster(5)
+    const [head, second, duty, third, fourth] = save.workers
+    expect(assignWorker(save, duty.id, 'herbalism').ok).toBe(true)
+    expect(restingWorkers(save).map((worker) => worker.id)).toEqual([head.id, second.id, third.id, fourth.id])
+
+    expect(fuseRestWorkers(save, head.id, second.id).ok).toBe(true)
+    const rest = restingWorkers(save)
+    const newborn = rest[rest.length - 1]
+    expect(newborn?.qualityTier).toBe(2)
+    expect(newborn?.assignment).toBeNull()
+    expect(rest.map((worker) => worker.id)).toEqual([third.id, fourth.id, newborn?.id])
+    expect(duty.assignment).toBe('herbalism')
+
+    const beside = roster(4)
+    const [stillHead, left, right, tail] = beside.workers
+    expect(fuseRestWorkers(beside, left.id, right.id).ok).toBe(true)
+    const parked = restingWorkers(beside)
+    expect(parked.map((worker) => worker.id)).toEqual([stillHead.id, tail.id, parked[parked.length - 1]?.id])
+    expect(parked[0]?.id).toBe(stillHead.id)
+  })
+
   it('fuses only when both workers are in camp', () => {
     const save = roster(2)
     const [a, b] = save.workers

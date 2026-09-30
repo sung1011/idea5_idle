@@ -2,7 +2,7 @@ import { isWorkerInBeastPvp } from './beastPvpQuery'
 import { isWorkerInHerbPvp } from './herbPvpQuery'
 import { fillWorkerHp } from './combat'
 import { starterGuideFuseAttr } from './encounters'
-import { unloadFood } from './food'
+import { sendWorkerToRestTail, unloadFood } from './food'
 import { clearWorkerNew, findWorker, spawnWorkerWith } from './recruit'
 import { workerFromTotalXp, workerTotalXp } from './workerLevel'
 import { roll01 } from './rng'
@@ -39,6 +39,7 @@ function fusePairAt(save: Save, a: Worker, b: Worker): ActionResult {
   worker.xp = progress.xp
   fillWorkerHp(worker, undefined, save)
   worker.assignment = null
+  sendWorkerToRestTail(save, worker.id)
   const quality = workerQualityDef(nextTier)
   const job = worker.classId ? CLASS_LABEL[worker.classId] : '未标'
   save.fuseDragTipDone = true
@@ -68,7 +69,7 @@ function fieldBlock(save: Save, a: Worker, b: Worker): ActionResult | null {
   return null
 }
 
-/** 两人都在营地、同档、未满档。消耗两人，产出 1 个高一档新人，留在营地。 */
+/** 两人都在营地、同档、未满档。消耗两人，产出 1 个高一档新人，排到营地队尾。 */
 export function fuseWorkers(save: Save, workerIdA: string, workerIdB: string): ActionResult {
   if (!workerIdA || !workerIdB) return { ok: false, reason: '请选两个同品质苦工' }
   if (workerIdA === workerIdB) return { ok: false, reason: '不能合成同一个人' }
@@ -93,7 +94,7 @@ export function canFuseRestWorkers(save: Save, workerIdA: string, workerIdB: str
   return fusePairReady(a, b) == null
 }
 
-/** 营地同档合成。新人留在营地。有人在岗则拒绝。 */
+/** 营地同档合成。新人留在营地队尾。有人在岗则拒绝。 */
 export function fuseRestWorkers(save: Save, workerIdA: string, workerIdB: string): ActionResult {
   return fuseWorkers(save, workerIdA, workerIdB)
 }

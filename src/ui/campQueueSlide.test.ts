@@ -4,6 +4,7 @@ import dragSource from './workerDrag.ts?raw'
 import {
   CAMP_QUEUE_SLIDE_FUSE,
   CAMP_QUEUE_SLIDE_MS,
+  campFuseTailHold,
   campQueueHeadShift,
   setCampQueueSliding,
 } from './campQueueSlide'
@@ -46,9 +47,27 @@ describe('camp queue head slide', () => {
     ])
   })
 
+  it('holds the fused newcomer until the head shift can play', () => {
+    expect(campFuseTailHold(['h', 'a', 'b', 'c'], ['b', 'c', 'new'])).toBe('new')
+    expect(campQueueHeadShift(['h', 'a', 'b', 'c'], ['b', 'c'])).toEqual([
+      { id: 'b', from: 2, to: 0 },
+      { id: 'c', from: 3, to: 1 },
+    ])
+    expect(campFuseTailHold(['h', 'a', 'b', 'c'], ['a', 'b', 'new'])).toBe('new')
+    expect(campFuseTailHold(['h', 'a', 'b', 'c'], ['h', 'c', 'new'])).toBeNull()
+    expect(campFuseTailHold(['h', 'a', 'b'], ['b', 'new'])).toBeNull()
+    expect(campFuseTailHold(['h', 'a'], ['new'])).toBeNull()
+    expect(campFuseTailHold(['h', 'a', 'b', 'c'], ['b', 'new', 'c'])).toBeNull()
+  })
+
   it('wires the slide on the camp sheet and blocks fuse while it plays', () => {
     expect(CAMP_QUEUE_SLIDE_FUSE).toBe('队列还在滑动')
     expect(sheetSource).toContain('campQueueHeadShift')
+    expect(sheetSource).toContain('campFuseTailHold(before, after)')
+    expect(sheetSource).toContain('v-for="row in shownRows"')
+    expect(sheetSource.indexOf('campFuseTailHold(before, after)')).toBeLessThan(
+      sheetSource.indexOf('campQueueHeadShift(before, after)'),
+    )
     expect(sheetSource).toContain('CAMP_QUEUE_SLIDE_MS')
     expect(sheetSource).toContain('isCampQueueSliding')
     expect(sheetSource).toContain("'queue-slide': slidingIds.includes(row.id)")
