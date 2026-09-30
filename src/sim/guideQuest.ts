@@ -27,10 +27,10 @@ import {
 export const GUIDE_QUEST_PHASE1_STEPS = 5
 export const GUIDE_QUEST_PHASE2_STEPS = 2
 export const GUIDE_QUEST_PHASE3_STEPS = 1
-/** 早期引导领完招兵到用药之前的参考步号。不再用来迁移旧档。 */
-export const GUIDE_OLD_DONE_STEP = 10
+/** 用药这一步的步号。不再用来迁移旧档。 */
+export const GUIDE_OLD_DONE_STEP = mainlineStepOf('potionUse')
 export const GUIDE_QUEST_GOLD = 20
-/** 骑士 1 级即可装槽 / 点用。主线在升到 2 级、挂上自动线之后才引导炼金。 */
+/** 骑士 1 级即可装槽 / 点用。主线在升到 2 级后引导炼金、装药、用药，用药不要求已经挂上自动线。 */
 export const GUIDE_QUEST_PHASE2_KNIGHT = 1
 /**
  * 9：确认过的清单，另插入派工、排队和挂自动。升到 N 级的任务领奖后才开启该级功能。

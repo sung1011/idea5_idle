@@ -109,7 +109,7 @@ function task(
 
 /**
  * 唯一的主线顺序。下标就是步号，运行时不重排。
- * 顺序以确认过的清单为准，中间插入了派工、排队和挂自动。运行时不重排。
+ * 升到 2 级之后是熬药、装药、用药，然后才挂自动。运行时不重排。
  */
 function buildSchedule(): MainlineTask[] {
   const rows: MainlineTask[] = [
@@ -119,10 +119,10 @@ function buildSchedule(): MainlineTask[] {
     task('fuse', '在营地把两名同品质苦工合成，名册出现 2 档', '合伙', 'intro', kept()),
     task('combat', '在 PVE 选人弹层点过开战', '出征', 'intro', kept()),
     levelTask(2),
-    task('autoLine', '在站卡右上角打开一条自动线', '挂自动', 'intro', kept()),
     task('alchemy', '点炼金站，把队首派上去熬一轮药', '熬药', 'intro', kept()),
     task('potionInstall', '在营地把任一药剂槽装上药', '装药', 'intro', kept()),
     task('potionUse', '在营地点用过药剂槽', '用药', 'intro', kept()),
+    task('autoLine', '在站卡右上角打开一条自动线', '挂自动', 'intro', kept()),
     levelTask(3),
     task('firstBlood', '在悬赏打赢一个敌人并领到战利品', '头功', 'intro', gold(30)),
     task('explore', '探索悬赏 1 次', '探路', 'intro', gold(16)),

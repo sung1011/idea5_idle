@@ -151,10 +151,10 @@ export function openGuideQuestStep(step: number, storage?: Storage | null): AppT
     'fuse',
     'combat',
     'level2',
-    'autoLine',
     'alchemy',
     'potionInstall',
     'potionUse',
+    'autoLine',
   ]
   const id = ids[step - 1]
   if (id) return openGuideQuestTask(id, storage)

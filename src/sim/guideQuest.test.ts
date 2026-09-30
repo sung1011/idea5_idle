@@ -3,7 +3,7 @@ import { bankQty } from './bank'
 import { restingWorkers } from './assign'
 import { startCombat } from './encounters'
 import { ticks } from './tick'
-import { dispatchManualRound, ROUND_BADGE_TIP, toggleStationAuto } from './workshopDispatch'
+import { autoLineQuota, dispatchManualRound, ROUND_BADGE_TIP, toggleStationAuto } from './workshopDispatch'
 import { fighterRecommendLabel } from './combatAttrs'
 import { createSave } from './createSave'
 import { fuseRestWorkers } from './fuse'
@@ -12,7 +12,7 @@ import {
   GUIDE_QUEST_GOLD,
   GUIDE_QUEST_PHASE3_START,
   GUIDE_ALCHEMY_CLICK_GOAL,
-  GUIDE_ALCHEMY_WAIT_HERB_GOAL,
+  GUIDE_ALCHEMY_NEED_HERB_GOAL,
   GUIDE_COMBAT_HERB_GOAL,
   GUIDE_FUSE_DRAG_GOAL,
   GUIDE_FUSE_EMPTY_GOAL,
@@ -220,14 +220,12 @@ describe('guideQuest steps and claim', () => {
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('level2'))
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(save.guideQuestStep).toBe(mainlineStepOf('autoLine'))
-    expect(toggleStationAuto(save, 'herbalism').ok).toBe(true)
-    expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('alchemy'))
     expect(guideQuestView(save)?.title).toBe('熬药')
     expect(guideQuestView(save)?.goal).toBe(GUIDE_ALCHEMY_CLICK_GOAL)
     save.bank.herb = 0
-    expect(guideQuestView(save)?.goal).toBe(GUIDE_ALCHEMY_WAIT_HERB_GOAL)
+    expect(save.stations.herbalism.auto).toBe(false)
+    expect(guideQuestView(save)?.goal).toBe(GUIDE_ALCHEMY_NEED_HERB_GOAL)
     save.bank.herb = 1
     save.stations.alchemy.completed = 1
     expect(claimGuideQuest(save).ok).toBe(true)
@@ -244,9 +242,15 @@ describe('guideQuest steps and claim', () => {
     const resting = save.workers.find((worker) => worker.assignment == null)
     expect(resting).toBeTruthy()
     resting!.hp = Math.max(1, resting!.hpMax - 1)
+    expect(save.stations.herbalism.auto).toBe(false)
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(save.guideQuestPotionUsed).toBe(true)
     expect(guideQuestView(save)?.goal).toBe('在营地点用过药剂槽')
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(save.guideQuestStep).toBe(mainlineStepOf('autoLine'))
+    expect(mainlineStepOf('autoLine')).toBe(10)
+    expect(autoLineQuota(save)).toBe(1)
+    expect(toggleStationAuto(save, 'herbalism').ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('level3'))
     expect(claimGuideQuest(save).ok).toBe(true)
@@ -383,9 +387,6 @@ describe('guideQuest flash target', () => {
     markCombatStarted(save)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestFlashId(save)).toBe('autoLine')
-    expect(toggleStationAuto(save, 'herbalism').ok).toBe(true)
-    expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('alchemy')
 
     save.stations.alchemy.completed = 1
@@ -400,8 +401,13 @@ describe('guideQuest flash target', () => {
     const resting = save.workers.find((worker) => worker.assignment == null)
     expect(resting).toBeTruthy()
     resting!.hp = Math.max(1, resting!.hpMax - 1)
+    expect(save.stations.herbalism.auto).toBe(false)
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBeNull()
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBe('autoLine')
+    expect(autoLineQuota(save)).toBe(1)
+    expect(toggleStationAuto(save, 'herbalism').ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('firstBlood')
@@ -585,16 +591,14 @@ describe('early guide on a fresh save', () => {
     expect(startCombat(save, 0, [fighter!.id]).ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestView(save)?.taskId).toBe('autoLine')
-    expect(toggleStationAuto(save, 'herbalism').ok).toBe(true)
-    expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestView(save)?.taskId).toBe('alchemy')
+    expect(save.stations.herbalism.auto).toBe(false)
 
     let guard = 0
     while ((save.stations.alchemy.completed ?? 0) < 1 && guard < 50) {
       guard += 1
       if (bankQty(save, 'herb') < 1) {
-        save = ticks(save, 20)
+        save = pumpHerbs(save, 1)
         continue
       }
       if (!dispatchManualRound(save, 'alchemy').ok) {
@@ -630,7 +634,12 @@ describe('early guide on a fresh save', () => {
     }
     target!.fatigueDebt = 0
     target!.hp = Math.max(1, target!.hpMax - 1)
+    expect(save.stations.herbalism.auto).toBe(false)
     expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestView(save)?.taskId).toBe('autoLine')
+    expect(autoLineQuota(save)).toBe(1)
+    expect(toggleStationAuto(save, 'herbalism').ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestView(save)?.taskId).toBe('level3')
   })

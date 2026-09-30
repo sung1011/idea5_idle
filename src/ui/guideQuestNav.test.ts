@@ -54,11 +54,15 @@ describe('guideQuestNav', () => {
 
     expect(openGuideQuestStep(6, store)).toBe('workshop')
     expect(openGuideQuestStep(7, store)).toBe('workshop')
-    expect(openGuideQuestStep(8, store)).toBe('workshop')
     expect(workshopTab.value).toBe('alchemy')
     expect(store.getItem(WORKSHOP_TAB_KEY)).toBe('alchemy')
+    const campBeforePotion = guideCampOpenRequest.value
+    expect(openGuideQuestStep(8, store)).toBe('workshop')
+    expect(guideCampOpenRequest.value).toBe(campBeforePotion + 1)
     expect(openGuideQuestStep(9, store)).toBe('workshop')
+    expect(guideCampOpenRequest.value).toBe(campBeforePotion + 2)
     expect(openGuideQuestStep(10, store)).toBe('workshop')
+    expect(guideCampOpenRequest.value).toBe(campBeforePotion + 2)
     expect(openGuideQuestTask('tech', store)).toBe('tech')
     expect(openGuideQuestTask('market', store)).toBe('encounters')
     expect(mainlineTab.value).toBe('market')
