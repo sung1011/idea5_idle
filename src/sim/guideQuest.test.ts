@@ -687,6 +687,7 @@ describe('early guide on a fresh save', () => {
     expect(mainlineTaskById('cookStart')?.goal).toBe('点烹饪站，把营地队首派上去工作一轮')
     expect(mainlineTaskById('mining')?.goal).toBe('点采矿站，把营地队首派上去工作一轮')
     expect(mainlineTaskById('inscribe')?.goal).toBe('点铭刻站，把营地队首派上去工作一轮')
+    expect(mainlineTaskById('autoLine')?.goal).toBe('点站卡右上角标，再点气泡里的「自动」')
     expect(mainlineTaskById('huntHaul')?.goal).toContain('可以挂自动')
     expect(guideClaimNotice('level11')).toContain('自动线名额变成 2')
     expect(levelGateUnlockNote(11)).toContain('自动线名额变成 2')
@@ -694,7 +695,7 @@ describe('early guide on a fresh save', () => {
     expect(ROUND_BADGE_TIP).toContain('还在工作时')
     expect(ROUND_BADGE_TIP).toContain('一轮工作完')
     expect(ROUND_BADGE_TIP).toContain('最多 5 轮')
-    expect(ROUND_BADGE_TIP).toContain('不会排队')
+    expect(ROUND_BADGE_TIP).toContain('不会直接排队')
     expect(ROUND_BADGE_TIP).toContain('营地队尾')
 
     const save = createSave()

@@ -122,7 +122,7 @@ function buildSchedule(): MainlineTask[] {
     task('alchemy', '点炼金站，把队首派上去熬一轮药', '熬药', 'intro', kept()),
     task('potionInstall', '在营地把任一药剂槽装上药', '装药', 'intro', kept()),
     task('potionUse', '在营地点用过药剂槽', '用药', 'intro', kept()),
-    task('autoLine', '在站卡右上角打开一条自动线', '挂自动', 'intro', kept()),
+    task('autoLine', '点站卡右上角标，再点气泡里的「自动」', '挂自动', 'intro', kept()),
     levelTask(3),
     task('firstBlood', '在悬赏打赢一个敌人并领到战利品', '头功', 'intro', gold(30)),
     task('explore', '探索悬赏 1 次', '探路', 'intro', gold(16)),

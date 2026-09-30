@@ -222,6 +222,12 @@ const roundClearable = computed(() => {
   return canClearStationWork(game.save, stationId)
 })
 
+const roundAutoOn = computed(() => {
+  const stationId = roundHelpStation.value
+  if (!stationId) return false
+  return game.save.stations[stationId].auto
+})
+
 function onClearManualQueue() {
   const stationId = roundHelpStation.value
   if (!stationId || !canClearStationWork(game.save, stationId)) return
@@ -254,7 +260,7 @@ function onStationPointerDown(ev: PointerEvent, stationId: StationId) {
   const target = ev.target
   if (
     target instanceof Element &&
-    target.closest('.auto-toggle, .round-badge, .station-detail, .ui-select, .tutor-tip')
+    target.closest('.round-badge, .station-detail, .ui-select, .tutor-tip')
   ) {
     return
   }
@@ -287,7 +293,7 @@ function onStationCardClick(ev: MouseEvent, stationId: StationId) {
   }
   const target = ev.target
   if (target instanceof Element) {
-    if (target.closest('.ui-select, .auto-toggle, .round-badge, .station-detail, .tutor-tip')) return
+    if (target.closest('.ui-select, .round-badge, .station-detail, .tutor-tip')) return
   }
   dispatchStation(stationId)
 }
@@ -550,19 +556,12 @@ onUnmounted(() => {
           >
             <button
               type="button"
-              class="auto-toggle"
-              :class="{ on: game.save.stations[board.stationId].auto, 'guide-flash': guideFlashAuto }"
-              :aria-pressed="game.save.stations[board.stationId].auto"
-              aria-label="自动"
-              @pointerdown.stop
-              @click.stop="onToggleAuto(board.stationId)"
-            >
-              自动
-            </button>
-            <button
-              type="button"
               class="round-badge"
               data-round-badge
+              :class="{
+                auto: game.save.stations[board.stationId].auto,
+                'guide-flash': guideFlashAuto && !roundHelpStation,
+              }"
               :aria-expanded="roundHelpStation === board.stationId"
               :aria-label="stationRoundBadgeAria(game.save, board.stationId)"
               @pointerdown.stop
@@ -757,7 +756,16 @@ onUnmounted(() => {
       aria-label="排队说明"
       :style="{ left: `${roundHelpPos.left}px`, top: `${roundHelpPos.top}px` }"
     >
-      <b>排队</b>
+      <button
+        type="button"
+        class="round-auto"
+        data-round-auto
+        :class="{ on: roundAutoOn, 'guide-flash': guideFlashAuto }"
+        :aria-pressed="roundAutoOn"
+        aria-label="自动"
+        @pointerdown.stop
+        @click.stop="roundHelpStation && onToggleAuto(roundHelpStation)"
+      >自动</button>
       <p>{{ ROUND_BADGE_TIP }}</p>
       <button
         type="button"
@@ -1039,44 +1047,29 @@ onUnmounted(() => {
   box-shadow: 0 0 0 1px #146b28, 0 2px 0 #0e5a1e;
 }
 
-.auto-toggle {
+.round-badge {
   position: absolute;
-  top: 3px;
-  right: 3px;
+  top: 2px;
+  right: 2px;
   z-index: 3;
-  min-width: 34px;
-  min-height: 18px;
-  padding: 0 4px;
-  border: 1px solid #6a4a28;
-  border-radius: 4px;
-  background: #4a321c;
-  color: #efe2c4;
-  font-size: 10px;
+  min-width: 40px;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 6px;
+  border: 1px solid #3a1c0c;
+  border-radius: 6px;
+  background: #6a3218;
+  color: #fff4d8;
+  font-size: 16px;
   font-weight: 800;
-  line-height: 16px;
+  line-height: 26px;
+  cursor: pointer;
 }
 
-.auto-toggle.on {
+.round-badge.auto {
   border-color: #146b28;
   background: #1f8a32;
   color: #f4ffe8;
-}
-
-.round-badge {
-  position: absolute;
-  top: 24px;
-  right: 4px;
-  z-index: 3;
-  margin: 0;
-  padding: 0 4px;
-  border: 1px solid #3a1c0c;
-  border-radius: 4px;
-  background: #6a3218;
-  color: #fff4d8;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 16px;
-  cursor: pointer;
 }
 
 .round-bubble {
@@ -1103,6 +1096,24 @@ onUnmounted(() => {
   font-size: 12px;
   line-height: 1.4;
   font-weight: 700;
+}
+
+.round-auto {
+  padding: 4px 8px;
+  border: 1px solid #6a4a28;
+  border-radius: 6px;
+  background: #4a321c;
+  color: #efe2c4;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 18px;
+  cursor: pointer;
+}
+
+.round-auto.on {
+  border-color: #146b28;
+  background: #1f8a32;
+  color: #f4ffe8;
 }
 
 .round-clear {

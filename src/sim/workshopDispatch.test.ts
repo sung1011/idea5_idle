@@ -186,7 +186,9 @@ describe('workshop manual dispatch and auto lines', () => {
   it('labels a queued station with later rounds and an idle station with headcount', () => {
     expect(ROUND_BADGE_TIP).toContain('后续轮次')
     expect(ROUND_BADGE_TIP).toContain('站里的人数')
-    expect(ROUND_BADGE_TIP).toContain('∞')
+    expect(ROUND_BADGE_TIP).toContain('♾️')
+    expect(ROUND_BADGE_TIP).toContain('上方「自动」')
+    expect(ROUND_BADGE_TIP).toContain('下方可以清空')
     expect(ROUND_BADGE_TIP).toContain('不再留人常驻')
     expect(ROUND_BADGE_TIP).not.toContain('还剩几轮')
     const save = createSave()
@@ -213,7 +215,7 @@ describe('workshop manual dispatch and auto lines', () => {
     expect(toggleStationAuto(save, 'alchemy').ok).toBe(true)
     hand.assignment = 'alchemy'
     expect(stationRoundBadge(save, 'alchemy')).toBe(AUTO_BADGE)
-    expect(stationRoundBadgeAria(save, 'alchemy')).toBe('自动，无限排队，查看排队说明')
+    expect(stationRoundBadgeAria(save, 'alchemy')).toBe('自动，无限排队，打开自动和清空')
     expect(stationRoundBadge(save, 'mining')).toBe('0')
   })
 

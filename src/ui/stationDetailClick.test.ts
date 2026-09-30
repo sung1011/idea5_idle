@@ -34,7 +34,7 @@ describe('station detail button', () => {
       workersPanelSource.indexOf('function onRoundBadge'),
     )
     expect(clearFn).toContain('if (result.ok) closeRoundHelp()')
-    expect(clickFn).toContain('.auto-toggle')
+    expect(clickFn).not.toContain('.auto-toggle')
     expect(clickFn).toContain('.round-badge')
     expect(clickFn).toContain('.station-detail')
     expect(clickFn).not.toContain('.station-name')
@@ -83,7 +83,17 @@ describe('station detail button', () => {
     expect(workersPanelSource).not.toContain('assignHerb')
     expect(workersPanelSource).toContain("guideFlashHerbStation && board.stationId === 'herbalism'")
     expect(workersPanelSource).toContain('点击派工')
-    expect(workersPanelSource).toContain('class="auto-toggle"')
+    expect(workersPanelSource).toContain('data-round-auto')
+    expect(workersPanelSource.indexOf('data-round-auto')).toBeLessThan(workersPanelSource.indexOf('data-round-clear'))
+    expect(workersPanelSource).not.toContain('class="auto-toggle"')
+    const badgeCss = workersPanelSource.slice(
+      workersPanelSource.indexOf('.round-badge {'),
+      workersPanelSource.indexOf('.round-badge.auto'),
+    )
+    expect(badgeCss).toContain('top: 2px')
+    expect(badgeCss).toContain('right: 2px')
+    expect(badgeCss).toContain('font-size: 16px')
+    expect(badgeCss).not.toContain('top: 24px')
     expect(sheetSource).not.toContain('guideFlashAutoHerb')
     expect(sheetSource).toContain('guideFlashRestFood')
     expect(workersPanelSource).not.toContain('guideFlashRestFood')
