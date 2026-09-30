@@ -40,7 +40,8 @@ describe('mining → bank', () => {
     const next = ticks(save, 20)
     expect(bankQty(next, 'ore')).toBe(1)
     expect(next.stations.mining.completed).toBe(1)
-    expect(next.stations.mining.progress).toBeCloseTo(0.5)
+    expect(next.stations.mining.progress).toBe(0)
+    expect(next.workers[0]?.assignment).toBeNull()
   })
 
   it('one miner at solo speed finishes inside a 20s cycle', () => {

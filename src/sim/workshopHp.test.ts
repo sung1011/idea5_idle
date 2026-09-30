@@ -302,7 +302,7 @@ describe('station fatigue combos', () => {
 })
 
 describe('visible workshop drain', () => {
-  it('accumulates debt then drops HP when mining or gathering herbs', () => {
+  it('returns after one auto round so camp rest can clear fractional fatigue', () => {
     for (const stationId of ['mining', 'herbalism'] as const) {
       const save = roster(1)
       const worker = save.workers[0]
@@ -314,14 +314,12 @@ describe('visible workshop drain', () => {
       const afterOne = ticks(save, 20)
       expect(afterOne.stations[stationId].completed).toBeGreaterThanOrEqual(1)
       expect(afterOne.workers[0].hp).toBe(startHp)
-      expect(afterOne.workers[0].fatigueDebt).toBeGreaterThan(0)
-      expect(workerWearHp(afterOne.workers[0])).toBeLessThan(startHp)
-      expect(hpBarTone(workerWearHp(afterOne.workers[0]), afterOne.workers[0].hpMax)).toBe('mid')
+      expect(afterOne.workers[0].fatigueDebt).toBe(0)
+      expect(afterOne.workers[0].assignment).toBeNull()
 
-      const worn = ticks(save, 20 * 18)
-      expect(worn.stations[stationId].completed).toBeGreaterThanOrEqual(12)
-      expect(worn.workers[0].hp).toBeLessThan(startHp)
-      expect(worn.workers[0].hp).toBeGreaterThanOrEqual(startHp - 2)
+      const again = ticks(afterOne, 20)
+      expect(again.stations[stationId].completed).toBeGreaterThan(afterOne.stations[stationId].completed)
+      expect(again.workers[0].hp).toBe(startHp)
     }
   })
 })

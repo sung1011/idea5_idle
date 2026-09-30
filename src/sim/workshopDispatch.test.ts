@@ -6,6 +6,7 @@ import { grantOpenedModules } from './moduleUnlock'
 import { spawnWorker } from './recruit'
 import { ticks } from './tick'
 import {
+  AUTO_BADGE,
   AUTO_FULL_TIP,
   AUTO_QUEUE_TIP,
   AUTO_QUOTA_TIP,
@@ -137,12 +138,16 @@ describe('workshop manual dispatch and auto lines', () => {
 
     const line = createSave()
     const hand = fullWorker(line)
+    const next = fullWorker(line)
     hand.assignment = 'herbalism'
     line.stations.herbalism.auto = true
     line.stations.herbalism.progress = 0.99
-    const produced = ticks(line, 40)
+    const produced = ticks(line, 1)
     expect(produced.stations.herbalism.completed).toBeGreaterThanOrEqual(1)
-    expect(produced.workers.find((worker) => worker.id === hand.id)?.assignment).toBe('herbalism')
+    expect(produced.workers.find((worker) => worker.id === hand.id)?.assignment).toBeNull()
+    expect(restingWorkers(produced).at(-1)?.id).toBe(hand.id)
+    expect(produced.workers.find((worker) => worker.id === next.id)?.assignment).toBe('herbalism')
+    expect(produced.stations.herbalism.auto).toBe(true)
   })
 
   it('clears the queue, sends the worker to the camp tail, and stops progress', () => {
@@ -181,6 +186,8 @@ describe('workshop manual dispatch and auto lines', () => {
   it('labels a queued station with later rounds and an idle station with headcount', () => {
     expect(ROUND_BADGE_TIP).toContain('后续轮次')
     expect(ROUND_BADGE_TIP).toContain('站里的人数')
+    expect(ROUND_BADGE_TIP).toContain('∞')
+    expect(ROUND_BADGE_TIP).toContain('不再留人常驻')
     expect(ROUND_BADGE_TIP).not.toContain('还剩几轮')
     const save = createSave()
     expect(stationRoundBadge(save, 'herbalism')).toBe('0')
@@ -205,7 +212,8 @@ describe('workshop manual dispatch and auto lines', () => {
     const hand = fullWorker(save)
     expect(toggleStationAuto(save, 'alchemy').ok).toBe(true)
     hand.assignment = 'alchemy'
-    expect(stationRoundBadge(save, 'alchemy')).toBe('1')
+    expect(stationRoundBadge(save, 'alchemy')).toBe(AUTO_BADGE)
+    expect(stationRoundBadgeAria(save, 'alchemy')).toBe('自动，无限排队，查看排队说明')
     expect(stationRoundBadge(save, 'mining')).toBe('0')
   })
 
@@ -229,7 +237,7 @@ describe('workshop manual dispatch and auto lines', () => {
     hand.assignment = 'alchemy'
     save.stations.alchemy.progress = 0.55
     expect(save.stations.alchemy.auto).toBe(true)
-    expect(stationRoundBadge(save, 'alchemy')).toBe('1')
+    expect(stationRoundBadge(save, 'alchemy')).toBe(AUTO_BADGE)
     expect(clearManualQueue(save, 'alchemy').ok).toBe(true)
     expect(save.stations.alchemy.auto).toBe(false)
     expect(save.stations.alchemy.manualRounds).toBe(0)
@@ -249,6 +257,67 @@ describe('workshop manual dispatch and auto lines', () => {
     grantOpenedModules(save, ['alchemy'])
     fullWorker(save)
     expect(toggleStationAuto(save, 'herbalism').ok).toBe(true)
-    expect(dispatchManualRound(save, 'herbalism').ok).toBe(false)
+    expect(dispatchManualRound(save, 'herbalism')).toEqual({ ok: false, reason: '这条线已挂自动' })
+  })
+
+  it('rotates an auto line without a round cap and keeps pulling an empty station', () => {
+    const save = createSave()
+    grantOpenedModules(save, ['alchemy', 'tech'])
+    const first = fullWorker(save)
+    const second = fullWorker(save)
+    const third = fullWorker(save)
+    expect(toggleStationAuto(save, 'herbalism').ok).toBe(true)
+    expect(toggleStationAuto(save, 'alchemy').ok).toBe(true)
+    save.stations.herbalism.progress = 0.99
+    first.assignment = 'herbalism'
+    const done = ticks(save, 1)
+    expect(done.stations.herbalism.auto).toBe(true)
+    expect(done.stations.herbalism.manualRounds).toBe(0)
+    expect(done.workers.find((worker) => worker.id === first.id)?.assignment).toBeNull()
+    expect(restingWorkers(done).at(-1)?.id).toBe(first.id)
+    expect(done.workers.find((worker) => worker.id === second.id)?.assignment).toBe('herbalism')
+    expect(done.workers.find((worker) => worker.id === third.id)?.assignment).toBe('alchemy')
+    expect(stationRoundBadge(done, 'herbalism')).toBe(AUTO_BADGE)
+
+    const wounded = createSave()
+    grantOpenedModules(wounded, ['alchemy'])
+    const hurt = fullWorker(wounded)
+    hurt.hp = 1
+    expect(toggleStationAuto(wounded, 'herbalism').ok).toBe(true)
+    const skipped = ticks(wounded, 3)
+    expect(skipped.workers[0]?.assignment).toBeNull()
+    expect(skipped.stations.herbalism.auto).toBe(true)
+
+    const sealed = createSave()
+    grantOpenedModules(sealed, ['alchemy'])
+    const camper = fullWorker(sealed)
+    expect(toggleStationAuto(sealed, 'herbalism').ok).toBe(true)
+    sealed.stations.herbalism.closed = true
+    const held = ticks(sealed, 2)
+    expect(held.workers.find((worker) => worker.id === camper.id)?.assignment).toBeNull()
+  })
+
+  it('finishes the current auto round as one manual round when switched off', () => {
+    const save = createSave()
+    grantOpenedModules(save, ['alchemy'])
+    const hand = fullWorker(save)
+    const spare = fullWorker(save)
+    expect(toggleStationAuto(save, 'herbalism').ok).toBe(true)
+    hand.assignment = 'herbalism'
+    save.stations.herbalism.progress = 0.99
+    expect(toggleStationAuto(save, 'herbalism').ok).toBe(true)
+    expect(save.stations.herbalism.auto).toBe(false)
+    expect(save.stations.herbalism.manualRounds).toBe(1)
+    expect(hand.assignment).toBe('herbalism')
+
+    const done = ticks(save, 1)
+    expect(done.stations.herbalism.auto).toBe(false)
+    expect(done.stations.herbalism.manualRounds).toBe(0)
+    expect(done.workers.find((worker) => worker.id === hand.id)?.assignment).toBeNull()
+    expect(restingWorkers(done).at(-1)?.id).toBe(hand.id)
+    expect(done.workers.find((worker) => worker.id === spare.id)?.assignment).toBeNull()
+    const later = ticks(done, 30)
+    expect(later.stations.herbalism.completed).toBe(done.stations.herbalism.completed)
+    expect(later.workers.every((worker) => worker.assignment == null)).toBe(true)
   })
 })

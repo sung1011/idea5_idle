@@ -62,13 +62,13 @@ describe('settleOffline', () => {
     const result = settleOffline(save, 80_000)
     expect(result.summary.seconds).toBe(80)
     expect(result.summary.capped).toBe(false)
-    expect(bankQty(result.save, 'ore')).toBe(6)
-    expect(result.summary.stations.some((s) => s.stationId === 'mining' && s.completed === 6)).toBe(true)
-    expect(result.summary.bank.some((b) => b.itemId === 'ore' && b.delta === 6)).toBe(true)
+    expect(bankQty(result.save, 'ore')).toBe(4)
+    expect(result.summary.stations.some((s) => s.stationId === 'mining' && s.completed === 4)).toBe(true)
+    expect(result.summary.bank.some((b) => b.itemId === 'ore' && b.delta === 4)).toBe(true)
     expect(result.summary.goldDelta).toBe(0)
     expect(result.summary.lines[0]).toBe('离线 1 分钟 20 秒')
-    expect(result.summary.lines.some((l) => l.includes('采矿') && l.includes('完成 6 次'))).toBe(true)
-    expect(result.summary.lines.some((l) => l.includes('铜矿 +6'))).toBe(true)
+    expect(result.summary.lines.some((l) => l.includes('采矿') && l.includes('完成 4 次'))).toBe(true)
+    expect(result.summary.lines.some((l) => l.includes('铜矿 +4'))).toBe(true)
     expect(result.save.messages[0]?.title).toBe('离线收益')
     expect(result.save.messages[0]?.read).toBe(false)
     expect(result.save.offlineCount).toBe(1)
@@ -98,9 +98,9 @@ describe('settleOffline', () => {
     save.stations.herbalism.auto = true
     save.lastTick = 0
     const result = settleOffline(save, 80_000)
-    expect(result.save.stations.herbalism.completed).toBe(6)
-    expect(bankQty(result.save, 'herb') + bankQty(result.save, 'spice')).toBe(6)
-    expect(result.summary.stations.some((s) => s.stationId === 'herbalism' && s.completed === 6)).toBe(true)
+    expect(result.save.stations.herbalism.completed).toBe(4)
+    expect(bankQty(result.save, 'herb') + bankQty(result.save, 'spice')).toBe(4)
+    expect(result.summary.stations.some((s) => s.stationId === 'herbalism' && s.completed === 4)).toBe(true)
     expect(result.summary.lines.some((l) => l.includes('草') || l.includes('香料'))).toBe(true)
   })
 
@@ -108,7 +108,6 @@ describe('settleOffline', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'mining')
     save.stations.mining.auto = true
-    save.stations.herbalism.auto = true
     const now = 10_000_000
     save.lastTick = now - (OFFLINE_CAP_S + 120) * 1000
     const result = settleOffline(save, now)
@@ -122,8 +121,7 @@ describe('settleOffline', () => {
     expect(miner.level).toBeGreaterThan(1)
     expect(miner.hp).toBeGreaterThanOrEqual(1)
     expect(miner.hp).toBeLessThanOrEqual(miner.hpMax)
-    // 力竭回休息并回满后，自动填岗按站序进采药。
-    expect(miner.assignment).toBe('herbalism')
+    expect(miner.assignment === 'mining' || miner.assignment == null).toBe(true)
     expect(result.save.stations.mining.stallReason).toBeNull()
     expect(result.summary.stations.some((s) => s.stationId === 'mining' && s.completed > 0)).toBe(true)
   })

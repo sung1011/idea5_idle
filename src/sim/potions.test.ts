@@ -217,6 +217,12 @@ describe('seven potion effects', () => {
     expect(sped).toBeCloseTo(bare * STIM_SPEED_MUL * BEAST_OIL_SPEED_MUL)
     const later = ticks(save, STIM_DURATION_S)
     expect(workerWorkSpeedMul(later.workers[0], later.elapsedS)).toBe(1)
+    const person = later.workers[0]
+    if (person && person.assignment !== 'herbalism') {
+      person.fatigueDebt = 0
+      person.hp = person.hpMax
+      expect(assignWorker(later, person.id, 'herbalism').ok).toBe(true)
+    }
     expect(currentSpeed(later, 'herbalism')).toBeCloseTo(bare)
   })
 

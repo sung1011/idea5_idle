@@ -461,9 +461,9 @@ export type StationState = {
   craftNotice?: string | null
   /** 站内连招 / 毒雾 / 挫败。旧档缺字段 hydrate 为零。 */
   fatigueCombo: StationFatigueCombo
-  /** 封闭：只挡自动填岗。已在岗的人继续干。 */
+  /** 封闭：只挡自动拉人。正在做的这一轮会做完。 */
   closed: boolean
-  /** 自动线。名额见 `autoLineQuota`。 */
+  /** 自动线：无限排队。一轮做完回营地队尾，再拉满血队首。名额见 `autoLineQuota`。 */
   auto: boolean
   /** 手动站剩余轮数，含正在干的这一轮。最多 5。 */
   manualRounds: number

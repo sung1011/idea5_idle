@@ -22,7 +22,7 @@ describe('messages', () => {
     expect(listedMessages(result.save).some((m) => m.title === '酋长升级')).toBe(false)
     const first = offline!
     expect(first.body).toContain('离线 1 分钟 20 秒')
-    expect(first.body).toContain('铜矿 +6')
+    expect(first.body).toContain('铜矿 +4')
   })
 
   it('clears the unread flag after markAllRead', () => {

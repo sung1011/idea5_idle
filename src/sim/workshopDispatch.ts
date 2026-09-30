@@ -16,7 +16,8 @@ export const AUTO_FULL_TIP = '自动线名额已满'
 export const AUTO_QUEUE_TIP = '最多排 5 轮'
 /** 点站卡小图标时弹出。这个标记不是排队入口。 */
 export const ROUND_BADGE_TIP =
-  '点站点大面板，把营地队首派上去工作一轮。还在工作时再点，排进下一轮，最多 5 轮。一轮工作完，苦工回到营地队尾。有排队时 ×N 是后续轮次，不含正在做的这一轮；没排队时这个数字是站里的人数。点它只看说明，不会排队。'
+  '点站点大面板，把营地队首派上去工作一轮。还在工作时再点，排进下一轮，最多 5 轮。一轮工作完，苦工回到营地队尾。有排队时 ×N 是后续轮次，不含正在做的这一轮；没排队时这个数字是站里的人数。自动线开着时这里是 ∞：做完一轮就回营地队尾，立刻再拉满血队首，不限轮次，不再留人常驻。点它只看说明，不会排队。'
+export const AUTO_BADGE = '∞'
 /** ×N 说明气泡里的按钮。 */
 export const CLEAR_MANUAL_QUEUE_LABEL = '清空'
 /** 按钮旁的说明。 */
@@ -69,27 +70,38 @@ function pullManualHead(save: Save, stationId: StationId): boolean {
   return assignWorker(save, head.id, stationId).ok
 }
 
-/** 排队还没人的手动站，按站序各拉一次当时的营地队首。 */
+/** 空着的手动排队，以及开着自动、未封闭的站，按站序各拉一次当时的营地队首。 */
 export function pullWaitingManualRounds(save: Save): void {
   for (const stationId of STATION_ORDER) {
     const station = save.stations[stationId]
-    if (station.auto || station.manualRounds <= 0) continue
     if (!isStationUnlocked(save, stationId)) continue
     if (assignedWorkers(save, stationId).length > 0) continue
+    if (station.auto) {
+      if (station.closed) continue
+      pullManualHead(save, stationId)
+      continue
+    }
+    if (station.manualRounds <= 0) continue
     pullManualHead(save, stationId)
   }
 }
 
-/** 手动一轮做完：人回营地队尾。后面还有轮次就再拉当时的队首。 */
+/**
+ * 一轮做完：人回营地队尾。
+ * 手动后面还有轮次，或自动线仍开着且未封闭，就再拉当时的满血队首。
+ */
 export function finishManualRound(save: Save, stationId: StationId): void {
   const station = save.stations[stationId]
-  if (station.auto) return
   const worker = assignedWorkers(save, stationId)[0]
-  station.manualRounds = Math.max(0, station.manualRounds - 1)
+  if (!station.auto) station.manualRounds = Math.max(0, station.manualRounds - 1)
   station.progress = 0
   if (worker) {
     worker.assignment = null
     offerRestFood(save, worker.id)
+  }
+  if (station.auto) {
+    if (!station.closed && isStationUnlocked(save, stationId)) pullManualHead(save, stationId)
+    return
   }
   if (station.manualRounds > 0) pullManualHead(save, stationId)
 }
@@ -98,7 +110,7 @@ export function finishManualRound(save: Save, stationId: StationId): void {
 export function dispatchManualRound(save: Save, stationId: StationId): ActionResult {
   if (!isStationUnlocked(save, stationId)) return { ok: false, reason: stationLockedTip(stationId) }
   const station = save.stations[stationId]
-  if (station.auto) return { ok: false, reason: '这条线在自动生产' }
+  if (station.auto) return { ok: false, reason: '这条线已挂自动' }
   if (!campHeadReady(save)) return { ok: false, reason: CAMP_EMPTY_TIP }
   const busy = assignedWorkers(save, stationId).length > 0
   if (!busy && station.manualRounds <= 0) {
@@ -113,7 +125,7 @@ export function dispatchManualRound(save: Save, stationId: StationId): ActionRes
   return { ok: true }
 }
 
-/** 还没开始的后续轮次。正在做的这一轮不算。自动线没有排队。 */
+/** 还没开始的后续轮次。正在做的这一轮不算。自动线不记轮次。 */
 export function manualQueueLeft(save: Save, stationId: StationId): number {
   const station = save.stations[stationId]
   if (station.auto) return 0
@@ -121,8 +133,9 @@ export function manualQueueLeft(save: Save, stationId: StationId): number {
   return Math.max(0, station.manualRounds - working)
 }
 
-/** 站卡小图标。有后续排队写 ×轮次；否则写在岗人数，不带 ×。 */
+/** 站卡小图标。自动线写 ∞；有后续排队写 ×轮次；否则写在岗人数，不带 ×。 */
 export function stationRoundBadge(save: Save, stationId: StationId): string {
+  if (save.stations[stationId].auto) return AUTO_BADGE
   const queued = manualQueueLeft(save, stationId)
   if (queued > 0) return `×${queued}`
   return String(assignedWorkers(save, stationId).length)
@@ -130,6 +143,7 @@ export function stationRoundBadge(save: Save, stationId: StationId): string {
 
 /** 小图标的读屏说明。 */
 export function stationRoundBadgeAria(save: Save, stationId: StationId): string {
+  if (save.stations[stationId].auto) return '自动，无限排队，查看排队说明'
   const queued = manualQueueLeft(save, stationId)
   if (queued > 0) return `后续排队 ${queued} 轮，查看排队说明`
   return `站内 ${assignedWorkers(save, stationId).length} 人，查看排队说明`
@@ -166,6 +180,7 @@ export function toggleStationAuto(save: Save, stationId: StationId): ActionResul
   const station = save.stations[stationId]
   if (station.auto) {
     station.auto = false
+    // 正在做的这一轮按手动收尾，做完回营。空站不再拉人，不留常驻。
     station.manualRounds = assignedWorkers(save, stationId).length > 0 ? 1 : 0
     return { ok: true }
   }

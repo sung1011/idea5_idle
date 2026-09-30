@@ -330,7 +330,7 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
     <ModeHelpSheet v-if="helpOpen" :title="help.title" :rows="help.rows" @close="helpOpen = false" />
     <div v-if="sealAsk" class="seal-ask-layer">
       <p class="seal-ask" role="alertdialog" :aria-label="`确认封闭${def.label}`">
-        封闭后营地不再自动派到这一站，已在岗的人继续干。
+        封闭后不再自动拉人。正在做的这一轮会做完，做完回营地。
         <button type="button" @click="onCancelSeal">取消</button>
         <button type="button" @click="onConfirmSeal">确定封闭</button>
       </p>

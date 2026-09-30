@@ -178,33 +178,11 @@ export function stepStation(save: Save, stationId: StationId, now = Date.now(), 
   const speed = currentSpeed(save, stationId, now)
   station.progress += speed
 
-  if (!station.auto) {
-    if (station.progress + CYCLE_EPS < 1) return
-    if (!canConsume(save, stationId)) {
-      station.stallReason = 'emptyInput'
-      return
-    }
-    if (!completeCycle(save, stationId, now, onGain)) return
-    finishManualRound(save, stationId)
+  if (station.progress + CYCLE_EPS < 1) return
+  if (!canConsume(save, stationId)) {
+    station.stallReason = 'emptyInput'
     return
   }
-
-  while (station.progress + CYCLE_EPS >= 1) {
-    if (assignedCount(save, stationId) <= 0) {
-      station.progress = 0
-      station.stallReason = null
-      break
-    }
-    if (!canConsume(save, stationId)) {
-      station.stallReason = 'emptyInput'
-      break
-    }
-    if (!completeCycle(save, stationId, now, onGain)) break
-    station.progress -= 1
-    if (Math.abs(station.progress) < CYCLE_EPS) station.progress = 0
-  }
-  if (assignedCount(save, stationId) <= 0) {
-    station.progress = 0
-    station.stallReason = null
-  }
+  if (!completeCycle(save, stationId, now, onGain)) return
+  finishManualRound(save, stationId)
 }

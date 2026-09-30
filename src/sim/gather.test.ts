@@ -74,10 +74,15 @@ describe('mining node recover', () => {
     save.stations.mining.auto = true
     save.workers[0].hpMax = 10_000
     save.workers[0].hp = 10_000
-    const depleted = ticks(save, 267)
+    let depleted = save
+    let guard = 0
+    while (bankQty(depleted, 'ore') < 20 && guard < 500) {
+      depleted = ticks(depleted, 1)
+      guard += 1
+    }
     expect(bankQty(depleted, 'ore')).toBe(20)
     expect(depleted.stations.mining.miningNode?.nodeHp).toBe(0)
-    expect(depleted.stations.mining.miningNode?.recoverAt).toBe(267 + 50)
+    expect(depleted.stations.mining.miningNode?.recoverAt).toBe(depleted.elapsedS + 50)
     expect(isGatherFrozen(depleted, 'mining')).toBe(true)
 
     const stillBlocked = ticks(depleted, 10)
@@ -119,7 +124,7 @@ describe('herbalism settlement', () => {
     const save = roster(1)
     assignWorker(save, save.workers[0].id, 'herbalism')
     save.stations.herbalism.auto = true
-    const next = ticks(save, 27)
+    const next = ticks(save, 40)
     expect(next.stations.herbalism.completed).toBe(2)
     expect(next.stations.herbalism.miningNode).toBeUndefined()
     expect(bankQty(next, 'spice')).toBe(2)
