@@ -120,9 +120,13 @@ export function levelGateTitle(level: number): string {
   return `升到酋长 ${level} 级（开放${names}）`
 }
 
+/** 领到「升到酋长 11 级」时给的一句提示。第二条自动线跟着科技模块走。 */
+export const SECOND_AUTO_LINE_TIP = '自动线名额变成 2，可以再挂一条'
+
 export function levelGateUnlockNote(level: number): string | null {
   const names = MODULE_GATE_NAMES[level]
   if (!names) return null
+  if (level === 11) return `完成后开启：${names}。${SECOND_AUTO_LINE_TIP}`
   return `完成后开启：${names}`
 }
 

@@ -75,8 +75,8 @@ import {
   upgradeTreasureBanner,
   type TreasureRefreshPay,
 } from '../sim/treasureMine'
-import { claimGuideQuest, markGuideQuestRuneOpened } from '../sim/guideQuest'
-import { syncGuideQuestMet } from '../sim/mainlineQuest'
+import { claimGuideQuest, guideClaimNotice, markGuideQuestRuneOpened } from '../sim/guideQuest'
+import { mainlineTaskAt, syncGuideQuestMet } from '../sim/mainlineQuest'
 import { markModuleSeen, moduleNoticeOn, type ModuleId } from '../sim/moduleUnlock'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
 import { PLAYABLE_STATION_IDS, type FoodItemId } from '../sim/tables'
@@ -339,7 +339,15 @@ export const useGameStore = defineStore('game', () => {
     selectCategory: (stationId: StationId, categoryId: CategoryId) =>
       apply((s) => selectStationCategory(s, stationId, categoryId)),
     explore: () => apply(exploreBoard),
-    claimGuideQuest: () => apply(claimGuideQuest),
+    claimGuideQuest: () => {
+      const taskId = mainlineTaskAt(save.value.guideQuestStep)?.id ?? ''
+      const result = apply(claimGuideQuest)
+      if (result.ok) {
+        const notice = guideClaimNotice(taskId)
+        if (notice) pushFloatTip(notice, 'ok')
+      }
+      return result
+    },
     markModuleSeen: (id: ModuleId) => {
       if (!moduleNoticeOn(save.value, id)) return { ok: true }
       return apply((current) => {

@@ -22,7 +22,8 @@ import {
   type PotionHelpKey,
 } from './potionHelp'
 import type { ItemId } from '../sim/types'
-import { guideAlchemyCardFlash, guideFuseFlashStations, isGuideQuestFlash } from '../sim/guideQuest'
+import { guideAlchemyCardFlash, guideDispatchStation, guideFuseFlashStations, guideNeedsDutyForPotion, isGuideQuestFlash } from '../sim/guideQuest'
+import { ROUND_BADGE_TIP } from '../sim/workshopDispatch'
 import { moduleNoticeOn, type ModuleId } from '../sim/moduleUnlock'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { pushFloatTip } from './floatTips'
@@ -76,9 +77,12 @@ const showFuseDragTip = computed(() => shouldShowFuseDragTip(game.save))
 const guideFlashHerbStation = computed(
   () => isGuideQuestFlash(game.save, 'autoHerb') || isGuideQuestFlash(game.save, 'herbQueue'),
 )
+const guideDispatchTarget = computed(() => guideDispatchStation(game.save))
 const guideFlashAuto = computed(() => isGuideQuestFlash(game.save, 'autoLine'))
 const guideFlashPotionInstall = computed(() => isGuideQuestFlash(game.save, 'potionInstall'))
-const guideFlashPotionUse = computed(() => isGuideQuestFlash(game.save, 'potionUse'))
+const guideFlashPotionUse = computed(
+  () => isGuideQuestFlash(game.save, 'potionUse') && !guideNeedsDutyForPotion(game.save),
+)
 const frameNow = useFrameNow()
 const detailId = ref<string | null>(null)
 const pickPotionIndex = ref<number | null>(null)
@@ -233,6 +237,7 @@ function onDocPotionHelp(ev: PointerEvent) {
   const el = ev.target
   if (!(el instanceof Element)) return
   if (!(el.closest('[data-potion-help]') || el.closest('[data-potion-bubble]'))) closePotionHelp()
+  if (!(el.closest('[data-round-badge]') || el.closest('[data-round-bubble]'))) closeRoundHelp()
   if (el.closest('[data-combat-pop]') || el.closest('[data-combat-toggle]')) return
   if (!shownCombat.value) return
   combatOpen.value = false
@@ -377,12 +382,76 @@ function onToggleAuto(stationId: StationId) {
   game.toggleStationAuto(stationId)
 }
 
+const roundHelpStation = ref<StationId | null>(null)
+const roundHelpPos = ref({ left: 8, top: 8 })
+const DETAIL_HOLD_MS = 480
+let detailHoldTimer = 0
+let detailHoldCleanup: (() => void) | null = null
+let suppressStationClick = false
+
+function closeRoundHelp() {
+  roundHelpStation.value = null
+}
+
+function onRoundBadge(ev: MouseEvent, stationId: StationId) {
+  if (roundHelpStation.value === stationId) {
+    closeRoundHelp()
+    return
+  }
+  roundHelpStation.value = stationId
+  const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect()
+  roundHelpPos.value = {
+    left: Math.min(window.innerWidth - 236, Math.max(8, rect.right - 220)),
+    top: Math.min(window.innerHeight - 160, rect.bottom + 6),
+  }
+}
+
+function clearDetailHold() {
+  window.clearTimeout(detailHoldTimer)
+  detailHoldTimer = 0
+  detailHoldCleanup?.()
+  detailHoldCleanup = null
+}
+
+function onStationPointerDown(ev: PointerEvent, stationId: StationId) {
+  if (ev.pointerType === 'mouse' && ev.button !== 0) return
+  const target = ev.target
+  if (
+    target instanceof Element &&
+    target.closest('.auto-toggle, .round-badge, .station-detail, .ui-select, .tutor-tip')
+  ) {
+    return
+  }
+  clearDetailHold()
+  const startX = ev.clientX
+  const startY = ev.clientY
+  const onMove = (move: PointerEvent) => {
+    if (Math.hypot(move.clientX - startX, move.clientY - startY) > 10) clearDetailHold()
+  }
+  const onUp = () => clearDetailHold()
+  detailHoldCleanup = () => {
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    window.removeEventListener('pointercancel', onUp)
+  }
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+  window.addEventListener('pointercancel', onUp)
+  detailHoldTimer = window.setTimeout(() => {
+    suppressStationClick = true
+    clearDetailHold()
+    openStationDetail(stationId)
+  }, DETAIL_HOLD_MS)
+}
+
 function onStationCardClick(ev: MouseEvent, stationId: StationId) {
+  if (suppressStationClick) {
+    suppressStationClick = false
+    return
+  }
   const target = ev.target
   if (target instanceof Element) {
-    if (target.closest('.ui-select, .station-name, .auto-toggle, .station-detail')) return
-    const slot = target.closest('.slot')
-    if (slot && !slot.classList.contains('empty')) return
+    if (target.closest('.ui-select, .auto-toggle, .round-badge, .station-detail, .tutor-tip')) return
   }
   dispatchStation(stationId)
 }
@@ -614,6 +683,7 @@ onUnmounted(() => {
   hideWorkerTutor()
   document.removeEventListener('pointerdown', onDocPotionHelp, true)
   window.clearTimeout(dispatchFlyTimer)
+  clearDetailHold()
   for (const timer of potionPressTimers.values()) clearTimeout(timer)
   potionPressTimers.clear()
 })
@@ -643,10 +713,12 @@ onUnmounted(() => {
               'guide-flash':
                 isItemSourceStationFlash(board.stationId) ||
                 (guideFlashHerbStation && board.stationId === 'herbalism') ||
+                guideDispatchTarget === board.stationId ||
                 (alchemyCardFlash && board.stationId === 'alchemy') ||
                 (isGuideQuestFlash(game.save, 'mining') && board.stationId === 'mining') ||
                 fuseStations.includes(board.stationId),
             }"
+            @pointerdown="onStationPointerDown($event, board.stationId)"
             @click="onStationCardClick($event, board.stationId)"
           >
             <button
@@ -655,15 +727,25 @@ onUnmounted(() => {
               :class="{ on: game.save.stations[board.stationId].auto, 'guide-flash': guideFlashAuto }"
               :aria-pressed="game.save.stations[board.stationId].auto"
               aria-label="自动"
+              @pointerdown.stop
               @click.stop="onToggleAuto(board.stationId)"
             >
               自动
             </button>
-            <b v-if="game.save.stations[board.stationId].manualRounds > 0" class="round-badge">×{{ game.save.stations[board.stationId].manualRounds }}</b>
+            <button
+              v-if="game.save.stations[board.stationId].manualRounds > 0"
+              type="button"
+              class="round-badge"
+              data-round-badge
+              :aria-expanded="roundHelpStation === board.stationId"
+              :aria-label="`还剩 ${game.save.stations[board.stationId].manualRounds} 轮，查看排队说明`"
+              @pointerdown.stop
+              @click.stop="onRoundBadge($event, board.stationId)"
+            >×{{ game.save.stations[board.stationId].manualRounds }}</button>
             <i v-if="stationNotice(board.stationId)" class="notice" aria-hidden="true" />
             <StationTips :station-id="board.stationId" />
             <div class="station-rail">
-              <div class="station-name" @click.stop="openStationDetail(board.stationId)">
+              <div class="station-name">
                 <UiIcon :name="board.stationId" />
                 <b>{{ board.label }}</b>
               </div>
@@ -671,9 +753,10 @@ onUnmounted(() => {
                 type="button"
                 class="station-detail"
                 :aria-label="`查看${board.label}详情`"
+                @pointerdown.stop
                 @click.stop="openStationDetail(board.stationId)"
               >
-                详情
+                详
               </button>
             </div>
             <div class="station-work">
@@ -940,6 +1023,20 @@ onUnmounted(() => {
       <p>{{ potionHelpBubble.effect }}</p>
       <small v-if="potionHelpBubble.stock != null">库存 ×{{ potionHelpBubble.stock }}</small>
       <button v-if="canUnequipPotionHelp" type="button" class="potion-bubble-unequip" @click="onUnequipPotionHelp">卸下</button>
+    </div>
+  </Teleport>
+
+  <Teleport to="body">
+    <div
+      v-if="roundHelpStation"
+      class="round-bubble"
+      data-round-bubble
+      role="dialog"
+      aria-label="排队说明"
+      :style="{ left: `${roundHelpPos.left}px`, top: `${roundHelpPos.top}px` }"
+    >
+      <b>排队</b>
+      <p>{{ ROUND_BADGE_TIP }}</p>
     </div>
   </Teleport>
 </template>
@@ -1254,12 +1351,42 @@ onUnmounted(() => {
   top: 24px;
   right: 4px;
   z-index: 3;
+  margin: 0;
   padding: 0 4px;
+  border: 1px solid #3a1c0c;
   border-radius: 4px;
   background: #6a3218;
   color: #fff4d8;
   font-size: 11px;
+  font-weight: 800;
   line-height: 16px;
+  cursor: pointer;
+}
+
+.round-bubble {
+  position: fixed;
+  z-index: calc(var(--z-sheet) + 8);
+  width: min(220px, calc(100vw - 16px));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 2px solid var(--gold-deep);
+  border-radius: 10px;
+  background: var(--wood-face);
+  box-shadow: 0 4px 0 var(--shadow);
+  color: var(--ink);
+}
+
+.round-bubble b {
+  font-size: 13px;
+}
+
+.round-bubble p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 700;
 }
 
 .station-progress.hold {
@@ -1295,6 +1422,7 @@ onUnmounted(() => {
 }
 
 .station-rail {
+  position: relative;
   flex: 0 0 32px;
   display: flex;
   flex-direction: column;
@@ -1333,25 +1461,23 @@ onUnmounted(() => {
 }
 
 .station-detail {
-  flex: 1 1 0;
-  width: 100%;
-  min-height: 32px;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: absolute;
+  left: 2px;
+  bottom: 2px;
+  z-index: 4;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
   margin: 0;
-  padding: 2px 0;
+  padding: 0;
   border: 1px solid var(--gold-deep);
-  border-radius: 4px;
+  border-radius: 50%;
   background: var(--wood-face);
   color: var(--ink);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.06em;
-  line-height: 1.05;
-  writing-mode: vertical-rl;
-  white-space: nowrap;
+  line-height: 20px;
 }
 
 .station-work {
@@ -2408,7 +2534,6 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-.roster-v2:not(.sheet-ops) .station-detail,
 .roster-v2:not(.sheet-ops) .station-craft-row :deep(.ui-select.station-craft-pick) {
   display: none;
 }

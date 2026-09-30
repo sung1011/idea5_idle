@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { guideQuestView } from '../sim/guideQuest'
+import { guideQuestOpenTaskId, guideQuestView } from '../sim/guideQuest'
 import { mainlineTaskById } from '../sim/mainlineQuest'
 import { useGameStore } from './gameStore'
 import { pushFloatTip } from './floatTips'
@@ -23,7 +23,7 @@ function jump() {
     pushFloatTip(current.goal.replace(/^下一个目标：/, ''), 'err')
     return
   }
-  openGuideQuestTask(current.taskId)
+  openGuideQuestTask(guideQuestOpenTaskId(game.save) ?? current.taskId)
   const moduleId = mainlineTaskById(current.taskId)?.module
   if (moduleId) game.markModuleSeen(moduleId)
 }

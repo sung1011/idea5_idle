@@ -14,6 +14,9 @@ export const CAMP_EMPTY_TIP = '营地没人可派'
 export const AUTO_QUOTA_TIP = '炼金开放后才能挂自动'
 export const AUTO_FULL_TIP = '自动线名额已满'
 export const AUTO_QUEUE_TIP = '最多排 5 轮'
+/** 点站卡上的 ×N 时弹出。这个标记不是排队入口。 */
+export const ROUND_BADGE_TIP =
+  '点站点大面板，把营地队首派上去干一轮。还在干时再点，排进下一轮，最多 5 轮。一轮干完，苦工回到营地队尾。×N 是还剩几轮，点它只看说明，不会排队。'
 
 /**
  * 自动线名额。

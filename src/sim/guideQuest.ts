@@ -1,8 +1,8 @@
 import { assignedWorkers, restingWorkers } from './assign'
 import { bankQty } from './bank'
 import { canReinforceCombat, isCombatLost, isCombatWon, isFighting } from './combat'
-import { combatSupplyBlockReason, isEncounterDone, isStarterCopperPawn } from './encounters'
-import { isModuleUnlocked, knightLevelProgress, levelGateUnlockNote, moduleLabel, moduleLockedTip, moduleUnlockKnightLevel } from './moduleUnlock'
+import { combatSupplyBlockReason, isEncounterDone, isStarterCopperPawn, STARTER_GUIDE_HERB_QTY } from './encounters'
+import { isModuleUnlocked, knightLevelProgress, levelGateUnlockNote, moduleLabel, moduleLockedTip, moduleUnlockKnightLevel, SECOND_AUTO_LINE_TIP } from './moduleUnlock'
 import { knightLevelOf } from './stationUnlock'
 import { POTION_ITEM_IDS, QUALITY_MAX, STATION_ORDER } from './tables'
 import type { ActionResult, Encounter, EnemyEncounter, Save, StationId } from './types'
@@ -50,6 +50,16 @@ export const GUIDE_WEAKNESS_CARD_TIP =
 export const GUIDE_WEAKNESS_PICK_TIP = '这名苦工的属性正好打中弱点'
 /** 第 3 步营地名单已打开。 */
 export const GUIDE_FUSE_DRAG_GOAL = '在营地弹框里按住苦工，往任意方向拖到同品质的人身上合成'
+/** 出征步草还不够首单时，先回到采药站连点。 */
+export const GUIDE_COMBAT_HERB_GOAL = '草不够开战。继续点采药站排队，攒够 2 株草'
+/** 熬药步还没有原料。 */
+export const GUIDE_ALCHEMY_NEED_HERB_GOAL = '先点采药站出草，再点炼金站派工'
+/** 采药已经挂上自动，等出草再点炼金。 */
+export const GUIDE_ALCHEMY_WAIT_HERB_GOAL = '等采药站出草，再点炼金站派工'
+/** 有原料时点炼金站派一轮。 */
+export const GUIDE_ALCHEMY_CLICK_GOAL = '点炼金站，把队首派上去熬一轮药'
+/** 用药步工坊没人在岗。 */
+export const GUIDE_POTION_NEED_DUTY_GOAL = '先点一个站把人派上去，再点药剂槽用药'
 /** 第一阶段「抽工人」完成所需次数（花名册人数或已生成序号，取较大）。 */
 export const GUIDE_QUEST_RECRUIT_NEED = 2
 
@@ -275,9 +285,58 @@ export function isGuideQuestFlash(save: Save, id: GuideQuestFlashId): boolean {
   return guideQuestFlashId(save) === id
 }
 
-/** 出征步要闪的那张悬赏单上的敌人：未入战可点「开战」的优先，否则第一张未领。 */
+export function guideCombatNeedsHerbs(save: Save): boolean {
+  if (hasStartedBattlefieldCombat(save)) return false
+  return bankQty(save, 'herb') < STARTER_GUIDE_HERB_QTY
+}
+
+const ALCHEMY_GUIDE_INPUTS = ['herb', 'blood', 'tooth', 'eye'] as const
+
+export function guideAlchemyNeedsHerbs(save: Save): boolean {
+  if (hasProducedAlchemyPotion(save)) return false
+  return ALCHEMY_GUIDE_INPUTS.every((id) => bankQty(save, id) < 1)
+}
+
+export function guideNeedsDutyForPotion(save: Save): boolean {
+  return !save.workers.some((worker) => worker.assignment != null)
+}
+
+/** 领到「升到酋长 11 级」后多给一句：第二条自动线开了。 */
+export function guideClaimNotice(taskId: string): string | null {
+  if (taskId === 'level11') return SECOND_AUTO_LINE_TIP
+  return null
+}
+
+/** 当前步要点的站卡。草不够、没原料、没人在岗时先回到采药。 */
+export function guideDispatchStation(save: Save): StationId | null {
+  const id = guideQuestFlashId(save)
+  if (!id) return null
+  if (id === 'autoHerb' || id === 'herbQueue') return 'herbalism'
+  if (id === 'combat' && guideCombatNeedsHerbs(save)) return 'herbalism'
+  if (id === 'alchemy' && guideAlchemyNeedsHerbs(save)) return 'herbalism'
+  if (id === 'potionUse' && guideNeedsDutyForPotion(save)) return 'herbalism'
+  if (id === 'huntStart') return 'hunting'
+  if (id === 'cookStart') return 'cooking'
+  if (id === 'mining') return 'mining'
+  if (id === 'inscribe') return 'inscription'
+  return null
+}
+
+/** 点任务条要打开的任务。原料或草不够时先打开采药站。 */
+export function guideQuestOpenTaskId(save: Save): string | null {
+  const view = guideQuestView(save)
+  if (!view) return null
+  const id = view.taskId
+  if (view.waiting) return id
+  if (id === 'combat' && guideCombatNeedsHerbs(save)) return 'autoHerb'
+  if (id === 'alchemy' && guideAlchemyNeedsHerbs(save)) return 'autoHerb'
+  if (id === 'potionUse' && guideNeedsDutyForPotion(save)) return 'autoHerb'
+  return id
+}
+
+/** 出征步要闪的那张悬赏单。草还不够时不闪订单，先闪采药站。 */
 export function guideQuestCombatFlashEncounter(save: Save): Encounter | null {
-  if (!isGuideQuestFlash(save, 'combat')) return null
+  if (!isGuideQuestFlash(save, 'combat') || guideCombatNeedsHerbs(save)) return null
   const board = save.encounters.filter((enc) => enc.kind === 'enemy')
   return (
     board.find((enc) => enc.kind === 'enemy' && enc.combat?.outcome === 'win' && !enc.lootClaimed) ??
@@ -335,7 +394,7 @@ export function guideFuseFlashStations(save: Save, campOpen: boolean): StationId
 
 /** 炼金步：详情没开时闪炼金站卡。 */
 export function guideAlchemyCardFlash(save: Save, stationId: StationId, openDetail: StationId | null): boolean {
-  return stationId === 'alchemy' && isGuideQuestFlash(save, 'alchemy') && openDetail !== 'alchemy'
+  return stationId === 'alchemy' && isGuideQuestFlash(save, 'alchemy') && !guideAlchemyNeedsHerbs(save) && openDetail !== 'alchemy'
 }
 
 /** 炼金详情打开后，闪里面的制造进度。 */
@@ -351,6 +410,11 @@ function guideStepGoal(save: Save, row: MainlineTask, claimable: boolean, campOp
     if (cue === 'openCamp') return GUIDE_FUSE_OPEN_GOAL
     return GUIDE_FUSE_DRAG_GOAL
   }
+  if (!claimable && row.id === 'combat' && guideCombatNeedsHerbs(save)) return GUIDE_COMBAT_HERB_GOAL
+  if (!claimable && row.id === 'alchemy' && guideAlchemyNeedsHerbs(save)) {
+    return save.stations.herbalism?.auto ? GUIDE_ALCHEMY_WAIT_HERB_GOAL : GUIDE_ALCHEMY_NEED_HERB_GOAL
+  }
+  if (!claimable && row.id === 'potionUse' && guideNeedsDutyForPotion(save)) return GUIDE_POTION_NEED_DUTY_GOAL
   return row.goal
 }
 
