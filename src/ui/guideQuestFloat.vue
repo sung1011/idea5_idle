@@ -4,6 +4,7 @@ import { guideQuestOpenTaskId, guideQuestView } from '../sim/guideQuest'
 import { mainlineTaskById } from '../sim/mainlineQuest'
 import { useGameStore } from './gameStore'
 import { pushFloatTip } from './floatTips'
+import { guideQuestCode } from './guideQuestCode'
 import { guideCampSheetOpen, openGuideQuestTask } from './guideQuestNav'
 import { questFloatBottomCss } from './guideQuestFloatPos'
 
@@ -14,6 +15,7 @@ const props = defineProps<{
 const game = useGameStore()
 const collapsed = ref(false)
 const view = computed(() => guideQuestView(game.save, guideCampSheetOpen.value))
+const code = computed(() => (view.value ? guideQuestCode(view.value.step, view.value.taskId) : ''))
 const bottom = computed(() => questFloatBottomCss(props.workshop ? 'workshop' : 'dock'))
 
 function jump() {
@@ -53,7 +55,7 @@ function claim() {
     <div class="row">
       <div class="ico" role="button" :aria-label="collapsed ? '打开对应模块' : '折叠任务'" @click.stop="onBadge">{{ view.phaseStep }}</div>
       <div class="txt" role="button" aria-label="打开对应模块" @click.stop="jump">
-        <p class="name">{{ view.title }}</p>
+        <p class="name"><span class="label">{{ view.title }}</span><span class="code">{{ code }}</span></p>
         <p class="goal">{{ view.goal }}</p>
         <p v-if="view.unlockNote" class="note">{{ view.unlockNote }}</p>
         <p class="prog" :class="{ ok: view.claimable }">{{ view.progressLabel }}</p>
@@ -111,11 +113,25 @@ function claim() {
 }
 
 .name {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
   margin: 0;
-  opacity: 0.75;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.04em;
+}
+
+.label {
+  opacity: 0.75;
+}
+
+.code {
+  color: #b7c0b4;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
 .goal {
