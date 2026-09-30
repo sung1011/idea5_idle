@@ -5,6 +5,7 @@ import { clearWorkerNew, findWorker } from '../sim/recruit'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { isStationId, STATION_WORKER_CAP } from '../sim/tables'
 import type { ActionResult, Save, StationId } from '../sim/types'
+import { CAMP_QUEUE_SLIDE_FUSE, isCampQueueSliding } from './campQueueSlide'
 import { workshopStationBoards } from './workerGroups'
 
 export const WORKER_DRAG_THRESHOLD_PX = 12
@@ -122,6 +123,7 @@ export function canDragFuseAny(save: Save): boolean {
 }
 
 export function canDropWorker(save: Save, source: WorkerDragSource, target: WorkerDropTarget): boolean {
+  if (isCampQueueSliding() && source.kind === 'rest' && target.kind === 'restWorker') return false
   const worker = findWorker(save, source.workerId)
   if (!worker || isWorkerInCombat(save, worker.id)) return false
   if (sameDragEndpoint(source, target)) return false
@@ -138,6 +140,9 @@ export function canDropWorker(save: Save, source: WorkerDragSource, target: Work
 }
 
 export function applyWorkerDrag(save: Save, source: WorkerDragSource, target: WorkerDropTarget): ActionResult {
+  if (isCampQueueSliding() && source.kind === 'rest' && target.kind === 'restWorker') {
+    return { ok: false, reason: CAMP_QUEUE_SLIDE_FUSE }
+  }
   if (sameDragEndpoint(source, target)) return { ok: true }
   clearWorkerNew(save, source.workerId)
   const worker = findWorker(save, source.workerId)

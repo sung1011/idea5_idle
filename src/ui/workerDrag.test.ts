@@ -6,6 +6,7 @@ import { spawnWorkerWith } from '../sim/recruit'
 import { unlockPlayableStations } from '../sim/stationUnlock'
 import { QUALITY_MAX, STATION_WORKER_CAP } from '../sim/tables'
 import type { EnemyEncounter } from '../sim/types'
+import { CAMP_QUEUE_SLIDE_FUSE, setCampQueueSliding } from './campQueueSlide'
 import detailSheetSource from './stationDetailSheet.vue?raw'
 import campSource from './campSheet.vue?raw'
 import workerDetailSource from './workerDetailSheet.vue?raw'
@@ -313,6 +314,24 @@ describe('fuse drag tip', () => {
     expect(panelSource).not.toContain('onEmptySlot')
     expect(panelSource).not.toContain('点此派入')
     expect(panelSource).toContain('>空</span>')
+  })
+
+  it('refuses a camp fuse while the queue slide is playing', () => {
+    const save = unlockPlayableStations(createSave())
+    const left = spawnWorkerWith(save, 1, 'laborer')
+    const right = spawnWorkerWith(save, 1, 'artisan')
+    setCampQueueSliding(true)
+    try {
+      expect(canDropWorker(save, { kind: 'rest', workerId: left.id }, { kind: 'restWorker', workerId: right.id })).toBe(false)
+      expect(applyWorkerDrag(save, { kind: 'rest', workerId: left.id }, { kind: 'restWorker', workerId: right.id })).toEqual({
+        ok: false,
+        reason: CAMP_QUEUE_SLIDE_FUSE,
+      })
+      expect(save.workers.map((worker) => worker.id)).toEqual([left.id, right.id])
+    } finally {
+      setCampQueueSliding(false)
+    }
+    expect(canDropWorker(save, { kind: 'rest', workerId: left.id }, { kind: 'restWorker', workerId: right.id })).toBe(true)
   })
 
   it('does not treat max-tier or in-combat workers as a drag-fuse pair', () => {

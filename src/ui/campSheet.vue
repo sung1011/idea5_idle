@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { bankQty } from '../sim/bank'
 import { campDockCount } from '../sim/campDock'
 import { guideFuseCue, isGuideQuestFlash } from '../sim/guideQuest'
@@ -11,6 +11,12 @@ import type { Worker } from '../sim/types'
 import { workerWearHp } from '../sim/workshopHp'
 import { appTab } from './appNav'
 import { CAMP_STATION_DRAG_TIP, campDragStationTip } from './campDragTip'
+import {
+  CAMP_QUEUE_SLIDE_MS,
+  campQueueHeadShift,
+  isCampQueueSliding,
+  setCampQueueSliding,
+} from './campQueueSlide'
 import { closeCampSheet } from './campDockNav'
 import { foodHelpCopy, nextFoodHelp, REST_FOOD_HELP_ROWS, REST_FOOD_HELP_TITLE } from './foodHelp'
 import FoodIcon from './foodIcon.vue'
@@ -138,7 +144,97 @@ type DragSession = {
 
 const drag = ref<DragSession | null>(null)
 const restListEl = ref<HTMLElement | null>(null)
+const slidingIds = ref<string[]>([])
 let edgeScrollFrame = 0
+let slideTimer = 0
+let slideGen = 0
+
+function campRowEl(list: HTMLElement, id: string): HTMLElement | null {
+  const escaped = typeof CSS !== 'undefined' && typeof CSS.escape === 'function' ? CSS.escape(id) : id
+  const el = list.querySelector(`[data-worker="${escaped}"]`)
+  return el instanceof HTMLElement ? el : null
+}
+
+function stopQueueSlide() {
+  slideGen += 1
+  window.clearTimeout(slideTimer)
+  slideTimer = 0
+  slidingIds.value = []
+  const list = restListEl.value
+  if (list) {
+    for (const el of list.querySelectorAll<HTMLElement>('[data-worker]')) {
+      el.style.transition = ''
+      el.style.transform = ''
+    }
+  }
+  setCampQueueSliding(false)
+}
+
+async function playCampQueueSlide(fromRects: Map<string, DOMRect>) {
+  const gen = ++slideGen
+  await nextTick()
+  if (gen !== slideGen) return
+  const list = restListEl.value
+  if (!list) {
+    setCampQueueSliding(false)
+    return
+  }
+  const moves: HTMLElement[] = []
+  for (const [id, from] of fromRects) {
+    const el = campRowEl(list, id)
+    if (!el) continue
+    el.style.transition = 'none'
+    el.style.transform = ''
+    const to = el.getBoundingClientRect()
+    const x = from.left - to.left
+    const y = from.top - to.top
+    if (Math.abs(x) < 0.5 && Math.abs(y) < 0.5) continue
+    el.style.transform = `translate(${x}px, ${y}px)`
+    moves.push(el)
+  }
+  if (gen !== slideGen) return
+  if (moves.length === 0) {
+    setCampQueueSliding(false)
+    return
+  }
+  slidingIds.value = moves.map((el) => el.dataset.worker ?? '').filter((id) => id.length > 0)
+  await nextTick()
+  if (gen !== slideGen) return
+  for (const el of moves) void el.offsetWidth
+  for (const el of moves) el.style.transition = ''
+  requestAnimationFrame(() => {
+    if (gen !== slideGen) return
+    for (const el of moves) el.style.transform = 'translate(0px, 0px)'
+  })
+  window.clearTimeout(slideTimer)
+  slideTimer = window.setTimeout(() => {
+    if (gen !== slideGen) return
+    stopQueueSlide()
+  }, CAMP_QUEUE_SLIDE_MS)
+}
+
+watch(
+  () => rows.value.map((row) => row.id),
+  (after, before) => {
+    if (!before || !campQueueHeadShift(before, after)) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return
+    const list = restListEl.value
+    if (!list) return
+    const fromRects = new Map<string, DOMRect>()
+    for (const id of after) {
+      if (!before.includes(id)) continue
+      const el = campRowEl(list, id)
+      if (!el) continue
+      fromRects.set(id, el.getBoundingClientRect())
+    }
+    if (fromRects.size === 0) return
+    window.clearTimeout(slideTimer)
+    slideTimer = 0
+    setCampQueueSliding(true)
+    void playCampQueueSlide(fromRects)
+  },
+  { flush: 'pre' },
+)
 
 function stopEdgeScroll() {
   if (!edgeScrollFrame) return
@@ -183,6 +279,7 @@ function unbindDrag() {
 }
 
 function onWorkerPointerDown(ev: PointerEvent, worker: Worker) {
+  if (isCampQueueSliding()) return
   if (ev.pointerType === 'mouse' && ev.button !== 0) return
   if (worker.assignment !== null) return
   unbindDrag()
@@ -215,6 +312,7 @@ function onWorkerPointerDown(ev: PointerEvent, worker: Worker) {
 }
 
 function onDragMove(ev: PointerEvent) {
+  if (isCampQueueSliding()) return
   const session = drag.value
   if (!session || session.pointerId !== ev.pointerId) return
   ev.preventDefault()
@@ -246,7 +344,7 @@ function onDragEnd(ev: PointerEvent) {
   const wasActive = session.active
   drag.value = null
   setWorkerDragActive(false)
-  if (!wasActive) return
+  if (!wasActive || isCampQueueSliding()) return
   if (over && !sameDragEndpoint(source, over)) {
     if (over.kind === 'slot' && appTab.value !== 'workshop') {
       if (!session.tipped) pushFloatTip(CAMP_STATION_DRAG_TIP, 'err')
@@ -271,6 +369,7 @@ function restWorkerDropClass(workerId: string): string {
 
 onUnmounted(() => {
   unbindDrag()
+  stopQueueSlide()
   setWorkerDragActive(false)
 })
 </script>
@@ -344,6 +443,7 @@ onUnmounted(() => {
                   blocked: row.badge === '堵队',
                   head: row.badge === '队首',
                   'queue-ready': row.badge === REST_HEAD_BADGE,
+                  'queue-slide': slidingIds.includes(row.id),
                   'level-flash': isWorkerLevelFlashing(row.id),
                   'eat-flash': isWorkerEatFlashing(row.id),
                 },
@@ -599,6 +699,11 @@ h2 {
 
 .row.queue-ready {
   background: rgba(255, 236, 160, 0.42);
+}
+
+.row.queue-slide {
+  z-index: 2;
+  transition: transform 0.3s linear;
 }
 
 .row.drop-ok {
@@ -1015,8 +1120,10 @@ h2 {
 
 @media (prefers-reduced-motion: reduce) {
   .row.eat-flash,
-  .eat-float {
+  .eat-float,
+  .row.queue-slide {
     animation: none;
+    transition: none;
   }
 }
 </style>
