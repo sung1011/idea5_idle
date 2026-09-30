@@ -1549,7 +1549,7 @@ onUnmounted(() => {
   text-align: center;
   pointer-events: none;
   transform: none;
-  animation: worker-banter 10s ease-out forwards;
+  animation: worker-banter 20s ease-out forwards;
 }
 
 .station-list:has(> .station:first-child .slot.has-banter) {
@@ -1936,8 +1936,8 @@ onUnmounted(() => {
   0% {
     opacity: 0;
   }
-  2.64%,
-  95.16% {
+  1.32%,
+  97.58% {
     opacity: 1;
   }
   100% {

@@ -75,6 +75,12 @@ describe('workshop banter bubbles', () => {
     expect(loadWorkshopBanter(store)).toBe(false)
   })
 
+  it('stays up for 20 seconds, with the same fade lengths', () => {
+    expect(BANTER_BUBBLE_MS).toBe(20_000)
+    expect(workersPanelSource).toMatch(/animation:\s*worker-banter 20s ease-out forwards/)
+    expect(workersPanelSource).toMatch(/1\.32%,\s*97\.58%/)
+  })
+
   it('plays the second beat in order only on the workers page', () => {
     vi.useFakeTimers()
     appTab.value = 'workshop'

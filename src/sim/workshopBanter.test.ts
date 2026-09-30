@@ -167,6 +167,7 @@ describe('workshop banter trigger', () => {
     const first = run(save, memory, 10, ['herbalism'], rolls([0, 0, 0, 0, 0]))
     expect(first?.kind).toBe('solo')
     expect(first?.beats[0].text).toBe(banterLines('gripe', 'herbalism')[0])
+    expect(BANTER_BUBBLE_MS).toBe(20_000)
     expect(memory.cooldownS).toBe(BANTER_GLOBAL_COOLDOWN_MIN_S)
     expect(memory.lastEventS).toBe(10)
     expect(run(save, memory, 54, ['herbalism'], rolls([]))).toBeNull()
