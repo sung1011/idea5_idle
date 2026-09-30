@@ -15,6 +15,9 @@ import ActButton from './actButton.vue'
 import ActIcon from './actIcon.vue'
 import type { ActIconId } from './actIcons'
 import CombatAttrRow from './combatAttrRow.vue'
+import HelpMark from './helpMark.vue'
+import ModeHelpSheet from './modeHelpSheet.vue'
+import type { ModeHelpRow } from './modeHelp'
 import { enemyPickCopy, type EnemyPickMode } from './enemyCardAction'
 import { pushFloatTip } from './floatTips'
 import { moduleNoticeOn } from '../sim/moduleUnlock'
@@ -72,6 +75,7 @@ const emit = defineEmits<{
 }>()
 
 const game = useGameStore()
+const helpOpen = ref(false)
 const runePickWorkerId = ref<string | null>(null)
 const copy = computed(() => enemyPickCopy(props.mode, props.max))
 const sheetTitle = computed(() => props.titleText || copy.value.title)
@@ -82,6 +86,11 @@ const runeOptions = computed(() => listRunePickOptions(game.save))
 const hint = computed(() => {
   const assist = props.showAssist ? '点邀请才加入 1 名临时助战。' : ''
   return `列出休息苦工；未达出战条件的灰显。出战不算派驻工坊。${assist}${copy.value.hintTail}`
+})
+const helpRows = computed<ModeHelpRow[]>(() => {
+  const rows: ModeHelpRow[] = [{ label: '怎么玩', text: hint.value }]
+  if (props.noteText) rows.push({ label: '提示', text: props.noteText })
+  return rows
 })
 
 function recommend(worker: Worker): string | null {
@@ -153,6 +162,7 @@ function pickRune(runeId: RuneItemId | null) {
 }
 
 function closeAll() {
+  helpOpen.value = false
   closeRunePick()
   emit('close')
 }
@@ -163,10 +173,11 @@ function closeAll() {
     <div class="sheet">
       <div class="sheet-head">
         <p>{{ sheetTitle }}（最多 {{ max }} 人）</p>
-        <ActButton v-if="showAssist" icon="invite" kind="minor" @click="emit('invite')">邀请</ActButton>
+        <div class="sheet-tools">
+          <ActButton v-if="showAssist" icon="invite" kind="minor" @click="emit('invite')">邀请</ActButton>
+          <HelpMark @click.stop="helpOpen = true" />
+        </div>
       </div>
-      <p class="hint">{{ hint }}</p>
-      <p v-if="noteText" class="hint">{{ noteText }}</p>
       <ul class="pick-list">
         <li v-for="w in candidates" :key="w.id" class="pick-row">
           <button
@@ -182,20 +193,22 @@ function closeAll() {
             :disabled="!canPickWorker(w)"
             @click="emit('toggle', w)"
           >
-            <WorkerAvatar size="sm" :race="w.race" :quality="w.qualityTier" :worker-id="w.id" />
-            <span class="pick-name">
-              <b v-if="slotNumber(w.id)" class="pick-slot" :aria-label="`槽位 ${slotNumber(w.id)}`">{{ slotNumber(w.id) }}</b>
-              <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
-              <i v-if="isAssistWorker(w)" class="pick-assist">助战</i>
-              <i v-else-if="w.isNew" class="pick-new">NEW</i>
-              <CombatAttrRow class="pick-attrs" :attrs="w.combatAttrs" />
-              <b class="pick-worker-name" :style="workerQualityNameStyle(w)">{{ pickWorkerName(w) }}</b>
-              <span class="pick-meta">· Lv{{ w.level }}</span>
+            <span class="pick-face">
               <i
                 v-if="recommend(w) && (canPickWorker(w) || recommend(w) === '克制')"
                 class="pick-rec"
                 :class="{ hot: recommend(w) === '强烈推荐' }"
               >{{ recommend(w) }}</i>
+              <WorkerAvatar size="sm" :race="w.race" :quality="w.qualityTier" :worker-id="w.id" />
+            </span>
+            <span class="pick-name">
+              <b v-if="slotNumber(w.id)" class="pick-slot" :aria-label="`槽位 ${slotNumber(w.id)}`">{{ slotNumber(w.id) }}</b>
+              <b class="qmark" :style="workerQualityBadgeStyle(w)">{{ qualityOf(w).label }}</b>
+              <i v-if="isAssistWorker(w)" class="pick-assist">助战</i>
+              <i v-else-if="w.isNew" class="pick-new">NEW</i>
+              <CombatAttrRow class="pick-attrs" :attrs="w.combatAttrs" blank-empty />
+              <b class="pick-worker-name" :style="workerQualityNameStyle(w)">{{ pickWorkerName(w) }}</b>
+              <span class="pick-meta">· Lv{{ w.level }}</span>
             </span>
           </button>
           <span v-if="showRunes" class="act-hit rune-slot-hit" @click="onRuneSlotTap(w, $event)">
@@ -232,6 +245,7 @@ function closeAll() {
         </span>
       </div>
     </div>
+    <ModeHelpSheet v-if="helpOpen" :title="sheetTitle" :rows="helpRows" @close="helpOpen = false" />
   </div>
 
   <div v-if="open && showRunes && runePickWorkerId" class="modal" role="dialog" aria-label="选择符文" @click.self="closeRunePick">
@@ -307,6 +321,17 @@ function closeAll() {
   gap: 8px;
 }
 
+.sheet-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.sheet-tools :deep(.help-mark) {
+  margin-left: 0;
+}
+
 .row {
   display: flex;
   flex-wrap: wrap;
@@ -331,7 +356,7 @@ function closeAll() {
   max-height: 50vh;
   overflow: auto;
   margin: 0;
-  padding: 0;
+  padding: 8px 4px;
   list-style: none;
 }
 
@@ -342,6 +367,7 @@ function closeAll() {
 }
 
 .pick-list .pick-worker {
+  position: relative;
   flex: 1 1 auto;
   min-width: 0;
   width: auto;
@@ -351,6 +377,13 @@ function closeAll() {
   justify-content: flex-start;
   gap: 6px;
   text-align: left;
+  filter: brightness(0.9);
+}
+
+.pick-face {
+  position: relative;
+  flex: none;
+  display: inline-flex;
 }
 
 .rune-slot-hit {
@@ -479,20 +512,27 @@ function closeAll() {
 }
 
 .pick-rec {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
   font-style: normal;
-  padding: 1px 7px;
-  border: 2px solid var(--gold-deep);
+  padding: 0 4px;
+  border: 1px solid #0e5a32;
   border-radius: 999px;
-  background: #f0c46a;
-  color: #6b4218;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  background: #1f8a4a;
+  color: #f4fff6;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  letter-spacing: 0;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .pick-rec.hot {
-  background: #f0c14a;
-  color: #4a2c0a;
+  background: #146b38;
+  color: #f4fff6;
 }
 
 .pick-list .qmark {
@@ -513,17 +553,36 @@ function closeAll() {
   filter: grayscale(0.15);
 }
 
-.pick-worker.on,
-.pick-worker.on:disabled {
+.pick-list .pick-worker.on,
+.pick-list .pick-worker.on:disabled {
+  z-index: 1;
   color: var(--ink);
-  background: var(--accent-face);
-  border-color: var(--gold-deep);
+  background: #fff1c4;
+  border: 4px solid #f0a020;
   box-shadow:
-    0 3px 0 var(--gold-deep),
-    inset 0 1px 0 #fff6c8,
-    inset 0 0 0 2px #ffe28a;
+    0 0 0 2px #ffd56a,
+    0 3px 0 #c47a12;
   filter: none;
   opacity: 1;
+  transform: scale(1.03);
+}
+
+.pick-list .pick-worker.on::after {
+  content: '✓';
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #c47a12;
+  border-radius: 50%;
+  background: #f5a524;
+  color: #4a2c0a;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .pick-list :deep(.chip) {
