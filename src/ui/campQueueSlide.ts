@@ -67,3 +67,41 @@ export function campFuseTailHold(beforeIds: readonly string[], afterIds: readonl
   if (!campQueueHeadShift(beforeIds, shifted)) return null
   return newbornId
 }
+
+/**
+ * 新出现在队尾的人，按队列顺序。
+ * 前面留下的人必须仍是原来的相对顺序。插在中间或只是把旧人换到队尾时返回 null。
+ */
+export function campQueueTailEntries(beforeIds: readonly string[], afterIds: readonly string[]): string[] | null {
+  if (afterIds.length === 0) return null
+  const known = new Set(beforeIds)
+  let split = afterIds.length
+  while (split > 0 && !known.has(afterIds[split - 1] ?? '')) split -= 1
+  const entries = afterIds.slice(split)
+  if (entries.length === 0) return null
+  let prev = -1
+  for (const id of afterIds.slice(0, split)) {
+    const at = beforeIds.indexOf(id)
+    if (at < 0 || at <= prev) return null
+    prev = at
+  }
+  return entries
+}
+
+/**
+ * 队尾新人要等队首出队滑完再出现。出队播不出来时返回 null，新人当场进队尾。
+ */
+export function campQueueTailHold(beforeIds: readonly string[], afterIds: readonly string[]): string[] | null {
+  const entries = campQueueTailEntries(beforeIds, afterIds)
+  if (!entries) return null
+  const prefix = afterIds.slice(0, afterIds.length - entries.length)
+  if (!campQueueHeadShift(beforeIds, prefix)) return null
+  return entries
+}
+
+/** 进队尾时从格子右侧外侧起步，滑进空位。 */
+export function campQueueTailEnterOffset(cellWidth: number, gap: number): { x: number; y: number } {
+  const width = Number.isFinite(cellWidth) && cellWidth > 0 ? cellWidth : 0
+  const gutter = Number.isFinite(gap) && gap > 0 ? gap : 0
+  return { x: width + gutter, y: 0 }
+}

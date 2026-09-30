@@ -6,6 +6,9 @@ import {
   CAMP_QUEUE_SLIDE_MS,
   campFuseTailHold,
   campQueueHeadShift,
+  campQueueTailEnterOffset,
+  campQueueTailEntries,
+  campQueueTailHold,
   setCampQueueSliding,
 } from './campQueueSlide'
 
@@ -60,12 +63,32 @@ describe('camp queue head slide', () => {
     expect(campFuseTailHold(['h', 'a', 'b', 'c'], ['b', 'new', 'c'])).toBeNull()
   })
 
+  it('finds people who arrived at the tail and holds them when a head shift comes first', () => {
+    expect(campQueueTailEnterOffset(72, 8)).toEqual({ x: 80, y: 0 })
+    expect(campQueueTailEntries(['h', 'a'], ['h', 'a', 'new'])).toEqual(['new'])
+    expect(campQueueTailEntries([], ['new'])).toEqual(['new'])
+    expect(campQueueTailEntries(['h'], ['h', 'r1', 'r2'])).toEqual(['r1', 'r2'])
+    expect(campQueueTailEntries(['h', 'a', 'b', 'c'], ['h', 'c', 'new'])).toEqual(['new'])
+    expect(campQueueTailEntries(['h', 'a', 'b', 'c'], ['b', 'c', 'new'])).toEqual(['new'])
+    expect(campQueueTailEntries(['h', 'a'], ['new'])).toEqual(['new'])
+    expect(campQueueTailHold(['h', 'a', 'b', 'c'], ['b', 'c', 'new'])).toEqual(['new'])
+    expect(campQueueTailHold(['h', 'a', 'b'], ['a', 'b', 'back'])).toEqual(['back'])
+    expect(campQueueTailHold(['h', 'a'], ['h', 'a', 'new'])).toBeNull()
+    expect(campQueueTailHold(['h', 'a', 'b'], ['b', 'new'])).toBeNull()
+    expect(campQueueTailEntries(['h', 'a', 'b'], ['a', 'b', 'h'])).toBeNull()
+    expect(campQueueTailEntries(['h', 'a'], ['h', 'new', 'a'])).toBeNull()
+    expect(campQueueTailEntries(['a', 'b', 'c'], ['c', 'a', 'b'])).toBeNull()
+  })
+
   it('wires the slide on the camp sheet and blocks fuse while it plays', () => {
     expect(CAMP_QUEUE_SLIDE_FUSE).toBe('队列还在滑动')
     expect(sheetSource).toContain('campQueueHeadShift')
-    expect(sheetSource).toContain('campFuseTailHold(before, after)')
+    expect(sheetSource).toContain('campQueueTailHold(before, after)')
+    expect(sheetSource).toContain('campQueueTailEntries(before, after)')
+    expect(sheetSource).toContain('playCampQueueTailEnter')
     expect(sheetSource).toContain('v-for="row in shownRows"')
-    expect(sheetSource.indexOf('campFuseTailHold(before, after)')).toBeLessThan(
+    expect(sheetSource).toContain("'queue-enter': enteringIds.includes(row.id)")
+    expect(sheetSource.indexOf('campQueueTailHold(before, after)')).toBeLessThan(
       sheetSource.indexOf('campQueueHeadShift(before, after)'),
     )
     expect(sheetSource).toContain('CAMP_QUEUE_SLIDE_MS')
@@ -73,9 +96,10 @@ describe('camp queue head slide', () => {
     expect(sheetSource).toContain("'queue-slide': slidingIds.includes(row.id)")
     expect(sheetSource).toContain('prefers-reduced-motion: reduce')
     const style = sheetSource.slice(sheetSource.indexOf('<style'))
-    expect(style).toMatch(/\.row\.queue-slide\s*\{[^}]*transition:\s*transform 0\.3s linear/)
+    expect(style).toMatch(/\.row\.queue-slide,[\s\S]*?\.row\.queue-enter\s*\{[^}]*transition:\s*transform 0\.3s linear/)
     const motion = style.slice(style.indexOf('@media (prefers-reduced-motion: reduce)'))
     expect(motion).toContain('.row.queue-slide')
+    expect(motion).toContain('.row.queue-enter')
     expect(motion).toContain('transition: none')
     const down = sheetSource.slice(
       sheetSource.indexOf('function onWorkerPointerDown'),

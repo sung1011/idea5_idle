@@ -13,8 +13,10 @@ import { appTab } from './appNav'
 import { CAMP_STATION_DRAG_TIP, campDragStationTip } from './campDragTip'
 import {
   CAMP_QUEUE_SLIDE_MS,
-  campFuseTailHold,
   campQueueHeadShift,
+  campQueueTailEnterOffset,
+  campQueueTailEntries,
+  campQueueTailHold,
   isCampQueueSliding,
   setCampQueueSliding,
 } from './campQueueSlide'
@@ -56,11 +58,13 @@ const foodHelpPos = ref({ left: 8, top: 8 })
 const foodRuleOpen = ref(false)
 const detailId = ref<string | null>(null)
 const rows = computed(() => restQueueRows(game.save))
-const heldFuseId = ref<string | null>(null)
+const heldTailIds = ref<string[]>([])
+const enteringIds = ref<string[]>([])
 const shownRows = computed(() => {
-  const id = heldFuseId.value
-  if (!id) return rows.value
-  return rows.value.filter((row) => row.id !== id)
+  const held = heldTailIds.value
+  if (held.length === 0) return rows.value
+  const skip = new Set(held)
+  return rows.value.filter((row) => !skip.has(row.id))
 })
 const dispatchCount = computed(() => campDockCount(game.save))
 const fuseCue = computed(() => guideFuseCue(game.save, true))
@@ -162,11 +166,11 @@ function campRowEl(list: HTMLElement, id: string): HTMLElement | null {
   return el instanceof HTMLElement ? el : null
 }
 
-function stopQueueSlide() {
-  slideGen += 1
+function clearQueuedMotion() {
   window.clearTimeout(slideTimer)
   slideTimer = 0
   slidingIds.value = []
+  enteringIds.value = []
   const list = restListEl.value
   if (list) {
     for (const el of list.querySelectorAll<HTMLElement>('[data-worker]')) {
@@ -174,7 +178,22 @@ function stopQueueSlide() {
       el.style.transform = ''
     }
   }
-  heldFuseId.value = null
+}
+
+function stopQueueSlide() {
+  slideGen += 1
+  clearQueuedMotion()
+  heldTailIds.value = []
+  setCampQueueSliding(false)
+}
+
+/** 出队滑完。若还有人等着进队尾，先把他们放出来，锁保持到进队动画开始。 */
+function endHeadSlide() {
+  clearQueuedMotion()
+  if (heldTailIds.value.length > 0) {
+    heldTailIds.value = []
+    return
+  }
   setCampQueueSliding(false)
 }
 
@@ -193,7 +212,7 @@ async function playCampQueueSlide(fromRects: Map<string, DOMRect>) {
   const list = restListEl.value
   if (!list) {
     setCampQueueSliding(false)
-    heldFuseId.value = null
+    heldTailIds.value = []
     return
   }
   const moves: HTMLElement[] = []
@@ -211,11 +230,52 @@ async function playCampQueueSlide(fromRects: Map<string, DOMRect>) {
   }
   if (gen !== slideGen) return
   if (moves.length === 0) {
-    setCampQueueSliding(false)
-    heldFuseId.value = null
+    endHeadSlide()
     return
   }
   slidingIds.value = moves.map((el) => el.dataset.worker ?? '').filter((id) => id.length > 0)
+  await nextTick()
+  if (gen !== slideGen) return
+  for (const el of moves) void el.offsetWidth
+  for (const el of moves) el.style.transition = ''
+  requestAnimationFrame(() => {
+    if (gen !== slideGen) return
+    for (const el of moves) el.style.transform = 'translate(0px, 0px)'
+  })
+  window.clearTimeout(slideTimer)
+  slideTimer = window.setTimeout(() => {
+    if (gen !== slideGen) return
+    endHeadSlide()
+  }, CAMP_QUEUE_SLIDE_MS)
+}
+
+async function playCampQueueTailEnter(ids: readonly string[]) {
+  const gen = ++slideGen
+  setCampQueueSliding(true)
+  await nextTick()
+  if (gen !== slideGen) return
+  const list = restListEl.value
+  if (!list) {
+    setCampQueueSliding(false)
+    return
+  }
+  const gap = Number.parseFloat(getComputedStyle(list).columnGap)
+  const moves: HTMLElement[] = []
+  for (const id of ids) {
+    const el = campRowEl(list, id)
+    if (!el) continue
+    const offset = campQueueTailEnterOffset(el.getBoundingClientRect().width, gap)
+    if (offset.x < 0.5 && offset.y < 0.5) continue
+    el.style.transition = 'none'
+    el.style.transform = `translate(${offset.x}px, ${offset.y}px)`
+    moves.push(el)
+  }
+  if (gen !== slideGen) return
+  if (moves.length === 0) {
+    setCampQueueSliding(false)
+    return
+  }
+  enteringIds.value = moves.map((el) => el.dataset.worker ?? '').filter((id) => id.length > 0)
   await nextTick()
   if (gen !== slideGen) return
   for (const el of moves) void el.offsetWidth
@@ -236,10 +296,10 @@ watch(
   (after, before) => {
     if (!before || sameQueueIds(before, after)) return
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
-      heldFuseId.value = null
+      heldTailIds.value = []
       return
     }
-    heldFuseId.value = campFuseTailHold(before, after)
+    heldTailIds.value = campQueueTailHold(before, after) ?? []
   },
   { flush: 'pre' },
 )
@@ -247,25 +307,37 @@ watch(
 watch(
   () => shownRows.value.map((row) => row.id),
   (after, before) => {
-    if (!before || !campQueueHeadShift(before, after)) return
+    if (!before) return
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return
-    const list = restListEl.value
-    if (!list) return
-    const fromRects = new Map<string, DOMRect>()
-    for (const id of after) {
-      if (!before.includes(id)) continue
-      const el = campRowEl(list, id)
-      if (!el) continue
-      fromRects.set(id, el.getBoundingClientRect())
-    }
-    if (fromRects.size === 0) {
-      heldFuseId.value = null
+    if (campQueueHeadShift(before, after)) {
+      const list = restListEl.value
+      if (!list) {
+        heldTailIds.value = []
+        setCampQueueSliding(false)
+        return
+      }
+      const fromRects = new Map<string, DOMRect>()
+      for (const id of after) {
+        if (!before.includes(id)) continue
+        const el = campRowEl(list, id)
+        if (!el) continue
+        fromRects.set(id, el.getBoundingClientRect())
+      }
+      if (fromRects.size === 0) {
+        endHeadSlide()
+        return
+      }
+      window.clearTimeout(slideTimer)
+      slideTimer = 0
+      setCampQueueSliding(true)
+      void playCampQueueSlide(fromRects)
       return
     }
+    const entries = campQueueTailEntries(before, after)
+    if (!entries) return
     window.clearTimeout(slideTimer)
     slideTimer = 0
-    setCampQueueSliding(true)
-    void playCampQueueSlide(fromRects)
+    void playCampQueueTailEnter(entries)
   },
   { flush: 'pre' },
 )
@@ -478,6 +550,7 @@ onUnmounted(() => {
                   head: row.badge === '队首',
                   'queue-ready': row.badge === REST_HEAD_BADGE,
                   'queue-slide': slidingIds.includes(row.id),
+                  'queue-enter': enteringIds.includes(row.id),
                   'level-flash': isWorkerLevelFlashing(row.id),
                   'eat-flash': isWorkerEatFlashing(row.id),
                 },
@@ -735,7 +808,8 @@ h2 {
   background: rgba(255, 236, 160, 0.42);
 }
 
-.row.queue-slide {
+.row.queue-slide,
+.row.queue-enter {
   z-index: 2;
   transition: transform 0.3s linear;
 }
@@ -1155,7 +1229,8 @@ h2 {
 @media (prefers-reduced-motion: reduce) {
   .row.eat-flash,
   .eat-float,
-  .row.queue-slide {
+  .row.queue-slide,
+  .row.queue-enter {
     animation: none;
     transition: none;
   }
