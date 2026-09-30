@@ -14,9 +14,9 @@ export const CAMP_EMPTY_TIP = '营地没人可派'
 export const AUTO_QUOTA_TIP = '炼金开放后才能挂自动'
 export const AUTO_FULL_TIP = '自动线名额已满'
 export const AUTO_QUEUE_TIP = '最多排 5 轮'
-/** 点站卡上的 ×N 时弹出。这个标记不是排队入口。 */
+/** 点站卡小图标时弹出。这个标记不是排队入口。 */
 export const ROUND_BADGE_TIP =
-  '点站点大面板，把营地队首派上去工作一轮。还在工作时再点，排进下一轮，最多 5 轮。一轮工作完，苦工回到营地队尾。×N 是还剩几轮，点它只看说明，不会排队。'
+  '点站点大面板，把营地队首派上去工作一轮。还在工作时再点，排进下一轮，最多 5 轮。一轮工作完，苦工回到营地队尾。有排队时 ×N 是后续轮次，不含正在做的这一轮；没排队时这个数字是站里的人数。点它只看说明，不会排队。'
 /** ×N 说明气泡里的按钮。 */
 export const CLEAR_MANUAL_QUEUE_LABEL = '不排队'
 /** 按钮旁的说明。 */
@@ -119,6 +119,20 @@ export function manualQueueLeft(save: Save, stationId: StationId): number {
   if (station.auto) return 0
   const working = assignedWorkers(save, stationId).length > 0 ? 1 : 0
   return Math.max(0, station.manualRounds - working)
+}
+
+/** 站卡小图标。有后续排队写 ×轮次；否则写在岗人数，不带 ×。 */
+export function stationRoundBadge(save: Save, stationId: StationId): string {
+  const queued = manualQueueLeft(save, stationId)
+  if (queued > 0) return `×${queued}`
+  return String(assignedWorkers(save, stationId).length)
+}
+
+/** 小图标的读屏说明。 */
+export function stationRoundBadgeAria(save: Save, stationId: StationId): string {
+  const queued = manualQueueLeft(save, stationId)
+  if (queued > 0) return `后续排队 ${queued} 轮，查看排队说明`
+  return `站内 ${assignedWorkers(save, stationId).length} 人，查看排队说明`
 }
 
 /** 清掉后续排队。有人正在做就只留这一轮，进度和人都不动。自动开关不动。 */

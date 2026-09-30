@@ -12,12 +12,15 @@ import {
   CAMP_EMPTY_TIP,
   CLEAR_MANUAL_QUEUE_LABEL,
   CLEAR_MANUAL_QUEUE_NOTE,
+  ROUND_BADGE_TIP,
   applyManualQualityOutput,
   autoLineQuota,
   clearManualQueue,
   dispatchManualRound,
   manualQueueLeft,
   pullWaitingManualRounds,
+  stationRoundBadge,
+  stationRoundBadgeAria,
   toggleStationAuto,
 } from './workshopDispatch'
 
@@ -168,6 +171,37 @@ describe('workshop manual dispatch and auto lines', () => {
     expect(done.stations.herbalism.auto).toBe(false)
     expect(done.workers.find((worker) => worker.id === first.id)?.assignment).toBeNull()
     expect(done.workers.find((worker) => worker.id === second.id)?.assignment).toBeNull()
+  })
+
+  it('labels a queued station with later rounds and an idle station with headcount', () => {
+    expect(ROUND_BADGE_TIP).toContain('后续轮次')
+    expect(ROUND_BADGE_TIP).toContain('站里的人数')
+    expect(ROUND_BADGE_TIP).not.toContain('还剩几轮')
+    const save = createSave()
+    expect(stationRoundBadge(save, 'herbalism')).toBe('0')
+    expect(stationRoundBadgeAria(save, 'herbalism')).toBe('站内 0 人，查看排队说明')
+
+    const first = fullWorker(save)
+    first.assignment = 'herbalism'
+    save.stations.herbalism.manualRounds = 3
+    expect(stationRoundBadge(save, 'herbalism')).toBe('×2')
+    expect(stationRoundBadgeAria(save, 'herbalism')).toBe('后续排队 2 轮，查看排队说明')
+
+    expect(clearManualQueue(save, 'herbalism').ok).toBe(true)
+    expect(stationRoundBadge(save, 'herbalism')).toBe('1')
+    expect(stationRoundBadgeAria(save, 'herbalism')).toBe('站内 1 人，查看排队说明')
+
+    const waiting = createSave()
+    fullWorker(waiting)
+    waiting.stations.herbalism.manualRounds = 3
+    expect(stationRoundBadge(waiting, 'herbalism')).toBe('×3')
+
+    grantOpenedModules(save, ['alchemy'])
+    const hand = fullWorker(save)
+    expect(toggleStationAuto(save, 'alchemy').ok).toBe(true)
+    hand.assignment = 'alchemy'
+    expect(stationRoundBadge(save, 'alchemy')).toBe('1')
+    expect(stationRoundBadge(save, 'mining')).toBe('0')
   })
 
   it('drops a waiting queue and leaves an auto line alone', () => {

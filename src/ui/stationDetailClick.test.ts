@@ -11,6 +11,10 @@ describe('station detail button', () => {
     expect(workersPanelSource).toMatch(/>\s*详\s*<\/button>/)
     expect(workersPanelSource).toContain('onStationPointerDown')
     expect(workersPanelSource).toContain('data-round-badge')
+    expect(workersPanelSource).toContain('stationRoundBadge(')
+    expect(workersPanelSource).toContain('stationRoundBadgeAria(')
+    expect(workersPanelSource).not.toContain('v-if="game.save.stations[board.stationId].manualRounds > 0"')
+    expect(workersPanelSource).not.toContain('×{{ game.save.stations[board.stationId].manualRounds }}')
     expect(workersPanelSource).toContain('ROUND_BADGE_TIP')
     expect(workersPanelSource).toContain('data-round-clear')
     expect(workersPanelSource).toContain('CLEAR_MANUAL_QUEUE_LABEL')
@@ -24,6 +28,11 @@ describe('station detail button', () => {
       workersPanelSource.indexOf('function onStationCardClick'),
       workersPanelSource.indexOf('function closeStationDetail'),
     )
+    const clearFn = workersPanelSource.slice(
+      workersPanelSource.indexOf('function onClearManualQueue'),
+      workersPanelSource.indexOf('function onRoundBadge'),
+    )
+    expect(clearFn).toContain('if (result.ok) closeRoundHelp()')
     expect(clickFn).toContain('.auto-toggle')
     expect(clickFn).toContain('.round-badge')
     expect(clickFn).toContain('.station-detail')

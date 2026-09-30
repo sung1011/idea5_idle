@@ -8,6 +8,8 @@ import {
   CLEAR_MANUAL_QUEUE_NOTE,
   ROUND_BADGE_TIP,
   manualQueueLeft,
+  stationRoundBadge,
+  stationRoundBadgeAria,
 } from '../sim/workshopDispatch'
 import { moduleNoticeOn, type ModuleId } from '../sim/moduleUnlock'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
@@ -223,7 +225,8 @@ const roundQueueLeft = computed(() => {
 function onClearManualQueue() {
   const stationId = roundHelpStation.value
   if (!stationId || manualQueueLeft(game.save, stationId) <= 0) return
-  game.clearManualQueue(stationId)
+  const result = game.clearManualQueue(stationId)
+  if (result.ok) closeRoundHelp()
 }
 
 function onRoundBadge(ev: MouseEvent, stationId: StationId) {
@@ -557,15 +560,14 @@ onUnmounted(() => {
               自动
             </button>
             <button
-              v-if="game.save.stations[board.stationId].manualRounds > 0"
               type="button"
               class="round-badge"
               data-round-badge
               :aria-expanded="roundHelpStation === board.stationId"
-              :aria-label="`还剩 ${game.save.stations[board.stationId].manualRounds} 轮，查看排队说明`"
+              :aria-label="stationRoundBadgeAria(game.save, board.stationId)"
               @pointerdown.stop
               @click.stop="onRoundBadge($event, board.stationId)"
-            >×{{ game.save.stations[board.stationId].manualRounds }}</button>
+            >{{ stationRoundBadge(game.save, board.stationId) }}</button>
             <i v-if="stationNotice(board.stationId)" class="notice" aria-hidden="true" />
             <StationTips :station-id="board.stationId" />
             <div class="station-rail">
