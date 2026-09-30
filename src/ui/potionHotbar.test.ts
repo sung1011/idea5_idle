@@ -79,11 +79,12 @@ describe('potion hotbar stock cues', () => {
 })
 
 describe('camp potion dock placement', () => {
-  it('puts the hotbar on the camp sheet above the queue and off the workshop page', () => {
+  it('puts the hotbar on the camp sheet below the queue and off the workshop page', () => {
     const camp = campSource.slice(0, campSource.indexOf('<style'))
     const dock = dockSource.slice(0, dockSource.indexOf('<style'))
     const workshop = workersPanelSource.slice(0, workersPanelSource.indexOf('<style'))
-    expect(camp.indexOf('<PotionDock')).toBeLessThan(camp.indexOf('class="board"'))
+    expect(camp.indexOf('class="actions"')).toBeLessThan(camp.indexOf('class="board"'))
+    expect(camp.indexOf('class="board"')).toBeLessThan(camp.indexOf('<PotionDock'))
     expect(camp).toContain('class="potion-marks"')
     expect(dock).toContain('class="potion-dock"')
     expect(dock).toContain('class="potion-halo"')

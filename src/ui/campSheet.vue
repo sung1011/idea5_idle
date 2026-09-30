@@ -284,7 +284,45 @@ onUnmounted(() => {
           <h2>营地 · 可派 {{ dispatchCount }}</h2>
           <p class="fuse-hint">在营地里拖到同品质的人身上</p>
         </header>
-        <PotionDock />
+        <div class="actions">
+          <button
+            type="button"
+            class="food"
+            :class="{ locked: foodLocked, low: foodBand.low, fresh: foodNotice, 'guide-flash': guideFlashRestFood }"
+            :aria-label="foodLocked ? '营地伙食未开放' : `营地伙食 · ${foodLabel}`"
+            @click="onFood"
+          >
+            <FoodIcon v-if="foodBand.itemId" :name="foodBand.itemId" />
+            <svg v-else class="bowl" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 10h16c0 5-3.2 8-8 8s-8-3-8-8z" fill="none" stroke="currentColor" stroke-width="2" />
+              <path d="M8 10c.4-2 1.6-3 2.4-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+            </svg>
+            伙食 · {{ foodLabel }}
+          </button>
+          <button
+            type="button"
+            class="recruit"
+            :class="{ off: !canRecruit, 'guide-flash': guideFlashRecruit || fuseCue === 'recruit' || fuseCue === 'wait' }"
+            :disabled="!canRecruit"
+            :aria-label="`抽苦工 · ${recruitPrice} 钻`"
+            @click="game.recruit()"
+          >
+            <span class="recruit-label">
+              <svg class="dice" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="2" />
+                <circle cx="9" cy="9" r="1.3" fill="currentColor" />
+                <circle cx="15" cy="15" r="1.3" fill="currentColor" />
+                <circle cx="15" cy="9" r="1.3" fill="currentColor" />
+                <circle cx="9" cy="15" r="1.3" fill="currentColor" />
+              </svg>
+              抽苦工
+            </span>
+            <span class="price">
+              <i class="sprite sprite-res diamonds" aria-hidden="true" />
+              {{ recruitPrice }}
+            </span>
+          </button>
+        </div>
         <div class="board">
           <div v-if="rows.length" ref="restListEl" class="list">
             <div
@@ -345,45 +383,7 @@ onUnmounted(() => {
           </div>
           <p v-else class="empty">无人</p>
         </div>
-        <div class="actions">
-          <button
-            type="button"
-            class="food"
-            :class="{ locked: foodLocked, low: foodBand.low, fresh: foodNotice, 'guide-flash': guideFlashRestFood }"
-            :aria-label="foodLocked ? '营地伙食未开放' : `营地伙食 · ${foodLabel}`"
-            @click="onFood"
-          >
-            <FoodIcon v-if="foodBand.itemId" :name="foodBand.itemId" />
-            <svg v-else class="bowl" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 10h16c0 5-3.2 8-8 8s-8-3-8-8z" fill="none" stroke="currentColor" stroke-width="2" />
-              <path d="M8 10c.4-2 1.6-3 2.4-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
-            </svg>
-            伙食 · {{ foodLabel }}
-          </button>
-          <button
-            type="button"
-            class="recruit"
-            :class="{ off: !canRecruit, 'guide-flash': guideFlashRecruit || fuseCue === 'recruit' || fuseCue === 'wait' }"
-            :disabled="!canRecruit"
-            :aria-label="`抽苦工 · ${recruitPrice} 钻`"
-            @click="game.recruit()"
-          >
-            <span class="recruit-label">
-              <svg class="dice" viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="2" />
-                <circle cx="9" cy="9" r="1.3" fill="currentColor" />
-                <circle cx="15" cy="15" r="1.3" fill="currentColor" />
-                <circle cx="15" cy="9" r="1.3" fill="currentColor" />
-                <circle cx="9" cy="15" r="1.3" fill="currentColor" />
-              </svg>
-              抽苦工
-            </span>
-            <span class="price">
-              <i class="sprite sprite-res diamonds" aria-hidden="true" />
-              {{ recruitPrice }}
-            </span>
-          </button>
-        </div>
+        <PotionDock />
       </section>
     </div>
   </Teleport>
@@ -732,7 +732,7 @@ h2 {
   display: grid;
   grid-template-columns: 1fr 1.15fr;
   gap: 8px;
-  margin-top: 10px;
+  margin: 0 0 8px;
 }
 
 .food,

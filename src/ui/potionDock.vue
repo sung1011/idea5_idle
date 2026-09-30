@@ -288,7 +288,7 @@ onUnmounted(() => {
 .potion-dock {
   position: relative;
   flex: 0 0 auto;
-  margin: 0 0 8px;
+  margin: 10px 0 0;
   padding: 8px 8px 6px;
   border: 3px solid var(--stroke);
   border-radius: 16px;
