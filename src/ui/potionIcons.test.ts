@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { POTION_ITEM_IDS } from '../sim/tables'
 import { POTION_ICON_PATHS, allPotionIconsReady, potionIconPaths } from './potionIcons'
-import workersPanelSource from './workersPanelV2.vue?raw'
+import potionDockSource from './potionDock.vue?raw'
 
 const PATH_ARG: Record<string, number> = {
   M: 2,
@@ -55,14 +55,14 @@ describe('potion icons', () => {
   })
 
   it('puts the icon ahead of the name, and stacks icon, name, count in the slot', () => {
-    const slotAt = workersPanelSource.indexOf('aria-label="药剂技能槽"')
-    const slot = workersPanelSource.slice(slotAt, workersPanelSource.indexOf('potionBuffLine', slotAt))
+    const slotAt = potionDockSource.indexOf('aria-label="药剂技能槽"')
+    const slot = potionDockSource.slice(slotAt, potionDockSource.indexOf('aria-label="装配药剂"', slotAt))
     expect(slot.indexOf('<PotionIcon :name="itemId" />')).toBeLessThan(slot.indexOf('class="potion-name"'))
     expect(slot.indexOf('class="potion-name"')).toBeLessThan(slot.indexOf('class="potion-qty"'))
     expect(slot).toContain('class="potion-vacant"')
     expect(slot).not.toContain('name="alchemy"')
-    const equipAt = workersPanelSource.indexOf('aria-label="装配药剂"')
-    const equip = workersPanelSource.slice(equipAt, workersPanelSource.indexOf('没有可装的药剂', equipAt))
+    const equipAt = potionDockSource.indexOf('aria-label="装配药剂"')
+    const equip = potionDockSource.slice(equipAt, potionDockSource.indexOf('没有可装的药剂', equipAt))
     const iconAt = equip.indexOf('<PotionIcon :name="id" />')
     expect(iconAt).toBeGreaterThan(-1)
     expect(iconAt).toBeLessThan(equip.indexOf('ITEM_DEF[id].label'))

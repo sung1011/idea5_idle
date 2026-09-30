@@ -4,7 +4,9 @@ import { canReinforceCombat, isCombatLost, isCombatWon, isFighting } from './com
 import { combatSupplyBlockReason, isEncounterDone, isStarterCopperPawn, STARTER_GUIDE_HERB_QTY } from './encounters'
 import { isModuleUnlocked, knightLevelProgress, levelGateUnlockNote, moduleLabel, moduleLockedTip, moduleUnlockKnightLevel, SECOND_AUTO_LINE_TIP } from './moduleUnlock'
 import { knightLevelOf } from './stationUnlock'
+import { anyWorkerHasPotionBuff } from './potions'
 import { POTION_ITEM_IDS, QUALITY_MAX } from './tables'
+import { isFullWorkshopHp } from './workshopHp'
 import type { ActionResult, Encounter, EnemyEncounter, Save, StationId } from './types'
 import {
   MAINLINE_TASKS,
@@ -60,8 +62,16 @@ export const GUIDE_ALCHEMY_NEED_HERB_GOAL = '先点采药站出草，再点炼�
 export const GUIDE_ALCHEMY_WAIT_HERB_GOAL = '等采药站出草，再点炼金站派工'
 /** 有原料时点炼金站派一轮。 */
 export const GUIDE_ALCHEMY_CLICK_GOAL = '点炼金站，把队首派上去熬一轮药'
-/** 用药步工坊没人在岗。 */
-export const GUIDE_POTION_NEED_DUTY_GOAL = '先点一个站把人派上去，再点药剂槽用药'
+/** 装药步营地弹框还没打开。 */
+export const GUIDE_POTION_INSTALL_CLOSED_GOAL = '点底部营地，打开名单后再点药剂槽装药'
+/** 装药步营地弹框已打开。 */
+export const GUIDE_POTION_INSTALL_OPEN_GOAL = '在营地弹框里点空药剂槽，装上一种药'
+/** 用药步营地弹框还没打开。 */
+export const GUIDE_POTION_USE_CLOSED_GOAL = '点底部营地，打开名单后再点药剂槽用药'
+/** 用药步营地弹框已打开。 */
+export const GUIDE_POTION_USE_OPEN_GOAL = '在营地弹框里点已装的药剂槽用药'
+/** 用药步营地没人。 */
+export const GUIDE_POTION_NEED_CAMP_GOAL = '等苦工回到营地，再点药剂槽用药'
 /** 第一阶段「抽工人」完成所需次数（花名册人数或已生成序号，取较大）。 */
 export const GUIDE_QUEST_RECRUIT_NEED = 2
 
@@ -169,14 +179,7 @@ export function hasInstalledPotion(save: Save): boolean {
 
 export function hasUsedPotionFromSlot(save: Save): boolean {
   if (save.guideQuestPotionUsed) return true
-  const buffs = save.potionBuffs
-  if (!buffs) return false
-  return (
-    buffs.stimUntil != null ||
-    buffs.renewUntil != null ||
-    buffs.doubleMist != null ||
-    buffs.rushStation != null
-  )
+  return anyWorkerHasPotionBuff(save)
 }
 
 export function isGuideQuestPhase2Open(save: Pick<Save, 'knightLevel'>): boolean {
@@ -299,8 +302,27 @@ export function guideAlchemyNeedsHerbs(save: Save): boolean {
   return ALCHEMY_GUIDE_INPUTS.every((id) => bankQty(save, id) < 1)
 }
 
-export function guideNeedsDutyForPotion(save: Save): boolean {
-  return !save.workers.some((worker) => worker.assignment != null)
+export function guideNeedsCampForPotion(save: Save): boolean {
+  return restingWorkers(save).length === 0
+}
+
+const GUIDE_HEAL_POTIONS = new Set(['salve', 'brinkSalve', 'clearMind', 'renewSoup'])
+
+/** 用药步若营地全员满血、又装着回血药，把队尾打残，保证点下去有治疗。只剩一人时只扣 1 点，避免堵住队首。 */
+export function ensureGuidePotionCampTarget(save: Save): void {
+  const step = normalizeGuideQuestStep(save.guideQuestStep)
+  if (mainlineTaskAt(step)?.id !== 'potionUse') return
+  if (hasUsedPotionFromSlot(save)) return
+  const camp = restingWorkers(save)
+  if (!camp.length || camp.some((worker) => !isFullWorkshopHp(worker))) return
+  const installed = (save.potionSlots ?? []).filter((id): id is NonNullable<typeof id> => id != null)
+  if (installed.length > 0 && installed.every((id) => !GUIDE_HEAL_POTIONS.has(id))) return
+  const target = camp.length > 1 ? camp[camp.length - 1] : camp[0]
+  const hpMax = Math.max(1, Math.floor(target.hpMax))
+  if (hpMax <= 1) return
+  target.fatigueDebt = 0
+  target.hp = camp.length > 1 ? Math.max(1, Math.floor(hpMax * 0.5)) : hpMax - 1
+  if (target.hp >= hpMax) target.hp = hpMax - 1
 }
 
 /** 领到「升到酋长 11 级」后多给一句：第二条自动线开了。 */
@@ -316,7 +338,6 @@ export function guideDispatchStation(save: Save): StationId | null {
   if (id === 'autoHerb' || id === 'herbQueue') return 'herbalism'
   if (id === 'combat' && guideCombatNeedsHerbs(save)) return 'herbalism'
   if (id === 'alchemy' && guideAlchemyNeedsHerbs(save)) return 'herbalism'
-  if (id === 'potionUse' && guideNeedsDutyForPotion(save)) return 'herbalism'
   if (id === 'huntStart') return 'hunting'
   if (id === 'cookStart') return 'cooking'
   if (id === 'mining') return 'mining'
@@ -332,7 +353,6 @@ export function guideQuestOpenTaskId(save: Save): string | null {
   if (view.waiting) return id
   if (id === 'combat' && guideCombatNeedsHerbs(save)) return 'autoHerb'
   if (id === 'alchemy' && guideAlchemyNeedsHerbs(save)) return 'autoHerb'
-  if (id === 'potionUse' && guideNeedsDutyForPotion(save)) return 'autoHerb'
   return id
 }
 
@@ -417,7 +437,11 @@ function guideStepGoal(save: Save, row: MainlineTask, claimable: boolean, campOp
   if (!claimable && row.id === 'alchemy' && guideAlchemyNeedsHerbs(save)) {
     return save.stations.herbalism?.auto ? GUIDE_ALCHEMY_WAIT_HERB_GOAL : GUIDE_ALCHEMY_NEED_HERB_GOAL
   }
-  if (!claimable && row.id === 'potionUse' && guideNeedsDutyForPotion(save)) return GUIDE_POTION_NEED_DUTY_GOAL
+  if (!claimable && (row.id === 'potionInstall' || row.id === 'potionUse')) {
+    if (row.id === 'potionUse' && guideNeedsCampForPotion(save)) return GUIDE_POTION_NEED_CAMP_GOAL
+    if (row.id === 'potionInstall') return campOpen ? GUIDE_POTION_INSTALL_OPEN_GOAL : GUIDE_POTION_INSTALL_CLOSED_GOAL
+    return campOpen ? GUIDE_POTION_USE_OPEN_GOAL : GUIDE_POTION_USE_CLOSED_GOAL
+  }
   return row.goal
 }
 

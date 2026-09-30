@@ -4,22 +4,19 @@ import {
   RENEW_DURATION_S,
   STIM_DURATION_S,
 } from '../sim/tables'
-import type { PotionBuffs, PotionItemId } from '../sim/types'
+import type { PotionItemId, Worker } from '../sim/types'
 
 /** 两拍之间光环最多补 1 秒。切页或后台回来后，存档已经追上墙钟。 */
 export const POTION_HALO_DT_CAP_S = 1
 
-export type PotionHaloBuffs = Pick<
-  PotionBuffs,
-  'stimUntil' | 'renewUntil' | 'beastOilUntil' | 'rushStation' | 'doubleMist'
->
+export type PotionHaloWorker = Pick<Worker, 'potion'>
 
 export type PotionHaloInput = {
   itemId: PotionItemId | null
   elapsedS: number
   lastTick: number
   now: number
-  buffs: PotionHaloBuffs
+  workers: readonly PotionHaloWorker[]
 }
 
 function finiteOr(value: number, fallback = 0): number {
@@ -41,29 +38,43 @@ export function potionVisualElapsedS(elapsedS: number, lastTick: number, now: nu
   return base + Math.min(POTION_HALO_DT_CAP_S, dt)
 }
 
-function clockRatio(until: number | null, elapsed: number, duration: number): number {
+function clockRatio(until: number | null | undefined, elapsed: number, duration: number): number {
   if (until == null || !Number.isFinite(until) || duration <= 0) return 0
   const remain = until - elapsed
   if (remain <= 0) return 0
   return clamp01(remain / duration)
 }
 
+function maxClock(
+  workers: readonly PotionHaloWorker[],
+  key: 'stimUntil' | 'renewUntil' | 'beastOilUntil',
+  elapsed: number,
+  duration: number,
+): number {
+  let best = 0
+  for (const worker of workers) {
+    best = Math.max(best, clockRatio(worker.potion?.[key], elapsed, duration))
+  }
+  return best
+}
+
 /**
- * 槽位外圈剩余比例，0～1。
- * 嗜血、先祖续命汤、狂兽油按剩余时长缩小。
- * 赶工粉、双份雾在标记还在时保持整圈，用掉就灭。
+ * 槽位外圈剩余比例，0～1。取还带着这种药的苦工里剩余最多的一个。
+ * 赶工粉、双份雾在还有人没用掉时保持整圈。
  * 立刻生效的药剂没有光环。
  */
 export function potionEffectRemainRatio(input: PotionHaloInput): number {
   const id = input.itemId
   if (!id) return 0
   const t = potionVisualElapsedS(input.elapsedS, input.lastTick, input.now)
-  const buffs = input.buffs
-  if (id === 'stim') return clockRatio(buffs.stimUntil, t, STIM_DURATION_S)
-  if (id === 'renewSoup') return clockRatio(buffs.renewUntil, t, RENEW_DURATION_S)
-  if (id === 'beastOil') return clockRatio(buffs.beastOilUntil, t, BEAST_OIL_DURATION_S)
-  if (id === 'rushPowder') return buffs.rushStation ? 1 : 0
-  if (id === 'doubleMist') return buffs.doubleMist ? 1 : 0
+  const workers = input.workers
+  if (id === 'stim') return maxClock(workers, 'stimUntil', t, STIM_DURATION_S)
+  if (id === 'renewSoup') return maxClock(workers, 'renewUntil', t, RENEW_DURATION_S)
+  if (id === 'beastOil') return maxClock(workers, 'beastOilUntil', t, BEAST_OIL_DURATION_S)
+  if (id === 'rushPowder') return workers.some((worker) => worker.potion?.rush) ? 1 : 0
+  if (id === 'doubleMist') {
+    return workers.some((worker) => worker.potion?.doubleMist === 2 || worker.potion?.doubleMist === 3) ? 1 : 0
+  }
   return 0
 }
 

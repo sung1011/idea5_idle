@@ -18,6 +18,7 @@ import {
   RENEW_TICK_S,
   RUSH_CYCLE_CUT,
   SALVE_HEAL_RATIO,
+  BEAST_OIL_SPEED_MUL,
   STIM_DURATION_S,
   STIM_SPEED_MUL,
 } from './tables'
@@ -28,8 +29,8 @@ import {
   alchemyStationLevel,
   pickMainNeedPotion,
   rollAlchemyPotionBatch,
-  stimSpeedMul,
   unequipPotionSlot,
+  workerWorkSpeedMul,
   POTION_FULL_HP_TIP,
   POTION_NO_DUTY_TIP,
   usePotionSlot,
@@ -179,7 +180,6 @@ describe('potion slots', () => {
     expect(usePotionSlot(save, 0)).toEqual({ ok: false, reason: '空槽' })
     expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
     expect(save.potionSlots[0]).toBe('salve')
-    assignWorker(save, save.workers[0].id, 'herbalism')
     save.workers[0].hp = 1
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(bankQty(save, 'salve')).toBe(0)
@@ -198,49 +198,56 @@ describe('potion slots', () => {
 })
 
 describe('seven potion effects', () => {
-  it('stim speeds on-duty stations for 3 minutes of sim time', () => {
+  it('stim speeds the drinkers for 3 minutes and stacks with beast oil', () => {
     const save = roster(1)
-    assignWorker(save, save.workers[0].id, 'herbalism')
+    const worker = save.workers[0]
     save.stations.herbalism.auto = true
-    const bare = currentSpeed(save, 'herbalism')
     save.bank.stim = 1
+    save.bank.beastOil = 1
     expect(installPotionSlot(save, 0, 'stim').ok).toBe(true)
+    expect(installPotionSlot(save, 1, 'beastOil').ok).toBe(true)
     expect(usePotionSlot(save, 0).ok).toBe(true)
-    expect(stimSpeedMul(save)).toBe(STIM_SPEED_MUL)
-    expect(currentSpeed(save, 'herbalism')).toBeCloseTo(bare * STIM_SPEED_MUL)
+    expect(usePotionSlot(save, 1).ok).toBe(true)
+    expect(workerWorkSpeedMul(worker, save.elapsedS)).toBeCloseTo(STIM_SPEED_MUL * BEAST_OIL_SPEED_MUL)
+    expect(assignWorker(save, worker.id, 'herbalism').ok).toBe(true)
+    const sped = currentSpeed(save, 'herbalism')
+    worker.potion = undefined
+    const bare = currentSpeed(save, 'herbalism')
+    worker.potion = { stimUntil: save.elapsedS + STIM_DURATION_S, beastOilUntil: save.elapsedS + STIM_DURATION_S }
+    expect(sped).toBeCloseTo(bare * STIM_SPEED_MUL * BEAST_OIL_SPEED_MUL)
     const later = ticks(save, STIM_DURATION_S)
-    expect(stimSpeedMul(later)).toBe(1)
+    expect(workerWorkSpeedMul(later.workers[0], later.elapsedS)).toBe(1)
     expect(currentSpeed(later, 'herbalism')).toBeCloseTo(bare)
   })
 
-  it('salve heals every on-duty worker by 10% hpMax', () => {
+  it('salve heals every camp worker by 10% hpMax', () => {
     const save = roster(2)
-    assignWorker(save, save.workers[0].id, 'herbalism')
-    assignWorker(save, save.workers[1].id, 'mining')
     save.workers[0].hp = 1
     save.workers[1].hp = 1
     save.bank.salve = 1
     expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
     expect(usePotionSlot(save, 0).ok).toBe(true)
-    const expectHp = 1 + Math.ceil(save.workers[0].hpMax * SALVE_HEAL_RATIO)
-    expect(save.workers[0].hp).toBe(expectHp)
+    expect(save.workers[0].hp).toBe(1 + Math.ceil(save.workers[0].hpMax * SALVE_HEAL_RATIO))
     expect(save.workers[1].hp).toBe(1 + Math.ceil(save.workers[1].hpMax * SALVE_HEAL_RATIO))
   })
 
-  it('renewSoup ticks HoT every 10s for 2 minutes on living workers', () => {
+  it('renewSoup keeps ticking after the drinker is sent to a station', () => {
     const save = roster(1)
     const worker = save.workers[0]
-    assignWorker(save, worker.id, 'mining')
     worker.hp = 1
     save.bank.renewSoup = 1
     expect(installPotionSlot(save, 0, 'renewSoup').ok).toBe(true)
     expect(usePotionSlot(save, 0).ok).toBe(true)
+    worker.hp = worker.hpMax
+    worker.fatigueDebt = 0
+    expect(assignWorker(save, worker.id, 'mining').ok).toBe(true)
+    worker.hp = 1
     const pip = Math.ceil(worker.hpMax * RENEW_HEAL_RATIO)
     const afterOne = ticks(save, RENEW_TICK_S)
     expect(afterOne.workers[0].hp).toBe(1 + pip)
     const done = ticks(afterOne, RENEW_DURATION_S)
     expect(done.workers[0].hp).toBeGreaterThan(1 + pip)
-    expect(done.potionBuffs.renewUntil).toBeNull()
+    expect(done.workers[0].potion?.renewUntil ?? null).toBeNull()
   })
 
   it('brinkSalve lifts workers at or under 30% to 40% and heals the rest by 5%', () => {
@@ -248,9 +255,6 @@ describe('seven potion effects', () => {
     const low = save.workers[0]
     const mid = save.workers[1]
     const full = save.workers[2]
-    assignWorker(save, low.id, 'herbalism')
-    assignWorker(save, mid.id, 'mining')
-    assignWorker(save, full.id, 'hunting')
     low.hp = Math.floor(low.hpMax * 0.3)
     const midStart = Math.max(Math.floor(mid.hpMax * 0.3) + 1, Math.ceil(mid.hpMax * 0.5))
     mid.hp = midStart
@@ -264,59 +268,51 @@ describe('seven potion effects', () => {
     expect(low.hp / low.hpMax).toBeGreaterThan(0.3)
   })
 
-  it('doubleMist multiplies the next successful output then clears', () => {
+  it('doubleMist multiplies the camp head next output then clears', () => {
     setRollOverride(() => 0)
     const save = roster(1)
-    assignWorker(save, save.workers[0].id, 'herbalism')
+    const worker = save.workers[0]
     save.bank.doubleMist = 1
     expect(installPotionSlot(save, 0, 'doubleMist').ok).toBe(true)
     expect(usePotionSlot(save, 0).ok).toBe(true)
-    expect(save.potionBuffs.doubleMist).toEqual({ stationId: 'herbalism', mul: 2 })
+    expect(worker.potion?.doubleMist).toBe(2)
     expect(bankQty(save, 'doubleMist')).toBe(0)
+    expect(assignWorker(save, worker.id, 'herbalism').ok).toBe(true)
     expect(completeCycle(save, 'herbalism')).toBe(true)
     expect(bankQty(save, 'herb') + bankQty(save, 'spice')).toBe(2)
-    expect(save.potionBuffs.doubleMist).toBeNull()
+    expect(worker.potion?.doubleMist ?? null).toBeNull()
     expect(completeCycle(save, 'herbalism')).toBe(true)
     expect(bankQty(save, 'herb') + bankQty(save, 'spice')).toBe(3)
 
     setRollOverride(() => 0.85)
     const triple = roster(1)
-    assignWorker(triple, triple.workers[0].id, 'herbalism')
     triple.bank.doubleMist = 1
     expect(installPotionSlot(triple, 0, 'doubleMist').ok).toBe(true)
     expect(usePotionSlot(triple, 0).ok).toBe(true)
-    expect(triple.potionBuffs.doubleMist).toEqual({ stationId: 'herbalism', mul: 3 })
+    expect(triple.workers[0].potion?.doubleMist).toBe(3)
+    expect(assignWorker(triple, triple.workers[0].id, 'herbalism').ok).toBe(true)
     expect(completeCycle(triple, 'herbalism')).toBe(true)
     expect(bankQty(triple, 'herb') + bankQty(triple, 'spice')).toBe(3)
-    expect(triple.potionBuffs.doubleMist).toBeNull()
+    expect(triple.workers[0].potion?.doubleMist ?? null).toBeNull()
   })
 
-  it('rushPowder shortens the next cycle of one on-duty station by 40%', () => {
-    setRollOverride(() => 0)
-    const save = roster(2)
-    assignWorker(save, save.workers[0].id, 'herbalism')
-    assignWorker(save, save.workers[1].id, 'mining')
-    const herbBare = currentSpeed(save, 'herbalism')
-    const mineBare = currentSpeed(save, 'mining')
+  it('rushPowder shortens the next cycle of the first three camp workers by 40%', () => {
+    const save = roster(4)
     save.bank.rushPowder = 1
     expect(installPotionSlot(save, 0, 'rushPowder').ok).toBe(true)
     expect(usePotionSlot(save, 0).ok).toBe(true)
-    expect(save.potionBuffs.rushStation).toBe('herbalism')
+    expect(save.workers.slice(0, 3).every((worker) => worker.potion?.rush === true)).toBe(true)
+    expect(save.workers[3].potion?.rush).toBeFalsy()
     expect(bankQty(save, 'rushPowder')).toBe(0)
-    expect(currentSpeed(save, 'herbalism')).toBeCloseTo(herbBare / (1 - RUSH_CYCLE_CUT))
-    expect(currentSpeed(save, 'mining')).toBeCloseTo(mineBare)
+    expect(assignWorker(save, save.workers[0].id, 'herbalism').ok).toBe(true)
+    const rushed = currentSpeed(save, 'herbalism')
+    save.workers[0].potion = { ...(save.workers[0].potion ?? {}), rush: false }
+    const bare = currentSpeed(save, 'herbalism')
+    expect(rushed).toBeCloseTo(bare / (1 - RUSH_CYCLE_CUT))
+    save.workers[0].potion = { rush: true }
     expect(completeCycle(save, 'herbalism')).toBe(true)
-    expect(save.potionBuffs.rushStation).toBeNull()
-    expect(currentSpeed(save, 'herbalism')).toBeCloseTo(herbBare)
-
-    setRollOverride(() => 0.6)
-    const picked = roster(2)
-    assignWorker(picked, picked.workers[0].id, 'herbalism')
-    assignWorker(picked, picked.workers[1].id, 'mining')
-    picked.bank.rushPowder = 1
-    expect(installPotionSlot(picked, 0, 'rushPowder').ok).toBe(true)
-    expect(usePotionSlot(picked, 0).ok).toBe(true)
-    expect(picked.potionBuffs.rushStation).toBe('mining')
+    expect(save.workers[0].potion?.rush).toBe(false)
+    expect(currentSpeed(save, 'herbalism')).toBeCloseTo(bare)
   })
 
   it('clearMind heals the two most wounded on duty at 30% then 20% even above half HP', () => {
@@ -326,10 +322,6 @@ describe('seven potion effects', () => {
     const second = save.workers[1]
     const lighter = save.workers[2]
     const full = save.workers[3]
-    assignWorker(save, worst.id, 'herbalism')
-    assignWorker(save, second.id, 'alchemy')
-    assignWorker(save, lighter.id, 'hunting')
-    assignWorker(save, full.id, 'cooking')
     worst.fatigueDebt = 2.4
     worst.hp = 1
     second.hp = Math.max(1, Math.floor(second.hpMax * 0.8))
@@ -364,8 +356,6 @@ describe('seven potion effects', () => {
     expect(unlockedPotionIds(save.stations.alchemy.stationLevel)).toEqual(['salve'])
     const wounded = save.workers[0]
     const healthy = save.workers[1]
-    assignWorker(save, wounded.id, 'herbalism')
-    assignWorker(save, healthy.id, 'mining')
     wounded.hp = 1
     healthy.hp = healthy.hpMax
     save.bank.clearMind = 1
@@ -379,7 +369,6 @@ describe('seven potion effects', () => {
   it('clears fatigue debt when a heal reaches hpMax so wear and detail bars match', () => {
     const save = roster(1)
     const worker = save.workers[0]
-    assignWorker(save, worker.id, 'herbalism')
     worker.hp = worker.hpMax - 1
     worker.fatigueDebt = 0.6
     save.bank.salve = 1
@@ -396,8 +385,6 @@ describe('seven potion effects', () => {
     const save = roster(2)
     const full = save.workers[0]
     const wounded = save.workers[1]
-    assignWorker(save, full.id, 'herbalism')
-    assignWorker(save, wounded.id, 'mining')
     full.hp = full.hpMax
     full.fatigueDebt = 0
     wounded.hp = wounded.hpMax
@@ -443,6 +430,7 @@ describe('seven potion effects', () => {
     expect(isFullWorkshopHp(half)).toBe(false)
     expect(assignWorker(save, half.id, 'mining')).toEqual({ ok: false, reason: '满血才能上岗' })
 
+    expect(withdrawWorker(save, 'herbalism').ok).toBe(true)
     full.hp = full.hpMax - 1
     full.fatigueDebt = 0.4
     save.bank.salve = 1
@@ -454,7 +442,6 @@ describe('seven potion effects', () => {
     expect(workerWearHp(full)).toBe(full.hp)
     expect(hpBarTone(workerWearHp(full), full.hpMax)).toBe('full')
 
-    expect(withdrawWorker(save, 'herbalism').ok).toBe(true)
     full.hp = 1
     full.fatigueDebt = 0.5
     save.elapsedS = REST_HEAL_EVERY_S
@@ -500,9 +487,11 @@ describe('seven potion effects', () => {
   })
 })
 
-describe('potion slot on-duty targeting', () => {
-  it('does not consume when nobody is on duty', () => {
+describe('potion slot camp targeting', () => {
+  it('does not consume when the camp is empty', () => {
     const save = roster(1)
+    assignWorker(save, save.workers[0].id, 'herbalism')
+    save.workers[0].hp = 1
     save.bank.salve = 1
     save.bank.stim = 1
     expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
@@ -512,10 +501,10 @@ describe('potion slot on-duty targeting', () => {
     expect(installPotionSlot(save, 1, 'stim').ok).toBe(true)
     expect(usePotionSlot(save, 1)).toEqual({ ok: false, reason: POTION_NO_DUTY_TIP })
     expect(bankQty(save, 'stim')).toBe(1)
-    expect(save.potionBuffs.stimUntil).toBeNull()
+    expect(save.workers[0].potion?.stimUntil ?? null).toBeNull()
   })
 
-  it('heals only on-duty workers and skips rest, combat, and assist', () => {
+  it('heals camp workers and skips stations, combat, and assist', () => {
     const save = roster(3)
     const duty = save.workers[0]
     const rest = save.workers[1]
@@ -540,8 +529,8 @@ describe('potion slot on-duty targeting', () => {
     expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(bankQty(save, 'salve')).toBe(0)
-    expect(duty.hp).toBe(1 + Math.ceil(duty.hpMax * SALVE_HEAL_RATIO))
-    expect(rest.hp).toBe(1)
+    expect(duty.hp).toBe(1)
+    expect(rest.hp).toBe(1 + Math.ceil(rest.hpMax * SALVE_HEAL_RATIO))
     expect(fighter.hp).toBe(5)
     expect(enc.combat?.workers[0]?.hp).toBe(5)
     expect(assist.hp).toBe(1)
@@ -611,25 +600,21 @@ describe('hydrate potions', () => {
       ...keepStationsOpen(createSave()),
       bank: { salve: 2, warDrum: 3 },
       potionSlots: ['warDrum', 'salve', null, null],
-      potionBuffs: { warDrumUntil: 999 },
     } as never)
     expect(save?.potionSlots).toEqual([null, 'salve', null, null])
     expect((save?.bank as { warDrum?: number }).warDrum).toBeUndefined()
-    expect((save?.potionBuffs as { warDrumUntil?: unknown }).warDrumUntil).toBeUndefined()
+    expect(save).not.toHaveProperty('potionBuffs')
   })
 
-  it('keeps timed buffs that still have sim time left', () => {
+  it('drops account-level timed buffs', () => {
     const save = keepStationsOpen(createSave())
     save.elapsedS = 40
-    save.potionBuffs.stimUntil = 80
     hydratePotionState(save, {
       potionBuffs: { stimUntil: 80, wardUntil: 200, focusUntil: 200, focusConsumed: ['herbalism'] },
     })
-    expect(save.potionBuffs.stimUntil).toBe(80)
-    expect(save.potionBuffs.doubleMist).toBeNull()
-    expect(save.potionBuffs.rushStation).toBeNull()
+    expect(save).not.toHaveProperty('potionBuffs')
     applyPotionTicks(save)
-    expect(save.potionBuffs.stimUntil).toBe(80)
+    expect(save.workers.every((worker) => !worker.potion?.stimUntil)).toBe(true)
   })
 
   it('maps focusDraft and wardElixir stock, slots, and orders onto the new potions', () => {
@@ -637,7 +622,6 @@ describe('hydrate potions', () => {
       ...keepStationsOpen(createSave()),
       bank: { focusDraft: 4, wardElixir: 2, doubleMist: 1, salve: 3 },
       potionSlots: ['focusDraft', 'wardElixir', null, null],
-      potionBuffs: { stimUntil: 80, wardUntil: 200, focusUntil: 90, focusConsumed: ['herbalism'] },
       encounters: [
         {
           kind: 'enemy',
@@ -677,8 +661,6 @@ describe('hydrate potions', () => {
     const market = save?.marketEncounters.find((row) => row.id === 'old-ward')
     expect(market?.kind === 'passerby' && market.wants).toEqual({ rushPowder: 1 })
     expect(market?.kind === 'passerby' && market.offers).toEqual({ doubleMist: 2 })
-    expect(save?.potionBuffs.stimUntil).toBe(80)
-    expect(save?.potionBuffs.doubleMist).toBeNull()
-    expect(save?.potionBuffs.rushStation).toBeNull()
+    expect(save).not.toHaveProperty('potionBuffs')
   })
 })

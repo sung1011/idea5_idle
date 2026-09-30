@@ -15,7 +15,7 @@ import {
   stationSpeed,
   type IoRule,
 } from './tables'
-import { beastOilSpeedMul, rushSpeedMul, stimSpeedMul } from './potions'
+import { stationPotionSpeedMul } from './potions'
 import { isWorkerInBeastPvp } from './beastPvpQuery'
 import {
   forgeCycleMul,
@@ -59,9 +59,7 @@ export function currentSpeed(save: Save, stationId: StationId, now = Date.now())
     workshopBuffMul(save, now) *
     stationTechSpeedMul(save, stationId) *
     stationConflictMul(save, stationId) *
-    stimSpeedMul(save) *
-    beastOilSpeedMul(save) *
-    rushSpeedMul(save, stationId) *
+    stationPotionSpeedMul(save, stationId) *
     soloStaffMul(save, stationId) *
     groupStaffSpeedMul(save, stationId)
   )

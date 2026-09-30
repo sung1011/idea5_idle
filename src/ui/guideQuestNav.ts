@@ -118,6 +118,8 @@ export function openGuideQuestTask(taskId: string, storage?: Storage | null): Ap
       openWorkshopStation('inscription', storage)
       return 'workshop'
     case 'restFood':
+    case 'potionInstall':
+    case 'potionUse':
       requestGuideCampSheet()
       return selectAppTab('workshop', storage)
     case 'veteran':

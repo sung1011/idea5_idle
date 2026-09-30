@@ -15,6 +15,7 @@ import { openWorkshopStation } from './appNav'
 import { canGoToAssignedWorkshop, workerAssignChoices, workerDutyLabel, workerShortName } from './workerGroups'
 import { MANUAL_DUTY_REASON } from './workerDrag'
 import { qualityOf } from './workerQuality'
+import { workerPotionDetailLines } from './workerPotionMark'
 
 const props = defineProps<{ workerId: string }>()
 const emit = defineEmits<{ close: [] }>()
@@ -24,6 +25,9 @@ const picking = ref(false)
 
 const worker = computed(() => game.save.workers.find((row) => row.id === props.workerId) ?? null)
 const choices = computed(() => (worker.value ? workerAssignChoices(game.save, worker.value) : []))
+const potionLines = computed(() =>
+  worker.value ? workerPotionDetailLines(worker.value, game.save.elapsedS) : [],
+)
 
 watch(worker, (row) => {
   if (!row) emit('close')
@@ -96,6 +100,7 @@ function goWorkshop() {
         <p class="meta">{{ meta(worker) }}</p>
         <HpBar class="hp-slot" :hp="worker.hp" :hp-max="worker.hpMax" />
         <p class="hint">{{ combatTail(worker) }}<template v-if="isWorkerInCombat(game.save, worker.id)"> · 战斗中</template></p>
+        <p v-for="line in potionLines" :key="line" class="potion-left">{{ line }}</p>
         <p class="attrs">
           <CombatAttrRow :attrs="worker.combatAttrs" />
         </p>
@@ -203,6 +208,14 @@ header {
   margin: 0;
   color: var(--muted);
   font-size: 13px;
+  line-height: 1.5;
+}
+
+.potion-left {
+  margin: 0;
+  color: #1f7a4a;
+  font-size: 13px;
+  font-weight: 800;
   line-height: 1.5;
 }
 

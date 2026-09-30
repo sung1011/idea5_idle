@@ -10,6 +10,7 @@ import { ensureDungeonDay } from './dungeon'
 import { cloneSave } from './clone'
 import { refreshFoodSlots } from './food'
 import type { GainSink } from './gains'
+import { ensureGuidePotionCampTarget } from './guideQuest'
 import { applyPotionTicks } from './potions'
 import { stepStation } from './stations'
 import { STATION_IDS } from './tables'
@@ -44,6 +45,7 @@ export function applyTick(save: Save, opts: TickOpts = {}): void {
   stepHerbPvp(save, now, { offline: opts.offline === true })
   stepBeastPvp(save, now, { offline: opts.offline === true })
   applyRestHeal(save)
+  ensureGuidePotionCampTarget(save)
   syncGuideQuestMet(save)
 }
 

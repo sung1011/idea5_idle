@@ -18,6 +18,9 @@ import {
   GUIDE_FUSE_EMPTY_GOAL,
   GUIDE_FUSE_OPEN_GOAL,
   GUIDE_FUSE_WAIT_GOAL,
+  GUIDE_POTION_INSTALL_CLOSED_GOAL,
+  GUIDE_POTION_INSTALL_OPEN_GOAL,
+  GUIDE_POTION_USE_CLOSED_GOAL,
   GUIDE_RECRUIT_CLOSED_GOAL,
   GUIDE_RECRUIT_OPEN_GOAL,
   guideClaimNotice,
@@ -110,7 +113,8 @@ describe('guideQuest normalize and hydrate', () => {
     expect(isGuideQuestVisible(save)).toBe(true)
     const view = guideQuestView(save)
     expect(view?.title).toBe('装药')
-    expect(view?.goal).toBe('任一药剂槽装了药')
+    expect(view?.goal).toBe(GUIDE_POTION_INSTALL_CLOSED_GOAL)
+    expect(guideQuestView(save, true)?.goal).toBe(GUIDE_POTION_INSTALL_OPEN_GOAL)
     expect(guideQuestFlashId(save)).toBe('potionInstall')
   })
 
@@ -232,15 +236,17 @@ describe('guideQuest steps and claim', () => {
 
     save.bank.salve = 2
     expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('任一药剂槽装了药')
+    expect(guideQuestView(save)?.goal).toBe('在营地把任一药剂槽装上药')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('potionUse'))
+    expect(guideQuestView(save)?.goal).toBe(GUIDE_POTION_USE_CLOSED_GOAL)
 
-    const duty = save.workers.find((worker) => worker.assignment != null)
-    if (duty) duty.hp = Math.max(1, duty.hpMax - 1)
+    const resting = save.workers.find((worker) => worker.assignment == null)
+    expect(resting).toBeTruthy()
+    resting!.hp = Math.max(1, resting!.hpMax - 1)
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(save.guideQuestPotionUsed).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('点用过药剂槽')
+    expect(guideQuestView(save)?.goal).toBe('在营地点用过药剂槽')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('level3'))
     expect(claimGuideQuest(save).ok).toBe(true)
@@ -391,9 +397,10 @@ describe('guideQuest flash target', () => {
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('potionUse')
 
-    const onDuty = save.workers.find((worker) => worker.assignment != null)
-    if (onDuty) onDuty.hp = Math.max(1, onDuty.hpMax - 1)
-    usePotionSlot(save, 0)
+    const resting = save.workers.find((worker) => worker.assignment == null)
+    expect(resting).toBeTruthy()
+    resting!.hp = Math.max(1, resting!.hpMax - 1)
+    expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBeNull()
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
@@ -615,9 +622,14 @@ describe('early guide on a fresh save', () => {
     expect(potion).toBeTruthy()
     expect(installPotionSlot(save, 0, potion!).ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
-    const duty = save.workers.find((worker) => worker.assignment != null)
-    expect(duty).toBeTruthy()
-    duty!.hp = Math.max(1, duty!.hpMax - 1)
+    let target = save.workers.find((worker) => worker.assignment == null)
+    if (!target) {
+      target = save.workers.find((worker) => worker.assignment != null)
+      expect(target).toBeTruthy()
+      target!.assignment = null
+    }
+    target!.fatigueDebt = 0
+    target!.hp = Math.max(1, target!.hpMax - 1)
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestView(save)?.taskId).toBe('level3')

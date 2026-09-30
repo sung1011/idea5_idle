@@ -15,8 +15,8 @@ const PHONES = [
 ]
 
 describe('guide quest float position', () => {
-  it('lifts the workshop bar above the potion slots and keeps other pages above the dock', () => {
-    expect(questFloatLiftPx('workshop')).toBeGreaterThan(questFloatLiftPx('dock'))
+  it('keeps the quest bar above the dock on every page after potions left the workshop', () => {
+    expect(questFloatLiftPx('workshop')).toBe(questFloatLiftPx('dock'))
     expect(questFloatBottomCss('workshop')).toBe(
       `calc(var(--dock-height) + ${questFloatLiftPx('workshop')}px)`,
     )
@@ -32,7 +32,7 @@ describe('guide quest float position', () => {
         expect(workshop.aboveSlots, `${phone.w}x${phone.h} safe ${phone.safe} buff ${buffBlock}`).toBeGreaterThanOrEqual(
           QUEST_SLOT_GAP,
         )
-        expect(workshop.aboveDock).toBeGreaterThan(workshop.aboveSlots)
+        expect(workshop.aboveDock).toBeGreaterThanOrEqual(workshop.aboveSlots)
         expect(workshop.aboveCamp).toBeGreaterThan(0)
       }
 

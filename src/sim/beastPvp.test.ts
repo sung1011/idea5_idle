@@ -334,7 +334,7 @@ describe('困兽', () => {
     expect(loaded?.beastPvp.stamina).toBe(100)
     expect(loaded?.beastPvp.playerDamage).toBe(0)
     expect(itemQty(loaded!, 'beastBone')).toBe(0)
-    expect(loaded?.potionBuffs.beastOilUntil).toBeNull()
+    expect(loaded).not.toHaveProperty('potionBuffs')
   })
 
   it('兽材料理：骨汤、肉串、狂兽油、酋长宴、站点升 1 级', () => {

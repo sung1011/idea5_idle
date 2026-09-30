@@ -21,7 +21,10 @@ import { REST_HEAD_BADGE, restQueueRows } from './restQueue'
 import { restFoodBand } from './workshopQueueHead'
 import { isWorkerEatFlashing, workerEatFlashText } from './workerEatFlash'
 import { isWorkerLevelFlashing } from './workerLevelFlash'
+import PotionDock from './potionDock.vue'
+import PotionIcon from './potionIcon.vue'
 import WorkerAvatar from './workerAvatar.vue'
+import { workerPotionIconIds } from './workerPotionMark'
 import WorkerDetailSheet from './workerDetailSheet.vue'
 import { workerShortName } from './workerGroups'
 import { workerQualityNameStyle } from './workerQuality'
@@ -281,6 +284,7 @@ onUnmounted(() => {
           <h2>营地 · 可派 {{ dispatchCount }}</h2>
           <p class="fuse-hint">在营地里拖到同品质的人身上</p>
         </header>
+        <PotionDock />
         <div class="board">
           <div v-if="rows.length" ref="restListEl" class="list">
             <div
@@ -321,6 +325,16 @@ onUnmounted(() => {
                   :worker-id="row.worker.id"
                 />
                 <i v-if="row.orderMark" class="order" :class="{ muted: row.orderMuted }">{{ row.orderMark }}</i>
+                <span
+                  v-if="workerPotionIconIds(row.worker, game.save.elapsedS).length"
+                  class="potion-marks"
+                >
+                  <PotionIcon
+                    v-for="id in workerPotionIconIds(row.worker, game.save.elapsedS)"
+                    :key="id"
+                    :name="id"
+                  />
+                </span>
               </span>
               <em v-if="workerEatFlashText(row.id)" class="eat-float">{{ workerEatFlashText(row.id) }}</em>
               <b class="name" :style="workerQualityNameStyle(row.worker)">{{ workerShortName(row.worker) }}</b>
@@ -633,6 +647,25 @@ h2 {
   line-height: 13px;
   text-align: center;
   pointer-events: none;
+}
+
+.potion-marks {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  z-index: 3;
+  display: flex;
+  gap: 1px;
+  pointer-events: none;
+}
+
+.potion-marks :deep(.potion-ico) {
+  width: 14px;
+  height: 14px;
+  padding: 1px;
+  border-radius: 4px;
+  background: #14331c;
+  box-shadow: 0 0 0 1px #d8f3e4;
 }
 
 .order.muted {

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { BEAST_OIL_DURATION_S, RENEW_DURATION_S, STIM_DURATION_S } from '../sim/tables'
+import campSource from './campSheet.vue?raw'
+import dockSource from './potionDock.vue?raw'
 import workersPanelSource from './workersPanelV2.vue?raw'
 import {
   POTION_HALO_DT_CAP_S,
@@ -7,40 +9,32 @@ import {
   potionEmptyAcquireTip,
   potionQtyRestocked,
   potionVisualElapsedS,
-  type PotionHaloBuffs,
   type PotionHaloInput,
 } from './potionHotbar'
 
 function halo(
-  partial: Omit<Partial<PotionHaloInput>, 'buffs'> & {
+  partial: Omit<Partial<PotionHaloInput>, 'workers'> & {
     itemId: PotionHaloInput['itemId']
-    buffs?: Partial<PotionHaloBuffs>
+    potion?: PotionHaloInput['workers'][number]['potion']
   },
 ): number {
   return potionEffectRemainRatio({
     elapsedS: 0,
     lastTick: 0,
     now: 0,
+    workers: partial.potion ? [{ potion: partial.potion }] : [],
     ...partial,
-    buffs: {
-      stimUntil: null,
-      renewUntil: null,
-      beastOilUntil: null,
-      rushStation: null,
-      doubleMist: null,
-      ...partial.buffs,
-    },
   })
 }
 
 describe('potion hotbar halo', () => {
   it('shrinks timed buffs and clamps the ring to 0–1', () => {
-    expect(halo({ itemId: 'stim', buffs: { stimUntil: STIM_DURATION_S } })).toBe(1)
-    expect(halo({ itemId: 'stim', elapsedS: 90, buffs: { stimUntil: STIM_DURATION_S } })).toBeCloseTo(0.5)
-    expect(halo({ itemId: 'stim', elapsedS: STIM_DURATION_S, buffs: { stimUntil: STIM_DURATION_S } })).toBe(0)
-    expect(halo({ itemId: 'stim', elapsedS: 10, buffs: { stimUntil: 9999 } })).toBe(1)
-    expect(halo({ itemId: 'renewSoup', elapsedS: 30, buffs: { renewUntil: RENEW_DURATION_S } })).toBeCloseTo(0.75)
-    expect(halo({ itemId: 'beastOil', elapsedS: BEAST_OIL_DURATION_S + 1, buffs: { beastOilUntil: BEAST_OIL_DURATION_S } })).toBe(0)
+    expect(halo({ itemId: 'stim', potion: { stimUntil: STIM_DURATION_S } })).toBe(1)
+    expect(halo({ itemId: 'stim', elapsedS: 90, potion: { stimUntil: STIM_DURATION_S } })).toBeCloseTo(0.5)
+    expect(halo({ itemId: 'stim', elapsedS: STIM_DURATION_S, potion: { stimUntil: STIM_DURATION_S } })).toBe(0)
+    expect(halo({ itemId: 'stim', elapsedS: 10, potion: { stimUntil: 9999 } })).toBe(1)
+    expect(halo({ itemId: 'renewSoup', elapsedS: 30, potion: { renewUntil: RENEW_DURATION_S } })).toBeCloseTo(0.75)
+    expect(halo({ itemId: 'beastOil', elapsedS: BEAST_OIL_DURATION_S + 1, potion: { beastOilUntil: BEAST_OIL_DURATION_S } })).toBe(0)
   })
 
   it('only fills the gap since the last tick, and caps that gap', () => {
@@ -51,17 +45,17 @@ describe('potion hotbar halo', () => {
       elapsedS: 0,
       lastTick: 0,
       now: 90_000,
-      buffs: { stimUntil: STIM_DURATION_S },
+      potion: { stimUntil: STIM_DURATION_S },
     })
     expect(ratio).toBeCloseTo((STIM_DURATION_S - POTION_HALO_DT_CAP_S) / STIM_DURATION_S)
   })
 
   it('keeps a full ring for marks and none for instant potions', () => {
-    expect(halo({ itemId: 'rushPowder', buffs: { rushStation: 'herbalism' } })).toBe(1)
+    expect(halo({ itemId: 'rushPowder', potion: { rush: true } })).toBe(1)
     expect(halo({ itemId: 'rushPowder' })).toBe(0)
-    expect(halo({ itemId: 'doubleMist', buffs: { doubleMist: { stationId: 'alchemy', mul: 2 } } })).toBe(1)
+    expect(halo({ itemId: 'doubleMist', potion: { doubleMist: 2 } })).toBe(1)
     expect(halo({ itemId: 'doubleMist' })).toBe(0)
-    expect(halo({ itemId: 'salve', buffs: { stimUntil: 999 } })).toBe(0)
+    expect(halo({ itemId: 'salve', potion: { stimUntil: 999 } })).toBe(0)
     expect(halo({ itemId: 'brinkSalve' })).toBe(0)
     expect(halo({ itemId: 'clearMind' })).toBe(0)
     expect(halo({ itemId: null })).toBe(0)
@@ -84,16 +78,18 @@ describe('potion hotbar stock cues', () => {
   })
 })
 
-describe('workshop potion dock placement', () => {
-  it('keeps the hotbar under the stations, above the page bottom', () => {
-    const template = workersPanelSource.slice(0, workersPanelSource.indexOf('<style'))
-    const stations = template.indexOf('class="station-list"')
-    const dock = template.lastIndexOf('class="potion-dock"')
-    expect(template).not.toContain('class="status-band"')
-    expect(dock).toBeGreaterThan(stations)
-    expect(template).toContain('class="potion-halo"')
-    expect(template.indexOf('<PotionIcon :name="itemId" />')).toBeLessThan(template.indexOf('class="potion-name"'))
-    expect(template.indexOf('class="potion-name"')).toBeLessThan(template.indexOf('class="potion-qty"'))
-    expect(workersPanelSource).toContain('padding: 4px 6px 16px')
+describe('camp potion dock placement', () => {
+  it('puts the hotbar on the camp sheet above the queue and off the workshop page', () => {
+    const camp = campSource.slice(0, campSource.indexOf('<style'))
+    const dock = dockSource.slice(0, dockSource.indexOf('<style'))
+    const workshop = workersPanelSource.slice(0, workersPanelSource.indexOf('<style'))
+    expect(camp.indexOf('<PotionDock')).toBeLessThan(camp.indexOf('class="board"'))
+    expect(camp).toContain('class="potion-marks"')
+    expect(dock).toContain('class="potion-dock"')
+    expect(dock).toContain('class="potion-halo"')
+    expect(dock.indexOf('<PotionIcon :name="itemId" />')).toBeLessThan(dock.indexOf('class="potion-name"'))
+    expect(dock.indexOf('class="potion-name"')).toBeLessThan(dock.indexOf('class="potion-qty"'))
+    expect(workshop).not.toContain('class="potion-dock"')
+    expect(workshop).not.toContain('potion-slot')
   })
 })

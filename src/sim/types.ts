@@ -113,17 +113,16 @@ export type RuneItemId =
   | 'runeSwift'
   | 'runeInsight'
 
-/** 药剂时效与一次性标记。兴奋剂 / 续命用 `elapsedS`；双份雾 / 赶工粉用完即清。 */
-export type PotionBuffs = {
-  stimUntil: number | null
-  renewUntil: number | null
-  renewNextAt: number | null
-  /** 双份雾：该站下一次成功产出的倍率。 */
-  doubleMist: { stationId: StationId; mul: 2 | 3 } | null
-  /** 赶工粉：该站下一次产出周期缩短 40%。 */
-  rushStation: StationId | null
-  /** 狂兽油：六站在岗速度 ×2 的结束秒。旧档缺字段为 null。 */
-  beastOilUntil: number | null
+/** 挂在苦工身上的药剂。时效用 `elapsedS`；赶工粉 / 双份雾用掉即清。 */
+export type WorkerPotionBuff = {
+  stimUntil?: number | null
+  beastOilUntil?: number | null
+  renewUntil?: number | null
+  renewNextAt?: number | null
+  /** 下一轮干活耗时缩短 40%。 */
+  rush?: boolean
+  /** 下一轮成功产出的倍率。 */
+  doubleMist?: 2 | 3 | null
 }
 
 export type ClassId =
@@ -424,6 +423,11 @@ export type Worker = {
    * 只活在本场选人 / 开战入参里。
    */
   guest?: boolean
+  /**
+   * 药剂效果。喝下时只打在营地的人身上，派到站上仍带着走。
+   * 缺字段视为没有。
+   */
+  potion?: WorkerPotionBuff | null
 }
 
 export type MiningNodeState = {
@@ -807,7 +811,7 @@ export type Save = {
   guideQuestStep: number
   /** 引导表版本。9 = 当前确认清单。读档只盖成当前 REV，不按旧 REV 重落步号。 */
   guideQuestRev: number
-  /** 是否已从药剂槽点用过。hydrate 时若有时效 buff 也算。 */
+  /** 是否已从营地药剂槽点用过。身上仍挂着药效也算用过。 */
   guideQuestPotionUsed: boolean
   /** 是否已在选人面板点开过符文槽。hydrate 缺字段为 false。 */
   guideQuestRuneOpened: boolean
@@ -890,15 +894,10 @@ export type Save = {
    */
   techLevels: Partial<Record<TechId, number>>
   /**
-   * 工人页 4 个药剂装配槽。只记种类，数量读物资。
-   * 点槽只打六站在岗；无人在岗不扣瓶。旧档缺字段 hydrate 为空槽。
+   * 营地 4 个药剂装配槽。只记种类，数量读物资。
+   * 点槽只打营地苦工；营地没人不扣瓶。旧档缺字段 hydrate 为空槽。
    */
   potionSlots: PotionSlots
-  /**
-   * 账号级药剂时效。时间轴用 `elapsedS`（与离线追赶同一套 sim 秒）。
-   * 旧档缺字段 hydrate 为空。
-   */
-  potionBuffs: PotionBuffs
   /**
    * 主线地牢：按游戏日掷 3 词缀、1 次开战。独立战斗，不进悬赏板、不被探索刷新。
    * 游戏日切强制刷新（先自动发未领宝箱 / 日切判败），旧档缺字段 hydrate 补当天词缀。

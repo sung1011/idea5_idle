@@ -331,7 +331,7 @@ describe('6h equivalent production', () => {
     const save = roster(1)
     const worker = save.workers[0]
     assignWorker(save, worker.id, 'herbalism')
-    expect(save.potionBuffs.stimUntil).toBeNull()
+    expect(save.workers[0].potion?.stimUntil ?? null).toBeNull()
     const cycles = equivalentCyclesIn(FATIGUE_SIX_HOUR_S, 20)
     expect(cycles).toBe(1080)
     for (let i = 0; i < cycles; i++) expect(completeCycle(save, 'herbalism')).toBe(true)

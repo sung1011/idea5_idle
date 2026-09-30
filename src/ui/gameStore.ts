@@ -74,7 +74,7 @@ import {
   upgradeTreasureBanner,
   type TreasureRefreshPay,
 } from '../sim/treasureMine'
-import { claimGuideQuest, guideClaimNotice, markGuideQuestRuneOpened } from '../sim/guideQuest'
+import { claimGuideQuest, ensureGuidePotionCampTarget, guideClaimNotice, markGuideQuestRuneOpened } from '../sim/guideQuest'
 import { mainlineTaskAt, syncGuideQuestMet } from '../sim/mainlineQuest'
 import { markModuleSeen, moduleNoticeOn, type ModuleId } from '../sim/moduleUnlock'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
@@ -312,15 +312,12 @@ export const useGameStore = defineStore('game', () => {
     unequipPotion: (index: number) => apply((s) => clearPotionSlot(s, index)),
     usePotionSlot: (index: number) => {
       const itemId = potionSlotItem(save.value, index)
-      const result = apply((s) => usePotionSlot(s, index))
+      const result = apply((s) => {
+        ensureGuidePotionCampTarget(s)
+        return usePotionSlot(s, index)
+      })
       if (!result.ok || !itemId) return result
-      const stationId =
-        itemId === 'rushPowder'
-          ? save.value.potionBuffs.rushStation
-          : itemId === 'doubleMist'
-            ? (save.value.potionBuffs.doubleMist?.stationId ?? null)
-            : null
-      offerActionBanter(save.value, 'potion', { stationId })
+      offerActionBanter(save.value, 'potion', { stationId: null })
       return result
     },
     selectCategory: (stationId: StationId, categoryId: CategoryId) =>

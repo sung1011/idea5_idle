@@ -168,7 +168,7 @@ function beastHudUsage(itemId: ItemId): string {
   if (itemId === 'beastCore') return '工坊页选一座已开放的站点，直接升 1 级'
   if (itemId === 'boneSoup') return '营地伙食：回 70% 最大生命，生产速度 ×1.05 持续 10 分钟'
   if (itemId === 'hunterSkewer') return '营地伙食：回满血，之后 30 分钟在岗不掉血、不记劳损'
-  if (itemId === 'beastOil') return '装进药剂槽：六站在岗速度 ×2，持续 3 分钟'
+  if (itemId === 'beastOil') return '装进营地药剂槽：随机 3 名营地苦工效率 ×2，持续 3 分钟'
   return '困兽兽材'
 }
 
@@ -187,7 +187,7 @@ export function itemHudUsage(itemId: ItemId): string {
   const extras: string[] = []
   if (isBeastManualItem(itemId)) extras.push(beastHudUsage(itemId))
   if (isFoodItemId(itemId)) extras.push('营地伙食，残血入休息回血')
-  if (isPotionItemId(itemId) || itemId === 'potion') extras.push('工坊页药剂槽短按使用')
+  if (isPotionItemId(itemId) || itemId === 'potion') extras.push('营地药剂槽短按使用')
   if (itemId === 'anyPotion') extras.push('主线订单通配：扣库存最多的一种药剂')
   if (isRuneItemId(itemId)) extras.push('开战选人一槽装备，本场消耗')
   if (itemId === 'anyRune') extras.push('主线订单通配：扣库存最多的一种符文')

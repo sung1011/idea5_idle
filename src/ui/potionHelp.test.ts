@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { POTION_EFFECT_TEXT, POTION_ITEM_IDS } from '../sim/tables'
 import { isPotionHelpOpen, nextPotionHelp, POTION_EQUIP_HINT, potionHelpCopy } from './potionHelp'
-import workersPanelSource from './workersPanelV2.vue?raw'
+import potionDockSource from './potionDock.vue?raw'
 
 describe('potion help bubble', () => {
   it('toggles the same ? closed and switches to another potion', () => {
@@ -40,22 +40,22 @@ describe('potion help bubble', () => {
   })
 
   it('puts an info button on filled slots and unloads from the bubble', () => {
-    expect(workersPanelSource).toContain('>i</span>')
-    const equipAt = workersPanelSource.indexOf('aria-label="装配药剂"')
-    const bubbleAt = workersPanelSource.indexOf('data-potion-bubble', equipAt)
-    const equip = workersPanelSource.slice(equipAt, bubbleAt)
-    expect(equip).toContain('potionPickGroups')
+    expect(potionDockSource).toContain('>i</span>')
+    const equipAt = potionDockSource.indexOf('aria-label="装配药剂"')
+    const bubbleAt = potionDockSource.indexOf('data-potion-bubble', equipAt)
+    const equip = potionDockSource.slice(equipAt, bubbleAt)
+    expect(equip).toContain('pickGroups')
     expect(equip).toContain('group.label')
     expect(equip).toContain('>i</button>')
     expect(equip).toContain('没有可装的药剂')
     expect(equip).not.toContain('提效率')
     expect(equip).not.toContain('？')
-    expect(workersPanelSource).toContain('aria-label="`查看 ${ITEM_DEF[itemId].label} 效果`"')
-    expect(workersPanelSource).toContain('canUnequipPotionHelp')
-    expect(workersPanelSource).toContain('game.clearPotionSlot(key.index)')
-    expect(workersPanelSource).toContain('>卸下</button>')
-    expect(workersPanelSource).not.toContain('class="unequip"')
-    expect(workersPanelSource).not.toContain('>×</span>')
+    expect(potionDockSource).toContain('aria-label="`查看 ${ITEM_DEF[itemId].label} 效果`"')
+    expect(potionDockSource).toContain('canUnequip')
+    expect(potionDockSource).toContain('game.clearPotionSlot(key.index)')
+    expect(potionDockSource).toContain('>卸下</button>')
+    expect(potionDockSource).not.toContain('class="unequip"')
+    expect(potionDockSource).not.toContain('>×</span>')
   })
 
   it('covers all seven potion effect texts', () => {

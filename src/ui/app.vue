@@ -83,6 +83,7 @@ const campButtonFlash = computed(() => {
   if (campCue.value === 'openCamp') return true
   if (campCue.value === 'wait' && !campSheetOpen.value) return true
   if (campSheetOpen.value) return false
+  if (isGuideQuestFlash(game.save, 'potionInstall') || isGuideQuestFlash(game.save, 'potionUse')) return true
   return isGuideQuestFlash(game.save, 'recruit') || campCue.value === 'recruit'
 })
 const resourceDetail = computed(() => (resourceOpen.value ? hudChipDetail(game.save, resourceOpen.value) : null))

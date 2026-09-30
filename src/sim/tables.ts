@@ -528,14 +528,14 @@ export const POTION_BATCH_RANGE: Readonly<Record<PotionItemId, PotionBatchRange>
 }
 
 export const POTION_EFFECT_TEXT: Readonly<Record<PotionItemId, string>> = {
-  stim: '在岗苦工工作速度 ×1.5，持续 3 分钟',
-  salve: '在岗苦工立刻回复 10% 最大生命',
-  renewSoup: '在岗存活苦工每 10 秒回复 5% 最大生命，持续 2 分钟',
-  brinkSalve: '在岗：生命 ≤30% 抬到 40% 最大生命，其余立刻回复 5%',
-  rushPowder: '随机一个有在岗苦工的工位，下一次产出周期缩短 40%',
-  doubleMist: '随机一个有在岗苦工的工位，下一批成功产出 80% 为 ×2、20% 为 ×3',
-  clearMind: '只治疗在岗里受伤最重的 1～2 人：第 1 人回复 30% 最大生命，第 2 人回复 20% 最大生命',
-  beastOil: '六站在岗速度 ×2，持续 3 分钟',
+  stim: '营地随机 5 人工作效率 ×1.5，持续 3 分钟。效果挂在人身上，派到哪站带到哪站',
+  salve: '营地苦工立刻回复 10% 最大生命',
+  renewSoup: '喝下时在营地的人每 10 秒回复 5% 最大生命，持续 2 分钟。派出去仍然生效',
+  brinkSalve: '营地：生命 ≤30% 抬到 40% 最大生命，其余立刻回复 5%',
+  rushPowder: '营地队首起 3 人，各自下一轮干活耗时缩短 40%',
+  doubleMist: '营地队首下一轮成功产出 80% 为 ×2、20% 为 ×3',
+  clearMind: '只治疗营地里受伤最重的 1～2 人：第 1 人回复 30% 最大生命，第 2 人回复 20% 最大生命',
+  beastOil: '营地随机 3 人效率 ×2，持续 3 分钟。和嗜血药剂叠乘，派到哪站带到哪站',
 }
 
 export function isPotionItemId(id: unknown): id is PotionItemId {
@@ -1003,7 +1003,7 @@ export const RENEW_HEAL_RATIO = 0.05
 export const BRINK_LOW_RATIO = 0.3
 export const BRINK_LOW_TARGET_RATIO = 0.4
 export const BRINK_HEAL_RATIO = 0.05
-/** 醒神散：在岗受伤者按 HP/hpMax 升序，第 1 人 30%，第 2 人 20%。 */
+/** 清醒图腾水：营地受伤者按 HP/hpMax 升序，第 1 人 30%，第 2 人 20%。 */
 export const CLEAR_MIND_PRIMARY_RATIO = 0.3
 export const CLEAR_MIND_SECONDARY_RATIO = 0.2
 /** 双份雾：低于此掷骰为 ×2，否则 ×3。 */
@@ -1012,9 +1012,15 @@ export const DOUBLE_MIST_DOUBLE_RATE = 0.8
 export const RUSH_CYCLE_CUT = 0.4
 export const STIM_SPEED_MUL = 1.5
 export const STIM_DURATION_S = 180
-/** 狂兽油：六站在岗速度。不进炼金随机池。 */
+/** 嗜血药剂一次随机打中的营地人数。不足则全部。 */
+export const STIM_CAMP_TARGETS = 5
+/** 狂兽油：效率 ×2。不进炼金随机池。和嗜血叠乘。 */
 export const BEAST_OIL_SPEED_MUL = 2
 export const BEAST_OIL_DURATION_S = 180
+/** 狂兽油一次随机打中的营地人数。不足则全部。 */
+export const BEAST_OIL_CAMP_TARGETS = 3
+/** 赶工粉从营地队首起打中的人数。 */
+export const RUSH_CAMP_TARGETS = 3
 export const RENEW_DURATION_S = 120
 export const RENEW_TICK_S = 10
 

@@ -1,33 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { bankQty } from '../sim/bank'
-import { formatMarchClock } from '../sim/encounters'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { combatZoneRows, formatRemainClock, type CombatZoneRow } from '../sim/march'
-import { potionInstallGroups } from '../sim/potionSlots'
-import {
-  CLASS_LABEL,
-  ITEM_DEF,
-  isPotionItemId,
-  STATION_DEF,
-} from '../sim/tables'
-import {
-  isStimActive,
-  potionRemainS,
-} from '../sim/potions'
-import {
-  isPotionHelpOpen,
-  nextPotionHelp,
-  POTION_EQUIP_HINT,
-  potionHelpCopy,
-  type PotionHelpKey,
-} from './potionHelp'
-import type { ItemId } from '../sim/types'
-import { guideAlchemyCardFlash, guideDispatchStation, guideNeedsDutyForPotion, isGuideQuestFlash } from '../sim/guideQuest'
+import { CLASS_LABEL } from '../sim/tables'
+import { guideAlchemyCardFlash, guideDispatchStation, isGuideQuestFlash } from '../sim/guideQuest'
 import { ROUND_BADGE_TIP } from '../sim/workshopDispatch'
 import { moduleNoticeOn, type ModuleId } from '../sim/moduleUnlock'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { pushFloatTip } from './floatTips'
-import { potionEffectRemainRatio, potionEmptyAcquireTip, potionQtyRestocked } from './potionHotbar'
 import { isWorkerLevelFlashing } from './workerLevelFlash'
 import {
   announceWorkerStationEnters,
@@ -36,7 +15,7 @@ import {
   workerEnterDelayMs,
 } from './workerEnterFlash'
 import { workerRaceShortLabel } from '../sim/workerRace'
-import type { CategoryId, PotionItemId, StationId, Worker } from '../sim/types'
+import type { CategoryId, StationId, Worker } from '../sim/types'
 import WorkerAvatar from './workerAvatar.vue'
 import WorkerDetailSheet from './workerDetailSheet.vue'
 import { stationCraftPickOptions, stationCraftPickReadonly } from './stationCraftLabel'
@@ -53,7 +32,6 @@ import { useGameStore } from './gameStore'
 import { hpBarFill, hpBarTone } from './hpBar'
 import { workerWearHp } from '../sim/workshopHp'
 import { workerDutyLabel, workerShortName, workshopStationBoards } from './workerGroups'
-import PotionIcon from './potionIcon.vue'
 import UiIcon from './uiIcon.vue'
 import UiSelect from './uiSelect.vue'
 import { qualityOf, workerQualityDotStyle, workerQualityFrameStyle, workerQualityNameStyle } from './workerQuality'
@@ -79,13 +57,8 @@ const guideFlashHerbStation = computed(
 )
 const guideDispatchTarget = computed(() => guideDispatchStation(game.save))
 const guideFlashAuto = computed(() => isGuideQuestFlash(game.save, 'autoLine'))
-const guideFlashPotionInstall = computed(() => isGuideQuestFlash(game.save, 'potionInstall'))
-const guideFlashPotionUse = computed(
-  () => isGuideQuestFlash(game.save, 'potionUse') && !guideNeedsDutyForPotion(game.save),
-)
 const frameNow = useFrameNow()
 const detailId = ref<string | null>(null)
-const pickPotionIndex = ref<number | null>(null)
 
 const boards = computed(() => workshopStationBoards(game.save))
 const fightingRoster = computed(() =>
@@ -113,166 +86,13 @@ function toggleCombat() {
   combatOpen.value = !shownCombat.value
 }
 
-const potionSlots = computed(() => game.save.potionSlots)
-const potionBuffLine = computed(() => {
-  const save = game.save
-  const t = save.elapsedS
-  const parts: string[] = []
-  if (isStimActive(save)) parts.push(`嗜血 ${formatMarchClock(potionRemainS(save.potionBuffs.stimUntil, t))}`)
-  if (save.potionBuffs.renewUntil != null && t < save.potionBuffs.renewUntil) {
-    parts.push(`先祖 ${formatMarchClock(potionRemainS(save.potionBuffs.renewUntil, t))}`)
-  }
-  const mist = save.potionBuffs.doubleMist
-  if (mist) parts.push(`双份雾 ${STATION_DEF[mist.stationId].label} ×${mist.mul}`)
-  if (save.potionBuffs.rushStation) {
-    parts.push(`赶工 ${STATION_DEF[save.potionBuffs.rushStation].label}`)
-  }
-  return parts.join(' · ')
-})
-const potionPickGroups = computed(() => potionInstallGroups(game.save))
-
-function potionSlotQty(id: PotionItemId | null) {
-  return id ? bankQty(game.save, id) : 0
-}
-
-const potionPressed = ref<number[]>([])
-const potionRestock = ref<number[]>([])
-const potionPressTimers = new Map<number, ReturnType<typeof setTimeout>>()
-let potionQtySnap: { id: PotionItemId | null; qty: number }[] | null = null
-
-function potionRemainRatio(itemId: PotionItemId | null) {
-  return potionEffectRemainRatio({
-    itemId,
-    elapsedS: game.save.elapsedS,
-    lastTick: game.save.lastTick,
-    now: frameNow.value,
-    buffs: game.save.potionBuffs,
-  })
-}
-
-function potionHaloStyle(itemId: PotionItemId | null) {
-  return { '--remain': potionRemainRatio(itemId).toFixed(4) }
-}
-
-watch(
-  () => potionSlots.value.map((id) => ({ id, qty: potionSlotQty(id) })),
-  (rows) => {
-    if (!potionQtySnap) {
-      potionQtySnap = rows.map((row) => ({ id: row.id, qty: row.qty }))
-      return
-    }
-    const prev = potionQtySnap
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    rows.forEach((row, index) => {
-      const before = prev[index]
-      const same = !!before && before.id != null && before.id === row.id
-      if (reduced || !potionQtyRestocked(before?.qty ?? 0, row.qty, same)) return
-      potionRestock.value = potionRestock.value.filter((slot) => slot !== index)
-      void nextTick(() => {
-        if (!potionRestock.value.includes(index)) potionRestock.value = [...potionRestock.value, index]
-      })
-    })
-    potionQtySnap = rows.map((row) => ({ id: row.id, qty: row.qty }))
-  },
-  { immediate: true },
-)
-
-function onPotionRestockEnd(index: number, ev: AnimationEvent) {
-  if (!ev.animationName.includes('potion-breathe')) return
-  potionRestock.value = potionRestock.value.filter((slot) => slot !== index)
-}
-
-function onPotionPointerDown(index: number, ev: PointerEvent) {
-  const target = ev.target
-  if (target instanceof Element && target.closest('.potion-help')) return
-  const pending = potionPressTimers.get(index)
-  if (pending) clearTimeout(pending)
-  potionPressed.value = potionPressed.value.filter((slot) => slot !== index)
-  void nextTick(() => {
-    if (!potionPressed.value.includes(index)) potionPressed.value = [...potionPressed.value, index]
-  })
-  potionPressTimers.set(
-    index,
-    setTimeout(() => {
-      potionPressed.value = potionPressed.value.filter((slot) => slot !== index)
-      potionPressTimers.delete(index)
-    }, 220),
-  )
-}
-
-const potionHelp = ref<PotionHelpKey | null>(null)
-const potionHelpPos = ref({ left: 8, top: 8 })
-
-function closePotionHelp() {
-  potionHelp.value = null
-}
-
-function onPotionHelp(ev: MouseEvent, source: PotionHelpKey['source'], id: PotionItemId, index?: number) {
-  ev.stopPropagation()
-  const next = nextPotionHelp(potionHelp.value, source === 'slot' ? { source, id, index } : { source, id })
-  potionHelp.value = next
-  if (!next) return
-  const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect()
-  potionHelpPos.value = {
-    left: Math.min(window.innerWidth - 228, Math.max(8, rect.left)),
-    top: Math.min(window.innerHeight - 120, rect.bottom + 6),
-  }
-}
-
-const canUnequipPotionHelp = computed(() => {
-  const key = potionHelp.value
-  if (!key || key.source !== 'slot' || key.index == null) return false
-  return game.save.potionSlots[key.index] != null
-})
-
-function onUnequipPotionHelp() {
-  const key = potionHelp.value
-  if (!key || key.source !== 'slot' || key.index == null) return
-  game.clearPotionSlot(key.index)
-  closePotionHelp()
-}
-
-function onDocPotionHelp(ev: PointerEvent) {
+function onDocPointer(ev: PointerEvent) {
   const el = ev.target
   if (!(el instanceof Element)) return
-  if (!(el.closest('[data-potion-help]') || el.closest('[data-potion-bubble]'))) closePotionHelp()
   if (!(el.closest('[data-round-badge]') || el.closest('[data-round-bubble]'))) closeRoundHelp()
   if (el.closest('[data-combat-pop]') || el.closest('[data-combat-toggle]')) return
   if (!shownCombat.value) return
   combatOpen.value = false
-}
-
-const potionHelpBubble = computed(() => {
-  const key = potionHelp.value
-  if (!key) return null
-  return potionHelpCopy(key.id, key.source === 'slot' ? bankQty(game.save, key.id) : undefined)
-})
-
-function onPotionSlot(index: number) {
-  const id = game.save.potionSlots[index]
-  closePotionHelp()
-  if (!id) {
-    pickPotionIndex.value = index
-    return
-  }
-  if (potionSlotQty(id) <= 0) {
-    pushFloatTip(potionEmptyAcquireTip(id), 'err')
-    return
-  }
-  game.usePotionSlot(index)
-}
-
-function onInstallPotion(itemId: PotionItemId) {
-  const index = pickPotionIndex.value
-  if (index == null) return
-  closePotionHelp()
-  const result = game.installPotion(index, itemId)
-  if (result.ok) pickPotionIndex.value = null
-}
-
-function closePotionPick() {
-  pickPotionIndex.value = null
-  closePotionHelp()
 }
 
 function jobLabel(w: Worker) {
@@ -461,11 +281,6 @@ function closeStationDetail() {
 
 function stationLocked(stationId: StationId) {
   return !isStationUnlocked(game.save, stationId)
-}
-
-function potionSlotLabel(itemId: ItemId | null) {
-  if (!itemId || !isPotionItemId(itemId)) return '空'
-  return `${ITEM_DEF[itemId].label} ×${bankQty(game.save, itemId)}`
 }
 
 type DragSession = {
@@ -669,7 +484,7 @@ function refreshTutor() {
   considerWorkerTutor(game.save, Date.now())
 }
 onMounted(() => {
-  document.addEventListener('pointerdown', onDocPotionHelp, true)
+  document.addEventListener('pointerdown', onDocPointer, true)
   greetWorkshopBanter(game.save)
   refreshTutor()
   tutorTimer = window.setInterval(refreshTutor, 1000)
@@ -680,11 +495,9 @@ onUnmounted(() => {
   dismissWorkshopBanter()
   window.clearInterval(tutorTimer)
   hideWorkerTutor()
-  document.removeEventListener('pointerdown', onDocPotionHelp, true)
+  document.removeEventListener('pointerdown', onDocPointer, true)
   window.clearTimeout(dispatchFlyTimer)
   clearDetailHold()
-  for (const timer of potionPressTimers.values()) clearTimeout(timer)
-  potionPressTimers.clear()
 })
 </script>
 
@@ -891,51 +704,6 @@ onUnmounted(() => {
         </section>
       </div>
     </div>
-    <div class="potion-dock">
-      <div class="potion-row" aria-label="药剂技能槽">
-        <button
-          v-for="(itemId, i) in potionSlots"
-          :key="`potion-${i}`"
-          type="button"
-          class="potion-slot"
-          :class="{
-            empty: !itemId,
-            dry: !!itemId && potionSlotQty(itemId) <= 0,
-            pressed: potionPressed.includes(i),
-            restock: potionRestock.includes(i),
-            'guide-flash': (!itemId && guideFlashPotionInstall) || (!!itemId && guideFlashPotionUse),
-          }"
-          :aria-label="itemId ? `${potionSlotLabel(itemId)} · 点击使用` : `装入药剂槽 ${i + 1}`"
-          @pointerdown="onPotionPointerDown(i, $event)"
-          @click="onPotionSlot(i)"
-          @animationend="onPotionRestockEnd(i, $event)"
-        >
-          <template v-if="itemId">
-            <span
-              v-if="potionRemainRatio(itemId) > 0"
-              class="potion-halo"
-              :style="potionHaloStyle(itemId)"
-              aria-hidden="true"
-            />
-            <PotionIcon :name="itemId" />
-            <span class="potion-name">{{ ITEM_DEF[itemId].label }}</span>
-            <span class="potion-qty">{{ potionSlotQty(itemId) }}</span>
-            <span
-              class="potion-help"
-              data-potion-help
-              role="button"
-              :aria-pressed="isPotionHelpOpen(potionHelp, 'slot', itemId, i)"
-              :aria-label="`查看 ${ITEM_DEF[itemId].label} 效果`"
-              @click.stop="onPotionHelp($event, 'slot', itemId, i)"
-            >i</span>
-          </template>
-          <template v-else>
-            <span class="potion-vacant" aria-hidden="true"></span>
-          </template>
-        </button>
-      </div>
-      <p v-if="potionBuffLine" class="potion-buffs">{{ potionBuffLine }}</p>
-    </div>
     <Teleport to="body">
       <div v-if="drag?.active" class="drag-ghost" :style="{ left: `${drag.x}px`, top: `${drag.y}px` }">
         {{ drag.name }}
@@ -964,65 +732,6 @@ onUnmounted(() => {
     @close="closeStationDetail"
     @open-worker="openSheet"
   />
-
-  <Teleport to="body">
-    <div
-      v-if="pickPotionIndex != null"
-      class="modal"
-      role="dialog"
-      aria-modal="true"
-      aria-label="装配药剂"
-      @click.self="closePotionPick"
-    >
-      <div class="sheet">
-        <header>
-          <h2 class="title">装配药剂</h2>
-          <button type="button" class="close" @click="closePotionPick">关闭</button>
-        </header>
-        <p class="hint">{{ POTION_EQUIP_HINT }}</p>
-        <div v-if="potionPickGroups.length" class="potion-groups">
-          <section v-for="group in potionPickGroups" :key="group.label" class="potion-group">
-            <h3 class="potion-group-title">{{ group.label }}</h3>
-            <div class="pick-list">
-              <div v-for="id in group.ids" :key="id" class="pick-cell">
-                <div class="potion-pick-row">
-                  <button type="button" class="potion-pick-main" @click="onInstallPotion(id)">
-                    <PotionIcon :name="id" />
-                    <span>{{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="potion-help pick"
-                    data-potion-help
-                    :aria-pressed="isPotionHelpOpen(potionHelp, 'pick', id)"
-                    :aria-label="`查看 ${ITEM_DEF[id].label} 效果`"
-                    @click.stop="onPotionHelp($event, 'pick', id)"
-                  >i</button>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-        <p v-else class="hint">没有可装的药剂</p>
-      </div>
-    </div>
-  </Teleport>
-
-  <Teleport to="body">
-    <div
-      v-if="potionHelpBubble"
-      class="potion-bubble"
-      data-potion-bubble
-      role="dialog"
-      :aria-label="potionHelpBubble.title"
-      :style="{ left: `${potionHelpPos.left}px`, top: `${potionHelpPos.top}px` }"
-    >
-      <b>{{ potionHelpBubble.title }}</b>
-      <p>{{ potionHelpBubble.effect }}</p>
-      <small v-if="potionHelpBubble.stock != null">库存 ×{{ potionHelpBubble.stock }}</small>
-      <button v-if="canUnequipPotionHelp" type="button" class="potion-bubble-unequip" @click="onUnequipPotionHelp">卸下</button>
-    </div>
-  </Teleport>
 
   <Teleport to="body">
     <div
@@ -1527,310 +1236,6 @@ onUnmounted(() => {
   width: 100%;
   height: 12px;
   border-width: 1px;
-}
-
-.potion-row {
-  display: flex;
-  align-items: stretch;
-  min-height: 78px;
-  min-width: 0;
-  gap: 6px;
-}
-
-.potion-slot {
-  position: relative;
-  overflow: visible;
-  flex: 1;
-  min-width: 0;
-  min-height: 78px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  padding: 8px 4px 16px;
-  border: 3px solid var(--stroke);
-  border-radius: 18px;
-  background: var(--wood-face);
-  background-blend-mode: multiply, normal;
-  box-shadow: inset 0 1px 0 rgba(255, 248, 230, 0.45), 0 3px 0 var(--stroke);
-  color: #5c3a16;
-  transition: transform 0.08s ease, box-shadow 0.08s ease;
-}
-
-.potion-slot:active:not(:has(.potion-help:active)) {
-  transform: translateY(3px);
-  box-shadow: inset 0 2px 3px rgba(58, 36, 16, 0.18), 0 1px 0 var(--stroke);
-}
-
-.potion-slot.pressed::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: rgba(255, 220, 140, 0.42);
-  pointer-events: none;
-  animation: potion-flash 0.2s ease-out;
-}
-
-.potion-slot.empty {
-  border-style: dashed;
-  border-color: rgba(58, 36, 20, 0.45);
-  background: rgba(90, 52, 24, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 248, 230, 0.2), 0 3px 0 var(--stroke);
-  color: var(--muted);
-}
-
-.potion-slot.dry {
-  background: linear-gradient(180deg, #d9d3c8 0%, #b7b0a4 100%);
-  border-color: #6d665c;
-  color: #6d665c;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 3px 0 #6d665c;
-}
-
-.potion-halo {
-  position: absolute;
-  inset: -3px;
-  z-index: 1;
-  border-radius: 16px;
-  padding: 2px;
-  background: conic-gradient(from -90deg, #ffc14a calc(var(--remain) * 1turn), rgba(255, 193, 74, 0.14) 0);
-  pointer-events: none;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
-}
-
-.potion-vacant {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: rgba(255, 244, 220, 0.08);
-  box-shadow: inset 0 0 0 1.5px rgba(226, 163, 26, 0.28);
-}
-
-.potion-slot .potion-help {
-  position: absolute;
-  top: 3px;
-  z-index: 2;
-  display: grid;
-  place-items: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-  text-align: center;
-}
-
-.potion-slot .potion-help::before {
-  content: '';
-  position: absolute;
-  inset: -6px;
-}
-
-.potion-slot .potion-help {
-  right: 3px;
-  background: #5c3a16;
-  color: var(--cream);
-}
-
-.potion-groups {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.potion-group-title {
-  margin: 0 0 6px;
-  color: #8a6410;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
-.potion-pick-row {
-  position: relative;
-  min-width: 0;
-}
-
-.potion-pick-main {
-  width: 100%;
-  min-width: 0;
-  padding-right: 40px;
-}
-
-.potion-groups .potion-pick-main {
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
-  padding-left: 8px;
-}
-
-.potion-groups .potion-pick-main :deep(.potion-ico) {
-  width: 16px;
-  height: 16px;
-  color: #6a3218;
-}
-
-.potion-groups .potion-pick-main span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: left;
-}
-
-.potion-help.pick {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  z-index: 2;
-  width: 28px;
-  min-width: 28px;
-  min-height: 28px;
-  padding: 0;
-  border-radius: 50%;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.potion-bubble {
-  position: fixed;
-  z-index: calc(var(--z-sheet) + 8);
-  width: min(220px, calc(100vw - 16px));
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 8px 10px;
-  border: 2px solid var(--gold-deep);
-  border-radius: 10px;
-  background: var(--wood-face);
-  box-shadow: 0 4px 0 var(--shadow);
-  color: var(--ink);
-}
-
-.potion-bubble b {
-  font-size: 13px;
-}
-
-.potion-bubble p,
-.potion-bubble small {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.4;
-  font-weight: 700;
-}
-
-.potion-bubble small {
-  color: var(--muted);
-}
-
-.potion-bubble-unequip {
-  align-self: flex-start;
-  min-height: 22px;
-  margin-top: 2px;
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.potion-buffs {
-  margin: 4px 0 0;
-  padding: 0 2px;
-  color: #f0c56a;
-  font-size: 10px;
-  font-weight: 800;
-}
-
-.potion-slot :deep(.potion-ico) {
-  width: 28px;
-  height: 28px;
-  color: #5c3a16;
-}
-
-.potion-slot.dry :deep(.potion-ico) {
-  color: #8d867c;
-}
-
-.potion-name {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: 0.02em;
-  text-align: center;
-}
-
-.potion-qty {
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  z-index: 2;
-  display: grid;
-  place-items: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
-  border-radius: 99px;
-  border: 2px solid #1f5c16;
-  background: #3cb82e;
-  color: #14300c;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  box-shadow: 0 1px 0 #120e0a;
-}
-
-.potion-slot.dry .potion-qty {
-  background: #b42318;
-  color: #fff6f4;
-}
-
-.potion-slot.pressed .potion-qty {
-  animation: potion-badge-pop 0.22s ease-out;
-}
-
-@keyframes potion-flash {
-  from { opacity: 0.95; }
-  to { opacity: 0; }
-}
-
-@keyframes potion-badge-pop {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.35); }
-  100% { transform: scale(1); }
-}
-
-@keyframes potion-breathe {
-  0%,
-  100% { filter: brightness(1); }
-  45% {
-    filter: brightness(1.45);
-    box-shadow: inset 0 0 0 2px #ffc14a, 0 0 14px rgba(255, 196, 74, 0.85), 0 4px 0 #120e0a;
-  }
-}
-
-.potion-slot.restock {
-  animation: potion-breathe 0.45s ease-in-out 2;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .potion-slot,
-  .potion-slot.restock,
-  .potion-slot.pressed::after,
-  .potion-slot.pressed .potion-qty {
-    animation: none;
-    transition: none;
-  }
 }
 
 .slots {
@@ -2605,18 +2010,6 @@ onUnmounted(() => {
 
 .roster-v2 .slot.empty {
   opacity: 0.55;
-}
-
-.potion-dock {
-  position: relative;
-  flex: 0 0 auto;
-  margin: 4px 6px 4px;
-  padding: 8px 8px 6px;
-  border: 3px solid var(--stroke);
-  border-radius: 16px;
-  background: var(--wood-face);
-  background-blend-mode: multiply, normal;
-  box-shadow: 0 3px 0 var(--stroke), inset 0 1px 0 rgba(255, 248, 230, 0.35);
 }
 
 .roster-v2.sheet-rest .col.side,
