@@ -10,9 +10,14 @@ import {
   AUTO_QUEUE_TIP,
   AUTO_QUOTA_TIP,
   CAMP_EMPTY_TIP,
+  CLEAR_MANUAL_QUEUE_LABEL,
+  CLEAR_MANUAL_QUEUE_NOTE,
   applyManualQualityOutput,
   autoLineQuota,
+  clearManualQueue,
   dispatchManualRound,
+  manualQueueLeft,
+  pullWaitingManualRounds,
   toggleStationAuto,
 } from './workshopDispatch'
 
@@ -134,6 +139,58 @@ describe('workshop manual dispatch and auto lines', () => {
     const produced = ticks(line, 40)
     expect(produced.stations.herbalism.completed).toBeGreaterThanOrEqual(1)
     expect(produced.workers.find((worker) => worker.id === hand.id)?.assignment).toBe('herbalism')
+  })
+
+  it('clears later rounds and lets the current worker finish', () => {
+    expect(CLEAR_MANUAL_QUEUE_LABEL).toBe('不排队')
+    expect(CLEAR_MANUAL_QUEUE_NOTE).toBe('清空后不再排队，当前这轮照常做完。')
+    const save = createSave()
+    const first = fullWorker(save)
+    const second = fullWorker(save)
+    first.assignment = 'herbalism'
+    save.stations.herbalism.manualRounds = 4
+    save.stations.herbalism.progress = 0.4
+    expect(manualQueueLeft(save, 'herbalism')).toBe(3)
+
+    expect(clearManualQueue(save, 'herbalism').ok).toBe(true)
+    expect(save.stations.herbalism.manualRounds).toBe(1)
+    expect(save.stations.herbalism.progress).toBe(0.4)
+    expect(save.stations.herbalism.auto).toBe(false)
+    expect(first.assignment).toBe('herbalism')
+    expect(second.assignment).toBeNull()
+    expect(manualQueueLeft(save, 'herbalism')).toBe(0)
+    expect(clearManualQueue(save, 'herbalism').ok).toBe(false)
+
+    save.stations.herbalism.progress = 0.99
+    const done = ticks(save, 40)
+    expect(done.stations.herbalism.completed).toBeGreaterThanOrEqual(1)
+    expect(done.stations.herbalism.manualRounds).toBe(0)
+    expect(done.stations.herbalism.auto).toBe(false)
+    expect(done.workers.find((worker) => worker.id === first.id)?.assignment).toBeNull()
+    expect(done.workers.find((worker) => worker.id === second.id)?.assignment).toBeNull()
+  })
+
+  it('drops a waiting queue and leaves an auto line alone', () => {
+    const save = createSave()
+    const waiting = fullWorker(save)
+    save.stations.herbalism.manualRounds = 3
+    expect(manualQueueLeft(save, 'herbalism')).toBe(3)
+    expect(clearManualQueue(save, 'herbalism').ok).toBe(true)
+    expect(save.stations.herbalism.manualRounds).toBe(0)
+    expect(waiting.assignment).toBeNull()
+    pullWaitingManualRounds(save)
+    expect(waiting.assignment).toBeNull()
+
+    grantOpenedModules(save, ['alchemy'])
+    const hand = fullWorker(save)
+    expect(toggleStationAuto(save, 'alchemy').ok).toBe(true)
+    hand.assignment = 'alchemy'
+    expect(save.stations.alchemy.auto).toBe(true)
+    expect(save.stations.alchemy.manualRounds).toBe(0)
+    expect(clearManualQueue(save, 'alchemy').ok).toBe(false)
+    expect(save.stations.alchemy.auto).toBe(true)
+    expect(save.stations.alchemy.manualRounds).toBe(0)
+    expect(hand.assignment).toBe('alchemy')
   })
 
   it('refuses a click on an auto line', () => {

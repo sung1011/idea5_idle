@@ -17,6 +17,10 @@ export const AUTO_QUEUE_TIP = '最多排 5 轮'
 /** 点站卡上的 ×N 时弹出。这个标记不是排队入口。 */
 export const ROUND_BADGE_TIP =
   '点站点大面板，把营地队首派上去工作一轮。还在工作时再点，排进下一轮，最多 5 轮。一轮工作完，苦工回到营地队尾。×N 是还剩几轮，点它只看说明，不会排队。'
+/** ×N 说明气泡里的按钮。 */
+export const CLEAR_MANUAL_QUEUE_LABEL = '不排队'
+/** 按钮旁的说明。 */
+export const CLEAR_MANUAL_QUEUE_NOTE = '清空后不再排队，当前这轮照常做完。'
 
 /**
  * 自动线名额。
@@ -106,6 +110,25 @@ export function dispatchManualRound(save: Save, stationId: StationId): ActionRes
   if (station.manualRounds >= MANUAL_QUEUE_MAX) return { ok: false, reason: AUTO_QUEUE_TIP }
   station.manualRounds += 1
   if (!busy) pullManualHead(save, stationId)
+  return { ok: true }
+}
+
+/** 还没开始的后续轮次。正在做的这一轮不算。自动线没有排队。 */
+export function manualQueueLeft(save: Save, stationId: StationId): number {
+  const station = save.stations[stationId]
+  if (station.auto) return 0
+  const working = assignedWorkers(save, stationId).length > 0 ? 1 : 0
+  return Math.max(0, station.manualRounds - working)
+}
+
+/** 清掉后续排队。有人正在做就只留这一轮，进度和人都不动。自动开关不动。 */
+export function clearManualQueue(save: Save, stationId: StationId): ActionResult {
+  if (!isStationUnlocked(save, stationId)) return { ok: false, reason: stationLockedTip(stationId) }
+  const station = save.stations[stationId]
+  if (station.auto) return { ok: false, reason: '这条线在自动生产' }
+  if (manualQueueLeft(save, stationId) <= 0) return { ok: false, reason: '没有后续排队' }
+  const working = assignedWorkers(save, stationId).length > 0
+  station.manualRounds = working ? 1 : 0
   return { ok: true }
 }
 

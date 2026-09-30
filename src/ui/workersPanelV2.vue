@@ -3,7 +3,12 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { combatZoneRows, formatRemainClock, type CombatZoneRow } from '../sim/march'
 import { CLASS_LABEL } from '../sim/tables'
 import { guideAlchemyCardFlash, guideDispatchStation, isGuideQuestFlash } from '../sim/guideQuest'
-import { ROUND_BADGE_TIP } from '../sim/workshopDispatch'
+import {
+  CLEAR_MANUAL_QUEUE_LABEL,
+  CLEAR_MANUAL_QUEUE_NOTE,
+  ROUND_BADGE_TIP,
+  manualQueueLeft,
+} from '../sim/workshopDispatch'
 import { moduleNoticeOn, type ModuleId } from '../sim/moduleUnlock'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
 import { pushFloatTip } from './floatTips'
@@ -210,6 +215,18 @@ let suppressStationClick = false
 
 function closeRoundHelp() {
   roundHelpStation.value = null
+}
+
+const roundQueueLeft = computed(() => {
+  const stationId = roundHelpStation.value
+  if (!stationId) return 0
+  return manualQueueLeft(game.save, stationId)
+})
+
+function onClearManualQueue() {
+  const stationId = roundHelpStation.value
+  if (!stationId || manualQueueLeft(game.save, stationId) <= 0) return
+  game.clearManualQueue(stationId)
 }
 
 function onRoundBadge(ev: MouseEvent, stationId: StationId) {
@@ -744,6 +761,15 @@ onUnmounted(() => {
     >
       <b>排队</b>
       <p>{{ ROUND_BADGE_TIP }}</p>
+      <button
+        type="button"
+        class="round-clear"
+        data-round-clear
+        :disabled="roundQueueLeft === 0"
+        @pointerdown.stop
+        @click.stop="onClearManualQueue"
+      >{{ CLEAR_MANUAL_QUEUE_LABEL }}</button>
+      <p class="round-note">{{ CLEAR_MANUAL_QUEUE_NOTE }}</p>
     </div>
   </Teleport>
 </template>
@@ -1094,6 +1120,31 @@ onUnmounted(() => {
   font-size: 12px;
   line-height: 1.4;
   font-weight: 700;
+}
+
+.round-clear {
+  margin-top: 4px;
+  padding: 4px 8px;
+  border: 1px solid #6a3218;
+  border-radius: 6px;
+  background: #8a3d16;
+  color: #fff4d8;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 18px;
+  cursor: pointer;
+}
+
+.round-clear:disabled {
+  border-color: #6a5a48;
+  background: #4a4036;
+  color: #b7aa98;
+  cursor: not-allowed;
+}
+
+.round-bubble .round-note {
+  color: #6d5b45;
+  font-weight: 600;
 }
 
 .station-progress.hold {
