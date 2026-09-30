@@ -19,7 +19,7 @@ describe('createSave diamonds', () => {
     expect(save.diamonds).toBe(START_DIAMONDS)
     expect(save.diamonds).toBe(0)
     expect(save.gold).toBe(0)
-    expect(save.freeRecruitLeft).toBe(6)
+    expect(save.freeRecruitLeft).toBe(8)
     expect(save.playerName).toBe(PLAYER_NAME_DEFAULT)
     expect(save.playerName).toBe('见习酋长')
     expect(playerDisplayName(undefined)).toBe('见习酋长')

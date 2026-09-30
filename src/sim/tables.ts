@@ -24,8 +24,8 @@ export const OFFLINE_CAP_S = 8 * 60 * 60
 export const START_GOLD = 0
 /** 新档钻石。当前版本缺字段才落到这个数；旧版本整档丢弃，不迁。 */
 export const START_DIAMONDS = 0
-/** 新档前 6 次抽苦工不扣钻，第 7 次起按费用扣钻，用完即止。 */
-export const FREE_RECRUIT_COUNT = 6
+/** 新档前 8 次抽苦工不扣钻，第 9 次起按费用扣钻，用完即止。 */
+export const FREE_RECRUIT_COUNT = 8
 
 /** 缺字段按新档次数；已有数字夹在 0～免费次数。 */
 export function normalizeFreeRecruitLeft(value: unknown): number {

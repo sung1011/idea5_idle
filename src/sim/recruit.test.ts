@@ -62,30 +62,30 @@ describe('worker quality table', () => {
 })
 
 describe('recruitWorker', () => {
-  it('gives six free recruits, then spends diamonds and rejects when short', () => {
+  it('gives eight free recruits, then spends diamonds and rejects when short', () => {
     const save = keepStationsOpen(createSave())
     expect(save.gold).toBe(START_GOLD)
     expect(save.diamonds).toBe(START_DIAMONDS)
-    expect(save.freeRecruitLeft).toBe(6)
-    expect(recruitOfferLabel(save)).toBe('免费（剩 6 次）')
+    expect(save.freeRecruitLeft).toBe(8)
+    expect(recruitOfferLabel(save)).toBe('免费（剩 8 次）')
 
-    for (let left = 6; left > 0; left--) {
+    for (let left = 8; left > 0; left--) {
       expect(recruitOfferLabel(save)).toBe(`免费（剩 ${left} 次）`)
       expect(recruitWorker(save).ok).toBe(true)
       expect(save.gold).toBe(0)
       expect(save.diamonds).toBe(0)
       expect(save.freeRecruitLeft).toBe(left - 1)
     }
-    expect(save.workers).toHaveLength(6)
+    expect(save.workers).toHaveLength(8)
     expect(recruitOfferLabel(save)).toBe(String(RECRUIT_COST))
 
     expect(recruitWorker(save)).toEqual({ ok: false, reason: '钻石不足' })
-    expect(save.workers).toHaveLength(6)
+    expect(save.workers).toHaveLength(8)
 
     save.diamonds = RECRUIT_COST
     expect(recruitWorker(save).ok).toBe(true)
     expect(save.diamonds).toBe(0)
-    expect(save.workers).toHaveLength(7)
+    expect(save.workers).toHaveLength(9)
 
     save.techLevels = { affairsRoster: 1 }
     save.unlockedTechIds = ['affairsRoster']

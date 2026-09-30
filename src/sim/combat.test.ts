@@ -377,7 +377,7 @@ describe('combat timeline', () => {
     expect(enc.combat?.timeoutAt).toBe(arrive + combatTimeoutS(enc.enemyRank) * 1000)
   })
 
-  it('starts the two starter bounty enemies at 300 hp and 1 atk', () => {
+  it('starts the two starter bounty enemies at 150 hp and 1 atk', () => {
     const minion = enemyCombatStats('green', 'minion', 4)
     const guide = makeStarterGuideEnemy(0, 0)
     const herb = makeStarterHerbEnemy(0, 1)
@@ -407,8 +407,8 @@ describe('combat timeline', () => {
     const now = 20_000
     const guideFight = beginEnemyCombat(guide, [worker], now, 4, undefined, save)
     const herbFight = beginEnemyCombat(herb, [worker], now, 4, undefined, save)
-    expect(guideFight.enemy).toMatchObject({ hp: 300, hpMax: 300, atk: 1, spd: minion.spd })
-    expect(herbFight.enemy).toMatchObject({ hp: 300, hpMax: 300, atk: 1, spd: minion.spd })
+    expect(guideFight.enemy).toMatchObject({ hp: 150, hpMax: 150, atk: 1, spd: minion.spd })
+    expect(herbFight.enemy).toMatchObject({ hp: 150, hpMax: 150, atk: 1, spd: minion.spd })
 
     const plain = testEnemy({ id: 'plain-minion' })
     const plainFight = beginEnemyCombat(plain, [worker], now, 1, undefined, save)
@@ -426,10 +426,10 @@ describe('combat timeline', () => {
     board.affixId = 'quickened'
     expect(startCombat(fresh, 0, [fighter.id], now).ok).toBe(true)
     expect(board.combat?.phase).toBe('marchOut')
-    expect(board.combat?.enemy).toMatchObject({ hp: 300, hpMax: 300, atk: 1, spd: minion.spd })
+    expect(board.combat?.enemy).toMatchObject({ hp: 150, hpMax: 150, atk: 1, spd: minion.spd })
     const arrive = board.combat?.phaseEndsAt ?? now
     stepEnemyCombat(fresh, board, arrive)
-    expect(board.combat?.enemy).toMatchObject({ hp: 300, hpMax: 300, atk: 1, spd: enemyCombatStats('green', 'minion').spd })
+    expect(board.combat?.enemy).toMatchObject({ hp: 150, hpMax: 150, atk: 1, spd: enemyCombatStats('green', 'minion').spd })
     expect(board.needs).toEqual({ herb: STARTER_GUIDE_HERB_QTY })
     expect(board.lootGold).toBe(6)
   })

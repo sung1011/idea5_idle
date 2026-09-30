@@ -275,7 +275,7 @@ export function enemyCombatStats(
 }
 
 /** 前两张悬赏新手单开战生命、攻击。出手间隔仍用杂兵。 */
-export const STARTER_TUTORIAL_HP = 300
+export const STARTER_TUTORIAL_HP = 150
 export const STARTER_TUTORIAL_ATK = 1
 
 /** 与 `makeStarterGuideEnemy` / `makeStarterHerbEnemy` 的 id 前缀一致。 */

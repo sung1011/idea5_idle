@@ -75,7 +75,7 @@ function rich(): MainlineReward {
 }
 
 function levelReward(level: number): MainlineReward {
-  if (level <= 20) return { gold: 20 }
+  if (level <= 20) return { gold: 20, xp: 15 }
   return { diamonds: 24, xp: 10 }
 }
 
