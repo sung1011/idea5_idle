@@ -75,7 +75,7 @@
   --z-quest: 60;
   --z-confirm: 80;
   --z-guide: 90;
-  /* 压暗非目标。低于弹层和任务条，高于底栏，圈中的控件再抬一层。 */
+  /* 引导圈抬到这一层之上。不压暗画面。 */
   --z-guide-dim: 7;
   --workshop-rail-row-min: 44px;
   --workshop-rail-row-gap: 4px;
@@ -366,13 +366,13 @@ button.act.minor.guide-flash.is-short,
     0 0 24px 8px rgba(255, 140, 0, 0.95);
 }
 
-/* 遮罩和手指挂在壳上，不要放进弹层，否则会被弹层的层叠上下文卡住。 */
+/* 类名留给层叠查询。引导不渲染这块，也不给画面上色。 */
 .guide-mask {
   position: fixed;
   inset: 0;
   z-index: var(--z-guide-dim);
   pointer-events: none;
-  background: rgba(28, 16, 8, 0.48);
+  background: transparent;
 }
 
 .guide-finger {

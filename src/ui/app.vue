@@ -452,7 +452,6 @@ watch(addToHomeChoiceNow, (choice) => {
       @confirm="confirmProfile"
     />
     <FloatTips />
-    <div v-if="guideActive" class="guide-mask" aria-hidden="true" />
     <div v-if="fingerOn" class="guide-finger" :style="{ left: fingerLeft, top: fingerTop }" aria-hidden="true">👆</div>
   </div>
 </template>

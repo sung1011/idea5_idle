@@ -19,7 +19,7 @@ describe('guideExploreCue', () => {
   it('wires the dock PVE button and the bounty explore button to one cue', () => {
     expect(appSource).toContain('guideExploreCue')
     expect(appSource).toContain("exploreCue === 'dock' && t.id === 'encounters'")
-    expect(appSource).toContain('class="guide-mask"')
+    expect(appSource).not.toContain('class="guide-mask"')
     expect(appSource).toContain('class="guide-finger"')
     expect(panelSource).toContain('guideExploreCue')
     expect(panelSource).toContain("exploreCue === 'board' && id === 'battlefield'")
@@ -29,12 +29,13 @@ describe('guideExploreCue', () => {
 })
 
 describe('guide flash chrome', () => {
-  it('uses a thick bright orange ring, a dim mask, and a bobbing finger', () => {
+  it('uses a thick bright orange ring and a bobbing finger without dimming the screen', () => {
     expect(tokenSource).toMatch(/--z-guide-dim:\s*7/)
     expect(tokenSource).toContain('outline: 5px solid #ffe08a')
     expect(tokenSource).toContain('animation: guide-flash 0.65s ease-in-out infinite')
     expect(tokenSource).toContain('rgba(255, 128, 0, 0.98)')
-    expect(tokenSource).toContain('background: rgba(28, 16, 8, 0.48)')
+    expect(tokenSource).not.toContain('rgba(28, 16, 8, 0.48)')
+    expect(tokenSource).toContain('background: transparent')
     expect(tokenSource).toContain('pointer-events: none')
     expect(tokenSource).toContain('button.act.minor.guide-flash')
     expect(tokenSource).toContain('.dock button.guide-flash')
