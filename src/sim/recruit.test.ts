@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { keepStationsOpen } from './stationUnlock'
-import { assignWorker } from './assign'
+import { assignWorker, restingWorkers } from './assign'
+import { campQueueTailEntries, campQueueTailHold } from '../ui/campQueueSlide'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
 import { loadFood } from './food'
@@ -111,6 +112,27 @@ describe('recruitWorker', () => {
 
     clearWorkerNew(save, other.id)
     expect(other.isNew).toBe(false)
+  })
+
+  it('lands the new recruit at the camp tail so the same slide can play', () => {
+    const save = keepStationsOpen(createSave())
+    const head = spawnWorker(save)
+    const duty = spawnWorker(save)
+    const mid = spawnWorker(save)
+    expect(assignWorker(save, duty.id, 'herbalism').ok).toBe(true)
+    const before = restingWorkers(save).map((worker) => worker.id)
+    expect(before).toEqual([head.id, mid.id])
+
+    expect(recruitWorker(save).ok).toBe(true)
+    const recruited = save.workers.at(-1)
+    expect(recruited?.isNew).toBe(true)
+    expect(recruited?.assignment).toBeNull()
+
+    const after = restingWorkers(save).map((worker) => worker.id)
+    expect(after).toEqual([...before, recruited!.id])
+    expect(save.workers.at(-1)?.id).toBe(recruited!.id)
+    expect(campQueueTailEntries(before, after)).toEqual([recruited!.id])
+    expect(campQueueTailHold(before, after)).toBeNull()
   })
 })
 

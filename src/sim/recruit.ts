@@ -1,4 +1,5 @@
 import { fillWorkerHp } from './combat'
+import { sendWorkerToRestTail } from './food'
 import { isAssistWorker } from './combatAssist'
 import { hydrateWorkerCombatAttrs, spawnFillCombatAttrs, uniqueCombatAttrs } from './combatAttrs'
 import { normalizeWorkerProgress, WORKER_LEVEL_MIN } from './workerLevel'
@@ -248,5 +249,7 @@ export function recruitWorker(save: Save): ActionResult {
   worker.race = race
   worker.name = rollWorkerName(save, race)
   worker.isNew = true
+  worker.assignment = null
+  sendWorkerToRestTail(save, worker.id)
   return { ok: true }
 }
