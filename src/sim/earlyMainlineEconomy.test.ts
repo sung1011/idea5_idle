@@ -114,12 +114,12 @@ describe('early mainline from an empty purse', () => {
     let save = createSave()
     expect(save.gold).toBe(0)
     expect(save.diamonds).toBe(0)
-    expect(save.freeRecruitLeft).toBe(3)
+    expect(save.freeRecruitLeft).toBe(6)
 
     expect(recruitWorker(save).ok).toBe(true)
     expect(recruitWorker(save).ok).toBe(true)
     expect(save.diamonds).toBe(0)
-    expect(save.freeRecruitLeft).toBe(1)
+    expect(save.freeRecruitLeft).toBe(4)
     claimCurrent(save)
     expect(guideQuestView(save)?.taskId).toBe('autoHerb')
 
@@ -221,10 +221,12 @@ describe('early mainline from an empty purse', () => {
     healCamp(save)
 
     const paid = recruitCost(save)
-    expect(save.freeRecruitLeft).toBe(1)
+    expect(save.freeRecruitLeft).toBe(4)
     expect(save.diamonds).toBeGreaterThanOrEqual(paid)
-    expect(recruitWorker(save).ok).toBe(true)
-    expect(save.diamonds).toBe(24)
+    while (save.freeRecruitLeft > 0) {
+      expect(recruitWorker(save).ok).toBe(true)
+      expect(save.diamonds).toBe(24)
+    }
     expect(save.freeRecruitLeft).toBe(0)
     expect(recruitWorker(save).ok).toBe(true)
     expect(save.diamonds).toBe(24 - paid)
