@@ -16,7 +16,7 @@ export const AUTO_FULL_TIP = '自动线名额已满'
 export const AUTO_QUEUE_TIP = '最多排 5 轮'
 /** 点站卡上的 ×N 时弹出。这个标记不是排队入口。 */
 export const ROUND_BADGE_TIP =
-  '点站点大面板，把营地队首派上去干一轮。还在干时再点，排进下一轮，最多 5 轮。一轮干完，苦工回到营地队尾。×N 是还剩几轮，点它只看说明，不会排队。'
+  '点站点大面板，把营地队首派上去工作一轮。还在工作时再点，排进下一轮，最多 5 轮。一轮工作完，苦工回到营地队尾。×N 是还剩几轮，点它只看说明，不会排队。'
 
 /**
  * 自动线名额。
@@ -90,7 +90,7 @@ export function finishManualRound(save: Save, stationId: StationId): void {
   if (station.manualRounds > 0) pullManualHead(save, stationId)
 }
 
-/** 点站卡：空闲则立刻派队首干一轮；正在干则排队，最多 5 轮。没人可派不入队。 */
+/** 点站卡：空闲则立刻派队首工作一轮；正在工作则排队，最多 5 轮。没人可派不入队。 */
 export function dispatchManualRound(save: Save, stationId: StationId): ActionResult {
   if (!isStationUnlocked(save, stationId)) return { ok: false, reason: stationLockedTip(stationId) }
   const station = save.stations[stationId]
