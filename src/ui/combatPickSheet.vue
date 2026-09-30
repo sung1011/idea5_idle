@@ -22,6 +22,7 @@ import { enemyPickCopy, type EnemyPickMode } from './enemyCardAction'
 import { pushFloatTip } from './floatTips'
 import { moduleNoticeOn } from '../sim/moduleUnlock'
 import { useGameStore } from './gameStore'
+import { isPickRecommendMark, orderPickByRecommend } from './combatPickOrder'
 import { pickSlotNumber } from './pickSlot'
 import { pickWorkerName } from './pickWorkerName'
 import { qualityOf, workerQualityBadgeStyle, workerQualityNameStyle } from './workerQuality'
@@ -96,6 +97,8 @@ const helpRows = computed<ModeHelpRow[]>(() => {
 function recommend(worker: Worker): string | null {
   return props.recommendLabel?.(worker) ?? null
 }
+
+const orderedCandidates = computed(() => orderPickByRecommend(props.candidates, recommend))
 
 function canPickWorker(worker: Worker): boolean {
   return props.canPick ? props.canPick(worker) : isFullCombatHp(worker)
@@ -179,7 +182,7 @@ function closeAll() {
         </div>
       </div>
       <ul class="pick-list">
-        <li v-for="w in candidates" :key="w.id" class="pick-row">
+        <li v-for="w in orderedCandidates" :key="w.id" class="pick-row">
           <button
             type="button"
             class="pick-worker"
@@ -194,11 +197,8 @@ function closeAll() {
             @click="emit('toggle', w)"
           >
             <span class="pick-face">
-              <i
-                v-if="recommend(w) && (canPickWorker(w) || recommend(w) === '克制')"
-                class="pick-rec"
-                :class="{ hot: recommend(w) === '强烈推荐' }"
-              >{{ recommend(w) }}</i>
+              <i v-if="isPickRecommendMark(recommend(w))" class="pick-rec-bar">推荐</i>
+              <i v-if="recommend(w) === '克制'" class="pick-rec">克制</i>
               <WorkerAvatar size="sm" :race="w.race" :quality="w.qualityTier" :worker-id="w.id" />
             </span>
             <span class="pick-name">
@@ -384,6 +384,30 @@ function closeAll() {
   position: relative;
   flex: none;
   display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pick-rec-bar {
+  flex: none;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 24px;
+  border: 1px solid #127a32;
+  border-radius: 3px;
+  background: #3ad14a;
+  color: #fff;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  pointer-events: none;
 }
 
 .rune-slot-hit {
@@ -528,11 +552,6 @@ function closeAll() {
   letter-spacing: 0;
   white-space: nowrap;
   pointer-events: none;
-}
-
-.pick-rec.hot {
-  background: #146b38;
-  color: #f4fff6;
 }
 
 .pick-list .qmark {
