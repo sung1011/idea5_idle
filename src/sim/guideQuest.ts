@@ -2,7 +2,7 @@ import { restingWorkers } from './assign'
 import { bankQty } from './bank'
 import { canReinforceCombat, isCombatLost, isCombatWon, isFighting } from './combat'
 import { combatSupplyBlockReason, isEncounterDone, isStarterCopperPawn, STARTER_GUIDE_HERB_QTY } from './encounters'
-import { isModuleUnlocked, knightLevelProgress, levelGateUnlockNote, moduleLabel, moduleLockedTip, moduleUnlockKnightLevel, SECOND_AUTO_LINE_TIP } from './moduleUnlock'
+import { isModuleUnlocked, knightLevelProgress, levelGateUnlockNote, moduleLockedTip, moduleUnlockKnightLevel, SECOND_AUTO_LINE_TIP } from './moduleUnlock'
 import { knightLevelOf } from './stationUnlock'
 import { anyWorkerHasPotionBuff } from './potions'
 import { POTION_ITEM_IDS, QUALITY_MAX } from './tables'
@@ -55,13 +55,13 @@ export const GUIDE_FUSE_DRAG_GOAL = '在营地按住苦工，拖到同品质的�
 /** 合伙步有人还在干活，凑不齐两名同品质。 */
 export const GUIDE_FUSE_WAIT_GOAL = '等苦工回到营地，或再抽 1 名，再拖到同品质的人身上合成'
 /** 出征步草还不够首单时，先回到采药站连点。 */
-export const GUIDE_COMBAT_HERB_GOAL = '草不够开战。继续点采药站排队，攒够 2 株草'
+export const GUIDE_COMBAT_HERB_GOAL = '草不够。再去采药站排队，凑够 2 株'
 /** 熬药步还没有原料。 */
 export const GUIDE_ALCHEMY_NEED_HERB_GOAL = '先点采药站出草，再点炼金站派工'
 /** 采药已在出草，等出草再点炼金。 */
 export const GUIDE_ALCHEMY_WAIT_HERB_GOAL = '等采药站出草，再点炼金站派工'
 /** 有原料时点炼金站派一轮。 */
-export const GUIDE_ALCHEMY_CLICK_GOAL = '点炼金站，把队首派上去熬一轮药'
+export const GUIDE_ALCHEMY_CLICK_GOAL = '点炼金站，派队首去熬一轮药'
 /** 装药步营地还没打开。 */
 export const GUIDE_POTION_INSTALL_CLOSED_GOAL = '点营地，再点药剂槽装药'
 /** 装药步营地已打开。 */
@@ -496,7 +496,6 @@ function waitingLevelView(save: Save, step: number, row: MainlineTask): GuideQue
 function waitingModuleView(save: Save, step: number, row: MainlineTask): GuideQuestView {
   const progress = knightLevelProgress(save)
   const need = row.module ? moduleUnlockKnightLevel(row.module) : row.gate
-  const name = row.module ? moduleLabel(row.module) : ''
   return {
     step,
     taskId: row.id,
@@ -504,7 +503,7 @@ function waitingModuleView(save: Save, step: number, row: MainlineTask): GuideQu
     phaseStep: need,
     phaseTotal: need,
     title: '下一目标',
-    goal: row.module ? moduleLockedTip(row.module) : `下一个目标：酋长 ${need} 级开放${name}`,
+    goal: row.module ? moduleLockedTip(row.module) : `先升到 ${need} 级`,
     rewardLabel: mainlineRewardLabel(row.reward),
     progress: 0,
     progressLabel: `酋长 ${progress.level} 级 · 距下一级 ${progress.percent}%`,

@@ -90,9 +90,9 @@ describe('knight xp curve', () => {
   })
 
   it('names the next unlock at the coming threshold', () => {
-    expect(nextModuleUnlock(1)?.label).toBe('完成主线「升到酋长 2 级（开放炼金）」后开启')
-    expect(nextModuleUnlock(7)?.label).toBe('完成主线「升到酋长 8 级（开放烹饪、伙食、地牢）」后开启')
-    expect(nextModuleUnlock(10)?.label).toBe('完成主线「升到酋长 11 级（开放科技）」后开启')
+    expect(nextModuleUnlock(1)?.label).toBe('完成主线「升到2级：今晚能把草熬成药」后开启')
+    expect(nextModuleUnlock(7)?.label).toBe('完成主线「升到8级：今晚能做饭下地牢」后开启')
+    expect(nextModuleUnlock(10)?.label).toBe('完成主线「升到11级：今晚能点一项科技」后开启')
     expect(nextModuleUnlock(20)).toBeNull()
   })
 })

@@ -184,7 +184,7 @@ describe('add to home bubble', () => {
   })
 
   it('waits until the combat step is claimed, and never shows once dismissed or installed', () => {
-    expect(combatStep).toBe(5)
+    expect(combatStep).toBe(9)
     expect(show({ guideQuestStep: combatStep })).toBe(false)
     expect(show({ guideQuestStep: combatStep - 1 })).toBe(false)
     expect(show({ guideQuestStep: 1 })).toBe(false)

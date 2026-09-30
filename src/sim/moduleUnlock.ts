@@ -88,7 +88,10 @@ const STATION_MODULE: Partial<Record<StationId, ModuleId>> = {
   inscription: 'inscription',
 }
 
-/** 跟主线「升到酋长 N 级」同一句里的开放名单。 */
+/**
+ * 会打开新入口的等级。名字不再写进任务句，只用来找下一项门槛。
+ * 文案见 `LEVEL_CHAPTER`。
+ */
 export const MODULE_GATE_NAMES: Partial<Record<number, string>> = {
   2: '炼金',
   6: '狩猎、集市',
@@ -99,6 +102,33 @@ export const MODULE_GATE_NAMES: Partial<Record<number, string>> = {
   16: '采矿',
   18: '铭刻、符文槽',
   20: '夺宝',
+}
+
+/** 等级任务的口吻。今晚能做什么，以及这一章在忙什么。不罗列一串系统。 */
+const LEVEL_CHAPTER: Record<number, { tonight: string; chapter: string }> = {
+  2: { tonight: '今晚能把草熬成药', chapter: '本章：工坊，先把草变成药' },
+  3: { tonight: '今晚能带着药出征', chapter: '本章：工坊，药备好再出门' },
+  4: { tonight: '今晚能把药方做厚一点', chapter: '本章：工坊，把药备齐' },
+  5: { tonight: '今晚能多一个能打的人', chapter: '本章：工坊，人手先齐' },
+  6: { tonight: '今晚能出门打猎', chapter: '本章：打猎，肉拿去换' },
+  7: { tonight: '今晚能把猎物换成钱', chapter: '本章：打猎，肉拿去换' },
+  8: { tonight: '今晚能做饭下地牢', chapter: '本章：饭做好，再下地牢' },
+  9: { tonight: '今晚能把地牢打完', chapter: '本章：饭做好，再下地牢' },
+  10: { tonight: '今晚能下田割一块', chapter: '本章：抽空割一块草' },
+  11: { tonight: '今晚能点一项科技', chapter: '本章：先点科技，再打困兽' },
+  12: { tonight: '今晚能把科技用在集市上', chapter: '本章：先点科技，再打困兽' },
+  13: { tonight: '今晚能去打困兽', chapter: '本章：困兽是今晚的硬仗' },
+  14: { tonight: '今晚能把兽汤喝上', chapter: '本章：困兽是今晚的硬仗' },
+  15: { tonight: '今晚能把学问补上', chapter: '本章：困兽是今晚的硬仗' },
+  16: { tonight: '今晚能开矿', chapter: '本章：挖出矿，以后好夺洞' },
+  17: { tonight: '今晚能把矿石用掉', chapter: '本章：挖出矿，以后好夺洞' },
+  18: { tonight: '今晚能刻一枚符', chapter: '本章：符文刻好，带上出征' },
+  19: { tonight: '今晚能把符文刻顺', chapter: '本章：符文刻好，带上出征' },
+  20: { tonight: '今晚能夺一座矿洞', chapter: '本章：矿洞可以下手了' },
+  22: { tonight: '今晚能把旗再升一升', chapter: '本章：矿洞可以下手了' },
+  25: { tonight: '今晚能把这一章打穿', chapter: '本章：矿洞可以下手了' },
+  28: { tonight: '今晚能把战旗升满', chapter: '本章：矿洞可以下手了' },
+  30: { tonight: '今晚能把六站立住', chapter: '本章：矿洞可以下手了' },
 }
 
 type GateSave = {
@@ -115,19 +145,19 @@ export function bindMainlineModuleGate(fn: GateFn): void {
 }
 
 export function levelGateTitle(level: number): string {
-  const names = MODULE_GATE_NAMES[level]
-  if (!names) return `升到酋长 ${level} 级`
-  return `升到酋长 ${level} 级（开放${names}）`
+  const line = LEVEL_CHAPTER[level]
+  if (!line) return `升到${level}级`
+  return `升到${level}级：${line.tonight}`
 }
 
 /** 领到「升到酋长 11 级」时给的一句提示。第二条自动线跟着科技模块走。 */
 export const SECOND_AUTO_LINE_TIP = '自动线名额变成 2，可以再挂一条'
 
 export function levelGateUnlockNote(level: number): string | null {
-  const names = MODULE_GATE_NAMES[level]
-  if (!names) return null
-  if (level === 11) return `完成后开启：${names}。${SECOND_AUTO_LINE_TIP}`
-  return `完成后开启：${names}`
+  const line = LEVEL_CHAPTER[level]
+  if (!line) return null
+  if (level === 11) return `${line.chapter}。${SECOND_AUTO_LINE_TIP}`
+  return line.chapter
 }
 
 export function modulesAtGate(level: number): ModuleId[] {

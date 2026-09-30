@@ -89,7 +89,7 @@ describe('guideQuest normalize and hydrate', () => {
       phase: 1,
       phaseStep: 1,
       phaseTotal: 5,
-      title: '招兵',
+      title: '招人',
       taskId: 'recruit',
       goal: GUIDE_RECRUIT_CLOSED_GOAL,
       rewardLabel: '金币 +20、酋长经验 +20',
@@ -127,7 +127,7 @@ describe('guideQuest normalize and hydrate', () => {
     const save = createSave()
     save.guideQuestStep = mainlineStepOf('slotsFull')
     expect(guideQuestView(save)?.title).toBe('两槽齐备')
-    expect(guideQuestView(save)?.goal).toBe('至少 2 个药剂槽装上药剂')
+    expect(guideQuestView(save)?.goal).toBe('至少两个药剂槽装上药')
     expect(guideQuestFlashId(save)).toBe('slotsFull')
     expect(mainlineDone(save, 'slotsFull')).toBe(false)
     expect(guidePotionSlotFlash(save, false)).toBe(true)
@@ -220,8 +220,8 @@ describe('guideQuest steps and claim', () => {
     expect(save.diamonds).toBe(START_DIAMONDS)
     expect(save.freeRecruitLeft).toBe(6)
 
-    expect(guideQuestView(save)?.goal).toBe('点采药站，把营地队首派上去工作一轮')
-    expect(guideQuestView(save, true)?.goal).toBe('点采药站，把营地队首派上去工作一轮')
+    expect(guideQuestView(save)?.goal).toBe('点采药站，派队首去采一轮草')
+    expect(guideQuestView(save, true)?.goal).toBe('点采药站，派队首去采一轮草')
     expect(dispatchManualRound(save, 'herbalism').ok).toBe(true)
     expect(save.workers.some((worker) => worker.assignment === 'herbalism')).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
@@ -234,20 +234,13 @@ describe('guideQuest steps and claim', () => {
     spawnWorker(save)
     spawnWorker(save)
     expect(fuseRestWorkers(save, save.workers[1].id, save.workers[2].id).ok).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('在营地把两名同品质苦工合成，升到 2 档')
-    expect(claimGuideQuest(save).ok).toBe(true)
-    expect(save.guideQuestStep).toBe(mainlineStepOf('combat'))
-    expect(guideQuestView(save)?.title).toBe('出征')
-    expect(guideQuestView(save)?.goal).toBe(GUIDE_COMBAT_HERB_GOAL)
-    save.bank.herb = 2
-    expect(guideQuestView(save)?.goal).toBe('点战场，选人后开战')
-    markCombatStarted(save)
-    expect(hasStartedBattlefieldCombat(save)).toBe(true)
+    expect(guideQuestView(save)?.goal).toBe('营地里把两个同品质的人合成')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('level2'))
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('alchemy'))
     expect(guideQuestView(save)?.title).toBe('熬药')
+    save.bank.herb = 1
     expect(guideQuestView(save)?.goal).toBe(GUIDE_ALCHEMY_CLICK_GOAL)
     save.bank.herb = 0
     expect(save.stations.herbalism.auto).toBe(false)
@@ -264,7 +257,7 @@ describe('guideQuest steps and claim', () => {
 
     save.bank.stim = 2
     expect(installPotionSlot(save, 0, 'stim').ok).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('在营地把任一药剂槽装上药')
+    expect(guideQuestView(save)?.goal).toBe('营地里装上一格药')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('potionUse'))
     expect(guideQuestView(save)?.goal).toBe(GUIDE_POTION_USE_CLOSED_GOAL)
@@ -284,7 +277,15 @@ describe('guideQuest steps and claim', () => {
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(resting!.hp).toBe(resting!.hpMax)
     expect(save.guideQuestPotionUsed).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('在营地点用过药剂槽')
+    expect(guideQuestView(save)?.goal).toBe('营地里把这格药用掉')
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(save.guideQuestStep).toBe(mainlineStepOf('combat'))
+    expect(guideQuestView(save)?.title).toBe('出征')
+    expect(guideQuestView(save)?.goal).toBe(GUIDE_COMBAT_HERB_GOAL)
+    save.bank.herb = 2
+    expect(guideQuestView(save)?.goal).toBe('带着药，点战场选人开战')
+    markCombatStarted(save)
+    expect(hasStartedBattlefieldCombat(save)).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('autoLine'))
     expect(mainlineStepOf('autoLine')).toBe(10)
@@ -296,7 +297,7 @@ describe('guideQuest steps and claim', () => {
     expect(save.guideQuestStep).toBe(mainlineStepOf('firstBlood'))
     expect(guideQuestView(save)?.waiting).toBe(false)
     expect(guideQuestView(save)?.taskId).toBe('firstBlood')
-    expect(guideQuestView(save)?.goal).toBe('在悬赏打赢一个敌人并领到战利品')
+    expect(guideQuestView(save)?.goal).toBe('悬赏打赢，把战利品领回来')
     expect(save.gold).toBe(gold0 + GUIDE_QUEST_GOLD * 11)
   })
 
@@ -340,7 +341,7 @@ describe('guideQuest steps and claim', () => {
     save.guideQuestStep = mainlineStepOf('combat')
     expect(guideQuestView(save)?.goal).toBe(GUIDE_COMBAT_HERB_GOAL)
     save.bank.herb = 2
-    expect(guideQuestView(save)?.goal).toBe('点战场，选人后开战')
+    expect(guideQuestView(save)?.goal).toBe('带着药，点战场选人开战')
     expect(guideQuestProgressAt(save, save.guideQuestStep)).toBe(0)
     expect(hasStartedBattlefieldCombat(save)).toBe(false)
 
@@ -376,7 +377,7 @@ describe('guideQuest steps and claim', () => {
     const levelView = guideQuestView(save)
     expect(levelView?.waiting).toBe(false)
     expect(levelView?.claimable).toBe(true)
-    expect(levelView?.unlockNote).toBe('完成后开启：铭刻、符文槽')
+    expect(levelView?.unlockNote).toBe('本章：符文刻好，带上出征')
     save.guideQuestStep = GUIDE_QUEST_PHASE3_START
     expect(isModuleUnlocked(save, 'rune')).toBe(true)
     expect(guideQuestView(save)?.waiting).toBe(false)
@@ -384,10 +385,10 @@ describe('guideQuest steps and claim', () => {
     for (const enc of save.encounters) {
       if (enc.kind === 'enemy') enc.lootClaimed = true
     }
-    expect(guideQuestView(save)?.goal).toBe('在选人面板点开过符文槽')
+    expect(guideQuestView(save)?.goal).toBe('选人时点开一次符文槽')
     const first = save.encounters[0] as EnemyEncounter
     first.lootClaimed = false
-    expect(guideQuestView(save)?.goal).toBe('在选人面板点开过符文槽')
+    expect(guideQuestView(save)?.goal).toBe('选人时点开一次符文槽')
     expect(guideQuestFlashId(save)).toBe('rune')
   })
 })
@@ -417,14 +418,7 @@ describe('guideQuest flash target', () => {
     spawnWorker(save)
     fuseRestWorkers(save, save.workers[1].id, save.workers[2].id)
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestFlashId(save)).toBe('combat')
-    expect(isGuideQuestCombatFlash(save, save.encounters[0])).toBe(false)
-    expect(guideDispatchStation(save)).toBe('herbalism')
-    save.bank.herb = 2
-    expect(isGuideQuestCombatFlash(save, save.encounters[0])).toBe(true)
-
-    markCombatStarted(save)
-    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBeNull()
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('alchemy')
 
@@ -444,6 +438,13 @@ describe('guideQuest flash target', () => {
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(resting!.hp).toBe(resting!.hpMax)
     expect(guideQuestFlashId(save)).toBeNull()
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBe('combat')
+    expect(isGuideQuestCombatFlash(save, save.encounters[0])).toBe(false)
+    expect(guideDispatchStation(save)).toBe('herbalism')
+    save.bank.herb = 2
+    expect(isGuideQuestCombatFlash(save, save.encounters[0])).toBe(true)
+    markCombatStarted(save)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('autoLine')
     expect(autoLineQuota(save)).toBe(1)
@@ -545,7 +546,7 @@ describe('guide fuse and alchemy cues', () => {
     const resting = restingWorkers(save)
     expect(fuseRestWorkers(save, resting[0].id, resting[1].id).ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestView(save)?.taskId).toBe('combat')
+    expect(guideQuestView(save)?.taskId).toBe('level2')
   })
 
   it('aligns the first fused worker with the starter enemy so the pick sheet marks 推荐', () => {
@@ -605,7 +606,7 @@ describe('early guide on a fresh save', () => {
     expect(guideQuestView(save)?.taskId).toBe('autoHerb')
     expect(dispatchManualRound(save, 'herbalism').ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('采药站还在工作时再点一次，排上下一轮（最多 5 轮）')
+    expect(guideQuestView(save)?.goal).toBe('采药还在做，再点一次，排下一轮')
     expect(dispatchManualRound(save, 'herbalism').ok).toBe(true)
     expect(save.stations.herbalism.manualRounds).toBeGreaterThanOrEqual(2)
     expect(claimGuideQuest(save).ok).toBe(true)
@@ -623,16 +624,7 @@ describe('early guide on a fresh save', () => {
     expect(resting.length).toBeGreaterThanOrEqual(2)
     expect(fuseRestWorkers(save, resting[0].id, resting[1].id).ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
-    if (bankQty(save, 'herb') < 2) {
-      expect(guideQuestView(save)?.goal).toBe(GUIDE_COMBAT_HERB_GOAL)
-      save = pumpHerbs(save, 2)
-    }
-    expect(bankQty(save, 'herb')).toBeGreaterThanOrEqual(2)
-    expect(guideQuestView(save)?.goal).toBe('点战场，选人后开战')
-    const fighter = restingWorkers(save)[0] ?? save.workers.find((worker) => worker.assignment == null)
-    expect(fighter).toBeTruthy()
-    expect(startCombat(save, 0, [fighter!.id]).ok).toBe(true)
-    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestView(save)?.taskId).toBe('level2')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestView(save)?.taskId).toBe('alchemy')
     expect(save.stations.herbalism.auto).toBe(false)
@@ -693,6 +685,12 @@ describe('early guide on a fresh save', () => {
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(target!.hp).toBe(target!.hpMax)
     expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestView(save)?.taskId).toBe('combat')
+    if (bankQty(save, 'herb') < 2) save = pumpHerbs(save, 2)
+    const fighter = restingWorkers(save)[0] ?? save.workers.find((worker) => worker.assignment == null)
+    expect(fighter).toBeTruthy()
+    expect(startCombat(save, 0, [fighter!.id]).ok).toBe(true)
+    expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestView(save)?.taskId).toBe('autoLine')
     expect(autoLineQuota(save)).toBe(1)
     expect(toggleStationAuto(save, 'herbalism').ok).toBe(true)
@@ -701,12 +699,12 @@ describe('early guide on a fresh save', () => {
   })
 
   it('points opened stations at a click, and tells the player when the second auto line opens', () => {
-    expect(mainlineTaskById('huntStart')?.goal).toBe('点狩猎站，把营地队首派上去工作一轮')
-    expect(mainlineTaskById('cookStart')?.goal).toBe('点烹饪站，把营地队首派上去工作一轮')
-    expect(mainlineTaskById('mining')?.goal).toBe('点采矿站，把营地队首派上去工作一轮')
-    expect(mainlineTaskById('inscribe')?.goal).toBe('点铭刻站，把营地队首派上去工作一轮')
-    expect(mainlineTaskById('autoLine')?.goal).toBe('点站卡右上角标，再点气泡里的「自动」')
-    expect(mainlineTaskById('huntHaul')?.goal).toContain('可以挂自动')
+    expect(mainlineTaskById('huntStart')?.goal).toBe('点狩猎站，派队首去打一轮肉')
+    expect(mainlineTaskById('cookStart')?.goal).toBe('点烹饪站，派队首去做一顿饭')
+    expect(mainlineTaskById('mining')?.goal).toBe('点采矿站，派队首去挖一轮')
+    expect(mainlineTaskById('inscribe')?.goal).toBe('点铭刻站，派队首去刻一轮')
+    expect(mainlineTaskById('autoLine')?.goal).toBe('点站卡右上角，再点气泡里的「自动」')
+    expect(mainlineTaskById('huntHaul')?.goal).toContain('挂自动')
     expect(guideClaimNotice('level11')).toContain('自动线名额变成 2')
     expect(levelGateUnlockNote(11)).toContain('自动线名额变成 2')
     expect(ROUND_BADGE_TIP).toContain('工作一轮')

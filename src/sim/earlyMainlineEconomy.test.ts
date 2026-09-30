@@ -134,23 +134,8 @@ describe('early mainline from an empty purse', () => {
     fuseTier(save, 1)
     claimCurrent(save)
 
-    save = pumpHerbs(save, 2)
-    expect(bankQty(save, 'herb')).toBeGreaterThanOrEqual(2)
-    const fighter = restingWorkers(save).find((worker) => worker.hp >= worker.hpMax && worker.fatigueDebt === 0)
-    expect(fighter, '出征需要一名满血苦工').toBeTruthy()
-    expect(startCombat(save, 0, [fighter!.id]).ok).toBe(true)
-    claimCurrent(save)
     expect(guideQuestView(save)?.taskId).toBe('level2')
     claimCurrent(save)
-
-    const enc = save.encounters[0] as EnemyEncounter
-    const now = save.lastTick || Date.now()
-    endEnemyCombat(save, enc, now, 'win', '胜')
-    const home = enc.combat?.phaseEndsAt ?? now
-    stepEnemyCombat(save, enc, home)
-    const loot = claimLoot(save, 0, home)
-    expect(loot.ok, loot.ok ? '' : loot.reason).toBe(true)
-    healCamp(save)
 
     save = runAlchemy(save, (current) => (current.stations.alchemy.completed ?? 0) >= 1 && potionKinds(current).length >= 1)
     expect(save.stations.alchemy.completed).toBeGreaterThanOrEqual(1)
@@ -172,6 +157,20 @@ describe('early mainline from an empty purse', () => {
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(target!.hp).toBe(target!.hpMax)
     claimCurrent(save)
+    expect(guideQuestView(save)?.taskId).toBe('combat')
+    save = pumpHerbs(save, 2)
+    const fighter = restingWorkers(save).find((worker) => worker.hp >= worker.hpMax && worker.fatigueDebt === 0)
+    expect(fighter, '出征需要一名满血苦工').toBeTruthy()
+    expect(startCombat(save, 0, [fighter!.id]).ok).toBe(true)
+    claimCurrent(save)
+    const enc = save.encounters[0] as EnemyEncounter
+    const now = save.lastTick || Date.now()
+    endEnemyCombat(save, enc, now, 'win', '胜')
+    const home = enc.combat?.phaseEndsAt ?? now
+    stepEnemyCombat(save, enc, home)
+    const loot = claimLoot(save, 0, home)
+    expect(loot.ok, loot.ok ? '' : loot.reason).toBe(true)
+    healCamp(save)
     expect(guideQuestView(save)?.taskId).toBe('autoLine')
     expect(toggleStationAuto(save, 'herbalism').ok).toBe(true)
     claimCurrent(save)

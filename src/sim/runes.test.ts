@@ -60,7 +60,7 @@ describe('rune slot unlock', () => {
     const save = createSave()
     expect(save.knightLevel).toBe(1)
     expect(isRuneSlotUnlocked(save)).toBe(false)
-    expect(runeSlotLockedTip()).toBe('完成主线「升到酋长 18 级（开放铭刻、符文槽）」后开启')
+    expect(runeSlotLockedTip()).toBe('完成主线「升到18级：今晚能刻一枚符」后开启')
     expect(runeSlotTapKind(save, true)).toBe('locked')
     expect(runeSlotTapKind(save, false)).toBe('locked')
     expect(confirmableRunePicks(save, { a: 'runeSharp' }, ['a'])).toEqual({})

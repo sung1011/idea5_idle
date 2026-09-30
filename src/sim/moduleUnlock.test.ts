@@ -30,8 +30,8 @@ describe('module unlock by knight level', () => {
     expect(isModuleUnlocked(save, 'tech')).toBe(false)
     expect(isModuleUnlocked(save, 'market')).toBe(false)
     expect(isModuleUnlocked(save, 'herb')).toBe(false)
-    expect(moduleLockedTip('tech')).toBe('完成主线「升到酋长 11 级（开放科技）」后开启')
-    expect(moduleLockedTip('hunting')).toBe('完成主线「升到酋长 6 级（开放狩猎、集市）」后开启')
+    expect(moduleLockedTip('tech')).toBe('完成主线「升到11级：今晚能点一项科技」后开启')
+    expect(moduleLockedTip('hunting')).toBe('完成主线「升到6级：今晚能出门打猎」后开启')
     save.knightLevel = 8
     expect(isModuleUnlocked(save, 'market')).toBe(false)
     expect(isModuleUnlocked(save, 'dungeon')).toBe(false)
@@ -69,7 +69,7 @@ describe('module unlock by knight level', () => {
     expect(locked.workers[0].assignment).toBeNull()
     expect(assignWorker(locked, locked.workers[0].id, 'mining')).toEqual({
       ok: false,
-      reason: '完成主线「升到酋长 16 级（开放采矿）」后开启',
+      reason: '完成主线「升到16级：今晚能开矿」后开启',
     })
   })
 

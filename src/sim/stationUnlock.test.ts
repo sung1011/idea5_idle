@@ -26,7 +26,7 @@ describe('stationUnlock by knight level', () => {
     expect(isStationUnlocked(save, 'alchemy')).toBe(false)
     expect(isStationUnlocked(save, 'hunting')).toBe(false)
     expect(isStationUnlocked(save, 'inscription')).toBe(false)
-    expect(stationLockedTip('hunting')).toBe('完成主线「升到酋长 6 级（开放狩猎、集市）」后开启')
+    expect(stationLockedTip('hunting')).toBe('完成主线「升到6级：今晚能出门打猎」后开启')
     expect(stationUnlockKnightLevel('alchemy')).toBe(2)
     expect(stationUnlockKnightLevel('inscription')).toBe(18)
     expect(STATION_UNLOCK_KNIGHT).toEqual({
@@ -58,13 +58,13 @@ describe('stationUnlock by knight level', () => {
   it('tips the next locked station in a workshop group', () => {
     const save = createSave()
     expect(nextLockedStation(save, ['hunting', 'cooking'])).toBe('hunting')
-    expect(workshopGroupLockedTip(save, ['hunting', 'cooking'])).toBe('完成主线「升到酋长 6 级（开放狩猎、集市）」后开启')
-    expect(workshopGroupLockedTip(save, ['mining', 'inscription'])).toBe('完成主线「升到酋长 16 级（开放采矿）」后开启')
+    expect(workshopGroupLockedTip(save, ['hunting', 'cooking'])).toBe('完成主线「升到6级：今晚能出门打猎」后开启')
+    expect(workshopGroupLockedTip(save, ['mining', 'inscription'])).toBe('完成主线「升到16级：今晚能开矿」后开启')
     unlockPlayableStations(save, 16)
-    expect(workshopGroupLockedTip(save, ['mining', 'inscription'])).toBe('完成主线「升到酋长 18 级（开放铭刻、符文槽）」后开启')
+    expect(workshopGroupLockedTip(save, ['mining', 'inscription'])).toBe('完成主线「升到18级：今晚能刻一枚符」后开启')
     const huntingOpen = createSave()
     unlockPlayableStations(huntingOpen, 6)
-    expect(workshopGroupLockedTip(huntingOpen, ['hunting', 'cooking'])).toBe('完成主线「升到酋长 8 级（开放烹饪、伙食、地牢）」后开启')
+    expect(workshopGroupLockedTip(huntingOpen, ['hunting', 'cooking'])).toBe('完成主线「升到8级：今晚能做饭下地牢」后开启')
     expect(workshopGroupLockedTip(save, ['herbalism', 'alchemy'])).toBeNull()
   })
 
@@ -74,12 +74,12 @@ describe('stationUnlock by knight level', () => {
     spawnWorker(save)
     expect(assignIdleWorker(save, 'mining')).toEqual({
       ok: false,
-      reason: '完成主线「升到酋长 16 级（开放采矿）」后开启',
+      reason: '完成主线「升到16级：今晚能开矿」后开启',
     })
     expect(save.workers[0].assignment).toBeNull()
     expect(assignIdleWorker(save, 'hunting')).toEqual({
       ok: false,
-      reason: '完成主线「升到酋长 6 级（开放狩猎、集市）」后开启',
+      reason: '完成主线「升到6级：今晚能出门打猎」后开启',
     })
     expect(assignIdleWorker(save, 'alchemy').ok).toBe(false)
     expect(save.workers[0].assignment).toBeNull()
@@ -88,7 +88,7 @@ describe('stationUnlock by knight level', () => {
     expect(save.workers[0].assignment).toBe('herbalism')
     expect(assignWorker(save, save.workers[0].id, 'mining')).toEqual({
       ok: false,
-      reason: '完成主线「升到酋长 16 级（开放采矿）」后开启',
+      reason: '完成主线「升到16级：今晚能开矿」后开启',
     })
     expect(save.workers[0].assignment).toBe('herbalism')
     expect(assignWorker(save, save.workers[0].id, null).ok).toBe(true)

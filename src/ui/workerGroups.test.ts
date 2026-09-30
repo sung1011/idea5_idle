@@ -346,7 +346,7 @@ describe('assign resting to first empty slot', () => {
     expect(firstEmptyDispatchStation(save)).toBeNull()
     expect(assignRestingToFirstEmpty(save)).toEqual({
       ok: false,
-      reason: '完成主线「升到酋长 6 级（开放狩猎、集市）」后开启',
+      reason: '完成主线「升到6级：今晚能出门打猎」后开启',
     })
     expect(next.assignment).toBeNull()
 

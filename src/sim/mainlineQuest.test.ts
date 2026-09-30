@@ -42,11 +42,11 @@ describe('mainline schedule', () => {
       'autoHerb',
       'herbQueue',
       'fuse',
-      'combat',
       'level2',
       'alchemy',
       'potionInstall',
       'potionUse',
+      'combat',
       'autoLine',
       'level3',
       'firstBlood',
@@ -56,32 +56,33 @@ describe('mainline schedule', () => {
       'slotsFull',
       'level5',
       'blueWorker',
+      'herbSickle',
       'level6',
       'huntStart',
-      'market',
       'huntHaul',
+      'market',
       'pawn',
       'timed',
       'level7',
-      'herbSickle',
+      'huntWolf',
+      'marketHigh',
       'level8',
       'cookStart',
+      'cookStew',
+      'stockFood',
       'restFood',
       'dungeon',
-      'stockFood',
       'chest',
       'dungeonBoth',
       'level9',
-      'huntWolf',
-      'marketHigh',
       'level10',
       'herbAssign',
       'herb',
       'herbCounter',
+      'herbPayout',
       'level11',
       'tech',
       'techTabs',
-      'cookStew',
       'level12',
       'marketSlot',
       'chapter2',
@@ -89,6 +90,7 @@ describe('mainline schedule', () => {
       'beast',
       'beastManual',
       'boneSoup',
+      'feast',
       'level14',
       'cyanWorker',
       'dungeonGold',
@@ -101,8 +103,6 @@ describe('mainline schedule', () => {
       'crystal',
       'miningIron',
       'level17',
-      'herbPayout',
-      'oreDeal',
       'veteran',
       'level18',
       'inscribe',
@@ -114,11 +114,11 @@ describe('mainline schedule', () => {
       'miningMithril',
       'inscribe5',
       'level20',
+      'oreDeal',
       'treasure',
       'scout',
       'raid',
       'guard',
-      'feast',
       'chapter5',
       'banner1',
       'level22',
@@ -134,11 +134,11 @@ describe('mainline schedule', () => {
     const byId = new Map(MAINLINE_TASKS.map((row) => [row.id, row]))
     expect(byId.get('recruit')?.reward).toEqual({ gold: 20, xp: 20 })
     expect(byId.get('market')?.reward).toEqual({ gold: 20, xp: 20 })
-    expect(byId.get('herb')?.goal).toBe('割到一株珍贵草药')
+    expect(byId.get('herb')?.goal).toBe('割到一株珍贵草药就行')
     expect(byId.get('herb')?.reward).toEqual({ probes: 1, xp: 20 })
     expect(byId.get('level6')?.reward).toEqual({ gold: 20, xp: 15 })
     expect(byId.get('level22')?.reward).toEqual({ diamonds: 24, xp: 10 })
-    expect(byId.get('level30')?.title).toBe('升到酋长 30 级')
+    expect(byId.get('level30')?.title).toBe('升到30级：今晚能把六站立住')
   })
 
   it('shows the next level task once the open steps are done, and inserts that level’s group after it', () => {
@@ -146,8 +146,8 @@ describe('mainline schedule', () => {
     save.guideQuestStep = mainlineStepOf('level6')
     save.knightLevel = 1
     expect(guideQuestView(save)?.waiting).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('升到酋长 6 级（开放狩猎、集市）')
-    expect(guideQuestView(save)?.unlockNote).toBe('完成后开启：狩猎、集市')
+    expect(guideQuestView(save)?.goal).toBe('升到6级：今晚能出门打猎')
+    expect(guideQuestView(save)?.unlockNote).toBe('本章：打猎，肉拿去换')
     expect(claimGuideQuest(save).ok).toBe(false)
     expect(isModuleUnlocked(save, 'hunting')).toBe(false)
 
