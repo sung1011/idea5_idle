@@ -39,7 +39,14 @@ import {
   reinforceDungeonCombat,
   startDungeonCombat,
 } from './dungeon'
-import { dungeonChapterScale, dungeonStunS, onDungeonBreak, onDungeonWake, rotateDungeonTarget } from './dungeonTables'
+import {
+  dungeonAffixEffect,
+  dungeonChapterScale,
+  dungeonStunS,
+  onDungeonBreak,
+  onDungeonWake,
+  rotateDungeonTarget,
+} from './dungeonTables'
 import { exploreBoard } from './encounters'
 import { spawnWorkerWith } from './recruit'
 import { DAY_LENGTH_S, formatClock } from './tables'
@@ -431,7 +438,8 @@ describe('dungeon mvp', () => {
     ])
     expect(DUNGEON_AFFIX_FX.thickHideHpMul).toBe(1.4)
     expect(DUNGEON_AFFIX_FX.ironShieldBonus).toBe(2)
-    expect(DUNGEON_AFFIX_FX.workshopRageMul).toBe(1.5)
+    expect(DUNGEON_AFFIX_FX.workshopRageMul).toBe(0)
+    expect(dungeonAffixEffect('workshopRage')).toContain('0')
     expect(dungeonStunS(true)).toBe(2)
     const fresh = createSave()
     expect(fresh.dungeon.encounters).toHaveLength(2)

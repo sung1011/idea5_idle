@@ -67,7 +67,6 @@ import {
 import { hydrateWorker, spawnWorker, spawnWorkerWith } from './recruit'
 import { settleOffline } from './offline'
 import { assignWorker, withdrawWorker } from './assign'
-import { campBandageHealAmount } from './tech'
 import { tick, ticks } from './tick'
 import type { CombatAttrId, EnemyCombat, EnemyEncounter, Save } from './types'
 
@@ -764,8 +763,8 @@ describe('rest heal', () => {
   })
 })
 
-describe('enemy hits workshop crew', () => {
-  it('damages stationed workers, skips rest, and leaves residual hp on duty', () => {
+describe('enemy does not hit workshop crew', () => {
+  it('damages only the fighting party and leaves stationed and resting workers alone', () => {
     const save = keepStationsOpen(createSave())
     const front = spawnWorkerWith(save, 1, 'laborer')
     const shop = spawnWorkerWith(save, 1, 'miner')
@@ -786,52 +785,23 @@ describe('enemy hits workshop crew', () => {
     stepEnemyCombat(save, enc, now + 1_000)
     expect(combat.workers[0].hp).toBe(frontHp - combat.enemy.atk)
     expect(front.hp).toBe(combat.workers[0].hp)
-    expect(shop.hp).toBe(shopHp - combat.enemy.atk)
+    expect(shop.hp).toBe(shopHp)
     expect(shop.assignment).toBe('mining')
     expect(rest.hp).toBe(restHp)
-    expect(enc.combat?.logs.some((row) => row.text.includes('工坊'))).toBe(true)
+    expect(enc.combat?.logs.some((row) => row.text.includes('工坊'))).toBe(false)
 
     shop.hp = 2
-    combat.enemy.atk = 1
+    combat.enemy.atk = 8
     combat.enemy.nextActAt = now + 33_000
     combat.workers[0].nextActAt = now + 40_000
+    const frontBefore = front.hp
     stepEnemyCombat(save, enc, now + 33_000)
-    expect(shop.hp).toBe(1)
+    expect(shop.hp).toBe(2)
     expect(shop.assignment).toBe('mining')
+    expect(front.hp).toBeLessThan(frontBefore)
   })
 
-  it('sends a workshop worker at 0 HP back to rest with bandage and food, without a march', () => {
-    const save = keepStationsOpen(createSave())
-    const front = spawnWorkerWith(save, 1, 'laborer')
-    const shop = spawnWorkerWith(save, 1, 'miner')
-    assignWorker(save, shop.id, 'mining')
-    shop.hpMax = 20
-    shop.hp = 4
-    save.techLevels = { rematchSupply: 1 }
-    save.unlockedTechIds = ['rematchSupply']
-    save.bank.meal = 2
-    save.restFoodId = 'meal'
-    save.stations.mining.progress = 5
-    const t0 = 70_000
-    const enc = testEnemy({ targetRuleId: 'workshopBias' })
-    putEnemy(save, enc)
-    const combat = beginEnemyCombat(enc, [front], t0)
-    combat.workers[0].nextActAt = t0 + 9_000
-    combat.enemy.nextActAt = t0 + 1_000
-    combat.enemy.atk = 10
-    stepEnemyCombat(save, enc, t0 + 1_000)
-    expect(shop.assignment).toBeNull()
-    const bandage = campBandageHealAmount(save, shop.hpMax)
-    expect(bandage).toBeGreaterThan(0)
-    expect(shop.hp).toBeGreaterThan(bandage)
-    expect(save.bank.meal).toBe(1)
-    expect(save.stations.mining.progress).toBe(0)
-    expect(save.stations.mining.stallReason).toBeNull()
-    expect(combat.returning?.some((row) => row.id === shop.id)).toBe(false)
-    expect(enc.combat?.logs.some((row) => row.text.includes('工坊'))).toBe(true)
-  })
-
-  it('holds the enemy bar at 0 with no workshop hits until a reinforcement lands', () => {
+  it('holds the enemy bar at 0 and still ignores the workshop after a reinforcement lands', () => {
     const save = keepStationsOpen(createSave())
     const front = spawnWorkerWith(save, 1, 'laborer')
     const shop = spawnWorkerWith(save, 1, 'miner')
@@ -873,31 +843,12 @@ describe('enemy hits workshop crew', () => {
     expect(actChargeFill(combat.enemy.spd, combat.enemy.nextActAt, t0 + 9_000)).toBe(0)
     expect(shop.hp).toBe(shopHp)
 
+    const benchHp = bench.hp
     stepEnemyCombat(save, enc, combat.enemy.nextActAt)
-    expect(shop.hp).toBeLessThan(shopHp)
-    expect(combat.logs.some((row) => row.text.includes('工坊'))).toBe(true)
-  })
-
-  it('does not eat rest food when a workshop hit leaves residual HP', () => {
-    const save = keepStationsOpen(createSave())
-    const front = spawnWorkerWith(save, 1, 'laborer')
-    const shop = spawnWorkerWith(save, 1, 'miner')
-    assignWorker(save, shop.id, 'mining')
-    save.bank.meal = 2
-    save.restFoodId = 'meal'
-    const t0 = 60_000
-    shop.hp = 3
-    const enc = testEnemy({ targetRuleId: 'workshopBias' })
-    putEnemy(save, enc)
-    const combat = beginEnemyCombat(enc, [front], t0)
-    combat.workers[0].nextActAt = t0 + 9_000
-    combat.enemy.nextActAt = t0 + 1_000
-    combat.enemy.atk = 2
-    stepEnemyCombat(save, enc, t0 + 1_000)
-    expect(shop.hp).toBe(1)
-    expect(save.bank.meal).toBe(2)
+    expect(shop.hp).toBe(shopHp)
     expect(shop.assignment).toBe('mining')
-    expect(combat.workers[0].hp).toBe(combat.workers[0].hpMax)
+    expect(bench.hp).toBeLessThan(benchHp)
+    expect(combat.logs.some((row) => row.text.includes('工坊'))).toBe(false)
   })
 })
 

@@ -409,7 +409,7 @@ export type Worker = {
    */
   combatAttrs: CombatAttrId[]
   /**
-   * 工坊劳损累计。成功产出按公式加债（含近满血一口），≥1 时扣 floor 血并减债。
+   * 工坊劳损累计。站点掉血词条按进度或完成后写入，≥1 时扣 floor 血并减债。
    * 工人界面底色读 hp - fatigueDebt。旧档缺字段 hydrate 为 0。
    */
   fatigueDebt: number
@@ -459,8 +459,19 @@ export type StationState = {
   gatherPauseUntil?: number | null
   /** 最近一次制造结算文案（软失败 / 铭成）。 */
   craftNotice?: string | null
-  /** 站内连招 / 毒雾 / 挫败。旧档缺字段 hydrate 为零。 */
+  /** 站内连招 / 毒雾 / 挫败。旧档缺字段 hydrate 为零。不再参与掉血。 */
   fatigueCombo: StationFatigueCombo
+  /**
+   * 本时段掉血词条，0～3 条，种类不重复。
+   * 缺字段或窗口过期时按当前站等级重抽。
+   */
+  wearAffixes: StationWearKind[]
+  /** 词条所属的 8 小时窗口。-1 表示还没抽过。 */
+  wearWindow: number
+  /** 本轮已经结算过的进度比例（0～1），持续损耗按这个增量扣。 */
+  wearCredited: number
+  /** 本轮随机惊吓是否已经触发。一轮最多一次。 */
+  wearScareHit: boolean
   /** 封闭：只挡自动拉人。正在做的这一轮会做完。 */
   closed: boolean
   /** 自动线：无限排队。一轮做完回营地队尾，再拉满血队首。名额见 `autoLineQuota`。 */
@@ -469,7 +480,10 @@ export type StationState = {
   manualRounds: number
 }
 
-/** 站内劳损连招。不跨站。 */
+/** 站点掉血词条。同一站可同时挂多条。 */
+export type StationWearKind = 'dot' | 'scare' | 'finish'
+
+/** 站内劳损连招。不跨站。不再参与掉血。 */
 export type StationFatigueCombo = {
   /** 采药倦意 / 同菜连锅 / 深挖 / 连竿 */
   streak: number

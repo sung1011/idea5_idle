@@ -70,7 +70,7 @@ export function alchemyStationHelpPlay(stationLevel?: unknown): string {
 }
 
 export const STATION_HP_HELP =
-  '在岗体力影响效率：正常 100%，残血 80%，空血 50%。残血进入营地才吃当前伙食；药剂点槽给在岗救急。'
+  '在岗体力影响效率：正常 100%，残血 80%，空血 50%。掉血词条写在站点详情里，每 8 小时换一批，站等级越高条数越多、掉得越狠。残血进入营地才吃当前伙食；药剂点槽给在岗救急。'
 
 const FIELD_LABEL = {
   name: '名称',

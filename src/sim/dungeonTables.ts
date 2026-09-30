@@ -36,7 +36,8 @@ export const DUNGEON_AFFIX_FX = {
   jaggedExtra: 4,
   richVeinDiamondMul: 1.5,
   shortStunDelta: -1,
-  workshopRageMul: 1.5,
+  /** 旧砸场倍率。战斗已不再打在岗，这个数不再乘伤害。 */
+  workshopRageMul: 0,
   reinforceDelayMs: 4000,
   dullEdgeDamageMul: 1,
 } as const
@@ -91,7 +92,7 @@ export function dungeonAffixEffect(id: DungeonAffixId, scope: CombatAffixScope =
     case 'shortStun':
       return `破防硬直 ${DUNGEON_STUN_S + DUNGEON_AFFIX_FX.shortStunDelta}s（基准 ${DUNGEON_STUN_S}s ${DUNGEON_AFFIX_FX.shortStunDelta}s）。只作用于本单。`
     case 'workshopRage':
-      return `本单 Boss 打中工坊在岗苦工的伤害 ×${DUNGEON_AFFIX_FX.workshopRageMul}。不改变对场上苦工的伤害。`
+      return `敌人只打本场出战苦工。工坊在岗受到的伤害是 0，本词缀不额外加伤。`
     case 'slowReinforce':
       return `增援入场后延迟 ${DUNGEON_AFFIX_FX.reinforceDelayMs / 1000}s 才能出手。开战首发不受影响。只作用于本单。`
     case 'dullEdge':
@@ -116,7 +117,7 @@ export function battlefieldAffixEffect(id: DungeonAffixId): string {
     case 'shortStun':
       return `破防硬直 ${DUNGEON_AFFIX_FX.shortStunDelta}s。只作用于本单。`
     case 'workshopRage':
-      return `该敌打中工坊在岗苦工的伤害 ×${DUNGEON_AFFIX_FX.workshopRageMul}。不改变对场上苦工的伤害。`
+      return `该敌只打本场出战苦工。工坊在岗受到的伤害是 0，本词缀不额外加伤。`
     case 'slowReinforce':
       return `增援入场后延迟 ${DUNGEON_AFFIX_FX.reinforceDelayMs / 1000}s 才能出手。开战首发不受影响。`
     case 'dullEdge':
@@ -129,7 +130,7 @@ export type DungeonMechanicId = (typeof DUNGEON_MECHANIC_IDS)[number]
 
 export const DUNGEON_MECHANIC_LABEL: Record<DungeonMechanicId, string> = {
   cleave: '横扫',
-  workshopSmash: '砸场',
+  workshopSmash: '压场',
   enrage: '狂暴',
 }
 
@@ -140,11 +141,11 @@ export type DungeonPhaseDef = {
   targetRuleId: EnemyTargetRuleId
 }
 
-/** 深渊狱卒：砸场 + 工坊目标，盾更厚。 */
+/** 深渊狱卒：压场打出战编制，盾更厚。 */
 export const DUNGEON_JAILER_PHASES: readonly DungeonPhaseDef[] = [
-  { shield: 7, weaknesses: ['fire', 'axe', 'wind'], mechanic: 'workshopSmash', targetRuleId: 'workshopBias' },
-  { shield: 9, weaknesses: ['ice', 'polearm', 'lightning'], mechanic: 'workshopSmash', targetRuleId: 'sameStation' },
-  { shield: 12, weaknesses: ['dark', 'sword', 'bow'], mechanic: 'enrage', targetRuleId: 'workshopBias' },
+  { shield: 7, weaknesses: ['fire', 'axe', 'wind'], mechanic: 'workshopSmash', targetRuleId: 'all' },
+  { shield: 9, weaknesses: ['ice', 'polearm', 'lightning'], mechanic: 'workshopSmash', targetRuleId: 'cleave2' },
+  { shield: 12, weaknesses: ['dark', 'sword', 'bow'], mechanic: 'enrage', targetRuleId: 'lowestHp' },
 ]
 
 /** 黑市掮客：横扫 + 残血点杀，盾更薄。 */
@@ -158,8 +159,8 @@ export const DUNGEON_PHASES: readonly DungeonPhaseDef[] = DUNGEON_JAILER_PHASES
 
 export const DUNGEON_TARGET_ROTATION: readonly EnemyTargetRuleId[] = [
   'cleave2',
-  'workshopBias',
-  'sameStation',
+  'all',
+  'frontlineBias',
   'rand2',
   'lowestHp',
 ]
@@ -199,7 +200,7 @@ export const DUNGEON_AFFIX_DEFS: Readonly<Record<DungeonAffixId, { label: string
   jagged: { label: '尖刺', tip: '苦工挨打额外受伤', effect: dungeonAffixEffect('jagged') },
   richVein: { label: '富矿', tip: '本单货币更多', effect: dungeonAffixEffect('richVein') },
   shortStun: { label: '急醒', tip: '破防硬直更短', effect: dungeonAffixEffect('shortStun') },
-  workshopRage: { label: '砸场强化', tip: '工坊波及更疼', effect: dungeonAffixEffect('workshopRage') },
+  workshopRage: { label: '砸场强化', tip: '不再打在岗', effect: dungeonAffixEffect('workshopRage') },
   slowReinforce: { label: '迟援', tip: '增援出手更慢', effect: dungeonAffixEffect('slowReinforce') },
   dullEdge: { label: '钝刃', tip: '克制伤害失效', effect: dungeonAffixEffect('dullEdge') },
 }
@@ -243,7 +244,7 @@ export type DungeonBossProfile = {
   reinforceDelayMs: number
   /** 打场上工人的基准额外伤。掮客的尖刺味。 */
   jaggedExtra: number
-  /** 工坊伤害基准倍率。狱卒的砸场味。与词缀砸场强化相乘。 */
+  /** 旧工坊伤害倍率。战斗不再打在岗，结算不再读取。 */
   workshopMul: number
   /** 克制加成保留比例。1 不削弱；越小越接近钝刃。 */
   counterKeep: number

@@ -11,8 +11,20 @@ import {
   xpToNextLevel,
   type MiningCategoryId,
 } from './tables'
-import type { ActionResult, CategoryId, MiningNodeState, Save, StationFatigueCombo, StationId, StationState } from './types'
+import { isStationWearKind } from './stationWear'
+import type { ActionResult, CategoryId, MiningNodeState, Save, StationFatigueCombo, StationId, StationState, StationWearKind } from './types'
 import { blankFatigueCombo } from './workshopHp'
+
+function hydrateWearAffixes(raw: unknown): StationWearKind[] {
+  if (!Array.isArray(raw)) return []
+  const out: StationWearKind[] = []
+  for (const id of raw) {
+    if (!isStationWearKind(id) || out.includes(id)) continue
+    out.push(id)
+    if (out.length >= 3) break
+  }
+  return out
+}
 
 function hydrateFatigueCombo(raw: unknown): StationFatigueCombo {
   const src = raw && typeof raw === 'object' ? (raw as Partial<StationFatigueCombo>) : {}
@@ -164,6 +176,10 @@ export function blankStation(stationId: StationId): StationState {
     gatherPauseUntil: null,
     craftNotice: null,
     fatigueCombo: blankFatigueCombo(),
+    wearAffixes: [],
+    wearWindow: -1,
+    wearCredited: 0,
+    wearScareHit: false,
     closed: false,
     auto: false,
     manualRounds: 0,
@@ -203,6 +219,16 @@ export function hydrateStationState(stationId: StationId, incoming?: Partial<Sta
         : null,
     craftNotice: typeof incoming.craftNotice === 'string' ? incoming.craftNotice : null,
     fatigueCombo: hydrateFatigueCombo(incoming.fatigueCombo),
+    wearAffixes: hydrateWearAffixes(incoming.wearAffixes),
+    wearWindow:
+      typeof incoming.wearWindow === 'number' && Number.isFinite(incoming.wearWindow)
+        ? Math.floor(incoming.wearWindow)
+        : -1,
+    wearCredited:
+      typeof incoming.wearCredited === 'number' && Number.isFinite(incoming.wearCredited)
+        ? Math.min(1, Math.max(0, incoming.wearCredited))
+        : 0,
+    wearScareHit: incoming.wearScareHit === true,
     closed: incoming.closed === true,
     auto: incoming.auto === true,
     manualRounds:

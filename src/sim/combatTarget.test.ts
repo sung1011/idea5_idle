@@ -78,10 +78,10 @@ describe('enemy target rule tables', () => {
     ])
     expect(Object.keys(ENEMY_TARGET_RULE_WEIGHTS.minion).sort()).toEqual(['frontlineBias', 'rand1'])
     expect(Object.keys(ENEMY_TARGET_RULE_WEIGHTS.elite).sort()).toEqual(['cleave2', 'lowestHp', 'rand2'])
-    expect(Object.keys(ENEMY_TARGET_RULE_WEIGHTS.boss).sort()).toEqual(['all', 'lowestHp', 'rand1', 'workshopBias'])
+    expect(Object.keys(ENEMY_TARGET_RULE_WEIGHTS.boss).sort()).toEqual(['all', 'frontlineBias', 'lowestHp', 'rand1'])
     expect(ENEMY_TARGET_RULE_WEIGHTS.minion.rand1).toBeGreaterThan(ENEMY_TARGET_RULE_WEIGHTS.minion.frontlineBias ?? 0)
     expect(ENEMY_TARGET_RULE_WEIGHTS.boss.all).toBe(1)
-    expect(ENEMY_TARGET_RULE_WEIGHTS.boss.workshopBias).toBe(1)
+    expect(ENEMY_TARGET_RULE_WEIGHTS.boss.frontlineBias).toBe(1)
     expect(ENEMY_TARGET_RULE_QUALITY_WEIGHTS.orange?.all).toBe(1)
     expect(isEnemyTargetRuleId('cleave2')).toBe(true)
     expect(isEnemyTargetRuleId('rand4')).toBe(false)
@@ -114,15 +114,16 @@ describe('enemy target rule tables', () => {
 })
 
 describe('enemy target pool and rules', () => {
-  it('pools fighting plus stationed workers and skips rest', () => {
+  it('pools only living fighters and skips stationed and resting workers', () => {
     const { save, front, shop, rest } = partySave()
     const enc = testEnemy()
     const combat = beginEnemyCombat(enc, [front], 1_000)
     const pool = collectEnemyTargetPool(save, combat)
-    expect(pool.map((row) => row.id).sort()).toEqual([front.id, shop.id].sort())
-    expect(pool.find((row) => row.id === front.id)?.lane).toBe('frontline')
-    expect(pool.find((row) => row.id === shop.id)?.lane).toBe('workshop')
+    expect(pool.map((row) => row.id)).toEqual([front.id])
+    expect(pool[0]?.lane).toBe('frontline')
+    expect(pool.some((row) => row.id === shop.id)).toBe(false)
     expect(pool.some((row) => row.id === rest.id)).toBe(false)
+    expect(shop.assignment).toBe('mining')
   })
 
   it('applies each table rule', () => {
@@ -134,19 +135,19 @@ describe('enemy target pool and rules', () => {
     const pool = [a, b, c, d, e]
     const zero = () => 0
 
-    expect(applyEnemyTargetRule(pool, 'all', zero).map((row) => row.id)).toEqual(['a', 'b', 'c', 'd', 'e'])
+    expect(applyEnemyTargetRule(pool, 'all', zero).map((row) => row.id)).toEqual(['a', 'b'])
     expect(applyEnemyTargetRule(pool, 'rand1', zero).map((row) => row.id)).toEqual(['a'])
     expect(applyEnemyTargetRule(pool, 'rand2', zero).map((row) => row.id)).toEqual(['a', 'b'])
-    expect(applyEnemyTargetRule(pool, 'rand3', zero).map((row) => row.id)).toEqual(['a', 'b', 'c'])
+    expect(applyEnemyTargetRule(pool, 'rand3', zero).map((row) => row.id)).toEqual(['a', 'b'])
     expect(applyEnemyTargetRule([a], 'rand3', zero).map((row) => row.id)).toEqual(['a'])
-    expect(applyEnemyTargetRule(pool, 'lowestHp', zero).map((row) => row.id)).toEqual(['c'])
+    expect(applyEnemyTargetRule(pool, 'lowestHp', zero).map((row) => row.id)).toEqual(['a'])
     expect(applyEnemyTargetRule(pool, 'highestHp', zero).map((row) => row.id)).toEqual(['b'])
-    expect(applyEnemyTargetRule(pool, 'workshopBias', zero).map((row) => row.id)).toEqual(['c', 'd', 'e'])
+    expect(applyEnemyTargetRule(pool, 'workshopBias', zero).map((row) => row.id)).toEqual(['a', 'b'])
     expect(applyEnemyTargetRule(pool, 'frontlineBias', zero).map((row) => row.id)).toEqual(['a', 'b'])
-    expect(applyEnemyTargetRule([c, d, e], 'frontlineBias', zero).map((row) => row.id)).toEqual(['c', 'd', 'e'])
+    expect(applyEnemyTargetRule([c, d, e], 'frontlineBias', zero)).toEqual([])
     expect(applyEnemyTargetRule([a, b], 'workshopBias', zero).map((row) => row.id)).toEqual(['a', 'b'])
-    expect(applyEnemyTargetRule(pool, 'sameStation', zero).map((row) => row.id)).toEqual(['c', 'd'])
-    expect(applyEnemyTargetRule(pool, 'cleave2', zero).map((row) => row.id)).toEqual(['c', 'a'])
+    expect(applyEnemyTargetRule(pool, 'sameStation', zero).map((row) => row.id)).toEqual(['a'])
+    expect(applyEnemyTargetRule(pool, 'cleave2', zero).map((row) => row.id)).toEqual(['a', 'b'])
   })
 
   it('picks random and hp helpers with stable ties', () => {
@@ -163,11 +164,12 @@ describe('enemy target pool and rules', () => {
     const enc = testEnemy({ targetRuleId: 'workshopBias' })
     const combat = beginEnemyCombat(enc, [front], 2_000)
     const hits = pickEnemyTargets(save, combat, 'workshopBias', () => 0)
-    expect(hits.map((row) => row.id)).toEqual([shop.id])
+    expect(hits.map((row) => row.id)).toEqual([front.id])
+    expect(hits.some((row) => row.id === shop.id)).toBe(false)
     expect(pickEnemyTargets(save, combat, 'frontlineBias', () => 0).map((row) => row.id)).toEqual([front.id])
   })
 
-  it('drops the workshop out of the pool when nobody is left on the field', () => {
+  it('drops the pool when nobody is left on the field', () => {
     const { save, front, shop } = partySave()
     const enc = testEnemy({ targetRuleId: 'workshopBias' })
     const combat = beginEnemyCombat(enc, [front], 2_000)

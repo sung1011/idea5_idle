@@ -7,17 +7,12 @@ import { campBandageHealAmount } from './tech'
 import { currentSpeed } from './query'
 import { recruitWorker } from './recruit'
 import { setRollOverride } from './rng'
+import { pinStationWear } from './stationWear'
 import { completeCycle, stepStation } from './stations'
 import { ticks } from './tick'
 import type { Save, Worker } from './types'
 import { hpBarFill, hpBarTone } from '../ui/hpBar'
 import {
-  applyWorkshopCycleDrain,
-  equivalentCyclesIn,
-  FATIGUE_DEBT_RATIO,
-  FATIGUE_NEAR_FULL_PIP,
-  FATIGUE_SIX_HOUR_S,
-  FATIGUE_STATION_MUL,
   HP_EMPTY_RATIO,
   HP_WOUNDED_RATIO,
   restHealAmount,
@@ -83,6 +78,7 @@ describe('workshop HP formulas', () => {
     const save = roster(1)
     const worker = save.workers[0]
     assignWorker(save, worker.id, 'mining')
+    pinStationWear(save, 'mining', ['dot'])
     const before = worker.hp
     expect(completeCycle(save, 'mining')).toBe(true)
     expect(worker.hp).toBe(before)
@@ -99,7 +95,7 @@ describe('workshop HP formulas', () => {
     expect(worker.hp).toBeGreaterThan(0)
   })
 
-  it('does not add fatigue on stall; hazard and soft fail add light debt only', () => {
+  it('does not add fatigue on stall, hazard, or soft fail unless a wear affix says so', () => {
     const idle = roster(1)
     assignWorker(idle, idle.workers[0].id, 'cooking')
     const idleHp = idle.workers[0].hp
@@ -111,23 +107,22 @@ describe('workshop HP formulas', () => {
     setRollOverride(() => 0)
     const hazard = roster(1)
     assignWorker(hazard, hazard.workers[0].id, 'hunting')
+    pinStationWear(hazard, 'hunting', [])
     const hazardHp = hazard.workers[0].hp
     expect(completeCycle(hazard, 'hunting')).toBe(true)
     expect(hazard.stations.hunting.gatherNotice).toContain('遇险')
     expect(hazard.workers[0].hp).toBe(hazardHp)
-    expect(hazard.workers[0].fatigueDebt).toBeGreaterThan(0)
-    expect(hazard.workers[0].fatigueDebt).toBeLessThan(1)
+    expect(hazard.workers[0].fatigueDebt).toBe(0)
 
     const fail = roster(1)
     fail.bank.wildCrystal = 2
     assignWorker(fail, fail.workers[0].id, 'inscription')
+    pinStationWear(fail, 'inscription', [])
     const failHp = fail.workers[0].hp
     expect(completeCycle(fail, 'inscription')).toBe(true)
     expect(fail.stations.inscription.craftNotice).toContain('软失败')
     expect(fail.workers[0].hp).toBe(failHp)
-    expect(fail.workers[0].fatigueDebt).toBeGreaterThan(0)
-    expect(fail.workers[0].fatigueDebt).toBeLessThan(1)
-    expect(fail.stations.inscription.fatigueCombo.frustration).toBe(1)
+    expect(fail.workers[0].fatigueDebt).toBe(0)
   })
 
   it('does not use food to cut workshop drain; empty/wounded bands slow the station', () => {
@@ -147,6 +142,8 @@ describe('workshop HP formulas', () => {
     assignWorker(save, save.workers[0].id, 'mining')
     expect(assignWorker(save, save.workers[1].id, 'mining').ok).toBe(false)
     assignWorker(save, save.workers[2].id, 'herbalism')
+    pinStationWear(save, 'mining', ['dot'])
+    pinStationWear(save, 'herbalism', ['dot'])
     expect(completeCycle(save, 'mining')).toBe(true)
     expect(save.workers[0].fatigueDebt).toBeGreaterThan(0)
     expect(save.workers[1].fatigueDebt).toBe(0)
@@ -194,7 +191,8 @@ describe('workshop HP formulas', () => {
     assignWorker(save, worker.id, 'mining')
     worker.hpMax = 100
     worker.hp = 20
-    expect(applyWorkshopCycleDrain(save, 'mining', 0)).toBe(true)
+    expect(workshopHpWorkMul(worker)).toBe(WORKSHOP_WOUNDED_WORK_MUL)
+    expect(stationHpWorkMul(save, 'mining')).toBe(WORKSHOP_WOUNDED_WORK_MUL)
 
     const rest = roster(1)
     rest.workers[0].hpMax = 100
@@ -213,91 +211,11 @@ describe('workshop HP formulas', () => {
     save.restFoodId = 'meal'
     worker.hpMax = 100
     worker.hp = 20
+    pinStationWear(save, 'mining', [])
     expect(completeCycle(save, 'mining', t0)).toBe(true)
     expect(worker.hp).toBe(20)
     expect(worker.assignment).toBe('mining')
     expect(save.bank.meal).toBe(2)
-  })
-})
-
-describe('station fatigue combos', () => {
-  it('slowly stacks herbalism weariness on consecutive success', () => {
-    const save = roster(1)
-    assignWorker(save, save.workers[0].id, 'herbalism')
-    expect(completeCycle(save, 'herbalism')).toBe(true)
-    const first = save.workers[0].fatigueDebt
-    expect(completeCycle(save, 'herbalism')).toBe(true)
-    expect(save.stations.herbalism.fatigueCombo.streak).toBe(2)
-    expect(save.workers[0].fatigueDebt).toBeGreaterThan(first * 1.5)
-  })
-
-  it('resets cooking combo when the dish changes and weights stew heavier', () => {
-    const save = roster(1)
-    save.stations.cooking.stationLevel = 5
-    save.stations.cooking.unlockedCategories = ['copper', 'iron', 'mithril']
-    save.stations.cooking.selectedCategory = 'copper'
-    save.bank.fish = 2
-    save.bank.meat = 1
-    save.bank.spice = 1
-    assignWorker(save, save.workers[0].id, 'cooking')
-    expect(completeCycle(save, 'cooking')).toBe(true)
-    expect(completeCycle(save, 'cooking')).toBe(true)
-    expect(save.stations.cooking.fatigueCombo.streak).toBe(2)
-    expect(save.stations.cooking.fatigueCombo.key).toBe('copper')
-
-    save.stations.cooking.selectedCategory = 'mithril'
-    const before = save.workers[0].fatigueDebt
-    expect(completeCycle(save, 'cooking')).toBe(true)
-    expect(save.stations.cooking.fatigueCombo.streak).toBe(1)
-    expect(save.stations.cooking.fatigueCombo.key).toBe('mithril')
-    const stewAdd = save.workers[0].fatigueDebt - before
-    expect(stewAdd).toBeGreaterThan(save.workers[0].hpMax * FATIGUE_DEBT_RATIO * FATIGUE_STATION_MUL.cooking)
-  })
-
-  it('raises mining depth fatigue and adds an extra bite when the node empties', () => {
-    const save = roster(1)
-    assignWorker(save, save.workers[0].id, 'mining')
-    const node = save.stations.mining.miningNode
-    expect(node).toBeTruthy()
-    node!.nodeHp = 1
-    const before = save.workers[0].fatigueDebt
-    expect(completeCycle(save, 'mining')).toBe(true)
-    expect(save.stations.mining.miningNode?.nodeHp).toBe(0)
-    expect(save.workers[0].fatigueDebt - before).toBeGreaterThan(
-      save.workers[0].hpMax * FATIGUE_DEBT_RATIO * FATIGUE_STATION_MUL.mining,
-    )
-  })
-
-  it('liquidates inscription frustration on the next success', () => {
-    const save = roster(1)
-    save.bank.wildCrystal = 4
-    assignWorker(save, save.workers[0].id, 'inscription')
-    save.stations.inscription.fatigueCombo.frustration = 3
-    const before = save.workers[0].fatigueDebt
-    setRollOverride(() => 0.99)
-    expect(completeCycle(save, 'inscription')).toBe(true)
-    expect(save.stations.inscription.craftNotice).toContain('铭成')
-    expect(save.workers[0].fatigueDebt - before).toBeGreaterThan(
-      save.workers[0].hpMax * FATIGUE_DEBT_RATIO * FATIGUE_STATION_MUL.inscription * 1.2,
-    )
-    expect(save.stations.inscription.fatigueCombo.frustration).toBe(0)
-  })
-
-  it('stacks alchemy fog on success and decays when the station is idle', () => {
-    const save = roster(1)
-    save.bank.herb = 2
-    assignWorker(save, save.workers[0].id, 'alchemy')
-    expect(completeCycle(save, 'alchemy')).toBe(true)
-    expect(save.stations.alchemy.fatigueCombo.fog).toBe(1)
-    const fogged = save.workers[0].fatigueDebt
-    expect(completeCycle(save, 'alchemy')).toBe(true)
-    expect(save.stations.alchemy.fatigueCombo.fog).toBe(2)
-    expect(save.workers[0].fatigueDebt).toBeGreaterThan(fogged * 1.4)
-
-    save.workers[0].assignment = null
-    const fog = save.stations.alchemy.fatigueCombo.fog
-    const idle = ticks(save, 8)
-    expect(idle.stations.alchemy.fatigueCombo.fog).toBeLessThan(fog)
   })
 })
 
@@ -308,6 +226,7 @@ describe('visible workshop drain', () => {
       const worker = save.workers[0]
       assignWorker(save, worker.id, stationId)
       save.stations[stationId].auto = true
+      pinStationWear(save, stationId, ['dot'])
       const startHp = worker.hp
       expect(startHp).toBe(worker.hpMax)
 
@@ -321,21 +240,6 @@ describe('visible workshop drain', () => {
       expect(again.stations[stationId].completed).toBeGreaterThan(afterOne.stations[stationId].completed)
       expect(again.workers[0].hp).toBe(startHp)
     }
-  })
-})
-
-describe('6h equivalent production', () => {
-  it('keeps a naked solo worker at HP>=2 after 6h herbalism output', () => {
-    const save = roster(1)
-    const worker = save.workers[0]
-    assignWorker(save, worker.id, 'herbalism')
-    expect(save.workers[0].potion?.stimUntil ?? null).toBeNull()
-    const cycles = equivalentCyclesIn(FATIGUE_SIX_HOUR_S, 20)
-    expect(cycles).toBe(1080)
-    for (let i = 0; i < cycles; i++) expect(completeCycle(save, 'herbalism')).toBe(true)
-    expect(worker.hp).toBeGreaterThanOrEqual(2)
-    expect(worker.hp).toBeLessThan(worker.hpMax)
-    expect(FATIGUE_DEBT_RATIO).toBe(0.0015)
   })
 })
 
@@ -370,6 +274,7 @@ describe('workshop death', () => {
     save.bank.meal = 2
     save.restFoodId = 'meal'
     save.stations.mining.progress = 5
+    pinStationWear(save, 'mining', ['dot'])
     stepStation(save, 'mining', 1_000)
     expect(worker.assignment).toBeNull()
     const bandage = campBandageHealAmount(save, worker.hpMax)

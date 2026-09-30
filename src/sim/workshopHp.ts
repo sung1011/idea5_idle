@@ -2,24 +2,6 @@ import { offerRestFood } from './food'
 import { campBandageHealAmount } from './tech'
 import type { Save, StationFatigueCombo, StationId, Worker } from './types'
 
-/** 每次成功产出写入的劳损比例。禁止再走 max(1, floor(hpMax*0.02))。 */
-export const FATIGUE_DEBT_RATIO = 0.0015
-/**
- * 近满血额外一口：短时吞吐先扣出 1～2 点，之后回落比例债。
- * 只在 hp >= hpMax-1 时叠加，6h 裸采药仍 HP≥2。
- */
-export const FATIGUE_NEAR_FULL_PIP = 0.18
-/** 站基准乘子：把 0.0015 落到极缓日常（6h 裸采药仍 HP≥2）。 */
-export const FATIGUE_STATION_MUL: Readonly<Record<StationId, number>> = {
-  mining: 0.4,
-  inscription: 0.55,
-  hunting: 0.4,
-  cooking: 0.4,
-  herbalism: 0.4,
-  alchemy: 0.4,
-}
-/** 6h 等价产出（裸效率单人周期次数）用此时长。 */
-export const FATIGUE_SIX_HOUR_S = 6 * 3600
 export const WORKSHOP_REST_HEAL_RATIO = 0.05
 /** hp/hpMax ≤10%：空血，生产 ×0.5。 */
 export const HP_EMPTY_RATIO = 0.1
@@ -27,8 +9,6 @@ export const HP_EMPTY_RATIO = 0.1
 export const HP_WOUNDED_RATIO = 0.3
 export const WORKSHOP_EMPTY_WORK_MUL = 0.5
 export const WORKSHOP_WOUNDED_WORK_MUL = 0.8
-
-export type FatigueKind = 'success' | 'softFail' | 'hazard' | 'emptyRod' | 'none'
 
 export function blankFatigueCombo(): StationFatigueCombo {
   return { streak: 0, key: null, frustration: 0, fog: 0 }
@@ -65,10 +45,6 @@ export function applyDownedRecovery(save: Save, worker: Worker, _now: number): v
     const heal = campBandageHealAmount(save, worker.hpMax)
     if (heal > 0) worker.hp = Math.min(worker.hpMax, worker.hp + heal)
   }
-}
-
-function nearFullPip(worker: Worker): number {
-  return worker.hp >= worker.hpMax - 1 ? FATIGUE_NEAR_FULL_PIP : 0
 }
 
 export function isEmptyHp(worker: Worker): boolean {
@@ -125,18 +101,6 @@ export function restHealAmount(hpMax: number): number {
   return Math.max(1, Math.floor(safeHpMax(hpMax) * WORKSHOP_REST_HEAL_RATIO))
 }
 
-export function equivalentCyclesIn(seconds: number, cycleS: number): number {
-  if (!(cycleS > 0) || !(seconds > 0)) return 0
-  return Math.floor(seconds / cycleS)
-}
-
-function kindMul(kind: FatigueKind): number {
-  if (kind === 'softFail') return 0.35
-  if (kind === 'hazard') return 0.5
-  if (kind === 'emptyRod' || kind === 'none') return 0
-  return 1
-}
-
 function comboOf(save: Save, stationId: StationId): StationFatigueCombo {
   const combo = save.stations[stationId].fatigueCombo
   if (!combo) {
@@ -144,54 +108,6 @@ function comboOf(save: Save, stationId: StationId): StationFatigueCombo {
     return save.stations[stationId].fatigueCombo
   }
   return combo
-}
-
-/** 站内连招乘在劳损上，无跨站。 */
-export function stationFatigueComboMul(save: Save, stationId: StationId, kind: FatigueKind): number {
-  const combo = comboOf(save, stationId)
-  if (stationId === 'herbalism') return 1 + 0.008 * Math.min(combo.streak, 25)
-  if (stationId === 'cooking') {
-    const same = 1 + 0.025 * Math.min(Math.max(0, combo.streak - 1), 12)
-    const stew = combo.key === 'mithril' ? 1.25 : 1
-    return same * stew
-  }
-  if (stationId === 'mining') return 1 + 0.02 * Math.min(combo.streak, 28)
-  if (stationId === 'inscription') {
-    if (kind === 'success') return 1.2 + combo.frustration * 0.12
-    return 1
-  }
-  if (stationId === 'alchemy') return 1 + 0.06 * Math.min(combo.fog, 8)
-  return 1
-}
-
-function noteCombo(save: Save, stationId: StationId, kind: FatigueKind): void {
-  const combo = comboOf(save, stationId)
-  const station = save.stations[stationId]
-  if (stationId === 'herbalism') {
-    if (kind === 'success') combo.streak += 1
-    return
-  }
-  if (stationId === 'cooking') {
-    if (kind !== 'success') return
-    const dish = station.selectedCategory
-    if (combo.key === dish) combo.streak += 1
-    else {
-      combo.key = dish
-      combo.streak = 1
-    }
-    return
-  }
-  if (stationId === 'mining') {
-    if (kind !== 'success') return
-    const node = station.miningNode
-    combo.streak = node ? Math.max(0, node.nodeHpMax - node.nodeHp) : combo.streak + 1
-    return
-  }
-  if (stationId === 'inscription') {
-    if (kind === 'softFail') combo.frustration += 1
-    return
-  }
-  if (stationId === 'alchemy' && kind === 'success') combo.fog = Math.min(12, combo.fog + 1)
 }
 
 function addDebt(worker: Worker, amount: number): void {
@@ -208,90 +124,29 @@ export function releaseDeadWorker(save: Save, stationId: StationId, worker: Work
   if (worker.hp > 0 || worker.assignment !== stationId) return
   worker.assignment = null
   if (assignedOf(save, stationId).length <= 0) {
-    save.stations[stationId].progress = 0
-    save.stations[stationId].stallReason = null
+    const station = save.stations[stationId]
+    station.progress = 0
+    station.stallReason = null
+    station.wearCredited = 0
+    station.wearScareHit = false
   }
   applyDownedRecovery(save, worker, now)
   offerRestFood(save, worker.id, now)
 }
 
-function debtAmount(
-  save: Save,
-  worker: Worker,
-  stationId: StationId,
-  kind: FatigueKind,
-  _now: number,
-  extraMul = 1,
-): number {
-  const comboMul = stationFatigueComboMul(save, stationId, kind)
-  return (
-    (safeHpMax(worker.hpMax) * FATIGUE_DEBT_RATIO + nearFullPip(worker)) *
-    FATIGUE_STATION_MUL[stationId] *
-    comboMul *
-    kindMul(kind) *
-    extraMul
-  )
+/** 词条结算写劳损。猎人肉串护岗期间不加。到 0 立刻回营。 */
+export function applyWorkerFatigue(save: Save, stationId: StationId, worker: Worker, amount: number, now: number): void {
+  if (!(amount > 0) || worker.assignment !== stationId) return
+  if (typeof worker.dutyGuardUntil === 'number' && save.elapsedS < worker.dutyGuardUntil) return
+  addDebt(worker, amount)
+  releaseDeadWorker(save, stationId, worker, now)
 }
 
 function assignedOf(save: Save, stationId: StationId): Worker[] {
   return save.workers.filter((worker) => worker.assignment === stationId)
 }
 
-function markWeak(workers: Worker[]): boolean {
-  return workers.some((worker) => workshopHpWorkMul(worker) < 1)
-}
-
-function miningJustEmptied(save: Save): boolean {
-  const node = save.stations.mining.miningNode
-  return !!node && node.nodeHp <= 0 && node.recoverAt != null
-}
-
-/** 单次成功产出的劳损增量（不含连招更新，comboMul 用当前层）。 */
-export function fatigueDebtDelta(
-  save: Save,
-  worker: Worker,
-  stationId: StationId,
-  kind: FatigueKind,
-  now: number,
-): number {
-  return debtAmount(save, worker, stationId, kind, now)
-}
-
-/**
- * 按产出结果写劳损。空转 / 空杆不扣。
- * 返回是否有人已虚弱（生产效率 < 1，即残血或空血）。
- */
-export function applyWorkshopFatigue(save: Save, stationId: StationId, now: number, kind: FatigueKind): boolean {
-  const crew = assignedOf(save, stationId)
-  if (kind === 'none') return markWeak(crew)
-  noteCombo(save, stationId, kind)
-  if (kind === 'emptyRod') return markWeak(crew)
-  let weak = markWeak(crew)
-  for (const worker of crew) {
-    if (typeof worker.dutyGuardUntil === 'number' && save.elapsedS < worker.dutyGuardUntil) continue
-    addDebt(worker, debtAmount(save, worker, stationId, kind, now))
-    releaseDeadWorker(save, stationId, worker, now)
-    if (worker.assignment === stationId && workshopHpWorkMul(worker) < 1) weak = true
-  }
-  if (stationId === 'mining' && kind === 'success' && miningJustEmptied(save)) {
-    for (const worker of crew) {
-      if (worker.assignment !== stationId || worker.hp <= 0) continue
-      if (typeof worker.dutyGuardUntil === 'number' && save.elapsedS < worker.dutyGuardUntil) continue
-      addDebt(worker, debtAmount(save, worker, stationId, kind, now, 1))
-      releaseDeadWorker(save, stationId, worker, now)
-      if (worker.assignment === stationId && workshopHpWorkMul(worker) < 1) weak = true
-    }
-  }
-  if (stationId === 'inscription' && kind === 'success') comboOf(save, 'inscription').frustration = 0
-  return weak
-}
-
-/** 旧名兼容：成功产出走劳损。 */
-export function applyWorkshopCycleDrain(save: Save, stationId: StationId, now: number): boolean {
-  return applyWorkshopFatigue(save, stationId, now, 'success')
-}
-
-/** 炼金停产：毒雾层缓慢衰减。 */
+/** 炼金停产：毒雾层缓慢衰减。旧档残留用，不再参与掉血。 */
 export function decayAlchemyFog(save: Save): void {
   const combo = comboOf(save, 'alchemy')
   if (combo.fog <= 0) return

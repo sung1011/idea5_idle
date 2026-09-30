@@ -4,6 +4,7 @@ import { assignedWorkers, currentSpeed, stationBottleneckText, stationConsumeGro
 import { gatherStatusText, isGatherFrozen } from '../sim/gather'
 import { formatRemainClock } from '../sim/march'
 import { categoryPickOptions, selectedCategoryDef } from '../sim/stationProgress'
+import { stationWearView } from '../sim/stationWear'
 import { isEmptyHp, isWoundedHp, stationHpEfficiencyLabel, stationHpWorkMul } from '../sim/workshopHp'
 import { findCategory, ITEM_DEF, STATION_DEF, xpToNextLevel } from '../sim/tables'
 import type { CategoryId, StationId, Worker } from '../sim/types'
@@ -54,6 +55,7 @@ const cycleS = computed(() => stationCycleS(game.save, props.stationId))
 const speed = computed(() => currentSpeed(game.save, props.stationId))
 const speedFactor = computed(() => (cycleS.value > 0 ? speed.value * cycleS.value : 0))
 const hpMul = computed(() => stationHpWorkMul(game.save, props.stationId))
+const wear = computed(() => stationWearView(game.save, props.stationId))
 const hpLabel = computed(() => {
   const worker = duty.value
   if (!worker) return '空岗'
@@ -232,6 +234,19 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
           <div>
             <dt>效率 / 体力</dt>
             <dd :class="{ low: hpMul < 1 }">{{ hpLabel }}</dd>
+          </div>
+          <div class="wear">
+            <dt>掉血</dt>
+            <dd>
+              <p v-if="!wear.rows.length" class="wear-empty">{{ wear.emptyText }}</p>
+              <ul v-else class="wear-list">
+                <li v-for="row in wear.rows" :key="row.label">
+                  <b>{{ row.label }}</b>
+                  <span>{{ row.detail }}</span>
+                </li>
+              </ul>
+              <p class="wear-meta">强度{{ wear.strength }} · {{ wear.remainText }}</p>
+            </dd>
           </div>
           <div class="progress" :class="{ 'guide-flash': alchemyProgressFlash }">
             <dt>制造进度</dt>
@@ -444,8 +459,45 @@ header {
 }
 
 .fields > div.progress,
+.fields > div.wear,
 .fields > div:nth-child(n + 6) {
   grid-column: 1 / -1;
+}
+
+.wear-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wear-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.wear-list b {
+  font-size: 13px;
+}
+
+.wear-list span,
+.wear-empty,
+.wear-meta {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.wear-empty,
+.wear-meta {
+  margin: 0;
+}
+
+.wear-meta {
+  margin-top: 4px;
 }
 
 .fields > div.progress {

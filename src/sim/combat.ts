@@ -35,7 +35,6 @@ import {
   dungeonBossCounterKeep,
   dungeonBossJaggedExtra,
   dungeonBossReinforceDelayMs,
-  dungeonBossWorkshopMul,
   dungeonPhaseIndex,
   dungeonStunS,
   encounterAffixIds,
@@ -56,7 +55,7 @@ import {
   runeTakenMul,
 } from './runes'
 import { roll01 } from './rng'
-import { applyDownedRecovery, HP_WOUNDED_RATIO, isWoundedHp, releaseDeadWorker, restHealAmount, workerFatigueDebt, workerWearHp } from './workshopHp'
+import { applyDownedRecovery, HP_WOUNDED_RATIO, restHealAmount, workerFatigueDebt, workerWearHp } from './workshopHp'
 import { chapterCombatMul } from './mainChapter'
 import {
   addWorkerXp,
@@ -1146,36 +1145,6 @@ function strike(
   if (target.hp <= 0) retireFallenFighters(save, enc, combat, at, onLog)
 }
 
-/** 工坊在岗：扣同一 hp，可到 0。到 0 与力竭一样立刻回休息，不行军。残血留在岗，不吃伙食。 */
-function strikeWorkshop(
-  save: Save,
-  enc: EnemyEncounter,
-  combat: EnemyCombat,
-  at: number,
-  attacker: CombatFighter,
-  target: CombatTarget,
-  onLog?: CombatLogSink,
-): void {
-  if (attacker.hp <= 0) return
-  const worker = save.workers.find((w) => w.id === target.id)
-  if (!worker || worker.hp <= 0) return
-  const affixRage = hasEncounterAffix(save, enc, 'workshopRage') ? DUNGEON_AFFIX_FX.workshopRageMul : 1
-  const rage = affixRage * dungeonBossWorkshopMul(enc)
-  const woundedMul = isWoundedHp(worker) ? woundedTakenMul(save) : 1
-  const hit = Math.max(1, Math.round((attacker.atk + dungeonJaggedBonus(save, enc)) * rage * woundedMul))
-  worker.hp = Math.min(worker.hpMax, Math.max(0, worker.hp - hit))
-  emitLog(
-    enc,
-    combat,
-    at,
-    `${attacker.label} 对 ${target.label} 造成 ${hit}（工坊）（${worker.hp}/${worker.hpMax}）`,
-    'err',
-    onLog,
-  )
-  const stationId = target.stationId ?? worker.assignment
-  if (worker.hp <= 0 && stationId) releaseDeadWorker(save, stationId, worker, at)
-}
-
 function resolveEnemyStrikeTargets(
   save: Save,
   enc: EnemyEncounter,
@@ -1186,7 +1155,13 @@ function resolveEnemyStrikeTargets(
   if (isDungeonEncounter(enc)) maybeRotateDungeonTarget(enc, at)
   let rule = drawEnemyTargetRule(save, enc)
   if (isDungeonEncounter(enc) && enc.dungeonMechanic === 'cleave' && rule === 'rand1') rule = 'cleave2'
-  if (isDungeonEncounter(enc) && enc.dungeonMechanic === 'workshopSmash') rule = 'workshopBias'
+  if (
+    isDungeonEncounter(enc) &&
+    enc.dungeonMechanic === 'workshopSmash' &&
+    (rule === 'workshopBias' || rule === 'sameStation')
+  ) {
+    rule = 'all'
+  }
   const picked = pickEnemyTargets(save, combat, rule, () => roll01(save))
   if (picked.length) return picked
   const fallback = pickEnemyTarget(combat)
@@ -1374,10 +1349,7 @@ export function stepEnemyCombat(save: Save, enc: EnemyEncounter, now: number, on
         const targets = resolveEnemyStrikeTargets(save, enc, combat, nextAt)
         for (const target of targets) {
           if (combat.outcome) break
-          if (target.lane === 'workshop') {
-            strikeWorkshop(save, enc, combat, nextAt, actor, target, onLog)
-            continue
-          }
+          if (target.lane === 'workshop') continue
           const fighter = combat.workers.find((w) => w.id === target.id)
           if (fighter) strike(save, enc, combat, nextAt, actor, fighter, onLog)
         }

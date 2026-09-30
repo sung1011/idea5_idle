@@ -6,7 +6,8 @@ import { takeCosts } from './costs'
 import { completeInscriptionCycle } from './inscription'
 import { applyGatherOutputs, applyHuntingPauseTick, applyMiningRecovery, isGatherFrozen, isGatherStation } from './gather'
 import { craftGoldForLots, emitGain, mergeLots, pushLot, type GainSink, type ItemLot } from './gains'
-import { applyWorkshopFatigue, decayAlchemyFog, workshopHpWorkMul, type FatigueKind } from './workshopHp'
+import { applyStationWearOnComplete, applyStationWearProgress, ensureStationWear, resetStationWearCycle } from './stationWear'
+import { decayAlchemyFog, workshopHpWorkMul } from './workshopHp'
 import { assignedCount, canConsume, currentSpeed, pickConsume } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
 import { isRuneItemId, ITEM_DEF, RUNE_DEF } from './tables'
@@ -68,8 +69,7 @@ export function completeCycle(
   if (stationId === 'inscription') {
     const ok = completeInscriptionCycle(save, now, lots)
     if (ok) {
-      const fatigue: FatigueKind = lots.length > 0 ? 'success' : 'softFail'
-      emitCycleGain(save, stationId, lots, onGain, now, fatigue)
+      emitCycleGain(save, stationId, lots, onGain, now)
       consumeRushCycle(save, stationId)
     }
     return ok
@@ -77,7 +77,7 @@ export function completeCycle(
   if (stationId === 'alchemy') {
     const ok = completeAlchemyCycle(save, now, lots)
     if (ok) {
-      emitCycleGain(save, stationId, lots, onGain, now, 'success')
+      emitCycleGain(save, stationId, lots, onGain, now)
       consumeRushCycle(save, stationId)
     }
     return ok
@@ -91,15 +91,14 @@ export function completeCycle(
   }
   station.completed += 1
   grantStationXp(save, stationId, selectedCategoryDef(save, stationId).xpPerCycle)
-  emitCycleGain(save, stationId, lots, onGain, now, gatherFatigueKind(stationId, lots, station.gatherNotice))
+  emitCycleGain(save, stationId, lots, onGain, now)
   consumeRushCycle(save, stationId)
   return true
 }
 
-function gatherFatigueKind(stationId: StationId, lots: ItemLot[], notice: string | null | undefined): FatigueKind {
-  if (stationId === 'hunting' && (notice ?? '').includes('遇险')) return 'hazard'
-  if (lots.length > 0) return 'success'
-  return 'none'
+function cycleProducedGoods(stationId: StationId, lots: ItemLot[], notice: string | null | undefined): boolean {
+  if (stationId === 'hunting' && (notice ?? '').includes('遇险')) return false
+  return lots.length > 0
 }
 
 function grantCycleCraftGold(save: Save, lots: ItemLot[]): number {
@@ -134,20 +133,19 @@ function emitCycleGain(
   lots: ItemLot[],
   onGain: GainSink | undefined,
   now: number,
-  fatigue: FatigueKind,
 ): void {
   applyManualQualityOutput(save, stationId, lots)
   const gold = grantCycleCraftGold(save, lots)
   const station = save.stations[stationId]
-  applyWorkshopFatigue(save, stationId, now, fatigue)
-  if (fatigue === 'success' && lots.length > 0) {
-    grantOnDutyWorkerXp(save, stationId, successXpPerCycle(save, stationId, lots))
-  }
+  const produced = cycleProducedGoods(stationId, lots, station.gatherNotice ?? station.craftNotice)
+  if (produced) grantOnDutyWorkerXp(save, stationId, successXpPerCycle(save, stationId, lots))
+  applyStationWearOnComplete(save, stationId, now, produced)
   const weak = save.workers.some((worker) => worker.assignment === stationId && workshopHpWorkMul(worker) < 1)
   emitGain(onGain, lots, stationId, station.gatherNotice ?? station.craftNotice ?? null, gold, weak)
 }
 
 export function stepStation(save: Save, stationId: StationId, now = Date.now(), onGain?: GainSink): void {
+  ensureStationWear(save, stationId)
   if (stationId === 'mining') applyMiningRecovery(save)
   if (stationId === 'hunting') applyHuntingPauseTick(save)
   const station = save.stations[stationId]
@@ -155,12 +153,14 @@ export function stepStation(save: Save, stationId: StationId, now = Date.now(), 
   if (n <= 0) {
     station.progress = 0
     station.stallReason = null
+    resetStationWearCycle(save, stationId)
     if (stationId === 'alchemy') decayAlchemyFog(save)
     return
   }
   if (!station.auto && station.manualRounds <= 0) {
     station.progress = 0
     station.stallReason = null
+    resetStationWearCycle(save, stationId)
     return
   }
   if (isGatherFrozen(save, stationId)) {
@@ -178,7 +178,10 @@ export function stepStation(save: Save, stationId: StationId, now = Date.now(), 
   const speed = currentSpeed(save, stationId, now)
   station.progress += speed
 
-  if (station.progress + CYCLE_EPS < 1) return
+  if (station.progress + CYCLE_EPS < 1) {
+    applyStationWearProgress(save, stationId, speed, now)
+    return
+  }
   if (!canConsume(save, stationId)) {
     station.stallReason = 'emptyInput'
     return

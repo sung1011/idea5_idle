@@ -1,4 +1,5 @@
 import { assignedWorkers, assignWorker, restingWorkers } from './assign'
+import { canConsume } from './query'
 import { addToBank } from './bank'
 import { offerRestFood, sendWorkerToRestTail } from './food'
 import { isModuleUnlocked } from './moduleUnlock'
@@ -169,6 +170,8 @@ export function clearManualQueue(save: Save, stationId: StationId): ActionResult
   station.manualRounds = 0
   station.progress = 0
   station.stallReason = null
+  station.wearCredited = 0
+  station.wearScareHit = false
   for (const worker of crew) {
     worker.assignment = null
     offerRestFood(save, worker.id)
@@ -183,8 +186,23 @@ export function toggleStationAuto(save: Save, stationId: StationId): ActionResul
   const station = save.stations[stationId]
   if (station.auto) {
     station.auto = false
+    const crew = assignedWorkers(save, stationId)
+    // 缺料卡住时关自动，人立刻回营，别占着岗让别的线拉不到人。
+    if (crew.length > 0 && !canConsume(save, stationId)) {
+      station.manualRounds = 0
+      station.progress = 0
+      station.stallReason = null
+      station.wearCredited = 0
+      station.wearScareHit = false
+      for (const worker of crew) {
+        worker.assignment = null
+        offerRestFood(save, worker.id)
+        sendWorkerToRestTail(save, worker.id)
+      }
+      return { ok: true }
+    }
     // 正在做的这一轮按手动收尾，做完回营。空站不再拉人，不留常驻。
-    station.manualRounds = assignedWorkers(save, stationId).length > 0 ? 1 : 0
+    station.manualRounds = crew.length > 0 ? 1 : 0
     return { ok: true }
   }
   const quota = autoLineQuota(save)
