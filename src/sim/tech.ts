@@ -67,7 +67,7 @@ export const REINFORCE_FIRST_EFFECT = 'reinforceFirst'
 export const KNIGHT_CYCLE_EFFECT = 'knightCycle'
 /** 行军 / 凯旋 / 溃退共用，每级少这么多秒。 */
 export const MARCH_CUT_EFFECT = 'marchCutS'
-export const MARCH_BASE_S = 20
+export const MARCH_BASE_S = 10
 export const MARCH_MIN_S = 8
 
 /** 骑士每满 N 级，全站周期 −1%。 */

@@ -73,20 +73,20 @@ describe('march duration', () => {
     expect(COMBAT_PHASE_LABEL.marchHomeLose).toBe('溃退中')
   })
 
-  it('cuts 5s per fast-relay level and floors at 8s without touching attack interval', () => {
+  it('starts at 10s and fast relay floors at 8s without touching attack interval', () => {
     const save = createSave()
-    expect(marchDurationS(save)).toBe(20)
-    expect(marchDurationMs(save)).toBe(20_000)
+    expect(marchDurationS(save)).toBe(10)
+    expect(marchDurationMs(save)).toBe(10_000)
     expect(attackIntervalMul(save)).toBe(1)
 
     save.techLevels = { rapidForm: 1 }
     save.unlockedTechIds = ['rapidForm']
-    expect(marchDurationS(save)).toBe(20)
+    expect(marchDurationS(save)).toBe(10)
     expect(attackIntervalMul(save)).toBeCloseTo(0.9)
 
     save.techLevels = { fastRelay: 1 }
     save.unlockedTechIds = ['fastRelay']
-    expect(marchDurationS(save)).toBe(15)
+    expect(marchDurationS(save)).toBe(8)
     expect(attackIntervalMul(save)).toBe(1)
 
     save.techLevels = { fastRelay: 3 }
