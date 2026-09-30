@@ -6,13 +6,16 @@ import { guideFuseCue, isGuideQuestFlash } from '../sim/guideQuest'
 import { xpToNextKnightLevel } from '../sim/knightLevel'
 import { bannerFrameOf, bannerLevelOf, treasureAssaultWarning } from '../sim/treasureMine'
 import { appTabLockedTip, isAppTabUnlocked, isModuleUnlocked, moduleNoticeOn } from '../sim/moduleUnlock'
+import { mainlineStepOf } from '../sim/mainlineQuest'
 import { APP_TABS, appTab, selectAppTab } from './appNav'
 import CampSheet from './campSheet.vue'
 import { campSheetOpen, toggleCampSheet } from './campDockNav'
 import { guideCampOpenRequest, guideCampSheetOpen, takeGuideCampOpenRequest } from './guideQuestNav'
 import { dockStationHp, showDockStationHp } from './dockStationHp'
-import { addToHomeDotOn, startAddToHomeWatch } from './addToHomeState'
+import { shouldShowAddToHomeBubble, type AddToHomeGuide } from './addToHome'
+import { addToHomeChoiceNow, addToHomeDismissedNow, markAddToHomeDismissed, requestAddToHome, startAddToHomeWatch } from './addToHomeState'
 import { dismissUpdateBubble, refreshToNewVersion, startAppUpdateSchedule, updateBubble, updateReady } from './appUpdateState'
+import AddToHomeBubble from './addToHomeBubble.vue'
 import AppUpdateBubble from './appUpdateBubble.vue'
 import { useGameStore } from './gameStore'
 import EncounterPanel from './encounterPanel.vue'
@@ -48,6 +51,15 @@ const tab = appTab
 const mailOpen = ref(false)
 const settingsOpen = ref(false)
 const settingsBtn = ref<HTMLButtonElement | null>(null)
+const addToHomeFollow = ref<AddToHomeGuide | null>(null)
+const addToHomeBubbleOn = computed(() =>
+  shouldShowAddToHomeBubble({
+    choice: addToHomeChoiceNow.value,
+    dismissed: addToHomeDismissedNow.value,
+    guideQuestStep: game.save.guideQuestStep,
+    combatStep: mainlineStepOf('combat'),
+  }),
+)
 const resourceOpen = ref<HudChipId | null>(null)
 const knightOpen = ref(false)
 const knightBtn = ref<HTMLButtonElement | null>(null)
@@ -155,6 +167,24 @@ function onCamp() {
   toggleCampSheet()
 }
 
+function closeAddToHomeBubble() {
+  markAddToHomeDismissed()
+  addToHomeFollow.value = null
+}
+
+async function onAddToHomeBubble() {
+  markAddToHomeDismissed()
+  const choice = addToHomeChoiceNow.value
+  if (choice === 'ios' || choice === 'external') addToHomeFollow.value = choice
+  const result = await requestAddToHome()
+  if (addToHomeChoiceNow.value === 'hidden') {
+    addToHomeFollow.value = null
+    return
+  }
+  if (result === 'ios' || result === 'external' || result === 'wait') addToHomeFollow.value = result
+  else addToHomeFollow.value = null
+}
+
 watch(knightXpPopToken, () => {
   if (knightXpPop.value <= 0) return
   xpText.value = knightXpPop.value
@@ -194,6 +224,10 @@ watch(
 )
 
 watch(guideCampOpenRequest, openRequestedCamp)
+
+watch(addToHomeChoiceNow, (choice) => {
+  if (choice === 'hidden') addToHomeFollow.value = null
+})
 </script>
 
 <template>
@@ -261,8 +295,8 @@ watch(guideCampOpenRequest, openRequestedCamp)
           ref="settingsBtn"
           type="button"
           class="icon-btn"
-          :class="{ unread: updateReady || addToHomeDotOn }"
-          :aria-label="updateReady && addToHomeDotOn ? '设置，有新版本，可添加到桌面' : updateReady ? '设置，有新版本' : addToHomeDotOn ? '设置，可添加到桌面' : '设置'"
+          :class="{ unread: updateReady }"
+          :aria-label="updateReady ? '设置，有新版本' : '设置'"
           @click="settingsOpen = true"
         >
           <svg class="glyph" viewBox="0 0 24 24" aria-hidden="true">
@@ -271,7 +305,7 @@ watch(guideCampOpenRequest, openRequestedCamp)
               d="M19.1 12.7a7.4 7.4 0 0 0 .1-1.4 7.4 7.4 0 0 0-.1-1.4l2-1.6a.5.5 0 0 0 .1-.6l-1.9-3.3a.5.5 0 0 0-.6-.2l-2.4 1a7 7 0 0 0-2.4-1.4l-.4-2.5a.5.5 0 0 0-.5-.4h-3.8a.5.5 0 0 0-.5.4l-.4 2.5a7 7 0 0 0-2.4 1.4l-2.4-1a.5.5 0 0 0-.6.2L2.7 7.7a.5.5 0 0 0 .1.6l2 1.6a7.4 7.4 0 0 0-.1 1.4 7.4 7.4 0 0 0 .1 1.4l-2 1.6a.5.5 0 0 0-.1.6l1.9 3.3a.5.5 0 0 0 .6.2l2.4-1a7 7 0 0 0 2.4 1.4l.4 2.5a.5.5 0 0 0 .5.4h3.8a.5.5 0 0 0 .5-.4l.4-2.5a7 7 0 0 0 2.4-1.4l2.4 1a.5.5 0 0 0 .6-.2l1.9-3.3a.5.5 0 0 0-.1-.6Zm-7.1 2.1A2.8 2.8 0 1 1 14.8 12 2.8 2.8 0 0 1 12 14.8Z"
             />
           </svg>
-          <i v-if="updateReady || addToHomeDotOn" class="dot" />
+          <i v-if="updateReady" class="dot" />
         </button>
       </div>
     </header>
@@ -356,6 +390,13 @@ watch(guideCampOpenRequest, openRequestedCamp)
       :anchor="settingsBtn"
       @close="dismissUpdateBubble"
       @refresh="refreshToNewVersion"
+    />
+    <AddToHomeBubble
+      v-if="!updateBubble && !settingsOpen && (addToHomeBubbleOn || addToHomeFollow)"
+      :anchor="settingsBtn"
+      :guide="addToHomeFollow"
+      @close="closeAddToHomeBubble"
+      @add="onAddToHomeBubble"
     />
     <GuideQuestFloat :workshop="tab === 'workshop'" />
     <MessagePanel v-if="mailOpen" @close="mailOpen = false" />

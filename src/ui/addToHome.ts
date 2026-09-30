@@ -9,8 +9,14 @@ export const ADD_TO_HOME_EXTERNAL_TIP = '请点右上角，用系统浏览器打
 export const ADD_TO_HOME_WAIT_TITLE = '稍后再试'
 export const ADD_TO_HOME_WAIT_TIP = '系统安装框还没准备好，请稍后再试。'
 
-/** 点过「添加」之后不再亮红点。不进游戏存档。 */
+/** 气泡说明。 */
+export const ADD_TO_HOME_BUBBLE_BODY = '下次一点就进部落'
+
+/** 点过气泡 × 或「添加」（含设置卡片）之后不再弹。不进游戏存档。以前的红点也写这个键。 */
 export const ADD_TO_HOME_DOT_KEY = 'idea5IdleAddToHomeDot'
+
+/** 点「添加」后留在气泡里的说明。ios 是两步，其余是一句提示。 */
+export type AddToHomeGuide = 'ios' | 'external' | 'wait'
 
 /** 设置里「添加到桌面」点下去之后该做什么。 */
 export type AddToHomeChoice = 'hidden' | 'native' | 'ios' | 'external'
@@ -70,9 +76,21 @@ export function addToHomeChoice(env: AddToHomeEnv): AddToHomeChoice {
   return 'external'
 }
 
-/** 卡片还在、且还没点过「添加」，三处红点才亮。 */
-export function shouldShowAddToHomeDot(choice: AddToHomeChoice, seen: boolean): boolean {
-  return choice !== 'hidden' && !seen
+/**
+ * 主线「出征」领奖之后才弹。还停在这一步、已关掉、或已经是桌面窗口，都不弹。
+ * `guideQuestStep` 领完当前步才会加一，所以要比出征步号更大。
+ */
+export function shouldShowAddToHomeBubble(input: {
+  choice: AddToHomeChoice
+  dismissed: boolean
+  guideQuestStep: number
+  combatStep: number
+}): boolean {
+  if (input.dismissed || input.choice === 'hidden') return false
+  const step = Number.isFinite(input.guideQuestStep) ? Math.floor(input.guideQuestStep) : 0
+  const combat = Number.isFinite(input.combatStep) ? Math.floor(input.combatStep) : 0
+  if (combat < 1) return false
+  return step > combat
 }
 
 function storageOf(storage?: Storage | null): Storage | null {
@@ -81,7 +99,7 @@ function storageOf(storage?: Storage | null): Storage | null {
   return localStorage
 }
 
-export function loadAddToHomeDotSeen(storage?: Storage | null): boolean {
+export function loadAddToHomeDismissed(storage?: Storage | null): boolean {
   const store = storageOf(storage)
   if (!store) return false
   try {
@@ -94,7 +112,7 @@ export function loadAddToHomeDotSeen(storage?: Storage | null): boolean {
   }
 }
 
-export function saveAddToHomeDotSeen(storage?: Storage | null): void {
+export function saveAddToHomeDismissed(storage?: Storage | null): void {
   const store = storageOf(storage)
   if (!store) return
   try {

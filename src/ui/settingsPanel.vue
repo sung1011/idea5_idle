@@ -11,7 +11,7 @@ import {
   ADD_TO_HOME_WAIT_TIP,
   ADD_TO_HOME_WAIT_TITLE,
 } from './addToHome'
-import { addToHomeChoiceNow, addToHomeDotOn, markAddToHomeDotSeen, requestAddToHome } from './addToHomeState'
+import { addToHomeChoiceNow, markAddToHomeDismissed, requestAddToHome } from './addToHomeState'
 import { checkForAppUpdate, refreshToNewVersion, updateChecking, updateDiffPending, updateGap, updateLatestNote, updateReady } from './appUpdateState'
 import { formatBeijingDateTime, updateBehindLabel, updateEarlierLabel } from './appVersion'
 import { useGameStore } from './gameStore'
@@ -80,7 +80,7 @@ function confirmReset() {
 }
 
 async function onAddToHome() {
-  markAddToHomeDotSeen()
+  markAddToHomeDismissed()
   const result = await requestAddToHome()
   if (result === 'ios' || result === 'external' || result === 'wait') installGuide.value = result
 }
@@ -122,7 +122,6 @@ onUnmounted(() => {
         >
           {{ p.label }}
           <i v-if="p.id === 'version' && updateReady" class="dot" />
-          <i v-if="p.id === 'general' && addToHomeDotOn" class="dot" aria-hidden="true" />
         </button>
       </nav>
 
@@ -151,10 +150,7 @@ onUnmounted(() => {
             <strong>{{ ADD_TO_HOME_LABEL }}</strong>
             <small>像 App 一样全屏打开</small>
           </span>
-          <button type="button" class="add" @click="onAddToHome">
-            添加
-            <i v-if="addToHomeDotOn" class="dot" aria-hidden="true" />
-          </button>
+          <button type="button" class="add" @click="onAddToHome">添加</button>
         </div>
         <div v-if="installGuide" class="guide" role="dialog" aria-labelledby="install-title">
           <h3 id="install-title" class="guide-title">{{ installGuideTitle }}</h3>
@@ -526,18 +522,11 @@ header .title,
 }
 
 .add {
-  position: relative;
-  overflow: visible;
   flex: none;
   min-height: 36px;
   padding: 4px 14px;
   color: #3a2208;
   background: var(--accent-face);
-}
-
-.add .dot {
-  top: -3px;
-  right: -3px;
 }
 
 .wide {

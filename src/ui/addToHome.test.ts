@@ -1,9 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { mainlineStepOf } from '../sim/mainlineQuest'
 import app from './app.vue?raw'
+import bubble from './addToHomeBubble.vue?raw'
 import settings from './settingsPanel.vue?raw'
 import { UPDATE_BUBBLE_DISMISS_KEY } from './appUpdateBubble'
 import {
+  ADD_TO_HOME_BUBBLE_BODY,
   ADD_TO_HOME_DOT_KEY,
   ADD_TO_HOME_EXTERNAL_TIP,
   ADD_TO_HOME_IOS_STEPS,
@@ -12,14 +15,14 @@ import {
   PWA_THEME_COLOR,
   addToHomeChoice,
   createAddToHomeSession,
-  loadAddToHomeDotSeen,
-  saveAddToHomeDotSeen,
-  shouldShowAddToHomeDot,
+  loadAddToHomeDismissed,
+  saveAddToHomeDismissed,
+  shouldShowAddToHomeBubble,
   type AddToHomeChoice,
   type AddToHomeEnv,
   type InstallPromptEvent,
 } from './addToHome'
-import { addToHomeChoiceNow, addToHomeDotOn, addToHomeDotSeenNow, markAddToHomeDotSeen } from './addToHomeState'
+import { addToHomeChoiceNow, addToHomeDismissedNow, markAddToHomeDismissed } from './addToHomeState'
 
 const CHROME_ANDROID =
   'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
@@ -162,44 +165,56 @@ function memoryStorage(seed: Record<string, string> = {}) {
   } as Storage
 }
 
-describe('add to home dot', () => {
+describe('add to home bubble', () => {
+  const combatStep = mainlineStepOf('combat')
+
+  function show(patch: Partial<Parameters<typeof shouldShowAddToHomeBubble>[0]> = {}) {
+    return shouldShowAddToHomeBubble({
+      choice: 'native',
+      dismissed: false,
+      guideQuestStep: combatStep + 1,
+      combatStep,
+      ...patch,
+    })
+  }
+
   afterEach(() => {
     addToHomeChoiceNow.value = 'external'
-    addToHomeDotSeenNow.value = false
+    addToHomeDismissedNow.value = false
   })
 
-  it('shows only while the card is visible and the add button has not been used', () => {
-    expect(shouldShowAddToHomeDot('native', false)).toBe(true)
-    expect(shouldShowAddToHomeDot('ios', false)).toBe(true)
-    expect(shouldShowAddToHomeDot('external', false)).toBe(true)
-    expect(shouldShowAddToHomeDot('hidden', false)).toBe(false)
-    expect(shouldShowAddToHomeDot('native', true)).toBe(false)
-    expect(shouldShowAddToHomeDot('ios', true)).toBe(false)
-    expect(shouldShowAddToHomeDot('external', true)).toBe(false)
-    expect(shouldShowAddToHomeDot('hidden', true)).toBe(false)
+  it('waits until the combat step is claimed, and never shows once dismissed or installed', () => {
+    expect(combatStep).toBe(5)
+    expect(show({ guideQuestStep: combatStep })).toBe(false)
+    expect(show({ guideQuestStep: combatStep - 1 })).toBe(false)
+    expect(show({ guideQuestStep: 1 })).toBe(false)
+    expect(show()).toBe(true)
+    expect(show({ choice: 'ios' })).toBe(true)
+    expect(show({ choice: 'external' })).toBe(true)
+    expect(show({ choice: 'hidden' })).toBe(false)
+    expect(show({ dismissed: true })).toBe(false)
+    expect(show({ guideQuestStep: Number.NaN })).toBe(false)
+    expect(show({ combatStep: 0 })).toBe(false)
   })
 
   it('remembers the click in local storage and keeps the version bubble key', () => {
     const store = memoryStorage({ [UPDATE_BUBBLE_DISMISS_KEY]: 'abc1234' })
-    expect(loadAddToHomeDotSeen(store)).toBe(false)
-    saveAddToHomeDotSeen(store)
+    expect(loadAddToHomeDismissed(store)).toBe(false)
+    saveAddToHomeDismissed(store)
     expect(store.getItem(ADD_TO_HOME_DOT_KEY)).toBe('1')
-    expect(loadAddToHomeDotSeen(store)).toBe(true)
-    expect(loadAddToHomeDotSeen(memoryStorage({ [ADD_TO_HOME_DOT_KEY]: ' seen ' }))).toBe(true)
+    expect(loadAddToHomeDismissed(store)).toBe(true)
+    expect(loadAddToHomeDismissed(memoryStorage({ [ADD_TO_HOME_DOT_KEY]: ' seen ' }))).toBe(true)
     expect(store.getItem(UPDATE_BUBBLE_DISMISS_KEY)).toBe('abc1234')
-    expect(shouldShowAddToHomeDot('native', loadAddToHomeDotSeen(store))).toBe(false)
+    expect(show({ dismissed: loadAddToHomeDismissed(store) })).toBe(false)
   })
 
-  it('clears the three dots as soon as add is marked, without waiting for install', () => {
-    addToHomeChoiceNow.value = 'ios'
-    expect(addToHomeDotOn.value).toBe(true)
+  it('marks the bubble dismissed as soon as add is used, without waiting for install', () => {
     const store = memoryStorage()
-    markAddToHomeDotSeen(store)
-    expect(addToHomeDotSeenNow.value).toBe(true)
-    expect(addToHomeDotOn.value).toBe(false)
-    expect(loadAddToHomeDotSeen(store)).toBe(true)
-    addToHomeChoiceNow.value = 'hidden'
-    expect(addToHomeDotOn.value).toBe(false)
+    expect(addToHomeDismissedNow.value).toBe(false)
+    markAddToHomeDismissed(store)
+    expect(addToHomeDismissedNow.value).toBe(true)
+    expect(loadAddToHomeDismissed(store)).toBe(true)
+    expect(show({ dismissed: addToHomeDismissedNow.value })).toBe(false)
   })
 })
 
@@ -232,24 +247,32 @@ describe('add to home surface', () => {
     expect(settings).not.toContain('localStorage')
   })
 
-  it('puts the same dot on the add button, the general tab, and the settings button', () => {
-    const general = settings.indexOf("p.id === 'general' && addToHomeDotOn")
+  it('pops the home bubble after the version bubble and drops the add-to-home dots', () => {
     const versionDot = settings.indexOf("p.id === 'version' && updateReady")
-    const add = settings.indexOf('class="add"')
-    const addDot = settings.indexOf('v-if="addToHomeDotOn" class="dot"', add)
     const click = settings.indexOf('async function onAddToHome')
-    const mark = settings.indexOf('markAddToHomeDotSeen()', click)
+    const mark = settings.indexOf('markAddToHomeDismissed()', click)
     const request = settings.indexOf('requestAddToHome()', click)
-    expect(general).toBeGreaterThan(0)
+    const versionBubble = app.indexOf('<AppUpdateBubble')
+    const homeBubble = app.indexOf('<AddToHomeBubble')
     expect(versionDot).toBeGreaterThan(0)
-    expect(versionDot).not.toBe(general)
-    expect(addDot).toBeGreaterThan(add)
     expect(mark).toBeGreaterThan(click)
     expect(request).toBeGreaterThan(mark)
-    expect(settings).toContain('.add .dot')
-    expect(app).toContain('updateReady || addToHomeDotOn')
-    expect(app).toContain('设置，有新版本')
-    expect(app).toContain('设置，可添加到桌面')
+    expect(homeBubble).toBeGreaterThan(versionBubble)
+    expect(ADD_TO_HOME_BUBBLE_BODY).toBe('下次一点就进部落')
+    expect(bubble).toContain('ADD_TO_HOME_LABEL')
+    expect(bubble).toContain('ADD_TO_HOME_BUBBLE_BODY')
+    expect(bubble).toContain('ADD_TO_HOME_IOS_STEPS')
+    expect(bubble).toContain('tone="produce"')
+    expect(bubble).toContain('aria-label="关闭"')
+    expect(bubble).toContain('>添加</ActButton>')
+    expect(app).toContain('!updateBubble && !settingsOpen && (addToHomeBubbleOn || addToHomeFollow)')
     expect(app).toContain('updateBubble && !settingsOpen')
+    expect(app).toContain("updateReady ? '设置，有新版本' : '设置'")
+    expect(app).toContain('v-if="updateReady"')
+    expect(app).not.toContain('addToHomeDot')
+    expect(app).not.toContain('可添加到桌面')
+    expect(settings).not.toContain('addToHomeDot')
+    expect(settings).toContain("addToHomeChoiceNow !== 'hidden'")
+    expect(settings).toContain('class="add"')
   })
 })
