@@ -15,6 +15,7 @@ import {
   gmMaxStations,
   gmResetSave,
   gmSkipGuide,
+  gmSummonTravelingMerchant,
 } from '../sim/gm'
 import { hasUnread, listedMessages, markAllRead } from '../sim/messages'
 import {
@@ -75,6 +76,7 @@ import {
   type TreasureRefreshPay,
 } from '../sim/treasureMine'
 import { claimGuideQuest, ensureGuidePotionCampTarget, guideClaimNotice, markGuideQuestRuneOpened } from '../sim/guideQuest'
+import { deliverTravelingMerchant, markTravelingMerchantSeen } from '../sim/travelingMerchant'
 import { mainlineTaskAt, syncGuideQuestMet } from '../sim/mainlineQuest'
 import { markModuleSeen, moduleNoticeOn, type ModuleId } from '../sim/moduleUnlock'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
@@ -419,6 +421,9 @@ export const useGameStore = defineStore('game', () => {
     gmAddTechPoints: () => apply(gmAddTechPoints),
     gmResetTech: () => apply(resetAllTech),
     gmSkipGuide: () => apply(gmSkipGuide),
+    gmSummonTravelingMerchant: () => apply(gmSummonTravelingMerchant),
+    deliverTravelingMerchant: () => apply(deliverTravelingMerchant),
+    markTravelingMerchantSeen: () => apply(markTravelingMerchantSeen),
     markAllRead: () => apply(markAllRead),
     researchNextTech: () => apply(researchNextTech),
     researchTech: (techId: string) => apply((s) => researchTech(s, techId)),

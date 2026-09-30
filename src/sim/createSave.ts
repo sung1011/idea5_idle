@@ -10,10 +10,11 @@ import { blankGuideQuestStats } from './mainlineStats'
 import { battlefieldSlotCount, marketSlotCount } from './tech'
 import { hydrateStations } from './stationProgress'
 import { blankPotionSlots } from './potionSlots'
+import { blankTravelingMerchant } from './travelingMerchant'
 import { START_DIAMONDS, START_GOLD, START_TECH_POINTS, WORKER_QUALITY_REV } from './tables'
 
 /** 对不上这个版本的存档整档丢弃，重新开一局。 */
-export const SAVE_VERSION = 3
+export const SAVE_VERSION = 4
 import type { ActionResult, BeastPvpState, HerbPvpState, Save } from './types'
 import { PLAYER_NAME_DEFAULT, playerDisplayName } from './playerName'
 
@@ -86,6 +87,7 @@ export function createSave(): Save {
     unlockedTechIds: [],
     techLevels: {},
     potionSlots: blankPotionSlots(),
+    travelingMerchant: blankTravelingMerchant(),
     dungeon: blankDungeonState(undefined, 1),
     treasureMines: {
       nextId: 1,

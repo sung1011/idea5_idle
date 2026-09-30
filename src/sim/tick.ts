@@ -12,6 +12,7 @@ import { refreshFoodSlots } from './food'
 import type { GainSink } from './gains'
 import { ensureGuidePotionCampTarget } from './guideQuest'
 import { applyPotionTicks } from './potions'
+import { stepTravelingMerchant } from './travelingMerchant'
 import { stepStation } from './stations'
 import { STATION_IDS } from './tables'
 import type { Save } from './types'
@@ -33,6 +34,7 @@ export function applyTick(save: Save, opts: TickOpts = {}): void {
   const now = opts.now ?? Date.now()
   save.elapsedS += 1
   save.lastTick = now
+  stepTravelingMerchant(save)
   ensureDungeonDay(save, now)
   expireTimedMarketOrders(save, now)
   applyPotionTicks(save)

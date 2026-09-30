@@ -769,6 +769,30 @@ export type HerbPvpState = {
   offline: HerbOfflineNote | null
 }
 
+/** 限时商人的一笔货。 */
+export type TravelingMerchantLine = {
+  itemId: ItemId
+  qty: number
+}
+
+/** 一次到访只收这一单。 */
+export type TravelingMerchantOrder = {
+  lines: TravelingMerchantLine[]
+  diamonds: number
+}
+
+/**
+ * 工坊限时商人。时间都是 `elapsedS`。
+ * 不在场时 `until` 与 `order` 为空，`nextCheckAt` 是下一次必出或掷骰。
+ */
+export type TravelingMerchantState = {
+  debutDone: boolean
+  nextCheckAt: number
+  until: number | null
+  unseen: boolean
+  order: TravelingMerchantOrder | null
+}
+
 export type Save = {
   /** 探索 / 黑心商人购买扣金；当铺典当 / 收购 / 部分敌人与商场订单加金。 */
   gold: number
@@ -898,6 +922,8 @@ export type Save = {
    * 点槽只打营地苦工；营地没人不扣瓶。旧档缺字段 hydrate 为空槽。
    */
   potionSlots: PotionSlots
+  /** 工坊限时商人。新档 5 分钟后必出一次，之后每 5 分钟 5% 再出。 */
+  travelingMerchant: TravelingMerchantState
   /**
    * 主线地牢：按游戏日掷 3 词缀、1 次开战。独立战斗，不进悬赏板、不被探索刷新。
    * 游戏日切强制刷新（先自动发未领宝箱 / 日切判败），旧档缺字段 hydrate 补当天词缀。

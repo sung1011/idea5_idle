@@ -14,7 +14,10 @@ import {
   classPoolForQuality,
   pickClassFromPool,
 } from './tables'
+import { gmSummonTravelingMerchant } from './travelingMerchant'
 import type { ActionResult, ItemId, Save } from './types'
+
+export { gmSummonTravelingMerchant }
 
 export const GM_GOLD_GRANT = 10000
 export const GM_DIAMOND_GRANT = 10000

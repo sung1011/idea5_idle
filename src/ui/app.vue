@@ -21,6 +21,7 @@ import MessagePanel from './messagePanel.vue'
 import SettingsPanel from './settingsPanel.vue'
 import TechPanel from './techPanel.vue'
 import WorkersPanelV2 from './workersPanelV2.vue'
+import WorkshopActivityBar from './workshopActivityBar.vue'
 import FloatTips from './floatTips.vue'
 import GuideQuestFloat from './guideQuestFloat.vue'
 import { formatHudGrouped } from './formatHud'
@@ -276,6 +277,7 @@ watch(guideCampOpenRequest, openRequestedCamp)
     </header>
 
     <main class="page" :class="tab">
+      <WorkshopActivityBar v-if="tab === 'workshop'" />
       <WorkersPanelV2 v-if="tab === 'workshop'" />
       <EncounterPanel v-else-if="tab === 'encounters'" />
       <PvpPanel v-else-if="tab === 'pvp'" />
@@ -827,6 +829,12 @@ watch(guideCampOpenRequest, openRequestedCamp)
 
 .page.workshop > *,
 .page.workers > * {
+  overflow: hidden;
+}
+
+.page.workshop > .activity-bar {
+  flex: 0 0 52px;
+  height: 52px;
   overflow: hidden;
 }
 

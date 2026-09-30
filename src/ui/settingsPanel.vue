@@ -267,6 +267,12 @@ onUnmounted(() => {
           </div>
         </section>
         <section class="gm-group">
+          <h3 class="gm-title">活动</h3>
+          <div class="gm-grid">
+            <button type="button" @click="game.gmSummonTravelingMerchant()">立刻召唤商人</button>
+          </div>
+        </section>
+        <section class="gm-group">
           <h3 class="gm-title">PVP</h3>
           <div class="gm-grid">
             <button type="button" @click="game.gmBeastFillStamina()">困兽满体力</button>
