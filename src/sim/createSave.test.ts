@@ -14,10 +14,12 @@ import { spawnWorker } from './recruit'
 import { PLAYABLE_STATION_IDS, START_DIAMONDS, START_GOLD, START_TECH_POINTS, STATION_IDS, WORKER_QUALITY_REV } from './tables'
 
 describe('createSave diamonds', () => {
-  it('starts diamonds at 150 for recruiting', () => {
+  it('starts with no gold or diamonds', () => {
     const save = createSave()
     expect(save.diamonds).toBe(START_DIAMONDS)
-    expect(save.diamonds).toBe(150)
+    expect(save.diamonds).toBe(0)
+    expect(save.gold).toBe(0)
+    expect(save.freeRecruitLeft).toBe(2)
     expect(save.playerName).toBe(PLAYER_NAME_DEFAULT)
     expect(save.playerName).toBe('见习酋长')
     expect(playerDisplayName(undefined)).toBe('见习酋长')
@@ -41,10 +43,10 @@ describe('createSave diamonds', () => {
     expect(save.gold).toBe(START_GOLD)
   })
 
-  it('hydrates missing diamonds to 150 and keeps an existing spent balance', () => {
-    expect(normalizeDiamonds(undefined)).toBe(150)
-    expect(normalizeDiamonds(null)).toBe(150)
-    expect(normalizeDiamonds(Number.NaN)).toBe(150)
+  it('hydrates missing diamonds to the new-save amount and keeps an existing spent balance', () => {
+    expect(normalizeDiamonds(undefined)).toBe(0)
+    expect(normalizeDiamonds(null)).toBe(0)
+    expect(normalizeDiamonds(Number.NaN)).toBe(0)
     expect(normalizeDiamonds(0)).toBe(0)
     expect(normalizeDiamonds(-3)).toBe(0)
     expect(normalizeDiamonds(4.8)).toBe(4)

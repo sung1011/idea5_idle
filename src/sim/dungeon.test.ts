@@ -378,6 +378,7 @@ describe('dungeon mvp', () => {
 
   it('explore never mutates the dungeon instance', () => {
     const save = createSave()
+    save.gold = 80
     stockDungeon(save)
     const a = fullWorker(save, '甲')
     expect(startDungeonCombat(save, DUNGEON_JAILER_ID, [a.id], 11_000).ok).toBe(true)

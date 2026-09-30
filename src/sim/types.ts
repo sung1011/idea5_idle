@@ -798,6 +798,8 @@ export type Save = {
   gold: number
   /** 抽工人消耗。新档见起始钻石。悬赏 / 商场部分订单掉落。 */
   diamonds: number
+  /** 还剩几次免费抽苦工。新档 `FREE_RECRUIT_COUNT`，用完为 0。 */
+  freeRecruitLeft: number
   /** 我方玩家显示名。新档与缺字段 / 空串为「见习勇者」；已有非空自定义名 hydrate 保留。 */
   playerName: string
   /** 顶栏头像。`PLAYER_AVATAR_IDS` 之一；新档与缺字段 / 未知值是 `helm`。 */

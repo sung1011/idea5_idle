@@ -68,6 +68,7 @@ describe('mainline battlefield / market boards', () => {
 
   it('pins a fixed green minion on a new battlefield and keeps it through explore', () => {
     const save = createSave()
+    save.gold = 80
     const first = save.encounters[0]
     expect(isStarterGuideEnemy(first)).toBe(true)
     expect(first).toMatchObject(makeStarterGuideEnemy(0, 0))

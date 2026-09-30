@@ -706,6 +706,7 @@ describe('main need wildcards', () => {
 describe('exploreBoard', () => {
   it('deducts gold and replaces refreshable slots on the current board', () => {
     const save = createSave()
+    save.gold = 80
     const beforeGold = save.gold
     const beforeCost = exploreCost(save)
     const beforeSig = boardSignature([...save.encounters, ...save.marketEncounters])
@@ -737,6 +738,7 @@ describe('exploreBoard', () => {
 
   it('keeps fighting, won, or lost enemies and replaces idle or claimed ones', () => {
     const save = createSave()
+    save.gold = 80
     unlockMaxSlots(save)
     const now = 2_000_000_000_000
     const fighting = testEnemy({
@@ -1625,6 +1627,7 @@ describe('artisan and bulk buy', () => {
 
   it('refreshes completed trades and claimed loot but keeps fighting enemies', () => {
     const save = createSave()
+    save.gold = 80
     unlockMaxSlots(save)
     const now = 2_100_000_000_000
     const fighting = testEnemy({
@@ -1665,6 +1668,7 @@ describe('battlefield affixes', () => {
 
   it('re-rolls the affix when explore replaces a battlefield slot', () => {
     const save = createSave()
+    save.gold = 80
     const idle = testEnemy({ id: 'swap-affix', affixId: 'thickHide' })
     const fighting = testEnemy({
       id: 'keep-affix',

@@ -5,7 +5,7 @@ import { bankQty } from './bank'
 import { createSave } from './createSave'
 import { loadFood } from './food'
 import { fuseWorkers } from './fuse'
-import { hydrateWorker, hydrateWorkers, recruitWorker, spawnWorker, clearWorkerNew } from './recruit'
+import { hydrateWorker, hydrateWorkers, recruitOfferLabel, recruitWorker, spawnWorker, clearWorkerNew } from './recruit'
 import { setRollOverride } from './rng'
 import { WORKER_RACE_NAMES, identityFromWorkerId, isWorkerRaceId, raceFromWorkerId } from './workerRace'
 import {
@@ -61,21 +61,38 @@ describe('worker quality table', () => {
 })
 
 describe('recruitWorker', () => {
-  it('spends diamonds not gold, and rejects when diamonds are short', () => {
+  it('gives two free recruits, then spends diamonds and rejects when short', () => {
     const save = keepStationsOpen(createSave())
-    const gold0 = save.gold
-    const diamonds0 = save.diamonds
-    expect(diamonds0).toBe(START_DIAMONDS)
-    expect(recruitWorker(save).ok).toBe(true)
-    expect(save.gold).toBe(gold0)
     expect(save.gold).toBe(START_GOLD)
-    expect(save.diamonds).toBe(diamonds0 - RECRUIT_COST)
-    expect(save.workers).toHaveLength(1)
+    expect(save.diamonds).toBe(START_DIAMONDS)
+    expect(save.freeRecruitLeft).toBe(2)
+    expect(recruitOfferLabel(save)).toBe('免费（剩 2 次）')
 
-    save.diamonds = RECRUIT_COST - 1
+    expect(recruitWorker(save).ok).toBe(true)
+    expect(save.gold).toBe(0)
+    expect(save.diamonds).toBe(0)
+    expect(save.freeRecruitLeft).toBe(1)
+    expect(recruitOfferLabel(save)).toBe('免费（剩 1 次）')
+    expect(recruitWorker(save).ok).toBe(true)
+    expect(save.diamonds).toBe(0)
+    expect(save.freeRecruitLeft).toBe(0)
+    expect(save.workers).toHaveLength(2)
+    expect(recruitOfferLabel(save)).toBe(String(RECRUIT_COST))
+
     expect(recruitWorker(save)).toEqual({ ok: false, reason: '钻石不足' })
-    expect(save.diamonds).toBe(RECRUIT_COST - 1)
-    expect(save.workers).toHaveLength(1)
+    expect(save.workers).toHaveLength(2)
+
+    save.diamonds = RECRUIT_COST
+    expect(recruitWorker(save).ok).toBe(true)
+    expect(save.diamonds).toBe(0)
+    expect(save.workers).toHaveLength(3)
+
+    save.techLevels = { affairsRoster: 1 }
+    save.unlockedTechIds = ['affairsRoster']
+    save.diamonds = RECRUIT_COST - 5
+    expect(recruitOfferLabel(save)).toBe(String(RECRUIT_COST - 5))
+    expect(recruitWorker(save).ok).toBe(true)
+    expect(save.diamonds).toBe(0)
   })
 
   it('marks the new recruit isNew, and clears it on assign or clearWorkerNew', () => {

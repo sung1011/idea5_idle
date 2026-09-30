@@ -25,7 +25,7 @@ import { hydrateWorkshopHpFields } from '../sim/workshopHp'
 import { hydrateBeastPvp } from '../sim/beastPvp'
 import { hydrateHerbPvp } from '../sim/herbPvp'
 import { hydrateTreasureMines } from '../sim/treasureMine'
-import { WORKER_QUALITY_REV } from '../sim/tables'
+import { normalizeFreeRecruitLeft, WORKER_QUALITY_REV } from '../sim/tables'
 import type { Save } from '../sim/types'
 
 export const SAVE_KEY = 'idea5Idle'
@@ -78,6 +78,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
     workerQualityRev: WORKER_QUALITY_REV,
     stations: hydrateStations(parsed.stations),
     diamonds: normalizeDiamonds((parsed as { diamonds?: unknown }).diamonds),
+    freeRecruitLeft: normalizeFreeRecruitLeft((parsed as { freeRecruitLeft?: unknown }).freeRecruitLeft),
     playerName: playerDisplayName((parsed as { playerName?: unknown }).playerName),
     playerAvatarId: playerAvatarId((parsed as { playerAvatarId?: unknown }).playerAvatarId),
     messages: mail.messages,

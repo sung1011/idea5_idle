@@ -21,9 +21,17 @@ import type {
 export const DAY_LENGTH_S = 24 * 60
 export const OFFLINE_CAP_S = 8 * 60 * 60
 
-export const START_GOLD = 80
-/** 新档钻石。旧档缺字段 hydrate 补这个数；已有字段（含 0）不重灌。 */
-export const START_DIAMONDS = 150
+export const START_GOLD = 0
+/** 新档钻石。当前版本缺字段才落到这个数；旧版本整档丢弃，不迁。 */
+export const START_DIAMONDS = 0
+/** 新档前几次抽苦工不扣钻，用完即止。 */
+export const FREE_RECRUIT_COUNT = 2
+
+/** 缺字段按新档次数；已有数字夹在 0～免费次数。 */
+export function normalizeFreeRecruitLeft(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return FREE_RECRUIT_COUNT
+  return Math.max(0, Math.min(FREE_RECRUIT_COUNT, Math.floor(value)))
+}
 /** 新档初始灵感。旧档 hydrate 不改写成这个数。 */
 export const START_TECH_POINTS = 20
 export const RECRUIT_COST = 12

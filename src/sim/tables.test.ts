@@ -15,9 +15,11 @@ import {
   itemProducerStation,
   ANY_POTION_ITEM_ID,
   ANY_RUNE_ITEM_ID,
+  FREE_RECRUIT_COUNT,
   RECRUIT_COST,
   RUNE_DEF,
   START_DIAMONDS,
+  START_GOLD,
   POTION_ITEM_IDS,
   PLAYABLE_CHAINS,
   PLAYABLE_STATION_IDS,
@@ -204,7 +206,9 @@ describe('production phase-1 tables', () => {
   })
 
   it('keeps P0 economy constants: diamonds, recruit, copper recover, rune crystal', () => {
-    expect(START_DIAMONDS).toBe(150)
+    expect(START_GOLD).toBe(0)
+    expect(START_DIAMONDS).toBe(0)
+    expect(FREE_RECRUIT_COUNT).toBe(2)
     expect(RECRUIT_COST).toBe(12)
     expect(MINING_NODE_DEF.copper.recoverS).toBe(50)
     expect(MINING_NODE_DEF.iron.recoverS).toBe(90)

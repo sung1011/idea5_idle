@@ -14,6 +14,7 @@ import {
   needsGrayQualityMigration,
   QUALITY_MIN,
   resolveStationId,
+  normalizeFreeRecruitLeft,
 } from './tables'
 import { recruitCost } from './tech'
 import { identityFromWorkerId, isWorkerRaceId, raceFromWorkerId, rollWorkerName, rollWorkerRace } from './workerRace'
@@ -221,11 +222,27 @@ export function spawnWorkerWith(
   return worker
 }
 
-/** 表驱动抽工人。扣账号钻石，写入花名册。费用数字与旧金币抽人费相同。 */
+export function freeRecruitLeft(save: Save): number {
+  return normalizeFreeRecruitLeft(save.freeRecruitLeft)
+}
+
+/** 免费次数还在时是「免费（剩 N 次）」，否则是钻石费用数字。 */
+export function recruitOfferLabel(save: Save): string {
+  const left = freeRecruitLeft(save)
+  if (left > 0) return `免费（剩 ${left} 次）`
+  return String(recruitCost(save))
+}
+
+/** 表驱动抽工人。前几次免费，之后扣钻石（含募兵折）。 */
 export function recruitWorker(save: Save): ActionResult {
-  const cost = recruitCost(save)
-  if (save.diamonds < cost) return { ok: false, reason: '钻石不足' }
-  save.diamonds -= cost
+  const left = freeRecruitLeft(save)
+  if (left > 0) {
+    save.freeRecruitLeft = left - 1
+  } else {
+    const cost = recruitCost(save)
+    if (save.diamonds < cost) return { ok: false, reason: '钻石不足' }
+    save.diamonds -= cost
+  }
   const worker = spawnWorker(save)
   const race = rollWorkerRace(save)
   worker.race = race

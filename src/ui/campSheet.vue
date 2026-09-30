@@ -5,6 +5,7 @@ import { campDockCount } from '../sim/campDock'
 import { guideFuseCue, isGuideQuestFlash } from '../sim/guideQuest'
 import { isModuleUnlocked, moduleLockedTip, moduleNoticeOn } from '../sim/moduleUnlock'
 import { FOOD_ITEM_IDS, ITEM_DEF, type FoodItemId } from '../sim/tables'
+import { freeRecruitLeft, recruitOfferLabel } from '../sim/recruit'
 import { recruitCost } from '../sim/tech'
 import type { Worker } from '../sim/types'
 import { workerWearHp } from '../sim/workshopHp'
@@ -53,8 +54,11 @@ const fuseCue = computed(() => guideFuseCue(game.save, true))
 const guideFlashRecruit = computed(() => isGuideQuestFlash(game.save, 'recruit'))
 const guideFlashRestFood = computed(() => isGuideQuestFlash(game.save, 'restFood'))
 const foodLocked = computed(() => !isModuleUnlocked(game.save, 'restFood'))
+const recruitFreeLeft = computed(() => freeRecruitLeft(game.save))
+const recruitFree = computed(() => recruitFreeLeft.value > 0)
 const recruitPrice = computed(() => recruitCost(game.save))
-const canRecruit = computed(() => game.save.diamonds >= recruitPrice.value)
+const recruitOffer = computed(() => recruitOfferLabel(game.save))
+const canRecruit = computed(() => recruitFree.value || game.save.diamonds >= recruitPrice.value)
 const foodBand = computed(() => {
   const id = game.save.restFoodId
   return restFoodBand(id, id ? bankQty(game.save, id) : 0)
@@ -304,7 +308,7 @@ onUnmounted(() => {
             class="recruit"
             :class="{ off: !canRecruit, 'guide-flash': guideFlashRecruit || fuseCue === 'recruit' || fuseCue === 'wait' }"
             :disabled="!canRecruit"
-            :aria-label="`抽苦工 · ${recruitPrice} 钻`"
+            :aria-label="recruitFree ? `抽苦工 · ${recruitOffer}` : `抽苦工 · ${recruitPrice} 钻`"
             @click="game.recruit()"
           >
             <span class="recruit-label">
@@ -318,8 +322,11 @@ onUnmounted(() => {
               抽苦工
             </span>
             <span class="price">
-              <i class="sprite sprite-res diamonds" aria-hidden="true" />
-              {{ recruitPrice }}
+              <template v-if="recruitFree">{{ recruitOffer }}</template>
+              <template v-else>
+                <i class="sprite sprite-res diamonds" aria-hidden="true" />
+                {{ recruitPrice }}
+              </template>
             </span>
           </button>
         </div>

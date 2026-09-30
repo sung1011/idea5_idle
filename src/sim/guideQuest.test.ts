@@ -52,7 +52,7 @@ import { mainlineStepOf, mainlineTaskById } from './mainlineQuest'
 import { installPotionSlot } from './potionSlots'
 import { usePotionSlot } from './potions'
 import { recruitWorker, spawnWorker } from './recruit'
-import { POTION_ITEM_IDS, RECRUIT_COST, START_DIAMONDS } from './tables'
+import { POTION_ITEM_IDS, START_DIAMONDS } from './tables'
 import { hydrateLoadedSave } from '../ui/saveGame'
 import type { EnemyEncounter, Save } from './types'
 
@@ -192,7 +192,8 @@ describe('guideQuest steps and claim', () => {
     expect(claimGuideQuest(save)).toEqual({ ok: true, message: `金币 +${GUIDE_QUEST_GOLD}、酋长经验 +20` })
     expect(save.guideQuestStep).toBe(2)
     expect(save.gold).toBe(gold0 + GUIDE_QUEST_GOLD)
-    expect(save.diamonds).toBe(START_DIAMONDS - RECRUIT_COST * 2)
+    expect(save.diamonds).toBe(START_DIAMONDS)
+    expect(save.freeRecruitLeft).toBe(0)
 
     expect(guideQuestView(save)?.goal).toBe('点采药站，把营地队首派上去干一轮')
     expect(guideQuestView(save, true)?.goal).toBe('点采药站，把营地队首派上去干一轮')
@@ -575,15 +576,21 @@ describe('early guide on a fresh save', () => {
     expect(guideFuseCue(save, true)).toBe('wait')
     expect(guideQuestView(save, true)?.goal).toBe(GUIDE_FUSE_WAIT_GOAL)
     expect(guideFuseFlashStations(save, true)).toEqual([])
-    expect(recruitWorker(save).ok).toBe(true)
+    expect(save.freeRecruitLeft).toBe(0)
+    expect(recruitWorker(save)).toEqual({ ok: false, reason: '钻石不足' })
+    let waited = 0
+    while (restingWorkers(save).length < 2 && waited < 40) {
+      save = ticks(save, 20)
+      waited += 1
+    }
     const resting = restingWorkers(save)
     expect(resting.length).toBeGreaterThanOrEqual(2)
     expect(fuseRestWorkers(save, resting[0].id, resting[1].id).ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe(GUIDE_COMBAT_HERB_GOAL)
-    expect(startCombat(save, 0, [save.workers[0].id]).ok).toBe(false)
-
-    save = pumpHerbs(save, 2)
+    if (bankQty(save, 'herb') < 2) {
+      expect(guideQuestView(save)?.goal).toBe(GUIDE_COMBAT_HERB_GOAL)
+      save = pumpHerbs(save, 2)
+    }
     expect(bankQty(save, 'herb')).toBeGreaterThanOrEqual(2)
     expect(guideQuestView(save)?.goal).toBe('在 PVE 选人弹层点过开战')
     const fighter = restingWorkers(save)[0] ?? save.workers.find((worker) => worker.assignment == null)
@@ -597,6 +604,18 @@ describe('early guide on a fresh save', () => {
     let guard = 0
     while ((save.stations.alchemy.completed ?? 0) < 1 && guard < 50) {
       guard += 1
+      if (!restingWorkers(save).some((worker) => worker.hp >= worker.hpMax && worker.fatigueDebt === 0)) {
+        for (const enc of save.encounters) {
+          if (enc.kind !== 'enemy' || !enc.combat) continue
+          enc.lootClaimed = true
+          enc.combat = null
+        }
+        for (const worker of save.workers) {
+          if (worker.assignment != null) continue
+          worker.hp = worker.hpMax
+          worker.fatigueDebt = 0
+        }
+      }
       if (bankQty(save, 'herb') < 1) {
         save = pumpHerbs(save, 1)
         continue

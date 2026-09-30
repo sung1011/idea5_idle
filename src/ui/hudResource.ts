@@ -46,17 +46,17 @@ const CORE_COPY: Record<HudResourceId, { name: string; source: string; usage: st
   },
   gold: {
     name: '金币',
-    source: '工坊吞吐按产出 craftGold 给少量金币；主线战胜领战利品；地精当铺典当与收购换金。',
+    source: '新档没有金币。工坊吞吐按产出 craftGold 给少量金币；主线战胜领战利品；地精当铺典当与收购换金。',
     usage: '探索、地精奸商购买及集市订单等生活开销。',
   },
   diamonds: {
     name: '钻石',
-    source: '新档自带 150；主线悬赏与集市部分订单掉落。',
-    usage: '抽苦工。',
+    source: '新档没有钻石。主线进阶任务、悬赏与集市部分订单掉落。',
+    usage: '抽苦工。新档前 2 次免费，之后按费用扣钻。',
   },
   workers: {
     name: '苦工',
-    source: '花钻石抽人获得；同档两人可合成升一档。',
+    source: '新档前 2 次免费抽取，之后花钻石；同档两人可合成升一档。',
     usage: '派驻工坊生产，或出战主线敌人。',
   },
   inspiration: {

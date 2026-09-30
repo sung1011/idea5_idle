@@ -11,10 +11,10 @@ import { battlefieldSlotCount, marketSlotCount } from './tech'
 import { hydrateStations } from './stationProgress'
 import { blankPotionSlots } from './potionSlots'
 import { blankTravelingMerchant } from './travelingMerchant'
-import { START_DIAMONDS, START_GOLD, START_TECH_POINTS, WORKER_QUALITY_REV } from './tables'
+import { normalizeFreeRecruitLeft, START_DIAMONDS, START_GOLD, START_TECH_POINTS, WORKER_QUALITY_REV } from './tables'
 
 /** 对不上这个版本的存档整档丢弃，重新开一局。 */
-export const SAVE_VERSION = 5
+export const SAVE_VERSION = 6
 import type { ActionResult, BeastPvpState, HerbPvpState, Save } from './types'
 import { PLAYER_NAME_DEFAULT, playerDisplayName } from './playerName'
 
@@ -30,7 +30,7 @@ export function applyPlayerProfile(save: Save, name: unknown, avatar: unknown): 
   return { ok: true }
 }
 
-/** 缺字段 / 非数字 → 新档初始钻石；已有数字（含 0）只夹成非负整数，不每次重灌。 */
+/** 缺字段 / 非数字 → 新档初始钻石（0）；已有数字（含 0）只夹成非负整数，不每次重灌。 */
 export function normalizeDiamonds(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return START_DIAMONDS
   return Math.max(0, Math.floor(value))
@@ -41,6 +41,7 @@ export function createSave(): Save {
   const save: Save = {
     gold: START_GOLD,
     diamonds: START_DIAMONDS,
+    freeRecruitLeft: normalizeFreeRecruitLeft(undefined),
     playerName: PLAYER_NAME_DEFAULT,
     playerAvatarId: PLAYER_AVATAR_DEFAULT,
     bank: {},
