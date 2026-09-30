@@ -479,28 +479,28 @@ describe('encounter board', () => {
 describe('unlock-gated main need pool', () => {
   it('expands by currently unlocked stations, not chapter number', () => {
     expect(mainNeedOutputsOfStation('herbalism')).toEqual(['herb', 'spice'])
-    expect(mainNeedOutputsOfStation('alchemy')).toEqual(['salve', ANY_POTION_ITEM_ID])
+    expect(mainNeedOutputsOfStation('alchemy')).toEqual(['stim', ANY_POTION_ITEM_ID])
     expect(mainNeedOutputsOfStation('alchemy', 7)).toEqual([...unlockedPotionIds(7), ANY_POTION_ITEM_ID])
     expect(mainNeedOutputsOfStation('hunting')).toEqual(['meat', 'fish', 'tooth', 'blood', 'eye', 'junk'])
     expect(mainNeedOutputsOfStation('cooking')).toEqual(['meal', 'roast', 'stew'])
     expect(mainNeedOutputsOfStation('mining')).toEqual(['ore', 'ironOre', 'mithrilOre'])
     expect(mainNeedOutputsOfStation('inscription')).toEqual([...RUNE_ITEM_IDS, ANY_RUNE_ITEM_ID])
     expect(mainNeedItemPool(poolSave(1))).toEqual(['herb', 'spice'])
-    expect(mainNeedItemPool(poolSave(2))).toEqual(['herb', 'spice', 'salve', ANY_POTION_ITEM_ID])
-    expect(mainNeedItemPool(poolSave(4))).toEqual(['herb', 'spice', 'salve', ANY_POTION_ITEM_ID])
+    expect(mainNeedItemPool(poolSave(2))).toEqual(['herb', 'spice', 'stim', ANY_POTION_ITEM_ID])
+    expect(mainNeedItemPool(poolSave(4))).toEqual(['herb', 'spice', 'stim', ANY_POTION_ITEM_ID])
     expect(mainNeedItemPool(poolSave(4, { stations: { alchemy: { stationLevel: 3 } } }))).toEqual([
       'herb',
       'spice',
-      'salve',
+      'stim',
       'brinkSalve',
       'clearMind',
       ANY_POTION_ITEM_ID,
     ])
-    expect(mainNeedItemPool(poolSave(5))).toEqual(['herb', 'spice', 'salve', ANY_POTION_ITEM_ID])
+    expect(mainNeedItemPool(poolSave(5))).toEqual(['herb', 'spice', 'stim', ANY_POTION_ITEM_ID])
     expect(mainNeedItemPool(poolSave(6))).toEqual([
       'herb',
       'spice',
-      'salve',
+      'stim',
       ANY_POTION_ITEM_ID,
       'meat',
       'fish',

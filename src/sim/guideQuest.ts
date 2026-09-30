@@ -308,7 +308,7 @@ export function guideNeedsCampForPotion(save: Save): boolean {
 
 const GUIDE_HEAL_POTIONS = new Set(['salve', 'brinkSalve', 'clearMind', 'renewSoup'])
 
-/** 用药步若营地全员满血、又装着回血药，把队尾打残，保证点下去有治疗。只剩一人时只扣 1 点，避免堵住队首。 */
+/** 用药步装着回血药、营地又全员满血时，把队尾打残，点下去才治得了。提效药满血可用，空槽不打残。只剩一人时只扣 1 点。 */
 export function ensureGuidePotionCampTarget(save: Save): void {
   const step = normalizeGuideQuestStep(save.guideQuestStep)
   if (mainlineTaskAt(step)?.id !== 'potionUse') return
@@ -316,7 +316,7 @@ export function ensureGuidePotionCampTarget(save: Save): void {
   const camp = restingWorkers(save)
   if (!camp.length || camp.some((worker) => !isFullWorkshopHp(worker))) return
   const installed = (save.potionSlots ?? []).filter((id): id is NonNullable<typeof id> => id != null)
-  if (installed.length > 0 && installed.every((id) => !GUIDE_HEAL_POTIONS.has(id))) return
+  if (!installed.some((id) => GUIDE_HEAL_POTIONS.has(id))) return
   const target = camp.length > 1 ? camp[camp.length - 1] : camp[0]
   const hpMax = Math.max(1, Math.floor(target.hpMax))
   if (hpMax <= 1) return

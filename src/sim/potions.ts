@@ -158,7 +158,7 @@ export function alchemyStationLevel(
 export function rollAlchemyPotionBatch(save: Save): { itemId: PotionItemId; qty: number } {
   const pool = unlockedPotionIds(alchemyStationLevel(save))
   const idx = Math.min(pool.length - 1, Math.floor(roll01(save) * pool.length))
-  const itemId = pool[idx] ?? 'salve'
+  const itemId = pool[idx] ?? 'stim'
   const range = POTION_BATCH_RANGE[itemId]
   const span = range.max - range.min + 1
   const qty = range.min + Math.floor(roll01(save) * span) + alchemyBatchBonus(save)
@@ -397,5 +397,5 @@ export function hydratePotionState(save: Save, raw?: unknown): void {
 export function pickMainNeedPotion(roll: number, stationLevel?: unknown): PotionItemId {
   const pool = unlockedPotionIds(stationLevel ?? 1)
   const t = Number.isFinite(roll) ? Math.min(0.999999, Math.max(0, roll)) : 0
-  return pool[Math.min(pool.length - 1, Math.floor(t * pool.length))] ?? 'salve'
+  return pool[Math.min(pool.length - 1, Math.floor(t * pool.length))] ?? 'stim'
 }

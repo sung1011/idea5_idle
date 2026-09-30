@@ -94,64 +94,64 @@ describe('alchemy batch roll', () => {
     const save = keepStationsOpen(createSave())
     expect(alchemyStationLevel(save)).toBe(1)
     expect(rollAlchemyPotionBatch(save)).toEqual({
-      itemId: 'salve',
-      qty: POTION_BATCH_RANGE.salve.min,
+      itemId: 'stim',
+      qty: POTION_BATCH_RANGE.stim.min,
     })
   })
 
   it('unlocks potions by alchemy station level and treats a missing level as 1', () => {
-    expect(unlockedPotionIds(1)).toEqual(['salve'])
-    expect(unlockedPotionIds(2)).toEqual(['salve', 'brinkSalve'])
-    expect(unlockedPotionIds(3)).toEqual(['salve', 'brinkSalve', 'clearMind'])
-    expect(unlockedPotionIds(4)).toEqual(['salve', 'brinkSalve', 'clearMind', 'stim'])
-    expect(unlockedPotionIds(5)).toEqual(['salve', 'brinkSalve', 'clearMind', 'stim', 'renewSoup'])
+    expect(unlockedPotionIds(1)).toEqual(['stim'])
+    expect(unlockedPotionIds(2)).toEqual(['stim', 'brinkSalve'])
+    expect(unlockedPotionIds(3)).toEqual(['stim', 'brinkSalve', 'clearMind'])
+    expect(unlockedPotionIds(4)).toEqual(['stim', 'brinkSalve', 'clearMind', 'salve'])
+    expect(unlockedPotionIds(5)).toEqual(['stim', 'brinkSalve', 'clearMind', 'salve', 'renewSoup'])
     expect(unlockedPotionIds(6)).toEqual([
-      'salve',
+      'stim',
       'brinkSalve',
       'clearMind',
-      'stim',
+      'salve',
       'renewSoup',
       'rushPowder',
     ])
     expect(unlockedPotionIds(7)).toEqual([
-      'salve',
+      'stim',
       'brinkSalve',
       'clearMind',
-      'stim',
+      'salve',
       'renewSoup',
       'rushPowder',
       'doubleMist',
     ])
     expect(unlockedPotionIds(10)).toEqual(unlockedPotionIds(7))
-    expect(unlockedPotionIds(undefined)).toEqual(['salve'])
-    expect(unlockedPotionIds(Number.NaN)).toEqual(['salve'])
+    expect(unlockedPotionIds(undefined)).toEqual(['stim'])
+    expect(unlockedPotionIds(Number.NaN)).toEqual(['stim'])
 
     const missing = keepStationsOpen(createSave())
     delete (missing.stations.alchemy as { stationLevel?: number }).stationLevel
     expect(alchemyStationLevel(missing)).toBe(1)
     expect(alchemyStationLevel(null)).toBe(1)
     setRollOverride(() => 0.99)
-    expect(rollAlchemyPotionBatch(missing).itemId).toBe('salve')
-    expect(pickMainNeedPotion(0.99)).toBe('salve')
-    expect(pickMainNeedPotion(0.99, 1)).toBe('salve')
-    expect(pickMainNeedPotion(0, 2)).toBe('salve')
+    expect(rollAlchemyPotionBatch(missing).itemId).toBe('stim')
+    expect(pickMainNeedPotion(0.99)).toBe('stim')
+    expect(pickMainNeedPotion(0.99, 1)).toBe('stim')
+    expect(pickMainNeedPotion(0, 2)).toBe('stim')
     expect(pickMainNeedPotion(0.99, 2)).toBe('brinkSalve')
   })
 
-  it('rolls only salve at level 1 and evenly inside a wider pool', () => {
+  it('rolls only stim at level 1 and evenly inside a wider pool', () => {
     const save = keepStationsOpen(createSave())
     save.stations.alchemy.stationLevel = 1
     for (const roll of [0, 0.5, 0.99]) {
       setRollOverride(() => roll)
       const rolled = rollAlchemyPotionBatch(save)
-      expect(rolled.itemId).toBe('salve')
-      const span = POTION_BATCH_RANGE.salve.max - POTION_BATCH_RANGE.salve.min + 1
-      expect(rolled.qty).toBe(POTION_BATCH_RANGE.salve.min + Math.floor(roll * span))
+      expect(rolled.itemId).toBe('stim')
+      const span = POTION_BATCH_RANGE.stim.max - POTION_BATCH_RANGE.stim.min + 1
+      expect(rolled.qty).toBe(POTION_BATCH_RANGE.stim.min + Math.floor(roll * span))
     }
 
     save.stations.alchemy.stationLevel = 3
     const picks = [0, 0.34, 0.67]
-    const expected = ['salve', 'brinkSalve', 'clearMind']
+    const expected = ['stim', 'brinkSalve', 'clearMind']
     let n = 0
     setRollOverride(() => {
       const turn = Math.floor(n / 2)
@@ -168,7 +168,7 @@ describe('alchemy batch roll', () => {
       expect(unlockedPotionIds(3)).toContain(rolled.itemId)
     }
     expect(new Set(seen).size).toBe(3)
-    expect(seen).not.toContain('stim')
+    expect(seen).not.toContain('salve')
     expect(seen).not.toContain('doubleMist')
   })
 })
@@ -353,7 +353,7 @@ describe('seven potion effects', () => {
 
   it('clearMind heals the only wounded worker by 30% and still works from a locked stock', () => {
     const save = roster(2)
-    expect(unlockedPotionIds(save.stations.alchemy.stationLevel)).toEqual(['salve'])
+    expect(unlockedPotionIds(save.stations.alchemy.stationLevel)).toEqual(['stim'])
     const wounded = save.workers[0]
     const healthy = save.workers[1]
     wounded.hp = 1

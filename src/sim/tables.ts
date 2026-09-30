@@ -481,10 +481,10 @@ export const POTION_ITEM_IDS: readonly PotionItemId[] = [
  * 7 级及以上为全部。读不到等级时按 1 级。
  */
 export const ALCHEMY_POTION_UNLOCK: readonly { level: number; id: PotionItemId }[] = [
-  { level: 1, id: 'salve' },
+  { level: 1, id: 'stim' },
   { level: 2, id: 'brinkSalve' },
   { level: 3, id: 'clearMind' },
-  { level: 4, id: 'stim' },
+  { level: 4, id: 'salve' },
   { level: 5, id: 'renewSoup' },
   { level: 6, id: 'rushPowder' },
   { level: 7, id: 'doubleMist' },
@@ -496,11 +496,11 @@ export function normalizeAlchemyLevel(stationLevel: unknown): number {
   return Math.floor(stationLevel)
 }
 
-/** 该炼金站等级已解锁的药剂。空表时仍保底回春散。 */
+/** 该炼金站等级已解锁的药剂。空表时仍保底嗜血药剂。 */
 export function unlockedPotionIds(stationLevel: unknown): PotionItemId[] {
   const level = normalizeAlchemyLevel(stationLevel)
   const ids = ALCHEMY_POTION_UNLOCK.filter((row) => row.level <= level).map((row) => row.id)
-  return ids.length > 0 ? ids : ['salve']
+  return ids.length > 0 ? ids : ['stim']
 }
 
 /** 下一档尚未解锁的药剂。已到表末（7 级及以上）则为 null。 */

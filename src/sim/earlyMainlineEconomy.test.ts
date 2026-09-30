@@ -168,8 +168,9 @@ describe('early mainline from an empty purse', () => {
     healCamp(save)
     const target = restingWorkers(save)[0]
     expect(target).toBeTruthy()
-    target!.hp = Math.max(1, target!.hpMax - 1)
+    expect(target!.hp).toBe(target!.hpMax)
     expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(target!.hp).toBe(target!.hpMax)
     claimCurrent(save)
     expect(guideQuestView(save)?.taskId).toBe('autoLine')
     expect(toggleStationAuto(save, 'herbalism').ok).toBe(true)

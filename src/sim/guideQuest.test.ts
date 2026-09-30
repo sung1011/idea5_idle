@@ -30,6 +30,7 @@ import {
   GUIDE_QUEST_REV,
   GUIDE_QUEST_STEPS,
   claimGuideQuest,
+  ensureGuidePotionCampTarget,
   firstIncompleteGuideQuestStep,
   guideAlchemyCardFlash,
   guideAlchemyProgressFlash,
@@ -239,8 +240,8 @@ describe('guideQuest steps and claim', () => {
     expect(save.guideQuestStep).toBe(mainlineStepOf('potionInstall'))
     expect(guideQuestView(save)?.title).toBe('装药')
 
-    save.bank.salve = 2
-    expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
+    save.bank.stim = 2
+    expect(installPotionSlot(save, 0, 'stim').ok).toBe(true)
     expect(guideQuestView(save)?.goal).toBe('在营地把任一药剂槽装上药')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('potionUse'))
@@ -256,9 +257,10 @@ describe('guideQuest steps and claim', () => {
 
     const resting = save.workers.find((worker) => worker.assignment == null)
     expect(resting).toBeTruthy()
-    resting!.hp = Math.max(1, resting!.hpMax - 1)
+    expect(resting!.hp).toBe(resting!.hpMax)
     expect(save.stations.herbalism.auto).toBe(false)
     expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(resting!.hp).toBe(resting!.hpMax)
     expect(save.guideQuestPotionUsed).toBe(true)
     expect(guideQuestView(save)?.goal).toBe('在营地点用过药剂槽')
     expect(claimGuideQuest(save).ok).toBe(true)
@@ -408,16 +410,17 @@ describe('guideQuest flash target', () => {
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('potionInstall')
 
-    save.bank.salve = 1
-    installPotionSlot(save, 0, 'salve')
+    save.bank.stim = 1
+    installPotionSlot(save, 0, 'stim')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('potionUse')
 
     const resting = save.workers.find((worker) => worker.assignment == null)
     expect(resting).toBeTruthy()
-    resting!.hp = Math.max(1, resting!.hpMax - 1)
+    expect(resting!.hp).toBe(resting!.hpMax)
     expect(save.stations.herbalism.auto).toBe(false)
     expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(resting!.hp).toBe(resting!.hpMax)
     expect(guideQuestFlashId(save)).toBeNull()
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('autoLine')
@@ -667,9 +670,10 @@ describe('early guide on a fresh save', () => {
       target!.assignment = null
     }
     target!.fatigueDebt = 0
-    target!.hp = Math.max(1, target!.hpMax - 1)
+    target!.hp = target!.hpMax
     expect(save.stations.herbalism.auto).toBe(false)
     expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(target!.hp).toBe(target!.hpMax)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestView(save)?.taskId).toBe('autoLine')
     expect(autoLineQuota(save)).toBe(1)
@@ -699,5 +703,47 @@ describe('early guide on a fresh save', () => {
     save.openedModules = ['hunting', 'market']
     expect(guideDispatchStation(save)).toBe('hunting')
     expect(guideQuestView(save)?.goal).toContain('点狩猎站')
+  })
+})
+
+describe('potion use guide on a buff', () => {
+  it('keeps full hp for stim and only wounds when a heal potion is installed', () => {
+    const save = createSave()
+    expect(recruitWorker(save).ok).toBe(true)
+    expect(recruitWorker(save).ok).toBe(true)
+    save.guideQuestStep = mainlineStepOf('potionUse')
+    const camp = restingWorkers(save)
+    expect(camp.length).toBeGreaterThan(0)
+    for (const worker of camp) {
+      worker.hp = worker.hpMax
+      worker.fatigueDebt = 0
+    }
+    const before = camp.map((worker) => worker.hp)
+    ensureGuidePotionCampTarget(save)
+    expect(camp.map((worker) => worker.hp)).toEqual(before)
+
+    save.bank.stim = 1
+    expect(installPotionSlot(save, 0, 'stim').ok).toBe(true)
+    ensureGuidePotionCampTarget(save)
+    expect(camp.map((worker) => worker.hp)).toEqual(before)
+    expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(camp.every((worker) => worker.hp === worker.hpMax)).toBe(true)
+  })
+
+  it('wounds the camp tail only when a heal potion is installed', () => {
+    const save = createSave()
+    expect(recruitWorker(save).ok).toBe(true)
+    expect(recruitWorker(save).ok).toBe(true)
+    save.guideQuestStep = mainlineStepOf('potionUse')
+    save.bank.salve = 1
+    expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
+    const camp = restingWorkers(save)
+    for (const worker of camp) {
+      worker.hp = worker.hpMax
+      worker.fatigueDebt = 0
+    }
+    ensureGuidePotionCampTarget(save)
+    expect(camp.some((worker) => worker.hp < worker.hpMax)).toBe(true)
+    expect(camp[0].hp).toBe(camp[0].hpMax)
   })
 })
