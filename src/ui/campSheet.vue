@@ -311,14 +311,17 @@ onUnmounted(() => {
                 @pointerdown.stop
                 @click.stop="openDetail(row.worker)"
               >i</button>
-              <WorkerAvatar
-                ring="camp"
-                size="lg"
-                :show-new="!!row.worker.isNew"
-                :race="row.worker.race"
-                :quality="row.worker.qualityTier"
-                :worker-id="row.worker.id"
-              />
+              <span class="face">
+                <WorkerAvatar
+                  ring="camp"
+                  size="lg"
+                  :show-new="!!row.worker.isNew"
+                  :race="row.worker.race"
+                  :quality="row.worker.qualityTier"
+                  :worker-id="row.worker.id"
+                />
+                <i v-if="row.orderMark" class="order" :class="{ muted: row.orderMuted }">{{ row.orderMark }}</i>
+              </span>
               <em v-if="workerEatFlashText(row.id)" class="eat-float">{{ workerEatFlashText(row.id) }}</em>
               <b class="name" :style="workerQualityNameStyle(row.worker)">{{ workerShortName(row.worker) }}</b>
               <span class="hp-track" aria-hidden="true">
@@ -605,6 +608,36 @@ h2 {
   font-weight: 900;
   line-height: 1.4;
   pointer-events: none;
+}
+
+.face {
+  position: relative;
+  display: inline-flex;
+  line-height: 0;
+}
+
+.order {
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  z-index: 3;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 2px;
+  border-radius: 4px;
+  background: #24180e;
+  color: #fff;
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 13px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.order.muted {
+  background: #8a837a;
+  color: #d5cfc6;
 }
 
 .row.blocked .badge {

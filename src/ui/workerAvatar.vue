@@ -83,6 +83,7 @@ img {
   user-select: none;
 }
 
+/* 钉在头像右上。营地队列序号占左上，两边不叠。 */
 .worker-new {
   position: absolute;
   top: -5px;

@@ -81,6 +81,8 @@ describe('worker race avatars', () => {
     expect(face).toContain('border-radius: 50%')
     expect(face).toContain('showNew')
     expect(face).toContain('新苦工')
+    expect(face).toMatch(/\.worker-new\s*\{[^}]*top:\s*-5px[^}]*right:\s*-7px/)
+    expect(face).not.toMatch(/\.worker-new\s*\{[^}]*\bleft:/)
     expect(face).not.toContain('ClassIcon')
   })
 
