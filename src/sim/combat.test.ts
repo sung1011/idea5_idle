@@ -28,6 +28,10 @@ import {
   enemyStunMs,
   hydrateCombatRoster,
   enemyCombatStats,
+  isStarterTutorialEnemy,
+  STARTER_TUTORIAL_ATK,
+  STARTER_TUTORIAL_HP,
+  starterTutorialCombatStats,
   isCombatStunned,
   rollEnemyShield,
   fieldFighterCount,
@@ -47,7 +51,19 @@ import {
 import { actChargeFill } from '../ui/actCharge'
 import { jitterWorkerAtkInterval } from './atkInterval'
 import { createSave } from './createSave'
-import { claimLoot, reinforceCombat, reinforceLostCombat, startCombat } from './encounters'
+import {
+  claimLoot,
+  isStarterGuideEnemy,
+  isStarterHerbEnemy,
+  makeStarterGuideEnemy,
+  makeStarterHerbEnemy,
+  reinforceCombat,
+  reinforceLostCombat,
+  STARTER_GUIDE_HERB_QTY,
+  STARTER_GUIDE_WEAKNESSES,
+  STARTER_HERB_WEAKNESSES,
+  startCombat,
+} from './encounters'
 import { hydrateWorker, spawnWorker, spawnWorkerWith } from './recruit'
 import { settleOffline } from './offline'
 import { assignWorker, withdrawWorker } from './assign'
@@ -119,6 +135,8 @@ describe('combat stats tables', () => {
     expect(ENEMY_COMBAT_QUALITY_MUL.orange).toBe(1.2)
     expect(ENEMY_COMBAT_RANK_MUL.boss.hp).toBe(2.1)
     expect(ENEMY_COMBAT_POWER_MUL).toEqual({ atk: 1.35, spd: 0.65 })
+    expect(starterTutorialCombatStats(testEnemy())).toBeNull()
+    expect(minion.hp).not.toBe(STARTER_TUTORIAL_HP)
     expect(minion.atk).toBe(Math.max(1, Math.round(ENEMY_COMBAT_BASE.atk * ENEMY_COMBAT_POWER_MUL.atk)))
     expect(minion.spd).toBe(
       Math.min(
@@ -357,6 +375,63 @@ describe('combat timeline', () => {
     expect(enc.combat?.enemy.hp).toBe(enemyCombatStats(enc.quality, enc.enemyRank).hp)
     expect(enc.combat?.startedAt).toBe(arrive)
     expect(enc.combat?.timeoutAt).toBe(arrive + combatTimeoutS(enc.enemyRank) * 1000)
+  })
+
+  it('starts the two starter bounty enemies at 300 hp and 1 atk', () => {
+    const minion = enemyCombatStats('green', 'minion', 4)
+    const guide = makeStarterGuideEnemy(0, 0)
+    const herb = makeStarterHerbEnemy(0, 1)
+    guide.affixId = 'thickHide'
+    herb.affixId = 'heavyHands'
+    expect(isStarterGuideEnemy(guide)).toBe(true)
+    expect(isStarterHerbEnemy(herb)).toBe(true)
+    expect(isStarterTutorialEnemy(guide)).toBe(true)
+    expect(isStarterTutorialEnemy(herb)).toBe(true)
+    expect(starterTutorialCombatStats(guide, 4)).toEqual({
+      hp: STARTER_TUTORIAL_HP,
+      atk: STARTER_TUTORIAL_ATK,
+      spd: minion.spd,
+    })
+    expect(starterTutorialCombatStats(herb, 4)?.spd).toBe(minion.spd)
+    expect(guide.needs).toEqual({ herb: STARTER_GUIDE_HERB_QTY })
+    expect(guide.weaknesses).toEqual([...STARTER_GUIDE_WEAKNESSES])
+    expect(guide.lootGold).toBe(6)
+    expect(herb.needs).toEqual({ herb: 2 })
+    expect(herb.weaknesses).toEqual([...STARTER_HERB_WEAKNESSES])
+    expect(herb.lootGold).toBe(6)
+
+    const save = keepStationsOpen(createSave())
+    const worker = spawnWorker(save)
+    worker.hp = worker.hpMax
+    worker.fatigueDebt = 0
+    const now = 20_000
+    const guideFight = beginEnemyCombat(guide, [worker], now, 4, undefined, save)
+    const herbFight = beginEnemyCombat(herb, [worker], now, 4, undefined, save)
+    expect(guideFight.enemy).toMatchObject({ hp: 300, hpMax: 300, atk: 1, spd: minion.spd })
+    expect(herbFight.enemy).toMatchObject({ hp: 300, hpMax: 300, atk: 1, spd: minion.spd })
+
+    const plain = testEnemy({ id: 'plain-minion' })
+    const plainFight = beginEnemyCombat(plain, [worker], now, 1, undefined, save)
+    const plainStats = enemyCombatStats('green', 'minion', 1)
+    expect(plainFight.enemy).toMatchObject({ hp: plainStats.hp, hpMax: plainStats.hp, atk: plainStats.atk, spd: plainStats.spd })
+
+    const fresh = keepStationsOpen(createSave())
+    const fighter = spawnWorker(fresh)
+    fighter.hp = fighter.hpMax
+    fighter.fatigueDebt = 0
+    fresh.bank.herb = STARTER_GUIDE_HERB_QTY
+    const board = fresh.encounters[0]
+    expect(isStarterGuideEnemy(board)).toBe(true)
+    if (board.kind !== 'enemy') return
+    board.affixId = 'quickened'
+    expect(startCombat(fresh, 0, [fighter.id], now).ok).toBe(true)
+    expect(board.combat?.phase).toBe('marchOut')
+    expect(board.combat?.enemy).toMatchObject({ hp: 300, hpMax: 300, atk: 1, spd: minion.spd })
+    const arrive = board.combat?.phaseEndsAt ?? now
+    stepEnemyCombat(fresh, board, arrive)
+    expect(board.combat?.enemy).toMatchObject({ hp: 300, hpMax: 300, atk: 1, spd: enemyCombatStats('green', 'minion').spd })
+    expect(board.needs).toEqual({ herb: STARTER_GUIDE_HERB_QTY })
+    expect(board.lootGold).toBe(6)
   })
 
   it('resolves the same timeline through applyTick / offline catch-up', () => {

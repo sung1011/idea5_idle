@@ -274,6 +274,35 @@ export function enemyCombatStats(
   }
 }
 
+/** 前两张悬赏新手单开战生命、攻击。出手间隔仍用杂兵。 */
+export const STARTER_TUTORIAL_HP = 300
+export const STARTER_TUTORIAL_ATK = 1
+
+/** 与 `makeStarterGuideEnemy` / `makeStarterHerbEnemy` 的 id 前缀一致。 */
+export function isStarterTutorialEnemy(enc: { id?: unknown }): boolean {
+  const id = typeof enc.id === 'string' ? enc.id : ''
+  return id.startsWith('guideMinion-') || id.startsWith('guideHerbMinion-')
+}
+
+/** 新手单开战底数。不是这两张单则返回 null，调用方继续走 `enemyCombatStats`。 */
+export function starterTutorialCombatStats(
+  enc: { id?: unknown; quality?: EncounterQuality },
+  chapter = 1,
+): CombatStats | null {
+  if (!isStarterTutorialEnemy(enc)) return null
+  return {
+    hp: STARTER_TUTORIAL_HP,
+    atk: STARTER_TUTORIAL_ATK,
+    spd: enemyCombatStats(enc.quality ?? 'green', 'minion', chapter).spd,
+  }
+}
+
+function encounterCombatStats(enc: EnemyEncounter, chapter: number, save?: Save): CombatStats {
+  const tutorial = starterTutorialCombatStats(enc, chapter)
+  if (tutorial) return tutorial
+  return applyCombatAffixStats(enemyCombatStats(enc.quality, enc.enemyRank, chapter), encounterAffixIds(save, enc))
+}
+
 /** 唯一生命上限：品质、职业、等级，再乘科技（护腕束紧等）。有存档才计入科技。 */
 export function workerHpCap(worker: Worker, save?: Save): number {
   return Math.max(1, workerLiveStats(worker, save).hp)
@@ -687,9 +716,7 @@ function buildEnemyCombat(
   opts?: BeginCombatOpts,
 ): EnemyCombat {
   ensureEnemyIntel(enc, 0, 0, save)
-  const eStats =
-    opts?.stats ??
-    applyCombatAffixStats(enemyCombatStats(enc.quality, enc.enemyRank, chapter), encounterAffixIds(save, enc))
+  const eStats = opts?.stats ?? encounterCombatStats(enc, chapter, save)
   const timeoutS = opts?.timeoutS ?? combatTimeoutS(enc.enemyRank)
   const runes = opts?.runes ?? {}
   const combat: EnemyCombat = {
@@ -751,9 +778,7 @@ export function openCombatMarch(
   opts?: BeginCombatOpts,
 ): EnemyCombat {
   ensureEnemyIntel(enc, 0, 0, save)
-  const eStats =
-    opts?.stats ??
-    applyCombatAffixStats(enemyCombatStats(enc.quality, enc.enemyRank, chapter), encounterAffixIds(save, enc))
+  const eStats = opts?.stats ?? encounterCombatStats(enc, chapter, save)
   const dur = marchDurationMs(save)
   const runes = opts?.runes ?? {}
   const guests = workers.filter((worker) => worker.guest === true || worker.id.startsWith('assist-'))
