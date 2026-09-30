@@ -61,6 +61,7 @@ const hpLabel = computed(() => {
 })
 const xpNeed = computed(() => xpToNextLevel(station.value.stationLevel))
 const xpPct = computed(() => Math.min(100, Math.round((station.value.stationXp / Math.max(1, xpNeed.value)) * 100)))
+const xpText = computed(() => formatStationXp(station.value.stationXp))
 const consumeGroups = computed(() => stationConsumeGroups(game.save, props.stationId))
 const stallLine = computed(() => stationBottleneckText(game.save, props.stationId))
 const gatherLine = computed(() => gatherStatusText(game.save, props.stationId))
@@ -114,6 +115,12 @@ const craftSide = computed(() => {
   if (craft.value.halt === 'paused') return stallLine.value || (frozen.value ? gatherLine.value : null) || '暂停'
   return craftHaltText(craft.value.halt) ?? '暂停'
 })
+
+function formatStationXp(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '0'
+  const rounded = Math.round(value * 10) / 10
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+}
 
 function dutyText(worker: Worker) {
   return `${workerShortName(worker)} · ${qualityOf(worker).label} · Lv${worker.level}`
@@ -169,6 +176,21 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
           <HelpMark :label="`查看${def.label}说明`" @click="helpOpen = true" />
           <button type="button" class="close" aria-label="关闭" @click="emit('close')">×</button>
         </header>
+        <div class="station-level">
+          <b>Lv{{ station.stationLevel }}</b>
+          <i
+            class="xp-track"
+            role="progressbar"
+            aria-label="站经验"
+            :aria-valuenow="xpPct"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            :aria-valuetext="`${xpText} / ${xpNeed}`"
+          >
+            <b :style="{ width: xpPct + '%' }" />
+          </i>
+          <em>{{ xpText }} / {{ xpNeed }}</em>
+        </div>
         <label v-if="showCategoryPick" class="pick">
           <span>{{ pickCaption }}</span>
           <UiSelect
@@ -352,6 +374,40 @@ header {
   background: #efe2c4;
   font-size: 11px;
   font-weight: 800;
+}
+
+.station-level {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.station-level > b {
+  flex: 0 0 auto;
+  font-size: 14px;
+}
+
+.xp-track {
+  position: relative;
+  flex: 1 1 auto;
+  height: 10px;
+  border-radius: 99px;
+  background: rgba(90, 58, 20, 0.18);
+  overflow: hidden;
+}
+
+.xp-track b {
+  display: block;
+  height: 100%;
+  background: var(--bar-fill-green);
+}
+
+.station-level em {
+  flex: 0 0 auto;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 .beast-craft {
