@@ -193,22 +193,22 @@ describe('workshop manual dispatch and auto lines', () => {
     expect(ROUND_BADGE_TIP).not.toContain('还剩几轮')
     const save = createSave()
     expect(stationRoundBadge(save, 'herbalism')).toBe('0')
-    expect(stationRoundBadgeAria(save, 'herbalism')).toBe('站内 0 人，查看排队说明')
+    expect(stationRoundBadgeAria(save, 'herbalism')).toBe('在岗 0 人，排队 0 轮，合计 0，查看排队说明')
 
     const first = fullWorker(save)
     first.assignment = 'herbalism'
     save.stations.herbalism.manualRounds = 3
-    expect(stationRoundBadge(save, 'herbalism')).toBe('×2')
-    expect(stationRoundBadgeAria(save, 'herbalism')).toBe('后续排队 2 轮，查看排队说明')
+    expect(stationRoundBadge(save, 'herbalism')).toBe('3')
+    expect(stationRoundBadgeAria(save, 'herbalism')).toBe('在岗 1 人，排队 2 轮，合计 3，查看排队说明')
 
     expect(clearManualQueue(save, 'herbalism').ok).toBe(true)
     expect(stationRoundBadge(save, 'herbalism')).toBe('0')
-    expect(stationRoundBadgeAria(save, 'herbalism')).toBe('站内 0 人，查看排队说明')
+    expect(stationRoundBadgeAria(save, 'herbalism')).toBe('在岗 0 人，排队 0 轮，合计 0，查看排队说明')
 
     const waiting = createSave()
     fullWorker(waiting)
     waiting.stations.herbalism.manualRounds = 3
-    expect(stationRoundBadge(waiting, 'herbalism')).toBe('×3')
+    expect(stationRoundBadge(waiting, 'herbalism')).toBe('3')
 
     grantOpenedModules(save, ['alchemy'])
     const hand = fullWorker(save)
@@ -217,6 +217,22 @@ describe('workshop manual dispatch and auto lines', () => {
     expect(stationRoundBadge(save, 'alchemy')).toBe(AUTO_BADGE)
     expect(stationRoundBadgeAria(save, 'alchemy')).toBe('自动，无限排队，打开自动和清空')
     expect(stationRoundBadge(save, 'mining')).toBe('0')
+  })
+
+  it('counts up 0 to 5 as each manual click adds the worker or the next round', () => {
+    const save = createSave()
+    fullWorker(save)
+    fullWorker(save)
+    const seen = [stationRoundBadge(save, 'herbalism')]
+    for (let i = 0; i < 5; i += 1) {
+      expect(dispatchManualRound(save, 'herbalism').ok).toBe(true)
+      seen.push(stationRoundBadge(save, 'herbalism'))
+    }
+    expect(seen).toEqual(['0', '1', '2', '3', '4', '5'])
+    expect(dispatchManualRound(save, 'herbalism')).toEqual({ ok: false, reason: AUTO_QUEUE_TIP })
+    expect(stationRoundBadge(save, 'herbalism')).toBe('5')
+    expect(clearManualQueue(save, 'herbalism').ok).toBe(true)
+    expect(stationRoundBadge(save, 'herbalism')).toBe('0')
   })
 
   it('drops a waiting queue and also shuts an auto line', () => {

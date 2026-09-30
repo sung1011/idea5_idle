@@ -16,7 +16,7 @@ export const AUTO_FULL_TIP = '自动线名额已满'
 export const AUTO_QUEUE_TIP = '最多排 5 轮'
 /** 点站卡小图标时弹出。这个标记不是排队入口。 */
 export const ROUND_BADGE_TIP =
-  '点站点大面板，把营地队首派上去工作一轮。还在工作时再点，排进下一轮，最多 5 轮。一轮工作完，苦工回到营地队尾。有排队时 ×N 是后续轮次，不含正在做的这一轮；没排队时这个数字是站里的人数。自动线开着时这里是 ♾️：做完一轮就回营地队尾，立刻再拉满血队首，不限轮次，不再留人常驻。点角标打开气泡，上方「自动」受名额限制，下方可以清空。点角标不会直接排队。'
+  '点站点大面板，把营地队首派上去工作一轮。还在工作时再点，排进下一轮，最多 5 轮。一轮工作完，苦工回到营地队尾。右上角数字是站里的人数加上后续轮次：空站 0，1 人在干是 1，再排 1 轮是 2，连点到 5。自动线开着时这里是 ♾️：做完一轮就回营地队尾，立刻再拉满血队首，不限轮次，不再留人常驻。点角标打开气泡，上方「自动」受名额限制，下方可以清空。点角标不会直接排队。'
 export const AUTO_BADGE = '♾️'
 /** ×N 说明气泡里的按钮。 */
 export const CLEAR_MANUAL_QUEUE_LABEL = '清空'
@@ -133,20 +133,23 @@ export function manualQueueLeft(save: Save, stationId: StationId): number {
   return Math.max(0, station.manualRounds - working)
 }
 
-/** 站卡小图标。自动线写 ∞；有后续排队写 ×轮次；否则写在岗人数，不带 ×。 */
+/** 在岗人数 + 还没开始的排队轮次。空站 0，1 人在干是 1，再排 1 轮是 2。 */
+export function stationOccupancyCount(save: Save, stationId: StationId): number {
+  return assignedWorkers(save, stationId).length + manualQueueLeft(save, stationId)
+}
+
+/** 站卡小图标。自动线仍是 ♾️；否则是在岗人数加后续排队。 */
 export function stationRoundBadge(save: Save, stationId: StationId): string {
   if (save.stations[stationId].auto) return AUTO_BADGE
-  const queued = manualQueueLeft(save, stationId)
-  if (queued > 0) return `×${queued}`
-  return String(assignedWorkers(save, stationId).length)
+  return String(stationOccupancyCount(save, stationId))
 }
 
 /** 小图标的读屏说明。 */
 export function stationRoundBadgeAria(save: Save, stationId: StationId): string {
   if (save.stations[stationId].auto) return '自动，无限排队，打开自动和清空'
+  const working = assignedWorkers(save, stationId).length
   const queued = manualQueueLeft(save, stationId)
-  if (queued > 0) return `后续排队 ${queued} 轮，查看排队说明`
-  return `站内 ${assignedWorkers(save, stationId).length} 人，查看排队说明`
+  return `在岗 ${working} 人，排队 ${queued} 轮，合计 ${working + queued}，查看排队说明`
 }
 
 /** 还有排队、在岗的人、自动线或进度，才能清空。 */
