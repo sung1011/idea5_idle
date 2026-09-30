@@ -17,6 +17,7 @@ import {
   beastRivalReactMul,
   beastSkilledFightDamage,
   hydrateBeastPvp,
+  beastPlayerRank,
   beastRankReward,
   finishBeastFightAuto,
   gmBeastJumpToLine,
@@ -29,6 +30,7 @@ import { craftBeastFeast, craftBeastOil, craftBoneSoup, craftHunterSkewer, break
 import { fillWorkerHp } from './combat'
 import { COMBAT_ATTR_IDS, scaledAttackDamage } from './combatAttrs'
 import { createSave } from './createSave'
+import { pvpRankDiamonds } from './pvpRankDiamonds'
 import { settleOffline } from './offline'
 import { spawnWorkerWith } from './recruit'
 import { grantStationLevel } from './stationProgress'
@@ -305,14 +307,42 @@ describe('困兽', () => {
     expect(save.messages.some((row) => row.title === '困兽结算')).toBe(true)
     expect(itemQty(save, 'beastCore')).toBeGreaterThanOrEqual(1)
     expect(itemQty(save, 'beastBone')).toBeGreaterThanOrEqual(1)
+    expect(save.diamonds).toBe(pvpRankDiamonds(1))
+    expect(save.messages.some((row) => row.body.includes('钻石 20'))).toBe(true)
     const bones = itemQty(save, 'beastBone')
+    const diamonds = save.diamonds
     save.beastPvp.dayKey = '2026-09-30'
     save.beastPvp.playerDamage = 9
     stepBeastPvp(save, Date.parse('2026-09-28T04:00:00.000Z'))
     expect(itemQty(save, 'beastBone')).toBe(bones)
+    expect(save.diamonds).toBe(diamonds)
     expect(beastRankReward(1, true).some((row) => row.itemId === 'beastBone')).toBe(true)
     expect(beastRankReward(11, true)).toEqual([{ itemId: 'beastBone', qty: 2 }])
     expect(beastRankReward(1, false)).toEqual([])
+  })
+
+  it('日结按名次同发钻石，没出手不发', () => {
+    const ranked = createSave()
+    quietRivals(ranked)
+    ranked.beastPvp.dayKey = '2026-09-27'
+    ranked.beastPvp.playerDamage = 40
+    ranked.beastPvp.rivals.forEach((rival, index) => {
+      rival.damage = index < 10 ? 100 : 0
+    })
+    expect(beastPlayerRank(ranked)).toBe(11)
+    stepBeastPvp(ranked, Date.parse('2026-09-27T16:00:00.000Z'))
+    expect(ranked.diamonds).toBe(4)
+    expect(itemQty(ranked, 'beastBone')).toBe(2)
+    expect(ranked.messages.some((row) => row.body.includes('钻石 4'))).toBe(true)
+
+    const idle = createSave()
+    quietRivals(idle)
+    idle.beastPvp.dayKey = '2026-09-27'
+    idle.beastPvp.playerDamage = 0
+    stepBeastPvp(idle, Date.parse('2026-09-27T16:00:00.000Z'))
+    expect(idle.diamonds).toBe(0)
+    expect(itemQty(idle, 'beastBone')).toBe(0)
+    expect(idle.beastPvp.lastRewardText).toBe('今天没有出手')
   })
 
   it('离线跨过 0 点写进离线消息', () => {

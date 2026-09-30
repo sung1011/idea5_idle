@@ -55,6 +55,7 @@ import {
   unlockedHerbalismProducts,
   useHerbProbe,
 } from './herbPvp'
+import { pvpRankDiamonds } from './pvpRankDiamonds'
 import { PLAYER_AVATAR_IDS } from './playerAvatarIds'
 import { spawnWorker, spawnWorkerWith } from './recruit'
 import { SNAPSHOT_PLAYER_NAMES, vaultQty, workerMatchesMineWeakness } from './treasureMine'
@@ -539,6 +540,8 @@ describe('herb pvp day and offline', () => {
       save.herbPvp.dayKey = '2026-09-28'
       stepHerbPvp(save, midnight)
       const reward = herbRankReward(rank)
+      expect(save.diamonds).toBe(pvpRankDiamonds(rank))
+      expect(save.herbPvp.lastRewardText).toContain(`钻石 ${pvpRankDiamonds(rank)}`)
       expect(vaultQty(save, 'sandGold')).toBe(reward.sandGold)
       expect(vaultQty(save, 'jewel')).toBe(reward.jewel)
       expect(vaultQty(save, 'jade')).toBe(reward.jade)
@@ -548,8 +551,10 @@ describe('herb pvp day and offline', () => {
       expect(save.herbPvp.lastRewardText).toContain(`第${rank}名`)
       expect(save.messages.some((message) => message.title === '割草结算')).toBe(true)
       const sand = vaultQty(save, 'sandGold')
+      const diamonds = save.diamonds
       stepHerbPvp(save, midnight + 1000)
       expect(vaultQty(save, 'sandGold')).toBe(sand)
+      expect(save.diamonds).toBe(diamonds)
     }
   })
 
@@ -600,6 +605,7 @@ describe('herb pvp day and offline', () => {
     expect(body).toContain('昨日奖励：')
     expect(save.messages.some((message) => message.title === '割草结算')).toBe(false)
     expect(vaultQty(save, 'sandGold')).toBe(80)
+    expect(save.diamonds).toBe(20)
   })
 
   it('fills defaults when an old save has no herb board', () => {

@@ -6,6 +6,7 @@ import { COMBAT_ATTR_IDS, rollCombatWeakness, scaledAttackDamage, workerMatchesW
 import { offerRestFood } from './food'
 import { beijingDayKey, beijingDayRemainS, formatHerbDuration } from './herbPvp'
 import { grantKnightXp, knightXpForRank } from './knightLevel'
+import { pvpRankDiamonds } from './pvpRankDiamonds'
 import { isWorkerInHerbPvp } from './herbPvpQuery'
 import { pushMessage } from './messages'
 import { playerDisplayName } from './playerName'
@@ -767,7 +768,10 @@ function rollDay(save: Save, now: number, quiet: boolean): void {
   if (dealt) grantKnightXp(save, knightXpForRank(rank, BEAST_RIVAL_COUNT + 1))
   const rows = beastRankReward(rank, dealt)
   grantRows(save, rows)
-  const text = dealt ? `第 ${rank} 名：${beastRewardText(rows)}` : '今天没有出手'
+  const diamonds = dealt ? pvpRankDiamonds(rank) : 0
+  if (diamonds > 0) save.diamonds += diamonds
+  const diamondNote = diamonds > 0 ? `、钻石 ${diamonds}` : ''
+  const text = dealt ? `第 ${rank} 名：${beastRewardText(rows)}${diamondNote}` : '今天没有出手'
   state.lastRewardText = text
   if (quiet && state.offline) state.offline.rewards.push(text)
   else pushMessage(save, { title: '困兽结算', body: text, createdAt: now })

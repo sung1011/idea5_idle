@@ -16,6 +16,7 @@ import { offerRestFood } from './food'
 import { beastPvpBlockReason } from './beastPvpQuery'
 import { isWorkerInHerbPvp } from './herbPvpQuery'
 import { grantKnightXp, knightXpForRank } from './knightLevel'
+import { pvpRankDiamonds } from './pvpRankDiamonds'
 import { pushMessage } from './messages'
 import { pickMineAvatarId, pickSnapshotPlayerName, addVault } from './treasureMine'
 import { treasureMineBlockReason } from './treasureMineQuery'
@@ -392,6 +393,8 @@ export function herbRewardLine(rank: number): string {
   const reward = herbRankReward(rank)
   const parts = [`砂金 ${reward.sandGold}`, `珠宝 ${reward.jewel}`, `荣誉徽记 ${reward.jade}`]
   if (reward.probes > 0) parts.push(`侦测 ×${reward.probes}`)
+  const diamonds = pvpRankDiamonds(rank)
+  if (diamonds > 0) parts.push(`钻石 ${diamonds}`)
   return `第${rank}名：${parts.join('、')}`
 }
 
@@ -1231,6 +1234,8 @@ function rollDay(save: Save, now: number, offline: boolean): void {
   addVault(save, 'jewel', reward.jewel)
   addVault(save, 'jade', reward.jade)
   state.probes += reward.probes
+  const diamonds = pvpRankDiamonds(rank)
+  if (diamonds > 0) save.diamonds += diamonds
   state.playerScore = 0
   for (const rival of state.rivals) rival.score = 0
   state.lastRewardText = text
