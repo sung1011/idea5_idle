@@ -284,6 +284,8 @@ onUnmounted(() => {
         <p class="hint">「初始化」点了先弹确认框。跳过引导不发未领金币。</p>
       </div>
     </section>
+  </div>
+  <Teleport to="body">
     <div v-if="resetAsk" class="ask-mask" @click.self="resetAsk = false">
       <div class="ask" role="alertdialog" aria-modal="true" aria-labelledby="reset-ask">
         <p id="reset-ask">初始化会重开存档。</p>
@@ -293,7 +295,7 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -590,9 +592,9 @@ header .title,
 }
 
 .ask-mask {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 2;
+  z-index: var(--z-confirm);
   display: flex;
   align-items: center;
   justify-content: center;

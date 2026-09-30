@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { guideQuestOpenTaskId, guideQuestView } from '../sim/guideQuest'
 import { mainlineTaskById } from '../sim/mainlineQuest'
 import { useGameStore } from './gameStore'
@@ -7,6 +7,7 @@ import { pushFloatTip } from './floatTips'
 import { guideQuestCode } from './guideQuestCode'
 import { guideCampSheetOpen, openGuideQuestTask } from './guideQuestNav'
 import { questFloatBottomCss } from './guideQuestFloatPos'
+import { bindQuestHeadPad } from './questFloatCover'
 
 const props = defineProps<{
   workshop?: boolean
@@ -14,6 +15,16 @@ const props = defineProps<{
 
 const game = useGameStore()
 const collapsed = ref(false)
+const root = ref<HTMLElement | null>(null)
+let unbindHeadPad = () => {}
+
+onMounted(() => {
+  unbindHeadPad = bindQuestHeadPad(() => root.value)
+})
+
+onUnmounted(() => {
+  unbindHeadPad()
+})
 const view = computed(() => guideQuestView(game.save, guideCampSheetOpen.value))
 const code = computed(() => (view.value ? guideQuestCode(view.value.step, view.value.taskId) : ''))
 const bottom = computed(() => questFloatBottomCss(props.workshop ? 'workshop' : 'dock'))
@@ -47,6 +58,7 @@ function claim() {
 <template>
   <aside
     v-if="view"
+    ref="root"
     class="ck"
     :class="{ collapsed }"
     :style="{ bottom }"
@@ -74,7 +86,7 @@ function claim() {
 .ck {
   position: absolute;
   left: 8px;
-  z-index: 6;
+  z-index: var(--z-quest);
   width: min(210px, calc(100% - 90px));
   overflow: hidden;
   color: #fff6e0;

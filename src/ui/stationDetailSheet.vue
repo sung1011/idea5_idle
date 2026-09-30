@@ -305,19 +305,12 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
         </div>
         <div class="seal">
           <ActButton v-if="station.closed" icon="check" kind="minor" @click="onOpenStation">开启</ActButton>
-          <template v-else>
-            <p v-if="sealAsk" class="seal-ask" role="alertdialog" :aria-label="`确认封闭${def.label}`">
-              封闭后营地不再自动派到这一站，已在岗的人继续干。
-              <button type="button" @click="onCancelSeal">取消</button>
-              <button type="button" @click="onConfirmSeal">确定封闭</button>
-            </p>
-            <ActButton v-else icon="close" kind="danger" @click="onAskSeal">封闭</ActButton>
-          </template>
+          <ActButton v-else-if="!sealAsk" icon="close" kind="danger" @click="onAskSeal">封闭</ActButton>
         </div>
       </section>
     </div>
     <div v-if="coreOpen" class="modal core" role="presentation" @click.self="coreOpen = false">
-      <section class="sheet" role="dialog" aria-label="选择突破站点">
+      <section class="sheet" role="dialog" aria-modal="true" aria-label="选择突破站点">
         <header>
           <h2 class="title">困兽之核</h2>
           <button type="button" class="close" aria-label="关闭" @click="coreOpen = false">×</button>
@@ -335,6 +328,13 @@ onUnmounted(() => window.removeEventListener('keydown', onHelpKey))
       </section>
     </div>
     <ModeHelpSheet v-if="helpOpen" :title="help.title" :rows="help.rows" @close="helpOpen = false" />
+    <div v-if="sealAsk" class="seal-ask-layer">
+      <p class="seal-ask" role="alertdialog" :aria-label="`确认封闭${def.label}`">
+        封闭后营地不再自动派到这一站，已在岗的人继续干。
+        <button type="button" @click="onCancelSeal">取消</button>
+        <button type="button" @click="onConfirmSeal">确定封闭</button>
+      </p>
+    </div>
   </Teleport>
 </template>
 
@@ -567,6 +567,15 @@ dd {
   margin-top: auto;
 }
 
+.seal-ask-layer {
+  position: fixed;
+  z-index: var(--z-confirm);
+  left: 50%;
+  bottom: calc(var(--dock-height) + 16px);
+  width: min(448px, calc(100% - 24px));
+  transform: translateX(-50%);
+}
+
 .seal-ask {
   display: flex;
   flex-wrap: wrap;
@@ -575,6 +584,11 @@ dd {
   gap: 8px;
   width: 100%;
   margin: 0;
+  padding: 12px;
+  border: 3px solid var(--gold-deep);
+  border-radius: 12px;
+  background: var(--wood-face);
+  box-shadow: 0 6px 0 var(--shadow);
   color: #b42318;
   font-size: 12px;
   font-weight: 800;

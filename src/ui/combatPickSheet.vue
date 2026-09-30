@@ -172,7 +172,7 @@ function closeAll() {
 </script>
 
 <template>
-  <div v-if="open" class="modal" role="dialog" :aria-label="sheetTitle" @click.self="closeAll">
+  <div v-if="open" class="modal" role="dialog" aria-modal="true" :aria-label="sheetTitle" @click.self="closeAll">
     <div class="sheet">
       <div class="sheet-head">
         <p>{{ sheetTitle }}（最多 {{ max }} 人）</p>
@@ -248,7 +248,7 @@ function closeAll() {
     <ModeHelpSheet v-if="helpOpen" :title="sheetTitle" :rows="helpRows" @close="helpOpen = false" />
   </div>
 
-  <div v-if="open && showRunes && runePickWorkerId" class="modal" role="dialog" aria-label="选择符文" @click.self="closeRunePick">
+  <div v-if="open && showRunes && runePickWorkerId" class="modal" role="dialog" aria-modal="true" aria-label="选择符文" @click.self="closeRunePick">
     <div class="sheet rune-sheet">
       <p>选择符文（一人一槽，确认后消耗）</p>
       <p class="hint">列出全部种类与库存；短文案是本场效果。未选则空手出战。</p>

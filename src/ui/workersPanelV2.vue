@@ -1102,7 +1102,7 @@ onUnmounted(() => {
 
 .dispatch-fly {
   position: fixed;
-  z-index: 80;
+  z-index: calc(var(--z-quest) - 1);
   pointer-events: none;
   transform: translate(-50%, -50%);
 }
@@ -1695,7 +1695,7 @@ onUnmounted(() => {
 
 .drag-ghost {
   position: fixed;
-  z-index: 80;
+  z-index: calc(var(--z-quest) - 1);
   pointer-events: none;
   transform: translate(-50%, -120%);
   min-height: 32px;

@@ -71,6 +71,10 @@
   --z-sheet: 30;
   --z-select: 35;
   --z-tips: 40;
+  /* 主线任务条压在营地、商人、战场和详情之上。确认框和引导层更高。 */
+  --z-quest: 60;
+  --z-confirm: 80;
+  --z-guide: 90;
   --workshop-rail-row-min: 44px;
   --workshop-rail-row-gap: 4px;
   --workshop-rail-row-count: 7;
@@ -329,6 +333,12 @@ button.locked:not(:has(.lock))::after {
   outline: 3px solid #e5fbff;
   outline-offset: 3px;
   animation: guide-flash 1s ease-in-out infinite;
+}
+
+/* 新手引导遮罩和手指提示单独挂到页面上，不要放进弹层，否则会被弹层的层叠上下文卡住。 */
+.guide-mask,
+.guide-finger {
+  z-index: var(--z-guide);
 }
 
 @keyframes level-flash {
