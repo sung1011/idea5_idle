@@ -290,7 +290,7 @@ export function isGuideQuestFlash(save: Save, id: GuideQuestFlashId): boolean {
   return guideQuestFlashId(save) === id
 }
 
-/** 药剂槽高亮。四槽齐备和装药只圈空槽；用药圈已装上的槽。 */
+/** 药剂槽高亮。两槽齐备和装药只圈空槽，满 2 个可领后不再圈；用药圈已装上的槽。 */
 export function guidePotionSlotFlash(save: Save, occupied: boolean): boolean {
   if (isGuideQuestFlash(save, 'slotsFull') || isGuideQuestFlash(save, 'potionInstall')) return !occupied
   if (isGuideQuestFlash(save, 'potionUse')) return occupied && !guideNeedsCampForPotion(save)

@@ -123,19 +123,20 @@ describe('guideQuest normalize and hydrate', () => {
     expect(guidePotionSlotFlash(save, true)).toBe(false)
   })
 
-  it('opens the slotsFull guide on empty potion slots and stays claimable only when all four are filled', () => {
+  it('opens the slotsFull guide on empty potion slots until two are filled', () => {
     const save = createSave()
     save.guideQuestStep = mainlineStepOf('slotsFull')
-    expect(guideQuestView(save)?.goal).toBe('4 个药剂槽全部装上药剂')
+    expect(guideQuestView(save)?.title).toBe('两槽齐备')
+    expect(guideQuestView(save)?.goal).toBe('至少 2 个药剂槽装上药剂')
     expect(guideQuestFlashId(save)).toBe('slotsFull')
     expect(mainlineDone(save, 'slotsFull')).toBe(false)
     expect(guidePotionSlotFlash(save, false)).toBe(true)
     expect(guidePotionSlotFlash(save, true)).toBe(false)
-    save.potionSlots = ['salve', 'stim', 'brinkSalve', null]
+    save.potionSlots = ['salve', null, null, null]
     expect(guidePotionSlotFlash(save, false)).toBe(true)
     expect(guidePotionSlotFlash(save, true)).toBe(false)
     expect(mainlineDone(save, 'slotsFull')).toBe(false)
-    save.potionSlots = ['salve', 'stim', 'brinkSalve', 'clearMind']
+    save.potionSlots = ['salve', 'stim', null, null]
     expect(mainlineDone(save, 'slotsFull')).toBe(true)
     expect(guideQuestView(save)?.claimable).toBe(true)
     expect(guideQuestFlashId(save)).toBeNull()

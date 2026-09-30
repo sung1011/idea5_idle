@@ -193,16 +193,16 @@ describe('early mainline from an empty purse', () => {
 
     save = runAlchemy(
       save,
-      (current) => current.stations.alchemy.stationLevel >= 4 && potionKinds(current).length >= 4,
+      (current) => current.stations.alchemy.stationLevel >= 3 && potionKinds(current).length >= 2,
     )
-    expect(save.stations.alchemy.stationLevel).toBeGreaterThanOrEqual(4)
-    expect(potionKinds(save).length).toBeGreaterThanOrEqual(4)
+    expect(save.stations.alchemy.stationLevel).toBeGreaterThanOrEqual(3)
+    expect(potionKinds(save).length).toBeGreaterThanOrEqual(2)
     expect(guideQuestView(save)?.taskId).toBe('alchemy3')
     claimCurrent(save)
     expect(save.diamonds).toBe(12)
 
     const spare = potionKinds(save).filter((id) => !save.potionSlots.includes(id))
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < save.potionSlots.length && save.potionSlots.filter((slot) => slot != null).length < 2; i++) {
       if (save.potionSlots[i]) continue
       const id = spare.find((item) => !save.potionSlots.includes(item))
       expect(id, '要有还没装上的药剂').toBeTruthy()

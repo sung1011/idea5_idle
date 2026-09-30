@@ -128,7 +128,7 @@ function buildSchedule(): MainlineTask[] {
     task('explore', '探索悬赏 1 次', '探路', 'intro', gold(16)),
     levelTask(4),
     task('alchemy3', '把炼金站升到 3 级', '药方渐丰', 'advanced', gems(12, 10)),
-    task('slotsFull', '4 个药剂槽全部装上药剂', '四槽齐备', 'advanced', gems(12, 10)),
+    task('slotsFull', '至少 2 个药剂槽装上药剂', '两槽齐备', 'advanced', gems(12, 10)),
     levelTask(5),
     task('blueWorker', '名册里有 1 名蓝色苦工', '蓝衣苦工', 'advanced', gems(12, 10)),
     levelTask(6),
@@ -405,7 +405,7 @@ export function mainlineLive(save: Save, id: string): boolean {
     case 'blueWorker':
       return maxQuality(save) >= 3
     case 'slotsFull':
-      return (save.potionSlots?.length ?? 0) >= 4 && save.potionSlots.every((slot) => slot != null)
+      return (save.potionSlots?.filter((slot) => slot != null).length ?? 0) >= 2
     case 'chapter2':
       return (save.mainChapter ?? 1) >= 2
     case 'huntStart':
