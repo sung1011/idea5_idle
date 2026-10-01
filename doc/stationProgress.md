@@ -162,7 +162,7 @@ speed = (1 / 当前品类 cycleS) * 加权人数 * soloStaffMul * groupStaffSpee
 
 采集结算（第 2 期）：挖矿每次吞吐扣 1 `nodeHp`，挖空后按 `recoverS` 冻结该矿；钓鱼按 `FISHING_DROP_TABLE` 掷骰，空杆也给 XP；采药按 `HERBALISM_DROP_TABLE` 必出货；狩猎先 `hazard` 检定，遇险掉本周期产出并短暂停手。
 
-炼金结算：按 `ALCHEMY_COST_OPTIONS` 先草后猎副产扣 1。产物从当前炼金站等级已解锁的药剂里等概率抽一种（`ALCHEMY_POTION_UNLOCK`：1 嗜血药剂、2 加背水药膏、3 加清醒图腾水、4 加巫毒回春剂、5 加先祖续命汤、6 加赶工粉、7 及以上加双份雾；读不到等级按 1），再按批次区间入库。瓶数区间、配伍札记、食物加产、双份雾乘数不变。狂兽油不进池。旧档库存保留、不迁字段，之后按新池产出；GM 满级（10）全解锁。缺四料则 `stallReason: emptyInput`，卡面写堵点句。圆形问号里写当前池和下一级解锁，7 级起写已全部解锁。药剂效果见 [main.md](main.md) / [production.md](production.md)。
+炼金结算：按 `ALCHEMY_COST_OPTIONS` 先草后猎副产扣 1。产物从当前炼金站等级已解锁的药剂里等概率抽一种（`ALCHEMY_POTION_UNLOCK`：1 背水药膏、2 加嗜血药剂、3 加清醒图腾水、4 加巫毒回春剂、5 加先祖续命汤、6 加赶工粉、7 及以上加双份雾；读不到等级按 1），再按批次区间入库。瓶数区间、配伍札记、食物加产、双份雾乘数不变。狂兽油不进池。旧档库存保留、不迁字段，之后按新池产出；GM 满级（10）全解锁。缺四料则 `stallReason: emptyInput`，卡面写堵点句。圆形问号里写当前池和下一级解锁，7 级起写已全部解锁。药剂效果见 [main.md](main.md) / [production.md](production.md)。
 
 ---
 

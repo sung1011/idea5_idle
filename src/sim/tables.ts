@@ -478,11 +478,18 @@ export const POTION_ITEM_IDS: readonly PotionItemId[] = [
 
 /**
  * 炼金站等级解锁药剂。达到该级起进入随机池；顺序即表序。
- * 7 级及以上为全部。读不到等级时按 1 级。
+ * 1 背水药膏 brinkSalve（原 2 级）
+ * 2 嗜血药剂 stim（原 1 级）
+ * 3 清醒图腾水 clearMind
+ * 4 巫毒回春剂 salve
+ * 5 先祖续命汤 renewSoup
+ * 6 赶工粉 rushPowder
+ * 7 及以上双份雾 doubleMist
+ * 读不到等级时按 1 级。
  */
 export const ALCHEMY_POTION_UNLOCK: readonly { level: number; id: PotionItemId }[] = [
-  { level: 1, id: 'stim' },
-  { level: 2, id: 'brinkSalve' },
+  { level: 1, id: 'brinkSalve' },
+  { level: 2, id: 'stim' },
   { level: 3, id: 'clearMind' },
   { level: 4, id: 'salve' },
   { level: 5, id: 'renewSoup' },
@@ -514,7 +521,7 @@ export function nextAlchemyPotionUnlock(
 /** 装配列表分组。顺序固定；过滤后某组为空则整组不画。 */
 export const POTION_INSTALL_GROUPS: readonly { label: string; ids: readonly PotionItemId[] }[] = [
   { label: '提效', ids: ['stim', 'rushPowder', 'doubleMist', 'beastOil'] },
-  { label: '加血', ids: ['salve', 'renewSoup', 'brinkSalve', 'clearMind'] },
+  { label: '加血', ids: ['brinkSalve', 'salve', 'renewSoup', 'clearMind'] },
 ]
 
 /** 能装进药剂槽的种类。狂兽油不进炼金随机池，所以不在 `POTION_ITEM_IDS` 里。 */

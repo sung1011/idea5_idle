@@ -70,10 +70,10 @@ describe('station help copy', () => {
     expect(STATION_HELP.alchemy.play).toMatch(/等概率/)
     expect(STATION_HELP.alchemy.output).toMatch(/4 槽/)
     expect(STATION_HELP.alchemy.note).toBeUndefined()
-    expect(alchemyStationHelpPlay(1)).toContain('当前可炼：嗜血药剂。')
-    expect(alchemyStationHelpPlay(1)).toContain('下一种背水药膏在 2 级解锁')
+    expect(alchemyStationHelpPlay(1)).toContain('当前可炼：背水药膏。')
+    expect(alchemyStationHelpPlay(1)).toContain('下一种嗜血药剂在 2 级解锁')
     expect(alchemyStationHelpPlay(1)).not.toContain('已全部解锁')
-    expect(alchemyStationHelpPlay(4)).toContain('当前可炼：嗜血药剂、背水药膏、清醒图腾水、巫毒回春剂。')
+    expect(alchemyStationHelpPlay(4)).toContain('当前可炼：背水药膏、嗜血药剂、清醒图腾水、巫毒回春剂。')
     expect(alchemyStationHelpPlay(4)).toContain('下一种先祖续命汤在 5 级解锁')
     expect(alchemyStationHelpPlay(6)).toContain('下一种双份雾在 7 级解锁')
     expect(alchemyStationHelpPlay(7)).toContain('已全部解锁')
@@ -82,7 +82,7 @@ describe('station help copy', () => {
     expect(stationHelpCopy('alchemy', 3).rows.find((row) => row.label === '怎么玩')?.text).toBe(
       alchemyStationHelpPlay(3),
     )
-    expect(stationHelpCopy('alchemy').rows.find((row) => row.label === '怎么玩')?.text).toContain('嗜血药剂')
+    expect(stationHelpCopy('alchemy').rows.find((row) => row.label === '怎么玩')?.text).toContain('背水药膏')
     expect(STATION_HELP.herbalism.play).toMatch(/必出/)
     expect(STATION_HELP.herbalism.cost).toBe('无额外原料')
     expect(STATION_HELP.herbalism.note).toMatch(/无挖空/)

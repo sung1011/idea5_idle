@@ -24,6 +24,7 @@ import {
   GUIDE_POTION_INSTALL_OPEN_GOAL,
   GUIDE_POTION_USE_CLOSED_GOAL,
   GUIDE_POTION_USE_OPEN_GOAL,
+  GUIDE_TEACH_POTION_ID,
   GUIDE_RECRUIT_CLOSED_GOAL,
   GUIDE_RECRUIT_OPEN_GOAL,
   guideClaimNotice,
@@ -36,6 +37,7 @@ import {
   guideAlchemyCardFlash,
   guideFuseCue,
   guideFuseFlashStations,
+  guidePotionPickFlash,
   guidePotionSlotFlash,
   guideQuestFlashId,
   guideQuestProgressAt,
@@ -259,9 +261,9 @@ describe('guideQuest steps and claim', () => {
     expect(save.guideQuestStep).toBe(mainlineStepOf('potionInstall'))
     expect(guideQuestView(save)?.title).toBe('装药')
 
-    save.bank.stim = 2
-    expect(installPotionSlot(save, 0, 'stim').ok).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('营地里装上一格药')
+    save.bank.brinkSalve = 2
+    expect(installPotionSlot(save, 0, 'brinkSalve').ok).toBe(true)
+    expect(guideQuestView(save)?.goal).toBe('营地里装上背水药膏')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('potionUse'))
     expect(guideQuestView(save)?.goal).toBe(GUIDE_POTION_USE_CLOSED_GOAL)
@@ -281,7 +283,7 @@ describe('guideQuest steps and claim', () => {
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(resting!.hp).toBe(resting!.hpMax)
     expect(save.guideQuestPotionUsed).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('营地里给队尾用药，看他回血')
+    expect(guideQuestView(save)?.goal).toBe('营地里给队尾用背水药膏，看他回血')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('combat'))
     expect(guideQuestView(save)?.title).toBe('出征')
@@ -432,8 +434,8 @@ describe('guideQuest flash target', () => {
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('potionInstall')
 
-    save.bank.stim = 1
-    installPotionSlot(save, 0, 'stim')
+    save.bank.brinkSalve = 1
+    installPotionSlot(save, 0, 'brinkSalve')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('potionUse')
 
@@ -815,5 +817,23 @@ describe('potion use guide on a buff', () => {
     expect(tail!.hp).toBe(tail!.hpMax)
     expect(tail!.fatigueDebt).toBe(0)
     expect(isFullWorkshopHp(tail!)).toBe(true)
+  })
+
+  it('aims install and use flashes at brinkSalve', () => {
+    const save = createSave()
+    expect(GUIDE_TEACH_POTION_ID).toBe('brinkSalve')
+    expect(recruitWorker(save).ok).toBe(true)
+    save.guideQuestStep = mainlineStepOf('potionInstall')
+    expect(guidePotionPickFlash(save, 'brinkSalve')).toBe(true)
+    expect(guidePotionPickFlash(save, 'stim')).toBe(false)
+    save.bank.brinkSalve = 1
+    save.bank.stim = 1
+    expect(installPotionSlot(save, 0, 'brinkSalve').ok).toBe(true)
+    expect(installPotionSlot(save, 1, 'stim').ok).toBe(true)
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestView(save)?.taskId).toBe('potionUse')
+    expect(guidePotionSlotFlash(save, true, 'brinkSalve')).toBe(true)
+    expect(guidePotionSlotFlash(save, true, 'stim')).toBe(false)
+    expect(guidePotionPickFlash(save, 'brinkSalve')).toBe(false)
   })
 })

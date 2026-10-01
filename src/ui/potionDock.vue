@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { bankQty } from '../sim/bank'
-import { guidePotionSlotFlash } from '../sim/guideQuest'
+import { guidePotionPickFlash, guidePotionSlotFlash } from '../sim/guideQuest'
 import { potionInstallGroups } from '../sim/potionSlots'
 import { ITEM_DEF, isPotionItemId } from '../sim/tables'
 import type { ItemId, PotionItemId } from '../sim/types'
@@ -192,7 +192,7 @@ onUnmounted(() => {
           dry: !!itemId && slotQty(itemId) <= 0,
           pressed: pressed.includes(i),
           restock: restock.includes(i),
-          'guide-flash': guidePotionSlotFlash(game.save, !!itemId),
+          'guide-flash': guidePotionSlotFlash(game.save, !!itemId, itemId),
         }"
         :aria-label="itemId ? `${slotLabel(itemId)} · 点击使用` : `装入药剂槽 ${i + 1}`"
         @pointerdown="onPointerDown(i, $event)"
@@ -241,7 +241,12 @@ onUnmounted(() => {
             <div class="pick-list">
               <div v-for="id in group.ids" :key="id" class="pick-cell">
                 <div class="potion-pick-row">
-                  <button type="button" class="potion-pick-main" @click="onInstall(id)">
+                  <button
+                    type="button"
+                    class="potion-pick-main"
+                    :class="{ 'guide-flash': guidePotionPickFlash(game.save, id) }"
+                    @click="onInstall(id)"
+                  >
                     <PotionIcon :name="id" />
                     <span>{{ ITEM_DEF[id].label }} ×{{ bankQty(game.save, id) }}</span>
                   </button>

@@ -7,7 +7,7 @@ import { knightLevelOf } from './stationUnlock'
 import { anyWorkerHasPotionBuff } from './potions'
 import { POTION_ITEM_IDS, QUALITY_MAX } from './tables'
 import { isFullWorkshopHp } from './workshopHp'
-import type { ActionResult, Encounter, EnemyEncounter, Save, StationId } from './types'
+import type { ActionResult, Encounter, EnemyEncounter, PotionItemId, Save, StationId } from './types'
 import {
   MAINLINE_TASKS,
   mainlineDone,
@@ -63,15 +63,17 @@ export const GUIDE_ALCHEMY_WAIT_HERB_GOAL = '等采药站出草，再点炼金�
 /** 有原料时点炼金站派一轮。 */
 export const GUIDE_ALCHEMY_CLICK_GOAL = '点炼金站，派队首去熬一轮药'
 /** 装药步营地还没打开。 */
-export const GUIDE_POTION_INSTALL_CLOSED_GOAL = '点营地，再点药剂槽装药'
+export const GUIDE_POTION_INSTALL_CLOSED_GOAL = '点营地，再点药剂槽装上背水药膏'
 /** 装药步营地已打开。 */
-export const GUIDE_POTION_INSTALL_OPEN_GOAL = '在营地点空药剂槽，装上一种药'
+export const GUIDE_POTION_INSTALL_OPEN_GOAL = '在营地点空药剂槽，装上背水药膏'
 /** 用药步营地还没打开。 */
-export const GUIDE_POTION_USE_CLOSED_GOAL = '点营地，再点药剂槽用药，看队尾回血'
+export const GUIDE_POTION_USE_CLOSED_GOAL = '点营地，再点背水药膏槽用药，看队尾回血'
 /** 用药步营地已打开。 */
-export const GUIDE_POTION_USE_OPEN_GOAL = '在营地点已装的药剂槽用药，看队尾回血'
+export const GUIDE_POTION_USE_OPEN_GOAL = '在营地点背水药膏槽用药，看队尾回血'
 /** 用药步营地没人。 */
 export const GUIDE_POTION_NEED_CAMP_GOAL = '等苦工回到营地，再点药剂槽用药'
+/** 引导装药 / 用药对准的药剂。1 级炼金只出这一种。 */
+export const GUIDE_TEACH_POTION_ID: PotionItemId = 'brinkSalve'
 /** 第一阶段「抽工人」完成所需次数（花名册人数或已生成序号，取较大）。 */
 export const GUIDE_QUEST_RECRUIT_NEED = 2
 
@@ -290,11 +292,21 @@ export function isGuideQuestFlash(save: Save, id: GuideQuestFlashId): boolean {
   return guideQuestFlashId(save) === id
 }
 
-/** 药剂槽高亮。两槽齐备和装药只圈空槽，满 2 个可领后不再圈；用药圈已装上的槽。 */
-export function guidePotionSlotFlash(save: Save, occupied: boolean): boolean {
+/** 药剂槽高亮。两槽齐备和装药只圈空槽，满 2 个可领后不再圈；用药优先圈背水药膏槽。 */
+export function guidePotionSlotFlash(save: Save, occupied: boolean, itemId?: PotionItemId | null): boolean {
   if (isGuideQuestFlash(save, 'slotsFull') || isGuideQuestFlash(save, 'potionInstall')) return !occupied
-  if (isGuideQuestFlash(save, 'potionUse')) return occupied && !guideNeedsCampForPotion(save)
+  if (isGuideQuestFlash(save, 'potionUse')) {
+    if (!occupied || guideNeedsCampForPotion(save)) return false
+    const hasTeach = (save.potionSlots ?? []).includes(GUIDE_TEACH_POTION_ID)
+    if (hasTeach && itemId) return itemId === GUIDE_TEACH_POTION_ID
+    return true
+  }
   return false
+}
+
+/** 装药弹层里圈背水药膏。 */
+export function guidePotionPickFlash(save: Save, id: PotionItemId): boolean {
+  return isGuideQuestFlash(save, 'potionInstall') && id === GUIDE_TEACH_POTION_ID
 }
 
 export function guideCombatNeedsHerbs(save: Save): boolean {
