@@ -3,6 +3,11 @@ import { createSave } from './createSave'
 import { claimLoot, enemyLootGoldFor, enemyLootReward } from './encounters'
 import { isChapterBoss } from './mainChapter'
 import {
+  HOW_BOSS,
+  HOW_BOUNTY,
+  HOW_COPPER,
+  HOW_DUNGEON,
+  HOW_MARKET,
   MONSTER_EARLY_DROP_CHANCE,
   MONSTER_FIRST_LIGHT_DIAMONDS,
   MONSTER_MID_DROP_CHANCE,
@@ -18,6 +23,7 @@ import {
   isMonsterLit,
   litMonsterCount,
   monsterShardQty,
+  monsterUnlockHint,
   settleMonsterSubmit,
   speciesIdOfEncounter,
   syncMonsterCodex,
@@ -91,6 +97,26 @@ describe('monster species binding', () => {
     expect(MONSTER_SPECIES.filter((row) => row.band === 'mid')).toHaveLength(14)
     expect(MONSTER_SPECIES.filter((row) => row.band === 'signature')).toHaveLength(3)
     expect(MONSTER_PROGRESS[2]?.need).toBe(MONSTER_SPECIES.length)
+  })
+
+  it('writes oral unlock conditions that match how each species is lit', () => {
+    expect(monsterUnlockHint('wolfScout')).toBe(HOW_BOUNTY)
+    expect(monsterUnlockHint('merchantBuy')).toBe(HOW_MARKET)
+    expect(monsterUnlockHint('merchantPawnCopper')).toBe(HOW_COPPER)
+    expect(monsterUnlockHint('chapterBoss')).toBe(HOW_BOSS)
+    expect(monsterUnlockHint('dungeonJailer')).toBe(HOW_DUNGEON)
+    expect(monsterUnlockHint('dungeonBroker')).toBe(HOW_DUNGEON)
+    expect(MONSTER_SPECIES.filter((row) => row.how === HOW_BOUNTY)).toHaveLength(5)
+    expect(MONSTER_SPECIES.filter((row) => row.how === HOW_MARKET)).toHaveLength(24)
+    expect(MONSTER_SPECIES.every((row) => row.how.length > 0)).toBe(true)
+    const hows = MONSTER_SPECIES.map((row) => row.how).join('')
+    expect(hows).not.toContain('刷出')
+    expect(hows).not.toContain('第 0 格')
+    expect(HOW_BOUNTY).toContain('悬赏')
+    expect(HOW_MARKET).toContain('集市')
+    expect(HOW_COPPER).toContain('采矿')
+    expect(HOW_BOSS).toContain('10 单')
+    expect(HOW_DUNGEON).toContain('地牢')
   })
 })
 

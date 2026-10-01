@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import {
   MONSTER_EXCHANGES,
   MONSTER_SHARD_LABEL,
@@ -13,9 +13,16 @@ import {
 } from '../sim/monsterCodex'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
+import HelpMark from './helpMark.vue'
+import { MONSTER_CODEX_HELP_ROWS, MONSTER_CODEX_HELP_TITLE } from './monsterCodexHelp'
+import ModeHelpSheet from './modeHelpSheet.vue'
+
+type CodexTab = 'list' | 'exchange'
 
 const emit = defineEmits<{ close: [] }>()
 const game = useGameStore()
+const tab = ref<CodexTab>('list')
+const helpOpen = ref(false)
 const rows = computed(() => monsterCodexRows(game.save))
 const progress = computed(() => monsterProgressView(game.save))
 const lit = computed(() => rows.value.filter((row) => row.lit).length)
@@ -30,7 +37,12 @@ const shards = computed(() =>
 )
 
 function onKey(ev: KeyboardEvent) {
-  if (ev.key === 'Escape') emit('close')
+  if (ev.key !== 'Escape') return
+  if (helpOpen.value) {
+    helpOpen.value = false
+    return
+  }
+  emit('close')
 }
 
 function claim(id: MonsterProgressId) {
@@ -52,6 +64,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
     <section class="panel box" role="dialog" aria-modal="true" aria-labelledby="monster-codex-title">
       <header>
         <h2 id="monster-codex-title" class="title">怪物图鉴</h2>
+        <HelpMark @click.stop="helpOpen = true" />
         <button type="button" class="close" @click="emit('close')">关闭</button>
       </header>
       <p class="lead">
@@ -59,43 +72,72 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
         <span v-if="title"> · {{ title }}</span>
         <span v-if="campDeco"> · {{ campDeco }}</span>
       </p>
-      <p class="hint">订单金钻仍只看章节×品质。交单另掷专属碎片，不乘金钻。</p>
-      <div class="shards" aria-label="碎片">
-        <span v-for="shard in shards" :key="shard.id">{{ shard.label }} ×{{ shard.qty }}</span>
-      </div>
-      <div class="progress">
+      <nav class="sub" role="tablist" aria-label="图鉴分页">
         <button
-          v-for="row in progress"
-          :key="row.id"
           type="button"
-          :disabled="!row.ready"
-          :class="{ on: row.claimed }"
-          @click="claim(row.id as MonsterProgressId)"
+          role="tab"
+          :aria-selected="tab === 'list'"
+          :class="{ on: tab === 'list' }"
+          @click="tab = 'list'"
         >
-          <b>{{ row.need }}种</b>
-          <span v-if="row.claimed">已领</span>
-          <span v-else>钻 +{{ row.diamonds }}{{ row.title ? ` · ${row.title}` : '' }}</span>
+          图鉴
         </button>
-      </div>
-      <div class="exchanges" aria-label="碎片兑换">
         <button
-          v-for="row in MONSTER_EXCHANGES"
-          :key="row.id"
           type="button"
-          @click="exchange(row.id)"
+          role="tab"
+          :aria-selected="tab === 'exchange'"
+          :class="{ on: tab === 'exchange' }"
+          @click="tab = 'exchange'"
         >
-          {{ MONSTER_SHARD_LABEL[row.shard] }}×{{ row.cost }} → {{ row.label }}
+          兑换
         </button>
-      </div>
-      <ol class="list">
-        <li v-for="row in rows" :key="row.id" :class="{ lit: row.lit, submitted: row.submitted }">
-          <b>{{ row.lit ? row.label : '???' }}</b>
-          <span v-if="row.lit">{{ row.dropHint }}{{ row.submitted ? ' · 已交单' : ' · 已见' }}</span>
-          <span v-else>{{ row.how }}</span>
+      </nav>
+      <ol v-if="tab === 'list'" class="list">
+        <li v-for="row in rows" :key="row.id" :class="{ lit: row.lit, locked: !row.lit, submitted: row.submitted }">
+          <b>{{ row.label }}</b>
+          <small v-if="row.lit">{{ row.dropHint }}{{ row.submitted ? ' · 已交单' : ' · 已见' }}</small>
+          <small v-else>{{ row.how }}</small>
         </li>
       </ol>
+      <template v-else>
+        <div class="shards" aria-label="碎片">
+          <span v-for="shard in shards" :key="shard.id">{{ shard.label }} ×{{ shard.qty }}</span>
+        </div>
+        <div class="progress">
+          <button
+            v-for="row in progress"
+            :key="row.id"
+            type="button"
+            :disabled="!row.ready"
+            :class="{ on: row.claimed }"
+            @click="claim(row.id as MonsterProgressId)"
+          >
+            <b>{{ row.need }}种</b>
+            <span v-if="row.claimed">已领</span>
+            <span v-else>钻 +{{ row.diamonds }}{{ row.title ? ` · ${row.title}` : '' }}</span>
+          </button>
+        </div>
+        <div class="exchanges" aria-label="碎片兑换">
+          <button
+            v-for="row in MONSTER_EXCHANGES"
+            :key="row.id"
+            type="button"
+            @click="exchange(row.id)"
+          >
+            {{ MONSTER_SHARD_LABEL[row.shard] }}×{{ row.cost }} → {{ row.label }}
+          </button>
+        </div>
+      </template>
     </section>
   </div>
+  <Teleport to="body">
+    <ModeHelpSheet
+      v-if="helpOpen"
+      :title="MONSTER_CODEX_HELP_TITLE"
+      :rows="MONSTER_CODEX_HELP_ROWS"
+      @close="helpOpen = false"
+    />
+  </Teleport>
 </template>
 
 <style scoped>
@@ -137,11 +179,62 @@ header .title {
   padding: 4px 10px;
 }
 
-.lead,
-.hint {
+.lead {
   margin: 0;
   color: var(--muted);
   font-size: 13px;
+}
+
+.sub {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 3px;
+  border: 2px solid var(--gold);
+  border-radius: var(--radius-pill);
+  background: var(--wood-face);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.sub button {
+  flex: 1 1 0;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  opacity: 1;
+  filter: none;
+}
+
+.sub button:hover:not(:disabled) {
+  filter: none;
+  background: rgba(255, 243, 196, 0.45);
+}
+
+.sub button:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.sub button:focus-visible {
+  outline: 2px solid var(--gold-deep);
+  outline-offset: 1px;
+}
+
+.sub button.on,
+.sub button.on:hover:not(:disabled),
+.sub button.on:active:not(:disabled) {
+  color: var(--ink);
+  background: var(--tab-on);
+  box-shadow: 0 2px 6px rgba(212, 160, 23, 0.32);
+  opacity: 1;
+  filter: none;
 }
 
 .shards,
@@ -180,21 +273,30 @@ header .title {
   padding: 8px 10px;
   border: 2px solid var(--gold);
   border-radius: 12px;
-  background: var(--slot);
-  color: var(--muted);
+  background: var(--wood-lite);
+  color: var(--ink);
   font-size: 12px;
-  opacity: 0.55;
-  filter: grayscale(0.7);
 }
 
-.list li.lit {
-  opacity: 1;
-  filter: none;
-  color: var(--ink);
-  background: var(--wood-lite);
+.list li.locked {
+  background: #d8c4a0;
+  border-color: #8a7048;
+  filter: grayscale(0.2);
 }
 
 .list b {
   font-size: 14px;
+}
+
+.list small {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.list li.locked b,
+.list li.locked small {
+  color: #6a5840;
 }
 </style>

@@ -12,6 +12,13 @@ export const MONSTER_SIGN_DROP_CHANCE = 0.03
 export const MONSTER_TITLE_WIDE = '见多识广'
 export const MONSTER_TITLE_MASTER = '怪物通'
 
+/** 未解锁格上的点亮条件。跟看见或交单就会点亮的规则对齐。 */
+export const HOW_BOUNTY = '去悬赏点探索，刷到这单就能点亮'
+export const HOW_MARKET = '去集市逛，刷到这单就能点亮'
+export const HOW_COPPER = '采矿开了之后，新档集市第一格会出这单'
+export const HOW_BOSS = '本章悬赏交满 10 单后出首领，看见或领战利品就点亮'
+export const HOW_DUNGEON = '去地牢页，每天两单里有它，看见或开箱就点亮'
+
 export type MonsterDropBand = 'early' | 'mid' | 'signature'
 export type MonsterShardId = 'fang' | 'cloth' | 'look'
 export type MonsterProgressId = 't5' | 't10' | 'all'
@@ -56,54 +63,54 @@ export type MonsterCodexState = {
 }
 
 export const MONSTER_SPECIES: readonly MonsterSpeciesDef[] = [
-  { id: 'wolfScout', label: '联盟斥候', how: '悬赏探索刷出', band: 'early', dropHint: '牙饰碎片 8%' },
-  { id: 'banditCamp', label: '人类步兵', how: '悬赏探索刷出', band: 'early', dropHint: '牙饰碎片 8%' },
-  { id: 'wildBoar', label: '矮人火枪手', how: '悬赏探索刷出', band: 'early', dropHint: '牙饰碎片 8%' },
-  { id: 'riverRaider', label: '精灵哨兵', how: '悬赏探索刷出', band: 'early', dropHint: '牙饰碎片 8%' },
-  { id: 'hillBrigand', label: '圣光牧师', how: '悬赏探索刷出', band: 'early', dropHint: '牙饰碎片 8%' },
-  { id: 'merchantBuy', label: '地精干粮贩', how: '集市刷出', band: 'early', dropHint: '牙饰碎片 8%' },
-  { id: 'merchantBuyOre', label: '地精矿石掮客', how: '集市刷出', band: 'early', dropHint: '牙饰碎片 8%' },
-  { id: 'merchantBuyBlade', label: '地精工具贩', how: '集市刷出', band: 'early', dropHint: '牙饰碎片 8%' },
-  { id: 'merchantBuyCook', label: '巨魔行脚厨子', how: '集市刷出', band: 'early', dropHint: '牙饰碎片 8%' },
-  { id: 'merchantBuyRoast', label: '巨魔烤肉贩', how: '集市刷出', band: 'early', dropHint: '牙饰碎片 8%' },
-  { id: 'merchantBarter', label: '牛头人换货商', how: '集市刷出', band: 'early', dropHint: '牙饰碎片 8%' },
-  { id: 'merchantBarterOre', label: '牛头人矿换商', how: '集市刷出', band: 'early', dropHint: '牙饰碎片 8%' },
-  { id: 'merchantBarterBlade', label: '血精灵工具商', how: '集市刷出', band: 'early', dropHint: '牙饰碎片 8%' },
-  { id: 'merchantBarterCook', label: '兽人干粮商', how: '集市刷出', band: 'early', dropHint: '牙饰碎片 8%' },
-  { id: 'merchantBarterStew', label: '巨魔香料商', how: '集市刷出', band: 'early', dropHint: '牙饰碎片 8%' },
-  { id: 'merchantPawnCopper', label: '地精铜矿当', how: '采矿已开时，新档集市第 0 格固定刷出', band: 'early', dropHint: '牙饰碎片 8%' },
-  { id: 'merchantPawn', label: '地精工具当', how: '集市刷出', band: 'mid', dropHint: '兽纹布 5%' },
-  { id: 'merchantPawnMeal', label: '地精干粮当', how: '集市刷出', band: 'mid', dropHint: '兽纹布 5%' },
-  { id: 'merchantPawnRoast', label: '地精烤肉当', how: '集市刷出', band: 'mid', dropHint: '兽纹布 5%' },
-  { id: 'merchantPawnWood', label: '地精矿料当', how: '集市刷出', band: 'mid', dropHint: '兽纹布 5%' },
-  { id: 'merchantPawnOre', label: '地精矿石当', how: '集市刷出', band: 'mid', dropHint: '兽纹布 5%' },
-  { id: 'artisanBlade', label: '修工具委托', how: '集市刷出', band: 'mid', dropHint: '兽纹布 5%' },
-  { id: 'artisanMeal', label: '灶头加餐', how: '集市刷出', band: 'mid', dropHint: '兽纹布 5%' },
-  { id: 'artisanStew', label: '炖锅加餐', how: '集市刷出', band: 'mid', dropHint: '兽纹布 5%' },
-  { id: 'artisanPotion', label: '药剂试制', how: '集市刷出', band: 'mid', dropHint: '兽纹布 5%' },
-  { id: 'bulkBlade', label: '工具收购', how: '集市刷出', band: 'mid', dropHint: '兽纹布 5%' },
-  { id: 'bulkMeal', label: '熟食收购', how: '集市刷出', band: 'mid', dropHint: '兽纹布 5%' },
-  { id: 'bulkRoast', label: '烤肉收购', how: '集市刷出', band: 'mid', dropHint: '兽纹布 5%' },
-  { id: 'bulkPotion', label: '药剂收购', how: '集市刷出', band: 'mid', dropHint: '兽纹布 5%' },
-  { id: 'bulkCooked', label: '干粮收购', how: '集市刷出', band: 'mid', dropHint: '兽纹布 5%' },
+  { id: 'wolfScout', label: '联盟斥候', how: HOW_BOUNTY, band: 'early', dropHint: '牙饰碎片 8%' },
+  { id: 'banditCamp', label: '人类步兵', how: HOW_BOUNTY, band: 'early', dropHint: '牙饰碎片 8%' },
+  { id: 'wildBoar', label: '矮人火枪手', how: HOW_BOUNTY, band: 'early', dropHint: '牙饰碎片 8%' },
+  { id: 'riverRaider', label: '精灵哨兵', how: HOW_BOUNTY, band: 'early', dropHint: '牙饰碎片 8%' },
+  { id: 'hillBrigand', label: '圣光牧师', how: HOW_BOUNTY, band: 'early', dropHint: '牙饰碎片 8%' },
+  { id: 'merchantBuy', label: '地精干粮贩', how: HOW_MARKET, band: 'early', dropHint: '牙饰碎片 8%' },
+  { id: 'merchantBuyOre', label: '地精矿石掮客', how: HOW_MARKET, band: 'early', dropHint: '牙饰碎片 8%' },
+  { id: 'merchantBuyBlade', label: '地精工具贩', how: HOW_MARKET, band: 'early', dropHint: '牙饰碎片 8%' },
+  { id: 'merchantBuyCook', label: '巨魔行脚厨子', how: HOW_MARKET, band: 'early', dropHint: '牙饰碎片 8%' },
+  { id: 'merchantBuyRoast', label: '巨魔烤肉贩', how: HOW_MARKET, band: 'early', dropHint: '牙饰碎片 8%' },
+  { id: 'merchantBarter', label: '牛头人换货商', how: HOW_MARKET, band: 'early', dropHint: '牙饰碎片 8%' },
+  { id: 'merchantBarterOre', label: '牛头人矿换商', how: HOW_MARKET, band: 'early', dropHint: '牙饰碎片 8%' },
+  { id: 'merchantBarterBlade', label: '血精灵工具商', how: HOW_MARKET, band: 'early', dropHint: '牙饰碎片 8%' },
+  { id: 'merchantBarterCook', label: '兽人干粮商', how: HOW_MARKET, band: 'early', dropHint: '牙饰碎片 8%' },
+  { id: 'merchantBarterStew', label: '巨魔香料商', how: HOW_MARKET, band: 'early', dropHint: '牙饰碎片 8%' },
+  { id: 'merchantPawnCopper', label: '地精铜矿当', how: HOW_COPPER, band: 'early', dropHint: '牙饰碎片 8%' },
+  { id: 'merchantPawn', label: '地精工具当', how: HOW_MARKET, band: 'mid', dropHint: '兽纹布 5%' },
+  { id: 'merchantPawnMeal', label: '地精干粮当', how: HOW_MARKET, band: 'mid', dropHint: '兽纹布 5%' },
+  { id: 'merchantPawnRoast', label: '地精烤肉当', how: HOW_MARKET, band: 'mid', dropHint: '兽纹布 5%' },
+  { id: 'merchantPawnWood', label: '地精矿料当', how: HOW_MARKET, band: 'mid', dropHint: '兽纹布 5%' },
+  { id: 'merchantPawnOre', label: '地精矿石当', how: HOW_MARKET, band: 'mid', dropHint: '兽纹布 5%' },
+  { id: 'artisanBlade', label: '修工具委托', how: HOW_MARKET, band: 'mid', dropHint: '兽纹布 5%' },
+  { id: 'artisanMeal', label: '灶头加餐', how: HOW_MARKET, band: 'mid', dropHint: '兽纹布 5%' },
+  { id: 'artisanStew', label: '炖锅加餐', how: HOW_MARKET, band: 'mid', dropHint: '兽纹布 5%' },
+  { id: 'artisanPotion', label: '药剂试制', how: HOW_MARKET, band: 'mid', dropHint: '兽纹布 5%' },
+  { id: 'bulkBlade', label: '工具收购', how: HOW_MARKET, band: 'mid', dropHint: '兽纹布 5%' },
+  { id: 'bulkMeal', label: '熟食收购', how: HOW_MARKET, band: 'mid', dropHint: '兽纹布 5%' },
+  { id: 'bulkRoast', label: '烤肉收购', how: HOW_MARKET, band: 'mid', dropHint: '兽纹布 5%' },
+  { id: 'bulkPotion', label: '药剂收购', how: HOW_MARKET, band: 'mid', dropHint: '兽纹布 5%' },
+  { id: 'bulkCooked', label: '干粮收购', how: HOW_MARKET, band: 'mid', dropHint: '兽纹布 5%' },
   {
     id: 'chapterBoss',
     label: '联盟指挥官',
-    how: '本章悬赏战利品交满 10 单后刷出',
+    how: HOW_BOSS,
     band: 'signature',
     dropHint: '外观碎片或头像框 3%，首次交单保底',
   },
   {
     id: DUNGEON_JAILER_ID,
     label: DUNGEON_JAILER_LABEL,
-    how: '地牢页每日两单之一',
+    how: HOW_DUNGEON,
     band: 'signature',
     dropHint: '外观碎片或头像框 3%，首次交单保底',
   },
   {
     id: DUNGEON_BROKER_ID,
     label: DUNGEON_BROKER_LABEL,
-    how: '地牢页每日两单之一',
+    how: HOW_DUNGEON,
     band: 'signature',
     dropHint: '外观碎片或头像框 3%，首次交单保底',
   },
@@ -181,6 +188,10 @@ function isCosmeticId(id: string): id is MonsterCosmeticId {
 
 export function monsterSpeciesOf(id: unknown): MonsterSpeciesDef | null {
   return typeof id === 'string' ? SPECIES_BY_ID.get(id) ?? null : null
+}
+
+export function monsterUnlockHint(id: unknown): string {
+  return monsterSpeciesOf(id)?.how ?? '看见或交掉这单就能点亮'
 }
 
 export function ensureMonsterCodex(save: Save): MonsterCodexState {
