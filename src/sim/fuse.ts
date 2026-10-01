@@ -8,6 +8,7 @@ import { workerFromTotalXp, workerTotalXp } from './workerLevel'
 import { roll01 } from './rng'
 import { CLASS_LABEL, classPoolForQuality, pickClassFromPool, QUALITY_MAX, workerQualityDef } from './tables'
 import { rollWorkerName, rollWorkerRace } from './workerRace'
+import { applyFuseRaceUnlocks } from './workerRaceUnlock'
 import type { ActionResult, QualityTier, Save, Worker } from './types'
 
 /**
@@ -75,6 +76,7 @@ function fusePairAt(save: Save, a: Worker, b: Worker): ActionResult {
   const worker = spawnWorkerWith(save, nextTier, classId, keptAttrs)
   worker.race = race
   worker.name = givenName
+  applyFuseRaceUnlocks(save, race, nextTier)
   worker.level = progress.level
   worker.xp = progress.xp
   fillWorkerHp(worker, undefined, save)

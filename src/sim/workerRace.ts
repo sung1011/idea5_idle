@@ -97,12 +97,25 @@ export function identityFromWorkerId(id: string): { race: WorkerRaceId; name: st
   return { race, name: nameFromWorkerId(id, race) }
 }
 
+/** 开局常驻可招募 / 合成。 */
+export const STARTER_WORKER_RACES = ['orc', 'troll', 'tauren'] as const satisfies readonly WorkerRaceId[]
+
+/** 已解锁族；脏档或空列表回落到开局三族，未解锁不会进池。 */
+export function unlockedWorkerRacePool(save: Pick<Save, 'unlockedWorkerRaces'>): WorkerRaceId[] {
+  const listed = Array.isArray(save.unlockedWorkerRaces) ? save.unlockedWorkerRaces.filter(isWorkerRaceId) : []
+  const unique = WORKER_RACE_IDS.filter((id) => listed.includes(id))
+  return unique.length ? unique : [...STARTER_WORKER_RACES]
+}
+
+export function isWorkerRaceUnlocked(save: Pick<Save, 'unlockedWorkerRaces'>, race: WorkerRaceId): boolean {
+  return unlockedWorkerRacePool(save).includes(race)
+}
+
 export function rollWorkerRace(save: Save): WorkerRaceId {
-  const index = Math.min(
-    WORKER_RACE_IDS.length - 1,
-    Math.max(0, Math.floor(roll01(save) * WORKER_RACE_IDS.length)),
-  )
-  return WORKER_RACE_IDS[index] ?? 'orc'
+  const pool = unlockedWorkerRacePool(save)
+  const index = Math.min(pool.length - 1, Math.max(0, Math.floor(roll01(save) * pool.length)))
+  const picked = pool[index] ?? 'orc'
+  return isWorkerRaceUnlocked(save, picked) ? picked : (pool[0] ?? 'orc')
 }
 
 export function rollWorkerName(save: Save, race: WorkerRaceId): string {

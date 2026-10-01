@@ -12,6 +12,7 @@ import { hydrateStations } from './stationProgress'
 import { blankPotionSlots } from './potionSlots'
 import { blankTravelingMerchant } from './travelingMerchant'
 import { normalizeFreeRecruitLeft, START_DIAMONDS, START_GOLD, START_TECH_POINTS, WORKER_QUALITY_REV } from './tables'
+import { starterUnlockedRaces } from './workerRaceUnlock'
 
 /** 对不上这个版本的存档整档丢弃，重新开一局。 */
 export const SAVE_VERSION = 6
@@ -70,6 +71,8 @@ export function createSave(): Save {
     guideQuestStats: blankGuideQuestStats(),
     workshopHpEfficiencyTipShown: false,
     fuseDragTipDone: false,
+    unlockedWorkerRaces: starterUnlockedRaces(),
+    goldRaceUnlockStep: 0,
     starterCopperPawnDone: false,
     workshopBuff: null,
     exploreCount: 0,

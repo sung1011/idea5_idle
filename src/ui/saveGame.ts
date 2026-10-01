@@ -21,6 +21,7 @@ import { hydratePotionSlots } from '../sim/potionSlots'
 import { hydratePotionState } from '../sim/potions'
 import { hydrateTechFields } from '../sim/tech'
 import { hydrateFuseDragTip } from '../sim/fuse'
+import { hydrateWorkerRaceUnlocks } from '../sim/workerRaceUnlock'
 import { hydrateWorkshopHpFields } from '../sim/workshopHp'
 import { hydrateBeastPvp } from '../sim/beastPvp'
 import { hydrateHerbPvp } from '../sim/herbPvp'
@@ -114,6 +115,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
   const withGuide = hydrateGuideQuestFields(loaded, parsed)
   hydrateWorkshopHpFields(withGuide)
   hydrateFuseDragTip(withGuide)
+  hydrateWorkerRaceUnlocks(withGuide)
   hydrateTreasureMines(withGuide)
   hydrateHerbPvp(withGuide, withGuide.lastTick || Date.now())
   hydrateBeastPvp(withGuide, withGuide.lastTick || Date.now())

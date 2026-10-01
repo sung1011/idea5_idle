@@ -35,6 +35,7 @@ import { isWorkerEatFlashing, workerEatFlashText } from './workerEatFlash'
 import { isWorkerLevelFlashing } from './workerLevelFlash'
 import PotionDock from './potionDock.vue'
 import PotionIcon from './potionIcon.vue'
+import RaceCodexSheet from './raceCodexSheet.vue'
 import WorkerAvatar from './workerAvatar.vue'
 import { workerPotionIconIds } from './workerPotionMark'
 import WorkerDetailSheet from './workerDetailSheet.vue'
@@ -59,6 +60,7 @@ const foodHelp = ref<FoodItemId | null>(null)
 const foodHelpPos = ref({ left: 8, top: 8 })
 const foodRuleOpen = ref(false)
 const campHelpOpen = ref(false)
+const raceCodexOpen = ref(false)
 const detailId = ref<string | null>(null)
 const rows = computed(() => restQueueRows(game.save))
 const heldTailIds = ref<string[]>([])
@@ -487,6 +489,7 @@ onUnmounted(() => {
   <Teleport to="body">
     <div class="camp-mask" :class="{ passing: drag?.active }" @click.self="closeCampSheet">
       <section class="camp-sheet" :class="{ 'guide-flash': fuseCue === 'drag' }" role="dialog" aria-modal="true" aria-label="营地" data-drop="rest">
+        <button type="button" class="camp-codex" aria-label="苦工图鉴" @click="raceCodexOpen = true">鉴</button>
         <button type="button" class="camp-help" aria-label="营地说明" @click="campHelpOpen = true">？</button>
         <button type="button" class="close" aria-label="关闭" @click="closeCampSheet">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -664,6 +667,10 @@ onUnmounted(() => {
   </Teleport>
 
   <Teleport to="body">
+    <RaceCodexSheet v-if="raceCodexOpen" @close="raceCodexOpen = false" />
+  </Teleport>
+
+  <Teleport to="body">
     <ModeHelpSheet v-if="foodRuleOpen" :title="REST_FOOD_HELP_TITLE" :rows="REST_FOOD_HELP_ROWS" @close="foodRuleOpen = false" />
   </Teleport>
 
@@ -722,10 +729,10 @@ onUnmounted(() => {
   color: var(--ink);
 }
 
+.camp-codex,
 .camp-help {
   position: absolute;
   top: 8px;
-  right: 48px;
   z-index: 3;
   flex: 0 0 32px;
   width: 32px;
@@ -737,10 +744,19 @@ onUnmounted(() => {
   border: 2px solid #6b3a16;
   background: linear-gradient(#fff4d4, #e7c27a);
   color: #5a3a10;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 900;
   line-height: 1;
   box-shadow: 0 3px 0 #8a5a24;
+}
+
+.camp-codex {
+  right: 88px;
+}
+
+.camp-help {
+  right: 48px;
+  font-size: 18px;
 }
 
 .close {
@@ -774,7 +790,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 2px 88px 8px;
+  padding: 2px 128px 8px;
 }
 
 h2 {
