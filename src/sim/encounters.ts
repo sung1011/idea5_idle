@@ -486,7 +486,7 @@ export function isAllowedMainNeedKind(itemId: ItemId, pool: readonly ItemId[]): 
   return false
 }
 
-/** 通配占药类 / 符类订单 4/(7+4)≈36%、4/(6+4)=40%。 */
+/** 通配占药类 / 符类订单 4/(8+4)≈33%、4/(6+4)=40%。 */
 export const MAIN_NEED_ANY_WILDCARD_WEIGHT = 4
 export const MAIN_NEED_SPECIFIC_WEIGHT = 1
 

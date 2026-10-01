@@ -667,7 +667,7 @@ describe('unlock-gated main need pool', () => {
 })
 
 describe('main need wildcards', () => {
-  it('weights anyPotion / anyRune at 4 vs 1 for specifics (35%–40% of class)', () => {
+  it('weights anyPotion / anyRune at 4 vs 1 for specifics (~33% potions, ~40% runes)', () => {
     expect(MAIN_NEED_ANY_WILDCARD_WEIGHT).toBe(4)
     expect(MAIN_NEED_SPECIFIC_WEIGHT).toBe(1)
     expect(mainNeedItemWeight(ANY_POTION_ITEM_ID)).toBe(4)
@@ -676,10 +676,8 @@ describe('main need wildcards', () => {
     expect(mainNeedItemWeight('runeSharp')).toBe(1)
     const potionClass = POTION_ITEM_IDS.length * MAIN_NEED_SPECIFIC_WEIGHT + MAIN_NEED_ANY_WILDCARD_WEIGHT
     const runeClass = RUNE_ITEM_IDS.length * MAIN_NEED_SPECIFIC_WEIGHT + MAIN_NEED_ANY_WILDCARD_WEIGHT
-    expect(MAIN_NEED_ANY_WILDCARD_WEIGHT / potionClass).toBeGreaterThanOrEqual(0.35)
-    expect(MAIN_NEED_ANY_WILDCARD_WEIGHT / potionClass).toBeLessThanOrEqual(0.4)
-    expect(MAIN_NEED_ANY_WILDCARD_WEIGHT / runeClass).toBeGreaterThanOrEqual(0.35)
-    expect(MAIN_NEED_ANY_WILDCARD_WEIGHT / runeClass).toBeLessThanOrEqual(0.4)
+    expect(MAIN_NEED_ANY_WILDCARD_WEIGHT / potionClass).toBeCloseTo(4 / 12)
+    expect(MAIN_NEED_ANY_WILDCARD_WEIGHT / runeClass).toBeCloseTo(0.4)
   })
 
   it('converts a specific potion / rune to wildcard when the roll is in the wildcard band', () => {
