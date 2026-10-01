@@ -182,6 +182,7 @@ describe('production phase-1 tables', () => {
     expect(itemProducerStation('stim')).toBe('alchemy')
     expect(itemProducerStation('salve')).toBe('alchemy')
     expect(itemProducerStation('clearMind')).toBe('alchemy')
+    expect(itemProducerStation('tribeRain')).toBe('alchemy')
     expect(itemProducerStation(ANY_POTION_ITEM_ID)).toBe('alchemy')
     expect(itemProducerStation(ANY_RUNE_ITEM_ID)).toBe('inscription')
     expect(itemProducerStation('wood')).toBeNull()

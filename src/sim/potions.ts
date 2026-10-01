@@ -22,6 +22,8 @@ import {
   STIM_CAMP_TARGETS,
   STIM_DURATION_S,
   STIM_SPEED_MUL,
+  TRIBE_RAIN_RATIOS,
+  TRIBE_RAIN_TARGETS,
   normalizeAlchemyLevel,
   unlockedPotionIds,
 } from './tables'
@@ -47,7 +49,7 @@ export { installPotionSlot, unequipPotionSlot } from './potionSlots'
 export const POTION_NO_DUTY_TIP = '营地没有苦工可用药'
 export const POTION_FULL_HP_TIP = '营地苦工已满血'
 
-const HEAL_POTIONS = new Set<PotionItemId>(['salve', 'brinkSalve', 'clearMind', 'renewSoup'])
+const HEAL_POTIONS = new Set<PotionItemId>(['salve', 'brinkSalve', 'clearMind', 'renewSoup', 'tribeRain'])
 
 function isAssistLike(worker: Pick<Worker, 'id' | 'guest'>): boolean {
   return worker.guest === true || worker.id.startsWith('assist-')
@@ -214,12 +216,17 @@ function hpRatio(worker: Worker): number {
   return worker.hp / hpMax
 }
 
-/** 未满血（含劳损债）才选。按 HP/hpMax 升序，平局按 id，最多 2 人。 */
-function clearMindTargets(save: Save): Worker[] {
+/** 未满血（含劳损债）才选。按 HP/hpMax 升序，平局按 id。 */
+function woundedCampByInjury(save: Save, count: number): Worker[] {
   return potionCampWorkers(save)
     .filter((worker) => !isFullWorkshopHp(worker))
     .sort((a, b) => hpRatio(a) - hpRatio(b) || a.id.localeCompare(b.id))
-    .slice(0, 2)
+    .slice(0, count)
+}
+
+/** 清醒图腾水：最多 2 人。 */
+function clearMindTargets(save: Save): Worker[] {
+  return woundedCampByInjury(save, 2)
 }
 
 function campAllFull(save: Save): boolean {
@@ -313,6 +320,15 @@ function applyPotionEffect(save: Save, itemId: PotionItemId): string {
     }
     return targets.length > 0 ? `图腾：营地最残 ${targets.length} 人回血` : POTION_FULL_HP_TIP
   }
+  if (itemId === 'tribeRain') {
+    const targets = woundedCampByInjury(save, TRIBE_RAIN_TARGETS)
+    for (let i = 0; i < targets.length; i++) {
+      const ratio = TRIBE_RAIN_RATIOS[i]
+      if (ratio == null) break
+      applyHeal(save, targets[i], healAmount(targets[i].hpMax, ratio))
+    }
+    return targets.length > 0 ? `甘霖：营地最残 ${targets.length} 人回血` : POTION_FULL_HP_TIP
+  }
   if (itemId === 'beastOil') {
     const targets = pickRandom(save, camp, BEAST_OIL_CAMP_TARGETS)
     for (const worker of targets) potionOf(worker).beastOilUntil = t + BEAST_OIL_DURATION_S
@@ -329,10 +345,10 @@ export function usePotionSlot(save: Save, index: number, _now = Date.now()): Act
   if (!itemId) return { ok: false, reason: '空槽' }
   if (bankQty(save, itemId) < 1) return { ok: false, reason: `${ITEM_DEF[itemId].label}见底` }
   if (!potionCampWorkers(save).length) return { ok: false, reason: POTION_NO_DUTY_TIP }
-  if (itemId === 'clearMind' && clearMindTargets(save).length === 0) {
+  if ((itemId === 'clearMind' || itemId === 'tribeRain') && woundedCampByInjury(save, TRIBE_RAIN_TARGETS).length === 0) {
     return { ok: false, reason: POTION_FULL_HP_TIP }
   }
-  if (HEAL_POTIONS.has(itemId) && itemId !== 'clearMind' && campAllFull(save)) {
+  if (HEAL_POTIONS.has(itemId) && itemId !== 'clearMind' && itemId !== 'tribeRain' && campAllFull(save)) {
     return { ok: false, reason: POTION_FULL_HP_TIP }
   }
   const took = takeFromBank(save, itemId, 1)

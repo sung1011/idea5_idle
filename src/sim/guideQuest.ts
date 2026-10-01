@@ -325,7 +325,7 @@ export function guideNeedsCampForPotion(save: Save): boolean {
   return restingWorkers(save).length === 0
 }
 
-const GUIDE_HEAL_POTIONS = new Set(['salve', 'brinkSalve', 'clearMind', 'renewSoup'])
+const GUIDE_HEAL_POTIONS = new Set(['salve', 'brinkSalve', 'clearMind', 'renewSoup', 'tribeRain'])
 
 /** 用药步装着回血药、营地又全员满血时，把队尾打到 1 血，点下去才治得了。提效药满血可用，空槽不打残。合完本来就是 1 血则不动。 */
 export function ensureGuidePotionCampTarget(save: Save): void {

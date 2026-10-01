@@ -23,6 +23,7 @@ import {
   BEAST_OIL_SPEED_MUL,
   STIM_DURATION_S,
   STIM_SPEED_MUL,
+  TRIBE_RAIN_RATIOS,
 } from './tables'
 import {
   applyPotionTicks,
@@ -77,7 +78,7 @@ afterEach(() => {
 })
 
 describe('alchemy batch roll', () => {
-  it('covers the seven potion ids and their batch ranges', () => {
+  it('covers the potion ids and their batch ranges', () => {
     expect(POTION_ITEM_IDS).toEqual([
       'stim',
       'salve',
@@ -86,6 +87,7 @@ describe('alchemy batch roll', () => {
       'rushPowder',
       'doubleMist',
       'clearMind',
+      'tribeRain',
     ])
     for (const id of POTION_ITEM_IDS) {
       const range = POTION_BATCH_RANGE[id]
@@ -110,6 +112,7 @@ describe('alchemy batch roll', () => {
       { level: 5, id: 'renewSoup' },
       { level: 6, id: 'rushPowder' },
       { level: 7, id: 'doubleMist' },
+      { level: 8, id: 'tribeRain' },
     ])
     expect(unlockedPotionIds(1)).toEqual(['brinkSalve'])
     expect(unlockedPotionIds(2)).toEqual(['brinkSalve', 'stim'])
@@ -133,7 +136,17 @@ describe('alchemy batch roll', () => {
       'rushPowder',
       'doubleMist',
     ])
-    expect(unlockedPotionIds(10)).toEqual(unlockedPotionIds(7))
+    expect(unlockedPotionIds(8)).toEqual([
+      'brinkSalve',
+      'stim',
+      'clearMind',
+      'salve',
+      'renewSoup',
+      'rushPowder',
+      'doubleMist',
+      'tribeRain',
+    ])
+    expect(unlockedPotionIds(10)).toEqual(unlockedPotionIds(8))
     expect(unlockedPotionIds(undefined)).toEqual(['brinkSalve'])
     expect(unlockedPotionIds(Number.NaN)).toEqual(['brinkSalve'])
 
@@ -181,6 +194,7 @@ describe('alchemy batch roll', () => {
     expect(new Set(seen).size).toBe(3)
     expect(seen).not.toContain('salve')
     expect(seen).not.toContain('doubleMist')
+    expect(seen).not.toContain('tribeRain')
   })
 })
 
@@ -208,7 +222,7 @@ describe('potion slots', () => {
   })
 })
 
-describe('seven potion effects', () => {
+describe('potion effects', () => {
   it('stim speeds the drinkers for 3 minutes and stacks with beast oil', () => {
     const save = roster(1)
     save.guideQuestStep = mainlineStepOf('huntStart')
@@ -396,6 +410,37 @@ describe('seven potion effects', () => {
     expect(wounded.hp).toBe(1 + Math.ceil(wounded.hpMax * CLEAR_MIND_PRIMARY_RATIO))
     expect(healthy.hp).toBe(healthy.hpMax)
     expect(bankQty(save, 'clearMind')).toBe(0)
+  })
+
+  it('tribeRain jumps 30/20/10 across the three most wounded camp workers', () => {
+    const save = roster(5)
+    const [worst, second, third, spare, full] = save.workers
+    worst.hp = 1
+    second.hp = Math.max(2, Math.floor(second.hpMax * 0.4))
+    third.hp = Math.max(second.hp + 1, Math.floor(third.hpMax * 0.7))
+    spare.hp = Math.max(third.hp + 1, Math.floor(spare.hpMax * 0.9))
+    if (spare.hp >= spare.hpMax) spare.hp = spare.hpMax - 1
+    full.hp = full.hpMax
+    const secondBefore = second.hp
+    const thirdBefore = third.hp
+    const spareBefore = spare.hp
+    save.bank.tribeRain = 2
+    expect(installPotionSlot(save, 0, 'tribeRain').ok).toBe(true)
+    expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(TRIBE_RAIN_RATIOS).toEqual([0.3, 0.2, 0.1])
+    expect(worst.hp).toBe(1 + Math.ceil(worst.hpMax * TRIBE_RAIN_RATIOS[0]))
+    expect(second.hp).toBe(Math.min(second.hpMax, secondBefore + Math.ceil(second.hpMax * TRIBE_RAIN_RATIOS[1])))
+    expect(third.hp).toBe(Math.min(third.hpMax, thirdBefore + Math.ceil(third.hpMax * TRIBE_RAIN_RATIOS[2])))
+    expect(spare.hp).toBe(spareBefore)
+    expect(full.hp).toBe(full.hpMax)
+    expect(bankQty(save, 'tribeRain')).toBe(1)
+
+    for (const worker of save.workers) {
+      worker.hp = worker.hpMax
+      worker.fatigueDebt = 0
+    }
+    expect(usePotionSlot(save, 0)).toEqual({ ok: false, reason: POTION_FULL_HP_TIP })
+    expect(bankQty(save, 'tribeRain')).toBe(1)
   })
 
   it('clears fatigue debt when a heal reaches hpMax so wear and detail bars match', () => {

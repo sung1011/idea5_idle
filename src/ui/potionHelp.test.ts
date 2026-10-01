@@ -58,8 +58,8 @@ describe('potion help bubble', () => {
     expect(potionDockSource).not.toContain('>×</span>')
   })
 
-  it('covers all seven potion effect texts', () => {
-    expect(POTION_ITEM_IDS).toHaveLength(7)
+  it('covers all potion effect texts', () => {
+    expect(POTION_ITEM_IDS).toHaveLength(8)
     for (const id of POTION_ITEM_IDS) {
       expect(potionHelpCopy(id).effect).toBe(POTION_EFFECT_TEXT[id])
     }
@@ -67,5 +67,8 @@ describe('potion help bubble', () => {
     expect(potionHelpCopy('clearMind').effect).toContain('20%')
     expect(potionHelpCopy('clearMind').effect).not.toContain('35%')
     expect(potionHelpCopy('clearMind').effect).not.toContain('50%')
+    expect(potionHelpCopy('tribeRain').effect).toContain('30%')
+    expect(potionHelpCopy('tribeRain').effect).toContain('20%')
+    expect(potionHelpCopy('tribeRain').effect).toContain('10%')
   })
 })

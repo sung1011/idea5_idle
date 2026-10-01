@@ -76,9 +76,11 @@ describe('station help copy', () => {
     expect(alchemyStationHelpPlay(4)).toContain('当前可炼：背水药膏、嗜血药剂、清醒图腾水、巫毒回春剂。')
     expect(alchemyStationHelpPlay(4)).toContain('下一种先祖续命汤在 5 级解锁')
     expect(alchemyStationHelpPlay(6)).toContain('下一种双份雾在 7 级解锁')
-    expect(alchemyStationHelpPlay(7)).toContain('已全部解锁')
-    expect(alchemyStationHelpPlay(7)).not.toContain('下一种')
-    expect(alchemyStationHelpPlay(10)).toBe(alchemyStationHelpPlay(7))
+    expect(alchemyStationHelpPlay(7)).toContain('下一种部落甘霖在 8 级解锁')
+    expect(alchemyStationHelpPlay(7)).not.toContain('已全部解锁')
+    expect(alchemyStationHelpPlay(8)).toContain('已全部解锁')
+    expect(alchemyStationHelpPlay(8)).not.toContain('下一种')
+    expect(alchemyStationHelpPlay(10)).toBe(alchemyStationHelpPlay(8))
     expect(stationHelpCopy('alchemy', 3).rows.find((row) => row.label === '怎么玩')?.text).toBe(
       alchemyStationHelpPlay(3),
     )

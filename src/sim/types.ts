@@ -61,6 +61,7 @@ export type ItemId =
   | 'rushPowder'
   | 'doubleMist'
   | 'clearMind'
+  | 'tribeRain'
   | 'beastOil'
   | 'anyPotion'
   | 'anyRune'
@@ -93,7 +94,7 @@ export type ItemId =
   | 'mithrilTool'
   | StationToolId
 
-/** 炼金随机池 7 种，另加手动做的狂兽油。旧档通用 `potion` / `warDrum` 不算在内；`focusDraft` / `wardElixir` 读档迁走。 */
+/** 炼金随机池 8 种，另加手动做的狂兽油。旧档通用 `potion` / `warDrum` 不算在内；`focusDraft` / `wardElixir` 读档迁走。 */
 export type PotionItemId =
   | 'stim'
   | 'salve'
@@ -102,6 +103,7 @@ export type PotionItemId =
   | 'rushPowder'
   | 'doubleMist'
   | 'clearMind'
+  | 'tribeRain'
   | 'beastOil'
 
 /** 开战一人一槽的一次性符文。铭刻产出，进物资堆叠。 */

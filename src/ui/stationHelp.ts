@@ -61,7 +61,7 @@ export const STATION_HELP: Record<StationId, StationHelpEntry> = {
   },
 }
 
-/** 炼金「怎么玩」：规则 + 当前池 + 下一种解锁等级。7 级起写已全部解锁。 */
+/** 炼金「怎么玩」：规则 + 当前池 + 下一种解锁等级。8 级起写已全部解锁。 */
 export function alchemyStationHelpPlay(stationLevel?: unknown): string {
   const names = unlockedPotionIds(stationLevel).map((id) => ITEM_DEF[id].label)
   const next = nextAlchemyPotionUnlock(stationLevel)

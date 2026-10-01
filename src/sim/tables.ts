@@ -71,6 +71,7 @@ const BASE_ITEM_DEF: Record<Exclude<ItemId, StationToolId>, ItemDef> = {
   rushPowder: { id: 'rushPowder', label: '赶工粉', sellGold: 16, craftGold: 3 },
   doubleMist: { id: 'doubleMist', label: '双份雾', sellGold: 12, craftGold: 2 },
   clearMind: { id: 'clearMind', label: '清醒图腾水', sellGold: 10, craftGold: 2 },
+  tribeRain: { id: 'tribeRain', label: '部落甘霖', sellGold: 12, craftGold: 2 },
   beastOil: { id: 'beastOil', label: '狂兽油', sellGold: 16, craftGold: 2 },
   anyPotion: { id: 'anyPotion', label: '任意药剂', sellGold: 8, craftGold: 0 },
   anyRune: { id: 'anyRune', label: '任意符文', sellGold: 8, craftGold: 0 },
@@ -474,17 +475,19 @@ export const POTION_ITEM_IDS: readonly PotionItemId[] = [
   'rushPowder',
   'doubleMist',
   'clearMind',
+  'tribeRain',
 ]
 
 /**
  * 炼金站等级解锁药剂。达到该级起进入随机池；顺序即表序。
- * 1 背水药膏 brinkSalve（原 2 级）
- * 2 嗜血药剂 stim（原 1 级）
+ * 1 背水药膏 brinkSalve
+ * 2 嗜血药剂 stim
  * 3 清醒图腾水 clearMind
  * 4 巫毒回春剂 salve
  * 5 先祖续命汤 renewSoup
  * 6 赶工粉 rushPowder
- * 7 及以上双份雾 doubleMist
+ * 7 双份雾 doubleMist
+ * 8 及以上部落甘霖 tribeRain
  * 读不到等级时按 1 级。
  */
 export const ALCHEMY_POTION_UNLOCK: readonly { level: number; id: PotionItemId }[] = [
@@ -495,6 +498,7 @@ export const ALCHEMY_POTION_UNLOCK: readonly { level: number; id: PotionItemId }
   { level: 5, id: 'renewSoup' },
   { level: 6, id: 'rushPowder' },
   { level: 7, id: 'doubleMist' },
+  { level: 8, id: 'tribeRain' },
 ]
 
 /** 非法或读不到的炼金站等级按 1。 */
@@ -510,7 +514,7 @@ export function unlockedPotionIds(stationLevel: unknown): PotionItemId[] {
   return ids.length > 0 ? ids : ['stim']
 }
 
-/** 下一档尚未解锁的药剂。已到表末（7 级及以上）则为 null。 */
+/** 下一档尚未解锁的药剂。已到表末（8 级及以上）则为 null。 */
 export function nextAlchemyPotionUnlock(
   stationLevel: unknown,
 ): { level: number; id: PotionItemId } | null {
@@ -521,7 +525,7 @@ export function nextAlchemyPotionUnlock(
 /** 装配列表分组。顺序固定；过滤后某组为空则整组不画。 */
 export const POTION_INSTALL_GROUPS: readonly { label: string; ids: readonly PotionItemId[] }[] = [
   { label: '提效', ids: ['stim', 'rushPowder', 'doubleMist', 'beastOil'] },
-  { label: '加血', ids: ['brinkSalve', 'salve', 'renewSoup', 'clearMind'] },
+  { label: '加血', ids: ['brinkSalve', 'salve', 'renewSoup', 'clearMind', 'tribeRain'] },
 ]
 
 /** 能装进药剂槽的种类。狂兽油不进炼金随机池，所以不在 `POTION_ITEM_IDS` 里。 */
@@ -538,6 +542,7 @@ export const POTION_BATCH_RANGE: Readonly<Record<PotionItemId, PotionBatchRange>
   rushPowder: { min: 2, max: 5 },
   doubleMist: { min: 3, max: 6 },
   clearMind: { min: 3, max: 6 },
+  tribeRain: { min: 3, max: 6 },
   /** 不进随机池。手动制作固定 3 瓶，这里只为补全类型。 */
   beastOil: { min: 3, max: 3 },
 }
@@ -550,6 +555,7 @@ export const POTION_EFFECT_TEXT: Readonly<Record<PotionItemId, string>> = {
   rushPowder: '营地队首起 3 人，各自下一轮干活耗时缩短 40%',
   doubleMist: '营地队首下一轮成功产出 80% 为 ×2、20% 为 ×3',
   clearMind: '只治疗营地里受伤最重的 1～2 人：第 1 人回复 30% 最大生命，第 2 人回复 20% 最大生命',
+  tribeRain: '按伤重在营地最多 3 名苦工身上跳跃，依次回复 30% / 20% / 10% 最大生命',
   beastOil: '营地随机 3 人效率 ×2，持续 3 分钟。和嗜血药剂叠乘，派到哪站带到哪站',
 }
 
@@ -562,6 +568,7 @@ export function isPotionItemId(id: unknown): id is PotionItemId {
     id === 'rushPowder' ||
     id === 'doubleMist' ||
     id === 'clearMind' ||
+    id === 'tribeRain' ||
     id === 'beastOil'
   )
 }
@@ -1021,6 +1028,9 @@ export const BRINK_HEAL_RATIO = 0.05
 /** 清醒图腾水：营地受伤者按 HP/hpMax 升序，第 1 人 30%，第 2 人 20%。 */
 export const CLEAR_MIND_PRIMARY_RATIO = 0.3
 export const CLEAR_MIND_SECONDARY_RATIO = 0.2
+/** 部落甘霖：营地受伤者按 HP/hpMax 升序最多 3 人，依次 30% / 20% / 10%。 */
+export const TRIBE_RAIN_RATIOS = [0.3, 0.2, 0.1] as const
+export const TRIBE_RAIN_TARGETS = 3
 /** 双份雾：低于此掷骰为 ×2，否则 ×3。 */
 export const DOUBLE_MIST_DOUBLE_RATE = 0.8
 /** 赶工粉：下一次周期缩短的比例。 */

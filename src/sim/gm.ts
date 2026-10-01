@@ -46,6 +46,7 @@ export const GM_BASIC_ITEMS: ItemId[] = [
   'rushPowder',
   'doubleMist',
   'clearMind',
+  'tribeRain',
   'wildCrystal',
   'runeSharp',
   'runeArmor',

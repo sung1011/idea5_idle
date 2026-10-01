@@ -50,7 +50,7 @@ describe('potion skill slots', () => {
   it('lists installable potions under 提效 then 加血 and drops empty groups', () => {
     expect(POTION_INSTALL_GROUPS.map((group) => group.label)).toEqual(['提效', '加血'])
     expect(POTION_INSTALL_GROUPS[0].ids).toEqual(['stim', 'rushPowder', 'doubleMist', 'beastOil'])
-    expect(POTION_INSTALL_GROUPS[1].ids).toEqual(['brinkSalve', 'salve', 'renewSoup', 'clearMind'])
+    expect(POTION_INSTALL_GROUPS[1].ids).toEqual(['brinkSalve', 'salve', 'renewSoup', 'clearMind', 'tribeRain'])
     const members = POTION_INSTALL_GROUPS.flatMap((group) => group.ids)
     expect(members).toHaveLength(SLOT_POTION_IDS.length)
     expect(new Set(members)).toEqual(new Set(SLOT_POTION_IDS))

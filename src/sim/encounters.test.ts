@@ -483,6 +483,8 @@ describe('unlock-gated main need pool', () => {
     expect(mainNeedOutputsOfStation('herbalism')).toEqual(['herb', 'spice'])
     expect(mainNeedOutputsOfStation('alchemy')).toEqual(['brinkSalve', ANY_POTION_ITEM_ID])
     expect(mainNeedOutputsOfStation('alchemy', 7)).toEqual([...unlockedPotionIds(7), ANY_POTION_ITEM_ID])
+    expect(mainNeedOutputsOfStation('alchemy', 8)).toEqual([...unlockedPotionIds(8), ANY_POTION_ITEM_ID])
+    expect(mainNeedOutputsOfStation('alchemy', 8)).toContain('tribeRain')
     expect(mainNeedOutputsOfStation('hunting')).toEqual(['meat', 'fish', 'tooth', 'blood', 'eye', 'junk'])
     expect(mainNeedOutputsOfStation('cooking')).toEqual(['meal', 'roast', 'stew'])
     expect(mainNeedOutputsOfStation('mining')).toEqual(['ore', 'ironOre', 'mithrilOre'])
@@ -650,6 +652,7 @@ describe('unlock-gated main need pool', () => {
     expect(potions.every((id) => unlocked.has(id))).toBe(true)
     expect(seen.has('clearMind')).toBe(false)
     expect(seen.has('doubleMist')).toBe(false)
+    expect(seen.has('tribeRain')).toBe(false)
     expect(seen.has(ANY_POTION_ITEM_ID)).toBe(true)
     for (let seed = 1; seed <= 40; seed++) {
       const board = generateEncounterBoard(seed, 4, { board: 'battlefield', mainChapter: 3, save })
