@@ -16,7 +16,7 @@ import { unlockPlayableStations } from './stationUnlock'
 import { QUALITY_MAX, STATION_WORKER_CAP } from './tables'
 import { ticks } from './tick'
 import type { EnemyEncounter } from './types'
-import { releaseDeadWorker } from './workshopHp'
+import { isFullWorkshopHp, releaseDeadWorker } from './workshopHp'
 
 function roster(n: number) {
   const save = unlockPlayableStations(createSave())
@@ -104,6 +104,8 @@ describe('rest merge', () => {
     expect(save.workers).toHaveLength(1)
     expect(save.workers[0].qualityTier).toBe(2)
     expect(save.workers[0].assignment).toBeNull()
+    expect(save.workers[0].hp).toBe(1)
+    expect(save.workers[0].hpMax).toBeGreaterThan(1)
   })
 
   it('refuses a pair when either worker is on duty', () => {
@@ -139,6 +141,8 @@ describe('rest merge', () => {
     const newborn = rest[rest.length - 1]
     expect(newborn?.qualityTier).toBe(2)
     expect(newborn?.assignment).toBeNull()
+    expect(newborn?.hp).toBe(1)
+    expect(newborn?.hpMax).toBeGreaterThan(1)
     expect(rest.map((worker) => worker.id)).toEqual([third.id, fourth.id, newborn?.id])
     expect(duty.assignment).toBe('herbalism')
 
@@ -148,6 +152,25 @@ describe('rest merge', () => {
     const parked = restingWorkers(beside)
     expect(parked.map((worker) => worker.id)).toEqual([stillHead.id, tail.id, parked[parked.length - 1]?.id])
     expect(parked[0]?.id).toBe(stillHead.id)
+    expect(parked[parked.length - 1]?.hp).toBe(1)
+    expect(isFullWorkshopHp(parked[0]!)).toBe(true)
+    expect(assignWorker(beside, parked[parked.length - 1]!.id, 'herbalism')).toEqual({
+      ok: false,
+      reason: '满血才能上岗',
+    })
+  })
+
+  it('does not eat camp food on fuse, so the newborn stays at 1 hp', () => {
+    const save = roster(3)
+    save.restFoodId = 'meal'
+    save.bank.meal = 4
+    const [head, a, b] = save.workers
+    expect(fuseRestWorkers(save, a.id, b.id).ok).toBe(true)
+    const rest = restingWorkers(save)
+    const newborn = rest[rest.length - 1]
+    expect(rest[0]?.id).toBe(head.id)
+    expect(newborn?.hp).toBe(1)
+    expect(save.bank.meal).toBe(4)
   })
 
   it('fuses only when both workers are in camp', () => {

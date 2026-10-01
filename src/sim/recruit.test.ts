@@ -207,6 +207,8 @@ describe('fuseWorkers', () => {
     expect(result.ok).toBe(true)
     expect(save.workers).toHaveLength(1)
     expect(save.workers[0].qualityTier).toBe(2)
+    expect(save.workers[0].hp).toBe(1)
+    expect(save.workers[0].hp).toBeLessThan(save.workers[0].hpMax)
     expect(save.workers[0].assignment).toBeNull()
     expect(save.workers[0].foodSlot).toBeNull()
     expect(save.workers[0].id).toBe('w-3')

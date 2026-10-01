@@ -42,6 +42,7 @@ describe('fuse jackpot', () => {
       expect(result.fuseJackpot).toBeUndefined()
       expect(save.workers).toHaveLength(1)
       expect(save.workers[0].qualityTier).toBe(tier + 1)
+      expect(save.workers[0].hp).toBe(1)
       expect(result.message).toMatch(/^合成出/)
     }
   })
@@ -54,6 +55,7 @@ describe('fuse jackpot', () => {
       expect(result.fuseJackpot).toBe(true)
       expect(save.workers).toHaveLength(1)
       expect(save.workers[0].qualityTier).toBe(tier + 2)
+      expect(save.workers[0].hp).toBe(1)
     }
   })
 

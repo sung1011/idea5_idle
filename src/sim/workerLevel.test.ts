@@ -364,9 +364,9 @@ describe('fuse sums total xp', () => {
     expect(next.level).toBe(expected.level)
     expect(next.xp).toBe(expected.xp)
     expect(workerTotalXp(next.level, next.xp)).toBe(sumTotal)
-    expect(next.hp).toBe(next.hpMax)
+    expect(next.hp).toBe(1)
     expect(next.hpMax).toBe(workerLiveStats(next).hp)
-    expect(next.assignment).toBeNull()
+    expect(next.hp).toBeLessThan(next.hpMax)
   })
 
   it('cascades overflow xp into extra levels along the worker curve', () => {
@@ -386,5 +386,6 @@ describe('fuse sums total xp', () => {
     expect(next.level).toBe(2)
     expect(next.xp).toBe(expected.xp)
     expect(next.xp).toBeLessThan(workerXpToNext(next.level))
+    expect(next.hp).toBe(1)
   })
 })

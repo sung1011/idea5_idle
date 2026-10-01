@@ -80,6 +80,7 @@ function fusePairAt(save: Save, a: Worker, b: Worker): ActionResult {
   worker.level = progress.level
   worker.xp = progress.xp
   fillWorkerHp(worker, undefined, save)
+  worker.hp = 1
   worker.assignment = null
   sendWorkerToRestTail(save, worker.id)
   const quality = workerQualityDef(nextTier)
@@ -115,7 +116,7 @@ function fieldBlock(save: Save, a: Worker, b: Worker): ActionResult | null {
   return null
 }
 
-/** 两人都在营地、同档、未满档。消耗两人，产出 1 个至少高一档的新人，排到营地队尾。大成功再高一档。 */
+/** 两人都在营地、同档、未满档。消耗两人，产出 1 个至少高一档的新人，HP 为 1，排到营地队尾。大成功再高一档。 */
 export function fuseWorkers(save: Save, workerIdA: string, workerIdB: string): ActionResult {
   if (!workerIdA || !workerIdB) return { ok: false, reason: '请选两个同品质苦工' }
   if (workerIdA === workerIdB) return { ok: false, reason: '不能合成同一个人' }
@@ -140,7 +141,7 @@ export function canFuseRestWorkers(save: Save, workerIdA: string, workerIdB: str
   return fusePairReady(a, b) == null
 }
 
-/** 营地同档合成。新人留在营地队尾。有人在岗则拒绝。 */
+/** 营地同档合成。新人 HP 为 1，留在营地队尾。有人在岗则拒绝。 */
 export function fuseRestWorkers(save: Save, workerIdA: string, workerIdB: string): ActionResult {
   return fuseWorkers(save, workerIdA, workerIdB)
 }
