@@ -1360,7 +1360,7 @@ export const STARTER_GUIDE_WEAKNESSES = ['sword', 'fire', 'ice'] as const
 export const STARTER_GUIDE_REVEALED = ['sword', 'fire'] as const
 /**
  * 新手单消耗草，不消耗药剂。
- * 采药约 14 秒一轮（1 人再 ×1.5），草占掉落 70%。开局不能挂自动，引导让玩家连点排队，攒够 2 株再开战。
+ * 前期采药约 3～4 秒一轮（表 20s ×0.25，1 人再 ×1.5），草占掉落 70%。开局不能挂自动，引导让玩家连点排队，攒够 2 株再开战。
  */
 export const STARTER_GUIDE_HERB_QTY = 2
 

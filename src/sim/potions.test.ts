@@ -5,6 +5,7 @@ import { bankQty } from './bank'
 import { applyRestHeal, beginEnemyCombat, REST_HEAL_EVERY_S, workerLiveStats } from './combat'
 import { createAssistWorker } from './combatAssist'
 import { createSave } from './createSave'
+import { mainlineStepOf } from './mainlineQuest'
 import {
   BRINK_HEAL_RATIO,
   BRINK_LOW_TARGET_RATIO,
@@ -200,6 +201,7 @@ describe('potion slots', () => {
 describe('seven potion effects', () => {
   it('stim speeds the drinkers for 3 minutes and stacks with beast oil', () => {
     const save = roster(1)
+    save.guideQuestStep = mainlineStepOf('huntStart')
     const worker = save.workers[0]
     save.stations.herbalism.auto = true
     save.bank.stim = 1
@@ -235,6 +237,20 @@ describe('seven potion effects', () => {
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(save.workers[0].hp).toBe(1 + Math.ceil(save.workers[0].hpMax * SALVE_HEAL_RATIO))
     expect(save.workers[1].hp).toBe(1 + Math.ceil(save.workers[1].hpMax * SALVE_HEAL_RATIO))
+  })
+
+  it('on the potion-use guide, salve fills camp hp instead of 10%', () => {
+    const save = roster(2)
+    save.guideQuestStep = mainlineStepOf('potionUse')
+    save.workers[0].hp = 1
+    save.workers[1].hp = 1
+    save.bank.salve = 1
+    expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
+    expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(save.workers[0].hp).toBe(save.workers[0].hpMax)
+    expect(save.workers[1].hp).toBe(save.workers[1].hpMax)
+    expect(save.workers[0].fatigueDebt).toBe(0)
+    expect(save.workers[1].fatigueDebt).toBe(0)
   })
 
   it('renewSoup keeps ticking after the drinker is sent to a station', () => {

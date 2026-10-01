@@ -58,6 +58,7 @@ import { usePotionSlot } from './potions'
 import { recruitWorker, spawnWorker } from './recruit'
 import { POTION_ITEM_IDS, START_DIAMONDS } from './tables'
 import { hydrateLoadedSave } from '../ui/saveGame'
+import { isFullWorkshopHp } from './workshopHp'
 import type { EnemyEncounter, Save } from './types'
 
 function markCombatStarted(save: Save) {
@@ -795,6 +796,24 @@ describe('potion use guide on a buff', () => {
     save.bank.salve = 1
     expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
     expect(usePotionSlot(save, 0).ok).toBe(true)
-    expect(tail!.hp).toBeGreaterThan(1)
+    expect(tail!.hp).toBe(tail!.hpMax)
+    expect(tail!.fatigueDebt).toBe(0)
+  })
+
+  it('fills camp hp on the potion-use guide even when the slot is stim', () => {
+    const save = createSave()
+    save.guideQuestStep = mainlineStepOf('fuse')
+    expect(recruitWorker(save).ok).toBe(true)
+    expect(recruitWorker(save).ok).toBe(true)
+    expect(fuseRestWorkers(save, save.workers[0].id, save.workers[1].id).ok).toBe(true)
+    const tail = restingWorkers(save).at(-1)
+    expect(tail?.hp).toBe(1)
+    save.guideQuestStep = mainlineStepOf('potionUse')
+    save.bank.stim = 1
+    expect(installPotionSlot(save, 0, 'stim').ok).toBe(true)
+    expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(tail!.hp).toBe(tail!.hpMax)
+    expect(tail!.fatigueDebt).toBe(0)
+    expect(isFullWorkshopHp(tail!)).toBe(true)
   })
 })

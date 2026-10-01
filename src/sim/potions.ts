@@ -26,6 +26,7 @@ import {
   unlockedPotionIds,
 } from './tables'
 import { assignedWorkers, restingWorkers } from './assign'
+import { mainlineTaskAt } from './mainlineQuest'
 import { alchemyBatchBonus } from './tech'
 import { isFullWorkshopHp, workerFatigueDebt } from './workshopHp'
 import type {
@@ -180,6 +181,10 @@ function syncCombatHp(save: Save, worker: Worker): void {
 
 /** 和营地休息一样：治疗量先抵劳损债，剩下的再加血。加到上限且债清完时 hp 钉在 hpMax、债归零。 */
 function applyHeal(save: Save, worker: Worker, amount: number): number {
+  if (isGuidePotionUseStep(save)) {
+    const max = Math.max(1, Math.floor(worker.hpMax))
+    amount = Math.max(amount, max - worker.hp + workerFatigueDebt(worker))
+  }
   if (!(amount > 0)) return 0
   const max = Math.max(1, Math.floor(worker.hpMax))
   const before = worker.hp
@@ -220,6 +225,23 @@ function clearMindTargets(save: Save): Worker[] {
 function campAllFull(save: Save): boolean {
   const crew = potionCampWorkers(save)
   return crew.length > 0 && crew.every((worker) => isFullWorkshopHp(worker))
+}
+
+function isGuidePotionUseStep(save: Save): boolean {
+  const raw = save.guideQuestStep
+  const step = typeof raw === 'number' && Number.isFinite(raw) ? Math.floor(raw) : 0
+  return mainlineTaskAt(step)?.id === 'potionUse'
+}
+
+/** 用药教学步：营地苦工立刻回满，好马上再去采药。自由游玩不走这里。 */
+function fillCampHpForGuidePotion(save: Save): void {
+  if (!isGuidePotionUseStep(save)) return
+  for (const worker of potionCampWorkers(save)) {
+    const max = Math.max(1, Math.floor(worker.hpMax))
+    worker.hp = max
+    worker.fatigueDebt = 0
+    syncCombatHp(save, worker)
+  }
 }
 
 function applyBrink(save: Save, worker: Worker): number {
@@ -316,6 +338,7 @@ export function usePotionSlot(save: Save, index: number, _now = Date.now()): Act
   const took = takeFromBank(save, itemId, 1)
   if (!took.ok) return took
   const detail = applyPotionEffect(save, itemId)
+  fillCampHpForGuidePotion(save)
   save.guideQuestPotionUsed = true
   return { ok: true, message: `用了${ITEM_DEF[itemId].label}：${detail}` }
 }

@@ -29,6 +29,7 @@ import {
 } from './tech'
 import { assignedToolWeight } from './tools'
 import { inscriptionRecipes } from './tables'
+import { earlyHerbAlchemyCycleMul } from './earlyCraft'
 import type { Hint, ItemId, Save, StationId } from './types'
 
 export { assignedWorkers }
@@ -45,7 +46,7 @@ export function idleCount(save: Save): number {
 
 export function stationCycleS(save: Save, stationId: StationId): number {
   const cycleS = selectedCategoryDef(save, stationId).cycleS
-  let mul = knightCycleMul(save) * workshopRulesCycleMul(save)
+  let mul = knightCycleMul(save) * workshopRulesCycleMul(save) * earlyHerbAlchemyCycleMul(save, stationId)
   if (stationId === 'inscription') mul *= forgeCycleMul(save)
   return Math.max(1, cycleS * mul)
 }

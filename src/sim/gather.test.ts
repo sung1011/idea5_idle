@@ -15,6 +15,7 @@ import { setRollOverride } from './rng'
 import { grantStationXp, selectStationCategory } from './stationProgress'
 import { HUNTING_HAZARD_PAUSE_S, xpToNextLevel } from './tables'
 import { ticks } from './tick'
+import { mainlineStepOf } from './mainlineQuest'
 import type { Save } from './types'
 
 function roster(n: number): Save {
@@ -122,6 +123,7 @@ describe('herbalism settlement', () => {
   it('never depletes and can produce spice for cooking', () => {
     setRollOverride(() => 0.85)
     const save = roster(1)
+    save.guideQuestStep = mainlineStepOf('huntStart')
     assignWorker(save, save.workers[0].id, 'herbalism')
     save.stations.herbalism.auto = true
     const next = ticks(save, 40)

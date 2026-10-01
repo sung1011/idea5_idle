@@ -13,6 +13,7 @@ import {
 import { recruitWorker } from './recruit'
 import { setRollOverride } from './rng'
 import { OFFLINE_CAP_S } from './tables'
+import { mainlineStepOf } from './mainlineQuest'
 import type { Save } from './types'
 
 afterEach(() => {
@@ -94,6 +95,7 @@ describe('settleOffline', () => {
 
   it('summarizes herbalism into the bank', () => {
     const save = roster(1)
+    save.guideQuestStep = mainlineStepOf('huntStart')
     assignWorker(save, save.workers[0].id, 'herbalism')
     save.stations.herbalism.auto = true
     save.lastTick = 0
