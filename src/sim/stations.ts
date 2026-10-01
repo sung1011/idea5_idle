@@ -11,6 +11,7 @@ import { decayAlchemyFog, workshopHpWorkMul } from './workshopHp'
 import { assignedCount, canConsume, currentSpeed, pickConsume } from './query'
 import { grantStationXp, selectedCategoryDef } from './stationProgress'
 import { isRuneItemId, ITEM_DEF, RUNE_DEF } from './tables'
+import { consumeFoodCycleCut, consumeFoodExtraOutput } from './food'
 import { consumeDoubleMist, consumeRushCycle, mistQty } from './potions'
 import { cycleOutputBonus } from './tools'
 import { applyManualQualityOutput, finishManualRound } from './workshopDispatch'
@@ -37,6 +38,7 @@ function completeAlchemyCycle(save: Save, now: number, into?: ItemLot[]): boolea
   const qty = mistQty(save, 'alchemy', rolled.qty + cycleOutputBonus(save, 'alchemy', now))
   if (!addToBank(save, rolled.itemId, qty).ok) return false
   consumeDoubleMist(save, 'alchemy')
+  consumeFoodExtraOutput(save, 'alchemy')
   pushLot(into, rolled.itemId, qty)
   station.completed += 1
   grantStationXp(save, 'alchemy', def.xpPerCycle)
@@ -54,6 +56,7 @@ function emitOutputs(save: Save, stationId: StationId, now: number, into?: ItemL
     pushLot(into, io.itemId, qty)
   }
   consumeDoubleMist(save, stationId)
+  consumeFoodExtraOutput(save, stationId)
   return true
 }
 
@@ -71,6 +74,7 @@ export function completeCycle(
     if (ok) {
       emitCycleGain(save, stationId, lots, onGain, now)
       consumeRushCycle(save, stationId)
+      consumeFoodCycleCut(save, stationId)
     }
     return ok
   }
@@ -79,6 +83,7 @@ export function completeCycle(
     if (ok) {
       emitCycleGain(save, stationId, lots, onGain, now)
       consumeRushCycle(save, stationId)
+      consumeFoodCycleCut(save, stationId)
     }
     return ok
   }
@@ -93,6 +98,7 @@ export function completeCycle(
   grantStationXp(save, stationId, selectedCategoryDef(save, stationId).xpPerCycle)
   emitCycleGain(save, stationId, lots, onGain, now)
   consumeRushCycle(save, stationId)
+  consumeFoodCycleCut(save, stationId)
   return true
 }
 

@@ -166,8 +166,8 @@ function beastHudUsage(itemId: ItemId): string {
   if (itemId === 'beastFat') return '炼金站做狂兽油：困兽油脂 1 + 草 10 → 3 瓶'
   if (itemId === 'beastHeart') return '烹饪站摆酋长宴：野兽心脏 1 + 肉 20 + 香料 10，全工坊产量 ×1.2 持续 1 小时'
   if (itemId === 'beastCore') return '工坊页选一座已开放的站点，直接升 1 级'
-  if (itemId === 'boneSoup') return '营地伙食：回 70% 最大生命，生产速度 ×1.05 持续 10 分钟'
-  if (itemId === 'hunterSkewer') return '营地伙食：回满血，之后 30 分钟在岗不掉血、不记劳损'
+  if (itemId === 'boneSoup') return '营地伙食：回 70% 血。效率 ×1.15，持续约 8 分钟'
+  if (itemId === 'hunterSkewer') return '营地伙食：一口气吃满。之后 30 分钟在岗不掉血、不记劳损'
   if (itemId === 'beastOil') return '装进营地药剂槽：随机 3 名营地苦工效率 ×2，持续 3 分钟'
   return '困兽兽材'
 }

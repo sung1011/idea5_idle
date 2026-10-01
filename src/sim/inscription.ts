@@ -13,6 +13,7 @@ import {
   type RuneDef,
 } from './tables'
 import { runeScrapChance, toolUpkeepBonus } from './tech'
+import { consumeFoodExtraOutput } from './food'
 import { consumeDoubleMist, mistQty } from './potions'
 import { cycleOutputBonus } from './tools'
 import type { Save, SoftFailRoll } from './types'
@@ -71,6 +72,7 @@ export function completeInscriptionCycle(save: Save, now = Date.now(), into?: It
   const qty = mistQty(save, 'inscription', rollRuneBatchQty(save, recipe) + bonus + upkeep)
   if (!addToBank(save, recipe.id, qty).ok) return false
   consumeDoubleMist(save, 'inscription')
+  consumeFoodExtraOutput(save, 'inscription')
   pushLot(into, recipe.id, qty)
   station.completed += 1
   grantStationXp(save, 'inscription', recipe.xpPerCycle)

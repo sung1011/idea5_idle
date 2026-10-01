@@ -1,5 +1,6 @@
 import { offerRestFood } from './food'
 import { campBandageHealAmount } from './tech'
+import { STEW_FATIGUE_MUL } from './tables'
 import type { Save, StationFatigueCombo, StationId, Worker } from './types'
 
 export const WORKSHOP_REST_HEAL_RATIO = 0.05
@@ -134,11 +135,15 @@ export function releaseDeadWorker(save: Save, stationId: StationId, worker: Work
   offerRestFood(save, worker.id, now)
 }
 
-/** 词条结算写劳损。猎人肉串护岗期间不加。到 0 立刻回营。 */
+/** 词条结算写劳损。猎人肉串护岗期间不加；香料炖期间减半。到 0 立刻回营。 */
 export function applyWorkerFatigue(save: Save, stationId: StationId, worker: Worker, amount: number, now: number): void {
   if (!(amount > 0) || worker.assignment !== stationId) return
   if (typeof worker.dutyGuardUntil === 'number' && save.elapsedS < worker.dutyGuardUntil) return
-  addDebt(worker, amount)
+  let next = amount
+  if (typeof worker.workshopResistUntil === 'number' && save.elapsedS < worker.workshopResistUntil) {
+    next *= STEW_FATIGUE_MUL
+  }
+  addDebt(worker, next)
   releaseDeadWorker(save, stationId, worker, now)
 }
 

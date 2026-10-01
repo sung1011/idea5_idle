@@ -122,7 +122,7 @@ type HazardRoll = {
 
 ### 2.4 烹饪 `cooking`（制造）
 
-配方消耗鱼 / 肉 / 香料等，产出食物进物资。营地弹框里点伙食，选一种共用食物（`save.restFoodId`，默认 null）。残血（hp/hpMax ≤30%）苦工**进入休息**时，若已选且物资至少 1 份，扣 1 并回血（meal 25% / roast 40% / stew 55% hpMax，向上取整，至少 HP>1），并挂同样短的弱生产效果，不占个人槽。未选或没货不吃。已在休息不再续吃，休息回血仍走 `applyRestHeal`。在岗周期和战斗击中不吃。偶遇补给另见第 8 节。
+配方消耗鱼 / 肉 / 香料等，产出食物进物资。营地弹框里点伙食，选一种共用食物（`save.restFoodId`，默认 null）。残血（hp/hpMax ≤30%）苦工**进入休息**时，若已选且物资至少 1 份，扣 1 并回血（meal 25% / roast 40% / stew 55% / boneSoup 70% / hunterSkewer 回满，向上取整，至少 HP>1），并挂该菜独特规则：熟食下一次派工耗时 −10%（一轮）；烤肉下一次成功产出 +1；香料炖约 2 分钟工坊掉血减半；骨汤效率 ×1.15 约 8 分钟；猎人肉串约 30 分钟在岗不掉血。不占个人槽。未选或没货不吃。已在休息不再续吃，休息回血仍走 `applyRestHeal`。在岗周期和战斗击中不吃。偶遇补给另见第 8 节。
 
 第 1 档 `meal` 烤鱼（耗鱼）；第 2 档 `roast` 烤肉（耗肉，开局可做）；第 3 档 `stew` 香料炖（肉+香料，或鱼+香料，Lv5）。不换皮。
 
@@ -200,7 +200,11 @@ type Worker = {
   qualityTier: QualityTier // 1～10
   assignment: StationId | null // 每站最多 1 人
   foodSlot: FoodSlot | null   // 旧档；余粮 hydrate 退回物资后恒为 null
-  foodBuff?                    // 入休息进食挂的短时效果
+  foodBuff?                    // 入休息进食挂的短时效果（骨汤效率）
+  foodCycleCut?                // 熟食：下一轮派工 −10%
+  foodExtraOutput?             // 烤肉：下次成功产出 +1
+  workshopResistUntil?         // 香料炖：此 sim 秒前掉血减半
+  dutyGuardUntil?              // 猎人肉串护岗
   potion?: WorkerPotionBuff | null // 喝药挂在人身上，派到哪站带到哪站
   fatigueDebt: number
   combatAttrs: CombatAttrId[] // 白 0 / 绿蓝青 1 / 紫+ 2；同人不重复
@@ -257,8 +261,8 @@ type ProductionBuff = {
 
 ### 5.2 营地伙食
 
-- 不再给苦工装 `foodSlot`。存档 `restFoodId`：`meal` / `roast` / `stew` 或 null。营地弹框标题下方左是木色伙食按钮，写「伙食 · 菜名」；未选写「伙食 · 未选」。剩余不超过 2 份（含 0）时文字变红，仍可点开；未开放变灰，点了提示开放条件。右侧是橙黄「抽苦工」，免费次数还在时下行写「免费（剩 N 次）」，用完后才是紫钻图标和价格。右上角圆形「鉴」打开苦工图鉴，其右圆形「？」打开营地说明；红叉关闭。格子右上角「i」开苦工详情。小层里点熟食 / 烤肉 / 香料炖即选中并关闭，「不选」清空。
-- 苦工变为休息（`assignment` 空，且不在战斗 / 夺宝）时若残血（`hp/hpMax ≤30%`，含空血）且已选、物资 ≥1：扣 1，按 `FOOD_HEAL_RATIO` 回血，并给该苦工挂同等时长的弱生产效果（`foodBuff`，不占槽）。
+- 不再给苦工装 `foodSlot`。存档 `restFoodId`：`meal` / `roast` / `stew` / `boneSoup` / `hunterSkewer` 或 null。营地弹框标题下方左是木色伙食按钮，写「伙食 · 菜名」；未选写「伙食 · 未选」。剩余不超过 2 份（含 0）时文字变红，仍可点开；未开放变灰，点了提示开放条件。右侧是橙黄「抽苦工」，免费次数还在时下行写「免费（剩 N 次）」，用完后才是紫钻图标和价格。右上角圆形「鉴」打开苦工图鉴，其右圆形「？」打开营地说明；红叉关闭。格子右上角「i」开苦工详情。小层里点熟食 / 烤肉 / 香料炖 / 骨汤 / 猎人肉串即选中并关闭，「不选」清空。
+- 苦工变为休息（`assignment` 空，且不在战斗 / 夺宝）时若残血（`hp/hpMax ≤30%`，含空血）且已选、物资 ≥1：扣 1，按 `FOOD_HEAL_RATIO` 回血，并挂该菜独特规则（熟食 `foodCycleCut` 下一轮 −10%；烤肉 `foodExtraOutput` 下次成功 +1；香料炖 `workshopResistUntil` 约 2 分钟掉血 ×0.5；骨汤 `foodBuff` 效率 ×1.15 / 8 分钟；猎人肉串 `dutyGuardUntil` 约 30 分钟护岗）。不占个人槽。
 - 未选或没货不吃。人已经在营地之后不再续吃。`applyRestHeal` 照旧。
 - 吃到时休息行约 0.7 秒淡绿回血光晕、血条亮一下，头像旁和全局各漂一次成功句（如「吃了熟食 +N」）。未选、无货、非残血不播。
 - 在岗周期、工坊被打、战斗刚结算都不吃，避免和入休息吃两口。

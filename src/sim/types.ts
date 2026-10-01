@@ -392,6 +392,15 @@ export type Worker = {
    * 旧档缺字段视为没有。
    */
   foodBuff?: { itemId: RestFoodId; expiresAt: number } | null
+  /** 熟食：下一次派工耗时 −10%，走完一轮清掉。旧档缺字段视为没有。 */
+  foodCycleCut?: boolean
+  /** 烤肉：下一次成功产出 +1，成功出货后清掉。旧档缺字段视为没有。 */
+  foodExtraOutput?: boolean
+  /**
+   * 香料炖：此 sim 秒之前，在岗掉血减半。
+   * 旧档缺字段视为没有。
+   */
+  workshopResistUntil?: number | null
   /**
    * 猎人肉串：此 sim 秒之前，在岗不掉血、不记劳损。
    * 旧档缺字段视为没有。

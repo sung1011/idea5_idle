@@ -19,6 +19,7 @@ import {
 } from './tables'
 import { huntingHazardMul, miningDualDropBonus, miningOutputMul, scaleQtyByMul } from './tech'
 import { consumeDoubleMist, mistQty } from './potions'
+import { consumeFoodExtraOutput } from './food'
 import { cycleOutputBonus } from './tools'
 import type {
   CategoryId,
@@ -214,6 +215,7 @@ function completeMiningCycle(save: Save, now: number, into?: ItemLot[]): boolean
     pushLot(into, 'wildCrystal', qty)
   }
   consumeDoubleMist(save, 'mining')
+  consumeFoodExtraOutput(save, 'mining')
   node.nodeHp = Math.max(0, node.nodeHp - 1)
   const key = asMiningCategoryId(node.categoryId)
   if (node.nodeHp <= 0) {
@@ -233,6 +235,7 @@ function completeHerbalismCycle(save: Save, now: number, into?: ItemLot[]): bool
   const itemId = resolveHerbalismDrop(roll01(save))
   if (!emitRules(save, 'herbalism', [{ itemId, qty: 1 }], now, into)) return false
   consumeDoubleMist(save, 'herbalism')
+  consumeFoodExtraOutput(save, 'herbalism')
   save.stations.herbalism.gatherNotice = `采到${ITEM_DEF[itemId].label}`
   return true
 }
@@ -256,6 +259,7 @@ function completeHuntingCycle(save: Save, now: number, into?: ItemLot[]): boolea
   const outputs = extra ? [...prey.outputs, { itemId: extra, qty: 1 }] : prey.outputs
   if (!emitRules(save, 'hunting', outputs, now, into)) return false
   consumeDoubleMist(save, 'hunting')
+  consumeFoodExtraOutput(save, 'hunting')
   save.stations.hunting.gatherNotice = extra
     ? `安全捕获 · ${prey.label}，顺手${ITEM_DEF[extra].label}`
     : `安全捕获 · ${prey.label}`

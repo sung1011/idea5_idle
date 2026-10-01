@@ -109,9 +109,13 @@ describe('production phase-1 tables', () => {
     )
     expect(TOOL_TYPE_DEF.pot.matchStationId).toBe('cooking')
     expect(TOOL_TYPE_DEF.rack.matchStationId).toBe('alchemy')
-    expect(FOOD_BUFF_DEF.meal.effectId).toBe('prodSpeed')
+    expect(FOOD_BUFF_DEF.meal.effectId).toBe('cycleShorten')
+    expect(FOOD_BUFF_DEF.meal.mul).toBe(0.1)
     expect(FOOD_BUFF_DEF.roast.effectId).toBe('extraOutput')
-    expect(FOOD_BUFF_DEF.stew.mul).toBeGreaterThan(FOOD_BUFF_DEF.meal.mul)
+    expect(FOOD_BUFF_DEF.roast.mul).toBe(1)
+    expect(FOOD_BUFF_DEF.stew.durationS).toBe(120)
+    expect(FOOD_BUFF_DEF.boneSoup.mul).toBe(1.15)
+    expect(FOOD_BUFF_DEF.boneSoup.durationS).toBe(480)
   })
 
   it('exposes hunting prey, former fish goods and alchemy-facing herbal drops', () => {

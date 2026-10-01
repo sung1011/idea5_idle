@@ -1,4 +1,14 @@
-import { EFFECT_ID, FOOD_BUFF_DEF, FOOD_HEAL_RATIO, ITEM_DEF, type FoodItemId } from '../sim/tables'
+import {
+  BONE_SOUP_DURATION_S,
+  BONE_SOUP_SPEED_MUL,
+  FOOD_HEAL_RATIO,
+  HUNTER_SKEWER_GUARD_S,
+  ITEM_DEF,
+  MEAL_CYCLE_CUT,
+  ROAST_EXTRA_OUTPUT,
+  STEW_RESIST_S,
+  type FoodItemId,
+} from '../sim/tables'
 import type { ModeHelpRow } from './modeHelp'
 
 export const REST_FOOD_HELP_TITLE = '营地伙食'
@@ -25,21 +35,18 @@ export function nextFoodHelp(current: FoodItemId | null, next: FoodItemId): Food
   return current === next ? null : next
 }
 
-function durationText(durationS: number): string {
-  if (durationS > 0 && durationS % 60 === 0) return `${durationS / 60} 分钟`
-  return `${durationS} 秒`
+function healText(id: FoodItemId): string {
+  return `回 ${Math.round(FOOD_HEAL_RATIO[id] * 100)}% 血`
 }
 
-/** 回血比例、生效的 Buff 和时长。烤肉没有额外产出，不计一段空时长。 */
+/** 五道菜各一句玩家口吻：回血 + 独特规则。 */
 export function foodHelpEffect(id: FoodItemId): string {
-  const percent = Math.round(FOOD_HEAL_RATIO[id] * 100)
-  const heal = `回复 ${percent}% 最大生命`
-  const buff = FOOD_BUFF_DEF[id]
-  if (id === 'hunterSkewer') return `${heal}。之后 30 分钟在岗不掉血、不记劳损`
-  if (!(buff.mul > 0)) return `${heal}。不再额外产出`
-  const duration = durationText(buff.durationS)
-  if (buff.effectId === EFFECT_ID.prodSpeed) return `${heal}。生产速度 ×${buff.mul}，持续 ${duration}`
-  return `${heal}。额外产出 ×${buff.mul}，持续 ${duration}`
+  const heal = healText(id)
+  if (id === 'meal') return `${heal}。下一次派工少花 ${Math.round(MEAL_CYCLE_CUT * 100)}% 时间，就一轮`
+  if (id === 'roast') return `${heal}。下一次成功出货必多带 ${ROAST_EXTRA_OUTPUT} 件`
+  if (id === 'stew') return `${heal}。约 ${STEW_RESIST_S / 60} 分钟工坊掉血减半`
+  if (id === 'boneSoup') return `${heal}。效率 ×${BONE_SOUP_SPEED_MUL}，持续约 ${BONE_SOUP_DURATION_S / 60} 分钟`
+  return `一口气吃满。之后 ${HUNTER_SKEWER_GUARD_S / 60} 分钟在岗不掉血、不记劳损`
 }
 
 export function foodHelpCopy(id: FoodItemId, stock: number): FoodHelpCopy {

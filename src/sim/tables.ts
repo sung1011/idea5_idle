@@ -996,13 +996,29 @@ export function isToolItemId(id: unknown): id is ToolItemId {
 
 export type FoodItemId = RestFoodId
 
-/** 入休息吃到的短时效果。骨汤加速 600 秒；猎人肉串的护岗另记在苦工身上。 */
+/** 熟食：下一次派工耗时少这么多，用掉即清。 */
+export const MEAL_CYCLE_CUT = 0.1
+/** 烤肉：下一次成功产出多带这么多件，用掉即清。 */
+export const ROAST_EXTRA_OUTPUT = 1
+/** 香料炖：这么多 sim 秒内工坊掉血乘这个系数。 */
+export const STEW_RESIST_S = 120
+export const STEW_FATIGUE_MUL = 0.5
+/** 骨汤：效率乘区与持续。 */
+export const BONE_SOUP_SPEED_MUL = 1.15
+export const BONE_SOUP_DURATION_S = 480
+/** 猎人肉串：吃完后这么多 sim 秒内在岗不掉血、不记劳损。 */
+export const HUNTER_SKEWER_GUARD_S = 1800
+
+/**
+ * 入休息吃到的短时效果。
+ * 熟食 / 烤肉是一次性标记；香料炖抗掉血；骨汤才走时长效率；猎人肉串护岗另记。
+ */
 export const FOOD_BUFF_DEF: Record<FoodItemId, ProductionBuff> = {
-  meal: { effectId: EFFECT_ID.prodSpeed, mul: 1.02, durationS: 180 },
-  roast: { effectId: EFFECT_ID.extraOutput, mul: 0, durationS: 180 },
-  stew: { effectId: EFFECT_ID.prodSpeed, mul: 1.03, durationS: 240 },
-  boneSoup: { effectId: EFFECT_ID.prodSpeed, mul: 1.05, durationS: 600 },
-  hunterSkewer: { effectId: EFFECT_ID.prodSpeed, mul: 0, durationS: 1800 },
+  meal: { effectId: EFFECT_ID.cycleShorten, mul: MEAL_CYCLE_CUT, durationS: 0 },
+  roast: { effectId: EFFECT_ID.extraOutput, mul: ROAST_EXTRA_OUTPUT, durationS: 0 },
+  stew: { effectId: EFFECT_ID.prodSpeed, mul: 0, durationS: STEW_RESIST_S },
+  boneSoup: { effectId: EFFECT_ID.prodSpeed, mul: BONE_SOUP_SPEED_MUL, durationS: BONE_SOUP_DURATION_S },
+  hunterSkewer: { effectId: EFFECT_ID.prodSpeed, mul: 0, durationS: HUNTER_SKEWER_GUARD_S },
 }
 
 /** 残血自动吃 1：按 hpMax 向上取整回血。猎人肉串是回满。 */
@@ -1013,9 +1029,6 @@ export const FOOD_HEAL_RATIO: Record<FoodItemId, number> = {
   boneSoup: 0.7,
   hunterSkewer: 1,
 }
-
-/** 猎人肉串：吃完后这么多 sim 秒内在岗不掉血、不记劳损。 */
-export const HUNTER_SKEWER_GUARD_S = 1800
 
 /** 旧通用药剂用药比例；现已不用。回春散为 10%。 */
 export const POTION_HEAL_RATIO = 0.2

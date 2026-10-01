@@ -2,7 +2,17 @@ import { addToBank, bankQty, takeFromBank } from './bank'
 import { bindRecallRestFood } from './moduleUnlock'
 import { isWorkerInCombat } from './combat'
 import { clearWorkerNew, findWorker } from './recruit'
-import { FOOD_HEAL_RATIO, foodBuffDef, HUNTER_SKEWER_GUARD_S, isFoodItemId, ITEM_DEF, type FoodItemId } from './tables'
+import {
+  FOOD_HEAL_RATIO,
+  foodBuffDef,
+  HUNTER_SKEWER_GUARD_S,
+  isFoodItemId,
+  ITEM_DEF,
+  MEAL_CYCLE_CUT,
+  ROAST_EXTRA_OUTPUT,
+  STEW_RESIST_S,
+  type FoodItemId,
+} from './tables'
 import { isWorkerInBeastPvp } from './beastPvpQuery'
 import { isWorkerInHerbPvp } from './herbPvpQuery'
 import { isWorkerInTreasureMine } from './treasureMineQuery'
@@ -97,10 +107,44 @@ function applyRestFoodBuff(worker: Worker, itemId: FoodItemId, now: number, elap
   const def = foodBuffDef(itemId)
   if (!def) {
     worker.foodBuff = null
+    worker.foodCycleCut = false
+    worker.foodExtraOutput = false
+    worker.workshopResistUntil = null
+    worker.dutyGuardUntil = null
     return
   }
   worker.foodBuff = { itemId, expiresAt: now + def.durationS * 1000 }
-  if (itemId === 'hunterSkewer') worker.dutyGuardUntil = elapsedS + HUNTER_SKEWER_GUARD_S
+  worker.foodCycleCut = itemId === 'meal'
+  worker.foodExtraOutput = itemId === 'roast'
+  worker.workshopResistUntil = itemId === 'stew' ? elapsedS + STEW_RESIST_S : null
+  worker.dutyGuardUntil = itemId === 'hunterSkewer' ? elapsedS + HUNTER_SKEWER_GUARD_S : null
+}
+
+function foodStationWorker(save: Save, stationId: StationId): Worker | null {
+  return save.workers.find((worker) => worker.assignment === stationId) ?? null
+}
+
+/** 熟食：下一次派工耗时缩短 10%。 */
+export function foodCycleCutMul(worker: Worker): number {
+  return worker.foodCycleCut ? 1 / (1 - MEAL_CYCLE_CUT) : 1
+}
+
+/** 烤肉：下一次成功产出多带 1 件。 */
+export function foodExtraOutputBonus(save: Save, stationId: StationId): number {
+  const worker = foodStationWorker(save, stationId)
+  return worker?.foodExtraOutput ? ROAST_EXTRA_OUTPUT : 0
+}
+
+/** 这名在岗苦工走完一轮后清掉熟食加速。 */
+export function consumeFoodCycleCut(save: Save, stationId: StationId): void {
+  const worker = foodStationWorker(save, stationId)
+  if (worker?.foodCycleCut) worker.foodCycleCut = false
+}
+
+/** 这名在岗苦工成功产出后清掉烤肉加件。 */
+export function consumeFoodExtraOutput(save: Save, stationId: StationId): void {
+  const worker = foodStationWorker(save, stationId)
+  if (worker?.foodExtraOutput) worker.foodExtraOutput = false
 }
 
 /** 进食挂上的短时效果。过期视为没有。 */

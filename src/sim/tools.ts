@@ -1,7 +1,7 @@
 import { potionEffectValue } from './alchemy'
 import { workshopHpWorkMul } from './workshopHp'
 import { addToBank } from './bank'
-import { foodBuffEffectValue, foodEffectValue } from './food'
+import { foodBuffEffectValue, foodCycleCutMul, foodEffectValue, foodExtraOutputBonus } from './food'
 import { convertLegacyToolsToFeedstock } from './runes'
 import {
   EFFECT_ID,
@@ -160,7 +160,7 @@ export function workerToolSpeedMul(save: Save, worker: Worker, stationId: Statio
   const shorten = workerEffectValue(save, worker, stationId, EFFECT_ID.cycleShorten, now)
   const speedMul = speed > 0 ? speed : 1
   const cut = Math.min(0.8, Math.max(0, shorten))
-  return speedMul / (1 - cut)
+  return (speedMul / (1 - cut)) * foodCycleCutMul(worker)
 }
 
 export function assignedToolWeight(save: Save, stationId: StationId, now = Date.now()): number {
@@ -189,7 +189,7 @@ export function matchingToolEffectMax(
 }
 
 export function cycleOutputBonus(save: Save, stationId: StationId, now = Date.now()): number {
-  return Math.floor(matchingToolEffectMax(save, stationId, EFFECT_ID.extraOutput, now))
+  return Math.floor(matchingToolEffectMax(save, stationId, EFFECT_ID.extraOutput, now)) + foodExtraOutputBonus(save, stationId)
 }
 
 /** 旧档锻件先留下，hydrate 末尾再由 convertLegacyToolsToFeedstock 转荒晶。 */
