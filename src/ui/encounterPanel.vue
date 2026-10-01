@@ -34,6 +34,7 @@ import {
 import { timedOrderLine } from '../sim/marketTimed'
 import { isModuleUnlocked, moduleLockedTip, moduleNoticeOn, type ModuleId } from '../sim/moduleUnlock'
 import ModeHelpSheet from './modeHelpSheet.vue'
+import MonsterCodexSheet from './monsterCodexSheet.vue'
 import { modeHelpIdForMainline, modeHelpOf } from './modeHelp'
 import {
   DUNGEON_MECHANIC_LABEL,
@@ -126,6 +127,7 @@ function tryOpenGuideRunePick() {
 }
 const currentTab = computed(() => mainlineTab.value)
 const helpOpen = ref(false)
+const codexOpen = ref(false)
 const help = computed(() => modeHelpOf(modeHelpIdForMainline(currentTab.value)))
 const isDungeonTab = computed(() => currentTab.value === 'dungeon')
 const currentDensity = computed(() => mainlineDensity.value)
@@ -472,6 +474,7 @@ function timedLine(enc: Encounter) {
   <section class="panel encounter">
     <header class="page-head">
       <h2 class="title">PVE</h2>
+      <button type="button" class="codex-btn" @click="codexOpen = true">图鉴</button>
       <HelpMark @click="helpOpen = true" />
     </header>
     <div class="board-nav">
@@ -514,6 +517,7 @@ function timedLine(enc: Encounter) {
       </nav>
     </div>
     <ModeHelpSheet v-if="helpOpen" :title="help.title" :rows="help.rows" @close="helpOpen = false" />
+    <MonsterCodexSheet v-if="codexOpen" @close="codexOpen = false" />
     <div class="chapter-head">
       <div class="chapter-line">
         <p class="chapter">{{ chapterTitle }}</p>
@@ -842,6 +846,12 @@ function timedLine(enc: Encounter) {
 .title {
   margin: 0;
   font-size: 20px;
+}
+
+.codex-btn {
+  min-height: 32px;
+  margin-left: auto;
+  padding: 4px 10px;
 }
 
 .board-nav {

@@ -1778,6 +1778,6 @@ describe('gold or diamond order rewards', () => {
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.message).toContain('钻石 +2')
     expect(save.gold).toBe(8)
-    expect(save.diamonds).toBe(4)
+    expect(save.diamonds).toBe(6)
   })
 })

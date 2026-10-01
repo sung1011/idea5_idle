@@ -1,4 +1,5 @@
 import { addToBank } from './bank'
+import { appendMonsterNotes, settleMonsterSubmit, syncMonsterCodex } from './monsterCodex'
 import { noteDungeonChest, noteDungeonRun } from './mainlineStats'
 import {
   grantKnightXp,
@@ -415,8 +416,10 @@ export function ensureDungeonDay(save: Save, now = Date.now()): DungeonState {
   const day = gameDay(save.elapsedS)
   if (!pairReady(save.dungeon)) repairDungeonShape(save)
   if (save.dungeon.day === day && pairReady(save.dungeon)) return save.dungeon
-  if (save.dungeon.day !== day) settleDungeonBeforeRefresh(save, now)
+  const dayChanged = save.dungeon.day !== day
+  if (dayChanged) settleDungeonBeforeRefresh(save, now)
   save.dungeon = blankDungeonState(save, day)
+  if (dayChanged) syncMonsterCodex(save, { grantFirstLight: true })
   return save.dungeon
 }
 
@@ -616,7 +619,14 @@ function grantDungeonChestNow(save: Save, enc: EnemyEncounter): ActionResult {
   grantKnightXp(save, dungeonChestKnightXp(payout.tier))
   const xpNote = grantedXp ? '。苦工获得经验' : ''
   const itemNote = itemBits.length ? `、${itemBits.join('、')}` : ''
-  return { ok: true, message: `${enc.label}宝箱（${payout.tier}）：${payBits.join('、')}${itemNote}${xpNote}` }
+  const notes = settleMonsterSubmit(save, enc)
+  return {
+    ok: true,
+    message: appendMonsterNotes(
+      `${enc.label}宝箱（${payout.tier}）：${payBits.join('、')}${itemNote}${xpNote}`,
+      notes,
+    ),
+  }
 }
 
 export function claimDungeonChest(save: Save, encounterId: string, now = Date.now()): ActionResult {

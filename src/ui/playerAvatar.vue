@@ -5,7 +5,7 @@ import { playerAvatarFace } from './playerAvatar'
 
 const props = defineProps<{
   id?: string | null
-  frame?: BannerFrame | null
+  frame?: BannerFrame | 'look' | null
 }>()
 
 function faceOf(id: string | null | undefined) {
@@ -68,6 +68,11 @@ function faceOf(id: string | null | undefined) {
 .face.frame-gold {
   border-color: #ffe27a;
   box-shadow: 0 0 0 2px #4a3422, 0 0 8px rgba(232, 195, 90, 0.95);
+}
+
+.face.frame-look {
+  border-color: #c4a36a;
+  box-shadow: 0 0 0 2px #4a3422, 0 0 8px rgba(168, 112, 48, 0.95);
 }
 
 svg {

@@ -77,6 +77,13 @@ import {
 } from '../sim/treasureMine'
 import { claimGuideQuest, ensureGuidePotionCampTarget, guideClaimNotice, markGuideQuestRuneOpened } from '../sim/guideQuest'
 import { deliverTravelingMerchant, markTravelingMerchantSeen } from '../sim/travelingMerchant'
+import {
+  claimMonsterProgress,
+  equipMonsterCosmetic,
+  exchangeMonsterShard,
+  type MonsterCosmeticId,
+  type MonsterProgressId,
+} from '../sim/monsterCodex'
 import { mainlineTaskAt, syncGuideQuestMet } from '../sim/mainlineQuest'
 import { markModuleSeen, moduleNoticeOn, type ModuleId } from '../sim/moduleUnlock'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
@@ -410,6 +417,9 @@ export const useGameStore = defineStore('game', () => {
     pawn: (index: number) => apply((s) => pawnMerchant(s, index)),
     submitArtisan: (index: number) => apply((s) => submitArtisan(s, index)),
     sellBulk: (index: number) => apply((s) => sellBulk(s, index)),
+    claimMonsterProgress: (id: MonsterProgressId) => apply((s) => claimMonsterProgress(s, id)),
+    exchangeMonsterShard: (id: MonsterCosmeticId) => apply((s) => exchangeMonsterShard(s, id)),
+    equipMonsterCosmetic: (id: MonsterCosmeticId | null) => apply((s) => equipMonsterCosmetic(s, id)),
     gmReset: () => {
       clearSave()
       save.value = gmResetSave()

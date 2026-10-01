@@ -4,6 +4,7 @@ import { bankQty } from '../sim/bank'
 import { campDockCount } from '../sim/campDock'
 import { guideFuseCue, isGuideQuestFlash } from '../sim/guideQuest'
 import { isModuleUnlocked, moduleLockedTip, moduleNoticeOn } from '../sim/moduleUnlock'
+import { equippedCampDeco } from '../sim/monsterCodex'
 import { FOOD_ITEM_IDS, ITEM_DEF, type FoodItemId } from '../sim/tables'
 import { freeRecruitLeft, recruitOfferLabel } from '../sim/recruit'
 import { recruitCost } from '../sim/tech'
@@ -72,6 +73,7 @@ const shownRows = computed(() => {
   return rows.value.filter((row) => !skip.has(row.id))
 })
 const dispatchCount = computed(() => campDockCount(game.save))
+const campDeco = computed(() => equippedCampDeco(game.save))
 const fuseCue = computed(() => guideFuseCue(game.save, true))
 const guideFlashRecruit = computed(() => isGuideQuestFlash(game.save, 'recruit'))
 const guideFlashRestFood = computed(() => isGuideQuestFlash(game.save, 'restFood'))
@@ -497,7 +499,7 @@ onUnmounted(() => {
           </svg>
         </button>
         <header class="head">
-          <h2>营地 · 可派 {{ dispatchCount }}</h2>
+          <h2>营地 · 可派 {{ dispatchCount }}<span v-if="campDeco" class="deco"> · {{ campDeco }}</span></h2>
           <p class="fuse-hint">在营地里拖到同品质的人身上</p>
         </header>
         <div class="actions">

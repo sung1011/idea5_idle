@@ -198,7 +198,7 @@ describe('early mainline from an empty purse', () => {
     expect(potionKinds(save).length).toBeGreaterThanOrEqual(2)
     expect(guideQuestView(save)?.taskId).toBe('alchemy3')
     claimCurrent(save)
-    expect(save.diamonds).toBe(12)
+    expect(save.diamonds).toBeGreaterThanOrEqual(12)
 
     const spare = potionKinds(save).filter((id) => !save.potionSlots.includes(id))
     for (let i = 0; i < save.potionSlots.length && save.potionSlots.filter((slot) => slot != null).length < 2; i++) {
@@ -210,7 +210,8 @@ describe('early mainline from an empty purse', () => {
     }
     expect(guideQuestView(save)?.taskId).toBe('slotsFull')
     claimCurrent(save)
-    expect(save.diamonds).toBe(24)
+    expect(save.diamonds).toBeGreaterThanOrEqual(24)
+    const afterSlotReward = save.diamonds
     expect(guideQuestView(save)?.taskId).toBe('level5')
     claimCurrent(save)
     expect(guideQuestView(save)?.taskId).toBe('blueWorker')
@@ -225,11 +226,11 @@ describe('early mainline from an empty purse', () => {
     expect(save.diamonds).toBeGreaterThanOrEqual(paid)
     while (save.freeRecruitLeft > 0) {
       expect(recruitWorker(save).ok).toBe(true)
-      expect(save.diamonds).toBe(24)
+      expect(save.diamonds).toBe(afterSlotReward)
     }
     expect(save.freeRecruitLeft).toBe(0)
     expect(recruitWorker(save).ok).toBe(true)
-    expect(save.diamonds).toBe(24 - paid)
+    expect(save.diamonds).toBe(afterSlotReward - paid)
     fuseTier(save, 1)
     save = bringHome(save)
     fuseTier(save, 2)

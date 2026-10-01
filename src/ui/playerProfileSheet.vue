@@ -7,6 +7,7 @@ import { playerAvatarList } from './playerAvatar'
 const props = defineProps<{
   name: string
   avatarId: string
+  titleText?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -49,6 +50,7 @@ onUnmounted(() => {
         <span>名字</span>
         <input v-model="draftName" maxlength="16" autocomplete="off" aria-label="玩家名字" />
       </label>
+      <p v-if="titleText" class="title-line">称号 · {{ titleText }}</p>
       <div class="avatars" role="listbox" aria-label="头像">
         <button
           v-for="face in faces"
@@ -104,6 +106,13 @@ header .title {
 .close {
   min-height: 32px;
   padding: 4px 10px;
+}
+
+.title-line {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .name {

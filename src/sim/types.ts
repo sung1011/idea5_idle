@@ -818,6 +818,11 @@ export type Save = {
   playerName: string
   /** 顶栏头像。`PLAYER_AVATAR_IDS` 之一；新档与缺字段 / 未知值是 `helm`。 */
   playerAvatarId: string
+  /**
+   * 怪物图鉴。点亮 / 交单 / 进度奖 / 专属碎片与小外观。
+   * 碎片不进工坊物资。旧档缺字段 hydrate 只点亮已见已交，不补发首次钻。
+   */
+  monsterCodex: import('./monsterCodex').MonsterCodexState
   /** 站间物资数量。旧档字段名仍叫 bank；无容量。 */
   bank: Partial<Record<ItemId, number>>
   /**

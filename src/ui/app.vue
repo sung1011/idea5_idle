@@ -4,6 +4,7 @@ import { campDockCount, campDockTone } from '../sim/campDock'
 import { playerDisplayName, type PlayerAvatarId } from '../sim/createSave'
 import { guideFuseCue, guideQuestFlashId, isGuideQuestFlash } from '../sim/guideQuest'
 import { xpToNextKnightLevel } from '../sim/knightLevel'
+import { equippedMonsterFrame, equippedMonsterTitle } from '../sim/monsterCodex'
 import { bannerFrameOf, bannerLevelOf, treasureAssaultWarning } from '../sim/treasureMine'
 import { appTabLockedTip, isAppTabUnlocked, isModuleUnlocked, moduleNoticeOn } from '../sim/moduleUnlock'
 import { mainlineStepOf } from '../sim/mainlineQuest'
@@ -72,7 +73,8 @@ let xpTimer = 0
 let jumpTimer = 0
 const profileOpen = ref(false)
 const playerName = computed(() => playerDisplayName(game.save.playerName))
-const bannerFrame = computed(() => bannerFrameOf(bannerLevelOf(game.save)))
+const playerTitle = computed(() => equippedMonsterTitle(game.save))
+const bannerFrame = computed(() => equippedMonsterFrame(game.save) ?? bannerFrameOf(bannerLevelOf(game.save)))
 const assaultAlert = computed(
   () => isModuleUnlocked(game.save, 'treasure') && treasureAssaultWarning(game.save),
 )
@@ -287,6 +289,7 @@ watch(addToHomeChoiceNow, (choice) => {
         </button>
         <button type="button" class="player-name" :aria-label="`玩家 ${playerName}`" @click="profileOpen = true">
           {{ playerName }}
+          <i v-if="playerTitle" class="player-title">{{ playerTitle }}</i>
         </button>
       </div>
       <div class="hud-stack">
@@ -453,6 +456,7 @@ watch(addToHomeChoiceNow, (choice) => {
       v-if="profileOpen"
       :name="game.save.playerName"
       :avatar-id="game.save.playerAvatarId"
+      :title-text="playerTitle"
       @close="profileOpen = false"
       @confirm="confirmProfile"
     />
@@ -601,6 +605,16 @@ watch(addToHomeChoiceNow, (choice) => {
   text-shadow:
     0 1px 0 #1a1208,
     0 0 2px #1a1208;
+}
+
+.player-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 700;
+  color: #ffe27a;
 }
 
 .hud-stack {

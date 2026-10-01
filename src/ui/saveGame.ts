@@ -24,6 +24,7 @@ import { hydrateFuseDragTip } from '../sim/fuse'
 import { hydrateWorkerRaceUnlocks } from '../sim/workerRaceUnlock'
 import { hydrateWorkshopHpFields } from '../sim/workshopHp'
 import { hydrateBeastPvp } from '../sim/beastPvp'
+import { hydrateMonsterCodex } from '../sim/monsterCodex'
 import { hydrateHerbPvp } from '../sim/herbPvp'
 import { hydrateTreasureMines } from '../sim/treasureMine'
 import { normalizeFreeRecruitLeft, WORKER_QUALITY_REV } from '../sim/tables'
@@ -120,6 +121,7 @@ export function hydrateLoadedSave(parsed: unknown): Save | null {
   hydrateHerbPvp(withGuide, withGuide.lastTick || Date.now())
   hydrateBeastPvp(withGuide, withGuide.lastTick || Date.now())
   hydrateModuleUnlocks(withGuide)
+  hydrateMonsterCodex(withGuide)
   return withGuide
 }
 

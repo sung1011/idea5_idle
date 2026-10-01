@@ -120,6 +120,7 @@ import type {
   WorkshopBuff,
 } from './types'
 import { consumeRunePicks, normalizeRunePicks, runePickBlockReason, type RunePickMap } from './runes'
+import { appendMonsterNotes, settleMonsterSubmit, syncMonsterCodex } from './monsterCodex'
 
 /** 混合生成默认格数（测试覆盖六种订单）。玩法板走 battlefield / market 各自上下限。 */
 export const ENCOUNTER_SLOT_COUNT = 6
@@ -2182,12 +2183,18 @@ export function claimLoot(save: Save, index: number, now = Date.now()): ActionRe
   grantKnightXp(save, KNIGHT_XP_ENEMY + (isChapterBoss(enc) ? KNIGHT_XP_CHAPTER_BOSS_EXTRA : 0))
   applyCurrencyPayout(save, payout)
   save.mainLootClaims = normalizeMainLootClaims(save.mainLootClaims) + 1
+  const notes = settleMonsterSubmit(save, enc)
   if (isChapterBoss(enc)) {
     advanceMainChapter(save, now)
-    return { ok: true, message: lootClaimMessage(payout, grantedXp, `进入第 ${save.mainChapter} 章`) }
+    syncMonsterCodex(save, { grantFirstLight: true })
+    return {
+      ok: true,
+      message: appendMonsterNotes(lootClaimMessage(payout, grantedXp, `进入第 ${save.mainChapter} 章`), notes),
+    }
   }
   ensureChapterBossSpawn(save, now)
-  return { ok: true, message: lootClaimMessage(payout, grantedXp) }
+  syncMonsterCodex(save, { grantFirstLight: true })
+  return { ok: true, message: appendMonsterNotes(lootClaimMessage(payout, grantedXp), notes) }
 }
 
 export function barterBlockReason(save: Save, index: number): string | null {
@@ -2305,7 +2312,7 @@ export function barterMerchant(save: Save, index: number, now = Date.now()): Act
   if (!added.ok) return added
   enc.completed = true
   markMarketDeal(save, enc)
-  return { ok: true, message: '以物易物成交' }
+  return { ok: true, message: appendMonsterNotes('以物易物成交', settleMonsterSubmit(save, enc)) }
 }
 
 export function buyMerchant(save: Save, index: number, now = Date.now()): ActionResult {
@@ -2320,7 +2327,7 @@ export function buyMerchant(save: Save, index: number, now = Date.now()): Action
   if (!added.ok) return added
   enc.completed = true
   markMarketDeal(save, enc)
-  return { ok: true, message: '金币购买成交' }
+  return { ok: true, message: appendMonsterNotes('金币购买成交', settleMonsterSubmit(save, enc)) }
 }
 
 export function pawnMerchant(save: Save, index: number, now = Date.now()): ActionResult {
@@ -2337,7 +2344,10 @@ export function pawnMerchant(save: Save, index: number, now = Date.now()): Actio
   enc.completed = true
   markMarketDeal(save, enc)
   const gain = currencyGainText(payout)
-  return { ok: true, message: gain ? `以物换钱成交。${gain}` : '以物换钱成交' }
+  return {
+    ok: true,
+    message: appendMonsterNotes(gain ? `以物换钱成交。${gain}` : '以物换钱成交', settleMonsterSubmit(save, enc)),
+  }
 }
 
 export function applyWorkshopBuff(
@@ -2389,7 +2399,7 @@ export function submitArtisan(save: Save, index: number, now = Date.now()): Acti
   const buff = `工坊产量 +${pct}% · ${formatMarchClock(enc.buffDurationS)}`
   return {
     ok: true,
-    message: gain ? `委托完成。${buff}。${gain}` : `委托完成。${buff}`,
+    message: appendMonsterNotes(gain ? `委托完成。${buff}。${gain}` : `委托完成。${buff}`, settleMonsterSubmit(save, enc)),
   }
 }
 
@@ -2407,7 +2417,10 @@ export function sellBulk(save: Save, index: number, now = Date.now()): ActionRes
   enc.completed = true
   markMarketDeal(save, enc)
   const gain = currencyGainText(payout)
-  return { ok: true, message: gain ? `收购成交。${gain}` : '收购成交' }
+  return {
+    ok: true,
+    message: appendMonsterNotes(gain ? `收购成交。${gain}` : '收购成交', settleMonsterSubmit(save, enc)),
+  }
 }
 
 /** 探索不会刷新/替换：交战中、待领胜、战败未清，以及未领的本章 Boss（含待战）。未开打的普通敌人可刷新。 */
@@ -2443,6 +2456,7 @@ export function exploreBoard(save: Save, now = Date.now()): ActionResult {
   expireTimedMarketOrders(save, now)
   resizeOneBoard(save, 'battlefield', now, false)
   resizeOneBoard(save, 'market', now, false)
+  syncMonsterCodex(save, { grantFirstLight: true })
   return { ok: true, message: `探索完成。花费 ${cost} 金币` }
 }
 
@@ -2789,5 +2803,6 @@ export function hydrateEncounterFields(save: Save): Save {
   delete raw.currentOrderId
   delete raw.orderIndex
   delete raw.orderSubmitted
+  syncMonsterCodex(raw, { grantFirstLight: false })
   return raw
 }
