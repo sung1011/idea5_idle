@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createSave } from './createSave'
 import { fuseWorkers } from './fuse'
 import { hydrateLoadedSave } from '../ui/saveGame'
+import { mainlineStepOf } from './mainlineQuest'
 import { recruitWorker, spawnWorker, spawnWorkerWith } from './recruit'
 import { setRollOverride } from './rng'
 import { keepStationsOpen } from './stationUnlock'
@@ -33,6 +34,7 @@ function recruitRaces(save: Save, n: number): WorkerRaceId[] {
 }
 
 function fusePair(save: Save, tier: QualityTier) {
+  save.guideQuestStep = mainlineStepOf('fuse')
   const a = spawnWorkerWith(save, tier, 'laborer')
   const b = spawnWorkerWith(save, tier, 'laborer')
   return fuseWorkers(save, a.id, b.id)

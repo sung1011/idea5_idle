@@ -10,6 +10,7 @@ import {
 import { createSave } from './createSave'
 import { claimLoot, startCombat } from './encounters'
 import { fuseWorkers } from './fuse'
+import { mainlineStepOf } from './mainlineQuest'
 import { setRollOverride } from './rng'
 import { hydrateWorker, spawnWorker, spawnWorkerWith } from './recruit'
 import { selectedCategoryDef } from './stationProgress'
@@ -349,6 +350,7 @@ describe('workshop cycle grants on-duty xp', () => {
 describe('fuse sums total xp', () => {
   it('sets the new worker from the sum of both parents total xp', () => {
     const save = keepStationsOpen(createSave())
+    save.guideQuestStep = mainlineStepOf('fuse')
     const a = spawnWorker(save)
     const b = spawnWorker(save)
     a.level = 4
@@ -371,6 +373,7 @@ describe('fuse sums total xp', () => {
 
   it('cascades overflow xp into extra levels along the worker curve', () => {
     const save = keepStationsOpen(createSave())
+    save.guideQuestStep = mainlineStepOf('fuse')
     const a = spawnWorker(save)
     const b = spawnWorker(save)
     a.level = 1

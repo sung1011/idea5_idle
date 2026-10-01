@@ -127,19 +127,22 @@ describe('early mainline from an empty purse', () => {
     claimCurrent(save)
     expect(dispatchManualRound(save, 'herbalism').ok).toBe(true)
     claimCurrent(save)
-    expect(guideQuestView(save)?.taskId).toBe('fuse')
-
-    save = waitResting(save, 2)
-    expect(restingWorkers(save).length).toBeGreaterThanOrEqual(2)
-    fuseTier(save, 1)
-    claimCurrent(save)
-
     expect(guideQuestView(save)?.taskId).toBe('level2')
     claimCurrent(save)
 
     save = runAlchemy(save, (current) => (current.stations.alchemy.completed ?? 0) >= 1 && potionKinds(current).length >= 1)
     expect(save.stations.alchemy.completed).toBeGreaterThanOrEqual(1)
     claimCurrent(save)
+    expect(guideQuestView(save)?.taskId).toBe('fuse')
+
+    if (save.stations.alchemy.auto) toggleStationAuto(save, 'alchemy')
+    if (save.stations.herbalism.auto) toggleStationAuto(save, 'herbalism')
+    save = waitResting(save, 2)
+    expect(restingWorkers(save).length).toBeGreaterThanOrEqual(2)
+    fuseTier(save, 1)
+    expect(restingWorkers(save).at(-1)?.hp).toBe(1)
+    claimCurrent(save)
+
     expect(guideQuestView(save)?.taskId).toBe('potionInstall')
 
     const firstPotion = potionKinds(save)[0]
@@ -150,15 +153,13 @@ describe('early mainline from an empty purse', () => {
     if (save.stations.alchemy.auto) toggleStationAuto(save, 'alchemy')
     if (save.stations.herbalism.auto) toggleStationAuto(save, 'herbalism')
     save = waitResting(save, 1)
-    healCamp(save)
-    const target = restingWorkers(save)[0]
-    expect(target).toBeTruthy()
-    expect(target!.hp).toBe(target!.hpMax)
+    const tail = restingWorkers(save).at(-1)
+    expect(tail).toBeTruthy()
     expect(usePotionSlot(save, 0).ok).toBe(true)
-    expect(target!.hp).toBe(target!.hpMax)
     claimCurrent(save)
     expect(guideQuestView(save)?.taskId).toBe('combat')
     save = pumpHerbs(save, 2)
+    healCamp(save)
     const fighter = restingWorkers(save).find((worker) => worker.hp >= worker.hpMax && worker.fatigueDebt === 0)
     expect(fighter, '出征需要一名满血苦工').toBeTruthy()
     expect(startCombat(save, 0, [fighter!.id]).ok).toBe(true)

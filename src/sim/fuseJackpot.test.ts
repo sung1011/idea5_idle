@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { createSave } from './createSave'
+import { mainlineStepOf } from './mainlineQuest'
 import {
   FUSE_JACKPOT_RATE_BY_TIER,
   FUSE_JACKPOT_RATE_HIGH,
@@ -20,6 +21,7 @@ afterEach(() => {
 
 function pairAt(tier: QualityTier): Save {
   const save = createSave()
+  save.guideQuestStep = mainlineStepOf('fuse')
   spawnWorkerWith(save, tier, 'laborer')
   spawnWorkerWith(save, tier, 'laborer')
   return save

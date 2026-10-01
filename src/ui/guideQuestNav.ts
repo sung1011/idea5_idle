@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { mainlineTaskAt } from '../sim/mainlineQuest'
 import { appTab, openWorkshopStation, selectAppTab, selectWorkshopStation, type AppTabId } from './appNav'
 import { showStationDetail } from './stationDetailNav'
 import { selectMainlineTab } from './mainlineTabs'
@@ -148,19 +149,7 @@ export function openGuideQuestTask(taskId: string, storage?: Storage | null): Ap
 }
 
 export function openGuideQuestStep(step: number, storage?: Storage | null): AppTabId {
-  const ids = [
-    'recruit',
-    'autoHerb',
-    'herbQueue',
-    'fuse',
-    'combat',
-    'level2',
-    'alchemy',
-    'potionInstall',
-    'potionUse',
-    'autoLine',
-  ]
-  const id = ids[step - 1]
-  if (id) return openGuideQuestTask(id, storage)
+  const row = mainlineTaskAt(step)
+  if (row) return openGuideQuestTask(row.id, storage)
   return selectAppTab('workshop', storage)
 }

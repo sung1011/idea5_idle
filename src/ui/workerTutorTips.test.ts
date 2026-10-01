@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { createSave } from '../sim/createSave'
 import { GUIDE_QUEST_DONE_STEP } from '../sim/guideQuest'
+import { mainlineStepOf } from '../sim/mainlineQuest'
 import type { Save, Worker } from '../sim/types'
 import { appTab } from './appNav'
 import { DEFAULT_APP_TAB, type AppTabId } from './appTabs'
@@ -132,6 +133,7 @@ describe('worker tutor tips', () => {
 
   it('waits out the life and the gap before the next line, and does not repeat the last one', () => {
     const save = dutySave()
+    save.guideQuestStep = mainlineStepOf('fuse')
     const first = considerWorkerTutor(save, 0, () => 0)
     expect(first?.text).toBe(WORKER_TUTOR_LINES[0])
     expect(considerWorkerTutor(save, WORKER_TUTOR_LIFE_MS, () => 0)).toBeNull()
@@ -139,6 +141,13 @@ describe('worker tutor tips', () => {
     const second = considerWorkerTutor(save, WORKER_TUTOR_LIFE_MS + WORKER_TUTOR_GAP_MS, () => 0)
     expect(second?.text).toBe(WORKER_TUTOR_LINES[1])
     expect(second?.text).not.toBe(first?.text)
+  })
+
+  it('hides the fuse tutor line until the mainline teaches it', () => {
+    const save = dutySave()
+    const first = considerWorkerTutor(save, 0, () => 0)
+    expect(first?.text).toBe(WORKER_TUTOR_LINES[1])
+    expect(first?.text).not.toBe(WORKER_TUTOR_LINES[0])
   })
 
   it('click dismiss starts the gap immediately', () => {

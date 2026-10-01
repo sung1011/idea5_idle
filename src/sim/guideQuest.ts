@@ -30,7 +30,7 @@ export const GUIDE_QUEST_PHASE3_STEPS = 1
 /** 用药这一步的步号。不再用来迁移旧档。 */
 export const GUIDE_OLD_DONE_STEP = mainlineStepOf('potionUse')
 export const GUIDE_QUEST_GOLD = 20
-/** 骑士 1 级即可装槽 / 点用。主线在升到 2 级后引导炼金、装药、用药，用药不要求已经挂上自动线。 */
+/** 骑士 1 级即可装槽 / 点用。主线在升到 2 级后熬药、合成、装药、用药，用药不要求已经挂上自动线。 */
 export const GUIDE_QUEST_PHASE2_KNIGHT = 1
 /**
  * 9：确认过的清单，另插入派工、排队和挂自动。升到 N 级的任务领奖后才开启该级功能。
@@ -67,9 +67,9 @@ export const GUIDE_POTION_INSTALL_CLOSED_GOAL = '点营地，再点药剂槽装�
 /** 装药步营地已打开。 */
 export const GUIDE_POTION_INSTALL_OPEN_GOAL = '在营地点空药剂槽，装上一种药'
 /** 用药步营地还没打开。 */
-export const GUIDE_POTION_USE_CLOSED_GOAL = '点营地，再点药剂槽用药'
+export const GUIDE_POTION_USE_CLOSED_GOAL = '点营地，再点药剂槽用药，看队尾回血'
 /** 用药步营地已打开。 */
-export const GUIDE_POTION_USE_OPEN_GOAL = '在营地点已装的药剂槽用药'
+export const GUIDE_POTION_USE_OPEN_GOAL = '在营地点已装的药剂槽用药，看队尾回血'
 /** 用药步营地没人。 */
 export const GUIDE_POTION_NEED_CAMP_GOAL = '等苦工回到营地，再点药剂槽用药'
 /** 第一阶段「抽工人」完成所需次数（花名册人数或已生成序号，取较大）。 */
@@ -315,7 +315,7 @@ export function guideNeedsCampForPotion(save: Save): boolean {
 
 const GUIDE_HEAL_POTIONS = new Set(['salve', 'brinkSalve', 'clearMind', 'renewSoup'])
 
-/** 用药步装着回血药、营地又全员满血时，把队尾打残，点下去才治得了。提效药满血可用，空槽不打残。只剩一人时只扣 1 点。 */
+/** 用药步装着回血药、营地又全员满血时，把队尾打到 1 血，点下去才治得了。提效药满血可用，空槽不打残。合完本来就是 1 血则不动。 */
 export function ensureGuidePotionCampTarget(save: Save): void {
   const step = normalizeGuideQuestStep(save.guideQuestStep)
   if (mainlineTaskAt(step)?.id !== 'potionUse') return
@@ -324,12 +324,11 @@ export function ensureGuidePotionCampTarget(save: Save): void {
   if (!camp.length || camp.some((worker) => !isFullWorkshopHp(worker))) return
   const installed = (save.potionSlots ?? []).filter((id): id is NonNullable<typeof id> => id != null)
   if (!installed.some((id) => GUIDE_HEAL_POTIONS.has(id))) return
-  const target = camp.length > 1 ? camp[camp.length - 1] : camp[0]
+  const target = camp[camp.length - 1] ?? camp[0]
   const hpMax = Math.max(1, Math.floor(target.hpMax))
   if (hpMax <= 1) return
   target.fatigueDebt = 0
-  target.hp = camp.length > 1 ? Math.max(1, Math.floor(hpMax * 0.5)) : hpMax - 1
-  if (target.hp >= hpMax) target.hp = hpMax - 1
+  target.hp = 1
 }
 
 /** 领到「升到酋长 11 级」后多给一句：第二条自动线开了。 */
@@ -448,7 +447,7 @@ function guideStepGoal(save: Save, row: MainlineTask, claimable: boolean, campOp
 }
 
 function guidePhaseMeta(row: MainlineTask): Pick<GuideQuestView, 'phase' | 'phaseStep' | 'phaseTotal' | 'title'> {
-  const start = ['recruit', 'autoHerb', 'herbQueue', 'fuse', 'combat'].indexOf(row.id)
+  const start = ['recruit', 'autoHerb', 'herbQueue', 'alchemy', 'fuse'].indexOf(row.id)
   if (start >= 0) {
     const phaseStep = start + 1
     return {

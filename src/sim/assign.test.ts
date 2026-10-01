@@ -11,6 +11,7 @@ import { beginEnemyCombat } from './combat'
 import { createSave } from './createSave'
 import { grantOpenedModules } from './moduleUnlock'
 import { CAMP_FUSE_ONLY_REASON, canFuseRestWorkers, fuseRestWorkers, fuseWorkers } from './fuse'
+import { mainlineStepOf } from './mainlineQuest'
 import { spawnWorker } from './recruit'
 import { unlockPlayableStations } from './stationUnlock'
 import { QUALITY_MAX, STATION_WORKER_CAP } from './tables'
@@ -20,6 +21,7 @@ import { isFullWorkshopHp, releaseDeadWorker } from './workshopHp'
 
 function roster(n: number) {
   const save = unlockPlayableStations(createSave())
+  save.guideQuestStep = mainlineStepOf('fuse')
   for (let i = 0; i < n; i++) spawnWorker(save)
   return save
 }

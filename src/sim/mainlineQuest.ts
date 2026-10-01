@@ -109,18 +109,18 @@ function task(
 
 /**
  * 唯一的主线顺序。下标就是步号，运行时不重排。
- * 工坊先采草再熬药，然后才出征。打猎换成饭，再下地牢。矿挖出来，再去夺洞。
+ * 工坊先采草再熬药，合成放到装药用药之前；合完队尾 1 血，再用药看回血。然后才出征。打猎换成饭，再下地牢。矿挖出来，再去夺洞。
  */
 function buildSchedule(): MainlineTask[] {
   const rows: MainlineTask[] = [
     task('recruit', '点营地，抽两名苦工', '招人', 'intro', kept()),
     task('autoHerb', '点采药站，派队首去采一轮草', '采草', 'intro', kept()),
     task('herbQueue', '采药还在做，再点一次，排下一轮', '再排一轮', 'intro', kept()),
-    task('fuse', '营地里把两个同品质的人合成', '合成', 'intro', kept()),
     levelTask(2),
     task('alchemy', '点炼金站，派队首去熬一轮药', '熬药', 'intro', kept()),
+    task('fuse', '营地里把两个同品质的人合成', '合成', 'intro', kept()),
     task('potionInstall', '营地里装上一格药', '装药', 'intro', kept()),
-    task('potionUse', '营地里把这格药用掉', '用药', 'intro', kept()),
+    task('potionUse', '营地里给队尾用药，看他回血', '用药', 'intro', kept()),
     task('combat', '带着药，点战场选人开战', '出征', 'intro', kept()),
     task('autoLine', '点站卡右上角，再点气泡里的「自动」', '挂上自动', 'intro', kept()),
     levelTask(3),

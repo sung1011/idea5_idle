@@ -3,6 +3,7 @@ import { isWorkerInHerbPvp } from './herbPvpQuery'
 import { fillWorkerHp } from './combat'
 import { starterGuideFuseAttr } from './encounters'
 import { sendWorkerToRestTail, unloadFood } from './food'
+import { mainlineStepOf } from './mainlineQuest'
 import { clearWorkerNew, findWorker, spawnWorkerWith } from './recruit'
 import { workerFromTotalXp, workerTotalXp } from './workerLevel'
 import { roll01 } from './rng'
@@ -52,6 +53,20 @@ function rolledFuseTier(save: Save, sourceTier: QualityTier): { tier: QualityTie
 
 /** 站上、在岗拖到营地、拖到工位，一律用这句拒绝。 */
 export const CAMP_FUSE_ONLY_REASON = '只能在营地合成'
+/** 主线还没教到合成时，拖合/合成直接失败。 */
+export const FUSE_NOT_TAUGHT_REASON = '还没教你合成'
+
+/** 当前步已经到合成，或跳过了合成，才允许合。 */
+export function isFuseTaught(save: Pick<Save, 'guideQuestStep' | 'guideQuestSkipped'>): boolean {
+  const fuseAt = mainlineStepOf('fuse')
+  if (fuseAt <= 0) return true
+  const step =
+    typeof save.guideQuestStep === 'number' && Number.isFinite(save.guideQuestStep)
+      ? Math.floor(save.guideQuestStep)
+      : 1
+  if (step >= fuseAt) return true
+  return (save.guideQuestSkipped ?? []).includes('fuse')
+}
 
 function stripSlots(save: Save, worker: Worker): void {
   if (worker.foodSlot) unloadFood(save, worker.id)
@@ -80,6 +95,7 @@ function fusePairAt(save: Save, a: Worker, b: Worker): ActionResult {
   worker.level = progress.level
   worker.xp = progress.xp
   fillWorkerHp(worker, undefined, save)
+  worker.fatigueDebt = 0
   worker.hp = 1
   worker.assignment = null
   sendWorkerToRestTail(save, worker.id)
@@ -116,8 +132,9 @@ function fieldBlock(save: Save, a: Worker, b: Worker): ActionResult | null {
   return null
 }
 
-/** 两人都在营地、同档、未满档。消耗两人，产出 1 个至少高一档的新人，HP 为 1，排到营地队尾。大成功再高一档。 */
+/** 两人都在营地、同档、未满档。消耗两人，产出 1 个至少高一档的新人，排到营地队尾，1 血。大成功再高一档。主线还没教合成时不能合。 */
 export function fuseWorkers(save: Save, workerIdA: string, workerIdB: string): ActionResult {
+  if (!isFuseTaught(save)) return { ok: false, reason: FUSE_NOT_TAUGHT_REASON }
   if (!workerIdA || !workerIdB) return { ok: false, reason: '请选两个同品质苦工' }
   if (workerIdA === workerIdB) return { ok: false, reason: '不能合成同一个人' }
   const a = findWorker(save, workerIdA)
@@ -131,8 +148,9 @@ export function fuseWorkers(save: Save, workerIdA: string, workerIdB: string): A
   return fusePairAt(save, a, b)
 }
 
-/** 两人都在营地、同档、未满档，且不在割草或困兽。 */
+/** 两人都在营地、同档、未满档，且不在割草或困兽。主线还没教合成时不能合。 */
 export function canFuseRestWorkers(save: Save, workerIdA: string, workerIdB: string): boolean {
+  if (!isFuseTaught(save)) return false
   if (!workerIdA || !workerIdB || workerIdA === workerIdB) return false
   const a = findWorker(save, workerIdA)
   const b = findWorker(save, workerIdB)

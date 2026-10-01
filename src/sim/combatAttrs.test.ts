@@ -30,6 +30,7 @@ import { beginEnemyCombat, stepEnemyCombat } from './combat'
 import { createSave } from './createSave'
 import { startCombat } from './encounters'
 import { fuseWorkers } from './fuse'
+import { mainlineStepOf } from './mainlineQuest'
 import { hydrateWorker, spawnWorker, spawnWorkerWith } from './recruit'
 import type { EnemyEncounter, QualityTier } from './types'
 
@@ -85,6 +86,7 @@ describe('distinct attr roll', () => {
 
   it('keeps existing attrs on fuse / quality up and only rolls newly unlocked empty slots', () => {
     const save = keepStationsOpen(createSave())
+    save.guideQuestStep = mainlineStepOf('fuse')
     const a = spawnWorkerWith(save, 4, 'hunter', ['fire'])
     const b = spawnWorkerWith(save, 4, 'hunter', ['ice'])
     expect(a.combatAttrs).toEqual(['fire'])

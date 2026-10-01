@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { assignRestingToFirstEmpty, assignWorker } from '../sim/assign'
 import { beginEnemyCombat } from '../sim/combat'
 import { createSave } from '../sim/createSave'
+import { FUSE_NOT_TAUGHT_REASON } from '../sim/fuse'
+import { mainlineStepOf } from '../sim/mainlineQuest'
 import { spawnWorkerWith } from '../sim/recruit'
 import { unlockPlayableStations } from '../sim/stationUnlock'
 import { QUALITY_MAX, STATION_WORKER_CAP } from '../sim/tables'
@@ -121,6 +123,7 @@ describe('worker drag assign', () => {
 
   it('fuses two resting workers of the same tier and leaves the result in rest', () => {
     const save = unlockPlayableStations(createSave())
+    save.guideQuestStep = mainlineStepOf('fuse')
     const left = spawnWorkerWith(save, 2, 'cook')
     const right = spawnWorkerWith(save, 2, 'miner')
     const duty = spawnWorkerWith(save, 2, 'hunter')
@@ -135,6 +138,7 @@ describe('worker drag assign', () => {
     const fresh = save.workers.find((w) => w.id !== duty.id)
     expect(fresh?.qualityTier).toBe(3)
     expect(fresh?.assignment).toBeNull()
+    expect(fresh?.hp).toBe(1)
     expect(duty.assignment).toBe('mining')
   })
 
@@ -169,6 +173,7 @@ describe('worker drag assign', () => {
 
   it('refuses a different tier on a rest worker or an occupied slot', () => {
     const save = unlockPlayableStations(createSave())
+    save.guideQuestStep = mainlineStepOf('fuse')
     const idle = spawnWorkerWith(save, 1, 'laborer')
     const mate = spawnWorkerWith(save, 2, 'artisan')
     const busy = spawnWorkerWith(save, 3, 'miner')
@@ -262,11 +267,13 @@ describe('fuse drag tip', () => {
     expect(panelSource).not.toContain('营地同品质可合')
     expect(panelSource).not.toContain('fuse-drag-tip')
     const resting = unlockPlayableStations(createSave())
+    resting.guideQuestStep = mainlineStepOf('fuse')
     spawnWorkerWith(resting, 1, 'laborer')
     spawnWorkerWith(resting, 1, 'artisan')
     expect(canDragFuseAny(resting)).toBe(true)
 
     const mixed = unlockPlayableStations(createSave())
+    mixed.guideQuestStep = mainlineStepOf('fuse')
     const idle = spawnWorkerWith(mixed, 1, 'laborer')
     const mate = spawnWorkerWith(mixed, 1, 'artisan')
     const busy = spawnWorkerWith(mixed, 2, 'miner')
@@ -284,6 +291,7 @@ describe('fuse drag tip', () => {
 
   it('still auto-fills the rest head and only fuses inside camp', () => {
     const save = unlockPlayableStations(createSave())
+    save.guideQuestStep = mainlineStepOf('fuse')
     save.stations.herbalism.auto = true
     const head = spawnWorkerWith(save, 1, 'laborer')
     const mate = spawnWorkerWith(save, 1, 'artisan')
@@ -320,6 +328,7 @@ describe('fuse drag tip', () => {
 
   it('refuses a camp fuse while the queue slide is playing', () => {
     const save = unlockPlayableStations(createSave())
+    save.guideQuestStep = mainlineStepOf('fuse')
     const left = spawnWorkerWith(save, 1, 'laborer')
     const right = spawnWorkerWith(save, 1, 'artisan')
     setCampQueueSliding(true)
@@ -338,10 +347,26 @@ describe('fuse drag tip', () => {
 
   it('does not treat max-tier or in-combat workers as a drag-fuse pair', () => {
     const save = unlockPlayableStations(createSave())
+    save.guideQuestStep = mainlineStepOf('fuse')
     const maxA = spawnWorkerWith(save, QUALITY_MAX, 'knight')
     const maxB = spawnWorkerWith(save, QUALITY_MAX, 'steward')
     expect(canDragFuseAny(save)).toBe(false)
     expect(maxA.assignment).toBeNull()
     expect(maxB.assignment).toBeNull()
+  })
+
+  it('refuses camp fuse before the mainline teaches it', () => {
+    const save = unlockPlayableStations(createSave())
+    const left = spawnWorkerWith(save, 1, 'laborer')
+    const right = spawnWorkerWith(save, 1, 'artisan')
+    expect(canDragFuseAny(save)).toBe(false)
+    expect(canDropWorker(save, { kind: 'rest', workerId: left.id }, { kind: 'restWorker', workerId: right.id })).toBe(
+      false,
+    )
+    expect(applyWorkerDrag(save, { kind: 'rest', workerId: left.id }, { kind: 'restWorker', workerId: right.id })).toEqual({
+      ok: false,
+      reason: FUSE_NOT_TAUGHT_REASON,
+    })
+    expect(save.workers).toHaveLength(2)
   })
 })

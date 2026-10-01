@@ -23,6 +23,7 @@ import {
   GUIDE_POTION_INSTALL_CLOSED_GOAL,
   GUIDE_POTION_INSTALL_OPEN_GOAL,
   GUIDE_POTION_USE_CLOSED_GOAL,
+  GUIDE_POTION_USE_OPEN_GOAL,
   GUIDE_RECRUIT_CLOSED_GOAL,
   GUIDE_RECRUIT_OPEN_GOAL,
   guideClaimNotice,
@@ -229,13 +230,6 @@ describe('guideQuest steps and claim', () => {
     expect(dispatchManualRound(save, 'herbalism').ok).toBe(true)
     expect(save.stations.herbalism.manualRounds).toBeGreaterThanOrEqual(2)
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(save.guideQuestStep).toBe(mainlineStepOf('fuse'))
-
-    spawnWorker(save)
-    spawnWorker(save)
-    expect(fuseRestWorkers(save, save.workers[1].id, save.workers[2].id).ok).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('营地里把两个同品质的人合成')
-    expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('level2'))
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('alchemy'))
@@ -252,6 +246,15 @@ describe('guideQuest steps and claim', () => {
     save.bank.herb = 1
     save.stations.alchemy.completed = 1
     expect(claimGuideQuest(save).ok).toBe(true)
+    expect(save.guideQuestStep).toBe(mainlineStepOf('fuse'))
+
+    spawnWorker(save)
+    spawnWorker(save)
+    expect(fuseRestWorkers(save, save.workers[1].id, save.workers[2].id).ok).toBe(true)
+    const fused = save.workers.find((worker) => worker.qualityTier >= 2)
+    expect(fused?.hp).toBe(1)
+    expect(guideQuestView(save)?.goal).toBe('营地里把两个同品质的人合成')
+    expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('potionInstall'))
     expect(guideQuestView(save)?.title).toBe('装药')
 
@@ -261,7 +264,7 @@ describe('guideQuest steps and claim', () => {
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('potionUse'))
     expect(guideQuestView(save)?.goal).toBe(GUIDE_POTION_USE_CLOSED_GOAL)
-    expect(guideQuestView(save, true)?.goal).toBe('在营地点已装的药剂槽用药')
+    expect(guideQuestView(save, true)?.goal).toBe(GUIDE_POTION_USE_OPEN_GOAL)
     const parked = save.workers.map((worker) => worker.assignment)
     for (const worker of save.workers) worker.assignment = 'herbalism'
     expect(guideQuestView(save)?.goal).toBe(GUIDE_POTION_NEED_CAMP_GOAL)
@@ -277,7 +280,7 @@ describe('guideQuest steps and claim', () => {
     expect(usePotionSlot(save, 0).ok).toBe(true)
     expect(resting!.hp).toBe(resting!.hpMax)
     expect(save.guideQuestPotionUsed).toBe(true)
-    expect(guideQuestView(save)?.goal).toBe('营地里把这格药用掉')
+    expect(guideQuestView(save)?.goal).toBe('营地里给队尾用药，看他回血')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(save.guideQuestStep).toBe(mainlineStepOf('combat'))
     expect(guideQuestView(save)?.title).toBe('出征')
@@ -412,17 +415,19 @@ describe('guideQuest flash target', () => {
     expect(guideQuestFlashId(save)).toBe('herbQueue')
     expect(dispatchManualRound(save, 'herbalism').ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBeNull()
+    expect(guideQuestView(save)?.taskId).toBe('level2')
+    expect(guideQuestView(save)?.claimable).toBe(true)
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestFlashId(save)).toBe('alchemy')
+
+    save.stations.alchemy.completed = 1
+    expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('fuse')
 
     spawnWorker(save)
     spawnWorker(save)
     fuseRestWorkers(save, save.workers[1].id, save.workers[2].id)
-    expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestFlashId(save)).toBeNull()
-    expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestFlashId(save)).toBe('alchemy')
-
-    save.stations.alchemy.completed = 1
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestFlashId(save)).toBe('potionInstall')
 
@@ -535,6 +540,11 @@ describe('guide fuse and alchemy cues', () => {
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(dispatchManualRound(save, 'herbalism').ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestView(save)?.taskId).toBe('level2')
+    expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestView(save)?.taskId).toBe('alchemy')
+    save.stations.alchemy.completed = 1
+    expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestView(save)?.taskId).toBe('fuse')
     expect(guideFuseCue(save, true)).toBe('wait')
     expect(guideFuseFlashStations(save, true)).toEqual([])
@@ -545,12 +555,14 @@ describe('guide fuse and alchemy cues', () => {
     expect(guideFuseFlashStations(save, true)).toEqual([])
     const resting = restingWorkers(save)
     expect(fuseRestWorkers(save, resting[0].id, resting[1].id).ok).toBe(true)
+    expect(restingWorkers(save).at(-1)?.hp).toBe(1)
     expect(claimGuideQuest(save).ok).toBe(true)
-    expect(guideQuestView(save)?.taskId).toBe('level2')
+    expect(guideQuestView(save)?.taskId).toBe('potionInstall')
   })
 
   it('aligns the first fused worker with the starter enemy so the pick sheet marks 推荐', () => {
     const save = createSave()
+    save.guideQuestStep = mainlineStepOf('fuse')
     const enc = save.encounters[0]
     expect(enc.kind).toBe('enemy')
     if (enc.kind !== 'enemy') return
@@ -559,6 +571,7 @@ describe('guide fuse and alchemy cues', () => {
     expect(fuseRestWorkers(save, save.workers[0].id, save.workers[1].id).ok).toBe(true)
     const green = save.workers.find((worker) => worker.qualityTier >= 2)
     expect(green?.combatAttrs[0]).toBe('sword')
+    expect(green?.hp).toBe(1)
     expect(fighterRecommendLabel(green?.combatAttrs ?? [], enc)).toBe('推荐')
   })
 
@@ -611,19 +624,6 @@ describe('early guide on a fresh save', () => {
     expect(save.stations.herbalism.manualRounds).toBeGreaterThanOrEqual(2)
     expect(claimGuideQuest(save).ok).toBe(true)
 
-    expect(guideFuseCue(save, true)).toBe('wait')
-    expect(guideQuestView(save, true)?.goal).toBe(GUIDE_FUSE_WAIT_GOAL)
-    expect(guideFuseFlashStations(save, true)).toEqual([])
-    expect(save.freeRecruitLeft).toBe(6)
-    let waited = 0
-    while (restingWorkers(save).length < 2 && waited < 40) {
-      save = ticks(save, 20)
-      waited += 1
-    }
-    const resting = restingWorkers(save)
-    expect(resting.length).toBeGreaterThanOrEqual(2)
-    expect(fuseRestWorkers(save, resting[0].id, resting[1].id).ok).toBe(true)
-    expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestView(save)?.taskId).toBe('level2')
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestView(save)?.taskId).toBe('alchemy')
@@ -669,24 +669,42 @@ describe('early guide on a fresh save', () => {
     }
     expect(save.stations.alchemy.completed).toBeGreaterThanOrEqual(1)
     expect(claimGuideQuest(save).ok).toBe(true)
+    expect(guideQuestView(save)?.taskId).toBe('fuse')
+    if (save.stations.herbalism.auto) toggleStationAuto(save, 'herbalism')
+    if (save.stations.alchemy.auto) toggleStationAuto(save, 'alchemy')
+    let waited = 0
+    while (restingWorkers(save).length < 2 && waited < 40) {
+      save = ticks(save, 20)
+      waited += 1
+    }
+    expect(guideFuseCue(save, true)).toBe('drag')
+    const camp = restingWorkers(save)
+    expect(camp.length).toBeGreaterThanOrEqual(2)
+    expect(fuseRestWorkers(save, camp[0].id, camp[1].id).ok).toBe(true)
+    const fused = restingWorkers(save).at(-1)
+    expect(fused?.hp).toBe(1)
+    expect(claimGuideQuest(save).ok).toBe(true)
     const potion = POTION_ITEM_IDS.find((id) => bankQty(save, id) > 0)
     expect(potion).toBeTruthy()
     expect(installPotionSlot(save, 0, potion!).ok).toBe(true)
     expect(claimGuideQuest(save).ok).toBe(true)
-    let target = save.workers.find((worker) => worker.assignment == null)
+    let target = restingWorkers(save).at(-1) ?? save.workers.find((worker) => worker.assignment == null)
     if (!target) {
       target = save.workers.find((worker) => worker.assignment != null)
       expect(target).toBeTruthy()
       target!.assignment = null
     }
-    target!.fatigueDebt = 0
-    target!.hp = target!.hpMax
+    expect(target!.hp).toBe(1)
     expect(save.stations.herbalism.auto).toBe(false)
     expect(usePotionSlot(save, 0).ok).toBe(true)
-    expect(target!.hp).toBe(target!.hpMax)
     expect(claimGuideQuest(save).ok).toBe(true)
     expect(guideQuestView(save)?.taskId).toBe('combat')
     if (bankQty(save, 'herb') < 2) save = pumpHerbs(save, 2)
+    for (const worker of save.workers) {
+      if (worker.assignment != null) continue
+      worker.hp = worker.hpMax
+      worker.fatigueDebt = 0
+    }
     const fighter = restingWorkers(save)[0] ?? save.workers.find((worker) => worker.assignment == null)
     expect(fighter).toBeTruthy()
     expect(startCombat(save, 0, [fighter!.id]).ok).toBe(true)
@@ -762,5 +780,21 @@ describe('potion use guide on a buff', () => {
     ensureGuidePotionCampTarget(save)
     expect(camp.some((worker) => worker.hp < worker.hpMax)).toBe(true)
     expect(camp[0].hp).toBe(camp[0].hpMax)
+    expect(camp[camp.length - 1].hp).toBe(1)
+  })
+
+  it('lets potion use heal the fused 1-hp tail', () => {
+    const save = createSave()
+    save.guideQuestStep = mainlineStepOf('fuse')
+    expect(recruitWorker(save).ok).toBe(true)
+    expect(recruitWorker(save).ok).toBe(true)
+    expect(fuseRestWorkers(save, save.workers[0].id, save.workers[1].id).ok).toBe(true)
+    const tail = restingWorkers(save).at(-1)
+    expect(tail?.hp).toBe(1)
+    save.guideQuestStep = mainlineStepOf('potionUse')
+    save.bank.salve = 1
+    expect(installPotionSlot(save, 0, 'salve').ok).toBe(true)
+    expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(tail!.hp).toBeGreaterThan(1)
   })
 })

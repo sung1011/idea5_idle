@@ -1,5 +1,6 @@
 import { reactive } from 'vue'
 import { isWorkerInCombat } from '../sim/combat'
+import { isFuseTaught } from '../sim/fuse'
 import { isGuideQuestDone } from '../sim/guideQuest'
 import { knightLevelOf } from '../sim/stationUnlock'
 import { PLAYABLE_STATION_IDS } from '../sim/tables'
@@ -28,6 +29,8 @@ export const WORKER_TUTOR_LINES = [
   '回营地的苦工排到队尾，不会堵在队首',
   '点站卡派工，右上角标里可以挂自动',
 ] as const
+
+const FUSE_TUTOR_LINE = WORKER_TUTOR_LINES[0]
 
 export type WorkerTutorBubble = {
   id: number
@@ -75,11 +78,15 @@ function pickIndex(length: number, roll: number): number {
   return index
 }
 
-/** 避开上一句。只剩一句时允许重复。 */
-export function pickWorkerTutorLine(roll: number, previous = ''): string {
-  const pool = WORKER_TUTOR_LINES.filter((line) => line !== previous)
-  const lines = pool.length > 0 ? pool : WORKER_TUTOR_LINES
-  return lines[pickIndex(lines.length, roll)] ?? WORKER_TUTOR_LINES[0]
+/** 避开上一句。只剩一句时允许重复。还没教合成时不说合成。 */
+export function pickWorkerTutorLine(
+  roll: number,
+  previous = '',
+  lines: readonly string[] = WORKER_TUTOR_LINES,
+): string {
+  const pool = lines.filter((line) => line !== previous)
+  const picked = pool.length > 0 ? pool : lines
+  return picked[pickIndex(picked.length, roll)] ?? lines[0] ?? WORKER_TUTOR_LINES[0]
 }
 
 /** 人还在六个生产站上，且不在战斗、夺宝。营地休息和排队不算。 */
@@ -134,7 +141,10 @@ export function considerWorkerTutor(
   const ids = workerTutorCandidateIds(save)
   if (!ids.length) return null
   const workerId = ids[pickIndex(ids.length, unitRoll(rng))] ?? ids[0]
-  const text = pickWorkerTutorLine(unitRoll(rng), state.lastText)
+  const lines = isFuseTaught(save)
+    ? WORKER_TUTOR_LINES
+    : WORKER_TUTOR_LINES.filter((line) => line !== FUSE_TUTOR_LINE)
+  const text = pickWorkerTutorLine(unitRoll(rng), state.lastText, lines)
   const bubble: WorkerTutorBubble = {
     id: nextId++,
     workerId,

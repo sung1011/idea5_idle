@@ -23,6 +23,7 @@ import {
   pawnRewardGold,
 } from './encounters'
 import { fuseWorkers } from './fuse'
+import { mainlineStepOf } from './mainlineQuest'
 import { currentSpeed, slagCopperCostSet, stationCycleS } from './query'
 import { scaleArtisanStationXp } from './workerLevel'
 import { recruitWorker, spawnWorker, spawnWorkerWith } from './recruit'
@@ -614,6 +615,7 @@ describe('tech effects stay no-op where intended', () => {
     expect(recruitWorker(save).ok).toBe(true)
 
     const merge = keepStationsOpen(createSave())
+    merge.guideQuestStep = mainlineStepOf('fuse')
     const a = spawnWorker(merge)
     const b = spawnWorker(merge)
     expect(fuseWorkers(merge, a.id, b.id).ok).toBe(true)

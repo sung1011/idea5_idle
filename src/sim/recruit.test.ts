@@ -5,8 +5,9 @@ import { campQueueTailEntries, campQueueTailHold } from '../ui/campQueueSlide'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
 import { loadFood } from './food'
-import { fuseWorkers } from './fuse'
+import { fuseWorkers, FUSE_NOT_TAUGHT_REASON } from './fuse'
 import { hydrateWorker, hydrateWorkers, recruitOfferLabel, recruitWorker, spawnWorker, clearWorkerNew } from './recruit'
+import { mainlineStepOf } from './mainlineQuest'
 import { setRollOverride } from './rng'
 import { WORKER_RACE_NAMES, identityFromWorkerId, isWorkerRaceId, raceFromWorkerId } from './workerRace'
 import {
@@ -201,6 +202,7 @@ describe('spawn / hydrate quality', () => {
 describe('fuseWorkers', () => {
   it('consumes two same-tier workers and yields one higher tier', () => {
     const save = keepStationsOpen(createSave())
+    save.guideQuestStep = mainlineStepOf('fuse')
     const a = spawnWorker(save)
     const b = spawnWorker(save)
     const result = fuseWorkers(save, a.id, b.id)
@@ -211,6 +213,7 @@ describe('fuseWorkers', () => {
     expect(save.workers[0].hp).toBeLessThan(save.workers[0].hpMax)
     expect(save.workers[0].assignment).toBeNull()
     expect(save.workers[0].foodSlot).toBeNull()
+    expect(save.workers[0].hp).toBe(1)
     expect(save.workers[0].id).toBe('w-3')
     expect(isWorkerRaceId(save.workers[0].race)).toBe(true)
     expect(WORKER_RACE_NAMES[save.workers[0].race!]).toContain(save.workers[0].name)
@@ -219,6 +222,7 @@ describe('fuseWorkers', () => {
 
   it('can roll a class neither parent had', () => {
     const save = keepStationsOpen(createSave())
+    save.guideQuestStep = mainlineStepOf('fuse')
     const a = spawnWorker(save)
     const b = spawnWorker(save)
     a.classId = 'laborer'
@@ -231,6 +235,7 @@ describe('fuseWorkers', () => {
 
   it('returns leftover food to the bank; new worker stays in camp', () => {
     const save = keepStationsOpen(createSave())
+    save.guideQuestStep = mainlineStepOf('fuse')
     const a = spawnWorker(save)
     const b = spawnWorker(save)
     save.bank.meal = 2
@@ -244,6 +249,7 @@ describe('fuseWorkers', () => {
 
   it('rejects missing, same, mixed-tier, and max-tier pairs', () => {
     const save = keepStationsOpen(createSave())
+    save.guideQuestStep = mainlineStepOf('fuse')
     const a = spawnWorker(save)
     const b = spawnWorker(save)
     expect(fuseWorkers(save, a.id, a.id)).toEqual({ ok: false, reason: '不能合成同一个人' })
@@ -258,5 +264,27 @@ describe('fuseWorkers', () => {
     b.qualityTier = QUALITY_MAX
     expect(fuseWorkers(save, a.id, b.id)).toEqual({ ok: false, reason: '已是最高品质' })
     expect(save.workers).toHaveLength(2)
+  })
+
+  it('refuses fuse before the mainline teaches it', () => {
+    const save = keepStationsOpen(createSave())
+    const a = spawnWorker(save)
+    const b = spawnWorker(save)
+    expect(fuseWorkers(save, a.id, b.id)).toEqual({ ok: false, reason: FUSE_NOT_TAUGHT_REASON })
+    expect(save.workers).toHaveLength(2)
+  })
+
+  it('allows fuse once the fuse step is skipped, and keeps 1 hp even with rest food', () => {
+    const save = keepStationsOpen(createSave())
+    save.guideQuestSkipped = ['fuse']
+    save.restFoodId = 'meal'
+    save.bank.meal = 8
+    const a = spawnWorker(save)
+    const b = spawnWorker(save)
+    expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
+    expect(save.workers).toHaveLength(1)
+    expect(save.workers[0].hp).toBe(1)
+    expect(save.workers[0].assignment).toBeNull()
+    expect(bankQty(save, 'meal')).toBe(8)
   })
 })
