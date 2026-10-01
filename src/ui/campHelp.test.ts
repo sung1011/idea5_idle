@@ -17,6 +17,7 @@ describe('camp help', () => {
     expect(text).toContain('堵队')
     expect(text).toContain('队尾')
     expect(text).toContain('同品质')
+    expect(text).toContain('拖到一起')
     expect(text).toContain('一定升一阶')
     expect(text).toContain('虚弱')
     expect(text).toContain('一点血')

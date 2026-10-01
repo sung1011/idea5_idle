@@ -500,7 +500,6 @@ onUnmounted(() => {
         </button>
         <header class="head">
           <h2>营地 · 可派 {{ dispatchCount }}<span v-if="campDeco" class="deco"> · {{ campDeco }}</span></h2>
-          <p class="fuse-hint">在营地里拖到同品质的人身上</p>
         </header>
         <div class="actions">
           <button
@@ -719,7 +718,7 @@ onUnmounted(() => {
   width: min(440px, 100%);
   max-height: min(78vh, 680px);
   overflow: hidden;
-  padding: 14px 12px 12px;
+  padding: 8px 12px 12px;
   border: 4px solid #6b3a16;
   border-radius: 18px;
   background:
@@ -734,7 +733,7 @@ onUnmounted(() => {
 .camp-codex,
 .camp-help {
   position: absolute;
-  top: 8px;
+  top: 6px;
   z-index: 3;
   flex: 0 0 32px;
   width: 32px;
@@ -763,7 +762,7 @@ onUnmounted(() => {
 
 .close {
   position: absolute;
-  top: 8px;
+  top: 6px;
   right: 8px;
   z-index: 3;
   flex: 0 0 32px;
@@ -789,31 +788,25 @@ onUnmounted(() => {
 
 .head {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 6px;
-  padding: 2px 128px 8px;
+  min-height: 32px;
+  padding: 0 120px 0 4px;
+  margin: 0 0 6px;
 }
 
 h2 {
   margin: 0;
-  font-size: 20px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 16px;
   font-weight: 900;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   color: #3a2208;
   text-shadow: 0 1px 0 rgba(255, 236, 190, 0.65);
-}
-
-.fuse-hint {
-  margin: 0;
-  padding: 2px 12px;
-  border-radius: 999px;
-  background: linear-gradient(#4ea044, #2f7330);
-  color: #f4ffe8;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1.4;
-  box-shadow: 0 2px 0 #1e4a1c;
 }
 
 .board {
