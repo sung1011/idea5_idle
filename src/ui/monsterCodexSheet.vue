@@ -79,18 +79,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
           :aria-selected="tab === 'list'"
           :class="{ on: tab === 'list' }"
           @click="tab = 'list'"
-        >
-          图鉴
-        </button>
+        >图鉴</button>
         <button
           type="button"
           role="tab"
           :aria-selected="tab === 'exchange'"
           :class="{ on: tab === 'exchange' }"
           @click="tab = 'exchange'"
-        >
-          兑换
-        </button>
+        >兑换</button>
       </nav>
       <ol v-if="tab === 'list'" class="list">
         <li v-for="row in rows" :key="row.id" :class="{ lit: row.lit, locked: !row.lit, submitted: row.submitted }">
