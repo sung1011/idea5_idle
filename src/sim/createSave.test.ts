@@ -106,6 +106,8 @@ describe('createSave six stations', () => {
     expect(save.workshopHpEfficiencyTipShown).toBe(false)
     expect(save.fuseDragTipDone).toBe(false)
     expect(save.unlockedWorkerRaces).toEqual(['orc', 'troll', 'tauren'])
+    expect(save.raceCodex.claimedProgress).toEqual([])
+    expect(save.raceCodex.titles).toEqual([])
     expect(save.goldRaceUnlockStep).toBe(0)
     expect(save.starterCopperPawnDone).toBe(false)
     expect(save.stations.herbalism.stationLevel).toBe(1)

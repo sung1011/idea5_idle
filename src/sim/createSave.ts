@@ -1,5 +1,6 @@
 import { blankDungeonState } from './dungeon'
 import { blankMonsterCodex, hydrateMonsterCodex } from './monsterCodex'
+import { blankRaceCodex, hydrateRaceCodex } from './raceCodex'
 import { PLAYER_AVATAR_DEFAULT, playerAvatarId } from './playerAvatarIds'
 import { hydrateBeastPvp } from './beastPvp'
 import { hydrateHerbPvp } from './herbPvp'
@@ -47,6 +48,7 @@ export function createSave(): Save {
     playerName: PLAYER_NAME_DEFAULT,
     playerAvatarId: PLAYER_AVATAR_DEFAULT,
     monsterCodex: blankMonsterCodex(),
+    raceCodex: blankRaceCodex(),
     bank: {},
     restFoodId: null,
     workers: [],
@@ -129,5 +131,6 @@ export function createSave(): Save {
   hydrateHerbPvp(save)
   hydrateBeastPvp(save)
   hydrateMonsterCodex(save)
+  hydrateRaceCodex(save)
   return save
 }

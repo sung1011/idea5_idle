@@ -84,6 +84,7 @@ import {
   type MonsterCosmeticId,
   type MonsterProgressId,
 } from '../sim/monsterCodex'
+import { claimRaceProgress, type RaceProgressId } from '../sim/raceCodex'
 import { mainlineTaskAt, syncGuideQuestMet } from '../sim/mainlineQuest'
 import { markModuleSeen, moduleNoticeOn, type ModuleId } from '../sim/moduleUnlock'
 import { researchNextTech, researchTech, resetAllTech } from '../sim/tech'
@@ -418,6 +419,7 @@ export const useGameStore = defineStore('game', () => {
     submitArtisan: (index: number) => apply((s) => submitArtisan(s, index)),
     sellBulk: (index: number) => apply((s) => sellBulk(s, index)),
     claimMonsterProgress: (id: MonsterProgressId) => apply((s) => claimMonsterProgress(s, id)),
+    claimRaceProgress: (id: RaceProgressId) => apply((s) => claimRaceProgress(s, id)),
     exchangeMonsterShard: (id: MonsterCosmeticId) => apply((s) => exchangeMonsterShard(s, id)),
     equipMonsterCosmetic: (id: MonsterCosmeticId | null) => apply((s) => equipMonsterCosmetic(s, id)),
     gmReset: () => {

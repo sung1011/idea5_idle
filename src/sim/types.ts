@@ -834,6 +834,11 @@ export type Save = {
    * 碎片不进工坊物资。旧档缺字段 hydrate 只点亮已见已交，不补发首次钻。
    */
   monsterCodex: import('./monsterCodex').MonsterCodexState
+  /**
+   * 苦工种族图鉴进度奖。按已解锁种族数领一次。
+   * 旧档缺字段 hydrate 为空进度，已达档位可补领，不补发点亮钻。
+   */
+  raceCodex: import('./raceCodex').RaceCodexState
   /** 站间物资数量。旧档字段名仍叫 bank；无容量。 */
   bank: Partial<Record<ItemId, number>>
   /**

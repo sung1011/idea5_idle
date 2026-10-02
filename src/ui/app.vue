@@ -5,6 +5,7 @@ import { playerDisplayName, type PlayerAvatarId } from '../sim/createSave'
 import { guideFuseCue, guideQuestFlashId, isGuideQuestFlash } from '../sim/guideQuest'
 import { xpToNextKnightLevel } from '../sim/knightLevel'
 import { equippedMonsterFrame, equippedMonsterTitle } from '../sim/monsterCodex'
+import { equippedRaceTitle } from '../sim/raceCodex'
 import { bannerFrameOf, bannerLevelOf, treasureAssaultWarning } from '../sim/treasureMine'
 import { appTabLockedTip, isAppTabUnlocked, isModuleUnlocked, moduleNoticeOn } from '../sim/moduleUnlock'
 import { mainlineStepOf } from '../sim/mainlineQuest'
@@ -73,7 +74,12 @@ let xpTimer = 0
 let jumpTimer = 0
 const profileOpen = ref(false)
 const playerName = computed(() => playerDisplayName(game.save.playerName))
-const playerTitle = computed(() => equippedMonsterTitle(game.save))
+const playerTitle = computed(() => {
+  const titles = [equippedMonsterTitle(game.save), equippedRaceTitle(game.save)].filter(
+    (row): row is string => !!row,
+  )
+  return titles.length ? titles.join(' · ') : null
+})
 const bannerFrame = computed(() => equippedMonsterFrame(game.save) ?? bannerFrameOf(bannerLevelOf(game.save)))
 const assaultAlert = computed(
   () => isModuleUnlocked(game.save, 'treasure') && treasureAssaultWarning(game.save),

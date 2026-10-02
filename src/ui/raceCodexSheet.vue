@@ -1,12 +1,26 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue'
+import {
+  equippedRaceTitle,
+  raceProgressView,
+  type RaceProgressId,
+} from '../sim/raceCodex'
 import { raceCodexEntries } from '../sim/workerRaceUnlock'
+import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
 import WorkerAvatar from './workerAvatar.vue'
 
 const emit = defineEmits<{ close: [] }>()
 const game = useGameStore()
 const rows = computed(() => raceCodexEntries(game.save))
+const progress = computed(() => raceProgressView(game.save))
+const unlocked = computed(() => rows.value.filter((row) => row.unlocked).length)
+const title = computed(() => equippedRaceTitle(game.save))
+
+function claim(id: RaceProgressId) {
+  const result = game.claimRaceProgress(id)
+  if (result.ok && result.message) pushFloatTip(result.message, 'ok')
+}
 
 function onKey(ev: KeyboardEvent) {
   if (ev.key === 'Escape') emit('close')
@@ -28,7 +42,24 @@ onUnmounted(() => {
         <h2 id="race-codex-title" class="title">苦工图鉴</h2>
         <button type="button" class="close" @click="emit('close')">关闭</button>
       </header>
-      <p class="lead">已解锁点亮，未解锁看合出条件。</p>
+      <p class="lead">
+        已解锁 {{ unlocked }} / {{ rows.length }}
+        <span v-if="title"> · {{ title }}</span>
+      </p>
+      <div class="progress">
+        <button
+          v-for="row in progress"
+          :key="row.id"
+          type="button"
+          :disabled="!row.ready"
+          :class="{ on: row.claimed }"
+          @click="claim(row.id as RaceProgressId)"
+        >
+          <b>{{ row.need }}种</b>
+          <span v-if="row.claimed">已领</span>
+          <span v-else>钻 +{{ row.diamonds }}{{ row.title ? ` · ${row.title}` : '' }}</span>
+        </button>
+      </div>
       <ul class="grid">
         <li v-for="row in rows" :key="row.id" :class="{ locked: !row.unlocked }">
           <WorkerAvatar :race="row.id" size="md" :quality="row.unlocked ? 6 : 1" />
@@ -85,6 +116,24 @@ header .title {
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;
+}
+
+.progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.progress button {
+  min-height: 32px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.progress button.on {
+  opacity: 0.7;
 }
 
 .grid {

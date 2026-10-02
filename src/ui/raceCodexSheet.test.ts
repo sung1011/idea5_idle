@@ -14,11 +14,17 @@ describe('race codex sheet', () => {
     expect(campSource.indexOf('class="camp-codex"')).toBeLessThan(campSource.indexOf('class="camp-help"'))
     expect(sheetSource).toContain('苦工图鉴')
     expect(sheetSource).toContain('raceCodexEntries')
-    expect(sheetSource).toContain('row.hint')
+    expect(sheetSource).toContain('raceProgressView')
+    expect(sheetSource).toContain('claimRaceProgress')
+    expect(sheetSource).toContain('equippedRaceTitle')
     expect(sheetSource).toContain('已解锁')
+    expect(sheetSource).toContain('row.hint')
     expect(sheetSource).toContain('locked')
     expect(sheetSource).not.toContain('fuse')
     expect(sheetSource).not.toContain('qualityTier')
+    expect(sheetSource).not.toContain("tab === 'list'")
+    expect(sheetSource).not.toContain('exchangeMonsterShard')
+    expect(sheetSource).not.toContain('碎片兑换')
   })
 
   it('keeps locked races grey with a fuse condition', () => {
