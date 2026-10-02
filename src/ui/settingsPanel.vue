@@ -242,6 +242,7 @@ onUnmounted(() => {
           <div class="gm-grid">
             <button type="button" class="danger" @click="resetAsk = true">初始化</button>
             <button type="button" @click="game.gmSkipGuide()">跳过引导</button>
+            <button type="button" @click="game.gmCompleteAllTasks()">任务全完成</button>
           </div>
         </section>
         <section class="gm-group">
@@ -277,7 +278,7 @@ onUnmounted(() => {
             <button type="button" @click="game.gmFillHerbStamina()">割草满体力</button>
           </div>
         </section>
-        <p class="hint">「初始化」点了先弹确认框。跳过引导不发未领金币。</p>
+        <p class="hint">「初始化」点了先弹确认框。跳过引导和任务全完成都不发未领金币。任务全完成还会把酋长提到能开全玩法的等级，并把全部模块打开。</p>
       </div>
     </section>
   </div>

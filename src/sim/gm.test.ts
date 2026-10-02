@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { bankQty } from './bank'
 import { createSave } from './createSave'
 import {
+  GM_ALL_MODULES_KNIGHT,
   GM_BASIC_ITEMS,
   GM_BASIC_ITEM_QTY,
   GM_DIAMOND_GRANT,
@@ -13,6 +14,7 @@ import {
   gmAddMaxQualityWorker,
   gmAddTechPoints,
   gmAddWorkers,
+  gmCompleteAllTasks,
   gmFillBankBasics,
   gmFillHerbStamina,
   gmMaxStations,
@@ -27,6 +29,8 @@ import {
   isGuideQuestVisible,
 } from './guideQuest'
 import { mainlineStepOf } from './mainlineQuest'
+import { isAppTabUnlocked, isModuleUnlocked, isPvpUnlocked, MODULE_IDS, MODULE_UNLOCK_KNIGHT } from './moduleUnlock'
+import { isStationUnlocked } from './stationUnlock'
 import { QUALITY_MAX, START_DIAMONDS, START_GOLD, classPoolForQuality } from './tables'
 
 describe('gm debug grants', () => {
@@ -174,5 +178,42 @@ describe('gm debug grants', () => {
     expect(save.gold).toBe(gold2)
     expect(save.knightLevel).toBe(2)
     expect(isGuideQuestVisible(save)).toBe(false)
+  })
+
+  it('completes the mainline, raises the chief, and opens every module', () => {
+    const save = createSave()
+    save.bank.herb = 4
+    const gold = save.gold
+    const diamonds = save.diamonds
+    const tech = save.techPoints
+    const workers = save.workers.length
+    const bank = { ...save.bank }
+    expect(GM_ALL_MODULES_KNIGHT).toBe(Math.max(20, ...Object.values(MODULE_UNLOCK_KNIGHT)))
+    expect(GM_ALL_MODULES_KNIGHT).toBeGreaterThanOrEqual(20)
+    expect(gmCompleteAllTasks(save)).toEqual({ ok: true, message: '任务已全部完成' })
+    expect(save.guideQuestStep).toBe(GUIDE_QUEST_DONE_STEP)
+    expect(save.guideQuestRev).toBe(GUIDE_QUEST_REV)
+    expect(save.guideQuestRuneOpened).toBe(true)
+    expect(save.knightLevel).toBe(GM_ALL_MODULES_KNIGHT)
+    expect(MODULE_IDS.every((id) => save.openedModules.includes(id))).toBe(true)
+    for (const id of MODULE_IDS) expect(isModuleUnlocked(save, id)).toBe(true)
+    expect(isPvpUnlocked(save)).toBe(true)
+    expect(isAppTabUnlocked(save, 'tech')).toBe(true)
+    expect(isAppTabUnlocked(save, 'pvp')).toBe(true)
+    expect(isStationUnlocked(save, 'mining')).toBe(true)
+    expect(isStationUnlocked(save, 'inscription')).toBe(true)
+    expect(save.gold).toBe(gold)
+    expect(save.diamonds).toBe(diamonds)
+    expect(save.techPoints).toBe(tech)
+    expect(save.workers).toHaveLength(workers)
+    expect(save.bank).toEqual(bank)
+    expect(guideQuestView(save)).toBeNull()
+    expect(isGuideQuestVisible(save)).toBe(false)
+
+    save.knightLevel = 28
+    expect(gmCompleteAllTasks(save).ok).toBe(true)
+    expect(save.knightLevel).toBe(28)
+    expect(save.gold).toBe(gold)
+    expect(save.diamonds).toBe(diamonds)
   })
 })

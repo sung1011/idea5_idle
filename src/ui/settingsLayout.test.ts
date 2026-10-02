@@ -36,6 +36,7 @@ describe('settings layout', () => {
     const labels = [
       '初始化',
       '跳过引导',
+      '任务全完成',
       '加金币 1w',
       '加钻石 1w',
       '加基础物资',

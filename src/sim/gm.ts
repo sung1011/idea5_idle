@@ -1,7 +1,9 @@
 import { createSave } from './createSave'
 import { HERB_PVP_STAMINA_MAX } from './herbPvp'
 import { GUIDE_QUEST_DONE_STEP, GUIDE_QUEST_REV } from './guideQuest'
+import { normalizeKnightLevel } from './knightLevel'
 import { grantPassedLevelModules } from './mainlineQuest'
+import { grantOpenedModules, MODULE_IDS, MODULE_UNLOCK_KNIGHT } from './moduleUnlock'
 import { spawnWorker, spawnWorkerWith } from './recruit'
 import { roll01 } from './rng'
 import { syncUnlockedCategories } from './stationProgress'
@@ -24,6 +26,8 @@ export const GM_DIAMOND_GRANT = 10000
 export const GM_TECH_POINTS_GRANT = 10000
 export const GM_WORKER_GRANT = 5
 export const GM_MAX_STATION_LEVEL = 10
+/** 能开全模块的最低酋长等级。表里更高就取最高，至少 20。 */
+export const GM_ALL_MODULES_KNIGHT = Math.max(20, ...Object.values(MODULE_UNLOCK_KNIGHT))
 export const GM_BASIC_ITEM_QTY = 999
 export const GM_BASIC_ITEMS: ItemId[] = [
   'wood',
@@ -129,4 +133,12 @@ export function gmSkipGuide(save: Save): ActionResult {
   save.guideQuestRuneOpened = true
   grantPassedLevelModules(save)
   return { ok: true, message: '已跳过引导' }
+}
+
+/** 主线标完成，酋长提到能开全模块的等级，全部模块写入已开放。不发未领奖励，不改金币钻石库存。 */
+export function gmCompleteAllTasks(save: Save): ActionResult {
+  gmSkipGuide(save)
+  save.knightLevel = Math.max(normalizeKnightLevel(save.knightLevel), GM_ALL_MODULES_KNIGHT)
+  grantOpenedModules(save, MODULE_IDS)
+  return { ok: true, message: '任务已全部完成' }
 }
