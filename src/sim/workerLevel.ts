@@ -51,7 +51,7 @@ export function workerLootXp(rank: EnemyRank, chapter = 1): number {
 }
 
 /**
- * 相对 Lv1（品质底版 + 职业修正）的等级加成，只动战斗。
+ * 相对 Lv1（品质底版）的等级加成，只动战斗。
  * 每级 HP +4%、ATK +3%、出手间隔 ×0.99；间隔最快不低于底版的 70%。
  */
 export const WORKER_LEVEL_HP_PER = 0.04

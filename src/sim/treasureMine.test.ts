@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { keepStationsOpen } from './stationUnlock'
 import { createSave } from './createSave'
 import { PLAYER_AVATAR_IDS } from './playerAvatarIds'
-import { spawnWorker } from './recruit'
+import { spawnWorker as spawnWorkerRaw } from './recruit'
 import { addToBank, bankQty } from './bank'
 import { hydrateLoadedSave } from '../ui/saveGame'
 import {
@@ -96,6 +96,13 @@ import { marchDurationS } from './tech'
 import { settleOffline } from './offline'
 import type { Save, TreasureId, TreasureMine } from './types'
 import type { RunePickMap } from './runes'
+
+/** 本文件测开采规则，默认不用有天赋的开局种族。 */
+function spawnWorker(...args: Parameters<typeof spawnWorkerRaw>) {
+  const worker = spawnWorkerRaw(...args)
+  worker.race = 'bloodElf'
+  return worker
+}
 
 /** 旧用例不查军费。不够就补到刚好能开，扣完回到原数。 */
 function startTreasureRaid(
@@ -322,6 +329,7 @@ describe('treasure mines', () => {
     expect(mineDigIntervalS(11)).toBe(3)
     const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
+    worker.race = 'bloodElf'
     worker.level = 1
     worker.combatAttrs = []
     const mine = save.treasureMines.mines[0]
@@ -1655,7 +1663,7 @@ describe('treasure assault', () => {
     const bottom = raidSlotPress(mine, save.workers, 'attack', 0, save)
     expect(top.kind).toBe('sheet')
     expect(bottom.kind).toBe('sheet')
-    if (top.kind === 'sheet') expect(top.sheet.rows.some((row) => row.label === '职业')).toBe(true)
+    if (top.kind === 'sheet') expect(top.sheet.rows.some((row) => row.label === '职业')).toBe(false)
     if (bottom.kind === 'sheet') expect(bottom.sheet.rows.some((row) => row.label === '职业')).toBe(false)
 
     const ids = save.treasureMines.mines.map((row) => row.id)

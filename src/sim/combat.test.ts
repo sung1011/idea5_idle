@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { keepStationsOpen } from './stationUnlock'
 import {
-  CLASS_COMBAT_MOD,
   BREAK_TIP,
   BREAK_VULN_MUL,
   COMBAT_PARTY_MAX,
@@ -100,17 +99,11 @@ function stock(save: Save) {
 }
 
 describe('combat stats tables', () => {
-  it('uses quality base plus a small class modifier', () => {
+  it('uses quality base and ignores leftover classId', () => {
     const white = workerCombatStats(1)
     expect(white).toEqual(WORKER_COMBAT_BY_TIER[1])
-    const laborer = workerCombatStats(1, 'laborer')
-    expect(laborer.hp).toBe(WORKER_COMBAT_BY_TIER[1].hp + CLASS_COMBAT_MOD.laborer.hp)
-    expect(laborer.atk).toBe(WORKER_COMBAT_BY_TIER[1].atk)
-    const knight = workerCombatStats(10, 'knight')
-    expect(knight.hp).toBe(WORKER_COMBAT_BY_TIER[10].hp + CLASS_COMBAT_MOD.knight.hp)
-    expect(knight.atk).toBe(WORKER_COMBAT_BY_TIER[10].atk + CLASS_COMBAT_MOD.knight.atk)
-    expect(knight.spd).toBe(WORKER_COMBAT_BY_TIER[10].spd + CLASS_COMBAT_MOD.knight.spd)
-    expect(knight.spd).toBeGreaterThanOrEqual(1)
+    expect(workerCombatStats(1, 'laborer')).toEqual(white)
+    expect(workerCombatStats(10, 'knight')).toEqual(WORKER_COMBAT_BY_TIER[10])
     const leveled = workerCombatStats(1, 'laborer', 10)
     const base = workerCombatStats(1, 'laborer', 1)
     expect(leveled.hp).toBeGreaterThan(base.hp)
@@ -435,13 +428,14 @@ describe('combat timeline', () => {
 
   it('resolves the same timeline through applyTick / offline catch-up', () => {
     const save = keepStationsOpen(createSave())
-    const worker = spawnWorkerWith(save, 8, 'knight')
+    const worker = spawnWorkerWith(save, 10, 'knight')
+    worker.race = 'bloodElf'
     const enc = testEnemy({ quality: 'green' })
     putEnemy(save, enc)
     const now = 5_000_000
     beginEnemyCombat(enc, [worker], now)
     save.lastTick = now
-    const later = now + 400_000
+    const later = now + 800_000
     const offline = settleOffline(save, later)
     const after = offline.save.encounters[0]
     expect(after.kind).toBe('enemy')

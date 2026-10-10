@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { isWorkerInCombat, workerLiveStats } from '../sim/combat'
 import { isStationUnlocked, stationLockedTip } from '../sim/stationUnlock'
-import { CLASS_LABEL } from '../sim/tables'
+import { workerRaceTalentView } from '../sim/raceTalent'
 import type { StationId, Worker } from '../sim/types'
 import { workerXpProgress } from '../sim/workerLevel'
 import { workerRaceLabel } from '../sim/workerRace'
@@ -33,12 +33,12 @@ watch(worker, (row) => {
   if (!row) emit('close')
 })
 
-function jobLabel(row: Worker) {
-  return row.classId ? CLASS_LABEL[row.classId] : '未标'
+function talentView(row: Worker) {
+  return workerRaceTalentView(row)
 }
 
 function meta(row: Worker) {
-  return `${qualityOf(row).label} · ${jobLabel(row)} · Lv${row.level} · ${workerDutyLabel(game.save, row)}`
+  return `${qualityOf(row).label} · Lv${row.level} · ${workerDutyLabel(game.save, row)}`
 }
 
 function combatTail(row: Worker) {
@@ -98,6 +98,7 @@ function goWorkshop() {
           <button type="button" class="close" @click="close">关闭</button>
         </header>
         <p class="meta">{{ meta(worker) }}</p>
+        <p v-if="talentView(worker)" class="talent">{{ talentView(worker)!.icon }} {{ talentView(worker)!.text }}</p>
         <HpBar class="hp-slot" :hp="worker.hp" :hp-max="worker.hpMax" />
         <p class="hint">{{ combatTail(worker) }}<template v-if="isWorkerInCombat(game.save, worker.id)"> · 战斗中</template></p>
         <p v-for="line in potionLines" :key="line" class="potion-left">{{ line }}</p>
@@ -221,6 +222,14 @@ header {
 
 .meta {
   font-weight: 700;
+}
+
+.talent {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+  color: #1f5a38;
 }
 
 .hp-slot {

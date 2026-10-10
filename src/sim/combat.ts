@@ -28,6 +28,7 @@ import { clonePlain } from './clone'
 import { findCombatPartyWorker, isAssistWorker } from './combatAssist'
 import { drawEnemyTargetRule, pickEnemyTargets, type CombatTarget } from './combatTarget'
 import { jitterWorkerAtkInterval } from './atkInterval'
+import { applyHuntAtk } from './raceTalent'
 import {
   applyCombatAffixStats,
   DUNGEON_AFFIX_FX,
@@ -140,22 +141,6 @@ export const WORKER_COMBAT_BY_TIER: Readonly<Record<QualityTier, CombatStats>> =
   10: { hp: 84, atk: 16, spd: 2 },
 }
 
-/** 职业小修正。spd 为间隔增减，负值更快。 */
-export const CLASS_COMBAT_MOD: Readonly<Record<ClassId, CombatStats>> = {
-  laborer: { hp: 2, atk: 0, spd: 0 },
-  artisan: { hp: 0, atk: 0, spd: 0 },
-  wanderer: { hp: 0, atk: 1, spd: 0 },
-  miner: { hp: 3, atk: 0, spd: 0 },
-  fisher: { hp: 1, atk: 0, spd: 0 },
-  hunter: { hp: 0, atk: 2, spd: 0 },
-  cook: { hp: 2, atk: 0, spd: 0 },
-  herbalist: { hp: 1, atk: 0, spd: 0 },
-  smith: { hp: 0, atk: 2, spd: 0 },
-  alchemist: { hp: 0, atk: 1, spd: 0 },
-  steward: { hp: 3, atk: 0, spd: 0 },
-  knight: { hp: 4, atk: 2, spd: -1 },
-}
-
 /**
  * 单一底版。按两名约 5 档工人（atk 8 / spd 4，合计约 240 伤/分）来定。
  * 绿杂兵 HP ≈ 10 分钟。出手必须慢：敌人会集火，先倒下一人后 DPS 减半。
@@ -213,17 +198,16 @@ function scaleStat(qty: number, mul: number): number {
 
 export function workerCombatStats(
   qualityTier: QualityTier,
-  classId?: ClassId | null,
+  _classId?: ClassId | null,
   level = 1,
   save?: Save,
   runeId?: RuneItemId,
 ): CombatStats {
   const base = WORKER_COMBAT_BY_TIER[qualityTier]
-  const mod = classId ? CLASS_COMBAT_MOD[classId] : { hp: 0, atk: 0, spd: 0 }
   const raw: CombatStats = {
-    hp: Math.max(1, base.hp + mod.hp),
-    atk: Math.max(1, base.atk + mod.atk),
-    spd: Math.max(1, base.spd + mod.spd),
+    hp: Math.max(1, base.hp),
+    atk: Math.max(1, base.atk),
+    spd: Math.max(1, base.spd),
   }
   return applyCombatTechStats(applyWorkerLevelStats(raw, level), save, runeId)
 }
@@ -238,7 +222,7 @@ function applyCombatTechStats(stats: CombatStats, save?: Save, runeId?: RuneItem
   }
 }
 
-/** 在品质底版 + 职业修正之上叠等级加成。 */
+/** 在品质底版之上叠等级加成。生活职业不再改三围。 */
 export function applyWorkerLevelStats(base: CombatStats, level = 1): CombatStats {
   const hpMul = workerLevelHpMul(level)
   const atkMul = workerLevelAtkMul(level)
@@ -302,7 +286,7 @@ function encounterCombatStats(enc: EnemyEncounter, chapter: number, save?: Save)
   return applyCombatAffixStats(enemyCombatStats(enc.quality, enc.enemyRank, chapter), encounterAffixIds(save, enc))
 }
 
-/** 唯一生命上限：品质、职业、等级，再乘科技（护腕束紧等）。有存档才计入科技。 */
+/** 唯一生命上限：品质、等级，再乘科技（护腕束紧等）。有存档才计入科技。 */
 export function workerHpCap(worker: Worker, save?: Save): number {
   return Math.max(1, workerLiveStats(worker, save).hp)
 }
@@ -610,7 +594,7 @@ function fighterFromWorker(
   const fighter = makeFighter(
     worker.id,
     worker.name ?? worker.id,
-    { ...stats, hp: hpMax },
+    { ...stats, hp: hpMax, atk: applyHuntAtk(stats.atk, worker) },
     hp,
     now,
     worker.combatAttrs,

@@ -1,6 +1,6 @@
 import { fillWorkerHp } from './combat'
 import { fillWorkerCombatAttrs } from './combatAttrs'
-import { classPoolForQuality, isQualityTier, pickClassFromPool, QUALITY_MIN } from './tables'
+import { isQualityTier, QUALITY_MIN } from './tables'
 import { WORKER_RACE_NAMES, unlockedWorkerRacePool } from './workerRace'
 import { assistQualityFloor } from './tech'
 import type { QualityTier, Save, Worker, WorkerRaceId } from './types'
@@ -57,14 +57,12 @@ export function createAssistWorker(save: Save, roll: AssistRoll = Math.random): 
   const qualityRaw = rollInclusive(minQuality, maxQuality, roll)
   const qualityTier: QualityTier = isQualityTier(qualityRaw) ? qualityRaw : QUALITY_MIN
   const level = rollInclusive(WORKER_LEVEL_MIN, maxLevel, roll)
-  const classId = pickClassFromPool(classPoolForQuality(qualityTier), roll())
   const ident = pickAssistIdentity(save, roll)
   return fillWorkerCombatAttrs(
     fillWorkerHp({
       id: ASSIST_WORKER_ID,
       name: ident.name,
       race: ident.race,
-      classId,
       qualityTier,
       assignment: null,
       foodSlot: null,

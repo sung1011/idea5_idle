@@ -5,7 +5,6 @@ import { normalizeKnightLevel } from './knightLevel'
 import { grantPassedLevelModules } from './mainlineQuest'
 import { grantOpenedModules, MODULE_IDS, MODULE_UNLOCK_KNIGHT } from './moduleUnlock'
 import { spawnWorker, spawnWorkerWith } from './recruit'
-import { roll01 } from './rng'
 import { syncUnlockedCategories } from './stationProgress'
 import { normalizeTechPoints } from './tech'
 import {
@@ -13,8 +12,6 @@ import {
   RUNE_ITEM_IDS,
   STATION_DEF,
   STATION_IDS,
-  classPoolForQuality,
-  pickClassFromPool,
 } from './tables'
 import { gmSummonTravelingMerchant } from './travelingMerchant'
 import type { ActionResult, ItemId, Save } from './types'
@@ -85,11 +82,9 @@ export function gmAddWorkers(save: Save, count = GM_WORKER_GRANT): ActionResult 
   return { ok: true, message: `加苦工 ×${n}` }
 }
 
-/** 一名彩档工人；职业从满档池随机，战斗属性走 spawn 开槽。 */
+/** 一名彩档苦工；战斗属性走 spawn 开槽。 */
 export function gmAddMaxQualityWorker(save: Save): ActionResult {
-  const pool = classPoolForQuality(QUALITY_MAX)
-  const classId = pickClassFromPool(pool, roll01(save))
-  const worker = spawnWorkerWith(save, QUALITY_MAX, classId)
+  const worker = spawnWorkerWith(save, QUALITY_MAX)
   return { ok: true, message: `满品质苦工 ${worker.name ?? worker.id}` }
 }
 

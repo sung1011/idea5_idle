@@ -2,6 +2,7 @@ import { addToBank } from './bank'
 import { noteBeastChallenge, noteBeastManual } from './mainlineStats'
 import { beastPvpBlockReason } from './beastPvpQuery'
 import { applyDownedReturn, isWorkerInCombat, workerLiveStats } from './combat'
+import { applyHuntAtk } from './raceTalent'
 import { COMBAT_ATTR_IDS, rollCombatWeakness, scaledAttackDamage, workerMatchesWeakness } from './combatAttrs'
 import { offerRestFood } from './food'
 import { beijingDayKey, beijingDayRemainS, formatHerbDuration } from './herbPvp'
@@ -992,7 +993,7 @@ function makeFight(save: Save, workers: Worker[], auto: boolean): BeastFight {
         name: worker.name ?? '苦工',
         hp: stats.hp,
         hpMax: stats.hp,
-        atk: stats.atk,
+        atk: applyHuntAtk(stats.atk, worker),
         spd: stats.spd,
         accMs: index * 300,
         attrs: worker.combatAttrs.slice(),

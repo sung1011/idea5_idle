@@ -34,6 +34,7 @@ import type {
   Save,
   Worker,
 } from './types'
+import { applyRaceTalentReduction, herbTalentReduction } from './raceTalent'
 import { isFullWorkshopHp } from './workshopHp'
 
 /** 一组固定 49 个假玩家，加上玩家共 50 人。 */
@@ -422,12 +423,24 @@ export function herbPlotShowsWeakness(plot: HerbPlot): boolean {
   return isCombatAttrId(plot.weakness)
 }
 
-export function herbWeedSeconds(matches: boolean): number {
-  return matches ? HERB_PVP_WEED_FAST_S : HERB_PVP_WEED_S
+export function herbWeedSeconds(
+  matches: boolean,
+  worker?: Pick<Worker, 'race' | 'qualityTier'>,
+): number {
+  return applyRaceTalentReduction(
+    matches ? HERB_PVP_WEED_FAST_S : HERB_PVP_WEED_S,
+    herbTalentReduction(worker),
+  )
 }
 
-export function herbWeedCost(matches: boolean): number {
-  return matches ? HERB_PVP_WEED_FAST_COST : HERB_PVP_WEED_COST
+export function herbWeedCost(
+  matches: boolean,
+  worker?: Pick<Worker, 'race' | 'qualityTier'>,
+): number {
+  return applyRaceTalentReduction(
+    matches ? HERB_PVP_WEED_FAST_COST : HERB_PVP_WEED_COST,
+    herbTalentReduction(worker),
+  )
 }
 
 /** 和矿洞同一条判定：属性命中这块地的弱点即克制。多条也只算克制，不再加快。 */
@@ -559,7 +572,6 @@ function rivalWorker(save: Save, rival: HerbRival): Worker {
   return {
     id: rival.id,
     qualityTier: tier,
-    classId: 'herbalist',
     assignment: null,
     foodSlot: null,
     hp: 1,
@@ -1005,7 +1017,7 @@ function playerHitsRival(save: Save, plot: HerbPlot, worker: Worker, rival: Herb
     {
       plotIndex: plot.index,
       attacker: 'player',
-      player: clashFighter(worker.name ?? '苦工', '', worker.classId || 'laborer', worker.hpMax, playerHpStart, blow.attackerHp, {
+      player: clashFighter(worker.name ?? '苦工', '', worker.race ?? '', worker.hpMax, playerHpStart, blow.attackerHp, {
         race: worker.race,
         qualityTier: worker.qualityTier,
         workerId: worker.id,
@@ -1020,8 +1032,8 @@ function playerHitsRival(save: Save, plot: HerbPlot, worker: Worker, rival: Herb
   plot.markedRivalId = rival.id
   if (blow.took) {
     const matches = herbWorkerCounters(worker.combatAttrs, plot.weakness)
-    const cost = herbWeedCost(matches)
-    const toS = herbWeedSeconds(matches)
+    const cost = herbWeedCost(matches, worker)
+    const toS = herbWeedSeconds(matches, worker)
     const progress = inheritHerbProgress(plot.progressS, herbPlotPace(plot), toS)
     save.herbPvp.stamina -= cost
     plot.weeder = null
@@ -1054,7 +1066,7 @@ function rivalHitsPlayer(save: Save, plot: HerbPlot, rival: HerbRival, offline: 
     {
       plotIndex: plot.index,
       attacker: 'rival',
-      player: clashFighter(worker.name ?? '苦工', '', worker.classId || 'laborer', worker.hpMax, playerHpStart, blow.defenderHp, {
+      player: clashFighter(worker.name ?? '苦工', '', worker.race ?? '', worker.hpMax, playerHpStart, blow.defenderHp, {
         race: worker.race,
         qualityTier: worker.qualityTier,
         workerId: worker.id,
@@ -1285,7 +1297,7 @@ export function startHerbWeed(save: Save, plotIndex: number, workerId: string): 
   if (mineBusy) return { ok: false, reason: mineBusy }
   if (!isFullWorkshopHp(worker)) return { ok: false, reason: '满血才能上岗' }
   const matches = herbWorkerCounters(worker.combatAttrs, plot.weakness)
-  const cost = herbWeedCost(matches)
+  const cost = herbWeedCost(matches, worker)
   if (state.stamina < cost) return { ok: false, reason: '体力不足' }
   const rival = plot.weeder ? state.rivals.find((row) => row.id === plot.weeder) : undefined
   if (rival) return playerHitsRival(save, plot, worker, rival)
@@ -1294,7 +1306,7 @@ export function startHerbWeed(save: Save, plotIndex: number, workerId: string): 
   noteHerbAssign(save, matches)
   plot.weeder = null
   plot.progressS = 0
-  plot.durationS = herbWeedSeconds(matches)
+  plot.durationS = herbWeedSeconds(matches, worker)
   const name = worker.name ?? '苦工'
   return { ok: true, message: `${name} 开始除草，花 ${cost} 体力` }
 }

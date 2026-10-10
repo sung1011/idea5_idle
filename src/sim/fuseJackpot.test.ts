@@ -73,7 +73,7 @@ describe('fuse jackpot', () => {
     if (!result.ok) return
     expect(result.fuseJackpot).toBeUndefined()
     expect(save.workers[0].qualityTier).toBe(QUALITY_MAX)
-    expect(calls.length).toBe(3)
+    expect(calls.length).toBe(2)
   })
 
   it('keeps the rate table and uses each band', () => {

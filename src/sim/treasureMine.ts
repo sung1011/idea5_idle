@@ -7,6 +7,7 @@ import { hashString, isCombatAttrId, matchingWeaknesses, pickEnemyWeaknesses, wo
 import { PLAYER_AVATAR_DEFAULT, PLAYER_AVATAR_IDS, type PlayerAvatarId } from './playerAvatarIds'
 import { ITEM_DEF } from './tables'
 import { applyDownedReturn, isFullCombatHp, workerLiveStats } from './combat'
+import { applyTreasureMineInterval } from './raceTalent'
 import { offerRestFood, sendWorkerToRestTail } from './food'
 import { raidPhaseOf } from './march'
 import { marchDurationS } from './tech'
@@ -1437,7 +1438,7 @@ function diggingIntervals(save: Save, mine: TreasureMine): number[] | null {
       const worker = save.workers.find((row) => row.id === id)
       if (!worker) continue
       const matched = workerMatchesMineWeakness(worker.combatAttrs, mine.weaknesses)
-      intervals.push(mineDigIntervalS(worker.level, matched))
+      intervals.push(applyTreasureMineInterval(mineDigIntervalS(worker.level, matched), worker))
     }
     return intervals.length ? intervals : null
   }

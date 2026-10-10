@@ -9,7 +9,8 @@ import {
   treasureCrewCap,
 } from '../sim/treasureMine'
 import { runeSpdMul } from '../sim/runes'
-import { CLASS_LABEL, RUNE_DEF, workerQualityDef } from '../sim/tables'
+import { RUNE_DEF, workerQualityDef } from '../sim/tables'
+import { raceTalentMark } from '../sim/raceTalent'
 import type { RuneItemId, Save, TreasureMine, Worker } from '../sim/types'
 import { actChargeFill } from './actCharge'
 import { hpBarFill } from './hpBar'
@@ -378,11 +379,12 @@ function attackSheet(
   const spd =
     front && raid ? raid.atkSpd : Math.max(1, Math.round((stats?.spd ?? 1) * runeSpdMul(runeId)))
   const name = worker ? workerShortName(worker) : id
+  const talent = worker ? raceTalentMark(worker) : null
   return {
     title: name,
     rows: [
       { label: '名称', text: name },
-      { label: '职业', text: worker?.classId ? CLASS_LABEL[worker.classId] : '未标' },
+      ...(talent ? [{ label: '天赋', text: talent }] : []),
       { label: '品质', text: worker ? workerQualityDef(worker.qualityTier).label : '—' },
       { label: '等级', text: `Lv${worker?.level ?? 1}` },
       { label: '生命', text: `${hp}/${hpMax}` },
@@ -397,11 +399,12 @@ function playerCrewSheet(workers: readonly Worker[], id: string, save: Save | un
   const worker = workers.find((row) => row.id === id)
   const stats = worker ? workerLiveStats(worker, save) : null
   const name = worker ? workerShortName(worker) : id
+  const talent = worker ? raceTalentMark(worker) : null
   return {
     title: name,
     rows: [
       { label: '名称', text: name },
-      { label: '职业', text: worker?.classId ? CLASS_LABEL[worker.classId] : '未标' },
+      ...(talent ? [{ label: '天赋', text: talent }] : []),
       { label: '品质', text: worker ? workerQualityDef(worker.qualityTier).label : '—' },
       { label: '等级', text: `Lv${worker?.level ?? 1}` },
       { label: '生命', text: `${worker?.hp ?? 0}/${worker?.hpMax ?? 0}` },

@@ -142,7 +142,7 @@ describe('spawn / hydrate quality', () => {
     const save = keepStationsOpen(createSave())
     const worker = spawnWorker(save)
     expect(worker.qualityTier).toBe(QUALITY_MIN)
-    expect(worker.classId).toBe('laborer')
+    expect(worker.classId).toBeUndefined()
     expect(worker.race).toBe(identityFromWorkerId('w-1').race)
     expect(worker.name).toBe(identityFromWorkerId('w-1').name)
     expect(worker.combatAttrs).toEqual([])
@@ -217,10 +217,10 @@ describe('fuseWorkers', () => {
     expect(save.workers[0].id).toBe('w-3')
     expect(isWorkerRaceId(save.workers[0].race)).toBe(true)
     expect(WORKER_RACE_NAMES[save.workers[0].race!]).toContain(save.workers[0].name)
-    expect(classPoolForQuality(2)).toContain(save.workers[0].classId)
+    expect(save.workers[0].classId).toBeUndefined()
   })
 
-  it('can roll a class neither parent had', () => {
+  it('does not roll a life class onto the new worker', () => {
     const save = keepStationsOpen(createSave())
     save.guideQuestStep = mainlineStepOf('fuse')
     const a = spawnWorker(save)
@@ -229,8 +229,8 @@ describe('fuseWorkers', () => {
     b.classId = 'laborer'
     setRollOverride(() => 0.99)
     expect(fuseWorkers(save, a.id, b.id).ok).toBe(true)
-    expect(save.workers[0].classId).toBe('miner')
-    expect(save.workers[0].classId).not.toBe('laborer')
+    expect(save.workers[0].classId).toBeUndefined()
+    expect(isWorkerRaceId(save.workers[0].race)).toBe(true)
   })
 
   it('returns leftover food to the bank; new worker stays in camp', () => {

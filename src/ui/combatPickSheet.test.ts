@@ -3,6 +3,7 @@ import sheet from './combatPickSheet.vue?raw'
 import encounter from './encounterPanel.vue?raw'
 import herb from './herbPvpPanel.vue?raw'
 import mine from './treasureMinePanel.vue?raw'
+import beast from './beastPvpPanel.vue?raw'
 
 describe('combat pick sheet', () => {
   it('is the only worker pick list, shared by PVE orders, treasure mines, and herb mowing', () => {
@@ -42,6 +43,12 @@ describe('combat pick sheet', () => {
     expect(mine).not.toContain('orderHerbPick')
     expect(mine).not.toContain('herbCounterMark')
     expect(sheet).toContain('orderPickByRecommend')
+    expect(sheet).toContain('orderPickByTalent')
+    expect(sheet).toContain('talentGroup')
+    expect(herb).toContain('talent-group="herb"')
+    expect(mine).toContain('talent-group="treasure"')
+    expect(encounter).toContain('talent-group="hunt"')
+    expect(beast).toContain('talent-group="hunt"')
     expect(sheet).toContain('isPickRecommendMark(recommend(w))')
     expect(sheet).toContain('class="pick-rec-bar"')
     expect(sheet).toContain('writing-mode: vertical-rl')

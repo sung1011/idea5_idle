@@ -4,7 +4,6 @@ import { isAssistWorker } from './combatAssist'
 import { hydrateWorkerCombatAttrs, spawnFillCombatAttrs, uniqueCombatAttrs } from './combatAttrs'
 import { normalizeWorkerProgress, WORKER_LEVEL_MIN } from './workerLevel'
 import {
-  CLASS_PLACEHOLDERS,
   FOOD_BUFF_DEF,
   foodBuffDef,
   hydrateQualityTier,
@@ -190,15 +189,14 @@ export function hydrateWorkers(raw: unknown, qualityRev?: unknown, save?: Save):
 
 /** 写入一名工人，不扣钻石。GM 免费招人复用。新抽默认最低档。 */
 export function spawnWorker(save: Save): Worker {
-  const idx = save.nextWorkerId - 1
-  return spawnWorkerWith(save, QUALITY_MIN, CLASS_PLACEHOLDERS[idx % CLASS_PLACEHOLDERS.length])
+  return spawnWorkerWith(save, QUALITY_MIN)
 }
 
-/** 指定品质与职业写入花名册。名字按 id 落到种族名字池。可带入已有战斗属性，只补新解锁空槽。 */
+/** 指定品质写入花名册。名字按 id 落到种族名字池。可带入已有战斗属性，只补新解锁空槽。第三参是旧职业，忽略。 */
 export function spawnWorkerWith(
   save: Save,
   qualityTier: QualityTier,
-  classId: ClassId,
+  _classId?: ClassId,
   combatAttrs: readonly CombatAttrId[] = [],
 ): Worker {
   const ident = identityFromWorkerId(`w-${save.nextWorkerId}`)
@@ -208,7 +206,6 @@ export function spawnWorkerWith(
       id: `w-${save.nextWorkerId}`,
       name: ident.name,
       race: ident.race,
-      classId,
       qualityTier,
       assignment: null,
       foodSlot: null,

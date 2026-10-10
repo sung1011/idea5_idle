@@ -57,7 +57,7 @@ import {
 } from './herbPvp'
 import { pvpRankDiamonds } from './pvpRankDiamonds'
 import { PLAYER_AVATAR_IDS } from './playerAvatarIds'
-import { spawnWorker, spawnWorkerWith } from './recruit'
+import { spawnWorker as spawnWorkerRaw, spawnWorkerWith as spawnWorkerWithRaw } from './recruit'
 import { SNAPSHOT_PLAYER_NAMES, vaultQty, workerMatchesMineWeakness } from './treasureMine'
 import type { CombatAttrId, HerbPlot, HerbPvpState, Save } from './types'
 import { SAVE_KEY, hydrateLoadedSave, loadSave, persistSave } from '../ui/saveGame'
@@ -67,6 +67,19 @@ afterEach(() => {
   discardHerbClearEvents()
   discardHerbClashEvents()
 })
+
+/** 本文件测割草规则，默认不用有天赋的开局种族。 */
+function spawnWorker(...args: Parameters<typeof spawnWorkerRaw>) {
+  const worker = spawnWorkerRaw(...args)
+  worker.race = 'bloodElf'
+  return worker
+}
+
+function spawnWorkerWith(...args: Parameters<typeof spawnWorkerWithRaw>) {
+  const worker = spawnWorkerWithRaw(...args)
+  worker.race = 'bloodElf'
+  return worker
+}
 
 function fresh(): Save {
   const save = createSave()
@@ -853,7 +866,7 @@ describe('herb clash events', () => {
     expect(event?.result).toBe('took')
     expect(herbClashResultText(event!.result)).toBe('抢下这块地')
     expect(event?.player.name).toBe('割草甲')
-    expect(event?.player.classId).toBe('herbalist')
+    expect(event?.player.classId).toBe(worker.race)
     expect(event?.player.race).toBe(worker.race)
     expect(event?.player.qualityTier).toBe(worker.qualityTier)
     expect(event?.player.workerId).toBe(worker.id)

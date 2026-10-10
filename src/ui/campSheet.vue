@@ -41,6 +41,7 @@ import WorkerAvatar from './workerAvatar.vue'
 import { workerPotionIconIds } from './workerPotionMark'
 import WorkerDetailSheet from './workerDetailSheet.vue'
 import { workerShortName } from './workerGroups'
+import { raceTalentOf } from '../sim/raceTalent'
 import { workerQualityNameStyle } from './workerQuality'
 import {
   canDragWorker,
@@ -599,7 +600,10 @@ onUnmounted(() => {
                 </span>
               </span>
               <em v-if="workerEatFlashText(row.id)" class="eat-float">{{ workerEatFlashText(row.id) }}</em>
-              <b class="name" :style="workerQualityNameStyle(row.worker)">{{ workerShortName(row.worker) }}</b>
+              <b class="name" :style="workerQualityNameStyle(row.worker)">
+                {{ workerShortName(row.worker) }}
+                <i v-if="raceTalentOf(row.worker.race)" class="talent-mark">{{ raceTalentOf(row.worker.race)?.icon }}</i>
+              </b>
               <span class="hp-track" aria-hidden="true">
                 <i class="hp" :style="hpFillStyle(row.worker)" />
               </span>
@@ -1017,6 +1021,12 @@ h2 {
   font-size: 12px;
   line-height: 1.2;
   text-align: center;
+}
+
+.talent-mark {
+  font-style: normal;
+  font-size: 11px;
+  margin-left: 2px;
 }
 
 .hp-track {

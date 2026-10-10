@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { combatZoneRows, formatRemainClock, type CombatZoneRow } from '../sim/march'
-import { CLASS_LABEL } from '../sim/tables'
+import { raceTalentMark, raceTalentOf } from '../sim/raceTalent'
 import { guideAlchemyCardFlash, guideDispatchStation, isGuideQuestFlash } from '../sim/guideQuest'
 import {
   CLEAR_MANUAL_QUEUE_LABEL,
@@ -99,16 +99,22 @@ function onDocPointer(ev: PointerEvent) {
   combatOpen.value = false
 }
 
-function jobLabel(w: Worker) {
-  return w.classId ? CLASS_LABEL[w.classId] : '未标'
-}
-
 function raceShortLabel(w: Worker) {
   return workerRaceShortLabel(w.race)
 }
 
+function talentMark(w: Worker) {
+  return raceTalentMark(w)
+}
+
+function talentIcon(w: Worker) {
+  return raceTalentOf(w.race)?.icon ?? ''
+}
+
 function sheetMeta(w: Worker) {
-  return `${qualityOf(w).label} · ${jobLabel(w)} · Lv${w.level} · ${workerDutyLabel(game.save, w)}`
+  const talent = talentMark(w)
+  const mid = talent ? ` · ${talent}` : ''
+  return `${qualityOf(w).label}${mid} · Lv${w.level} · ${workerDutyLabel(game.save, w)}`
 }
 
 function hpFillStyle(w: Worker) {
@@ -636,6 +642,7 @@ onUnmounted(() => {
                         <i class="qdot" :style="workerQualityDotStyle(w.qualityTier)" />
                         <em :style="workerQualityNameStyle(w)">{{ workerShortName(w) }}</em>
                         <i v-if="raceShortLabel(w)" class="race-tag">{{ raceShortLabel(w) }}</i>
+                        <i v-if="talentIcon(w)" class="talent-mark">{{ talentIcon(w) }}</i>
                       </b>
                       <small>Lv{{ w.level }}</small>
                     </span>
@@ -1515,6 +1522,14 @@ onUnmounted(() => {
   font-weight: 700;
   line-height: 1.35;
   letter-spacing: 0;
+}
+
+.talent-mark {
+  flex: 0 0 auto;
+  margin-left: 2px;
+  font-style: normal;
+  font-size: 11px;
+  line-height: 1;
 }
 
 .slot-main small {

@@ -23,6 +23,12 @@ import { pushFloatTip } from './floatTips'
 import { moduleNoticeOn } from '../sim/moduleUnlock'
 import { useGameStore } from './gameStore'
 import { isPickRecommendMark, orderPickByRecommend } from './combatPickOrder'
+import {
+  orderPickByTalent,
+  raceTalentOf,
+  type RaceTalentGroup,
+  workerMatchesTalentGroup,
+} from '../sim/raceTalent'
 import { pickSlotNumber } from './pickSlot'
 import { pickWorkerName } from './pickWorkerName'
 import { qualityOf, workerQualityBadgeStyle, workerQualityNameStyle } from './workerQuality'
@@ -50,6 +56,7 @@ const props = withDefaults(
     noteText?: string
     recommendLabel?: (worker: Worker) => string | null
     canPick?: (worker: Worker) => boolean
+    talentGroup?: RaceTalentGroup | null
   }>(),
   {
     mode: 'start',
@@ -63,6 +70,7 @@ const props = withDefaults(
     titleText: '',
     confirmText: '',
     noteText: '',
+    talentGroup: null,
   },
 )
 
@@ -98,7 +106,14 @@ function recommend(worker: Worker): string | null {
   return props.recommendLabel?.(worker) ?? null
 }
 
-const orderedCandidates = computed(() => orderPickByRecommend(props.candidates, recommend))
+const orderedCandidates = computed(() =>
+  orderPickByTalent(orderPickByRecommend(props.candidates, recommend), props.talentGroup),
+)
+
+function talentIcon(worker: Worker): string | null {
+  if (!workerMatchesTalentGroup(worker, props.talentGroup)) return null
+  return raceTalentOf(worker.race)?.icon ?? null
+}
 
 function canPickWorker(worker: Worker): boolean {
   return props.canPick ? props.canPick(worker) : isFullCombatHp(worker)
@@ -208,6 +223,7 @@ function closeAll() {
               <i v-else-if="w.isNew" class="pick-new">NEW</i>
               <CombatAttrRow class="pick-attrs" :attrs="w.combatAttrs" blank-empty />
               <b class="pick-worker-name" :style="workerQualityNameStyle(w)">{{ pickWorkerName(w) }}</b>
+              <i v-if="talentIcon(w)" class="pick-talent" aria-hidden="true">{{ talentIcon(w) }}</i>
               <span class="pick-meta">· Lv{{ w.level }}</span>
             </span>
           </button>
@@ -505,6 +521,12 @@ function closeAll() {
 
 .pick-worker-name {
   font-weight: 700;
+}
+
+.pick-talent {
+  font-style: normal;
+  font-size: 14px;
+  line-height: 1;
 }
 
 .pick-assist {

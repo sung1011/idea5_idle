@@ -7,8 +7,8 @@ import { mainlineStepOf } from './mainlineQuest'
 import { clearWorkerNew, findWorker, spawnWorkerWith } from './recruit'
 import { workerFromTotalXp, workerTotalXp } from './workerLevel'
 import { roll01 } from './rng'
-import { CLASS_LABEL, classPoolForQuality, pickClassFromPool, QUALITY_MAX, workerQualityDef } from './tables'
-import { rollWorkerName, rollWorkerRace } from './workerRace'
+import { QUALITY_MAX, workerQualityDef } from './tables'
+import { rollWorkerName, rollWorkerRace, workerRaceLabel } from './workerRace'
 import { applyFuseRaceUnlocks } from './workerRaceUnlock'
 import type { ActionResult, QualityTier, Save, Worker } from './types'
 
@@ -79,8 +79,6 @@ function fusePairAt(save: Save, a: Worker, b: Worker): ActionResult {
   stripSlots(save, b)
   const rolled = rolledFuseTier(save, a.qualityTier)
   const nextTier = rolled.tier
-  const pool = classPoolForQuality(nextTier)
-  const classId = pickClassFromPool(pool, roll01(save))
   const race = rollWorkerRace(save)
   const givenName = rollWorkerName(save, race)
   const pinned = starterGuideFuseAttr(save)
@@ -88,7 +86,7 @@ function fusePairAt(save: Save, a: Worker, b: Worker): ActionResult {
   const sumTotal = workerTotalXp(a.level, a.xp) + workerTotalXp(b.level, b.xp)
   const progress = workerFromTotalXp(sumTotal)
   save.workers = save.workers.filter((w) => w.id !== a.id && w.id !== b.id)
-  const worker = spawnWorkerWith(save, nextTier, classId, keptAttrs)
+  const worker = spawnWorkerWith(save, nextTier, undefined, keptAttrs)
   worker.race = race
   worker.name = givenName
   applyFuseRaceUnlocks(save, race, nextTier)
@@ -100,11 +98,11 @@ function fusePairAt(save: Save, a: Worker, b: Worker): ActionResult {
   worker.assignment = null
   sendWorkerToRestTail(save, worker.id)
   const quality = workerQualityDef(nextTier)
-  const job = worker.classId ? CLASS_LABEL[worker.classId] : '未标'
+  const raceName = workerRaceLabel(worker.race) || '苦工'
   save.fuseDragTipDone = true
   return {
     ok: true,
-    message: `合成出${worker.name ?? worker.id}（${quality.label}·${job}）`,
+    message: `合成出${worker.name ?? worker.id}（${quality.label}·${raceName}）`,
     ...(rolled.jackpot ? { fuseJackpot: true } : {}),
   }
 }

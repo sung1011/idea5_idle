@@ -375,7 +375,7 @@ describe('treasure raid hud', () => {
     expect(filled.kind).toBe('sheet')
     if (filled.kind === 'sheet') {
       expect(filled.sheet.title).toBe('甲攻')
-      expect(filled.sheet.rows.find((row) => row.label === '职业')?.text).not.toBe('')
+      expect(filled.sheet.rows.find((row) => row.label === '职业')).toBeUndefined()
       expect(filled.sheet.rows.find((row) => row.label === '品质')?.text).toBe('白')
       expect(filled.sheet.rows.find((row) => row.label === '生命')?.text).toContain(`${raid.atkHp}/`)
     }

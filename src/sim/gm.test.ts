@@ -31,7 +31,7 @@ import {
 import { mainlineStepOf } from './mainlineQuest'
 import { isAppTabUnlocked, isModuleUnlocked, isPvpUnlocked, MODULE_IDS, MODULE_UNLOCK_KNIGHT } from './moduleUnlock'
 import { isStationUnlocked } from './stationUnlock'
-import { QUALITY_MAX, START_DIAMONDS, START_GOLD, classPoolForQuality } from './tables'
+import { QUALITY_MAX, START_DIAMONDS, START_GOLD } from './tables'
 
 describe('gm debug grants', () => {
   it('resets to a fresh createSave', () => {
@@ -99,7 +99,7 @@ describe('gm debug grants', () => {
     expect(worker.assignment).toBe(null)
     expect(worker.combatAttrs).toHaveLength(2)
     expect(new Set(worker.combatAttrs).size).toBe(2)
-    expect(classPoolForQuality(QUALITY_MAX)).toContain(worker.classId)
+    expect(worker.classId).toBeUndefined()
     expect(save.gold).toBe(gold)
   })
 

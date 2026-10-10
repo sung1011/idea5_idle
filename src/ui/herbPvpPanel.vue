@@ -292,7 +292,7 @@ function canSend(worker: Worker): boolean {
   if (!isFullWorkshopHp(worker)) return false
   const plot = pickPlot.value
   if (!plot) return false
-  return hud.value.stamina >= herbWeedCost(herbWorkerCounters(worker.combatAttrs, plot.weakness))
+  return hud.value.stamina >= herbWeedCost(herbWorkerCounters(worker.combatAttrs, plot.weakness), worker)
 }
 
 function markCounter(worker: Worker): string | null {
@@ -444,6 +444,7 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
       :show-assist="false"
       :can-pick="canSend"
       :recommend-label="markCounter"
+      talent-group="herb"
       @close="closePick"
       @confirm="confirmPick"
       @toggle="togglePick"

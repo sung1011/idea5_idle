@@ -20,6 +20,8 @@ describe('race codex sheet', () => {
     expect(sheetSource).toContain('已解锁')
     expect(sheetSource).toContain('row.hint')
     expect(sheetSource).toContain('locked')
+    expect(sheetSource).toContain('talentLine')
+    expect(sheetSource).toContain('raceTalentCopy')
     expect(sheetSource).not.toContain('fuse')
     expect(sheetSource).not.toContain('qualityTier')
     expect(sheetSource).not.toContain("tab === 'list'")

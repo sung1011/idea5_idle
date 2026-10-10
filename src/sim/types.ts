@@ -380,7 +380,7 @@ export type Worker = {
    * 种族。招募 / 合成 / 助战随机；旧档缺字段按 id 补，不改已有名字。
    */
   race?: WorkerRaceId
-  /** 生活职业；战斗只做三围小修正，不当成长树。 */
+  /** 旧档生活职业。读档可带，不再产生效果。 */
   classId?: ClassId
   /** 1～10。抽人默认白档；旧档缺字段 hydrate 补 1。 */
   qualityTier: QualityTier

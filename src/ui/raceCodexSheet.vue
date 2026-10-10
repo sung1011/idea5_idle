@@ -9,6 +9,8 @@ import { raceCodexEntries } from '../sim/workerRaceUnlock'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
 import WorkerAvatar from './workerAvatar.vue'
+import { raceTalentCopy, raceTalentOf } from '../sim/raceTalent'
+import type { WorkerRaceId } from '../sim/types'
 
 const emit = defineEmits<{ close: [] }>()
 const game = useGameStore()
@@ -20,6 +22,11 @@ const title = computed(() => equippedRaceTitle(game.save))
 function claim(id: RaceProgressId) {
   const result = game.claimRaceProgress(id)
   if (result.ok && result.message) pushFloatTip(result.message, 'ok')
+}
+
+function talentLine(id: WorkerRaceId): string {
+  const def = raceTalentOf(id)
+  return def ? `${def.icon} ${raceTalentCopy(def)}` : ''
 }
 
 function onKey(ev: KeyboardEvent) {
@@ -64,6 +71,7 @@ onUnmounted(() => {
         <li v-for="row in rows" :key="row.id" :class="{ locked: !row.unlocked }">
           <WorkerAvatar :race="row.id" size="md" :quality="row.unlocked ? 6 : 1" />
           <b>{{ row.label }}</b>
+          <small v-if="talentLine(row.id)" class="talent">{{ talentLine(row.id) }}</small>
           <small v-if="row.unlocked">已解锁</small>
           <small v-else>{{ row.hint }}</small>
         </li>
@@ -181,6 +189,10 @@ small {
   line-height: 1.3;
   color: var(--muted);
   font-weight: 700;
+}
+
+small.talent {
+  color: #1f5a38;
 }
 
 li.locked b,
