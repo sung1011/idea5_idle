@@ -152,8 +152,8 @@ describe('workshop manual dispatch and auto lines', () => {
 
   it('clears the queue, sends the worker to the camp tail, and stops progress', () => {
     expect(CLEAR_MANUAL_QUEUE_LABEL).toBe('清空')
-    expect(CLEAR_MANUAL_QUEUE_NOTE).toContain('回营地队尾')
-    expect(CLEAR_MANUAL_QUEUE_NOTE).toContain('自动线关闭')
+    expect(CLEAR_MANUAL_QUEUE_NOTE).toContain('回营地')
+    expect(CLEAR_MANUAL_QUEUE_NOTE).toContain('排队和自动全部取消')
     expect(CLEAR_MANUAL_QUEUE_NOTE).not.toContain('照常做完')
     const save = createSave()
     const first = fullWorker(save)
@@ -184,13 +184,15 @@ describe('workshop manual dispatch and auto lines', () => {
   })
 
   it('labels a queued station with later rounds and an idle station with headcount', () => {
-    expect(ROUND_BADGE_TIP).toContain('后续轮次')
-    expect(ROUND_BADGE_TIP).toContain('站里的人数')
-    expect(ROUND_BADGE_TIP).toContain('♾️')
-    expect(ROUND_BADGE_TIP).toContain('上方「自动」')
-    expect(ROUND_BADGE_TIP).toContain('下方可以清空')
-    expect(ROUND_BADGE_TIP).toContain('不再留人常驻')
+    expect(ROUND_BADGE_TIP).toContain('开自动后')
+    expect(ROUND_BADGE_TIP).toContain('营地队尾')
+    expect(ROUND_BADGE_TIP).toContain('满血队首')
+    expect(ROUND_BADGE_TIP).toContain('不限轮次')
+    expect(ROUND_BADGE_TIP).toContain('名额有限')
     expect(ROUND_BADGE_TIP).not.toContain('还剩几轮')
+    expect(ROUND_BADGE_TIP).not.toContain('点站点大面板')
+    expect(ROUND_BADGE_TIP).not.toContain('最多 5 轮')
+    expect(ROUND_BADGE_TIP).not.toContain('不会直接排队')
     const save = createSave()
     expect(stationRoundBadge(save, 'herbalism')).toBe('0')
     expect(stationRoundBadgeAria(save, 'herbalism')).toBe('在岗 0 人，排队 0 轮，合计 0，查看排队说明')
