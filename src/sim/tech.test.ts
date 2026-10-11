@@ -121,6 +121,7 @@ import {
   runeAtkMul,
   runeScrapChance,
   researchNextTech,
+  researchBlockReason,
   researchTech,
   resetAllTech,
   revealExtraCount,
@@ -134,6 +135,7 @@ import {
   stationXpMul,
   techActivateLabel,
   techEffectValue,
+  techRowLockReason,
   techLevel,
   techProgressText,
   techReadyLabel,
@@ -421,7 +423,7 @@ describe('research unlock', () => {
     expect(isRowOpen(save, 'affairs', 1)).toBe(true)
     expect(isRowOpen(save, 'affairs', 2)).toBe(false)
 
-    expect(buy(save, 'workshopRules')).toEqual({ ok: false, reason: '未解锁' })
+    expect(buy(save, 'workshopRules')).toEqual({ ok: false, reason: '先点亮第 1 层任意科技' })
     expect(buy(save, 'slagRecycle')).toEqual({ ok: true, message: '已点亮「渣滓回炉」' })
     expect(isRowOpen(save, 'production', 2)).toBe(true)
     expect(rowHasPurchase(save, 'production', 1)).toBe(true)
@@ -432,13 +434,29 @@ describe('research unlock', () => {
     expect(buy(save, 'artisanArchive')).toEqual({ ok: true, message: '已点亮「工匠密录」' })
   })
 
+  it('names the previous row when a later row is still closed', () => {
+    const save = keepStationsOpen(createSave())
+    expect(techRowLockReason(save, 'production', 1)).toBe(null)
+    expect(techRowLockReason(save, 'production', 2)).toBe('先点亮第 1 层任意科技')
+    expect(techRowLockReason(save, 'production', 3)).toBe('先点亮第 2 层任意科技')
+    expect(researchBlockReason(save, 'slagRecycle')).toBe(null)
+    expect(researchBlockReason(save, 'workshopRules')).toBe('先点亮第 1 层任意科技')
+    expect(researchBlockReason(save, 'artisanArchive')).toBe('先点亮第 2 层任意科技')
+    expect(researchBlockReason(save, 'marketLicense')).toBe('先点亮第 1 层任意科技')
+    expect(buy(save, 'slagRecycle')).toEqual({ ok: true, message: '已点亮「渣滓回炉」' })
+    expect(techRowLockReason(save, 'production', 2)).toBe(null)
+    expect(techRowLockReason(save, 'production', 3)).toBe('先点亮第 2 层任意科技')
+    expect(researchBlockReason(save, 'workshopRules')).toBe(null)
+    expect(researchBlockReason(save, 'artisanArchive')).toBe('先点亮第 2 层任意科技')
+  })
+
   it('keeps tabs independent and combat placeholders buyable', () => {
     const save = keepStationsOpen(createSave())
     save.techPoints = 3
     expect(researchTech(save, 'dummyDrill')).toEqual({ ok: true, message: '已点亮「木桩加训」' })
     expect(isRowOpen(save, 'combat', 2)).toBe(true)
     expect(isRowOpen(save, 'production', 2)).toBe(false)
-    expect(researchTech(save, 'workshopRules')).toEqual({ ok: false, reason: '未解锁' })
+    expect(researchTech(save, 'workshopRules')).toEqual({ ok: false, reason: '先点亮第 1 层任意科技' })
     expect(researchTech(save, 'weaknessNotes')).toEqual({ ok: false, reason: '灵感不足' })
   })
 
@@ -453,7 +471,7 @@ describe('research unlock', () => {
   it('rejects a later affairs row before the previous row has a purchase', () => {
     const save = keepStationsOpen(createSave())
     save.techPoints = 99
-    expect(researchTech(save, 'marketLicense')).toEqual({ ok: false, reason: '未解锁' })
+    expect(researchTech(save, 'marketLicense')).toEqual({ ok: false, reason: '先点亮第 1 层任意科技' })
     expect(save.unlockedTechIds).toEqual([])
     expect(battlefieldSlotCount(save)).toBe(BATTLEFIELD_SLOT_MIN)
     expect(marketSlotCount(save)).toBe(MARKET_SLOT_MIN)

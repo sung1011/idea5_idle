@@ -9,6 +9,7 @@ import {
   isTechMaxed,
   techActivateLabel,
   techProgressText,
+  techRowLockReason,
   techTab as techTabDef,
   techTier,
   type TechNodeDef,
@@ -42,6 +43,7 @@ const selectedLive = computed(() => {
     node,
     maxed: isTechMaxed(game.save, node.id),
     activateLabel: techActivateLabel(game.save, node.id),
+    lockReason: techRowLockReason(game.save, node.tab, node.row),
   }
 })
 
@@ -66,16 +68,12 @@ function nodeClass(node: TechNodeDef) {
 }
 
 function onNode(node: TechNodeDef) {
-  if (maxed(node.id) || isRowOpen(game.save, node.tab, node.row)) {
-    selected.value = node
-    return
-  }
-  game.researchTech(node.id)
+  selected.value = node
 }
 
 function activate() {
   const node = selected.value
-  if (!node || maxed(node.id)) return
+  if (!node || maxed(node.id) || !isRowOpen(game.save, node.tab, node.row)) return
   game.researchTech(node.id)
 }
 
@@ -155,6 +153,13 @@ function closeSheet() {
               disabled
             >
               已激活
+            </button>
+            <button
+              v-else-if="selectedLive.lockReason"
+              type="button"
+              disabled
+            >
+              {{ selectedLive.lockReason }}
             </button>
             <button
               v-else

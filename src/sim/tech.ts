@@ -769,11 +769,18 @@ export function isRowOpen(save: Save, tab: TechTabId, row: number): boolean {
   return rowHasPurchase(save, tab, row - 1) || rowHasPurchase(save, tab, row)
 }
 
+/** 未开层的点亮条件。第 1 层始终开；更高层要先点亮上一层至少一个。 */
+export function techRowLockReason(save: Save, tab: TechTabId, row: number): string | null {
+  if (isRowOpen(save, tab, row)) return null
+  return `先点亮第 ${Math.max(1, row - 1)} 层任意科技`
+}
+
 export function researchBlockReason(save: Save, techId: string): string | null {
   if (!isTechId(techId)) return '未知科技'
   if (isTechMaxed(save, techId)) return '已经点满'
   const node = techNode(techId)
-  if (!isRowOpen(save, node.tab, node.row)) return '未解锁'
+  const locked = techRowLockReason(save, node.tab, node.row)
+  if (locked) return locked
   if (normalizeTechPoints(save.techPoints) < node.cost) return '灵感不足'
   return null
 }
