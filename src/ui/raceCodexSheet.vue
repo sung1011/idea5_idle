@@ -9,7 +9,7 @@ import { raceCodexEntries } from '../sim/workerRaceUnlock'
 import { pushFloatTip } from './floatTips'
 import { useGameStore } from './gameStore'
 import WorkerAvatar from './workerAvatar.vue'
-import { raceTalentCopy, raceTalentOf } from '../sim/raceTalent'
+import { bestOwnedQuality, raceTalentCopy, raceTalentOf } from '../sim/raceTalent'
 import type { WorkerRaceId } from '../sim/types'
 
 const emit = defineEmits<{ close: [] }>()
@@ -26,7 +26,8 @@ function claim(id: RaceProgressId) {
 
 function talentLine(id: WorkerRaceId): string {
   const def = raceTalentOf(id)
-  return def ? `${def.icon} ${raceTalentCopy(def)}` : ''
+  if (!def) return ''
+  return `${def.icon} ${raceTalentCopy(def, bestOwnedQuality(game.save, id))}`
 }
 
 function onKey(ev: KeyboardEvent) {

@@ -2,7 +2,8 @@ import { addToBank } from './bank'
 import { noteBeastChallenge, noteBeastManual } from './mainlineStats'
 import { beastPvpBlockReason } from './beastPvpQuery'
 import { applyDownedReturn, isWorkerInCombat, workerLiveStats } from './combat'
-import { applyHuntAtk } from './raceTalent'
+import { applyBeastFirstHit, applyBeastHpMax, applyKillHeal, fightTalentBonus } from './raceTalent'
+import { roll01 } from './rng'
 import { COMBAT_ATTR_IDS, rollCombatWeakness, scaledAttackDamage, workerMatchesWeakness } from './combatAttrs'
 import { offerRestFood } from './food'
 import { beijingDayKey, beijingDayRemainS, formatHerbDuration } from './herbPvp'
@@ -292,7 +293,17 @@ export function strikeBeast(save: Save, amount: number, actor: StrikeActor, quie
     if (state.offline) state.offline.lines.push(text)
     if (actor.player && reward) {
       grantRows(save, [reward])
-      note(`${text}，${ITEM_DEF[reward.itemId].label} ×${reward.qty}`, 'ok', quiet)
+      let qty = reward.qty
+      const extraChance = fightTalentBonus(
+        save,
+        state.fight?.workers.map((row) => row.id),
+        'beastPhaseExtra',
+      )
+      if (extraChance > 0 && roll01(save) < extraChance) {
+        grantRows(save, [reward])
+        qty += reward.qty
+      }
+      note(`${text}，${ITEM_DEF[reward.itemId].label} ×${qty}`, 'ok', quiet)
     }
     pushFx('破阶段', 'break', quiet)
     phase += 1
@@ -307,6 +318,13 @@ export function strikeBeast(save: Save, amount: number, actor: StrikeActor, quie
     if (actor.player) {
       grantRows(save, [{ itemId: 'beastCore', qty: 1 }])
       note(`${text}，困兽之核 ×1`, 'ok', quiet)
+      if (state.fight) {
+        for (const row of state.fight.workers) {
+          if (row.hp <= 0) continue
+          const worker = save.workers.find((item) => item.id === row.id)
+          row.hp = applyKillHeal(row.hp, row.hpMax, worker)
+        }
+      }
     }
     pushFx('猎杀', 'break', quiet)
     state.killed = true
@@ -519,7 +537,12 @@ function workerStrike(save: Save, row: BeastFightWorker, quiet: boolean): void {
   if (fight.openingMs > 0) mul *= 2
   if (workerMatchesWeakness(row.attrs, [state.weakness])) mul *= BEAST_COUNTER_MUL
   if (fight.cowerMs > 0) mul *= BEAST_COWER_DEALT_MUL
-  const damage = scaledAttackDamage(row.atk, mul)
+  const worker = save.workers.find((item) => item.id === row.id)
+  let damage = scaledAttackDamage(row.atk, mul)
+  if (row.firstHitPending) {
+    damage = applyBeastFirstHit(damage, worker)
+    row.firstHitPending = false
+  }
   strikeBeast(save, damage, { id: row.id, name: row.name, player: true }, quiet)
   pushFx(`${row.name} 出手`, 'hit', quiet)
 }
@@ -988,15 +1011,17 @@ function makeFight(save: Save, workers: Worker[], auto: boolean): BeastFight {
   const fight: BeastFight = {
     workers: workers.map((worker, index) => {
       const stats = workerLiveStats(worker, save)
+      const hpMax = applyBeastHpMax(stats.hp, worker)
       return {
         id: worker.id,
         name: worker.name ?? '苦工',
-        hp: stats.hp,
-        hpMax: stats.hp,
-        atk: applyHuntAtk(stats.atk, worker),
+        hp: hpMax,
+        hpMax,
+        atk: stats.atk,
         spd: stats.spd,
         accMs: index * 300,
         attrs: worker.combatAttrs.slice(),
+        firstHitPending: true,
       }
     }),
     elapsedMs: 0,

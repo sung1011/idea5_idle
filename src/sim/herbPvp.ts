@@ -34,7 +34,13 @@ import type {
   Save,
   Worker,
 } from './types'
-import { applyRaceTalentReduction, herbTalentReduction } from './raceTalent'
+import {
+  applyHerbCrashTaken,
+  applyHerbDayVault,
+  applyRaceTalentReduction,
+  herbStaminaCut,
+  herbWeedTimeCut,
+} from './raceTalent'
 import { isFullWorkshopHp } from './workshopHp'
 
 /** 一组固定 49 个假玩家，加上玩家共 50 人。 */
@@ -390,9 +396,12 @@ export function herbRankReward(rank: number): HerbRankReward {
   return HERB_PVP_RANK_REWARDS[HERB_PVP_RANK_REWARDS.length - 1]!
 }
 
-export function herbRewardLine(rank: number): string {
+export function herbRewardLine(rank: number, save?: Save): string {
   const reward = herbRankReward(rank)
-  const parts = [`砂金 ${reward.sandGold}`, `珠宝 ${reward.jewel}`, `荣誉徽记 ${reward.jade}`]
+  const sandGold = applyHerbDayVault(reward.sandGold, save)
+  const jewel = applyHerbDayVault(reward.jewel, save)
+  const jade = applyHerbDayVault(reward.jade, save)
+  const parts = [`砂金 ${sandGold}`, `珠宝 ${jewel}`, `荣誉徽记 ${jade}`]
   if (reward.probes > 0) parts.push(`侦测 ×${reward.probes}`)
   const diamonds = pvpRankDiamonds(rank)
   if (diamonds > 0) parts.push(`钻石 ${diamonds}`)
@@ -429,7 +438,7 @@ export function herbWeedSeconds(
 ): number {
   return applyRaceTalentReduction(
     matches ? HERB_PVP_WEED_FAST_S : HERB_PVP_WEED_S,
-    herbTalentReduction(worker),
+    herbWeedTimeCut(worker),
   )
 }
 
@@ -439,7 +448,7 @@ export function herbWeedCost(
 ): number {
   return applyRaceTalentReduction(
     matches ? HERB_PVP_WEED_FAST_COST : HERB_PVP_WEED_COST,
-    herbTalentReduction(worker),
+    herbStaminaCut(worker),
   )
 }
 
@@ -958,8 +967,10 @@ function exchangeBlow(
   attackerAtk: number,
   defenderHp: number,
   defenderAtk: number,
+  defenderTakenCut?: (damage: number) => number,
 ): { attackerHp: number; defenderHp: number; took: boolean } {
-  const nextDefender = Math.max(0, defenderHp - herbStrikeDamage(attackerAtk))
+  const hitDefender = defenderTakenCut ? defenderTakenCut(herbStrikeDamage(attackerAtk)) : herbStrikeDamage(attackerAtk)
+  const nextDefender = Math.max(0, defenderHp - hitDefender)
   if (nextDefender <= 0) return { attackerHp, defenderHp: 0, took: true }
   const nextAttacker = Math.max(0, attackerHp - herbStrikeDamage(defenderAtk))
   return { attackerHp: nextAttacker, defenderHp: nextDefender, took: false }
@@ -1011,20 +1022,22 @@ function playerHitsRival(save: Save, plot: HerbPlot, worker: Worker, rival: Herb
   const playerAtk = Math.max(1, stats.atk)
   const rivalAtk = Math.max(1, rival.atk)
   const blow = exchangeBlow(playerHpStart, playerAtk, rivalHpStart, rivalAtk)
-  worker.hp = blow.attackerHp
+  worker.hp = blow.took
+    ? blow.attackerHp
+    : Math.max(0, playerHpStart - applyHerbCrashTaken(herbStrikeDamage(rivalAtk), worker))
   rival.hp = blow.defenderHp
   pushClash(
     {
       plotIndex: plot.index,
       attacker: 'player',
-      player: clashFighter(worker.name ?? '苦工', '', worker.race ?? '', worker.hpMax, playerHpStart, blow.attackerHp, {
+      player: clashFighter(worker.name ?? '苦工', '', worker.race ?? '', worker.hpMax, playerHpStart, worker.hp, {
         race: worker.race,
         qualityTier: worker.qualityTier,
         workerId: worker.id,
       }),
       rival: clashFighter(rival.name, rival.avatarId, '', rival.hpMax, rivalHpStart, blow.defenderHp),
       playerDamage: Math.min(herbStrikeDamage(playerAtk), rivalHpStart),
-      rivalDamage: blow.took ? 0 : Math.min(herbStrikeDamage(rivalAtk), playerHpStart),
+      rivalDamage: blow.took ? 0 : Math.min(applyHerbCrashTaken(herbStrikeDamage(rivalAtk), worker), playerHpStart),
       result: blow.took ? 'took' : 'lost',
     },
     false,
@@ -1059,7 +1072,9 @@ function rivalHitsPlayer(save: Save, plot: HerbPlot, rival: HerbRival, offline: 
   const rivalHpStart = Math.max(0, rival.hp)
   const playerAtk = Math.max(1, stats.atk)
   const rivalAtk = Math.max(1, rival.atk)
-  const blow = exchangeBlow(rivalHpStart, rivalAtk, playerHpStart, playerAtk)
+  const blow = exchangeBlow(rivalHpStart, rivalAtk, playerHpStart, playerAtk, (damage) =>
+    applyHerbCrashTaken(damage, worker),
+  )
   rival.hp = blow.attackerHp
   worker.hp = blow.defenderHp
   pushClash(
@@ -1073,7 +1088,7 @@ function rivalHitsPlayer(save: Save, plot: HerbPlot, rival: HerbRival, offline: 
       }),
       rival: clashFighter(rival.name, rival.avatarId, '', rival.hpMax, rivalHpStart, blow.attackerHp),
       playerDamage: blow.took ? 0 : Math.min(herbStrikeDamage(playerAtk), rivalHpStart),
-      rivalDamage: Math.min(herbStrikeDamage(rivalAtk), playerHpStart),
+      rivalDamage: Math.min(applyHerbCrashTaken(herbStrikeDamage(rivalAtk), worker), playerHpStart),
       result: blow.took ? 'lost' : blow.attackerHp <= 0 ? 'took' : 'held',
     },
     offline,
@@ -1240,11 +1255,11 @@ function rollDay(save: Save, now: number, offline: boolean): void {
     grantKnightXp(save, knightXpForRank(rank, HERB_PVP_RIVAL_COUNT + 1))
     noteHerbPayout(save)
   }
-  const text = herbRewardLine(rank)
+  const text = herbRewardLine(rank, save)
   const reward = herbRankReward(rank)
-  addVault(save, 'sandGold', reward.sandGold)
-  addVault(save, 'jewel', reward.jewel)
-  addVault(save, 'jade', reward.jade)
+  addVault(save, 'sandGold', applyHerbDayVault(reward.sandGold, save))
+  addVault(save, 'jewel', applyHerbDayVault(reward.jewel, save))
+  addVault(save, 'jade', applyHerbDayVault(reward.jade, save))
   state.probes += reward.probes
   const diamonds = pvpRankDiamonds(rank)
   if (diamonds > 0) save.diamonds += diamonds

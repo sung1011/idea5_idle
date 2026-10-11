@@ -2036,6 +2036,8 @@ describe('treasure ore veins and bounty', () => {
     expect(rollOreVaultTreasure(0.4)).toBe('jewel')
     expect(rollOreVaultTreasure(0.75 - 1e-12)).toBe('jewel')
     expect(rollOreVaultTreasure(0.75)).toBe('jade')
+    expect(rollOreVaultTreasure(0.3)).toBe('sandGold')
+    expect(rollOreVaultTreasure(0.3, 0.5)).toBe('jewel')
     expect(bountyCrewCount(0)).toBe(2)
     expect(bountyCrewCount(0.5 - 1e-12)).toBe(2)
     expect(bountyCrewCount(0.5)).toBe(3)

@@ -7,7 +7,8 @@ import { hashString, isCombatAttrId, matchingWeaknesses, pickEnemyWeaknesses, wo
 import { PLAYER_AVATAR_DEFAULT, PLAYER_AVATAR_IDS, type PlayerAvatarId } from './playerAvatarIds'
 import { ITEM_DEF } from './tables'
 import { applyDownedReturn, isFullCombatHp, workerLiveStats } from './combat'
-import { applyTreasureMineInterval } from './raceTalent'
+import { applyTreasureMineInterval, crewTalentBonus } from './raceTalent'
+import { roll01 } from './rng'
 import { offerRestFood, sendWorkerToRestTail } from './food'
 import { raidPhaseOf } from './march'
 import { marchDurationS } from './tech'
@@ -212,10 +213,13 @@ export function mineVeinOfRoll(roll: number): MineVein {
   return 'mithril'
 }
 
-/** 新洞宝物。砂金 40%、珠宝 35%、古玉 25%。`roll` 为 0～1。 */
-export function rollOreVaultTreasure(roll: number): TreasureId {
-  if (roll < 0.4) return 'sandGold'
-  if (roll < 0.75) return 'jewel'
+/** 新洞宝物。砂金 40%、珠宝 35%、古玉 25%。`roll` 为 0～1。珠宝掉率天赋会拉宽珠宝段。 */
+export function rollOreVaultTreasure(roll: number, jewelBonus = 0): TreasureId {
+  const jewel = Math.min(0.99, 0.35 * (1 + Math.max(0, jewelBonus)))
+  const rest = Math.max(0, 1 - jewel)
+  const sand = rest * (0.4 / 0.65)
+  if (roll < sand) return 'sandGold'
+  if (roll < sand + jewel) return 'jewel'
   return 'jade'
 }
 
@@ -1346,7 +1350,12 @@ function stepRaid(save: Save, mine: TreasureMine): void {
       if (raid.atkNext > save.elapsedS) return
       const atS = raid.atkNext
       const shadow = mine.shadows[0]
-      const dealt = strikeDamage(raid.atkAtk, runeDealMul(raid.runes[raid.queue[0]]), runeTakenMul(shadow.runeId))
+      const attacker = save.workers.find((row) => row.id === raid.queue[0])
+      const dealt = strikeDamage(
+        raid.atkAtk,
+        runeDealMul(raid.runes[raid.queue[0]], attacker),
+        runeTakenMul(shadow.runeId),
+      )
       shadow.hp -= dealt
       raid.defHp = shadow.hp
       raid.atkNext = atS + raid.atkSpd
@@ -1367,7 +1376,12 @@ function stepRaid(save: Save, mine: TreasureMine): void {
     } else {
       if (raid.defNext > save.elapsedS) return
       const atS = raid.defNext
-      const dealt = strikeDamage(raid.defAtk, runeDealMul(mine.shadows[0]?.runeId), runeTakenMul(raid.runes[raid.queue[0]]))
+      const defender = save.workers.find((row) => row.id === raid.queue[0])
+      const dealt = strikeDamage(
+        raid.defAtk,
+        runeDealMul(mine.shadows[0]?.runeId),
+        runeTakenMul(raid.runes[raid.queue[0]], defender),
+      )
       raid.atkHp -= dealt
       writeAttackerHp(save, raid)
       raid.defNext = atS + raid.defSpd
@@ -1499,16 +1513,35 @@ function grantPlayerDig(save: Save, mine: TreasureMine, onDrop: TreasureDropSink
   if (mine.bounty === 'wildCrystal') {
     giveHaul(save, mine, 'wildCrystal', TREASURE_BOUNTY_YIELD, onDrop)
     giveHaul(save, mine, 'ore', 1, onDrop)
+    const extraOre = crewTalentBonus(save, mine, 'treasureExtraOre')
+    if (extraOre > 0 && roll01(save) < extraOre) {
+      giveHaul(save, mine, 'ore', 1, onDrop)
+    }
   } else {
     const vein = isMineVein(mine.vein) ? mine.vein : 'copper'
     const qty = mine.bounty ? TREASURE_BOUNTY_YIELD : 1
-    giveHaul(save, mine, MINE_VEIN_ORE[vein], qty, onDrop)
-    if (pullRoll(state, rolls) < TREASURE_ORE_CRYSTAL_CHANCE) {
+    const oreId = MINE_VEIN_ORE[vein]
+    giveHaul(save, mine, oreId, qty, onDrop)
+    const extraOre = crewTalentBonus(save, mine, 'treasureExtraOre')
+    if (extraOre > 0 && roll01(save) < extraOre) {
+      giveHaul(save, mine, oreId, 1, onDrop)
+    }
+    const crystalChance = Math.min(
+      1,
+      TREASURE_ORE_CRYSTAL_CHANCE * (1 + crewTalentBonus(save, mine, 'treasureCrystal')),
+    )
+    if (pullRoll(state, rolls) < crystalChance) {
       giveHaul(save, mine, 'wildCrystal', 1, onDrop)
     }
   }
   if (pullRoll(state, rolls) < TREASURE_ORE_VAULT_CHANCE) {
-    giveVault(save, mine, rollOreVaultTreasure(pullRoll(state, rolls)), 1, onDrop)
+    giveVault(
+      save,
+      mine,
+      rollOreVaultTreasure(pullRoll(state, rolls), crewTalentBonus(save, mine, 'treasureJewel')),
+      1,
+      onDrop,
+    )
   }
 }
 
@@ -1916,7 +1949,7 @@ function loadAttacker(save: Save, raid: TreasureRaid, armNext: boolean): void {
   raid.atkMax = vitals.hpMax
   raid.atkHp = Math.max(1, vitals.hp)
   raid.atkAtk = Math.max(1, stats.atk)
-  raid.atkSpd = Math.max(1, Math.round(stats.spd * runeSpdMul(runeId)))
+  raid.atkSpd = Math.max(1, Math.round(stats.spd * runeSpdMul(runeId, worker)))
   if (armNext) raid.atkNext = save.elapsedS + raid.atkSpd
 }
 

@@ -74,7 +74,7 @@ export function encounterDeal(enc: Encounter, save?: Save, now = Date.now()): En
         gain: [currencyToken(pawnReward(enc, save, now))].filter((token): token is DealToken => token != null),
       }
     case 'artisan': {
-      const money = currencyToken(artisanReward(enc, now))
+      const money = currencyToken(artisanReward(enc, now, save))
       return {
         consume: tokensFromNeedMap(enc.wants),
         gain: [

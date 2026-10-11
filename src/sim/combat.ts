@@ -28,7 +28,13 @@ import { clonePlain } from './clone'
 import { findCombatPartyWorker, isAssistWorker } from './combatAssist'
 import { drawEnemyTargetRule, pickEnemyTargets, type CombatTarget } from './combatTarget'
 import { jitterWorkerAtkInterval } from './atkInterval'
-import { applyHuntAtk } from './raceTalent'
+import {
+  applyBreakWindow,
+  applyCombatAtk,
+  applyCombatInterval,
+  applyKillHeal,
+  raceTalentBonus,
+} from './raceTalent'
 import {
   applyCombatAffixStats,
   DUNGEON_AFFIX_FX,
@@ -562,8 +568,9 @@ function makeFighter(
   save?: Save,
   runeId?: RuneItemId,
   openingSwing = false,
+  worker?: Worker,
 ): CombatFighter {
-  const spd = Math.max(1, stats.spd * runeSpdMul(runeId))
+  const spd = Math.max(1, stats.spd * runeSpdMul(runeId, worker))
   const hpMax = Math.max(1, stats.hp)
   const intervalMs = actIntervalMs(spd)
   const firstCutMs = openingSwing && save ? Math.round(firstStrikeCutS(save) * 1000) : 0
@@ -594,7 +601,7 @@ function fighterFromWorker(
   const fighter = makeFighter(
     worker.id,
     worker.name ?? worker.id,
-    { ...stats, hp: hpMax, atk: applyHuntAtk(stats.atk, worker) },
+    { ...stats, hp: hpMax, atk: applyCombatAtk(stats.atk, worker), spd: applyCombatInterval(stats.spd, worker) },
     hp,
     now,
     worker.combatAttrs,
@@ -602,6 +609,7 @@ function fighterFromWorker(
     save,
     runeId,
     openingSwing,
+    worker,
   )
   if (reinforced) {
     fighter.reinforced = true
@@ -672,9 +680,20 @@ function applyBreak(
 ): void {
   combat.shield = 0
   const shortStun = hasEncounterAffix(save, enc, 'shortStun')
-  const stunMs = isDungeonEncounter(enc)
+  const baseStunMs = isDungeonEncounter(enc)
     ? onDungeonBreak(enc, dungeonStunS(shortStun))
     : Math.max(1000, enemyStunMs(enc.enemyRank) + (shortStun ? DUNGEON_AFFIX_FX.shortStunDelta * 1000 : 0))
+  let breakerWorker: Worker | undefined
+  let bestBreak = 0
+  for (const row of livingWorkers(combat)) {
+    const worker = save?.workers.find((item) => item.id === row.id)
+    const bonus = raceTalentBonus(worker, 'breakWindow')
+    if (bonus > bestBreak) {
+      bestBreak = bonus
+      breakerWorker = worker
+    }
+  }
+  const stunMs = applyBreakWindow(baseStunMs, breakerWorker)
   combat.stunnedUntil = at + stunMs
   if (combat.enemy.nextActAt < combat.stunnedUntil) {
     combat.enemy.nextActAt = combat.stunnedUntil
@@ -1021,9 +1040,12 @@ function parkUnfielded(save: Save, combat: EnemyCombat, at: number, dur: number)
 function grantRuneBloodXp(save: Save, combat: EnemyCombat): void {
   const loadout = combat.runeLoadout ?? {}
   for (const workerId of combat.workerIds) {
-    const bonus = runeBloodXp(loadout[workerId] ?? fighterRuneId(combat.workers.find((row) => row.id === workerId)))
-    if (bonus <= 0) continue
     const worker = save.workers.find((row) => row.id === workerId)
+    const bonus = runeBloodXp(
+      loadout[workerId] ?? fighterRuneId(combat.workers.find((row) => row.id === workerId)),
+      worker,
+    )
+    if (bonus <= 0) continue
     if (!worker || isAssistWorker(worker)) continue
     grantWorkerCombatXp(worker, bonus, save)
   }
@@ -1039,6 +1061,13 @@ function finishCombat(
   onLog?: CombatLogSink,
 ): void {
   retireFallenFighters(save, enc, combat, at, onLog)
+  if (outcome === 'win') {
+    for (const fighter of combat.workers) {
+      if (fighter.hp <= 0) continue
+      const worker = save.workers.find((row) => row.id === fighter.id)
+      fighter.hp = applyKillHeal(fighter.hp, fighter.hpMax, worker)
+    }
+  }
   combat.outcome = outcome
   noteRuneFight(save, combat.runeLoadout)
   emitLog(enc, combat, at, text, outcome === 'win' ? 'ok' : 'err', onLog)
@@ -1075,13 +1104,17 @@ function strike(
 ): void {
   if (attacker.hp <= 0 || target.hp <= 0) return
   if (attacker.id !== 'enemy') {
+    const attackerWorker = save.workers.find((row) => row.id === attacker.id)
     const result = resolveWorkerAttack(enc, attacker.combatAttrs ?? [], attacker.atk, save)
     if (result.newlyRevealed.length) {
       emitLog(enc, combat, at, `揭示弱点：${formatWeaknessLabels(result.newlyRevealed)}`, 'ok', onLog)
     }
     const hits = result.hits.length
     if (hits > 0 && !isCombatStunned(combat, at) && (combat.shield ?? 0) > 0) {
-      combat.shield = Math.max(0, (combat.shield ?? 0) - hits - runeBreakBonus(fighterRuneId(attacker)))
+      combat.shield = Math.max(
+        0,
+        (combat.shield ?? 0) - hits - runeBreakBonus(fighterRuneId(attacker), attackerWorker),
+      )
       if (combat.shield <= 0) applyBreak(enc, combat, at, onLog, save)
     }
     const stunned = isCombatStunned(combat, at)
@@ -1098,7 +1131,12 @@ function strike(
       if (attacker.reinforced) firstHitMul = reinforceFirstMul(save)
       attacker.reinforceHitPending = false
     }
-    const mul = dull * vuln * echo * runeDealMul(fighterRuneId(attacker)) * firstHitMul
+    const mul =
+      dull *
+      vuln *
+      echo *
+      runeDealMul(fighterRuneId(attacker), attackerWorker) *
+      firstHitMul
     const damage = scaledAttackDamage(attacker.atk, mul)
     target.hp = Math.max(0, target.hp - damage)
     if (isDungeonEncounter(enc) && dungeonPhaseLocked(enc) && target.id === 'enemy' && target.hp <= 0) {
@@ -1114,7 +1152,11 @@ function strike(
     target.hpMax > 0 && target.hp / target.hpMax <= HP_WOUNDED_RATIO ? woundedTakenMul(save) : 1
   const hit = Math.max(
     1,
-    Math.round((attacker.atk + dungeonJaggedBonus(save, enc)) * runeTakenMul(fighterRuneId(target)) * woundedMul),
+    Math.round(
+      (attacker.atk + dungeonJaggedBonus(save, enc)) *
+        runeTakenMul(fighterRuneId(target), save.workers.find((row) => row.id === target.id)) *
+        woundedMul,
+    ),
   )
   target.hp = Math.max(0, target.hp - hit)
   writeBackFighterHp(save, target)

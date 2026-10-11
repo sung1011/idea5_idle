@@ -1,4 +1,5 @@
 import { offerRestFood } from './food'
+import { applyWorkshopFatigue as applyRaceWorkshopFatigue } from './raceTalent'
 import { campBandageHealAmount } from './tech'
 import { STEW_FATIGUE_MUL } from './tables'
 import type { Save, StationFatigueCombo, StationId, Worker } from './types'
@@ -139,7 +140,7 @@ export function releaseDeadWorker(save: Save, stationId: StationId, worker: Work
 export function applyWorkerFatigue(save: Save, stationId: StationId, worker: Worker, amount: number, now: number): void {
   if (!(amount > 0) || worker.assignment !== stationId) return
   if (typeof worker.dutyGuardUntil === 'number' && save.elapsedS < worker.dutyGuardUntil) return
-  let next = amount
+  let next = applyRaceWorkshopFatigue(amount, worker)
   if (typeof worker.workshopResistUntil === 'number' && save.elapsedS < worker.workshopResistUntil) {
     next *= STEW_FATIGUE_MUL
   }

@@ -220,7 +220,7 @@ onUnmounted(() => {
       :show-assist="false"
       :can-pick="canSend"
       :recommend-label="markCounter"
-      talent-group="hunt"
+      talent-scene="beast"
       @close="pickOpen = false"
       @confirm="confirmPick"
       @toggle="togglePick"

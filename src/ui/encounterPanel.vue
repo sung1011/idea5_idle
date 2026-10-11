@@ -811,7 +811,7 @@ function timedLine(enc: Encounter) {
       :note-text="guideFlashCombat && pickMode === 'start' ? GUIDE_WEAKNESS_PICK_TIP : ''"
       :slot-offset="pickSlotOffset"
       :recommend-label="pickRecommend"
-      talent-group="hunt"
+      talent-scene="battlefield"
       @close="closePick"
       @confirm="confirmPick"
       @toggle="togglePick"

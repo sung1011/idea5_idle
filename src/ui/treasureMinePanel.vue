@@ -582,7 +582,7 @@ function confirmPick() {
       :show-runes="pickKind === 'raid'"
       :show-assist="false"
       :slot-offset="pickSlotOffset"
-      talent-group="treasure"
+      talent-scene="treasure"
       @close="closePick"
       @confirm="confirmPick"
       @toggle="togglePick"

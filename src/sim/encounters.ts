@@ -46,6 +46,7 @@ import {
   rollCurrencyPayout,
   type CurrencyPayout,
 } from './currencyReward'
+import { applyMarketPayout } from './raceTalent'
 import { normalizeRngState, roll01 } from './rng'
 import { isStationUnlocked, STATION_UNLOCK_KNIGHT_MAX, unlockedStationIds } from './stationUnlock'
 import {
@@ -976,19 +977,22 @@ export function enemyLootReward(enc: EnemyEncounter, save?: Save): CurrencyPayou
 export function pawnReward(enc: PawnEncounter, save?: Save, now = Date.now()): CurrencyPayout {
   const diamonds = readRewardDiamonds(enc.rewardDiamonds)
   const raw = diamonds > 0 ? { gold: 0, diamonds } : { gold: pawnRewardGold(enc, save), diamonds: 0 }
-  return scaleCurrencyPayout(raw, timedRewardMul(enc, now))
+  return applyMarketPayout(scaleCurrencyPayout(raw, timedRewardMul(enc, now)), save)
 }
 
 export function bulkReward(enc: BulkBuyEncounter, save?: Save, now = Date.now()): CurrencyPayout {
   const diamonds = readRewardDiamonds(enc.rewardDiamonds)
   const raw = diamonds > 0 ? { gold: 0, diamonds } : { gold: bulkRewardGold(enc, save), diamonds: 0 }
-  return scaleCurrencyPayout(raw, timedRewardMul(enc, now))
+  return applyMarketPayout(scaleCurrencyPayout(raw, timedRewardMul(enc, now)), save)
 }
 
-export function artisanReward(enc: ArtisanEncounter, now = Date.now()): CurrencyPayout {
-  return scaleCurrencyPayout(
-    exclusiveCurrencyPayout(enc.rewardGold, enc.rewardDiamonds ?? 0),
-    timedRewardMul(enc, now),
+export function artisanReward(enc: ArtisanEncounter, now = Date.now(), save?: Save): CurrencyPayout {
+  return applyMarketPayout(
+    scaleCurrencyPayout(
+      exclusiveCurrencyPayout(enc.rewardGold, enc.rewardDiamonds ?? 0),
+      timedRewardMul(enc, now),
+    ),
+    save,
   )
 }
 
@@ -2390,7 +2394,7 @@ export function submitArtisan(save: Save, index: number, now = Date.now()): Acti
   const took = takeCosts(save, needMapToRules(enc.wants))
   if (!took.ok) return took
   applyWorkshopBuff(save, enc.buffMul, enc.buffDurationS, now)
-  const payout = artisanReward(enc, now)
+  const payout = artisanReward(enc, now, save)
   applyCurrencyPayout(save, payout)
   enc.completed = true
   markMarketDeal(save, enc)

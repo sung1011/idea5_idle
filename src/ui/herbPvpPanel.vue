@@ -444,7 +444,7 @@ function plotAria(plot: HerbPlot, spot: ReturnType<typeof herbPlotSpot>): string
       :show-assist="false"
       :can-pick="canSend"
       :recommend-label="markCounter"
-      talent-group="herb"
+      talent-scene="herb"
       @close="closePick"
       @confirm="confirmPick"
       @toggle="togglePick"

@@ -1025,6 +1025,8 @@ export type BeastFightWorker = {
   spd: number
   accMs: number
   attrs: CombatAttrId[]
+  /** 本场还没打出第一击。开战首击天赋用。旧档缺字段视为已经出过手。 */
+  firstHitPending?: boolean
 }
 
 export type BeastTelegraph = {

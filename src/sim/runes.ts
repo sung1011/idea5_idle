@@ -17,7 +17,8 @@ import {
   RUNE_TAKEN_MUL,
   type RuneDef,
 } from './tables'
-import type { ActionResult, CombatFighter, ItemId, RuneItemId, Save } from './types'
+import { applyRuneCombatMul } from './raceTalent'
+import type { ActionResult, CombatFighter, ItemId, RuneItemId, Save, Worker } from './types'
 
 export type RunePickMap = Partial<Record<string, RuneItemId | null>>
 
@@ -130,24 +131,33 @@ export function fighterRuneId(fighter: Pick<CombatFighter, 'runeId'> | undefined
   return isRuneItemId(fighter?.runeId) ? fighter.runeId : null
 }
 
-export function runeDealMul(runeId: RuneItemId | null | undefined): number {
-  return runeId === 'runeSharp' ? RUNE_DEAL_MUL : 1
+type RuneTalentFace = Pick<Worker, 'race' | 'qualityTier'>
+
+export function runeDealMul(runeId: RuneItemId | null | undefined, worker?: RuneTalentFace): number {
+  const base = runeId === 'runeSharp' ? RUNE_DEAL_MUL : 1
+  return applyRuneCombatMul(base, 1, worker)
 }
 
-export function runeTakenMul(runeId: RuneItemId | null | undefined): number {
-  return runeId === 'runeArmor' ? RUNE_TAKEN_MUL : 1
+export function runeTakenMul(runeId: RuneItemId | null | undefined, worker?: RuneTalentFace): number {
+  const base = runeId === 'runeArmor' ? RUNE_TAKEN_MUL : 1
+  return applyRuneCombatMul(base, 1, worker)
 }
 
-export function runeSpdMul(runeId: RuneItemId | null | undefined): number {
-  return runeId === 'runeSwift' ? RUNE_SWIFT_SPD_MUL : 1
+export function runeSpdMul(runeId: RuneItemId | null | undefined, worker?: RuneTalentFace): number {
+  const base = runeId === 'runeSwift' ? RUNE_SWIFT_SPD_MUL : 1
+  return applyRuneCombatMul(base, 1, worker)
 }
 
-export function runeBreakBonus(runeId: RuneItemId | null | undefined): number {
-  return runeId === 'runeBreak' ? RUNE_BREAK_SHIELD_BONUS : 0
+export function runeBreakBonus(runeId: RuneItemId | null | undefined, worker?: RuneTalentFace): number {
+  const base = runeId === 'runeBreak' ? RUNE_BREAK_SHIELD_BONUS : 0
+  if (!base) return 0
+  return Math.max(1, Math.round(applyRuneCombatMul(base, 0, worker)))
 }
 
-export function runeBloodXp(runeId: RuneItemId | null | undefined): number {
-  return runeId === 'runeBlood' ? RUNE_BLOOD_XP : 0
+export function runeBloodXp(runeId: RuneItemId | null | undefined, worker?: RuneTalentFace): number {
+  const base = runeId === 'runeBlood' ? RUNE_BLOOD_XP : 0
+  if (!base) return 0
+  return Math.max(1, Math.round(applyRuneCombatMul(base, 0, worker)))
 }
 
 export function hasInsightRune(fighters: readonly Pick<CombatFighter, 'runeId'>[]): boolean {

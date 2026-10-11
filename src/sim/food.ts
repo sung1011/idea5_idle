@@ -16,6 +16,7 @@ import {
 import { isWorkerInBeastPvp } from './beastPvpQuery'
 import { isWorkerInHerbPvp } from './herbPvpQuery'
 import { isWorkerInTreasureMine } from './treasureMineQuery'
+import { applyCampMealMul, RACE_TALENT_REDUCTION_CAP } from './raceTalent'
 import { isWoundedHp } from './workshopHp'
 import type {
   ActionResult,
@@ -113,11 +114,13 @@ function applyRestFoodBuff(worker: Worker, itemId: FoodItemId, now: number, elap
     worker.dutyGuardUntil = null
     return
   }
-  worker.foodBuff = { itemId, expiresAt: now + def.durationS * 1000 }
+  const mealMul = applyCampMealMul(1, worker)
+  const durationS = def.durationS * mealMul
+  worker.foodBuff = { itemId, expiresAt: now + durationS * 1000 }
   worker.foodCycleCut = itemId === 'meal'
   worker.foodExtraOutput = itemId === 'roast'
-  worker.workshopResistUntil = itemId === 'stew' ? elapsedS + STEW_RESIST_S : null
-  worker.dutyGuardUntil = itemId === 'hunterSkewer' ? elapsedS + HUNTER_SKEWER_GUARD_S : null
+  worker.workshopResistUntil = itemId === 'stew' ? elapsedS + STEW_RESIST_S * mealMul : null
+  worker.dutyGuardUntil = itemId === 'hunterSkewer' ? elapsedS + HUNTER_SKEWER_GUARD_S * mealMul : null
 }
 
 function foodStationWorker(save: Save, stationId: StationId): Worker | null {
@@ -126,7 +129,9 @@ function foodStationWorker(save: Save, stationId: StationId): Worker | null {
 
 /** 熟食：下一次派工耗时缩短 10%。 */
 export function foodCycleCutMul(worker: Worker): number {
-  return worker.foodCycleCut ? 1 / (1 - MEAL_CYCLE_CUT) : 1
+  if (!worker.foodCycleCut) return 1
+  const cut = Math.min(RACE_TALENT_REDUCTION_CAP, MEAL_CYCLE_CUT * applyCampMealMul(1, worker))
+  return 1 / (1 - cut)
 }
 
 /** 烤肉：下一次成功产出多带 1 件。 */
@@ -153,7 +158,9 @@ export function foodBuffEffectValue(worker: Worker, effectId: EffectId, now: num
   if (!buff || !(now < buff.expiresAt)) return 0
   const def = foodBuffDef(buff.itemId)
   if (!def || def.effectId !== effectId || !(def.mul > 0)) return 0
-  return def.mul
+  const bonus = applyCampMealMul(1, worker) - 1
+  if (!(bonus > 0) || def.mul <= 1) return def.mul
+  return 1 + (def.mul - 1) * (1 + bonus)
 }
 
 /**
@@ -269,7 +276,10 @@ export function foodHealAmount(itemId: ItemId, hpMax: number, hp: number): numbe
 }
 
 export function applyFoodHeal(worker: Worker, itemId: ItemId): number {
-  const amount = foodHealAmount(itemId, worker.hpMax, worker.hp)
+  const amount = Math.max(
+    1,
+    Math.round(foodHealAmount(itemId, worker.hpMax, worker.hp) * applyCampMealMul(1, worker)),
+  )
   const next = Math.min(worker.hpMax, worker.hp + amount)
   const healed = next - worker.hp
   worker.hp = next

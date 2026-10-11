@@ -26,8 +26,8 @@ import { isPickRecommendMark, orderPickByRecommend } from './combatPickOrder'
 import {
   orderPickByTalent,
   raceTalentOf,
-  type RaceTalentGroup,
-  workerMatchesTalentGroup,
+  type RaceTalentScene,
+  workerMatchesTalentScene,
 } from '../sim/raceTalent'
 import { pickSlotNumber } from './pickSlot'
 import { pickWorkerName } from './pickWorkerName'
@@ -56,7 +56,7 @@ const props = withDefaults(
     noteText?: string
     recommendLabel?: (worker: Worker) => string | null
     canPick?: (worker: Worker) => boolean
-    talentGroup?: RaceTalentGroup | null
+    talentScene?: RaceTalentScene | null
   }>(),
   {
     mode: 'start',
@@ -70,7 +70,7 @@ const props = withDefaults(
     titleText: '',
     confirmText: '',
     noteText: '',
-    talentGroup: null,
+    talentScene: null,
   },
 )
 
@@ -107,11 +107,11 @@ function recommend(worker: Worker): string | null {
 }
 
 const orderedCandidates = computed(() =>
-  orderPickByTalent(orderPickByRecommend(props.candidates, recommend), props.talentGroup),
+  orderPickByTalent(orderPickByRecommend(props.candidates, recommend), props.talentScene),
 )
 
 function talentIcon(worker: Worker): string | null {
-  if (!workerMatchesTalentGroup(worker, props.talentGroup)) return null
+  if (!workerMatchesTalentScene(worker, props.talentScene)) return null
   return raceTalentOf(worker.race)?.icon ?? null
 }
 

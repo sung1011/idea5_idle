@@ -2,6 +2,8 @@ import { potionEffectValue } from './alchemy'
 import { workshopHpWorkMul } from './workshopHp'
 import { addToBank } from './bank'
 import { foodBuffEffectValue, foodCycleCutMul, foodEffectValue, foodExtraOutputBonus } from './food'
+import { assignedTalentBonus } from './raceTalent'
+import { roll01 } from './rng'
 import { convertLegacyToolsToFeedstock } from './runes'
 import {
   EFFECT_ID,
@@ -189,7 +191,11 @@ export function matchingToolEffectMax(
 }
 
 export function cycleOutputBonus(save: Save, stationId: StationId, now = Date.now()): number {
-  return Math.floor(matchingToolEffectMax(save, stationId, EFFECT_ID.extraOutput, now)) + foodExtraOutputBonus(save, stationId)
+  const guaranteed =
+    Math.floor(matchingToolEffectMax(save, stationId, EFFECT_ID.extraOutput, now)) + foodExtraOutputBonus(save, stationId)
+  const chance = assignedTalentBonus(save, stationId, 'workshopExtra')
+  const extra = chance > 0 && roll01(save) < chance ? 1 : 0
+  return guaranteed + extra
 }
 
 /** 旧档锻件先留下，hydrate 末尾再由 convertLegacyToolsToFeedstock 转荒晶。 */
