@@ -412,26 +412,32 @@ describe('potion effects', () => {
     expect(bankQty(save, 'clearMind')).toBe(0)
   })
 
-  it('tribeRain jumps 30/20/10 across the three most wounded camp workers', () => {
+  it('tribeRain randomly heals up to 3 not-full camp workers 30/20/10, not by injury', () => {
+    setRollOverride(() => 0)
     const save = roster(5)
-    const [worst, second, third, spare, full] = save.workers
+    const [light, mid, later, worst, full] = save.workers
+    light.hp = Math.max(2, Math.floor(light.hpMax * 0.9))
+    if (light.hp >= light.hpMax) light.hp = light.hpMax - 1
+    mid.hp = Math.max(2, Math.floor(mid.hpMax * 0.4))
+    later.hp = Math.max(mid.hp + 1, Math.floor(later.hpMax * 0.7))
     worst.hp = 1
-    second.hp = Math.max(2, Math.floor(second.hpMax * 0.4))
-    third.hp = Math.max(second.hp + 1, Math.floor(third.hpMax * 0.7))
-    spare.hp = Math.max(third.hp + 1, Math.floor(spare.hpMax * 0.9))
-    if (spare.hp >= spare.hpMax) spare.hp = spare.hpMax - 1
     full.hp = full.hpMax
-    const secondBefore = second.hp
-    const thirdBefore = third.hp
-    const spareBefore = spare.hp
+    const lightBefore = light.hp
+    const midBefore = mid.hp
+    const laterBefore = later.hp
     save.bank.tribeRain = 2
     expect(installPotionSlot(save, 0, 'tribeRain').ok).toBe(true)
-    expect(usePotionSlot(save, 0).ok).toBe(true)
+    const used = usePotionSlot(save, 0)
+    expect(used).toMatchObject({ ok: true })
+    if (used.ok) {
+      expect(used.message).toContain('甘霖：营地随机 3 人回血')
+      expect(used.message).not.toContain('最残')
+    }
     expect(TRIBE_RAIN_RATIOS).toEqual([0.3, 0.2, 0.1])
-    expect(worst.hp).toBe(1 + Math.ceil(worst.hpMax * TRIBE_RAIN_RATIOS[0]))
-    expect(second.hp).toBe(Math.min(second.hpMax, secondBefore + Math.ceil(second.hpMax * TRIBE_RAIN_RATIOS[1])))
-    expect(third.hp).toBe(Math.min(third.hpMax, thirdBefore + Math.ceil(third.hpMax * TRIBE_RAIN_RATIOS[2])))
-    expect(spare.hp).toBe(spareBefore)
+    expect(light.hp).toBe(Math.min(light.hpMax, lightBefore + Math.ceil(light.hpMax * TRIBE_RAIN_RATIOS[0])))
+    expect(mid.hp).toBe(Math.min(mid.hpMax, midBefore + Math.ceil(mid.hpMax * TRIBE_RAIN_RATIOS[1])))
+    expect(later.hp).toBe(Math.min(later.hpMax, laterBefore + Math.ceil(later.hpMax * TRIBE_RAIN_RATIOS[2])))
+    expect(worst.hp).toBe(1)
     expect(full.hp).toBe(full.hpMax)
     expect(bankQty(save, 'tribeRain')).toBe(1)
 
@@ -441,6 +447,23 @@ describe('potion effects', () => {
     }
     expect(usePotionSlot(save, 0)).toEqual({ ok: false, reason: POTION_FULL_HP_TIP })
     expect(bankQty(save, 'tribeRain')).toBe(1)
+  })
+
+  it('tribeRain heals however many not-full camp workers exist when fewer than 3', () => {
+    setRollOverride(() => 0)
+    const save = roster(3)
+    const [a, b, full] = save.workers
+    a.hp = 1
+    b.hp = Math.max(2, Math.floor(b.hpMax * 0.5))
+    full.hp = full.hpMax
+    const bBefore = b.hp
+    save.bank.tribeRain = 1
+    expect(installPotionSlot(save, 0, 'tribeRain').ok).toBe(true)
+    expect(usePotionSlot(save, 0).ok).toBe(true)
+    expect(a.hp).toBe(1 + Math.ceil(a.hpMax * TRIBE_RAIN_RATIOS[0]))
+    expect(b.hp).toBe(Math.min(b.hpMax, bBefore + Math.ceil(b.hpMax * TRIBE_RAIN_RATIOS[1])))
+    expect(full.hp).toBe(full.hpMax)
+    expect(bankQty(save, 'tribeRain')).toBe(0)
   })
 
   it('clears fatigue debt when a heal reaches hpMax so wear and detail bars match', () => {

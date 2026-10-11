@@ -216,10 +216,14 @@ function hpRatio(worker: Worker): number {
   return worker.hp / hpMax
 }
 
+/** 营地未满血（含劳损债）苦工，保持营地顺序。 */
+function woundedCampWorkers(save: Save): Worker[] {
+  return potionCampWorkers(save).filter((worker) => !isFullWorkshopHp(worker))
+}
+
 /** 未满血（含劳损债）才选。按 HP/hpMax 升序，平局按 id。 */
 function woundedCampByInjury(save: Save, count: number): Worker[] {
-  return potionCampWorkers(save)
-    .filter((worker) => !isFullWorkshopHp(worker))
+  return woundedCampWorkers(save)
     .sort((a, b) => hpRatio(a) - hpRatio(b) || a.id.localeCompare(b.id))
     .slice(0, count)
 }
@@ -321,13 +325,13 @@ function applyPotionEffect(save: Save, itemId: PotionItemId): string {
     return targets.length > 0 ? `图腾：营地最残 ${targets.length} 人回血` : POTION_FULL_HP_TIP
   }
   if (itemId === 'tribeRain') {
-    const targets = woundedCampByInjury(save, TRIBE_RAIN_TARGETS)
+    const targets = pickRandom(save, woundedCampWorkers(save), TRIBE_RAIN_TARGETS)
     for (let i = 0; i < targets.length; i++) {
       const ratio = TRIBE_RAIN_RATIOS[i]
       if (ratio == null) break
       applyHeal(save, targets[i], healAmount(targets[i].hpMax, ratio))
     }
-    return targets.length > 0 ? `甘霖：营地最残 ${targets.length} 人回血` : POTION_FULL_HP_TIP
+    return targets.length > 0 ? `甘霖：营地随机 ${targets.length} 人回血` : POTION_FULL_HP_TIP
   }
   if (itemId === 'beastOil') {
     const targets = pickRandom(save, camp, BEAST_OIL_CAMP_TARGETS)
@@ -345,7 +349,7 @@ export function usePotionSlot(save: Save, index: number, _now = Date.now()): Act
   if (!itemId) return { ok: false, reason: '空槽' }
   if (bankQty(save, itemId) < 1) return { ok: false, reason: `${ITEM_DEF[itemId].label}见底` }
   if (!potionCampWorkers(save).length) return { ok: false, reason: POTION_NO_DUTY_TIP }
-  if ((itemId === 'clearMind' || itemId === 'tribeRain') && woundedCampByInjury(save, TRIBE_RAIN_TARGETS).length === 0) {
+  if ((itemId === 'clearMind' || itemId === 'tribeRain') && woundedCampWorkers(save).length === 0) {
     return { ok: false, reason: POTION_FULL_HP_TIP }
   }
   if (HEAL_POTIONS.has(itemId) && itemId !== 'clearMind' && itemId !== 'tribeRain' && campAllFull(save)) {

@@ -555,7 +555,7 @@ export const POTION_EFFECT_TEXT: Readonly<Record<PotionItemId, string>> = {
   rushPowder: '营地队首起 3 人，各自下一轮干活耗时缩短 40%',
   doubleMist: '营地队首下一轮成功产出 80% 为 ×2、20% 为 ×3',
   clearMind: '只治疗营地里受伤最重的 1～2 人：第 1 人回复 30% 最大生命，第 2 人回复 20% 最大生命',
-  tribeRain: '按伤重在营地最多 3 名苦工身上跳跃，依次回复 30% / 20% / 10% 最大生命',
+  tribeRain: '营地未满血苦工中随机最多 3 人，依次回复 30% / 20% / 10% 最大生命',
   beastOil: '营地随机 3 人效率 ×2，持续 3 分钟。和嗜血药剂叠乘，派到哪站带到哪站',
 }
 
@@ -1041,7 +1041,7 @@ export const BRINK_HEAL_RATIO = 0.05
 /** 清醒图腾水：营地受伤者按 HP/hpMax 升序，第 1 人 30%，第 2 人 20%。 */
 export const CLEAR_MIND_PRIMARY_RATIO = 0.3
 export const CLEAR_MIND_SECONDARY_RATIO = 0.2
-/** 部落甘霖：营地受伤者按 HP/hpMax 升序最多 3 人，依次 30% / 20% / 10%。 */
+/** 部落甘霖：营地未满血者随机最多 3 人，依次 30% / 20% / 10%。 */
 export const TRIBE_RAIN_RATIOS = [0.3, 0.2, 0.1] as const
 export const TRIBE_RAIN_TARGETS = 3
 /** 双份雾：低于此掷骰为 ×2，否则 ×3。 */
